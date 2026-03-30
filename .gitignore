@@ -1,0 +1,28 @@
+# Godot
+client/.godot/
+client/.import/
+client/export_presets.cfg
+*.translation
+
+# Blender
+*.blend1
+*.blend2
+
+# Go
+.go/
+
+# Nix
+result
+result-*
+
+# OS
+.DS_Store
+Thumbs.db
+*~
+
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
