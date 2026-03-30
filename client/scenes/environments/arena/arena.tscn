@@ -1,0 +1,235 @@
+[gd_scene load_steps=8 format=3]
+
+[sub_resource type="StandardMaterial3D" id="mat_floor"]
+albedo_color = Color(0.25, 0.25, 0.28, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_wall"]
+albedo_color = Color(0.35, 0.35, 0.38, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_pillar"]
+albedo_color = Color(0.4, 0.4, 0.45, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_cover"]
+albedo_color = Color(0.3, 0.33, 0.38, 1)
+
+[sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
+sky_top_color = Color(0.05, 0.05, 0.15, 1)
+sky_horizon_color = Color(0.1, 0.1, 0.2, 1)
+ground_bottom_color = Color(0.05, 0.05, 0.08, 1)
+ground_horizon_color = Color(0.1, 0.1, 0.15, 1)
+
+[sub_resource type="Sky" id="sky"]
+sky_material = SubResource("sky_mat")
+
+[sub_resource type="Environment" id="env"]
+background_mode = 2
+sky = SubResource("sky")
+ambient_light_source = 2
+ambient_light_color = Color(0.15, 0.15, 0.25, 1)
+ambient_light_energy = 0.5
+tonemap_mode = 2
+fog_enabled = true
+fog_light_color = Color(0.1, 0.1, 0.18, 1)
+fog_density = 0.01
+
+[node name="Arena" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("env")
+
+[node name="DirectionalLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866, -0.25, 0.433, 0, 0.866, 0.5, -0.5, -0.433, 0.75, 0, 15, 0)
+light_color = Color(0.7, 0.75, 0.9, 1)
+light_energy = 0.8
+shadow_enabled = true
+
+[node name="FillLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866, 0.25, -0.433, 0, 0.866, 0.5, 0.5, -0.433, 0.75, 0, 10, 0)
+light_color = Color(0.4, 0.35, 0.5, 1)
+light_energy = 0.3
+
+[node name="Floor" type="CSGBox3D" parent="."]
+size = Vector3(40, 0.5, 30)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 0)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_floor")
+
+[node name="WallNorth" type="CSGBox3D" parent="."]
+size = Vector3(40, 5, 0.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, -15)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_wall")
+
+[node name="WallSouthLeft" type="CSGBox3D" parent="."]
+size = Vector3(17.5, 5, 0.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.25, 2.5, 15)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_wall")
+
+[node name="WallSouthRight" type="CSGBox3D" parent="."]
+size = Vector3(17.5, 5, 0.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.25, 2.5, 15)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_wall")
+
+[node name="LobbyFloor" type="CSGBox3D" parent="."]
+size = Vector3(10, 0.5, 10)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 20)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_floor")
+
+[node name="LobbyWallLeft" type="CSGBox3D" parent="."]
+size = Vector3(0.5, 5, 10)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 2.5, 20)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_wall")
+
+[node name="LobbyWallRight" type="CSGBox3D" parent="."]
+size = Vector3(0.5, 5, 10)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 2.5, 20)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_wall")
+
+[node name="LobbyWallBack" type="CSGBox3D" parent="."]
+size = Vector3(10, 5, 0.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 25)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_wall")
+
+[node name="LobbyLight" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.5, 20)
+light_color = Color(0.6, 0.6, 0.8, 1)
+light_energy = 2.0
+omni_range = 8.0
+
+[node name="WallEast" type="CSGBox3D" parent="."]
+size = Vector3(0.5, 5, 30)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 2.5, 0)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_wall")
+
+[node name="WallWest" type="CSGBox3D" parent="."]
+size = Vector3(0.5, 5, 30)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, 2.5, 0)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_wall")
+
+[node name="Pillar1" type="CSGBox3D" parent="."]
+size = Vector3(1.5, 4, 1.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 2, -6)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_pillar")
+
+[node name="Pillar2" type="CSGBox3D" parent="."]
+size = Vector3(1.5, 4, 1.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 2, -6)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_pillar")
+
+[node name="Pillar3" type="CSGBox3D" parent="."]
+size = Vector3(1.5, 4, 1.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 2, 6)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_pillar")
+
+[node name="Pillar4" type="CSGBox3D" parent="."]
+size = Vector3(1.5, 4, 1.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 2, 6)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_pillar")
+
+[node name="Pillar5" type="CSGBox3D" parent="."]
+size = Vector3(1.5, 4, 1.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -10)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_pillar")
+
+[node name="Pillar6" type="CSGBox3D" parent="."]
+size = Vector3(1.5, 4, 1.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 10)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_pillar")
+
+[node name="Cover1" type="CSGBox3D" parent="."]
+size = Vector3(3, 1.2, 1)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 0.6, -2)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_cover")
+
+[node name="Cover2" type="CSGBox3D" parent="."]
+size = Vector3(3, 1.2, 1)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0.6, 2)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_cover")
+
+[node name="Cover3" type="CSGBox3D" parent="."]
+size = Vector3(1, 1.2, 3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0.6, 0)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_cover")
+
+[node name="Cover4" type="CSGBox3D" parent="."]
+size = Vector3(1, 1.2, 3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0.6, 0)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_cover")
+
+[node name="SpotLight1" type="SpotLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, -10, 4.5, -8)
+light_color = Color(0.6, 0.5, 0.9, 1)
+light_energy = 3.0
+spot_range = 12.0
+spot_angle = 35.0
+
+[node name="SpotLight2" type="SpotLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 10, 4.5, 8)
+light_color = Color(0.9, 0.5, 0.3, 1)
+light_energy = 3.0
+spot_range = 12.0
+spot_angle = 35.0
+
+[node name="CenterLight" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.5, 0)
+light_color = Color(0.5, 0.5, 0.7, 1)
+light_energy = 1.5
+omni_range = 15.0
