@@ -1,0 +1,74 @@
+services:
+  gateway:
+    build:
+      context: ./server
+    command: ["/bin/gateway"]
+    ports:
+      - "8080:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      REDIS_ADDR: redis:6379
+      POSTGRES_DSN: postgres://codex:codex@postgres:5432/codex?sslmode=disable
+
+  zone:
+    build:
+      context: ./server
+    command: ["/bin/zone"]
+    ports:
+      - "8081:8081"
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      REDIS_ADDR: redis:6379
+      POSTGRES_DSN: postgres://codex:codex@postgres:5432/codex?sslmode=disable
+
+  chat:
+    build:
+      context: ./server
+    command: ["/bin/chat"]
+    ports:
+      - "8082:8082"
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      REDIS_ADDR: redis:6379
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: codex
+      POSTGRES_PASSWORD: codex
+      POSTGRES_DB: codex
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codex"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  redis_data:
+  postgres_data:
