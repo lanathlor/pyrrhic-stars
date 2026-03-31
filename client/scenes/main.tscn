@@ -1,10 +1,11 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/environments/arena/arena.tscn" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/controllers/gunner/gunner.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://scenes/enemies/basic_enemy/basic_enemy.tscn" id="3"]
 [ext_resource type="Script" path="res://scenes/main.gd" id="4"]
 [ext_resource type="PackedScene" path="res://scenes/controllers/vanguard/vanguard.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://scenes/controllers/blade_dancer/blade_dancer.tscn" id="6"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("4")
@@ -15,6 +16,9 @@ script = ExtResource("4")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 20)
 
 [node name="Vanguard" parent="." instance=ExtResource("5")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 20)
+
+[node name="BladeDancer" parent="." instance=ExtResource("6")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 20)
 
 [node name="BasicEnemy" parent="." instance=ExtResource("3")]

@@ -13,9 +13,11 @@ const ENEMY_SPAWN := Vector3(0.0, 0.1, 0.0)
 
 @onready var gunner: CharacterBody3D = $Gunner
 @onready var vanguard: CharacterBody3D = $Vanguard
+@onready var blade_dancer: CharacterBody3D = $BladeDancer
 @onready var enemy: CharacterBody3D = $BasicEnemy
 
 var player: CharacterBody3D  # Active player reference
+var _all_controllers: Array[CharacterBody3D] = []
 
 # Dynamic nodes
 var _gate: CSGBox3D
@@ -35,8 +37,10 @@ func _ready() -> void:
 	_create_class_select_ui()
 	_bake_navigation()
 
+	_all_controllers = [gunner, vanguard, blade_dancer]
 	gunner.died.connect(_on_player_died)
 	vanguard.died.connect(_on_player_died)
+	blade_dancer.died.connect(_on_player_died)
 	enemy.died.connect(_on_enemy_died)
 
 	_select_player(gunner)
@@ -58,17 +62,21 @@ func _input(event: InputEvent) -> void:
 				_select_player(gunner)
 			elif event.physical_keycode == KEY_2:
 				_select_player(vanguard)
+			elif event.physical_keycode == KEY_3:
+				_select_player(blade_dancer)
 
 
 # --- Player selection ---
 
 func _select_player(new_player: CharacterBody3D) -> void:
-	# Deactivate old player
-	if player and player != new_player:
-		player.visible = false
-		player.collision_layer = 0
-		player.set_physics_process(false)
-		player.set_process_unhandled_input(false)
+	# Deactivate all controllers
+	for ctrl in _all_controllers:
+		ctrl.visible = false
+		ctrl.collision_layer = 0
+		ctrl.set_physics_process(false)
+		ctrl.set_process_unhandled_input(false)
+		ctrl.camera.current = false
+		ctrl.get_node("HUDLayer").visible = false
 
 	player = new_player
 
@@ -82,30 +90,14 @@ func _select_player(new_player: CharacterBody3D) -> void:
 	player.collision_layer = 2
 	player.set_physics_process(true)
 	player.set_process_unhandled_input(true)
+	player.camera.current = true
+	player.get_node("HUDLayer").visible = true
 
-	# Ensure correct camera and HUD are active
-	if player == gunner:
-		gunner.camera.current = true
-		gunner.get_node("HUDLayer").visible = true
-		vanguard.camera.current = false
-		vanguard.visible = false
-		vanguard.collision_layer = 0
-		vanguard.set_physics_process(false)
-		vanguard.set_process_unhandled_input(false)
-		vanguard.get_node("HUDLayer").visible = false
-	else:
-		vanguard.camera.current = true
-		vanguard.get_node("HUDLayer").visible = true
-		gunner.camera.current = false
-		gunner.visible = false
-		gunner.collision_layer = 0
-		gunner.set_physics_process(false)
-		gunner.set_process_unhandled_input(false)
-		gunner.get_node("HUDLayer").visible = false
-
-	# Update stamina bar if Vanguard
+	# Class-specific reset
 	if player == vanguard:
 		vanguard.hud.update_stamina(vanguard.stamina, vanguard.max_stamina)
+	elif player == blade_dancer:
+		blade_dancer.hud.update_config(blade_dancer.config)
 
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
@@ -131,7 +123,7 @@ func _enter_lobby() -> void:
 	player.set_physics_process(true)
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
-	# Reset Vanguard state if applicable
+	# Reset class-specific state
 	if player == vanguard:
 		vanguard.state = vanguard.State.MOVE
 		vanguard.stamina = vanguard.max_stamina
@@ -139,6 +131,14 @@ func _enter_lobby() -> void:
 		vanguard._is_invincible = false
 		vanguard._lock_on_active = false
 		vanguard._lock_target = null
+	elif player == blade_dancer:
+		blade_dancer.state = blade_dancer.State.MOVE
+		blade_dancer.config = blade_dancer.Config.ORBIT
+		blade_dancer._is_invincible = false
+		blade_dancer._guard_active = false
+		blade_dancer._lock_on_active = false
+		blade_dancer._lock_target = null
+		blade_dancer.hud.update_config(blade_dancer.config)
 
 	# Hide enemy
 	enemy.visible = false
@@ -168,11 +168,6 @@ func _start_fight() -> void:
 	enemy._current_phase = 1
 	enemy._phase_transitioned.clear()
 	enemy._last_attack = ""
-	# Reset body material to default red
-	var reset_mat := StandardMaterial3D.new()
-	reset_mat.albedo_color = Color(0.7, 0.15, 0.15)
-	enemy.body_mesh.set_surface_override_material(0, reset_mat)
-	enemy._default_body_material = reset_mat
 	# Reset health bar color to green
 	var fg_mat := enemy._health_bar_fg.get_surface_override_material(0) as StandardMaterial3D
 	if fg_mat:
@@ -344,7 +339,7 @@ func _create_class_select_ui() -> void:
 	add_child(_class_select_layer)
 
 	var label := Label.new()
-	label.text = "[1] Gunner   [2] Vanguard"
+	label.text = "[1] Gunner   [2] Vanguard   [3] Blade Dancer"
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.anchor_left = 0.0
 	label.anchor_right = 1.0

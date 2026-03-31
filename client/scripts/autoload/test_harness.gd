@@ -10,12 +10,13 @@ extends Node
 
 const GUNNER_BOT_SCRIPT := preload("res://scripts/bot/bot_controller.gd")
 const VANGUARD_BOT_SCRIPT := preload("res://scripts/bot/vanguard_bot_controller.gd")
+const BLADE_DANCER_BOT_SCRIPT := preload("res://scripts/bot/blade_dancer_bot_controller.gd")
 
 var bot_mode: bool = false
 var remote_mode: bool = false
 var capture_mode: bool = false
 var e2e_mode: bool = false
-var bot_class: String = "gunner"  # "gunner" or "vanguard"
+var bot_class: String = "gunner"  # "gunner", "vanguard", or "blade_dancer"
 
 var output_dir: String = "res://test_output/"
 var _tick: int = 0
@@ -77,9 +78,12 @@ func _attach_bot() -> void:
 	await get_tree().process_frame
 	# Select the right class via main scene
 	var main := get_tree().current_scene
-	if main and "player" in main and bot_class == "vanguard":
-		if "vanguard" in main and main.has_method("_select_player"):
+	if main and "player" in main:
+		if bot_class == "vanguard" and "vanguard" in main and main.has_method("_select_player"):
 			main._select_player(main.vanguard)
+			await get_tree().process_frame
+		elif bot_class == "blade_dancer" and "blade_dancer" in main and main.has_method("_select_player"):
+			main._select_player(main.blade_dancer)
 			await get_tree().process_frame
 
 	if GameManager.players.is_empty():
@@ -94,7 +98,10 @@ func _attach_bot() -> void:
 		player = GameManager.players[0]
 
 	_bot = Node.new()
-	if "stamina" in player:
+	if "config" in player:
+		_bot.set_script(BLADE_DANCER_BOT_SCRIPT)
+		print("[TestHarness] Blade Dancer bot attached to %s" % player.name)
+	elif "stamina" in player:
 		_bot.set_script(VANGUARD_BOT_SCRIPT)
 		print("[TestHarness] Vanguard bot attached to %s" % player.name)
 	else:

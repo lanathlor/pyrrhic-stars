@@ -1,0 +1,786 @@
+extends CharacterBody3D
+
+## Blade Dancer — Positional state machine controller.
+## Chains blade configuration transitions to set up optimal ability sequences.
+## Third-person target-lock camera, no cooldowns, small GCD.
+
+signal died
+
+enum Config { ORBIT, LANCE }
+enum State { MOVE, EDGE, SURGE_WINDUP, SURGE, GUARD, RECALL, DASH, STAGGER, DEAD }
+
+# Movement
+@export var run_speed: float = 6.0
+@export var sprint_speed: float = 9.0
+@export var mouse_sensitivity: float = 0.003
+@export var ground_accel: float = 20.0
+@export var ground_decel: float = 15.0
+@export var air_accel: float = 2.0
+@export var air_decel: float = 1.0
+@export var rotation_speed: float = 10.0
+
+# Dash
+@export var dash_speed: float = 15.0
+@export var dash_duration: float = 0.2
+@export var dash_iframe_duration: float = 0.15
+
+# GCD
+@export var gcd_duration: float = 0.5
+
+# Cast range (all damage abilities are ranged)
+@export var cast_range: float = 20.0
+
+# Edge (Ability 1 — LMB)
+@export var orbit_edge_damage: float = 25.0
+@export var lance_edge_damage: float = 35.0
+
+# Surge (Ability 2 — R)
+@export var orbit_surge_damage: float = 25.0
+@export var lance_surge_damage: float = 50.0
+@export var lance_surge_windup: float = 0.3
+
+# Guard (Ability 3 — RMB)
+@export var orbit_guard_reduction: float = 0.5
+@export var orbit_guard_duration: float = 1.5
+@export var lance_recall_damage: float = 25.0
+
+# Health
+var health: float = 100.0
+var max_health: float = 150.0
+
+# Camera
+@export var camera_distance: float = 6.0
+@export var camera_height_offset: float = 2.0
+
+# State
+var state: State = State.MOVE
+var config: Config = Config.ORBIT
+var _config_at_cast: Config = Config.ORBIT
+var _state_timer: float = 0.0
+var _gcd_timer: float = 0.0
+var _is_invincible: bool = false
+var _has_hit_this_attack: bool = false
+var _guard_active: bool = false
+var _guard_timer: float = 0.0
+
+# Dash
+var _dash_direction: Vector3 = Vector3.ZERO
+
+# Camera
+var _camera_yaw: float = 0.0
+var _camera_pitch: float = -0.3
+
+# Lock-on
+var _lock_target: Node3D = null
+var _lock_on_active: bool = false
+
+var _gravity: float = 9.8
+var _flash_timer: float = 0.0
+var _facing_angle: float = 0.0
+
+const BLADE_SCENE := "res://assets/models/weapons/weapon_floating_blade.glb"
+
+# Blade visuals
+var _blade_nodes: Array[Node3D] = []
+var _blade_orbit_angle: float = 0.0
+var _orbit_material: StandardMaterial3D
+var _lance_material: StandardMaterial3D
+var _blade_lerp_speed: float = 12.0  # how fast blades move to target position
+var _blade_spin: float = 0.0  # continuous spin for idle floating feel
+
+@onready var camera: Camera3D = $Camera3D
+@onready var character_model: Node3D = $CharacterModel
+@onready var blade_pivot: Node3D = $BladePivot
+@onready var hud: Control = $HUDLayer/BladeDancerHUD
+
+
+func _ready() -> void:
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	GameManager.register_player(self)
+	camera.top_level = true
+	_setup_blade_materials()
+	_setup_blades()
+	hud.update_health(health, max_health)
+	hud.update_config(config)
+
+
+func _exit_tree() -> void:
+	GameManager.unregister_player(self)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+		_camera_yaw -= event.relative.x * mouse_sensitivity
+		_camera_pitch -= event.relative.y * mouse_sensitivity
+		_camera_pitch = clampf(_camera_pitch, deg_to_rad(-60.0), deg_to_rad(20.0))
+
+	if event.is_action_pressed("lock_on"):
+		_toggle_lock_on()
+
+
+func _physics_process(delta: float) -> void:
+	if not is_on_floor():
+		velocity.y -= _gravity * delta
+
+	_state_timer -= delta
+	_gcd_timer -= delta
+	_update_flash(delta)
+	_update_camera()
+	_update_guard_timer(delta)
+
+	match state:
+		State.MOVE:
+			_process_move(delta)
+		State.EDGE:
+			_process_edge(delta)
+		State.SURGE_WINDUP:
+			_process_surge_windup(delta)
+		State.SURGE:
+			_process_surge(delta)
+		State.GUARD:
+			_process_guard(delta)
+		State.RECALL:
+			_process_recall(delta)
+		State.DASH:
+			_process_dash(delta)
+		State.STAGGER:
+			_process_stagger()
+		State.DEAD:
+			velocity.x = 0.0
+			velocity.z = 0.0
+
+	move_and_slide()
+	_update_animation()
+	_update_blade_visual(delta)
+	hud.update_lock_on(_lock_target, camera)
+	hud.update_gcd(_gcd_timer / gcd_duration if _gcd_timer > 0.0 else 0.0)
+
+
+# --- Movement ---
+
+func _get_camera_wish_dir() -> Vector3:
+	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
+	if input_dir.length() < 0.1:
+		return Vector3.ZERO
+	var cam_xf := camera.global_transform
+	var cam_forward := -cam_xf.basis.z
+	cam_forward.y = 0.0
+	if cam_forward.length() < 0.01:
+		return Vector3.ZERO
+	cam_forward = cam_forward.normalized()
+	var cam_right := cam_xf.basis.x
+	cam_right.y = 0.0
+	cam_right = cam_right.normalized()
+	return (cam_right * input_dir.x + cam_forward * -input_dir.y).normalized()
+
+
+func _process_move(delta: float) -> void:
+	# Ability inputs (gated by GCD)
+	if _gcd_timer <= 0.0:
+		if Input.is_action_just_pressed("light_attack"):
+			_start_edge()
+			return
+		if Input.is_action_just_pressed("heavy_attack"):
+			_start_surge()
+			return
+		if Input.is_action_just_pressed("block"):
+			_start_guard()
+			return
+		if Input.is_action_just_pressed("dodge") and is_on_floor():
+			_start_dash()
+			return
+
+	# Jump
+	if Input.is_action_just_pressed("jump") and is_on_floor():
+		velocity.y = 4.5
+
+	# Movement
+	var speed := sprint_speed if Input.is_action_pressed("sprint") else run_speed
+	var wish_dir := _get_camera_wish_dir()
+
+	var on_floor := is_on_floor()
+	var accel: float = ground_accel if on_floor else air_accel
+	var decel: float = ground_decel if on_floor else air_decel
+
+	if wish_dir.length() > 0.1:
+		var target_vel := wish_dir * speed
+		velocity.x = move_toward(velocity.x, target_vel.x, accel * delta)
+		velocity.z = move_toward(velocity.z, target_vel.z, accel * delta)
+		if _lock_on_active and _lock_target and is_instance_valid(_lock_target):
+			_face_target(delta)
+		else:
+			_face_direction(wish_dir, delta)
+	else:
+		velocity.x = move_toward(velocity.x, 0.0, decel * delta)
+		velocity.z = move_toward(velocity.z, 0.0, decel * delta)
+		if _lock_on_active and _lock_target and is_instance_valid(_lock_target):
+			_face_target(delta)
+
+
+func _get_target_yaw(dir: Vector3) -> float:
+	var t := Transform3D()
+	t = t.looking_at(dir, Vector3.UP)
+	return t.basis.get_euler().y
+
+
+func _face_direction(dir: Vector3, delta: float) -> void:
+	if dir.length() < 0.1:
+		return
+	var target_angle := _get_target_yaw(dir)
+	_facing_angle = lerp_angle(_facing_angle, target_angle, rotation_speed * delta)
+	rotation.y = _facing_angle
+
+
+func _face_target(delta: float) -> void:
+	if not _lock_target or not is_instance_valid(_lock_target):
+		return
+	var to_target := _lock_target.global_position - global_position
+	to_target.y = 0.0
+	if to_target.length() > 0.1:
+		var target_angle := _get_target_yaw(to_target)
+		_facing_angle = lerp_angle(_facing_angle, target_angle, rotation_speed * delta)
+		rotation.y = _facing_angle
+
+
+func _face_attack_direction(delta: float) -> void:
+	if _lock_on_active and _lock_target and is_instance_valid(_lock_target):
+		_face_target(delta)
+		return
+
+	var best: Node3D = null
+	var best_dist: float = cast_range
+	for enemy in GameManager.enemies:
+		if not is_instance_valid(enemy) or not enemy.visible:
+			continue
+		var dist := global_position.distance_to(enemy.global_position)
+		if dist < best_dist:
+			best_dist = dist
+			best = enemy
+
+	if best:
+		var to_enemy := best.global_position - global_position
+		to_enemy.y = 0.0
+		if to_enemy.length() > 0.1:
+			var target_angle := _get_target_yaw(to_enemy)
+			_facing_angle = lerp_angle(_facing_angle, target_angle, 25.0 * delta)
+			rotation.y = _facing_angle
+		return
+
+	var cam_fwd := -camera.global_transform.basis.z
+	cam_fwd.y = 0.0
+	if cam_fwd.length() > 0.01:
+		cam_fwd = cam_fwd.normalized()
+		var target_angle := _get_target_yaw(cam_fwd)
+		_facing_angle = lerp_angle(_facing_angle, target_angle, 15.0 * delta)
+		rotation.y = _facing_angle
+
+
+# --- Edge (Ability 1) ---
+
+func _start_edge() -> void:
+	_config_at_cast = config
+	_has_hit_this_attack = false
+	_enter_state(State.EDGE)
+	_state_timer = 0.3
+	_gcd_timer = gcd_duration
+
+
+func _process_edge(delta: float) -> void:
+	_face_attack_direction(delta)
+
+	# Hit at 50% through — ranged blade command
+	if not _has_hit_this_attack and _state_timer <= 0.15:
+		_has_hit_this_attack = true
+		match _config_at_cast:
+			Config.ORBIT:
+				_perform_raycast_hit(orbit_edge_damage, cast_range)
+			Config.LANCE:
+				_perform_raycast_hit(lance_edge_damage, cast_range)
+		_transition_config_for_ability()
+
+	if _state_timer <= 0.0:
+		_enter_state(State.MOVE)
+
+
+# --- Surge (Ability 2) ---
+
+func _start_surge() -> void:
+	_config_at_cast = config
+	_has_hit_this_attack = false
+	_gcd_timer = gcd_duration
+	match _config_at_cast:
+		Config.ORBIT:
+			_enter_state(State.SURGE)
+			_state_timer = 0.2
+		Config.LANCE:
+			_enter_state(State.SURGE_WINDUP)
+			_state_timer = lance_surge_windup
+
+
+func _process_surge_windup(delta: float) -> void:
+	_face_attack_direction(delta)
+	if _state_timer <= 0.0:
+		_enter_state(State.SURGE)
+		_state_timer = 0.2
+
+
+func _process_surge(delta: float) -> void:
+	_face_attack_direction(delta)
+
+	if not _has_hit_this_attack:
+		_has_hit_this_attack = true
+		match _config_at_cast:
+			Config.ORBIT:
+				_perform_raycast_hit(orbit_surge_damage, cast_range)
+			Config.LANCE:
+				_perform_raycast_hit(lance_surge_damage, cast_range)
+		_transition_config_for_ability()
+
+	if _state_timer <= 0.0:
+		_enter_state(State.MOVE)
+
+
+# --- Guard (Ability 3) ---
+
+func _start_guard() -> void:
+	_config_at_cast = config
+	_has_hit_this_attack = false
+	_gcd_timer = gcd_duration
+	match _config_at_cast:
+		Config.ORBIT:
+			_guard_active = true
+			_guard_timer = orbit_guard_duration
+			_enter_state(State.GUARD)
+			_state_timer = orbit_guard_duration
+			# Orbit Guard stays in Orbit (no config transition)
+		Config.LANCE:
+			_enter_state(State.RECALL)
+			_state_timer = 0.3
+
+
+func _process_guard(delta: float) -> void:
+	# Orbit Guard: slow movement allowed, damage reduction active
+	var wish_dir := _get_camera_wish_dir()
+	var speed := run_speed * 0.5
+
+	if wish_dir.length() > 0.1:
+		var target_vel := wish_dir * speed
+		velocity.x = move_toward(velocity.x, target_vel.x, ground_accel * delta)
+		velocity.z = move_toward(velocity.z, target_vel.z, ground_accel * delta)
+	else:
+		velocity.x = move_toward(velocity.x, 0.0, ground_decel * delta)
+		velocity.z = move_toward(velocity.z, 0.0, ground_decel * delta)
+
+	if _lock_on_active and _lock_target and is_instance_valid(_lock_target):
+		_face_target(delta)
+
+	if _state_timer <= 0.0:
+		_guard_active = false
+		# Orbit Guard: config stays ORBIT
+		_enter_state(State.MOVE)
+
+
+func _process_recall(delta: float) -> void:
+	# Lance Recall: blades return from target, dealing damage on departure
+	_face_attack_direction(delta)
+
+	if not _has_hit_this_attack and _state_timer <= 0.15:
+		_has_hit_this_attack = true
+		_perform_raycast_hit(lance_recall_damage, cast_range)
+		config = Config.ORBIT
+		hud.update_config(config)
+
+	if _state_timer <= 0.0:
+		_enter_state(State.MOVE)
+
+
+func _update_guard_timer(delta: float) -> void:
+	if _guard_active:
+		_guard_timer -= delta
+		if _guard_timer <= 0.0:
+			_guard_active = false
+
+
+# --- Dash (Ability 4) ---
+
+func _start_dash() -> void:
+	_config_at_cast = config
+	_gcd_timer = gcd_duration
+	match _config_at_cast:
+		Config.ORBIT:
+			# Forward dash
+			var wish := _get_camera_wish_dir()
+			if wish.length() > 0.1:
+				_dash_direction = wish
+			else:
+				_dash_direction = -transform.basis.z.normalized()
+		Config.LANCE:
+			# Backward retreat
+			_dash_direction = transform.basis.z.normalized()
+
+	_enter_state(State.DASH)
+	_state_timer = dash_duration
+	_is_invincible = true
+
+
+func _process_dash(_delta: float) -> void:
+	velocity.x = _dash_direction.x * dash_speed
+	velocity.z = _dash_direction.z * dash_speed
+
+	var elapsed := dash_duration - _state_timer
+	if elapsed >= dash_iframe_duration:
+		_is_invincible = false
+
+	if _state_timer <= 0.0:
+		_is_invincible = false
+		velocity.x *= 0.3
+		velocity.z *= 0.3
+		# Orbit Dash -> Lance, Lance Dash -> Orbit
+		_transition_config_for_ability()
+		_enter_state(State.MOVE)
+
+
+# --- Config transition ---
+
+func _transition_config_for_ability() -> void:
+	match _config_at_cast:
+		Config.ORBIT:
+			config = Config.LANCE
+		Config.LANCE:
+			config = Config.ORBIT
+	hud.update_config(config)
+
+
+# --- Stagger ---
+
+func _process_stagger() -> void:
+	velocity.x = 0.0
+	velocity.z = 0.0
+	if _state_timer <= 0.0:
+		_enter_state(State.MOVE)
+
+
+# --- Ranged Hit Detection ---
+
+func _perform_raycast_hit(damage: float, max_range: float) -> void:
+	var origin := global_position + Vector3(0.0, 1.0, 0.0)
+	var direction: Vector3
+	if _lock_on_active and _lock_target and is_instance_valid(_lock_target):
+		direction = (_lock_target.global_position + Vector3(0.0, 1.0, 0.0) - origin).normalized()
+	else:
+		direction = -transform.basis.z
+		direction.y = 0.0
+		direction = direction.normalized()
+
+	var space := get_world_3d().direct_space_state
+	if not space:
+		return
+	var query := PhysicsRayQueryParameters3D.create(origin, origin + direction * max_range, 4 | 1)
+	query.exclude = [get_rid()]
+	var result := space.intersect_ray(query)
+	if result and result.collider.has_method("take_damage"):
+		result.collider.take_damage(damage, result.position)
+		hud.show_hit_marker()
+
+
+# --- Lock-on ---
+
+func _toggle_lock_on() -> void:
+	if _lock_on_active:
+		_lock_on_active = false
+		_lock_target = null
+		hud.hide_lock_on()
+	else:
+		var target := _find_lock_target()
+		if target:
+			_lock_on_active = true
+			_lock_target = target
+			hud.show_lock_on()
+
+
+func _find_lock_target() -> Node3D:
+	var best: Node3D = null
+	var best_dist: float = 30.0
+	for enemy in GameManager.enemies:
+		if not is_instance_valid(enemy) or not enemy.visible:
+			continue
+		var dist := global_position.distance_to(enemy.global_position)
+		if dist < best_dist:
+			best_dist = dist
+			best = enemy
+	return best
+
+
+# --- Damage ---
+
+func take_damage(amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
+	if state == State.DEAD:
+		return
+	if _is_invincible:
+		return
+	if _guard_active:
+		amount *= (1.0 - orbit_guard_reduction)
+	health -= amount
+	health = maxf(health, 0.0)
+	hud.update_health(health, max_health)
+	hud.show_damage_flash()
+	_show_body_flash()
+	if health <= 0.0:
+		_die()
+	elif state != State.DASH and state != State.GUARD and state != State.RECALL:
+		_enter_state(State.STAGGER)
+		_state_timer = 0.3
+
+
+func _die() -> void:
+	_enter_state(State.DEAD)
+	_guard_active = false
+	died.emit()
+
+
+# --- Visual feedback ---
+
+func _show_body_flash() -> void:
+	character_model.flash_damage()
+
+
+func _update_flash(_delta: float) -> void:
+	pass
+
+
+func _update_animation() -> void:
+	match state:
+		State.DASH:
+			character_model.play_anim_timed("roll", dash_duration)
+			return
+		State.EDGE:
+			character_model.play_anim_timed("slash", 0.3)
+			return
+		State.SURGE_WINDUP, State.SURGE:
+			character_model.play_anim_timed("slash", lance_surge_windup + 0.2)
+			return
+		State.RECALL:
+			character_model.play_anim_timed("slash", 0.3)
+			return
+		State.GUARD:
+			character_model.play_anim("idle")
+			return
+		State.STAGGER:
+			character_model.play_anim("idle")
+			return
+		State.DEAD:
+			character_model.play_anim("idle")
+			return
+
+	if not is_on_floor():
+		character_model.play_anim("jump", 2.0)
+		return
+
+	var flat_vel := Vector3(velocity.x, 0.0, velocity.z)
+	if flat_vel.length() > 0.5:
+		var speed_ratio := flat_vel.length() / sprint_speed
+		character_model.play_anim("run", clampf(speed_ratio, 0.5, 1.5))
+	else:
+		character_model.play_anim("idle")
+
+
+# --- Blade Visuals ---
+
+func _setup_blade_materials() -> void:
+	_orbit_material = StandardMaterial3D.new()
+	_orbit_material.albedo_color = Color(0.2, 0.8, 0.9)
+	_orbit_material.emission_enabled = true
+	_orbit_material.emission = Color(0.1, 0.6, 0.8)
+	_orbit_material.emission_energy_multiplier = 2.0
+
+	_lance_material = StandardMaterial3D.new()
+	_lance_material.albedo_color = Color(1.0, 0.6, 0.1)
+	_lance_material.emission_enabled = true
+	_lance_material.emission = Color(0.9, 0.4, 0.05)
+	_lance_material.emission_energy_multiplier = 2.0
+
+
+func _setup_blades() -> void:
+	var blade_scene := load(BLADE_SCENE) as PackedScene
+	if not blade_scene:
+		push_warning("BladeDancer: could not load blade model %s" % BLADE_SCENE)
+		return
+	for i in 3:
+		var blade := blade_scene.instantiate()
+		blade_pivot.add_child(blade)
+		_blade_nodes.append(blade)
+		_apply_blade_material(blade, _orbit_material)
+
+
+func _update_blade_visual(delta: float) -> void:
+	if _blade_nodes.is_empty():
+		return
+
+	_blade_spin += delta * 2.0
+	_blade_orbit_angle += 120.0 * delta
+
+	# Compute target position, rotation, and material for each blade
+	var targets: Array[Vector3] = []
+	var target_rots: Array[float] = []
+	var mat: StandardMaterial3D
+	var lerp_speed := _blade_lerp_speed
+
+	match state:
+		State.EDGE:
+			# Blades sweep forward in a fan slash
+			var progress := 1.0 - (_state_timer / 0.3)  # 0→1
+			var sweep_angle := lerpf(-60.0, 60.0, progress)
+			mat = _orbit_material if _config_at_cast == Config.ORBIT else _lance_material
+			lerp_speed = 20.0
+			for i in 3:
+				var a := deg_to_rad(sweep_angle + (i - 1) * 25.0)
+				var r := 1.8
+				targets.append(Vector3(sin(a) * r, 0.9, -cos(a) * r))
+				target_rots.append(a)
+
+		State.SURGE_WINDUP:
+			# Blades pull back behind the player, charging
+			mat = _lance_material
+			lerp_speed = 15.0
+			for i in 3:
+				var spread := (i - 1) * 0.3
+				targets.append(Vector3(spread, 1.2, 1.2))
+				target_rots.append(PI)
+
+		State.SURGE:
+			# Blades thrust forward in a tight line
+			mat = _lance_material
+			lerp_speed = 30.0
+			for i in 3:
+				var d := 2.5 + i * 0.3
+				targets.append(Vector3(0.0, 0.9, -d))
+				target_rots.append(0.0)
+
+		State.GUARD:
+			# Blades form a spinning shield around the player
+			mat = _orbit_material
+			lerp_speed = 18.0
+			for i in 3:
+				var angle := deg_to_rad(_blade_orbit_angle * 2.0 + i * 120.0)
+				targets.append(Vector3(cos(angle) * 0.7, 0.9, sin(angle) * 0.7))
+				target_rots.append(angle + PI / 2.0)
+
+		State.RECALL:
+			# Blades fly back from far to close
+			var progress := 1.0 - (_state_timer / 0.3)
+			var dist := lerpf(3.0, 0.8, progress)
+			mat = _lance_material
+			lerp_speed = 25.0
+			for i in 3:
+				var spread := (i - 1) * 0.4
+				targets.append(Vector3(spread, 0.9, -dist))
+				target_rots.append(0.0)
+
+		State.DASH:
+			# Blades trail behind during dash
+			mat = _orbit_material if _config_at_cast == Config.ORBIT else _lance_material
+			lerp_speed = 15.0
+			for i in 3:
+				var spread := (i - 1) * 0.5
+				targets.append(Vector3(spread, 0.9, 1.5))
+				target_rots.append(PI)
+
+		_:
+			# Idle / Move — use config formation
+			match config:
+				Config.ORBIT:
+					mat = _orbit_material
+					for i in 3:
+						var angle := deg_to_rad(_blade_orbit_angle + i * 120.0)
+						var radius := 1.0
+						targets.append(Vector3(cos(angle) * radius, 0.9, sin(angle) * radius))
+						target_rots.append(angle + PI / 2.0)
+				Config.LANCE:
+					mat = _lance_material
+					var local_dir: Vector3
+					if _lock_on_active and _lock_target and is_instance_valid(_lock_target):
+						var to_target := _lock_target.global_position - global_position
+						to_target.y = 0.0
+						local_dir = transform.basis.inverse() * to_target.normalized()
+					else:
+						local_dir = Vector3(0.0, 0.0, -1.0)
+					for i in 3:
+						var d := 2.0 + i * 0.4
+						targets.append(Vector3(local_dir.x * d, 0.9, local_dir.z * d))
+						target_rots.append(atan2(local_dir.x, local_dir.z))
+
+	# Apply with lerp
+	for i in 3:
+		if i >= targets.size():
+			break
+		_blade_nodes[i].position = _blade_nodes[i].position.lerp(targets[i], lerp_speed * delta)
+		_blade_nodes[i].rotation.y = lerp_angle(_blade_nodes[i].rotation.y, target_rots[i], lerp_speed * delta)
+		# Gentle wobble on the pitch axis for a floating feel
+		_blade_nodes[i].rotation.x = sin(_blade_spin + i * 2.0) * 0.15
+		_apply_blade_material(_blade_nodes[i], mat)
+
+
+## Apply a material override to all MeshInstance3D children in a GLB instance.
+func _apply_blade_material(node: Node3D, mat: StandardMaterial3D) -> void:
+	for child in node.get_children():
+		if child is MeshInstance3D:
+			for s in child.get_surface_override_material_count():
+				child.set_surface_override_material(s, mat)
+		if child.get_child_count() > 0:
+			_apply_blade_material(child, mat)
+
+
+# --- Camera ---
+
+func _update_camera() -> void:
+	var player_pos := global_position + Vector3(0.0, camera_height_offset, 0.0)
+	var desired_cam_pos: Vector3
+
+	if _lock_on_active and _lock_target and is_instance_valid(_lock_target):
+		var target_pos := _lock_target.global_position + Vector3(0.0, 1.0, 0.0)
+		var to_target := target_pos - player_pos
+		to_target.y = 0.0
+		if to_target.length() > 0.1:
+			var behind := -to_target.normalized()
+			desired_cam_pos = player_pos + behind * camera_distance + Vector3(0.0, 3.0, 0.0)
+			camera.global_position = _apply_camera_collision(player_pos, desired_cam_pos)
+			var look_target := (player_pos + target_pos) * 0.5
+			look_target.y = 0.8
+			camera.look_at(look_target, Vector3.UP)
+			var offset := desired_cam_pos - player_pos
+			_camera_yaw = atan2(offset.x, offset.z)
+		else:
+			desired_cam_pos = player_pos + Vector3(0.0, 0.0, camera_distance)
+			camera.global_position = _apply_camera_collision(player_pos, desired_cam_pos)
+			camera.look_at(player_pos, Vector3.UP)
+	else:
+		var cam_offset := Vector3(0.0, 0.0, camera_distance)
+		cam_offset = cam_offset.rotated(Vector3.RIGHT, _camera_pitch)
+		cam_offset = cam_offset.rotated(Vector3.UP, _camera_yaw)
+		desired_cam_pos = player_pos + cam_offset
+		camera.global_position = _apply_camera_collision(player_pos, desired_cam_pos)
+		camera.look_at(player_pos, Vector3.UP)
+
+
+func _apply_camera_collision(from: Vector3, to: Vector3) -> Vector3:
+	var space := get_world_3d().direct_space_state
+	if not space:
+		return to
+	var query := PhysicsRayQueryParameters3D.create(from, to, 1)
+	query.exclude = [get_rid()]
+	var result := space.intersect_ray(query)
+	if result:
+		return result.position + (from - to).normalized() * 0.3
+	return to
+
+
+# --- Helpers ---
+
+func _enter_state(new_state: State) -> void:
+	match state:
+		State.DASH:
+			_is_invincible = false
+		State.GUARD:
+			_guard_active = false
+	state = new_state
+	_has_hit_this_attack = false
