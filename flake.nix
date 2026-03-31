@@ -18,8 +18,8 @@
           # Client
           godot_4
 
-          # Assets (Blender from stable to avoid LLVM 19/21 conflict with Mesa)
-          pkgs-stable.blender
+          # Assets
+          blender
           uv            # uvx for blender-mcp
 
           # Server
