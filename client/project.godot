@@ -17,11 +17,12 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 config/name="Codex Online"
 config/description="Action MMO where every class plays a different game genre"
 run/main_scene="res://scenes/main.tscn"
-config/features=PackedStringArray("4.6", "Forward Plus")
+config/features=PackedStringArray("4.5", "Forward Plus")
 
 [autoload]
 
 GameManager="*res://scripts/autoload/game_manager.gd"
+NetworkManager="*res://scripts/autoload/network_manager.gd"
 TestHarness="*res://scripts/autoload/test_harness.gd"
 CombatLog="*res://scripts/autoload/combat_log.gd"
 
@@ -30,6 +31,7 @@ CombatLog="*res://scripts/autoload/combat_log.gd"
 window/size/viewport_width=1920
 window/size/viewport_height=1080
 window/stretch/mode="viewport"
+display_server/driver.linuxbsd="wayland"
 
 [input]
 

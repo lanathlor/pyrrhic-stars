@@ -78,6 +78,13 @@ var _gravity: float = 9.8
 var _flash_timer: float = 0.0
 var _facing_angle: float = 0.0
 
+# Network sync
+var _net_anim: String = ""
+var _net_anim_speed: float = 1.0
+var _net_position: Vector3 = Vector3.ZERO
+var _net_rotation_y: float = 0.0
+const NET_INTERP_SPEED := 15.0
+
 const BLADE_SCENE := "res://assets/models/weapons/weapon_floating_blade.glb"
 
 # Blade visuals
@@ -95,20 +102,51 @@ var _blade_spin: float = 0.0  # continuous spin for idle floating feel
 
 
 func _ready() -> void:
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	GameManager.register_player(self)
+	_net_position = global_position
+	_net_rotation_y = rotation.y
 	camera.top_level = true
+
+	if _is_local():
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		hud.update_health(health, max_health)
+		hud.update_config(config)
+	else:
+		$HUDLayer.visible = false
+		camera.current = false
+		set_process_unhandled_input(false)
+
 	_setup_blade_materials()
 	_setup_blades()
-	hud.update_health(health, max_health)
-	hud.update_config(config)
 
 
 func _exit_tree() -> void:
 	GameManager.unregister_player(self)
 
 
+func _is_local() -> bool:
+	var peer := multiplayer.multiplayer_peer
+	if peer == null or peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
+		return true
+	return is_multiplayer_authority()
+
+
+func _sync_state_to_peers() -> void:
+	_net_sync.rpc(_net_position, _net_rotation_y, _net_anim, _net_anim_speed, health)
+
+
+@rpc("any_peer", "call_remote", "unreliable_ordered")
+func _net_sync(pos: Vector3, rot_y: float, anim: String, anim_speed: float, hp: float) -> void:
+	_net_position = pos
+	_net_rotation_y = rot_y
+	_net_anim = anim
+	_net_anim_speed = anim_speed
+	health = hp
+
+
 func _unhandled_input(event: InputEvent) -> void:
+	if not _is_local():
+		return
 	if event is InputEventMouseMotion and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
 		_camera_yaw -= event.relative.x * mouse_sensitivity
 		_camera_pitch -= event.relative.y * mouse_sensitivity
@@ -119,6 +157,14 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if not _is_local():
+		global_position = global_position.lerp(_net_position, NET_INTERP_SPEED * delta)
+		rotation.y = lerp_angle(rotation.y, _net_rotation_y, NET_INTERP_SPEED * delta)
+		if _net_anim != "":
+			character_model.play_anim(_net_anim, _net_anim_speed)
+		_update_blade_visual(delta)
+		return
+
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
 
@@ -154,6 +200,13 @@ func _physics_process(delta: float) -> void:
 	_update_blade_visual(delta)
 	hud.update_lock_on(_lock_target, camera)
 	hud.update_gcd(_gcd_timer / gcd_duration if _gcd_timer > 0.0 else 0.0)
+
+	# Sync to remote peers
+	_net_position = global_position
+	_net_rotation_y = rotation.y
+	var peer := multiplayer.multiplayer_peer
+	if peer and peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+		_sync_state_to_peers()
 
 
 # --- Movement ---
@@ -479,7 +532,7 @@ func _perform_raycast_hit(damage: float, max_range: float) -> void:
 	query.exclude = [get_rid()]
 	var result := space.intersect_ray(query)
 	if result and result.collider.has_method("take_damage"):
-		result.collider.take_damage(damage, result.position)
+		_deal_damage(result.collider, damage, result.position)
 		hud.show_hit_marker()
 
 
@@ -513,7 +566,10 @@ func _find_lock_target() -> Node3D:
 
 # --- Damage ---
 
+@rpc("any_peer", "call_local", "reliable")
 func take_damage(amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
+	if multiplayer.has_multiplayer_peer() and not is_multiplayer_authority():
+		return
 	if state == State.DEAD:
 		return
 	if _is_invincible:
@@ -538,6 +594,15 @@ func _die() -> void:
 	died.emit()
 
 
+func _deal_damage(target: Node, amount: float, hit_pos: Vector3) -> void:
+	if not target.has_method("take_damage"):
+		return
+	if multiplayer.has_multiplayer_peer():
+		target.take_damage.rpc(amount, hit_pos)
+	else:
+		target.take_damage(amount, hit_pos)
+
+
 # --- Visual feedback ---
 
 func _show_body_flash() -> void:
@@ -551,36 +616,56 @@ func _update_flash(_delta: float) -> void:
 func _update_animation() -> void:
 	match state:
 		State.DASH:
+			_net_anim = "roll"
+			_net_anim_speed = 1.0
 			character_model.play_anim_timed("roll", dash_duration)
 			return
 		State.EDGE:
+			_net_anim = "slash"
+			_net_anim_speed = 1.0
 			character_model.play_anim_timed("slash", 0.3)
 			return
 		State.SURGE_WINDUP, State.SURGE:
+			_net_anim = "slash"
+			_net_anim_speed = 1.0
 			character_model.play_anim_timed("slash", lance_surge_windup + 0.2)
 			return
 		State.RECALL:
+			_net_anim = "slash"
+			_net_anim_speed = 1.0
 			character_model.play_anim_timed("slash", 0.3)
 			return
 		State.GUARD:
+			_net_anim = "idle"
+			_net_anim_speed = 1.0
 			character_model.play_anim("idle")
 			return
 		State.STAGGER:
+			_net_anim = "idle"
+			_net_anim_speed = 1.0
 			character_model.play_anim("idle")
 			return
 		State.DEAD:
+			_net_anim = "idle"
+			_net_anim_speed = 1.0
 			character_model.play_anim("idle")
 			return
 
 	if not is_on_floor():
+		_net_anim = "jump"
+		_net_anim_speed = 2.0
 		character_model.play_anim("jump", 2.0)
 		return
 
 	var flat_vel := Vector3(velocity.x, 0.0, velocity.z)
 	if flat_vel.length() > 0.5:
 		var speed_ratio := flat_vel.length() / sprint_speed
-		character_model.play_anim("run", clampf(speed_ratio, 0.5, 1.5))
+		_net_anim_speed = clampf(speed_ratio, 0.5, 1.5)
+		_net_anim = "run"
+		character_model.play_anim("run", _net_anim_speed)
 	else:
+		_net_anim = "idle"
+		_net_anim_speed = 1.0
 		character_model.play_anim("idle")
 
 

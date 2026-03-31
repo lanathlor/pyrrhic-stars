@@ -77,9 +77,25 @@ var _sword_attachment: BoneAttachment3D
 var _gun_attachment: BoneAttachment3D
 var _last_weapon: String = "sword"  # which weapon to show between attacks
 
+# Network sync
+var _net_state: int = 0  # synced State enum as int for remote clients
+var _last_synced_state: int = -1
+var _net_position: Vector3 = Vector3.ZERO
+var _net_rotation_y: float = 0.0
+const NET_INTERP_SPEED := 15.0
+
+
+func _is_host() -> bool:
+	var peer := multiplayer.multiplayer_peer
+	if peer == null or peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
+		return true
+	return multiplayer.is_server()
+
 
 func _ready() -> void:
 	health = max_health
+	_net_position = global_position
+	_net_rotation_y = rotation.y
 	_projectile_scene = load(PROJECTILE_SCENE_PATH)
 	melee_collision.disabled = true
 	GameManager.register_enemy(self)
@@ -92,6 +108,7 @@ func _ready() -> void:
 	_create_charge_telegraph()
 	_attach_weapons.call_deferred()
 	_change_state(State.CHASE)
+
 	# Debug: log loaded animations
 	call_deferred("_log_loaded_anims")
 
@@ -105,20 +122,45 @@ func _log_loaded_anims() -> void:
 			print("[Boss] WARNING: animation '%s' not loaded — will use fallback" % needed)
 
 
+func _sync_state_to_peers() -> void:
+	_net_sync.rpc(_net_position, _net_rotation_y, health, _net_state,
+		_current_phase, _ranged_target_position, _charge_direction)
+
+
+@rpc("any_peer", "call_remote", "unreliable_ordered")
+func _net_sync(pos: Vector3, rot_y: float, hp: float, net_state: int,
+		phase: int, ranged_pos: Vector3, charge_dir: Vector3) -> void:
+	_net_position = pos
+	_net_rotation_y = rot_y
+	health = hp
+	_net_state = net_state
+	_current_phase = phase
+	_ranged_target_position = ranged_pos
+	_charge_direction = charge_dir
+
+
 func _exit_tree() -> void:
 	GameManager.unregister_enemy(self)
 
 
 func _physics_process(delta: float) -> void:
+	_face_health_bar_to_camera()
+	_update_weapons(delta)
+	_update_boss_animation()
+	character_model.position.y = 0.0
+
+	if not _is_host():
+		# Client: interpolate position and sync visuals
+		global_position = global_position.lerp(_net_position, NET_INTERP_SPEED * delta)
+		rotation.y = lerp_angle(rotation.y, _net_rotation_y, NET_INTERP_SPEED * delta)
+		_process_remote_sync()
+		return
+
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
 
 	_state_timer -= delta
-	_face_health_bar_to_camera()
-	_update_weapons(delta)
-	_update_boss_animation()
-	# Pin model Y to prevent animations with root motion from sinking the character
-	character_model.position.y = 0.0
+	_net_state = state
 
 	match state:
 		State.CHASE:
@@ -147,6 +189,51 @@ func _physics_process(delta: float) -> void:
 			velocity = Vector3.ZERO
 
 	move_and_slide()
+
+	# Sync to remote peers
+	_net_position = global_position
+	_net_rotation_y = rotation.y
+	var peer := multiplayer.multiplayer_peer
+	if peer and peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+		_sync_state_to_peers()
+
+
+func _process_remote_sync() -> void:
+	var synced_state: State = _net_state as State
+	if synced_state != _last_synced_state:
+		_last_synced_state = synced_state
+		# Update telegraph visibility based on synced state
+		_melee_telegraph_mesh.visible = false
+		_laser_warning_mesh.visible = false
+		_aoe_telegraph_mesh.visible = false
+		_charge_telegraph_mesh.visible = false
+		if _aoe_particles:
+			_aoe_particles.emitting = false
+		match synced_state:
+			State.MELEE_TELEGRAPH:
+				_melee_telegraph_mesh.visible = true
+			State.RANGED_TELEGRAPH:
+				_laser_warning_mesh.visible = true
+			State.AOE_TELEGRAPH:
+				_aoe_telegraph_mesh.visible = true
+				if _aoe_particles:
+					_aoe_particles.emitting = true
+			State.AOE_SLAM:
+				if _aoe_slam_particles:
+					_aoe_slam_particles.emitting = true
+			State.CHARGE_TELEGRAPH:
+				_charge_telegraph_mesh.visible = true
+			State.DEAD:
+				visible = false
+		state = synced_state
+	# Update telegraph positions for synced data
+	if _laser_warning_mesh.visible:
+		_update_laser_warning()
+	if _charge_telegraph_mesh.visible:
+		_update_charge_indicator()
+	# Health bar
+	_update_health_bar()
+	_update_health_bar_color()
 
 
 # =============================================================================
@@ -433,7 +520,7 @@ func _process_melee_attack() -> void:
 			var dist := global_position.distance_to(player.global_position)
 			if dist <= melee_range:
 				var hit_dir := (player.global_position - global_position).normalized()
-				player.take_damage(_get_melee_damage(), global_position + hit_dir)
+				_deal_damage_to(player, _get_melee_damage(), global_position + hit_dir)
 				CombatLog.log_boss_hit("melee", _get_melee_damage(), player.name, player.global_position)
 				hit_any = true
 		if not hit_any:
@@ -521,7 +608,7 @@ func _process_aoe_slam() -> void:
 			continue
 		var dist := global_position.distance_to(player.global_position)
 		if dist <= radius:
-			player.take_damage(damage, global_position)
+			_deal_damage_to(player, damage, global_position)
 			CombatLog.log_boss_hit("aoe_slam", damage, player.name, player.global_position)
 			hit_any = true
 	if not hit_any:
@@ -568,7 +655,7 @@ func _process_charge(delta: float) -> void:
 			continue
 		var dist := global_position.distance_to(player.global_position)
 		if dist <= 2.0:
-			player.take_damage(_get_charge_damage(), global_position)
+			_deal_damage_to(player, _get_charge_damage(), global_position)
 			CombatLog.log_boss_hit("charge", _get_charge_damage(), player.name, player.global_position)
 			_charge_hit_players.append(player)
 
@@ -661,7 +748,10 @@ func _change_state(new_state: State) -> void:
 # Damage & Phase transitions
 # =============================================================================
 
+@rpc("any_peer", "call_local", "reliable")
 func take_damage(amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
+	if not _is_host():
+		return
 	if state == State.DEAD or state == State.PHASE_TRANSITION:
 		return
 	health -= amount
@@ -688,6 +778,15 @@ func _enter_phase(phase: int) -> void:
 	CombatLog.log_phase_transition(phase, health, CombatLog._elapsed())
 	_change_state(State.PHASE_TRANSITION)
 	_update_health_bar_color()
+
+
+func _deal_damage_to(target: Node, amount: float, hit_pos: Vector3) -> void:
+	if not target.has_method("take_damage"):
+		return
+	if multiplayer.has_multiplayer_peer():
+		target.take_damage.rpc(amount, hit_pos)
+	else:
+		target.take_damage(amount, hit_pos)
 
 
 func _die() -> void:
@@ -1189,8 +1288,8 @@ func _attach_weapons() -> void:
 			var gun_scene := load(GUN_SCENE_PATH) as PackedScene
 			if gun_scene:
 				_gun_node = gun_scene.instantiate()
-				_gun_node.position = Vector3(0.0, 0.02, -0.1)
-				_gun_node.rotation = Vector3(0.0, deg_to_rad(90.0), deg_to_rad(-90.0))
+				_gun_node.position = Vector3(0.0, 0.1, 0.0)
+				_gun_node.rotation = Vector3(deg_to_rad(180.0), deg_to_rad(90.0), 0.0)
 				_gun_node.scale = Vector3(1.5, 1.5, 1.5)  # boss-sized
 				_gun_attachment.add_child(_gun_node)
 
@@ -1228,16 +1327,29 @@ func _update_weapons(_delta: float) -> void:
 func _fire_projectile_with_offset(angle_offset: float) -> void:
 	if not _projectile_scene:
 		return
-	var projectile: Node3D = _projectile_scene.instantiate()
-	get_tree().current_scene.add_child(projectile)
-	# Spawn from gun muzzle if available, otherwise body center
+	# Compute spawn position and direction on host
 	var spawn_pos: Vector3
 	if _gun_node and _gun_attachment and _gun_attachment.visible:
 		spawn_pos = _gun_node.global_position + (-global_transform.basis.z * 0.8)
 	else:
 		spawn_pos = global_position + Vector3(0.0, 1.0, 0.0)
-	projectile.global_position = spawn_pos
 	var base_direction := (_ranged_target_position - spawn_pos).normalized()
-	# Apply horizontal rotation offset for spread
 	var rotated := base_direction.rotated(Vector3.UP, angle_offset)
-	projectile.setup(rotated, _get_ranged_per_projectile_damage())
+	var dmg := _get_ranged_per_projectile_damage()
+
+	if multiplayer.has_multiplayer_peer():
+		_spawn_projectile_on_all.rpc(spawn_pos, rotated, dmg)
+	else:
+		_spawn_projectile_local(spawn_pos, rotated, dmg)
+
+
+@rpc("authority", "call_local", "reliable")
+func _spawn_projectile_on_all(spawn_pos: Vector3, direction: Vector3, dmg: float) -> void:
+	_spawn_projectile_local(spawn_pos, direction, dmg)
+
+
+func _spawn_projectile_local(spawn_pos: Vector3, direction: Vector3, dmg: float) -> void:
+	var projectile: Node3D = _projectile_scene.instantiate()
+	get_tree().current_scene.add_child(projectile)
+	projectile.global_position = spawn_pos
+	projectile.setup(direction, dmg)

@@ -57,8 +57,8 @@ Status: **NOT STARTED**
 
 ### Multiplayer
 
--   [ ] Godot ENet local multiplayer (two instances on localhost)
--   [ ] Player spawning and class selection
+-   [x] Godot ENet local multiplayer (two instances on localhost)
+-   [x] Player spawning and class selection
 
 ### Validation (Phase 0.5)
 

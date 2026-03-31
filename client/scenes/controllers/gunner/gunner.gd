@@ -20,6 +20,10 @@ signal died
 @export var fire_rate: float = 0.18
 @export var gun_damage: float = 10.0
 
+# Weapon attachment (tweak in inspector while running)
+@export var _weapon_offset_pos := Vector3(0.0, 0.1, 0.0)
+@export var _weapon_offset_rot_deg := Vector3(180.0, 90.0, 0.0)
+
 # Dodge roll
 @export var roll_speed: float = 14.0
 @export var roll_duration: float = 0.3
@@ -38,6 +42,13 @@ var _roll_timer: float = 0.0
 var _roll_cooldown_timer: float = 0.0
 var _roll_direction: Vector3 = Vector3.ZERO
 
+# Network sync
+var _net_anim: String = ""
+var _net_anim_speed: float = 1.0
+var _net_position: Vector3 = Vector3.ZERO
+var _net_rotation_y: float = 0.0
+const NET_INTERP_SPEED := 15.0
+
 const WEAPON_SCENE := "res://assets/models/weapons/weapon_rifle.glb"
 
 @onready var head: Node3D = $Head
@@ -51,35 +62,83 @@ var _muzzle_flash_timer: float = 0.0
 
 
 func _ready() -> void:
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	GameManager.register_player(self)
-	hud.update_health(health, max_health)
-	# FPS: hide own body so it doesn't clip into the camera
-	character_model.hide_model()
-	# Attach rifle to right hand (visible to other players in multiplayer)
-	_attach_weapon.call_deferred()
+	_net_position = global_position
+	_net_rotation_y = rotation.y
+
+	if _is_local():
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		hud.update_health(health, max_health)
+		# FPS: hide own body so it doesn't clip into the camera
+		character_model.hide_model()
+		_attach_weapon.call_deferred()
+	else:
+		# Remote player: show model, hide HUD, disable camera
+		$HUDLayer.visible = false
+		camera.current = false
+		set_process_unhandled_input(false)
+		_attach_weapon.call_deferred()
+
 
 
 func _attach_weapon() -> void:
-	var offset_pos := Vector3(0.0, 0.08, 0.0)
-	var offset_rot := Vector3(deg_to_rad(-90.0), 0.0, 0.0)
+	var offset_pos := _weapon_offset_pos
+	var offset_rot := Vector3(deg_to_rad(_weapon_offset_rot_deg.x), deg_to_rad(_weapon_offset_rot_deg.y), deg_to_rad(_weapon_offset_rot_deg.z))
 	character_model.attach_weapon(WEAPON_SCENE, "mixamorig_RightHand", offset_pos, offset_rot)
+
+
+func _process(_delta: float) -> void:
+	# Live-update weapon offset from inspector while game runs
+	if character_model.weapon_node:
+		character_model.weapon_node.position = _weapon_offset_pos
+		character_model.weapon_node.rotation = Vector3(
+			deg_to_rad(_weapon_offset_rot_deg.x),
+			deg_to_rad(_weapon_offset_rot_deg.y),
+			deg_to_rad(_weapon_offset_rot_deg.z))
 
 
 func _exit_tree() -> void:
 	GameManager.unregister_player(self)
 
 
+func _is_local() -> bool:
+	var peer := multiplayer.multiplayer_peer
+	if peer == null or peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
+		return true
+	return is_multiplayer_authority()
+
+
+func _sync_state_to_peers() -> void:
+	_net_sync.rpc(_net_position, _net_rotation_y, _net_anim, _net_anim_speed, health)
+
+
+@rpc("any_peer", "call_remote", "unreliable_ordered")
+func _net_sync(pos: Vector3, rot_y: float, anim: String, anim_speed: float, hp: float) -> void:
+	_net_position = pos
+	_net_rotation_y = rot_y
+	_net_anim = anim
+	_net_anim_speed = anim_speed
+	health = hp
+
+
 func _unhandled_input(event: InputEvent) -> void:
+	if not _is_local():
+		return
 	if event is InputEventMouseMotion and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
 		rotate_y(-event.relative.x * mouse_sensitivity)
 		head.rotate_x(-event.relative.y * mouse_sensitivity)
 		head.rotation.x = clampf(head.rotation.x, deg_to_rad(-89.0), deg_to_rad(89.0))
 
-	# ESC handled by main.gd pause menu
-
 
 func _physics_process(delta: float) -> void:
+	if not _is_local():
+		# Remote: interpolate toward synced position/rotation
+		global_position = global_position.lerp(_net_position, NET_INTERP_SPEED * delta)
+		rotation.y = lerp_angle(rotation.y, _net_rotation_y, NET_INTERP_SPEED * delta)
+		if _net_anim != "":
+			character_model.play_anim(_net_anim, _net_anim_speed)
+		return
+
 	_roll_cooldown_timer = maxf(_roll_cooldown_timer - delta, 0.0)
 	_apply_gravity(delta)
 
@@ -98,6 +157,13 @@ func _physics_process(delta: float) -> void:
 	_update_muzzle_flash(delta)
 	_update_animation()
 	hud.update_roll_cooldown(_roll_cooldown_timer, roll_cooldown)
+
+	# Sync to remote peers
+	_net_position = global_position
+	_net_rotation_y = rotation.y
+	var peer := multiplayer.multiplayer_peer
+	if peer and peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+		_sync_state_to_peers()
 
 
 func _apply_gravity(delta: float) -> void:
@@ -180,7 +246,7 @@ func _shoot() -> void:
 		var collider := gun_ray.get_collider()
 		if collider.has_method("take_damage"):
 			var hit_pos := gun_ray.get_collision_point()
-			collider.take_damage(gun_damage, hit_pos)
+			_deal_damage(collider, gun_damage, hit_pos)
 			hud.show_hit_marker()
 
 
@@ -191,7 +257,10 @@ func _update_muzzle_flash(delta: float) -> void:
 			muzzle_light.visible = false
 
 
+@rpc("any_peer", "call_local", "reliable")
 func take_damage(amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
+	if multiplayer.has_multiplayer_peer() and not is_multiplayer_authority():
+		return
 	health -= amount
 	health = maxf(health, 0.0)
 	hud.update_health(health, max_health)
@@ -199,18 +268,43 @@ func take_damage(amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
 	character_model.flash_damage()
 	if health <= 0.0:
 		died.emit()
+	elif multiplayer.has_multiplayer_peer():
+		_net_flash.rpc()
+
+
+@rpc("authority", "call_local", "unreliable")
+func _net_flash() -> void:
+	if not is_multiplayer_authority():
+		character_model.flash_damage()
+
+
+func _deal_damage(target: Node, amount: float, hit_pos: Vector3) -> void:
+	if not target.has_method("take_damage"):
+		return
+	if multiplayer.has_multiplayer_peer():
+		target.take_damage.rpc(amount, hit_pos)
+	else:
+		target.take_damage(amount, hit_pos)
 
 
 func _update_animation() -> void:
 	if _is_rolling:
+		_net_anim = "roll"
+		_net_anim_speed = 1.0
 		character_model.play_anim_timed("roll", roll_duration)
 		return
 	if not is_on_floor():
+		_net_anim = "rifle_jump"
+		_net_anim_speed = 2.0
 		character_model.play_anim("rifle_jump", 2.0)
 		return
 	var flat_vel := Vector3(velocity.x, 0.0, velocity.z)
 	if flat_vel.length() > 0.5:
 		var speed_ratio := flat_vel.length() / sprint_speed
-		character_model.play_anim("rifle_run", clampf(speed_ratio, 0.5, 1.5))
+		_net_anim_speed = clampf(speed_ratio, 0.5, 1.5)
+		_net_anim = "rifle_run"
+		character_model.play_anim("rifle_run", _net_anim_speed)
 	else:
+		_net_anim = "rifle_idle"
+		_net_anim_speed = 1.0
 		character_model.play_anim("rifle_idle")

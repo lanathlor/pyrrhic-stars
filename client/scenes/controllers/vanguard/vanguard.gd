@@ -80,6 +80,13 @@ var _gravity: float = 9.8
 var _flash_timer: float = 0.0
 var _facing_angle: float = 0.0
 
+# Network sync
+var _net_anim: String = ""
+var _net_anim_speed: float = 1.0
+var _net_position: Vector3 = Vector3.ZERO
+var _net_rotation_y: float = 0.0
+const NET_INTERP_SPEED := 15.0
+
 const WEAPON_SCENE := "res://assets/models/weapons/weapon_longsword.glb"
 
 @onready var camera: Camera3D = $Camera3D
@@ -88,18 +95,25 @@ const WEAPON_SCENE := "res://assets/models/weapons/weapon_longsword.glb"
 
 
 func _ready() -> void:
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	GameManager.register_player(self)
-	hud.update_health(health, max_health)
-	hud.update_stamina(stamina, max_stamina)
+	_net_position = global_position
+	_net_rotation_y = rotation.y
 	camera.top_level = true
-	# Attach longsword to right hand bone after character model loads
+
+	if _is_local():
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		hud.update_health(health, max_health)
+		hud.update_stamina(stamina, max_stamina)
+	else:
+		$HUDLayer.visible = false
+		camera.current = false
+		set_process_unhandled_input(false)
+
 	_attach_weapon.call_deferred()
 
 
+
 func _attach_weapon() -> void:
-	# Offset/rotation to align the sword grip in the hand
-	# Grip in palm, blade extending upward from hand
 	var offset_pos := Vector3(0.0, 0.08, 0.0)
 	var offset_rot := Vector3(deg_to_rad(20.0), 0.0, deg_to_rad(-90.0))
 	character_model.attach_weapon(WEAPON_SCENE, "mixamorig_RightHand", offset_pos, offset_rot)
@@ -109,7 +123,29 @@ func _exit_tree() -> void:
 	GameManager.unregister_player(self)
 
 
+func _is_local() -> bool:
+	var peer := multiplayer.multiplayer_peer
+	if peer == null or peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
+		return true
+	return is_multiplayer_authority()
+
+
+func _sync_state_to_peers() -> void:
+	_net_sync.rpc(_net_position, _net_rotation_y, _net_anim, _net_anim_speed, health)
+
+
+@rpc("any_peer", "call_remote", "unreliable_ordered")
+func _net_sync(pos: Vector3, rot_y: float, anim: String, anim_speed: float, hp: float) -> void:
+	_net_position = pos
+	_net_rotation_y = rot_y
+	_net_anim = anim
+	_net_anim_speed = anim_speed
+	health = hp
+
+
 func _unhandled_input(event: InputEvent) -> void:
+	if not _is_local():
+		return
 	if event is InputEventMouseMotion and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
 		_camera_yaw -= event.relative.x * mouse_sensitivity
 		_camera_pitch -= event.relative.y * mouse_sensitivity
@@ -120,6 +156,13 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if not _is_local():
+		global_position = global_position.lerp(_net_position, NET_INTERP_SPEED * delta)
+		rotation.y = lerp_angle(rotation.y, _net_rotation_y, NET_INTERP_SPEED * delta)
+		if _net_anim != "":
+			character_model.play_anim(_net_anim, _net_anim_speed)
+		return
+
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
 
@@ -152,6 +195,13 @@ func _physics_process(delta: float) -> void:
 	_update_animation()
 	_update_weapon_visual()
 	hud.update_lock_on(_lock_target, camera)
+
+	# Sync to remote peers
+	_net_position = global_position
+	_net_rotation_y = rotation.y
+	var peer := multiplayer.multiplayer_peer
+	if peer and peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+		_sync_state_to_peers()
 
 
 # --- Movement ---
@@ -468,15 +518,13 @@ func _perform_melee_hit(damage: float) -> void:
 			continue
 		if dist < 0.01:
 			# On top of enemy, always hits
-			if enemy.has_method("take_damage"):
-				enemy.take_damage(damage, global_position)
-				hud.show_hit_marker()
+			_deal_damage(enemy, damage, global_position)
+			hud.show_hit_marker()
 			continue
 		var angle := rad_to_deg(forward.angle_to(to_enemy.normalized()))
 		if angle <= melee_arc_degrees / 2.0:
-			if enemy.has_method("take_damage"):
-				enemy.take_damage(damage, global_position)
-				hud.show_hit_marker()
+			_deal_damage(enemy, damage, global_position)
+			hud.show_hit_marker()
 
 
 # --- Stamina ---
@@ -529,7 +577,10 @@ func _find_lock_target() -> Node3D:
 
 # --- Damage ---
 
+@rpc("any_peer", "call_local", "reliable")
 func take_damage(amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
+	if multiplayer.has_multiplayer_peer() and not is_multiplayer_authority():
+		return
 	if state == State.DEAD:
 		return
 	if _is_invincible:
@@ -562,6 +613,15 @@ func _die() -> void:
 	died.emit()
 
 
+func _deal_damage(target: Node, amount: float, hit_pos: Vector3) -> void:
+	if not target.has_method("take_damage"):
+		return
+	if multiplayer.has_multiplayer_peer():
+		target.take_damage.rpc(amount, hit_pos)
+	else:
+		target.take_damage(amount, hit_pos)
+
+
 # --- Visual feedback ---
 
 func _show_body_flash() -> void:
@@ -575,42 +635,66 @@ func _update_flash(_delta: float) -> void:
 func _update_animation() -> void:
 	match state:
 		State.DODGE:
+			_net_anim = "roll"
+			_net_anim_speed = 1.0
 			character_model.play_anim_timed("roll", dodge_duration)
 			return
 		State.LIGHT_1:
+			_net_anim = "sword_slash_1"
+			_net_anim_speed = 1.0
 			character_model.play_anim_timed("sword_slash_1", light_attack_duration)
 			return
 		State.LIGHT_2:
+			_net_anim = "sword_slash_2"
+			_net_anim_speed = 1.0
 			character_model.play_anim_timed("sword_slash_2", light_attack_duration)
 			return
 		State.LIGHT_3:
+			_net_anim = "sword_slash_3"
+			_net_anim_speed = 1.0
 			character_model.play_anim_timed("sword_slash_3", light_attack_duration)
 			return
 		State.HEAVY_WINDUP:
+			_net_anim = "sword_heavy"
+			_net_anim_speed = 1.0
 			character_model.play_anim_timed("sword_heavy", heavy_windup_time + heavy_attack_duration)
 			return
 		State.HEAVY:
+			_net_anim = "sword_heavy"
+			_net_anim_speed = 3.0
 			character_model.set_animation_speed(3.0)
 			return
 		State.BLOCK:
+			_net_anim = "sword_block"
+			_net_anim_speed = 1.0
 			character_model.play_anim("sword_block")
 			return
 		State.STAGGER:
+			_net_anim = "sword_impact"
+			_net_anim_speed = 1.0
 			character_model.play_anim("sword_impact")
 			return
 		State.DEAD:
+			_net_anim = "sword_idle"
+			_net_anim_speed = 1.0
 			character_model.play_anim("sword_idle")
 			return
 
 	if not is_on_floor():
+		_net_anim = "sword_jump"
+		_net_anim_speed = 2.0
 		character_model.play_anim("sword_jump", 2.0)
 		return
 
 	var flat_vel := Vector3(velocity.x, 0.0, velocity.z)
 	if flat_vel.length() > 0.5:
 		var speed_ratio := flat_vel.length() / sprint_speed
-		character_model.play_anim("sword_run", clampf(speed_ratio, 0.5, 1.5))
+		_net_anim_speed = clampf(speed_ratio, 0.5, 1.5)
+		_net_anim = "sword_run"
+		character_model.play_anim("sword_run", _net_anim_speed)
 	else:
+		_net_anim = "sword_idle"
+		_net_anim_speed = 1.0
 		character_model.play_anim("sword_idle")
 
 
