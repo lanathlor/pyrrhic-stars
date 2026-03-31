@@ -56,17 +56,26 @@ var _charge_telegraph_mesh: MeshInstance3D
 var _health_bar_pivot: Node3D
 var _health_bar_fg: MeshInstance3D
 
+# AoE fire particles
+var _aoe_particles: GPUParticles3D
+var _aoe_slam_particles: GPUParticles3D
+
 # Scene references
 @onready var melee_area: Area3D = $MeleeArea
 @onready var melee_collision: CollisionShape3D = $MeleeArea/CollisionShape3D
-@onready var body_mesh: MeshInstance3D = $Body
-
-var _flash_timer: float = 0.0
-var _default_body_material: StandardMaterial3D
-var _phase_body_material: StandardMaterial3D
+@onready var character_model: Node3D = $CharacterModel
 
 const PROJECTILE_SCENE_PATH := "res://scenes/enemies/basic_enemy/enemy_projectile.tscn"
+const SWORD_SCENE_PATH := "res://assets/models/weapons/weapon_longsword.glb"
+const GUN_SCENE_PATH := "res://assets/models/weapons/weapon_rifle.glb"
 var _projectile_scene: PackedScene
+
+# Weapon nodes (bone-attached via CharacterModel)
+var _sword_node: Node3D
+var _gun_node: Node3D
+var _sword_attachment: BoneAttachment3D
+var _gun_attachment: BoneAttachment3D
+var _last_weapon: String = "sword"  # which weapon to show between attacks
 
 
 func _ready() -> void:
@@ -75,15 +84,25 @@ func _ready() -> void:
 	melee_collision.disabled = true
 	GameManager.register_enemy(self)
 
-	# Store default body material for flash reset
-	_default_body_material = body_mesh.get_surface_override_material(0)
-
 	_create_health_bar()
 	_create_melee_telegraph()
 	_create_laser_warning()
 	_create_aoe_telegraph()
+	_create_aoe_particles()
 	_create_charge_telegraph()
+	_attach_weapons.call_deferred()
 	_change_state(State.CHASE)
+	# Debug: log loaded animations
+	call_deferred("_log_loaded_anims")
+
+
+func _log_loaded_anims() -> void:
+	var loaded: PackedStringArray = character_model._loaded_anims
+	print("[Boss] Loaded animations: ", loaded)
+	for needed in ["idle", "run", "slash", "rifle_idle", "rifle_shoot",
+			"rifle_aim_idle", "rifle_aim_run", "rifle_aim_walk"]:
+		if needed not in loaded:
+			print("[Boss] WARNING: animation '%s' not loaded — will use fallback" % needed)
 
 
 func _exit_tree() -> void:
@@ -95,8 +114,11 @@ func _physics_process(delta: float) -> void:
 		velocity.y -= _gravity * delta
 
 	_state_timer -= delta
-	_update_flash(delta)
 	_face_health_bar_to_camera()
+	_update_weapons(delta)
+	_update_boss_animation()
+	# Pin model Y to prevent animations with root motion from sinking the character
+	character_model.position.y = 0.0
 
 	match state:
 		State.CHASE:
@@ -398,21 +420,26 @@ func _process_melee_telegraph() -> void:
 
 
 func _process_melee_attack() -> void:
-	CombatLog.log_boss_attack("melee", _current_phase, global_position, _target_player.global_position if _target_player and is_instance_valid(_target_player) else global_position)
-	var hit_any := false
-	for player in GameManager.players:
-		if not is_instance_valid(player) or not player.visible:
-			continue
-		var dist := global_position.distance_to(player.global_position)
-		if dist <= melee_range:
-			var hit_dir := (player.global_position - global_position).normalized()
-			player.take_damage(_get_melee_damage(), global_position + hit_dir)
-			CombatLog.log_boss_hit("melee", _get_melee_damage(), player.name, player.global_position)
-			hit_any = true
-	if not hit_any:
-		CombatLog.log_boss_miss("melee")
+	velocity.x = 0.0
+	velocity.z = 0.0
 
-	_change_state(State.COOLDOWN)
+	if _state_timer <= 0.0:
+		# Damage lands at end of swing
+		CombatLog.log_boss_attack("melee", _current_phase, global_position, _target_player.global_position if _target_player and is_instance_valid(_target_player) else global_position)
+		var hit_any := false
+		for player in GameManager.players:
+			if not is_instance_valid(player) or not player.visible:
+				continue
+			var dist := global_position.distance_to(player.global_position)
+			if dist <= melee_range:
+				var hit_dir := (player.global_position - global_position).normalized()
+				player.take_damage(_get_melee_damage(), global_position + hit_dir)
+				CombatLog.log_boss_hit("melee", _get_melee_damage(), player.name, player.global_position)
+				hit_any = true
+		if not hit_any:
+			CombatLog.log_boss_miss("melee")
+
+		_change_state(State.COOLDOWN)
 
 
 func _process_ranged_telegraph() -> void:
@@ -449,23 +476,41 @@ func _process_aoe_telegraph() -> void:
 	velocity.x = 0.0
 	velocity.z = 0.0
 
-	# Cosmetic: lift body mesh during telegraph
-	var total_time := _get_aoe_telegraph_time()
-	var lift_progress := 1.0 - (_state_timer / total_time) if total_time > 0.0 else 1.0
-	body_mesh.position.y = 1.0 + lift_progress * 2.0
-
 	# Scale AoE indicator to current phase radius
 	var radius := _get_aoe_radius()
 	_aoe_telegraph_mesh.mesh.size = Vector2(radius * 2.0, radius * 2.0)
+
+	# Fire particles ramp up during telegraph
+	if _aoe_particles and _aoe_particles.emitting:
+		var total_time := _get_aoe_telegraph_time()
+		var progress := 1.0 - (_state_timer / total_time) if total_time > 0.0 else 1.0
+		var mat: ParticleProcessMaterial = _aoe_particles.process_material
+		# Ramp emission radius and intensity over telegraph
+		mat.emission_sphere_radius = radius * 0.3 * progress
+		mat.initial_velocity_min = 2.0 + 4.0 * progress
+		mat.initial_velocity_max = 4.0 + 6.0 * progress
+		mat.scale_min = 0.1 + 0.3 * progress
+		mat.scale_max = 0.2 + 0.5 * progress
 
 	if _state_timer <= 0.0:
 		_change_state(State.AOE_SLAM)
 
 
 func _process_aoe_slam() -> void:
-	body_mesh.position.y = 1.0  # snap back down
 	velocity.x = 0.0
 	velocity.z = 0.0
+
+	# Stop charging particles, fire the slam burst
+	if _aoe_particles:
+		_aoe_particles.emitting = false
+	if _aoe_slam_particles:
+		var radius := _get_aoe_radius()
+		var slam_mat: ParticleProcessMaterial = _aoe_slam_particles.process_material
+		slam_mat.emission_sphere_radius = radius * 0.15  # tight core
+		# Velocity tuned so the fireball fills the damage radius over ~0.3s
+		slam_mat.initial_velocity_min = radius * 1.2
+		slam_mat.initial_velocity_max = radius * 2.5
+		_aoe_slam_particles.emitting = true
 
 	var radius := _get_aoe_radius()
 	var damage := _get_aoe_damage()
@@ -562,6 +607,16 @@ func _change_state(new_state: State) -> void:
 	_aoe_telegraph_mesh.visible = false
 	_charge_telegraph_mesh.visible = false
 
+	# Stop charging particles (unless transitioning within AoE sequence)
+	if new_state != State.AOE_SLAM and new_state != State.AOE_TELEGRAPH:
+		if _aoe_particles:
+			_aoe_particles.emitting = false
+	# Slam particles are one-shot — let them play out naturally, never force-stop
+
+	# Reset model position and animation speed
+	character_model.position.y = 0.0
+	character_model.set_animation_speed(1.0)
+
 	state = new_state
 
 	match new_state:
@@ -571,7 +626,7 @@ func _change_state(new_state: State) -> void:
 			_state_timer = _get_melee_telegraph_time()
 			_melee_telegraph_mesh.visible = true
 		State.MELEE_ATTACK:
-			_state_timer = 0.1
+			_state_timer = 0.3  # time for the fast slash to play before dealing damage
 		State.RANGED_TELEGRAPH:
 			_state_timer = _get_ranged_telegraph_time()
 			_laser_warning_mesh.visible = true
@@ -582,6 +637,8 @@ func _change_state(new_state: State) -> void:
 		State.AOE_TELEGRAPH:
 			_state_timer = _get_aoe_telegraph_time()
 			_aoe_telegraph_mesh.visible = true
+			if _aoe_particles:
+				_aoe_particles.emitting = true
 		State.AOE_SLAM:
 			_state_timer = 0.1
 		State.CHARGE_TELEGRAPH:
@@ -596,7 +653,6 @@ func _change_state(new_state: State) -> void:
 				_charge_direction = -global_transform.basis.z.normalized()
 		State.COOLDOWN:
 			_state_timer = _get_cooldown_time()
-			body_mesh.position.y = 1.0  # ensure body is grounded after AoE
 		State.PHASE_TRANSITION:
 			_state_timer = 1.5
 
@@ -612,7 +668,7 @@ func take_damage(amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
 	health = maxf(health, 0.0)
 	CombatLog.log_player_damage(amount, global_position, State.keys()[state])
 	_update_health_bar()
-	_show_damage_flash()
+	character_model.flash_damage()
 
 	if health <= 0.0:
 		_die()
@@ -631,23 +687,6 @@ func _enter_phase(phase: int) -> void:
 	_phase_transitioned.append(phase)
 	CombatLog.log_phase_transition(phase, health, CombatLog._elapsed())
 	_change_state(State.PHASE_TRANSITION)
-
-	# Visual feedback
-	_phase_body_material = StandardMaterial3D.new()
-	if phase == 2:
-		_phase_body_material.albedo_color = Color(0.9, 0.4, 0.1)
-		_phase_body_material.emission_enabled = true
-		_phase_body_material.emission = Color(0.9, 0.3, 0.05)
-		_phase_body_material.emission_energy_multiplier = 1.0
-	elif phase == 3:
-		_phase_body_material.albedo_color = Color(1.0, 0.1, 0.1)
-		_phase_body_material.emission_enabled = true
-		_phase_body_material.emission = Color(1.0, 0.1, 0.05)
-		_phase_body_material.emission_energy_multiplier = 2.5
-	body_mesh.set_surface_override_material(0, _phase_body_material)
-	_default_body_material = _phase_body_material
-
-	# Health bar color
 	_update_health_bar_color()
 
 
@@ -659,24 +698,53 @@ func _die() -> void:
 
 
 # =============================================================================
-# Damage flash
+# Character model animations
 # =============================================================================
 
-func _show_damage_flash() -> void:
-	_flash_timer = 0.1
-	var flash_mat := StandardMaterial3D.new()
-	flash_mat.albedo_color = Color(1.0, 0.3, 0.3)
-	flash_mat.emission_enabled = true
-	flash_mat.emission = Color(1.0, 0.2, 0.2)
-	flash_mat.emission_energy_multiplier = 2.0
-	body_mesh.set_surface_override_material(0, flash_mat)
+func _play_anim_with_fallback(primary: String, fallback: String, speed: float = 1.0) -> void:
+	if primary in character_model._loaded_anims:
+		character_model.play_anim(primary, speed)
+	else:
+		character_model.play_anim(fallback, speed)
 
 
-func _update_flash(delta: float) -> void:
-	if _flash_timer > 0.0:
-		_flash_timer -= delta
-		if _flash_timer <= 0.0:
-			body_mesh.set_surface_override_material(0, _default_body_material)
+func _update_boss_animation() -> void:
+	match state:
+		State.CHASE:
+			var flat_speed := Vector2(velocity.x, velocity.z).length()
+			if _last_weapon == "gun":
+				if flat_speed > 0.5:
+					_play_anim_with_fallback("rifle_aim_run", "rifle_run")
+				else:
+					_play_anim_with_fallback("rifle_aim_idle", "rifle_idle")
+			else:
+				if flat_speed > 0.5:
+					_play_anim_with_fallback("sword_run", "run")
+				else:
+					_play_anim_with_fallback("sword_idle", "idle")
+		State.MELEE_TELEGRAPH:
+			# Slow wind-up pose
+			_play_anim_with_fallback("sword_heavy", "slash", 0.3)
+		State.MELEE_ATTACK:
+			# Fast slash on release — different animation
+			_play_anim_with_fallback("sword_slash_1", "slash")
+		State.RANGED_TELEGRAPH:
+			_play_anim_with_fallback("rifle_aim_idle", "rifle_idle")
+		State.RANGED_ATTACK:
+			_play_anim_with_fallback("rifle_shoot", "rifle_idle")
+		State.AOE_TELEGRAPH:
+			_play_anim_with_fallback("sword_idle", "idle")
+		State.AOE_SLAM:
+			_play_anim_with_fallback("sword_idle", "idle")
+		State.CHARGE_TELEGRAPH:
+			_play_anim_with_fallback("sword_idle", "idle")
+		State.CHARGE:
+			_play_anim_with_fallback("sword_run", "run", 1.5)
+		State.COOLDOWN, State.PHASE_TRANSITION, State.DEAD:
+			if _last_weapon == "gun":
+				_play_anim_with_fallback("rifle_aim_idle", "rifle_idle")
+			else:
+				_play_anim_with_fallback("sword_idle", "idle")
 
 
 # =============================================================================
@@ -742,7 +810,7 @@ func _update_health_bar_color() -> void:
 
 
 func _face_health_bar_to_camera() -> void:
-	_health_bar_pivot.global_position = global_position + Vector3(0.0, 2.5, 0.0)
+	_health_bar_pivot.global_position = global_position + Vector3(0.0, 3.0, 0.0)
 
 
 # =============================================================================
@@ -810,6 +878,226 @@ void fragment() {
 	return shader
 
 
+func _create_fire_shader() -> Shader:
+	var shader := Shader.new()
+	shader.code = "
+shader_type spatial;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never;
+
+// Procedural flame particle shader
+// Noise-based alpha mask, UV distortion, fire color ramp, soft edges
+
+varying flat float v_seed;
+
+void vertex() {
+	// Billboard: extract scale, rebuild modelview facing camera
+	float s_x = length(MODEL_MATRIX[0].xyz);
+	float s_y = length(MODEL_MATRIX[1].xyz);
+	float s_z = length(MODEL_MATRIX[2].xyz);
+	mat4 bill = mat4(
+		vec4(VIEW_MATRIX[0][0], VIEW_MATRIX[1][0], VIEW_MATRIX[2][0], 0.0) * s_x,
+		vec4(VIEW_MATRIX[0][1], VIEW_MATRIX[1][1], VIEW_MATRIX[2][1], 0.0) * s_y,
+		vec4(VIEW_MATRIX[0][2], VIEW_MATRIX[1][2], VIEW_MATRIX[2][2], 0.0) * s_z,
+		MODEL_MATRIX[3]
+	);
+	MODELVIEW_MATRIX = VIEW_MATRIX * bill;
+	MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);
+
+	// Per-instance seed for variation between particles
+	v_seed = COLOR.r * 7.3 + COLOR.g * 13.1 + float(INSTANCE_ID) * 1.37;
+}
+
+// Hash-based noise
+float hash(vec2 p) {
+	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+float noise(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f); // smoothstep
+	float a = hash(i);
+	float b = hash(i + vec2(1.0, 0.0));
+	float c = hash(i + vec2(0.0, 1.0));
+	float d = hash(i + vec2(1.0, 1.0));
+	return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+float fbm(vec2 p) {
+	float v = 0.0;
+	float a = 0.5;
+	for (int i = 0; i < 4; i++) {
+		v += a * noise(p);
+		p *= 2.2;
+		a *= 0.5;
+	}
+	return v;
+}
+
+void fragment() {
+	vec2 uv = UV * 2.0 - 1.0; // center UV [-1, 1]
+
+	// Radial distance from center
+	float dist = length(uv);
+
+	// Soft circular mask
+	float circle = 1.0 - smoothstep(0.3, 1.0, dist);
+
+	// Scroll UVs upward for flame lick effect
+	float t = TIME * 3.0 + v_seed;
+	vec2 flame_uv = uv * 2.5;
+	flame_uv.y -= t;  // scroll up
+
+	// Distort UVs with noise for organic movement
+	float distort = fbm(flame_uv * 1.5 + vec2(v_seed * 0.3, t * 0.5)) * 0.6;
+	flame_uv += distort;
+
+	// Main flame noise
+	float flame = fbm(flame_uv);
+
+	// Shape: stronger at bottom, tapers at top
+	float shape = smoothstep(1.0, -0.5, uv.y); // bright at bottom, fades at top
+	flame *= shape;
+
+	// Combine with circle mask
+	float alpha = flame * circle;
+	alpha = smoothstep(0.05, 0.5, alpha);
+
+	// Fire color ramp based on intensity
+	// Hot core (white-yellow) -> mid (orange) -> cool (red-black)
+	vec3 col_hot = vec3(1.0, 0.95, 0.8);   // white-yellow core
+	vec3 col_mid = vec3(1.0, 0.45, 0.05);   // orange
+	vec3 col_cool = vec3(0.6, 0.08, 0.01);  // deep red
+	vec3 col_smoke = vec3(0.15, 0.02, 0.0); // almost black
+
+	float intensity = alpha;
+	vec3 fire_color;
+	if (intensity > 0.7) {
+		fire_color = mix(col_mid, col_hot, (intensity - 0.7) / 0.3);
+	} else if (intensity > 0.4) {
+		fire_color = mix(col_cool, col_mid, (intensity - 0.4) / 0.3);
+	} else {
+		fire_color = mix(col_smoke, col_cool, intensity / 0.4);
+	}
+
+	// Multiply by vertex color (particle color ramp over lifetime)
+	fire_color *= COLOR.rgb;
+
+	// HDR emission for bloom
+	ALBEDO = fire_color * (2.0 + intensity * 4.0);
+	ALPHA = alpha * COLOR.a;
+}
+"
+	return shader
+
+
+func _create_aoe_particles() -> void:
+	var fire_shader := _create_fire_shader()
+
+	# --- Charging fire particles (emitted during telegraph, ramp up) ---
+	_aoe_particles = GPUParticles3D.new()
+	_aoe_particles.amount = 150
+	_aoe_particles.lifetime = 1.0
+	_aoe_particles.emitting = false
+	_aoe_particles.position = Vector3(0.0, 0.3, 0.0)
+
+	var mat := ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	mat.emission_sphere_radius = 0.3
+	mat.direction = Vector3(0.0, 1.0, 0.0)
+	mat.spread = 45.0
+	mat.initial_velocity_min = 1.5
+	mat.initial_velocity_max = 3.0
+	mat.gravity = Vector3(0.0, 3.0, 0.0)  # fire rises
+	mat.scale_min = 0.3
+	mat.scale_max = 0.8
+	mat.angular_velocity_min = -90.0
+	mat.angular_velocity_max = 90.0
+	# Lifetime color: fade out alpha over life
+	var color_ramp := Gradient.new()
+	color_ramp.set_color(0, Color(1.0, 1.0, 0.9, 1.0))
+	color_ramp.add_point(0.3, Color(1.0, 0.7, 0.3, 0.9))
+	color_ramp.add_point(0.7, Color(0.8, 0.2, 0.05, 0.6))
+	color_ramp.set_color(1, Color(0.2, 0.02, 0.0, 0.0))
+	var color_texture := GradientTexture1D.new()
+	color_texture.gradient = color_ramp
+	mat.color_ramp = color_texture
+	# Scale curve: grow then shrink
+	var scale_curve := CurveTexture.new()
+	var curve := Curve.new()
+	curve.add_point(Vector2(0.0, 0.3))
+	curve.add_point(Vector2(0.3, 1.0))
+	curve.add_point(Vector2(0.7, 0.8))
+	curve.add_point(Vector2(1.0, 0.1))
+	scale_curve.curve = curve
+	mat.scale_curve = scale_curve
+	_aoe_particles.process_material = mat
+
+	var draw_mesh := QuadMesh.new()
+	draw_mesh.size = Vector2(0.6, 0.8)  # taller than wide for flame shape
+	_aoe_particles.draw_pass_1 = draw_mesh
+	var fire_mat := ShaderMaterial.new()
+	fire_mat.shader = fire_shader
+	draw_mesh.material = fire_mat
+
+	add_child(_aoe_particles)
+
+	# --- Slam burst: dense fireball expanding outward ---
+	_aoe_slam_particles = GPUParticles3D.new()
+	_aoe_slam_particles.amount = 512
+	_aoe_slam_particles.lifetime = 1.0
+	_aoe_slam_particles.one_shot = true
+	_aoe_slam_particles.explosiveness = 1.0  # all at once
+	_aoe_slam_particles.emitting = false
+	_aoe_slam_particles.position = Vector3(0.0, 0.5, 0.0)
+
+	var slam_mat := ParticleProcessMaterial.new()
+	slam_mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	slam_mat.emission_sphere_radius = 1.0  # start from a wider core
+	slam_mat.direction = Vector3(0.0, 0.0, 0.0)  # no bias — pure radial
+	slam_mat.spread = 180.0
+	slam_mat.initial_velocity_min = 4.0   # slow — keeps the ball dense
+	slam_mat.initial_velocity_max = 10.0  # some faster ones at the front edge
+	slam_mat.gravity = Vector3(0.0, 0.5, 0.0)  # slight upward mushroom drift
+	slam_mat.damping_min = 2.0
+	slam_mat.damping_max = 4.0
+	slam_mat.scale_min = 2.0   # huge overlapping quads = solid mass
+	slam_mat.scale_max = 4.0
+	slam_mat.angular_velocity_min = -120.0
+	slam_mat.angular_velocity_max = 120.0
+	# Color: white-hot flash → yellow → orange → red → black
+	var slam_ramp := Gradient.new()
+	slam_ramp.set_color(0, Color(1.0, 1.0, 0.95, 1.0))   # white flash
+	slam_ramp.add_point(0.08, Color(1.0, 0.9, 0.4, 1.0))  # bright yellow
+	slam_ramp.add_point(0.25, Color(1.0, 0.5, 0.08, 0.95)) # orange
+	slam_ramp.add_point(0.5, Color(0.8, 0.2, 0.03, 0.7))  # red-orange
+	slam_ramp.add_point(0.75, Color(0.4, 0.06, 0.01, 0.35)) # dark red
+	slam_ramp.set_color(1, Color(0.08, 0.01, 0.0, 0.0))   # fade to nothing
+	var slam_color_tex := GradientTexture1D.new()
+	slam_color_tex.gradient = slam_ramp
+	slam_mat.color_ramp = slam_color_tex
+	# Scale curve: start big, hold, then shrink — keeps ball solid longer
+	var slam_scale_curve := CurveTexture.new()
+	var slam_curve := Curve.new()
+	slam_curve.add_point(Vector2(0.0, 0.6))
+	slam_curve.add_point(Vector2(0.1, 1.0))
+	slam_curve.add_point(Vector2(0.4, 0.9))
+	slam_curve.add_point(Vector2(0.7, 0.5))
+	slam_curve.add_point(Vector2(1.0, 0.05))
+	slam_scale_curve.curve = slam_curve
+	slam_mat.scale_curve = slam_scale_curve
+	_aoe_slam_particles.process_material = slam_mat
+
+	var slam_mesh := QuadMesh.new()
+	slam_mesh.size = Vector2(1.5, 1.5)  # large base quad
+	_aoe_slam_particles.draw_pass_1 = slam_mesh
+	var slam_fire_mat := ShaderMaterial.new()
+	slam_fire_mat.shader = fire_shader
+	slam_mesh.material = slam_fire_mat
+
+	add_child(_aoe_slam_particles)
+
+
 func _create_laser_warning() -> void:
 	_laser_warning_mesh = MeshInstance3D.new()
 	var mesh := BoxMesh.new()
@@ -872,6 +1160,68 @@ func _update_charge_indicator() -> void:
 
 
 # =============================================================================
+# Weapons (bone-attached via CharacterModel)
+# =============================================================================
+
+func _attach_weapons() -> void:
+	# Sword in right hand — used for melee, charge, AoE
+	_sword_node = character_model.attach_weapon(
+		SWORD_SCENE_PATH, "mixamorig_RightHand",
+		Vector3(0.0, 0.08, 0.0),
+		Vector3(deg_to_rad(20.0), 0.0, deg_to_rad(-90.0))
+	)
+	if _sword_node:
+		_sword_node.scale = Vector3(1.3, 1.3, 1.3)  # boss-sized
+		# Store attachment for show/hide
+		_sword_attachment = _sword_node.get_parent() as BoneAttachment3D
+
+	# Gun in left hand — used for ranged
+	# Need a second bone attachment (character_model.attach_weapon replaces previous)
+	# So we do it manually for the gun
+	var skel: Skeleton3D = character_model._skeleton
+	if skel:
+		var bone_idx: int = skel.find_bone("mixamorig_RightHand")
+		if bone_idx >= 0:
+			_gun_attachment = BoneAttachment3D.new()
+			_gun_attachment.bone_name = "mixamorig_RightHand"
+			skel.add_child(_gun_attachment)
+
+			var gun_scene := load(GUN_SCENE_PATH) as PackedScene
+			if gun_scene:
+				_gun_node = gun_scene.instantiate()
+				_gun_node.position = Vector3(0.0, 0.02, -0.1)
+				_gun_node.rotation = Vector3(0.0, deg_to_rad(90.0), deg_to_rad(-90.0))
+				_gun_node.scale = Vector3(1.5, 1.5, 1.5)  # boss-sized
+				_gun_attachment.add_child(_gun_node)
+
+	# Start with sword visible (default weapon)
+	if _sword_attachment:
+		_sword_attachment.visible = true
+	if _gun_attachment:
+		_gun_attachment.visible = false
+
+
+func _update_weapons(_delta: float) -> void:
+	# Track which weapon was last actively used
+	match state:
+		State.MELEE_TELEGRAPH, State.MELEE_ATTACK, \
+		State.CHARGE_TELEGRAPH, State.CHARGE, \
+		State.AOE_TELEGRAPH, State.AOE_SLAM:
+			_last_weapon = "sword"
+		State.RANGED_TELEGRAPH, State.RANGED_ATTACK:
+			_last_weapon = "gun"
+
+	# Show last used weapon during idle states
+	var show_sword := _last_weapon == "sword"
+	var show_gun := _last_weapon == "gun"
+
+	if _sword_attachment:
+		_sword_attachment.visible = show_sword
+	if _gun_attachment:
+		_gun_attachment.visible = show_gun
+
+
+# =============================================================================
 # Projectiles
 # =============================================================================
 
@@ -880,7 +1230,12 @@ func _fire_projectile_with_offset(angle_offset: float) -> void:
 		return
 	var projectile: Node3D = _projectile_scene.instantiate()
 	get_tree().current_scene.add_child(projectile)
-	var spawn_pos := global_position + Vector3(0.0, 1.0, 0.0)
+	# Spawn from gun muzzle if available, otherwise body center
+	var spawn_pos: Vector3
+	if _gun_node and _gun_attachment and _gun_attachment.visible:
+		spawn_pos = _gun_node.global_position + (-global_transform.basis.z * 0.8)
+	else:
+		spawn_pos = global_position + Vector3(0.0, 1.0, 0.0)
 	projectile.global_position = spawn_pos
 	var base_direction := (_ranged_target_position - spawn_pos).normalized()
 	# Apply horizontal rotation offset for spread

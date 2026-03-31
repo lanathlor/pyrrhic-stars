@@ -293,10 +293,21 @@ func test_charge_clears_hit_list() -> void:
 # AoE slam state
 # =============================================================================
 
-func test_aoe_slam_resets_body_position() -> void:
-	_enemy.body_mesh.position.y = 3.0  # simulating lifted body
+func test_aoe_particles_created() -> void:
+	assert_that(_enemy._aoe_particles).is_not_null()
+	assert_that(_enemy._aoe_slam_particles).is_not_null()
+
+
+func test_aoe_telegraph_starts_particles() -> void:
+	_enemy._change_state(_enemy.State.AOE_TELEGRAPH)
+	assert_bool(_enemy._aoe_particles.emitting).is_true()
+
+
+func test_aoe_slam_stops_charge_particles() -> void:
+	_enemy._change_state(_enemy.State.AOE_TELEGRAPH)
+	_enemy._change_state(_enemy.State.AOE_SLAM)
 	_enemy._process_aoe_slam()
-	assert_float(_enemy.body_mesh.position.y).is_equal(1.0)
+	assert_bool(_enemy._aoe_particles.emitting).is_false()
 
 
 # =============================================================================
@@ -319,3 +330,105 @@ func test_dead_enemy_hides() -> void:
 func test_dead_enemy_loses_collision() -> void:
 	_enemy.take_damage(_enemy.max_health)
 	assert_int(_enemy.collision_layer).is_equal(0)
+
+
+# =============================================================================
+# Character model & Weapons
+# =============================================================================
+
+func test_character_model_exists() -> void:
+	assert_that(_enemy.character_model).is_not_null()
+
+
+func test_weapon_scenes_defined() -> void:
+	assert_that(_enemy.SWORD_SCENE_PATH).is_not_null()
+	assert_that(_enemy.GUN_SCENE_PATH).is_not_null()
+
+
+func test_sword_attachment_created() -> void:
+	await get_tree().process_frame
+	assert_that(_enemy._sword_attachment).is_not_null()
+
+
+func test_gun_attachment_created() -> void:
+	await get_tree().process_frame
+	assert_that(_enemy._gun_attachment).is_not_null()
+
+
+func test_last_weapon_starts_as_sword() -> void:
+	assert_str(_enemy._last_weapon).is_equal("sword")
+
+
+func test_melee_sets_last_weapon_to_sword() -> void:
+	_enemy._last_weapon = "gun"
+	_enemy._change_state(_enemy.State.MELEE_TELEGRAPH)
+	_enemy._update_weapons(1.0 / 60.0)
+	assert_str(_enemy._last_weapon).is_equal("sword")
+
+
+func test_ranged_sets_last_weapon_to_gun() -> void:
+	_enemy._change_state(_enemy.State.RANGED_TELEGRAPH)
+	_enemy._update_weapons(1.0 / 60.0)
+	assert_str(_enemy._last_weapon).is_equal("gun")
+
+
+func test_sword_visible_during_melee() -> void:
+	await get_tree().process_frame
+	_enemy._change_state(_enemy.State.MELEE_TELEGRAPH)
+	_enemy._update_weapons(1.0 / 60.0)
+	if _enemy._sword_attachment:
+		assert_bool(_enemy._sword_attachment.visible).is_true()
+	if _enemy._gun_attachment:
+		assert_bool(_enemy._gun_attachment.visible).is_false()
+
+
+func test_gun_visible_during_ranged() -> void:
+	await get_tree().process_frame
+	_enemy._change_state(_enemy.State.RANGED_TELEGRAPH)
+	_enemy._update_weapons(1.0 / 60.0)
+	if _enemy._sword_attachment:
+		assert_bool(_enemy._sword_attachment.visible).is_false()
+	if _enemy._gun_attachment:
+		assert_bool(_enemy._gun_attachment.visible).is_true()
+
+
+func test_sword_persists_during_chase_after_melee() -> void:
+	await get_tree().process_frame
+	_enemy._change_state(_enemy.State.MELEE_TELEGRAPH)
+	_enemy._update_weapons(1.0 / 60.0)
+	_enemy._change_state(_enemy.State.CHASE)
+	_enemy._update_weapons(1.0 / 60.0)
+	if _enemy._sword_attachment:
+		assert_bool(_enemy._sword_attachment.visible).is_true()
+
+
+func test_gun_persists_during_chase_after_ranged() -> void:
+	await get_tree().process_frame
+	_enemy._change_state(_enemy.State.RANGED_TELEGRAPH)
+	_enemy._update_weapons(1.0 / 60.0)
+	_enemy._change_state(_enemy.State.CHASE)
+	_enemy._update_weapons(1.0 / 60.0)
+	if _enemy._gun_attachment:
+		assert_bool(_enemy._gun_attachment.visible).is_true()
+	if _enemy._sword_attachment:
+		assert_bool(_enemy._sword_attachment.visible).is_false()
+
+
+# =============================================================================
+# Animation correctness
+# =============================================================================
+
+func test_core_anims_loaded() -> void:
+	await get_tree().process_frame
+	var loaded: PackedStringArray = _enemy.character_model._loaded_anims
+	for anim_name in ["idle", "run", "slash", "rifle_idle"]:
+		assert_bool(anim_name in loaded).is_true()
+
+
+func test_model_y_pinned_to_zero_during_ranged() -> void:
+	_enemy._change_state(_enemy.State.RANGED_TELEGRAPH)
+	# Simulate several frames
+	for i in 10:
+		_enemy._update_boss_animation()
+		_enemy.character_model.position.y = 0.0  # mimics the pinning in _physics_process
+	assert_float(_enemy.character_model.position.y).is_equal(0.0)

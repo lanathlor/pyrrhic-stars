@@ -1,17 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scenes/enemies/basic_enemy/basic_enemy.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/shared/character_model/character_model.tscn" id="2"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_enemy"]
 radius = 0.5
 height = 2.0
-
-[sub_resource type="CapsuleMesh" id="CapsuleMesh_enemy"]
-radius = 0.5
-height = 2.0
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_enemy"]
-albedo_color = Color(0.7, 0.15, 0.15, 1)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_melee"]
 size = Vector3(3, 2, 3)
@@ -25,10 +19,8 @@ script = ExtResource("1")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 shape = SubResource("CapsuleShape3D_enemy")
 
-[node name="Body" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
-mesh = SubResource("CapsuleMesh_enemy")
-surface_material_override/0 = SubResource("StandardMaterial3D_enemy")
+[node name="CharacterModel" parent="." instance=ExtResource("2")]
+transform = Transform3D(1.3, 0, 0, 0, 1.3, 0, 0, 0, 1.3, 0, 0, 0)
 
 [node name="MeleeArea" type="Area3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -1.5)
