@@ -3,12 +3,14 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs-stable.url = "github:NixOS/nixpkgs/nixos-24.11";
   };
 
-  outputs = { self, nixpkgs }:
+  outputs = { self, nixpkgs, nixpkgs-stable }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
+      pkgs-stable = nixpkgs-stable.legacyPackages.${system};
     in
     {
       devShells.${system}.default = pkgs.mkShell {
@@ -16,8 +18,8 @@
           # Client
           godot_4
 
-          # Assets
-          blender
+          # Assets (Blender from stable to avoid LLVM 19/21 conflict with Mesa)
+          pkgs-stable.blender
           uv            # uvx for blender-mcp
 
           # Server
@@ -42,7 +44,7 @@
         shellHook = ''
           echo "Codex Online dev shell"
           echo "  godot : $(godot --version 2>/dev/null || echo 'available')"
-          echo "  blender: $(blender --version 2>&1 | head -1)"
+          echo "  blender: $(blender --version 2>&1 | head -1) (from nixos-24.11)"
           echo "  go    : $(go version 2>/dev/null | cut -d' ' -f3)"
           echo "  redis : $(redis-server --version 2>/dev/null | cut -d' ' -f1-3)"
         '';
