@@ -124,3 +124,17 @@ func test_gravity_is_reduced() -> void:
 
 func test_air_accel_much_lower_than_ground() -> void:
 	assert_float(_gunner.air_accel).is_less(_gunner.ground_accel * 0.2)
+
+
+# --- Weapon Attachment ---
+
+func test_weapon_scene_path_defined() -> void:
+	assert_that(_gunner.WEAPON_SCENE).is_not_null()
+
+
+func test_model_hidden_for_fps() -> void:
+	# CharacterModel children should be invisible in FPS mode
+	await get_tree().process_frame
+	for child in _gunner.character_model.get_children():
+		if child is Node3D:
+			assert_bool(child.visible).is_false()

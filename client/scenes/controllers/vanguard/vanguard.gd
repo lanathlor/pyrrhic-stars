@@ -80,9 +80,10 @@ var _gravity: float = 9.8
 var _flash_timer: float = 0.0
 var _facing_angle: float = 0.0
 
+const WEAPON_SCENE := "res://assets/models/weapons/weapon_longsword.glb"
+
 @onready var camera: Camera3D = $Camera3D
-@onready var body_mesh: MeshInstance3D = $Body
-@onready var weapon_pivot: Node3D = $WeaponPivot
+@onready var character_model: Node3D = $CharacterModel
 @onready var hud: Control = $HUDLayer/VanguardHUD
 
 
@@ -92,6 +93,16 @@ func _ready() -> void:
 	hud.update_health(health, max_health)
 	hud.update_stamina(stamina, max_stamina)
 	camera.top_level = true
+	# Attach longsword to right hand bone after character model loads
+	_attach_weapon.call_deferred()
+
+
+func _attach_weapon() -> void:
+	# Offset/rotation to align the sword grip in the hand
+	# Grip in palm, blade extending upward from hand
+	var offset_pos := Vector3(0.0, 0.08, 0.0)
+	var offset_rot := Vector3(deg_to_rad(20.0), 0.0, deg_to_rad(-90.0))
+	character_model.attach_weapon(WEAPON_SCENE, "mixamorig_RightHand", offset_pos, offset_rot)
 
 
 func _exit_tree() -> void:
@@ -138,6 +149,7 @@ func _physics_process(delta: float) -> void:
 			velocity.z = 0.0
 
 	move_and_slide()
+	_update_animation()
 	_update_weapon_visual()
 	hud.update_lock_on(_lock_target, camera)
 
@@ -553,38 +565,59 @@ func _die() -> void:
 # --- Visual feedback ---
 
 func _show_body_flash() -> void:
-	_flash_timer = 0.1
-	var flash_mat := StandardMaterial3D.new()
-	flash_mat.albedo_color = Color(1.0, 0.3, 0.3)
-	flash_mat.emission_enabled = true
-	flash_mat.emission = Color(1.0, 0.2, 0.2)
-	flash_mat.emission_energy_multiplier = 2.0
-	body_mesh.set_surface_override_material(0, flash_mat)
+	character_model.flash_damage()
 
 
-func _update_flash(delta: float) -> void:
-	if _flash_timer > 0.0:
-		_flash_timer -= delta
-		if _flash_timer <= 0.0:
-			body_mesh.set_surface_override_material(0, null)
+func _update_flash(_delta: float) -> void:
+	pass
+
+
+func _update_animation() -> void:
+	match state:
+		State.DODGE:
+			character_model.play_anim_timed("roll", dodge_duration)
+			return
+		State.LIGHT_1:
+			character_model.play_anim_timed("sword_slash_1", light_attack_duration)
+			return
+		State.LIGHT_2:
+			character_model.play_anim_timed("sword_slash_2", light_attack_duration)
+			return
+		State.LIGHT_3:
+			character_model.play_anim_timed("sword_slash_3", light_attack_duration)
+			return
+		State.HEAVY_WINDUP:
+			character_model.play_anim_timed("sword_heavy", heavy_windup_time + heavy_attack_duration)
+			return
+		State.HEAVY:
+			character_model.set_animation_speed(3.0)
+			return
+		State.BLOCK:
+			character_model.play_anim("sword_block")
+			return
+		State.STAGGER:
+			character_model.play_anim("sword_impact")
+			return
+		State.DEAD:
+			character_model.play_anim("sword_idle")
+			return
+
+	if not is_on_floor():
+		character_model.play_anim("sword_jump", 2.0)
+		return
+
+	var flat_vel := Vector3(velocity.x, 0.0, velocity.z)
+	if flat_vel.length() > 0.5:
+		var speed_ratio := flat_vel.length() / sprint_speed
+		character_model.play_anim("sword_run", clampf(speed_ratio, 0.5, 1.5))
+	else:
+		character_model.play_anim("sword_idle")
 
 
 func _update_weapon_visual() -> void:
-	match state:
-		State.LIGHT_1:
-			weapon_pivot.rotation = Vector3(deg_to_rad(-30.0), 0.0, deg_to_rad(-60.0))
-		State.LIGHT_2:
-			weapon_pivot.rotation = Vector3(deg_to_rad(-30.0), 0.0, deg_to_rad(60.0))
-		State.LIGHT_3:
-			weapon_pivot.rotation = Vector3(deg_to_rad(-90.0), 0.0, 0.0)
-		State.HEAVY_WINDUP:
-			weapon_pivot.rotation = Vector3(deg_to_rad(45.0), 0.0, 0.0)
-		State.HEAVY:
-			weapon_pivot.rotation = Vector3(deg_to_rad(-90.0), 0.0, 0.0)
-		State.BLOCK:
-			weapon_pivot.rotation = Vector3(0.0, deg_to_rad(90.0), 0.0)
-		_:
-			weapon_pivot.rotation = Vector3(deg_to_rad(-20.0), 0.0, 0.0)
+	# Weapon is now bone-attached; skip if not ready yet
+	if not character_model.weapon_node:
+		return
 
 
 # --- Helpers ---

@@ -38,11 +38,14 @@ var _roll_timer: float = 0.0
 var _roll_cooldown_timer: float = 0.0
 var _roll_direction: Vector3 = Vector3.ZERO
 
+const WEAPON_SCENE := "res://assets/models/weapons/weapon_rifle.glb"
+
 @onready var head: Node3D = $Head
 @onready var camera: Camera3D = $Head/Camera3D
 @onready var gun_ray: RayCast3D = $Head/GunRay
 @onready var muzzle_light: OmniLight3D = $Head/MuzzleLight
 @onready var hud: Control = $HUDLayer/GunnerHUD
+@onready var character_model: Node3D = $CharacterModel
 
 var _muzzle_flash_timer: float = 0.0
 
@@ -51,6 +54,16 @@ func _ready() -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	GameManager.register_player(self)
 	hud.update_health(health, max_health)
+	# FPS: hide own body so it doesn't clip into the camera
+	character_model.hide_model()
+	# Attach rifle to right hand (visible to other players in multiplayer)
+	_attach_weapon.call_deferred()
+
+
+func _attach_weapon() -> void:
+	var offset_pos := Vector3(0.0, 0.08, 0.0)
+	var offset_rot := Vector3(deg_to_rad(-90.0), 0.0, 0.0)
+	character_model.attach_weapon(WEAPON_SCENE, "mixamorig_RightHand", offset_pos, offset_rot)
 
 
 func _exit_tree() -> void:
@@ -83,6 +96,7 @@ func _physics_process(delta: float) -> void:
 		_handle_shooting(delta)
 
 	_update_muzzle_flash(delta)
+	_update_animation()
 	hud.update_roll_cooldown(_roll_cooldown_timer, roll_cooldown)
 
 
@@ -182,5 +196,21 @@ func take_damage(amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
 	health = maxf(health, 0.0)
 	hud.update_health(health, max_health)
 	hud.show_damage_flash()
+	character_model.flash_damage()
 	if health <= 0.0:
 		died.emit()
+
+
+func _update_animation() -> void:
+	if _is_rolling:
+		character_model.play_anim_timed("roll", roll_duration)
+		return
+	if not is_on_floor():
+		character_model.play_anim("rifle_jump", 2.0)
+		return
+	var flat_vel := Vector3(velocity.x, 0.0, velocity.z)
+	if flat_vel.length() > 0.5:
+		var speed_ratio := flat_vel.length() / sprint_speed
+		character_model.play_anim("rifle_run", clampf(speed_ratio, 0.5, 1.5))
+	else:
+		character_model.play_anim("rifle_idle")

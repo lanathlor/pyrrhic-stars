@@ -301,3 +301,21 @@ func test_melee_range() -> void:
 
 func test_dodge_iframe_value() -> void:
 	assert_float(_vanguard.dodge_iframe_duration).is_equal(0.15)
+
+
+# --- Weapon Attachment ---
+
+func test_weapon_scene_path_defined() -> void:
+	assert_that(_vanguard.WEAPON_SCENE).is_not_null()
+
+
+func test_weapon_attaches_after_ready() -> void:
+	# call_deferred runs after the frame, so process one more frame
+	await get_tree().process_frame
+	assert_that(_vanguard.character_model.weapon_node).is_not_null()
+
+
+func test_weapon_is_in_scene_tree() -> void:
+	await get_tree().process_frame
+	if _vanguard.character_model.weapon_node:
+		assert_bool(_vanguard.character_model.weapon_node.is_inside_tree()).is_true()
