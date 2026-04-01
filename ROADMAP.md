@@ -75,7 +75,7 @@ Status: **BLOCKED** (waiting on Phase 0 completion)
 
 ### Server
 
--   [ ] Go gateway service (WebSocket transport, player connections)
+-   [x] Go gateway service (WebSocket transport, player connections)
 -   [ ] Go zone service (tick loop, game simulation)
 -   [ ] Go chat service (Redis pub/sub)
 -   [ ] Redis integration (player positions, combat state, Flux)
@@ -90,7 +90,7 @@ Status: **BLOCKED** (waiting on Phase 0 completion)
 
 ### Client
 
--   [ ] Client networking layer (WebSocket, server-reconciled movement)
+-   [x] Client networking layer (WebSocket, server-reconciled movement)
 -   [ ] 3 playable classes polished: Gunner (Assault), Vanguard (Blade), Blade Dancer (Multi)
 -   [ ] Basic HUD per class
 -   [ ] Basic sound design

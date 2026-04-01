@@ -1,8 +1,9 @@
 extends Node
 
-## Manages WebSocket connection to the Go relay server.
-## Replaces the old ENet peer-to-peer networking.
+## Manages WebSocket connection to the Go game server.
+## Server-authoritative model: client sends inputs, server sends world state.
 
+# -- Legacy signals (kept for migration compatibility) --
 signal player_connected(peer_id: int)
 signal player_disconnected(peer_id: int)
 signal connection_succeeded
@@ -11,18 +12,39 @@ signal all_players_ready
 signal player_info_changed
 signal message_received(opcode: int, sender_id: int, payload: PackedByteArray)
 
+# -- Server-authoritative signals --
+signal lobby_state_updated(players: Array)
+signal world_state_received(state: Dictionary)
+signal damage_event_received(event: Dictionary)
+signal game_flow_event(flow_type: int, text: String)
+signal hub_state_received(state: Dictionary)
+signal zone_transfer_received(zone_type: int, new_peer_id: int)
+signal group_state_updated(data: Dictionary)
+signal group_invite_received(group_id: int, leader_name: String)
+signal group_error_received(code: int, msg: String)
+signal player_names_received(names: Dictionary)
+
 const DEFAULT_PORT := 7777
 
+## Kept for migration compatibility. Always false -- server is the authority.
 var is_host := false
 var is_active := false
+var username: String = ""
+var current_zone_type: int = NetSerializer.ZONE_TYPE_HUB
 
 # peer_id -> { "class_name": String, "ready": bool }
+# Populated from OP_LOBBY_STATE; used by lobby UI.
 var player_info: Dictionary = {}
 
 var _ws := WebSocketPeer.new()
 var _my_peer_id: int = 0
 var _was_connected := false
+var _input_tick: int = 0
 
+
+# =============================================================================
+# Connection
+# =============================================================================
 
 func connect_to_server(address: String = "127.0.0.1") -> Error:
 	disconnect_game()
@@ -47,6 +69,7 @@ func disconnect_game() -> void:
 	is_active = false
 	_my_peer_id = 0
 	_was_connected = false
+	_input_tick = 0
 
 
 func get_my_id() -> int:
@@ -54,6 +77,10 @@ func get_my_id() -> int:
 		return 1
 	return _my_peer_id
 
+
+# =============================================================================
+# Sending
+# =============================================================================
 
 func send_msg(opcode: int, payload: PackedByteArray = PackedByteArray()) -> void:
 	if _ws.get_ready_state() != WebSocketPeer.STATE_OPEN:
@@ -64,6 +91,50 @@ func send_msg(opcode: int, payload: PackedByteArray = PackedByteArray()) -> void
 	msg.append_array(payload)
 	_ws.send(msg, WebSocketPeer.WRITE_MODE_BINARY)
 
+
+## Send position + rotation + animation for one simulation tick.
+func send_player_position(pos: Vector3, rot_y: float, anim_name: String = "", anim_speed: float = 1.0) -> void:
+	_input_tick += 1
+	send_msg(NetSerializer.OP_PLAYER_INPUT,
+		NetSerializer.encode_player_input(pos, rot_y, _input_tick, anim_name, anim_speed))
+
+
+## Send a combat action to the server.
+func send_ability(action_id: int, aim_pitch: float = 0.0) -> void:
+	send_msg(NetSerializer.OP_ABILITY_INPUT,
+		NetSerializer.encode_ability(action_id, aim_pitch))
+
+
+## Send a generic interaction to the server (class select, ready toggle, etc.).
+func send_interact(action: int, data: String = "") -> void:
+	send_msg(NetSerializer.OP_INTERACT_INPUT, NetSerializer.encode_interact_input(action, data))
+
+
+# =============================================================================
+# Lobby helpers (use InteractInput under the hood)
+# =============================================================================
+
+func set_player_class(class_name_str: String) -> void:
+	if not is_active:
+		return
+	send_interact(0, class_name_str)  # InteractClassSelect = 0
+
+
+func set_player_ready(_is_ready: bool) -> void:
+	if not is_active:
+		return
+	send_interact(1)  # InteractReadyToggle = 1
+
+
+func reset_ready_states() -> void:
+	if not is_active:
+		return
+	send_interact(2)  # InteractResetReady = 2
+
+
+# =============================================================================
+# Poll loop
+# =============================================================================
 
 func _process(_delta: float) -> void:
 	if not is_active:
@@ -92,9 +163,17 @@ func _process(_delta: float) -> void:
 
 
 func _on_ws_connected() -> void:
-	print("[Net] WebSocket connected, joining zone...")
-	send_msg(NetSerializer.OP_JOIN_ZONE, NetSerializer.encode_join_zone("arena"))
+	print("[Net] WebSocket connected, sending username and joining hub...")
+	# Send username first, then join the hub zone
+	if username != "":
+		send_msg(NetSerializer.OP_SET_USERNAME, NetSerializer.encode_username(username))
+	send_msg(NetSerializer.OP_JOIN_ZONE, NetSerializer.encode_join_zone("hub"))
+	current_zone_type = NetSerializer.ZONE_TYPE_HUB
 
+
+# =============================================================================
+# Message dispatch
+# =============================================================================
 
 func _on_message(data: PackedByteArray) -> void:
 	var parsed := NetSerializer.decode_header(data)
@@ -106,26 +185,43 @@ func _on_message(data: PackedByteArray) -> void:
 	var payload: PackedByteArray = parsed.payload
 
 	match opcode:
+		# -- Zone management --
 		NetSerializer.OP_ZONE_JOINED:
 			_handle_zone_joined(payload)
 		NetSerializer.OP_PEER_CONNECTED:
 			_handle_peer_connected(payload)
 		NetSerializer.OP_PEER_DISCONNECTED:
 			_handle_peer_disconnected(payload)
-		NetSerializer.OP_CLASS_SELECT:
-			_handle_class_select(sender_id, payload)
-		NetSerializer.OP_READY_STATE:
-			_handle_ready_state(sender_id, payload)
-		NetSerializer.OP_PLAYER_INFO:
-			_handle_player_info(payload)
-		NetSerializer.OP_RESET_READY:
-			_reset_ready_local()
+		NetSerializer.OP_ZONE_TRANSFER:
+			_handle_zone_transfer(payload)
+
+		# -- Server-authoritative state --
+		NetSerializer.OP_LOBBY_STATE:
+			_handle_lobby_state(payload)
+		NetSerializer.OP_WORLD_STATE:
+			_handle_world_state(payload)
+		NetSerializer.OP_DAMAGE_EVENT:
+			_handle_damage_event(payload)
+		NetSerializer.OP_GAME_FLOW_EVENT:
+			_handle_game_flow_event(payload)
+		NetSerializer.OP_HUB_STATE:
+			_handle_hub_state(payload)
+
+		# -- Group --
+		NetSerializer.OP_GROUP_STATE:
+			_handle_group_state(payload)
+		NetSerializer.OP_GROUP_INVITE_RECV:
+			_handle_group_invite(payload)
+		NetSerializer.OP_GROUP_ERROR:
+			_handle_group_error(payload)
+
+		# -- Anything else (legacy or unknown) --
 		_:
 			message_received.emit(opcode, sender_id, payload)
 
 
 # =============================================================================
-# Server message handlers
+# Zone handlers
 # =============================================================================
 
 func _handle_zone_joined(payload: PackedByteArray) -> void:
@@ -133,10 +229,10 @@ func _handle_zone_joined(payload: PackedByteArray) -> void:
 	if info.is_empty():
 		return
 	_my_peer_id = info.peer_id
-	is_host = info.is_host
-	print("[Net] Joined zone as peer %d (host=%s)" % [_my_peer_id, is_host])
+	# is_host stays false -- server is always authority
+	print("[Net] Joined zone as peer %d" % _my_peer_id)
 
-	# Register self
+	# Register self with a default entry until the first LobbyState arrives
 	player_info[_my_peer_id] = {"class_name": "gunner", "ready": false}
 	connection_succeeded.emit()
 	player_info_changed.emit()
@@ -152,12 +248,6 @@ func _handle_peer_connected(payload: PackedByteArray) -> void:
 	player_connected.emit(peer_id)
 	player_info_changed.emit()
 
-	# If host, send existing player info to the new peer
-	if is_host:
-		for pid in player_info:
-			send_msg(NetSerializer.OP_PLAYER_INFO,
-				NetSerializer.encode_player_info(pid, player_info[pid]["class_name"], player_info[pid]["ready"]))
-
 
 func _handle_peer_disconnected(payload: PackedByteArray) -> void:
 	var peer_id := NetSerializer.decode_peer_id(payload)
@@ -170,82 +260,86 @@ func _handle_peer_disconnected(payload: PackedByteArray) -> void:
 
 
 # =============================================================================
-# Lobby message handlers
+# Server-authoritative handlers
 # =============================================================================
 
-func _handle_class_select(sender_id: int, payload: PackedByteArray) -> void:
-	var info := NetSerializer.decode_class_select(payload)
-	if sender_id in player_info:
-		player_info[sender_id]["class_name"] = info.class_name
-		player_info_changed.emit()
-	# If host, relay to all peers via PlayerInfo
-	if is_host:
-		for pid in player_info:
-			send_msg(NetSerializer.OP_PLAYER_INFO,
-				NetSerializer.encode_player_info(sender_id, info.class_name, player_info[sender_id]["ready"]))
-
-
-func _handle_ready_state(sender_id: int, payload: PackedByteArray) -> void:
-	var info := NetSerializer.decode_ready_state(payload)
-	if sender_id in player_info:
-		player_info[sender_id]["ready"] = info.is_ready
-		player_info_changed.emit()
-	# If host, relay and check
-	if is_host:
-		for pid in player_info:
-			send_msg(NetSerializer.OP_PLAYER_INFO,
-				NetSerializer.encode_player_info(sender_id, player_info[sender_id]["class_name"], info.is_ready))
-		_check_all_ready()
-
-
-func _handle_player_info(payload: PackedByteArray) -> void:
-	var info := NetSerializer.decode_player_info(payload)
-	player_info[info.peer_id] = {"class_name": info.class_name, "ready": info.is_ready}
+func _handle_lobby_state(payload: PackedByteArray) -> void:
+	var data := NetSerializer.decode_lobby_state(payload)
+	player_info.clear()
+	for p in data.players:
+		player_info[p.peer_id] = {"class_name": p.class_name, "ready": p.is_ready}
+	lobby_state_updated.emit(data.players)
 	player_info_changed.emit()
 
 
+func _handle_world_state(payload: PackedByteArray) -> void:
+	var data := NetSerializer.decode_world_state(payload)
+	world_state_received.emit(data)
+
+
+func _handle_damage_event(payload: PackedByteArray) -> void:
+	var data := NetSerializer.decode_damage_event(payload)
+	damage_event_received.emit(data)
+
+
+func _handle_game_flow_event(payload: PackedByteArray) -> void:
+	var data := NetSerializer.decode_game_flow_event(payload)
+	game_flow_event.emit(data.flow_type, data.text)
+	# Emit all_players_ready for legacy compatibility when server sends FLOW_SPAWN_PLAYERS
+	if data.flow_type == NetSerializer.FLOW_SPAWN_PLAYERS:
+		all_players_ready.emit()
+
+
+func _handle_hub_state(payload: PackedByteArray) -> void:
+	var data := NetSerializer.decode_hub_state(payload)
+	hub_state_received.emit(data)
+
+
+func _handle_zone_transfer(payload: PackedByteArray) -> void:
+	var data := NetSerializer.decode_zone_transfer(payload)
+	if data.is_empty():
+		return
+	_my_peer_id = data.new_peer_id
+	current_zone_type = data.zone_type
+	player_info.clear()
+	print("[Net] Zone transfer: type=%d, new peer_id=%d" % [data.zone_type, data.new_peer_id])
+	zone_transfer_received.emit(data.zone_type, data.new_peer_id)
+
+
+func _handle_group_state(payload: PackedByteArray) -> void:
+	var data := NetSerializer.decode_group_state(payload)
+	group_state_updated.emit(data)
+
+
+func _handle_group_invite(payload: PackedByteArray) -> void:
+	var data := NetSerializer.decode_group_invite_received(payload)
+	group_invite_received.emit(data.group_id, data.leader_name)
+
+
+func _handle_group_error(payload: PackedByteArray) -> void:
+	var data := NetSerializer.decode_group_error(payload)
+	group_error_received.emit(data.error_code, data.message)
+
+
 # =============================================================================
-# Ready / lobby helpers
+# Group / social send helpers
 # =============================================================================
 
-func set_player_class(class_name_str: String) -> void:
-	if not is_active:
-		return
-	send_msg(NetSerializer.OP_CLASS_SELECT, NetSerializer.encode_class_select(class_name_str))
-	# Update locally immediately for host
-	if _my_peer_id in player_info:
-		player_info[_my_peer_id]["class_name"] = class_name_str
-		player_info_changed.emit()
+func send_group_create() -> void:
+	send_msg(NetSerializer.OP_GROUP_CREATE)
 
 
-func set_player_ready(is_ready: bool) -> void:
-	if not is_active:
-		return
-	send_msg(NetSerializer.OP_READY_STATE, NetSerializer.encode_ready_state(is_ready))
-	# Update locally immediately
-	if _my_peer_id in player_info:
-		player_info[_my_peer_id]["ready"] = is_ready
-		player_info_changed.emit()
-		if is_host:
-			_check_all_ready()
+func send_group_invite(target_peer_id: int) -> void:
+	send_msg(NetSerializer.OP_GROUP_INVITE, NetSerializer.encode_group_invite(target_peer_id))
 
 
-func reset_ready_states() -> void:
-	if is_host and is_active:
-		send_msg(NetSerializer.OP_RESET_READY)
-	_reset_ready_local()
+func send_group_invite_reply(group_id: int, accept: bool) -> void:
+	send_msg(NetSerializer.OP_GROUP_INVITE_REPLY, NetSerializer.encode_group_invite_reply(group_id, accept))
 
 
-func _reset_ready_local() -> void:
-	for pid in player_info:
-		player_info[pid]["ready"] = false
-	player_info_changed.emit()
+func send_group_leave() -> void:
+	send_msg(NetSerializer.OP_GROUP_LEAVE)
 
 
-func _check_all_ready() -> void:
-	if player_info.size() < 2:
-		return
-	for pid in player_info:
-		if not player_info[pid]["ready"]:
-			return
-	all_players_ready.emit()
+func send_enter_portal() -> void:
+	send_msg(NetSerializer.OP_ENTER_PORTAL)

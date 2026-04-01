@@ -1,14 +1,16 @@
 extends Node3D
 
-## Game flow: Menu → Lobby → Fight → Result → Lobby.
-## Supports solo play and WebSocket multiplayer via Go relay server.
-## Solo: single player, no networking.
-## Host/Join: WebSocket relay, dynamic player spawning.
+## Game flow: Menu -> Hub -> Arena (Lobby -> Fight -> Result) -> Hub.
+## Server-authoritative: all game flow is driven by server events.
+## Solo mode connects to ws://127.0.0.1:7777 (requires local Go server).
 
-enum GameState { MENU, LOBBY, FIGHT, RESULT }
+enum GameState { MENU, HUB, ARENA_LOBBY, FIGHT, RESULT }
 
 var state: GameState = GameState.MENU
 var paused: bool = false
+
+const HUB_SCENE := "res://scenes/environments/hub/hub.tscn"
+const ARENA_SCENE := "res://scenes/environments/arena/arena.tscn"
 
 const LOBBY_SPAWN := Vector3(0.0, 0.1, 20.0)
 const ENEMY_SPAWN := Vector3(0.0, 0.1, 0.0)
@@ -17,6 +19,14 @@ const PLAYER_SPAWNS := [
 	Vector3(0.0, 0.1, 20.0),
 	Vector3(2.0, 0.1, 20.0),
 	Vector3(-1.0, 0.1, 21.0),
+	Vector3(1.0, 0.1, 21.0),
+]
+const HUB_SPAWNS := [
+	Vector3(-2.0, 0.1, -5.0),
+	Vector3(0.0, 0.1, -5.0),
+	Vector3(2.0, 0.1, -5.0),
+	Vector3(-1.0, 0.1, -3.0),
+	Vector3(1.0, 0.1, -3.0),
 ]
 
 const CLASS_SCENES := {
@@ -25,16 +35,19 @@ const CLASS_SCENES := {
 	"blade_dancer": "res://scenes/controllers/blade_dancer/blade_dancer.tscn",
 }
 
-@onready var enemy: CharacterBody3D = $BasicEnemy
-
 var _spawned_players: Dictionary = {}  # peer_id -> CharacterBody3D
+var _spawned_projectiles: Dictionary = {}  # proj_id -> Node3D
 var _local_class: String = "gunner"
-var _is_solo: bool = false
 var _players_node: Node3D
+var _projectiles_node: Node3D
+var _username: String = ""
+
+# Scene management
+var _current_env: Node3D = null
+var _enemy_node: CharacterBody3D = null
 
 # Dynamic nodes
 var _gate: CSGBox3D
-var _trigger: Area3D
 var _pause_layer: CanvasLayer
 var _result_layer: CanvasLayer
 var _result_label: Label
@@ -44,44 +57,65 @@ var _lobby_status_label: Label
 var _lobby_players_label: Label
 var _lobby_class_label: Label
 var _address_input: LineEdit
+var _username_input: LineEdit
+
+# Hub UI
+var _hub_layer: CanvasLayer
+var _hub_class_label: Label
+var _hub_status_label: Label
+var _portal_prompt: Label
+
+# Group UI
+var _group_panel: PanelContainer
+var _group_label: Label
+var _group_create_btn: Button
+var _group_leave_btn: Button
+var _invite_popup: CanvasLayer
+var _invite_label: Label
+var _pending_invite_group_id: int = 0
+
+# Hub state
+var _near_portal: bool = false
+var _player_names: Dictionary = {}  # peer_id -> username
+var _group_data: Dictionary = {}  # current group state
+var _aimed_peer_id: int = 0  # peer id under crosshair for invite
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-
-	# Free pre-placed player nodes — we use dynamic spawning
-	for node_name in ["Gunner", "Vanguard", "BladeDancer"]:
-		var node := get_node_or_null(node_name)
-		if node:
-			node.queue_free()
 
 	# Create players container
 	_players_node = Node3D.new()
 	_players_node.name = "Players"
 	add_child(_players_node)
 
-	_create_gate()
-	_create_trigger()
+	# Create projectiles container
+	_projectiles_node = Node3D.new()
+	_projectiles_node.name = "Projectiles"
+	add_child(_projectiles_node)
+
 	_create_pause_menu()
 	_create_result_overlay()
 	_create_menu_ui()
 	_create_lobby_ui()
-	_bake_navigation()
-
-	# Hide enemy until fight
-	enemy.visible = false
-	enemy.collision_layer = 0
-	enemy.set_physics_process(false)
-	enemy.died.connect(_on_enemy_died)
+	_create_hub_ui()
+	_create_group_panel()
+	_create_invite_popup()
 
 	# Connect network signals
-	NetworkManager.player_connected.connect(_on_net_player_connected)
 	NetworkManager.player_disconnected.connect(_on_net_player_disconnected)
 	NetworkManager.connection_succeeded.connect(_on_net_connected)
 	NetworkManager.connection_failed.connect(_on_net_connection_failed)
-	NetworkManager.all_players_ready.connect(_on_all_players_ready)
+	# Server-authoritative signals
+	NetworkManager.game_flow_event.connect(_on_game_flow_event)
 	NetworkManager.player_info_changed.connect(_update_lobby_display)
-	NetworkManager.message_received.connect(_on_network_message)
+	NetworkManager.world_state_received.connect(_on_world_state)
+	NetworkManager.damage_event_received.connect(_on_damage_event)
+	NetworkManager.hub_state_received.connect(_on_hub_state)
+	NetworkManager.zone_transfer_received.connect(_on_zone_transfer)
+	NetworkManager.group_state_updated.connect(_on_group_state)
+	NetworkManager.group_invite_received.connect(_on_group_invite)
+	NetworkManager.group_error_received.connect(_on_group_error)
 
 	_enter_menu()
 
@@ -95,8 +129,8 @@ func _input(event: InputEvent) -> void:
 		_toggle_pause()
 		get_viewport().set_input_as_handled()
 
-	# Class selection in lobby
-	if state == GameState.LOBBY and not paused:
+	# Class selection in hub or arena lobby
+	if (state == GameState.HUB or state == GameState.ARENA_LOBBY) and not paused:
 		if event is InputEventKey and event.pressed:
 			if event.physical_keycode == KEY_1:
 				_select_class("gunner")
@@ -104,8 +138,33 @@ func _input(event: InputEvent) -> void:
 				_select_class("vanguard")
 			elif event.physical_keycode == KEY_3:
 				_select_class("blade_dancer")
-			elif event.physical_keycode == KEY_ENTER or event.physical_keycode == KEY_KP_ENTER:
+
+	# Ready toggle in arena lobby
+	if state == GameState.ARENA_LOBBY and not paused:
+		if event is InputEventKey and event.pressed:
+			if event.physical_keycode == KEY_ENTER or event.physical_keycode == KEY_KP_ENTER:
 				_toggle_ready()
+
+	# Hub interactions
+	if state == GameState.HUB and not paused:
+		if event is InputEventKey and event.pressed:
+			if event.physical_keycode == KEY_E:
+				if _near_portal:
+					NetworkManager.send_enter_portal()
+				elif _aimed_peer_id > 0:
+					NetworkManager.send_group_invite(_aimed_peer_id)
+			elif event.physical_keycode == KEY_G:
+				# Toggle group: create if not in group, leave if in group
+				if _group_data.get("group_id", 0) > 0:
+					NetworkManager.send_group_leave()
+				else:
+					NetworkManager.send_group_create()
+
+
+func _physics_process(_delta: float) -> void:
+	if state == GameState.HUB:
+		_check_portal_proximity()
+		_check_aim_at_player()
 
 
 # =============================================================================
@@ -114,56 +173,46 @@ func _input(event: InputEvent) -> void:
 
 func _enter_menu() -> void:
 	state = GameState.MENU
-	_is_solo = false
 	NetworkManager.disconnect_game()
 	_menu_layer.visible = true
 	_lobby_layer.visible = false
+	_hub_layer.visible = false
 	_result_layer.visible = false
 	_pause_layer.visible = false
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	_unload_environment()
 
 
 func _on_solo_pressed() -> void:
-	_is_solo = true
-	_menu_layer.visible = false
-	_enter_lobby()
+	_connect_to_address("127.0.0.1")
 
 
-func _on_host_pressed() -> void:
-	_is_solo = false
-	NetworkManager.disconnect_game()
+func _on_connect_pressed() -> void:
 	var address := _address_input.text.strip_edges()
 	if address == "":
 		address = "127.0.0.1"
+	_connect_to_address(address)
+
+
+func _connect_to_address(address: String) -> void:
+	# Store username
+	_username = _username_input.text.strip_edges()
+	if _username == "":
+		_username = "Player"
+	NetworkManager.username = _username
+
+	NetworkManager.disconnect_game()
 	var err := NetworkManager.connect_to_server(address)
 	if err != OK:
 		print("[Main] Failed to connect: %s" % error_string(err))
 		return
 	print("[Main] Connecting to %s:%d..." % [address, NetworkManager.DEFAULT_PORT])
 	_menu_layer.visible = false
-	_lobby_layer.visible = true
-	_lobby_status_label.text = "Connecting..."
-
-
-func _on_join_pressed() -> void:
-	_is_solo = false
-	NetworkManager.disconnect_game()
-	var address := _address_input.text.strip_edges()
-	if address == "":
-		address = "127.0.0.1"
-	var err := NetworkManager.connect_to_server(address)
-	if err != OK:
-		print("[Main] Failed to connect: %s" % error_string(err))
-		return
-	print("[Main] Connecting to %s:%d..." % [address, NetworkManager.DEFAULT_PORT])
-	_menu_layer.visible = false
-	_lobby_layer.visible = true
-	_lobby_status_label.text = "Connecting..."
 
 
 func _on_net_connected() -> void:
 	print("[Main] Connected as peer %d" % NetworkManager.get_my_id())
-	_enter_lobby()
+	_enter_hub()
 
 
 func _on_net_connection_failed() -> void:
@@ -171,56 +220,291 @@ func _on_net_connection_failed() -> void:
 	_enter_menu()
 
 
-func _on_net_player_connected(peer_id: int) -> void:
-	print("[Main] Peer %d connected" % peer_id)
-	_update_lobby_display()
-
-
 func _on_net_player_disconnected(peer_id: int) -> void:
 	print("[Main] Peer %d disconnected" % peer_id)
-	# Remove their player if spawned
 	if peer_id in _spawned_players:
 		var player: CharacterBody3D = _spawned_players[peer_id]
 		if is_instance_valid(player):
 			player.queue_free()
 		_spawned_players.erase(peer_id)
-	_update_lobby_display()
 
 
 # =============================================================================
-# Lobby
+# Hub
 # =============================================================================
 
-func _enter_lobby() -> void:
-	state = GameState.LOBBY
+func _enter_hub() -> void:
+	state = GameState.HUB
 	get_tree().paused = false
 	paused = false
 	_pause_layer.visible = false
 	_result_layer.visible = false
 	_menu_layer.visible = false
-	_lobby_layer.visible = true
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	_lobby_layer.visible = false
+	_hub_layer.visible = true
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	_near_portal = false
+	_portal_prompt.visible = false
 
-	# Despawn any existing players
+	# Load hub scene if not already loaded
+	if _current_env == null or _current_env.name != "Hub":
+		_unload_environment()
+		_load_environment(HUB_SCENE)
+
+	# Despawn existing players
+	_despawn_all_players()
+
+	# Spawn local player in hub
+	var my_id := NetworkManager.get_my_id()
+	if my_id > 0:
+		_spawn_player(my_id, _local_class, HUB_SPAWNS[0])
+
+	_update_hub_display()
+	_update_group_panel()
+
+
+func _on_hub_state(data: Dictionary) -> void:
+	if state != GameState.HUB:
+		return
+
+	var players_data: Array = data.get("players", [])
+	var seen_peers: Dictionary = {}
+
+	for p_data in players_data:
+		var pid: int = p_data["peer_id"]
+		seen_peers[pid] = true
+
+		# Store player names
+		var uname: String = p_data.get("username", "")
+		if uname != "":
+			_player_names[pid] = uname
+
+		if pid == NetworkManager.get_my_id():
+			# Hub has no combat — trust client prediction entirely.
+			# Only snap on extreme desync (teleport/lag spike).
+			if pid in _spawned_players:
+				var player: CharacterBody3D = _spawned_players[pid]
+				if is_instance_valid(player):
+					var server_pos: Vector3 = p_data["pos"]
+					if player.global_position.distance_to(server_pos) > 8.0:
+						player.global_position = server_pos
+			continue
+
+		# Remote player
+		if pid not in _spawned_players:
+			var cls: String = p_data.get("class_name", "gunner")
+			_spawn_player(pid, cls, p_data["pos"])
+
+		var player: CharacterBody3D = _spawned_players[pid]
+		if is_instance_valid(player):
+			# Update the controller's net sync targets — the controller's
+			# _physics_process handles interpolation toward these values.
+			player._net_position = p_data["pos"]
+			player._net_rotation_y = p_data["rot_y"]
+			player._net_anim = p_data.get("anim_name", "")
+			player._net_anim_speed = p_data.get("anim_speed", 1.0)
+
+			# Update overhead name
+			_update_overhead_name(player, pid)
+
+	# Remove players that are no longer in the hub state
+	var to_remove: Array = []
 	for pid in _spawned_players:
+		if pid not in seen_peers:
+			to_remove.append(pid)
+	for pid in to_remove:
 		var player = _spawned_players[pid]
 		if is_instance_valid(player):
 			player.queue_free()
-	_spawned_players.clear()
+		_spawned_players.erase(pid)
+
+
+func _check_portal_proximity() -> void:
+	var my_id := NetworkManager.get_my_id()
+	if my_id not in _spawned_players:
+		_near_portal = false
+		_portal_prompt.visible = false
+		return
+	var player: CharacterBody3D = _spawned_players[my_id]
+	if not is_instance_valid(player):
+		return
+	# Portal is at (0, 2, 12) in hub
+	var portal_pos := Vector3(0.0, 0.1, 12.0)
+	var dist := player.global_position.distance_to(portal_pos)
+	_near_portal = dist < 4.0
+	_portal_prompt.visible = _near_portal
+
+
+func _update_hub_display() -> void:
+	if _hub_class_label:
+		_hub_class_label.text = "[1] Gunner  [2] Vanguard  [3] Blade Dancer\nSelected: %s" % _local_class.to_upper()
+
+
+func _update_overhead_name(player: CharacterBody3D, peer_id: int) -> void:
+	var label: Label3D = player.get_node_or_null("OverheadName")
+	if label == null:
+		label = Label3D.new()
+		label.name = "OverheadName"
+		label.position = Vector3(0, 2.5, 0)
+		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		label.font_size = 48
+		label.outline_size = 8
+		label.modulate = Color(1, 1, 1, 0.9)
+		label.no_depth_test = true
+		player.add_child(label)
+	var uname: String = _player_names.get(peer_id, "Player_%d" % peer_id)
+	if label.text != uname:
+		label.text = uname
+
+
+func _check_aim_at_player() -> void:
+	_aimed_peer_id = 0
+	var my_id := NetworkManager.get_my_id()
+	if my_id not in _spawned_players:
+		return
+	var local_player: CharacterBody3D = _spawned_players[my_id]
+	if not is_instance_valid(local_player):
+		return
+	# Get camera
+	var camera := get_viewport().get_camera_3d()
+	if not camera:
+		return
+	var from := camera.global_position
+	var forward := -camera.global_transform.basis.z
+	var to := from + forward * 15.0
+
+	# Simple distance-based check against remote players
+	var best_dist := 3.0  # max aim distance
+	for pid in _spawned_players:
+		if pid == my_id:
+			continue
+		var p: CharacterBody3D = _spawned_players[pid]
+		if not is_instance_valid(p):
+			continue
+		# Project point onto ray
+		var to_player := p.global_position - from
+		var dot := to_player.dot(forward)
+		if dot < 0 or dot > 15.0:
+			continue
+		var closest_on_ray := from + forward * dot
+		var dist := closest_on_ray.distance_to(p.global_position + Vector3(0, 1, 0))
+		if dist < best_dist:
+			best_dist = dist
+			_aimed_peer_id = pid
+
+	# Update hub status with aim info
+	if _hub_status_label:
+		if _aimed_peer_id > 0 and not _near_portal:
+			var uname: String = _player_names.get(_aimed_peer_id, "Player_%d" % _aimed_peer_id)
+			_hub_status_label.text = "Press [E] to invite %s" % uname
+		elif not _near_portal:
+			if _group_data.get("group_id", 0) > 0:
+				_hub_status_label.text = "In group - Walk to portal | [G] Leave group"
+			else:
+				_hub_status_label.text = "[G] Create group | Aim at player + [E] to invite"
+
+
+# =============================================================================
+# Group handlers
+# =============================================================================
+
+func _on_group_state(data: Dictionary) -> void:
+	_group_data = data
+	_update_group_panel()
+
+
+func _on_group_invite(group_id: int, leader_name: String) -> void:
+	_pending_invite_group_id = group_id
+	_invite_label.text = "%s invites you to a group\n[Accept]  [Decline]" % leader_name
+	_invite_popup.visible = true
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	# Auto-decline after 30 seconds
+	get_tree().create_timer(30.0).timeout.connect(func():
+		if _invite_popup.visible and _pending_invite_group_id == group_id:
+			_decline_invite()
+	)
+
+
+func _on_group_error(code: int, msg: String) -> void:
+	print("[Main] Group error: %s" % msg)
+	if _hub_status_label:
+		_hub_status_label.text = "Error: %s" % msg
+
+
+func _accept_invite() -> void:
+	if _pending_invite_group_id > 0:
+		NetworkManager.send_group_invite_reply(_pending_invite_group_id, true)
+		_pending_invite_group_id = 0
+	_invite_popup.visible = false
+	if state == GameState.HUB:
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
+
+func _decline_invite() -> void:
+	if _pending_invite_group_id > 0:
+		NetworkManager.send_group_invite_reply(_pending_invite_group_id, false)
+		_pending_invite_group_id = 0
+	_invite_popup.visible = false
+	if state == GameState.HUB:
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
+
+func _update_group_panel() -> void:
+	if not _group_panel:
+		return
+	var group_id: int = _group_data.get("group_id", 0)
+	if group_id == 0:
+		_group_label.text = "No group\n[G] Create group"
+		_group_leave_btn.visible = false
+		_group_panel.visible = state == GameState.HUB
+		return
+
+	var leader_peer: int = _group_data.get("leader_peer", 0)
+	var members: Array = _group_data.get("members", [])
+	var text := "Group:\n"
+	for m in members:
+		var uname: String = m.get("username", "???")
+		var pid: int = m.get("peer_id", 0)
+		var leader_str := " *" if pid == leader_peer else ""
+		var you_str := " (you)" if pid == NetworkManager.get_my_id() else ""
+		text += "  %s%s%s\n" % [uname, leader_str, you_str]
+	_group_label.text = text
+	_group_leave_btn.visible = true
+	_group_panel.visible = state == GameState.HUB
+
+
+# =============================================================================
+# Arena Lobby (warmup room)
+# =============================================================================
+
+func _enter_arena_lobby() -> void:
+	state = GameState.ARENA_LOBBY
+	get_tree().paused = false
+	paused = false
+	_pause_layer.visible = false
+	_result_layer.visible = false
+	_menu_layer.visible = false
+	_hub_layer.visible = false
+	_lobby_layer.visible = true
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+
+	# Load arena scene if not already loaded
+	if _current_env == null or _current_env.name != "Arena":
+		_unload_environment()
+		_load_environment(ARENA_SCENE)
+		_create_gate()
+		_create_enemy()
 
 	# Hide enemy
-	enemy.visible = false
-	enemy.collision_layer = 0
-	enemy.set_physics_process(false)
+	if _enemy_node:
+		_enemy_node.visible = false
+		_enemy_node.collision_layer = 0
+		_enemy_node.set_physics_process(false)
 
 	# Open gate
-	_gate.visible = false
-	_gate.use_collision = false
-	_trigger.monitoring = true
-
-	# Reset ready states
-	if NetworkManager.is_active:
-		NetworkManager.reset_ready_states()
+	if _gate:
+		_gate.visible = false
+		_gate.use_collision = false
 
 	_update_lobby_display()
 
@@ -230,28 +514,17 @@ func _select_class(class_name_str: String) -> void:
 	if NetworkManager.is_active:
 		NetworkManager.set_player_class(class_name_str)
 	_update_lobby_display()
+	_update_hub_display()
 
 
 func _toggle_ready() -> void:
-	if _is_solo:
-		# Solo: spawn and go directly
-		_spawn_solo_player()
-		return
-
 	if not NetworkManager.is_active:
 		return
-
 	var my_id := NetworkManager.get_my_id()
 	if my_id not in NetworkManager.player_info:
 		return
 	var currently_ready: bool = NetworkManager.player_info[my_id]["ready"]
 	NetworkManager.set_player_ready(not currently_ready)
-
-
-func _on_all_players_ready() -> void:
-	# Host spawns all players in the lobby
-	if NetworkManager.is_host:
-		NetworkManager.send_msg(NetSerializer.OP_SPAWN_PLAYERS)
 
 
 func _update_lobby_display() -> void:
@@ -260,26 +533,18 @@ func _update_lobby_display() -> void:
 
 	_lobby_class_label.text = "[1] Gunner   [2] Vanguard   [3] Blade Dancer\nSelected: %s" % _local_class.to_upper()
 
-	if _is_solo:
-		_lobby_status_label.text = "SOLO MODE\nPress ENTER to start"
-		_lobby_players_label.text = ""
-		return
-
 	if not NetworkManager.is_active:
-		_lobby_status_label.text = "Not connected"
+		_lobby_status_label.text = "Connecting..."
 		_lobby_players_label.text = ""
 		return
 
-	var text := ""
-	if NetworkManager.is_host:
-		var ip := _get_lan_ip()
-		text += "Server: %s:%d\n\n" % [ip, NetworkManager.DEFAULT_PORT]
-	text += "Players:\n"
+	var text := "Players:\n"
 	for pid in NetworkManager.player_info:
 		var info: Dictionary = NetworkManager.player_info[pid]
 		var ready_str := " [READY]" if info["ready"] else ""
 		var you_str := " (you)" if pid == NetworkManager.get_my_id() else ""
-		text += "  Peer %d: %s%s%s\n" % [pid, info["class_name"].to_upper(), ready_str, you_str]
+		var uname: String = _player_names.get(pid, "Peer %d" % pid)
+		text += "  %s: %s%s%s\n" % [uname, info["class_name"].to_upper(), ready_str, you_str]
 
 	_lobby_players_label.text = text
 
@@ -295,27 +560,9 @@ func _update_lobby_display() -> void:
 # Spawning
 # =============================================================================
 
-func _spawn_solo_player() -> void:
-	var scene := load(CLASS_SCENES[_local_class]) as PackedScene
-	var player := scene.instantiate() as CharacterBody3D
-	player.name = "Player_solo"
-	_players_node.add_child(player)
-	player.global_position = LOBBY_SPAWN
-	_spawned_players[1] = player
-	player.died.connect(_on_player_died)
-
-	_lobby_layer.visible = false
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-
-	# Enable trigger for solo
-	_trigger.monitoring = true
-	state = GameState.LOBBY  # still in lobby, waiting to enter arena
-
-
 func _spawn_multiplayer_players() -> void:
 	_lobby_layer.visible = false
 
-	# Spawn all players in the lobby room
 	var spawn_idx := 0
 	for pid in NetworkManager.player_info:
 		var info: Dictionary = NetworkManager.player_info[pid]
@@ -323,22 +570,62 @@ func _spawn_multiplayer_players() -> void:
 		if not CLASS_SCENES.has(class_name_str):
 			push_error("[Main] Unknown class: %s" % class_name_str)
 			continue
-		var scene := load(CLASS_SCENES[class_name_str]) as PackedScene
-		var player := scene.instantiate() as CharacterBody3D
-		player.name = "Player_%d" % pid
 		var spawn_pos: Vector3 = PLAYER_SPAWNS[spawn_idx % PLAYER_SPAWNS.size()]
-		# Set peer_id before add_child so _ready() can check ownership
-		player.peer_id = pid
-		_players_node.add_child(player)
-		player.global_position = spawn_pos
-		_spawned_players[pid] = player
-		player.died.connect(_on_player_died)
+		_spawn_player(pid, class_name_str, spawn_pos)
 		spawn_idx += 1
 
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
-	# Stay in lobby — trigger zone will start the fight when a player enters the arena
-	_trigger.monitoring = true
+
+func _spawn_player(peer_id: int, class_name_str: String, spawn_pos: Vector3) -> void:
+	if peer_id in _spawned_players:
+		return
+	if not CLASS_SCENES.has(class_name_str):
+		class_name_str = "gunner"
+	var scene := load(CLASS_SCENES[class_name_str]) as PackedScene
+	var player := scene.instantiate() as CharacterBody3D
+	player.name = "Player_%d" % peer_id
+	player.peer_id = peer_id
+	_players_node.add_child(player)
+	player.global_position = spawn_pos
+	# Initialize net sync targets so remote interpolation starts at the correct position
+	player._net_position = spawn_pos
+	player._net_rotation_y = player.rotation.y
+	_spawned_players[peer_id] = player
+
+	# Add overhead name for remote players in hub
+	if state == GameState.HUB and peer_id != NetworkManager.get_my_id():
+		_update_overhead_name(player, peer_id)
+
+
+func _despawn_all_players() -> void:
+	for pid in _spawned_players:
+		var player = _spawned_players[pid]
+		if is_instance_valid(player):
+			player.queue_free()
+	_spawned_players.clear()
+	_despawn_all_projectiles()
+
+
+func _despawn_all_projectiles() -> void:
+	for pid in _spawned_projectiles:
+		var proj = _spawned_projectiles[pid]
+		if is_instance_valid(proj):
+			proj.queue_free()
+	_spawned_projectiles.clear()
+
+
+func _spawn_projectile(proj_id: int, pos: Vector3, dir: Vector3) -> void:
+	var scene := load("res://scenes/enemies/basic_enemy/enemy_projectile.tscn") as PackedScene
+	if not scene:
+		return
+	var proj := scene.instantiate() as Node3D
+	proj.name = "Proj_%d" % proj_id
+	_projectiles_node.add_child(proj)
+	proj.global_position = pos
+	if proj.has_method("setup"):
+		proj.setup(dir, 0.0)
+	_spawned_projectiles[proj_id] = proj
 
 
 # =============================================================================
@@ -347,105 +634,128 @@ func _spawn_multiplayer_players() -> void:
 
 func _start_fight() -> void:
 	state = GameState.FIGHT
-	_trigger.set_deferred("monitoring", false)
 	_lobby_layer.visible = false
+	_hub_layer.visible = false
 
-	# Close gate behind the players
-	_gate.visible = true
-	_gate.use_collision = true
+	if _gate:
+		_gate.visible = true
+		_gate.use_collision = true
 
-	# Enemy reset — only host manages enemy state
-	var is_host := _is_solo or not NetworkManager.is_active or NetworkManager.is_host
-	if is_host:
-		enemy.global_position = ENEMY_SPAWN
-		enemy.health = enemy.max_health
-		enemy._current_phase = 1
-		enemy._phase_transitioned.clear()
-		enemy._last_attack = ""
-		var fg_mat := enemy._health_bar_fg.get_surface_override_material(0) as StandardMaterial3D
-		if fg_mat:
-			fg_mat.albedo_color = Color(0.15, 0.85, 0.15)
-			fg_mat.emission_enabled = false
-		enemy._update_health_bar()
-		enemy._change_state(enemy.State.CHASE)
-
-	# All peers: make enemy visible and enable physics
-	enemy.visible = true
-	enemy.collision_layer = 4
-	enemy.set_physics_process(true)
+	if _enemy_node:
+		_enemy_node.visible = true
+		_enemy_node.collision_layer = 4
+		_enemy_node.set_physics_process(true)
 	CombatLog.start_fight()
-
-
-func _on_trigger_entered(body: Node3D) -> void:
-	if state != GameState.LOBBY:
-		return
-	if body not in _spawned_players.values():
-		return
-	# Any player entering the arena triggers the fight
-	if _is_solo:
-		_start_fight()
-	elif NetworkManager.is_active and NetworkManager.is_host:
-		NetworkManager.send_msg(NetSerializer.OP_START_FIGHT)
-
-
-func _on_player_died() -> void:
-	if state != GameState.FIGHT:
-		return
-	# Check if ALL players are dead
-	var all_dead := true
-	for pid in _spawned_players:
-		var player: CharacterBody3D = _spawned_players[pid]
-		if is_instance_valid(player) and player.health > 0.0:
-			all_dead = false
-			break
-	if all_dead:
-		CombatLog.end_fight("PLAYER_DIED")
-		if _is_solo or (NetworkManager.is_active and NetworkManager.is_host):
-			var text := "YOU DIED"
-			var color := Color(0.8, 0.15, 0.15)
-			if NetworkManager.is_active:
-				NetworkManager.send_msg(NetSerializer.OP_SHOW_RESULT, NetSerializer.encode_show_result(text, color))
-			else:
-				_show_result(text, color)
-
-
-func _on_enemy_died() -> void:
-	if state != GameState.FIGHT:
-		return
-	CombatLog.end_fight("VICTORY")
-	if _is_solo or (NetworkManager.is_active and NetworkManager.is_host):
-		var text := "VICTORY"
-		var color := Color(0.15, 0.8, 0.3)
-		if NetworkManager.is_active:
-			NetworkManager.send_msg(NetSerializer.OP_SHOW_RESULT, NetSerializer.encode_show_result(text, color))
-		else:
-			_show_result(text, color)
 
 
 func _show_result(text: String, color: Color) -> void:
 	if state == GameState.RESULT:
-		return  # Prevent double-trigger
+		return
 	state = GameState.RESULT
 	_result_label.text = text
 	_result_label.add_theme_color_override("font_color", color)
 	_result_layer.visible = true
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-	get_tree().create_timer(3.0).timeout.connect(_on_result_timeout, CONNECT_ONE_SHOT)
+	CombatLog.end_fight(text)
 
 
-func _on_result_timeout() -> void:
-	_enter_lobby()
+# =============================================================================
+# Zone transfer
+# =============================================================================
+
+func _on_zone_transfer(zone_type: int, new_peer_id: int) -> void:
+	print("[Main] Zone transfer: type=%d, new_peer=%d" % [zone_type, new_peer_id])
+	_despawn_all_players()
+
+	if zone_type == NetSerializer.ZONE_TYPE_ARENA:
+		_unload_environment()
+		_load_environment(ARENA_SCENE)
+		_create_gate()
+		_create_enemy()
+		_enter_arena_lobby()
+	else:
+		_unload_environment()
+		_load_environment(HUB_SCENE)
+		_enter_hub()
 
 
-func _on_network_message(opcode: int, _sender_id: int, payload: PackedByteArray) -> void:
-	match opcode:
-		NetSerializer.OP_SPAWN_PLAYERS:
+# =============================================================================
+# Server-authoritative signal handlers
+# =============================================================================
+
+func _on_game_flow_event(flow_type: int, text: String) -> void:
+	match flow_type:
+		NetSerializer.FLOW_SPAWN_PLAYERS:
 			_spawn_multiplayer_players()
-		NetSerializer.OP_START_FIGHT:
+		NetSerializer.FLOW_FIGHT_START:
 			_start_fight()
-		NetSerializer.OP_SHOW_RESULT:
-			var data := NetSerializer.decode_show_result(payload)
-			_show_result(data.text, data.color)
+		NetSerializer.FLOW_SHOW_RESULT:
+			var color := Color(0.15, 0.8, 0.3) if text == "VICTORY" else Color(0.8, 0.15, 0.15)
+			_show_result(text, color)
+		NetSerializer.FLOW_RETURN_LOBBY:
+			_enter_arena_lobby()
+		NetSerializer.FLOW_RETURN_HUB:
+			_enter_hub()
+
+
+func _on_world_state(data: Dictionary) -> void:
+	if state != GameState.ARENA_LOBBY and state != GameState.FIGHT and state != GameState.RESULT:
+		return
+
+	var players_data: Array = data.get("players", [])
+	for p_data in players_data:
+		var pid: int = p_data["peer_id"]
+		if pid in _spawned_players:
+			var player: CharacterBody3D = _spawned_players[pid]
+			if is_instance_valid(player) and player.has_method("apply_server_state"):
+				player.apply_server_state(p_data)
+
+	var enemy_data: Dictionary = data.get("enemy", {})
+	if not enemy_data.is_empty() and is_instance_valid(_enemy_node) and _enemy_node.has_method("apply_server_state"):
+		_enemy_node.apply_server_state(enemy_data)
+
+	# Projectiles: spawn/update/remove
+	# First, prune any projectiles that freed themselves (e.g. on collision)
+	var stale: Array = []
+	for pid in _spawned_projectiles:
+		if not is_instance_valid(_spawned_projectiles[pid]):
+			stale.append(pid)
+	for pid in stale:
+		_spawned_projectiles.erase(pid)
+
+	var proj_data: Array = data.get("projectiles", [])
+	var active_ids: Dictionary = {}
+	for p in proj_data:
+		var pid: int = p["proj_id"]
+		active_ids[pid] = true
+		if pid not in _spawned_projectiles:
+			_spawn_projectile(pid, p["pos"], p["direction"])
+		else:
+			_spawned_projectiles[pid].global_position = p["pos"]
+	# Remove projectiles no longer in server state
+	var to_remove: Array = []
+	for pid in _spawned_projectiles:
+		if pid not in active_ids:
+			to_remove.append(pid)
+	for pid in to_remove:
+		var proj = _spawned_projectiles[pid]
+		if is_instance_valid(proj):
+			proj.queue_free()
+		_spawned_projectiles.erase(pid)
+
+
+func _on_damage_event(data: Dictionary) -> void:
+	var target_peer: int = data.get("target_peer_id", -1)
+	var amount: float = data.get("amount", 0.0)
+	var hit_pos: Vector3 = data.get("hit_pos", Vector3.ZERO)
+
+	if target_peer == 0:
+		if is_instance_valid(_enemy_node) and _enemy_node.has_method("on_damage_visual"):
+			_enemy_node.on_damage_visual(amount, hit_pos)
+	elif target_peer in _spawned_players:
+		var player: CharacterBody3D = _spawned_players[target_peer]
+		if is_instance_valid(player) and player.has_method("on_damage_visual"):
+			player.on_damage_visual(amount, hit_pos)
 
 
 func _toggle_pause() -> void:
@@ -459,8 +769,23 @@ func _toggle_pause() -> void:
 
 
 # =============================================================================
-# UI builders
+# Scene management
 # =============================================================================
+
+func _load_environment(scene_path: String) -> void:
+	var scene := load(scene_path) as PackedScene
+	_current_env = scene.instantiate()
+	add_child(_current_env)
+	print("[Main] Loaded environment: %s" % scene_path)
+
+
+func _unload_environment() -> void:
+	if _current_env and is_instance_valid(_current_env):
+		_current_env.queue_free()
+		_current_env = null
+	_enemy_node = null
+	_gate = null
+
 
 func _create_gate() -> void:
 	_gate = CSGBox3D.new()
@@ -477,19 +802,21 @@ func _create_gate() -> void:
 	add_child(_gate)
 
 
-func _create_trigger() -> void:
-	_trigger = Area3D.new()
-	_trigger.transform.origin = Vector3(0.0, 1.5, 11.0)
-	_trigger.collision_layer = 0
-	_trigger.collision_mask = 2  # detect players
-	var shape := CollisionShape3D.new()
-	var box := BoxShape3D.new()
-	box.size = Vector3(5.0, 3.0, 1.0)
-	shape.shape = box
-	_trigger.add_child(shape)
-	_trigger.body_entered.connect(_on_trigger_entered)
-	add_child(_trigger)
+func _create_enemy() -> void:
+	var enemy_scene := load("res://scenes/enemies/basic_enemy/basic_enemy.tscn") as PackedScene
+	if enemy_scene:
+		_enemy_node = enemy_scene.instantiate() as CharacterBody3D
+		_enemy_node.name = "BasicEnemy"
+		_enemy_node.global_position = ENEMY_SPAWN
+		_enemy_node.visible = false
+		_enemy_node.collision_layer = 0
+		_enemy_node.set_physics_process(false)
+		add_child(_enemy_node)
 
+
+# =============================================================================
+# UI builders
+# =============================================================================
 
 func _create_pause_menu() -> void:
 	_pause_layer = CanvasLayer.new()
@@ -531,12 +858,7 @@ func _create_pause_menu() -> void:
 	menu_btn.pressed.connect(func():
 		get_tree().paused = false
 		paused = false
-		# Despawn players
-		for pid in _spawned_players:
-			var p = _spawned_players[pid]
-			if is_instance_valid(p):
-				p.queue_free()
-		_spawned_players.clear()
+		_despawn_all_players()
 		_enter_menu()
 	)
 	vbox.add_child(menu_btn)
@@ -571,7 +893,7 @@ func _create_result_overlay() -> void:
 	_result_layer.add_child(_result_label)
 
 	var sub := Label.new()
-	sub.text = "Returning to lobby..."
+	sub.text = "Returning to hub..."
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.anchor_left = 0.0
 	sub.anchor_right = 1.0
@@ -613,43 +935,48 @@ func _create_menu_ui() -> void:
 	vbox.add_child(title)
 
 	var subtitle := Label.new()
-	subtitle.text = "Phase 0 — Local Co-op"
+	subtitle.text = "Phase 0 -- Server Authoritative"
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.add_theme_font_size_override("font_size", 18)
 	subtitle.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
 	vbox.add_child(subtitle)
 
 	var spacer := Control.new()
-	spacer.custom_minimum_size.y = 30.0
+	spacer.custom_minimum_size.y = 10.0
 	vbox.add_child(spacer)
 
+	# Username input
+	_username_input = LineEdit.new()
+	_username_input.placeholder_text = "Enter username..."
+	_username_input.custom_minimum_size.y = 50.0
+	_username_input.max_length = 20
+	vbox.add_child(_username_input)
+
+	var spacer2 := Control.new()
+	spacer2.custom_minimum_size.y = 10.0
+	vbox.add_child(spacer2)
+
 	var solo_btn := Button.new()
-	solo_btn.text = "Solo"
+	solo_btn.text = "Solo (localhost)"
 	solo_btn.custom_minimum_size.y = 50.0
 	solo_btn.pressed.connect(_on_solo_pressed)
 	vbox.add_child(solo_btn)
 
-	var host_btn := Button.new()
-	host_btn.text = "Host Game"
-	host_btn.custom_minimum_size.y = 50.0
-	host_btn.pressed.connect(_on_host_pressed)
-	vbox.add_child(host_btn)
-
-	var join_hbox := HBoxContainer.new()
-	join_hbox.add_theme_constant_override("separation", 8)
-	vbox.add_child(join_hbox)
+	var connect_hbox := HBoxContainer.new()
+	connect_hbox.add_theme_constant_override("separation", 8)
+	vbox.add_child(connect_hbox)
 
 	_address_input = LineEdit.new()
 	_address_input.placeholder_text = "127.0.0.1"
 	_address_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_address_input.custom_minimum_size.y = 50.0
-	join_hbox.add_child(_address_input)
+	connect_hbox.add_child(_address_input)
 
-	var join_btn := Button.new()
-	join_btn.text = "Join"
-	join_btn.custom_minimum_size = Vector2(80.0, 50.0)
-	join_btn.pressed.connect(_on_join_pressed)
-	join_hbox.add_child(join_btn)
+	var connect_btn := Button.new()
+	connect_btn.text = "Connect"
+	connect_btn.custom_minimum_size = Vector2(100.0, 50.0)
+	connect_btn.pressed.connect(_on_connect_pressed)
+	connect_hbox.add_child(connect_btn)
 
 
 func _create_lobby_ui() -> void:
@@ -676,7 +1003,7 @@ func _create_lobby_ui() -> void:
 	_lobby_layer.add_child(vbox)
 
 	var title := Label.new()
-	title.text = "LOBBY"
+	title.text = "ARENA LOBBY"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 36)
 	vbox.add_child(title)
@@ -710,11 +1037,139 @@ func _create_lobby_ui() -> void:
 	vbox.add_child(_lobby_status_label)
 
 
+func _create_hub_ui() -> void:
+	_hub_layer = CanvasLayer.new()
+	_hub_layer.layer = 14
+	_hub_layer.visible = false
+	add_child(_hub_layer)
+
+	# Class selection (top-center)
+	_hub_class_label = Label.new()
+	_hub_class_label.text = "[1] Gunner  [2] Vanguard  [3] Blade Dancer"
+	_hub_class_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_hub_class_label.anchor_left = 0.0
+	_hub_class_label.anchor_right = 1.0
+	_hub_class_label.anchor_top = 0.0
+	_hub_class_label.anchor_bottom = 0.0
+	_hub_class_label.offset_top = 10.0
+	_hub_class_label.offset_bottom = 60.0
+	_hub_class_label.add_theme_font_size_override("font_size", 18)
+	_hub_class_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.9))
+	_hub_layer.add_child(_hub_class_label)
+
+	# Status (top-left)
+	_hub_status_label = Label.new()
+	_hub_status_label.text = "Hub - Walk to the portal to enter the arena"
+	_hub_status_label.anchor_left = 0.0
+	_hub_status_label.anchor_right = 1.0
+	_hub_status_label.anchor_top = 0.0
+	_hub_status_label.anchor_bottom = 0.0
+	_hub_status_label.offset_top = 40.0
+	_hub_status_label.offset_bottom = 70.0
+	_hub_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_hub_status_label.add_theme_font_size_override("font_size", 14)
+	_hub_status_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
+	_hub_layer.add_child(_hub_status_label)
+
+	# Portal prompt (center-bottom)
+	_portal_prompt = Label.new()
+	_portal_prompt.text = "Press [E] to enter Arena"
+	_portal_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_portal_prompt.anchor_left = 0.0
+	_portal_prompt.anchor_right = 1.0
+	_portal_prompt.anchor_top = 0.7
+	_portal_prompt.anchor_bottom = 0.75
+	_portal_prompt.add_theme_font_size_override("font_size", 28)
+	_portal_prompt.add_theme_color_override("font_color", Color(0.3, 0.6, 1.0))
+	_portal_prompt.visible = false
+	_hub_layer.add_child(_portal_prompt)
+
+
+func _create_group_panel() -> void:
+	_group_panel = PanelContainer.new()
+	_group_panel.anchor_left = 0.0
+	_group_panel.anchor_right = 0.0
+	_group_panel.anchor_top = 0.0
+	_group_panel.anchor_bottom = 0.0
+	_group_panel.offset_left = 10.0
+	_group_panel.offset_top = 80.0
+	_group_panel.offset_right = 220.0
+	_group_panel.offset_bottom = 250.0
+	_group_panel.visible = false
+	_hub_layer.add_child(_group_panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+	_group_panel.add_child(vbox)
+
+	_group_label = Label.new()
+	_group_label.text = "No group\n[G] Create group"
+	_group_label.add_theme_font_size_override("font_size", 14)
+	_group_label.add_theme_color_override("font_color", Color(0.8, 0.9, 0.8))
+	vbox.add_child(_group_label)
+
+	_group_leave_btn = Button.new()
+	_group_leave_btn.text = "Leave Group [G]"
+	_group_leave_btn.visible = false
+	_group_leave_btn.pressed.connect(func(): NetworkManager.send_group_leave())
+	vbox.add_child(_group_leave_btn)
+
+
+func _create_invite_popup() -> void:
+	_invite_popup = CanvasLayer.new()
+	_invite_popup.layer = 21
+	_invite_popup.visible = false
+	add_child(_invite_popup)
+
+	var bg := ColorRect.new()
+	bg.color = Color(0.0, 0.0, 0.0, 0.6)
+	bg.anchor_right = 1.0
+	bg.anchor_bottom = 1.0
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	_invite_popup.add_child(bg)
+
+	var panel := PanelContainer.new()
+	panel.anchor_left = 0.5
+	panel.anchor_right = 0.5
+	panel.anchor_top = 0.35
+	panel.anchor_bottom = 0.5
+	panel.offset_left = -180.0
+	panel.offset_right = 180.0
+	_invite_popup.add_child(panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 16)
+	panel.add_child(vbox)
+
+	_invite_label = Label.new()
+	_invite_label.text = "Group invitation"
+	_invite_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_invite_label.add_theme_font_size_override("font_size", 20)
+	vbox.add_child(_invite_label)
+
+	var hbox := HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 16)
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_child(hbox)
+
+	var accept_btn := Button.new()
+	accept_btn.text = "Accept"
+	accept_btn.custom_minimum_size = Vector2(100, 40)
+	accept_btn.pressed.connect(_accept_invite)
+	hbox.add_child(accept_btn)
+
+	var decline_btn := Button.new()
+	decline_btn.text = "Decline"
+	decline_btn.custom_minimum_size = Vector2(100, 40)
+	decline_btn.pressed.connect(_decline_invite)
+	hbox.add_child(decline_btn)
+
+
 # =============================================================================
 # Navigation
 # =============================================================================
 
-func _bake_navigation() -> void:
+func _bake_hub_navigation() -> void:
 	var nav_region := NavigationRegion3D.new()
 	var nav_mesh := NavigationMesh.new()
 	nav_mesh.agent_radius = 0.8
@@ -725,63 +1180,10 @@ func _bake_navigation() -> void:
 	add_child(nav_region)
 
 	var source_geo := NavigationMeshSourceGeometryData3D.new()
-
-	# Arena floor: 40x30 centered at origin
+	# Hub floor: 30x25 centered at (0, 0, 2.5)
 	source_geo.add_faces(PackedVector3Array([
-		Vector3(-20, 0, -15), Vector3(20, 0, -15), Vector3(20, 0, 15),
-		Vector3(-20, 0, -15), Vector3(20, 0, 15), Vector3(-20, 0, 15),
+		Vector3(-15, 0, -10), Vector3(15, 0, -10), Vector3(15, 0, 15),
+		Vector3(-15, 0, -10), Vector3(15, 0, 15), Vector3(-15, 0, 15),
 	]), Transform3D.IDENTITY)
-
-	# Lobby floor
-	source_geo.add_faces(PackedVector3Array([
-		Vector3(-5, 0, 15), Vector3(5, 0, 15), Vector3(5, 0, 25),
-		Vector3(-5, 0, 15), Vector3(5, 0, 25), Vector3(-5, 0, 25),
-	]), Transform3D.IDENTITY)
-
-	# Carve out obstacles using projected obstructions
-	for pos in [Vector3(-8,0,-6), Vector3(8,0,-6), Vector3(-8,0,6), Vector3(8,0,6), Vector3(0,0,-10), Vector3(0,0,10)]:
-		_add_obstruction(source_geo, pos, Vector2(1.5, 1.5), 4.0)
-	_add_obstruction(source_geo, Vector3(-5, 0, -2), Vector2(3.0, 1.0), 1.2)
-	_add_obstruction(source_geo, Vector3(5, 0, 2), Vector2(3.0, 1.0), 1.2)
-	_add_obstruction(source_geo, Vector3(-12, 0, 0), Vector2(1.0, 3.0), 1.2)
-	_add_obstruction(source_geo, Vector3(12, 0, 0), Vector2(1.0, 3.0), 1.2)
-	_add_obstruction(source_geo, Vector3(0, 0, -15), Vector2(40.0, 0.5), 5.0)
-	_add_obstruction(source_geo, Vector3(20, 0, 0), Vector2(0.5, 30.0), 5.0)
-	_add_obstruction(source_geo, Vector3(-20, 0, 0), Vector2(0.5, 30.0), 5.0)
-	_add_obstruction(source_geo, Vector3(-11.25, 0, 15), Vector2(17.5, 0.5), 5.0)
-	_add_obstruction(source_geo, Vector3(11.25, 0, 15), Vector2(17.5, 0.5), 5.0)
-	_add_obstruction(source_geo, Vector3(-5, 0, 20), Vector2(0.5, 10.0), 5.0)
-	_add_obstruction(source_geo, Vector3(5, 0, 20), Vector2(0.5, 10.0), 5.0)
-	_add_obstruction(source_geo, Vector3(0, 0, 25), Vector2(10.0, 0.5), 5.0)
 
 	NavigationServer3D.bake_from_source_geometry_data(nav_mesh, source_geo)
-
-	var verts := nav_mesh.get_vertices()
-	var polys := nav_mesh.get_polygon_count()
-	print("[Main] NavMesh baked: %d vertices, %d polygons" % [verts.size(), polys])
-
-
-func _add_obstruction(source_geo: NavigationMeshSourceGeometryData3D, center: Vector3, size: Vector2, height: float) -> void:
-	var hx := size.x / 2.0
-	var hz := size.y / 2.0
-	var outline := PackedVector3Array([
-		Vector3(center.x - hx, 0, center.z - hz),
-		Vector3(center.x + hx, 0, center.z - hz),
-		Vector3(center.x + hx, 0, center.z + hz),
-		Vector3(center.x - hx, 0, center.z + hz),
-	])
-	source_geo.add_projected_obstruction(outline, 0.0, height, true)
-
-
-func _get_lan_ip() -> String:
-	var fallback := "127.0.0.1"
-	# Prefer real LAN (192.168.x, 10.x) over Docker/bridge (172.x)
-	for prefix in ["192.168.", "10."]:
-		for addr in IP.get_local_addresses():
-			if addr.begins_with(prefix):
-				return addr
-	# Fall back to 172.16-31.x (could be bridge/Docker but better than nothing)
-	for addr in IP.get_local_addresses():
-		if addr.begins_with("172.") and ":" not in addr:
-			return addr
-	return fallback
