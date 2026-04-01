@@ -75,9 +75,10 @@ var _camera_pitch: float = -0.3
 var _lock_target: Node3D = null
 var _lock_on_active: bool = false
 
-var _gravity: float = 9.8
+var _gravity: float = 8.5  # must match server gravity
 var _flash_timer: float = 0.0
 var _facing_angle: float = 0.0
+var _alive: bool = true
 
 # Network sync
 var _net_anim: String = ""
@@ -107,7 +108,6 @@ func _ready() -> void:
 	_net_position = global_position
 	_net_rotation_y = rotation.y
 	camera.top_level = true
-	NetworkManager.message_received.connect(_on_network_message)
 
 	if _is_local():
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
@@ -132,24 +132,28 @@ func _is_local() -> bool:
 	return peer_id == NetworkManager.get_my_id()
 
 
-func _sync_state_to_peers() -> void:
-	var payload := NetSerializer.encode_player_sync(
-		_net_position, _net_rotation_y, _net_anim, _net_anim_speed, health)
-	NetworkManager.send_msg(NetSerializer.OP_PLAYER_SYNC, payload)
-
-
-func _on_network_message(opcode: int, sender_id: int, payload: PackedByteArray) -> void:
-	if opcode == NetSerializer.OP_PLAYER_SYNC and sender_id == peer_id:
-		var data := NetSerializer.decode_player_sync(payload)
+## Apply authoritative state from the server's WorldState.
+func apply_server_state(data: Dictionary) -> void:
+	if _is_local():
+		health = data.health
+		hud.update_health(health, max_health)
+		if health <= 0.0 and _alive:
+			_alive = false
+			died.emit()
+		# Client-authoritative movement: no position correction needed
+	else:
 		_net_position = data.pos
 		_net_rotation_y = data.rot_y
-		_net_anim = data.anim
+		health = data.health
+		_net_anim = data.anim_name
 		_net_anim_speed = data.anim_speed
-		health = data.hp
-	elif opcode == NetSerializer.OP_DAMAGE:
-		var data := NetSerializer.decode_damage(payload)
-		if data.target_peer == peer_id and _is_local():
-			_apply_damage(data.amount, data.hit_pos)
+
+
+## Visual-only damage feedback.
+func on_damage_visual(_amount: float, _hit_pos: Vector3) -> void:
+	hud.update_health(health, max_health)
+	hud.show_damage_flash()
+	_show_body_flash()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -166,8 +170,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _physics_process(delta: float) -> void:
 	if not _is_local():
-		global_position = global_position.lerp(_net_position, NET_INTERP_SPEED * delta)
-		rotation.y = lerp_angle(rotation.y, _net_rotation_y, NET_INTERP_SPEED * delta)
+		global_position = global_position.move_toward(_net_position, 12.0 * delta)
+		rotation.y = lerp_angle(rotation.y, _net_rotation_y, 8.0 * delta)
 		if _net_anim != "":
 			character_model.play_anim(_net_anim, _net_anim_speed)
 		_update_blade_visual(delta)
@@ -175,6 +179,8 @@ func _physics_process(delta: float) -> void:
 
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
+	else:
+		velocity.y = -0.5  # keep pressed to floor so is_on_floor() stays reliable
 
 	_state_timer -= delta
 	_gcd_timer -= delta
@@ -204,16 +210,15 @@ func _physics_process(delta: float) -> void:
 			velocity.z = 0.0
 
 	move_and_slide()
+
 	_update_animation()
 	_update_blade_visual(delta)
 	hud.update_lock_on(_lock_target, camera)
 	hud.update_gcd(_gcd_timer / gcd_duration if _gcd_timer > 0.0 else 0.0)
 
-	# Sync to remote peers
-	_net_position = global_position
-	_net_rotation_y = rotation.y
+	# Send position + animation to server
 	if NetworkManager.is_active:
-		_sync_state_to_peers()
+		NetworkManager.send_player_position(global_position, rotation.y, _net_anim, _net_anim_speed)
 
 
 # --- Movement ---
@@ -252,7 +257,7 @@ func _process_move(delta: float) -> void:
 
 	# Jump
 	if Input.is_action_just_pressed("jump") and is_on_floor():
-		velocity.y = 4.5
+		velocity.y = 3.5  # must match server JumpVel for blade_dancer
 
 	# Movement
 	var speed := sprint_speed if Input.is_action_pressed("sprint") else run_speed
@@ -340,6 +345,9 @@ func _face_attack_direction(delta: float) -> void:
 func _start_edge() -> void:
 	_config_at_cast = config
 	_has_hit_this_attack = false
+	# Tell server we're attacking
+	if NetworkManager.is_active:
+		NetworkManager.send_ability(1)  # 1 = ActionMelee
 	_enter_state(State.EDGE)
 	_state_timer = 0.3
 	_gcd_timer = gcd_duration
@@ -367,6 +375,9 @@ func _process_edge(delta: float) -> void:
 func _start_surge() -> void:
 	_config_at_cast = config
 	_has_hit_this_attack = false
+	# Tell server we're attacking (heavy)
+	if NetworkManager.is_active:
+		NetworkManager.send_ability(2)  # 2 = ActionHeavy
 	_gcd_timer = gcd_duration
 	match _config_at_cast:
 		Config.ORBIT:
@@ -522,7 +533,8 @@ func _process_stagger() -> void:
 
 # --- Ranged Hit Detection ---
 
-func _perform_raycast_hit(damage: float, max_range: float) -> void:
+func _perform_raycast_hit(_damage: float, max_range: float) -> void:
+	# Server resolves hits — client only shows optimistic hit marker
 	var origin := global_position + Vector3(0.0, 1.0, 0.0)
 	var direction: Vector3
 	if _lock_on_active and _lock_target and is_instance_valid(_lock_target):
@@ -538,8 +550,7 @@ func _perform_raycast_hit(damage: float, max_range: float) -> void:
 	var query := PhysicsRayQueryParameters3D.create(origin, origin + direction * max_range, 4 | 1)
 	query.exclude = [get_rid()]
 	var result := space.intersect_ray(query)
-	if result and result.collider.has_method("take_damage"):
-		_deal_damage(result.collider, damage, result.position)
+	if result and (result.collider.has_method("take_damage") or result.collider.has_method("on_damage_visual")):
 		hud.show_hit_marker()
 
 
@@ -571,46 +582,11 @@ func _find_lock_target() -> Node3D:
 	return best
 
 
-# --- Damage ---
+# --- Damage (server-authoritative) ---
+# Health is updated via apply_server_state(). These are for compat only.
 
-func take_damage(amount: float, hit_position: Vector3 = Vector3.ZERO) -> void:
-	_apply_damage(amount, hit_position)
-
-
-func _apply_damage(amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
-	if state == State.DEAD:
-		return
-	if _is_invincible:
-		return
-	if _guard_active:
-		amount *= (1.0 - orbit_guard_reduction)
-	health -= amount
-	health = maxf(health, 0.0)
-	hud.update_health(health, max_health)
-	hud.show_damage_flash()
-	_show_body_flash()
-	if health <= 0.0:
-		_die()
-	elif state != State.DASH and state != State.GUARD and state != State.RECALL:
-		_enter_state(State.STAGGER)
-		_state_timer = 0.3
-
-
-func _die() -> void:
-	_enter_state(State.DEAD)
-	_guard_active = false
-	died.emit()
-
-
-func _deal_damage(target: Node, amount: float, hit_pos: Vector3) -> void:
-	if not target.has_method("take_damage"):
-		return
-	if NetworkManager.is_active:
-		var target_peer: int = target.peer_id if "peer_id" in target else 0
-		NetworkManager.send_msg(NetSerializer.OP_DAMAGE,
-			NetSerializer.encode_damage(target_peer, amount, hit_pos))
-	else:
-		target.take_damage(amount, hit_pos)
+func take_damage(_amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
+	pass  # Server handles all damage
 
 
 # --- Visual feedback ---

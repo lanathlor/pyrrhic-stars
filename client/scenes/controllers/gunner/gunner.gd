@@ -32,6 +32,7 @@ signal died
 # Health
 var health: float = 100.0
 var max_health: float = 150.0
+var _alive: bool = true
 
 # Network identity (set by main.gd before add_child)
 var peer_id: int = 0
@@ -68,8 +69,6 @@ func _ready() -> void:
 	GameManager.register_player(self)
 	_net_position = global_position
 	_net_rotation_y = rotation.y
-	NetworkManager.message_received.connect(_on_network_message)
-
 	if _is_local():
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		hud.update_health(health, max_health)
@@ -111,29 +110,6 @@ func _is_local() -> bool:
 	return peer_id == NetworkManager.get_my_id()
 
 
-func _sync_state_to_peers() -> void:
-	var payload := NetSerializer.encode_player_sync(
-		_net_position, _net_rotation_y, _net_anim, _net_anim_speed, health)
-	NetworkManager.send_msg(NetSerializer.OP_PLAYER_SYNC, payload)
-
-
-func _on_network_message(opcode: int, sender_id: int, payload: PackedByteArray) -> void:
-	if opcode == NetSerializer.OP_PLAYER_SYNC and sender_id == peer_id:
-		var data := NetSerializer.decode_player_sync(payload)
-		_net_position = data.pos
-		_net_rotation_y = data.rot_y
-		_net_anim = data.anim
-		_net_anim_speed = data.anim_speed
-		health = data.hp
-	elif opcode == NetSerializer.OP_DAMAGE:
-		var data := NetSerializer.decode_damage(payload)
-		if data.target_peer == peer_id and _is_local():
-			_apply_damage(data.amount, data.hit_pos)
-	elif opcode == NetSerializer.OP_NET_FLASH and sender_id == peer_id:
-		if not _is_local():
-			character_model.flash_damage()
-
-
 func _unhandled_input(event: InputEvent) -> void:
 	if not _is_local():
 		return
@@ -146,8 +122,8 @@ func _unhandled_input(event: InputEvent) -> void:
 func _physics_process(delta: float) -> void:
 	if not _is_local():
 		# Remote: interpolate toward synced position/rotation
-		global_position = global_position.lerp(_net_position, NET_INTERP_SPEED * delta)
-		rotation.y = lerp_angle(rotation.y, _net_rotation_y, NET_INTERP_SPEED * delta)
+		global_position = global_position.move_toward(_net_position, 12.0 * delta)
+		rotation.y = lerp_angle(rotation.y, _net_rotation_y, 8.0 * delta)
 		if _net_anim != "":
 			character_model.play_anim(_net_anim, _net_anim_speed)
 		return
@@ -171,16 +147,16 @@ func _physics_process(delta: float) -> void:
 	_update_animation()
 	hud.update_roll_cooldown(_roll_cooldown_timer, roll_cooldown)
 
-	# Sync to remote peers
-	_net_position = global_position
-	_net_rotation_y = rotation.y
+	# Send position + animation to server
 	if NetworkManager.is_active:
-		_sync_state_to_peers()
+		NetworkManager.send_player_position(global_position, rotation.y, _net_anim, _net_anim_speed)
 
 
 func _apply_gravity(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
+	else:
+		velocity.y = -0.5  # keep pressed to floor so is_on_floor() stays reliable
 
 
 func _handle_jump() -> void:
@@ -253,12 +229,14 @@ func _shoot() -> void:
 	_muzzle_flash_timer = 0.05
 	muzzle_light.visible = true
 	hud.on_shoot()
+	# Tell server we fired
+	if NetworkManager.is_active:
+		NetworkManager.send_ability(0, head.rotation.x)  # 0 = ActionShoot
 
+	# Visual-only hit marker -- server validates actual hits
 	if gun_ray.is_colliding():
 		var collider := gun_ray.get_collider()
-		if collider.has_method("take_damage"):
-			var hit_pos := gun_ray.get_collision_point()
-			_deal_damage(collider, gun_damage, hit_pos)
+		if collider.has_method("take_damage") or collider.has_method("on_damage_visual"):
 			hud.show_hit_marker()
 
 
@@ -269,31 +247,32 @@ func _update_muzzle_flash(delta: float) -> void:
 			muzzle_light.visible = false
 
 
-func take_damage(amount: float, hit_position: Vector3 = Vector3.ZERO) -> void:
-	_apply_damage(amount, hit_position)
-
-
-func _apply_damage(amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
-	health -= amount
-	health = maxf(health, 0.0)
+## Called by main.gd when the server sends a DAMAGE_EVENT targeting this player.
+## Health is already updated via apply_server_state -- this is visuals only.
+func on_damage_visual(amount: float, hit_pos: Vector3) -> void:
 	hud.update_health(health, max_health)
 	hud.show_damage_flash()
 	character_model.flash_damage()
-	if health <= 0.0:
-		died.emit()
-	elif NetworkManager.is_active:
-		NetworkManager.send_msg(NetSerializer.OP_NET_FLASH, NetSerializer.encode_net_flash())
 
 
-func _deal_damage(target: Node, amount: float, hit_pos: Vector3) -> void:
-	if not target.has_method("take_damage"):
-		return
-	if NetworkManager.is_active:
-		var target_peer: int = target.peer_id if "peer_id" in target else 0
-		NetworkManager.send_msg(NetSerializer.OP_DAMAGE,
-			NetSerializer.encode_damage(target_peer, amount, hit_pos))
+## Called by main.gd each tick with the authoritative world state for this player.
+func apply_server_state(data: Dictionary) -> void:
+	# data has: pos (Vector3), rot_y (float), health (float), state (int),
+	#           anim_name (String), anim_speed (float)
+	if _is_local():
+		health = data.health
+		hud.update_health(health, max_health)
+		if health <= 0.0 and _alive:
+			_alive = false
+			died.emit()
+		# Client-authoritative movement: no position correction needed
 	else:
-		target.take_damage(amount, hit_pos)
+		# Remote player: apply all state
+		_net_position = data.pos
+		_net_rotation_y = data.rot_y
+		health = data.health
+		_net_anim = data.anim_name
+		_net_anim_speed = data.anim_speed
 
 
 func _update_animation() -> void:

@@ -27,7 +27,9 @@ enum State { MOVE, DODGE, LIGHT_1, LIGHT_2, LIGHT_3, HEAVY_WINDUP, HEAVY, BLOCK,
 @export var light_damage_1: float = 30.0
 @export var light_damage_2: float = 35.0
 @export var light_damage_3: float = 55.0
-@export var light_attack_duration: float = 0.35
+@export var light_duration_1: float = 0.55
+@export var light_duration_2: float = 0.65
+@export var light_duration_3: float = 0.75
 @export var light_combo_window: float = 0.4
 @export var light_stamina_cost: float = 15.0
 
@@ -77,9 +79,10 @@ var _camera_pitch: float = -0.3
 var _lock_target: Node3D = null
 var _lock_on_active: bool = false
 
-var _gravity: float = 9.8
+var _gravity: float = 8.5  # must match server gravity
 var _flash_timer: float = 0.0
 var _facing_angle: float = 0.0
+var _alive: bool = true
 
 # Network sync
 var _net_anim: String = ""
@@ -100,7 +103,6 @@ func _ready() -> void:
 	_net_position = global_position
 	_net_rotation_y = rotation.y
 	camera.top_level = true
-	NetworkManager.message_received.connect(_on_network_message)
 
 	if _is_local():
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
@@ -131,24 +133,29 @@ func _is_local() -> bool:
 	return peer_id == NetworkManager.get_my_id()
 
 
-func _sync_state_to_peers() -> void:
-	var payload := NetSerializer.encode_player_sync(
-		_net_position, _net_rotation_y, _net_anim, _net_anim_speed, health)
-	NetworkManager.send_msg(NetSerializer.OP_PLAYER_SYNC, payload)
-
-
-func _on_network_message(opcode: int, sender_id: int, payload: PackedByteArray) -> void:
-	if opcode == NetSerializer.OP_PLAYER_SYNC and sender_id == peer_id:
-		var data := NetSerializer.decode_player_sync(payload)
+## Apply authoritative state from the server's WorldState.
+func apply_server_state(data: Dictionary) -> void:
+	if _is_local():
+		health = data.health
+		hud.update_health(health, max_health)
+		if health <= 0.0 and _alive:
+			_alive = false
+			died.emit()
+		# Client-authoritative movement: no position correction needed
+	else:
+		# Remote player: apply all state
 		_net_position = data.pos
 		_net_rotation_y = data.rot_y
-		_net_anim = data.anim
+		health = data.health
+		_net_anim = data.anim_name
 		_net_anim_speed = data.anim_speed
-		health = data.hp
-	elif opcode == NetSerializer.OP_DAMAGE:
-		var data := NetSerializer.decode_damage(payload)
-		if data.target_peer == peer_id and _is_local():
-			_apply_damage(data.amount, data.hit_pos)
+
+
+## Visual-only damage feedback (called from main.gd on DamageEvent).
+func on_damage_visual(_amount: float, _hit_pos: Vector3) -> void:
+	hud.update_health(health, max_health)
+	hud.show_damage_flash()
+	_show_body_flash()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -165,14 +172,18 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _physics_process(delta: float) -> void:
 	if not _is_local():
-		global_position = global_position.lerp(_net_position, NET_INTERP_SPEED * delta)
-		rotation.y = lerp_angle(rotation.y, _net_rotation_y, NET_INTERP_SPEED * delta)
+		# Constant-speed interpolation — avoids stop-go jitter from exponential lerp
+		var move_speed := 12.0  # slightly above max sprint to avoid falling behind
+		global_position = global_position.move_toward(_net_position, move_speed * delta)
+		rotation.y = lerp_angle(rotation.y, _net_rotation_y, 8.0 * delta)
 		if _net_anim != "":
 			character_model.play_anim(_net_anim, _net_anim_speed)
 		return
 
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
+	else:
+		velocity.y = -0.5  # keep pressed to floor so is_on_floor() stays reliable
 
 	_state_timer -= delta
 	_update_flash(delta)
@@ -200,15 +211,17 @@ func _physics_process(delta: float) -> void:
 			velocity.z = 0.0
 
 	move_and_slide()
+	# Prevent ground clip on landing
+	if global_position.y < 0.1:
+		global_position.y = 0.1
+
 	_update_animation()
 	_update_weapon_visual()
 	hud.update_lock_on(_lock_target, camera)
 
-	# Sync to remote peers
-	_net_position = global_position
-	_net_rotation_y = rotation.y
+	# Send position + animation to server
 	if NetworkManager.is_active:
-		_sync_state_to_peers()
+		NetworkManager.send_player_position(global_position, rotation.y, _net_anim, _net_anim_speed)
 
 
 # --- Movement ---
@@ -251,7 +264,7 @@ func _process_move(delta: float) -> void:
 
 	# Jump
 	if Input.is_action_just_pressed("jump") and is_on_floor():
-		velocity.y = 4.5
+		velocity.y = 3.5  # must match server JumpVel for vanguard
 
 	# Dodge
 	if Input.is_action_just_pressed("dodge") and is_on_floor() and stamina >= dodge_stamina_cost:
@@ -387,33 +400,37 @@ func _start_light_attack(combo_step: int) -> void:
 	_queued_light = false
 	_has_hit_this_attack = false
 	_consume_stamina(light_stamina_cost)
+	# Tell server we're attacking
+	if NetworkManager.is_active:
+		NetworkManager.send_ability(1)  # 1 = ActionMelee
 
 	match combo_step:
-		1: _enter_state(State.LIGHT_1)
-		2: _enter_state(State.LIGHT_2)
-		3: _enter_state(State.LIGHT_3)
-	_state_timer = light_attack_duration
+		1:
+			_enter_state(State.LIGHT_1)
+			_state_timer = light_duration_1
+		2:
+			_enter_state(State.LIGHT_2)
+			_state_timer = light_duration_2
+		3:
+			_enter_state(State.LIGHT_3)
+			_state_timer = light_duration_3
 
 
 func _process_light_attack(delta: float) -> void:
 	_face_attack_direction(delta)
 
-	# Forward lunge — only if not already inside enemy
-	var nearest_dist := _nearest_enemy_distance()
-	if nearest_dist > 1.2:
-		var fwd := -transform.basis.z
-		velocity.x = fwd.x * 3.0
-		velocity.z = fwd.z * 3.0
-	else:
-		velocity.x = 0.0
-		velocity.z = 0.0
+	var dur := _get_current_light_duration()
+
+	# Stop movement during attack (server doesn't model lunge)
+	velocity.x = 0.0
+	velocity.z = 0.0
 
 	# Buffer next attack
 	if Input.is_action_just_pressed("light_attack"):
 		_queued_light = true
 
 	# Hit at 40% through the swing
-	if not _has_hit_this_attack and _state_timer <= light_attack_duration * 0.6:
+	if not _has_hit_this_attack and _state_timer <= dur * 0.6:
 		_has_hit_this_attack = true
 		_perform_melee_hit(_get_current_light_damage())
 
@@ -436,6 +453,14 @@ func _get_current_light_damage() -> float:
 	return 0.0
 
 
+func _get_current_light_duration() -> float:
+	match state:
+		State.LIGHT_1: return light_duration_1
+		State.LIGHT_2: return light_duration_2
+		State.LIGHT_3: return light_duration_3
+	return light_duration_1
+
+
 func _get_next_combo_step() -> int:
 	match state:
 		State.LIGHT_1: return 2
@@ -448,6 +473,9 @@ func _get_next_combo_step() -> int:
 func _start_heavy_attack() -> void:
 	_has_hit_this_attack = false
 	_consume_stamina(heavy_stamina_cost)
+	# Tell server we're heavy attacking
+	if NetworkManager.is_active:
+		NetworkManager.send_ability(2)  # 2 = ActionHeavy
 	_enter_state(State.HEAVY_WINDUP)
 	_state_timer = heavy_windup_time
 
@@ -464,15 +492,9 @@ func _process_heavy_windup(delta: float) -> void:
 func _process_heavy_attack(delta: float) -> void:
 	_face_attack_direction(delta)
 
-	# Heavier lunge — only if not already inside enemy
-	var nearest_dist := _nearest_enemy_distance()
-	if nearest_dist > 1.2:
-		var fwd := -transform.basis.z
-		velocity.x = fwd.x * 4.0
-		velocity.z = fwd.z * 4.0
-	else:
-		velocity.x = 0.0
-		velocity.z = 0.0
+	# Stop movement during attack (server doesn't model lunge)
+	velocity.x = 0.0
+	velocity.z = 0.0
 
 	if not _has_hit_this_attack and _state_timer <= heavy_attack_duration * 0.5:
 		_has_hit_this_attack = true
@@ -510,7 +532,8 @@ func _process_stagger() -> void:
 
 # --- Melee Hit Detection ---
 
-func _perform_melee_hit(damage: float) -> void:
+func _perform_melee_hit(_damage: float) -> void:
+	# Server resolves hits — client only shows optimistic hit marker
 	var forward := -transform.basis.z
 	forward.y = 0.0
 	forward = forward.normalized()
@@ -524,13 +547,10 @@ func _perform_melee_hit(damage: float) -> void:
 		if dist > melee_range:
 			continue
 		if dist < 0.01:
-			# On top of enemy, always hits
-			_deal_damage(enemy, damage, global_position)
 			hud.show_hit_marker()
 			continue
 		var angle := rad_to_deg(forward.angle_to(to_enemy.normalized()))
 		if angle <= melee_arc_degrees / 2.0:
-			_deal_damage(enemy, damage, global_position)
 			hud.show_hit_marker()
 
 
@@ -582,54 +602,11 @@ func _find_lock_target() -> Node3D:
 	return best
 
 
-# --- Damage ---
+# --- Damage (server-authoritative) ---
+# Health is updated via apply_server_state(). These are for compat only.
 
-func take_damage(amount: float, hit_position: Vector3 = Vector3.ZERO) -> void:
-	_apply_damage(amount, hit_position)
-
-
-func _apply_damage(amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
-	if state == State.DEAD:
-		return
-	if _is_invincible:
-		return
-
-	# Parry — negate all damage
-	if state == State.BLOCK and _parry_timer > 0.0:
-		hud.show_parry_flash()
-		return
-
-	# Block — reduce damage
-	if state == State.BLOCK:
-		amount *= (1.0 - block_damage_reduction)
-
-	health -= amount
-	health = maxf(health, 0.0)
-	hud.update_health(health, max_health)
-	hud.show_damage_flash()
-	_show_body_flash()
-
-	if health <= 0.0:
-		_die()
-	elif state != State.BLOCK and state != State.DODGE:
-		_enter_state(State.STAGGER)
-		_state_timer = _stagger_duration
-
-
-func _die() -> void:
-	_enter_state(State.DEAD)
-	died.emit()
-
-
-func _deal_damage(target: Node, amount: float, hit_pos: Vector3) -> void:
-	if not target.has_method("take_damage"):
-		return
-	if NetworkManager.is_active:
-		var target_peer: int = target.peer_id if "peer_id" in target else 0
-		NetworkManager.send_msg(NetSerializer.OP_DAMAGE,
-			NetSerializer.encode_damage(target_peer, amount, hit_pos))
-	else:
-		target.take_damage(amount, hit_pos)
+func take_damage(_amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
+	pass  # Server handles all damage
 
 
 # --- Visual feedback ---
@@ -652,17 +629,17 @@ func _update_animation() -> void:
 		State.LIGHT_1:
 			_net_anim = "sword_slash_1"
 			_net_anim_speed = 1.0
-			character_model.play_anim_timed("sword_slash_1", light_attack_duration)
+			character_model.play_anim_timed("sword_slash_1", light_duration_1)
 			return
 		State.LIGHT_2:
 			_net_anim = "sword_slash_2"
 			_net_anim_speed = 1.0
-			character_model.play_anim_timed("sword_slash_2", light_attack_duration)
+			character_model.play_anim_timed("sword_slash_2", light_duration_2)
 			return
 		State.LIGHT_3:
 			_net_anim = "sword_slash_3"
 			_net_anim_speed = 1.0
-			character_model.play_anim_timed("sword_slash_3", light_attack_duration)
+			character_model.play_anim_timed("sword_slash_3", light_duration_3)
 			return
 		State.HEAVY_WINDUP:
 			_net_anim = "sword_heavy"
