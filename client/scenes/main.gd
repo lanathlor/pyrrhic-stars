@@ -746,16 +746,48 @@ func _on_world_state(data: Dictionary) -> void:
 
 func _on_damage_event(data: Dictionary) -> void:
 	var target_peer: int = data.get("target_peer_id", -1)
+	var source_peer: int = data.get("source_peer_id", 0)
 	var amount: float = data.get("amount", 0.0)
 	var hit_pos: Vector3 = data.get("hit_pos", Vector3.ZERO)
-
+	var source_type: int = data.get("source_type", 0)
 	if target_peer == 0:
+		# Player hit the enemy
 		if is_instance_valid(_enemy_node) and _enemy_node.has_method("on_damage_visual"):
 			_enemy_node.on_damage_visual(amount, hit_pos)
+		# Server-confirmed hit marker on the attacker's HUD
+		if source_peer == NetworkManager.get_my_id():
+			var local_player: CharacterBody3D = _spawned_players.get(source_peer)
+			if is_instance_valid(local_player) and local_player.has_method("on_hit_confirmed"):
+				local_player.on_hit_confirmed(amount)
+		# Floating damage number
+		_spawn_damage_number(amount, hit_pos)
 	elif target_peer in _spawned_players:
 		var player: CharacterBody3D = _spawned_players[target_peer]
 		if is_instance_valid(player) and player.has_method("on_damage_visual"):
 			player.on_damage_visual(amount, hit_pos)
+
+
+func _spawn_damage_number(amount: float, world_pos: Vector3) -> void:
+	var label := Label3D.new()
+	label.text = str(int(amount))
+	label.font_size = 48
+	label.outline_size = 8
+	label.modulate = Color(1.0, 0.95, 0.3, 1.0)
+	label.outline_modulate = Color(0.0, 0.0, 0.0, 0.8)
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	label.pixel_size = 0.005
+	# Slight random offset so stacked hits don't overlap
+	var offset := Vector3(randf_range(-0.3, 0.3), randf_range(0.0, 0.3), randf_range(-0.3, 0.3))
+	label.position = world_pos + offset + Vector3(0.0, 0.5, 0.0)
+	add_child(label)
+
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(label, "position:y", label.position.y + 1.5, 0.8).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	tween.tween_property(label, "modulate:a", 0.0, 0.8).set_delay(0.3)
+	tween.tween_property(label, "outline_modulate:a", 0.0, 0.8).set_delay(0.3)
+	tween.chain().tween_callback(label.queue_free)
 
 
 func _toggle_pause() -> void:

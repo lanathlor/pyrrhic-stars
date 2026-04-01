@@ -149,6 +149,11 @@ func apply_server_state(data: Dictionary) -> void:
 		_net_anim_speed = data.anim_speed
 
 
+## Called by main.gd when server confirms this player hit an enemy.
+func on_hit_confirmed(amount: float) -> void:
+	hud.show_hit_marker()
+
+
 ## Visual-only damage feedback.
 func on_damage_visual(_amount: float, _hit_pos: Vector3) -> void:
 	hud.update_health(health, max_health)
@@ -550,8 +555,7 @@ func _perform_raycast_hit(_damage: float, max_range: float) -> void:
 	var query := PhysicsRayQueryParameters3D.create(origin, origin + direction * max_range, 4 | 1)
 	query.exclude = [get_rid()]
 	var result := space.intersect_ray(query)
-	if result and (result.collider.has_method("take_damage") or result.collider.has_method("on_damage_visual")):
-		hud.show_hit_marker()
+	# Hit marker now driven by server-confirmed damage events (on_hit_confirmed)
 
 
 # --- Lock-on ---

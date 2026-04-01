@@ -151,6 +151,11 @@ func apply_server_state(data: Dictionary) -> void:
 		_net_anim_speed = data.anim_speed
 
 
+## Called by main.gd when server confirms this player hit an enemy.
+func on_hit_confirmed(amount: float) -> void:
+	hud.show_hit_marker()
+
+
 ## Visual-only damage feedback (called from main.gd on DamageEvent).
 func on_damage_visual(_amount: float, _hit_pos: Vector3) -> void:
 	hud.update_health(health, max_health)
@@ -547,11 +552,10 @@ func _perform_melee_hit(_damage: float) -> void:
 		if dist > melee_range:
 			continue
 		if dist < 0.01:
-			hud.show_hit_marker()
-			continue
+			continue  # Hit marker now driven by server-confirmed damage events
 		var angle := rad_to_deg(forward.angle_to(to_enemy.normalized()))
 		if angle <= melee_arc_degrees / 2.0:
-			hud.show_hit_marker()
+			pass  # Hit marker now driven by server-confirmed damage events
 
 
 # --- Stamina ---

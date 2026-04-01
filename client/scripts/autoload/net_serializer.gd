@@ -444,21 +444,23 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 # Damage event (server -> client, server-authoritative protocol)
 # =============================================================================
 
-## Format: [target_peer_id:u16][amount:f32][hit_x:f32][hit_y:f32][hit_z:f32][source_type:u8]
+## Format: [target_peer_id:u16][source_peer_id:u16][amount:f32][hit_x:f32][hit_y:f32][hit_z:f32][source_type:u8]
 func decode_damage_event(data: PackedByteArray) -> Dictionary:
 	var buf := StreamPeerBuffer.new()
 	buf.data_array = data
 	return {
 		"target_peer_id": buf.get_u16(),
+		"source_peer_id": buf.get_u16(),
 		"amount": buf.get_float(),
 		"hit_pos": Vector3(buf.get_float(), buf.get_float(), buf.get_float()),
 		"source_type": buf.get_u8(),
 	}
 
 
-func encode_damage_event(target_peer_id: int, amount: float, hit_pos: Vector3, source_type: int) -> PackedByteArray:
+func encode_damage_event(target_peer_id: int, source_peer_id: int, amount: float, hit_pos: Vector3, source_type: int) -> PackedByteArray:
 	var buf := StreamPeerBuffer.new()
 	buf.put_u16(target_peer_id)
+	buf.put_u16(source_peer_id)
 	buf.put_float(amount)
 	_put_vec3(buf, hit_pos)
 	buf.put_u8(source_type)

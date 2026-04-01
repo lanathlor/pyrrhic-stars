@@ -71,10 +71,6 @@ func _draw_crosshair_lines(canvas: Control, center: Vector2) -> void:
 	if _recoil_timer > 0.0:
 		gap = 10.0
 
-	if _hit_marker_timer > 0.0:
-		color = Color.RED
-		length = 14.0
-
 	# Horizontal lines
 	canvas.draw_rect(Rect2(center.x - gap - length, center.y - thickness / 2.0, length, thickness), color)
 	canvas.draw_rect(Rect2(center.x + gap, center.y - thickness / 2.0, length, thickness), color)
@@ -83,6 +79,22 @@ func _draw_crosshair_lines(canvas: Control, center: Vector2) -> void:
 	canvas.draw_rect(Rect2(center.x - thickness / 2.0, center.y + gap, thickness, length), color)
 	# Center dot
 	canvas.draw_rect(Rect2(center.x - 1.0, center.y - 1.0, 2.0, 2.0), color)
+
+	# X-shaped hit marker (diagonal lines) on confirmed hit
+	if _hit_marker_timer > 0.0:
+		var t: float = _hit_marker_timer / HIT_MARKER_DURATION
+		var hit_color := Color(1.0, 0.2, 0.2, t)
+		var x_gap: float = 5.0
+		var x_len: float = 10.0
+		var x_thick: float = 2.5
+		# Top-left to center
+		canvas.draw_line(center + Vector2(-x_gap - x_len, -x_gap - x_len), center + Vector2(-x_gap, -x_gap), hit_color, x_thick, true)
+		# Top-right to center
+		canvas.draw_line(center + Vector2(x_gap + x_len, -x_gap - x_len), center + Vector2(x_gap, -x_gap), hit_color, x_thick, true)
+		# Bottom-left to center
+		canvas.draw_line(center + Vector2(-x_gap - x_len, x_gap + x_len), center + Vector2(-x_gap, x_gap), hit_color, x_thick, true)
+		# Bottom-right to center
+		canvas.draw_line(center + Vector2(x_gap + x_len, x_gap + x_len), center + Vector2(x_gap, x_gap), hit_color, x_thick, true)
 
 
 func _draw_roll_cooldown(canvas: Control, _center: Vector2) -> void:

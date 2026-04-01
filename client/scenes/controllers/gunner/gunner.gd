@@ -233,11 +233,7 @@ func _shoot() -> void:
 	if NetworkManager.is_active:
 		NetworkManager.send_ability(0, head.rotation.x)  # 0 = ActionShoot
 
-	# Visual-only hit marker -- server validates actual hits
-	if gun_ray.is_colliding():
-		var collider := gun_ray.get_collider()
-		if collider.has_method("take_damage") or collider.has_method("on_damage_visual"):
-			hud.show_hit_marker()
+	# Hit marker is now driven by server-confirmed damage events (on_hit_confirmed)
 
 
 func _update_muzzle_flash(delta: float) -> void:
@@ -245,6 +241,11 @@ func _update_muzzle_flash(delta: float) -> void:
 		_muzzle_flash_timer -= delta
 		if _muzzle_flash_timer <= 0.0:
 			muzzle_light.visible = false
+
+
+## Called by main.gd when server confirms this player hit an enemy.
+func on_hit_confirmed(amount: float) -> void:
+	hud.show_hit_marker()
 
 
 ## Called by main.gd when the server sends a DAMAGE_EVENT targeting this player.

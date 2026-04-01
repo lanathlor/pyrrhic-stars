@@ -46,7 +46,7 @@ const LOOPING_ANIMS := [
 ]
 
 var _anim_player: AnimationPlayer = null
-var _mesh_instance: MeshInstance3D = null
+var _mesh_instances: Array[MeshInstance3D] = []
 var _skeleton: Skeleton3D = null
 var _root_bone_idx: int = -1
 var _hips_bone_idx: int = -1
@@ -74,7 +74,7 @@ func _ready() -> void:
 
 	# Find nodes in the imported scene tree
 	_anim_player = _find_child_of_type(instance, "AnimationPlayer") as AnimationPlayer
-	_mesh_instance = _find_child_of_type(instance, "MeshInstance3D") as MeshInstance3D
+	_mesh_instances = _find_all_mesh_instances(instance)
 	_skeleton = _find_child_of_type(instance, "Skeleton3D") as Skeleton3D
 
 	# Find root bone and hips bone to strip root motion
@@ -86,9 +86,9 @@ func _ready() -> void:
 			if "hips" in bone_name:
 				_hips_bone_idx = i
 
-	if _mesh_instance:
-		for i in _mesh_instance.get_surface_override_material_count():
-			_original_materials.append(_mesh_instance.get_surface_override_material(i))
+	for mesh in _mesh_instances:
+		for i in mesh.get_surface_override_material_count():
+			_original_materials.append(mesh.get_surface_override_material(i))
 
 	if not _anim_player:
 		return
@@ -185,29 +185,40 @@ func attach_weapon(scene_path: String, bone_name: String = "mixamorig:RightHand"
 	return weapon_node
 
 
-## Flash the mesh for damage feedback.
-func flash_damage(color: Color = Color(1.0, 0.3, 0.3), duration: float = 0.1) -> void:
-	if not _mesh_instance:
+## Flash the mesh white for damage feedback.
+var _flash_tween: Tween = null
+
+func flash_damage(color: Color = Color(1.0, 1.0, 1.0), duration: float = 0.12) -> void:
+	if _mesh_instances.is_empty():
 		return
+	# Kill any existing flash tween to avoid conflicts
+	if _flash_tween and _flash_tween.is_valid():
+		_flash_tween.kill()
+
 	var flash_mat := StandardMaterial3D.new()
 	flash_mat.albedo_color = color
 	flash_mat.emission_enabled = true
 	flash_mat.emission = color
-	flash_mat.emission_energy_multiplier = 2.0
-	for i in _mesh_instance.get_surface_override_material_count():
-		_mesh_instance.set_surface_override_material(i, flash_mat)
-	await get_tree().create_timer(duration).timeout
-	_clear_flash()
+	flash_mat.emission_energy_multiplier = 4.0
+	flash_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	for mesh in _mesh_instances:
+		for i in mesh.get_surface_override_material_count():
+			mesh.set_surface_override_material(i, flash_mat)
+
+	_flash_tween = get_tree().create_tween()
+	_flash_tween.tween_interval(duration)
+	_flash_tween.tween_callback(_clear_flash)
 
 
 func _clear_flash() -> void:
-	if not _mesh_instance:
-		return
-	for i in _mesh_instance.get_surface_override_material_count():
-		if i < _original_materials.size():
-			_mesh_instance.set_surface_override_material(i, _original_materials[i])
-		else:
-			_mesh_instance.set_surface_override_material(i, null)
+	var mat_idx: int = 0
+	for mesh in _mesh_instances:
+		for i in mesh.get_surface_override_material_count():
+			if mat_idx < _original_materials.size():
+				mesh.set_surface_override_material(i, _original_materials[mat_idx])
+			else:
+				mesh.set_surface_override_material(i, null)
+			mat_idx += 1
 
 
 ## Extract the mixamo animation from an FBX and add it to our AnimationPlayer.
@@ -283,6 +294,16 @@ func _strip_root_motion(anim: Animation) -> void:
 			pos.x = 0.0
 			pos.z = 0.0
 			anim.track_set_key_value(track_idx, key_idx, pos)
+
+
+## Recursively find all MeshInstance3D nodes (handles subclasses too).
+func _find_all_mesh_instances(node: Node) -> Array[MeshInstance3D]:
+	var result: Array[MeshInstance3D] = []
+	if node is MeshInstance3D:
+		result.append(node)
+	for child in node.get_children():
+		result.append_array(_find_all_mesh_instances(child))
+	return result
 
 
 ## Recursively find first child node of a given class name.

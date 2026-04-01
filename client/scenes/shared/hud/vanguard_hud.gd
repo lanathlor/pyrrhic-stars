@@ -41,6 +41,22 @@ func _process(delta: float) -> void:
 	if _hit_marker_timer > 0.0:
 		_hit_marker_timer -= delta
 	lock_on_reticle.queue_redraw()
+	queue_redraw()
+
+
+func _draw() -> void:
+	if _hit_marker_timer <= 0.0:
+		return
+	var center := size / 2.0
+	var t: float = _hit_marker_timer / HIT_MARKER_DURATION
+	var color := Color(1.0, 0.2, 0.2, t)
+	var gap: float = 5.0
+	var x_len: float = 10.0
+	var thick: float = 2.5
+	draw_line(center + Vector2(-gap - x_len, -gap - x_len), center + Vector2(-gap, -gap), color, thick, true)
+	draw_line(center + Vector2(gap + x_len, -gap - x_len), center + Vector2(gap, -gap), color, thick, true)
+	draw_line(center + Vector2(-gap - x_len, gap + x_len), center + Vector2(-gap, gap), color, thick, true)
+	draw_line(center + Vector2(gap + x_len, gap + x_len), center + Vector2(gap, gap), color, thick, true)
 
 
 func update_health(current: float, maximum: float) -> void:
