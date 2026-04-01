@@ -294,8 +294,8 @@ func _spawn_solo_player() -> void:
 	var scene := load(CLASS_SCENES[_local_class]) as PackedScene
 	var player := scene.instantiate() as CharacterBody3D
 	player.name = "Player_solo"
-	player.global_position = LOBBY_SPAWN
 	_players_node.add_child(player)
+	player.global_position = LOBBY_SPAWN
 	_spawned_players[1] = player
 	player.died.connect(_on_player_died)
 
@@ -323,10 +323,10 @@ func _spawn_multiplayer_players() -> void:
 		var player := scene.instantiate() as CharacterBody3D
 		player.name = "Player_%d" % pid
 		var spawn_pos: Vector3 = PLAYER_SPAWNS[spawn_idx % PLAYER_SPAWNS.size()]
-		player.global_position = spawn_pos
 		# Authority MUST be set before add_child so _ready() sees the correct authority
 		player.set_multiplayer_authority(pid)
 		_players_node.add_child(player)
+		player.global_position = spawn_pos
 		_spawned_players[pid] = player
 		player.died.connect(_on_player_died)
 		spawn_idx += 1
