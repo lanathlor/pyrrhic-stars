@@ -6,34 +6,67 @@ import (
 )
 
 // Opcodes are uint16, big-endian. Grouped by range:
-//   0x0001–0x000F  game state sync (high frequency)
-//   0x0010–0x001F  lobby
-//   0x0020–0x002F  game flow
-//   0xFF00–0xFFFF  zone management (server-handled)
+//
+//	0x0001–0x000F  legacy game state sync (deprecated — kept for compat during migration)
+//	0x0010–0x001F  legacy lobby (deprecated)
+//	0x0020–0x002F  legacy game flow (deprecated)
+//	0x0030–0x003F  client → server inputs
+//	0x0040–0x004F  server → client authoritative state
+//	0xFF00–0xFFFF  zone management (server-handled)
 const (
-	// Game sync — broadcast excluding sender (unreliable-style).
+	// Legacy relay opcodes (will be removed after full migration).
 	OpPlayerSync      uint16 = 0x0001
 	OpEnemySync       uint16 = 0x0002
 	OpDamage          uint16 = 0x0003
 	OpNetFlash        uint16 = 0x0004
 	OpProjectileSpawn uint16 = 0x0005
 
-	// Lobby — broadcast including sender (call_local).
 	OpClassSelect uint16 = 0x0010
 	OpReadyState  uint16 = 0x0011
 	OpPlayerInfo  uint16 = 0x0012
 
-	// Game flow — broadcast including sender (call_local).
 	OpSpawnPlayers uint16 = 0x0020
 	OpStartFight   uint16 = 0x0021
 	OpShowResult   uint16 = 0x0022
 	OpResetReady   uint16 = 0x0023
+
+	// Client → Server inputs.
+	OpPlayerInput   uint16 = 0x0030 // movement + continuous actions
+	OpAbilityInput  uint16 = 0x0031 // discrete ability activation
+	OpInteractInput uint16 = 0x0032 // lobby actions (class select, ready)
+
+	// Server → Client authoritative state.
+	OpWorldState     uint16 = 0x0040 // full entity snapshot per tick
+	OpEntitySpawn    uint16 = 0x0041 // new entity appeared
+	OpEntityDespawn  uint16 = 0x0042 // entity removed
+	OpDamageEvent    uint16 = 0x0043 // visual damage event (for effects)
+	OpGameFlowEvent  uint16 = 0x0044 // fight start, result, phase transition
+	OpLobbyState     uint16 = 0x0045 // lobby player list, ready states
+	OpInputAck       uint16 = 0x0046 // acknowledges client input tick
+
+	// Social / group — client → server (gateway-handled).
+	OpGroupCreate      uint16 = 0x0050
+	OpGroupInvite      uint16 = 0x0051
+	OpGroupInviteReply uint16 = 0x0052
+	OpGroupLeave       uint16 = 0x0053
+	OpGroupKick        uint16 = 0x0054
+	OpEnterPortal      uint16 = 0x0055
+
+	// Social / group — server → client.
+	OpGroupState       uint16 = 0x0060
+	OpGroupInviteRecv  uint16 = 0x0061
+	OpGroupError       uint16 = 0x0062
+	OpHubState         uint16 = 0x0063
+	OpPlayerNames      uint16 = 0x0064
 
 	// Zone management — server-handled, never relayed.
 	OpJoinZone         uint16 = 0xFF00
 	OpZoneJoined       uint16 = 0xFF01
 	OpPeerConnected    uint16 = 0xFF02
 	OpPeerDisconnected uint16 = 0xFF03
+	OpSetUsername      uint16 = 0xFF04
+	OpRequestZoneTransfer uint16 = 0xFF05
+	OpZoneTransfer     uint16 = 0xFF06
 )
 
 // HeaderSize is the fixed-size message header: 2 bytes opcode + 2 bytes sender ID.
@@ -77,5 +110,27 @@ func BroadcastExcludeSender(opcode uint16) bool {
 // IsServerHandled returns true for opcodes that the server processes directly
 // and does not relay to other clients.
 func IsServerHandled(opcode uint16) bool {
-	return opcode >= 0xFF00
+	return opcode >= 0xFF00 || (opcode >= 0x0050 && opcode <= 0x005F)
 }
+
+// IsClientInput returns true for opcodes that are client-to-server input messages.
+// These are routed to the zone simulation, not relayed.
+func IsClientInput(opcode uint16) bool {
+	return opcode >= 0x0030 && opcode <= 0x003F
+}
+
+// Game flow event types sent within OpGameFlowEvent payload.
+const (
+	FlowSpawnPlayers   uint8 = 1
+	FlowFightStart     uint8 = 2
+	FlowShowResult     uint8 = 3
+	FlowPhaseTransition uint8 = 4
+	FlowReturnLobby    uint8 = 5
+	FlowReturnHub      uint8 = 6
+)
+
+// Interact input action types sent within OpInteractInput payload.
+const (
+	InteractClassSelect uint8 = 0
+	InteractReadyToggle uint8 = 1
+)

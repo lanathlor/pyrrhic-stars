@@ -1,12 +1,16 @@
 extends CharacterBody3D
 
-## Arena boss with 4 attack types and 3 health phases.
-## Phase 1 (100-60%): teaching — long telegraphs, moderate damage.
-## Phase 2 (60-30%): pressure — faster, ranged burst x2.
-## Phase 3 (30-0%): enrage — short telegraphs, burst x3, red glow.
+## Visual puppet for the arena boss.
+## Receives authoritative state from the server via apply_server_state().
+## Contains NO game logic — only interpolation, telegraph visuals, animations.
 
 signal died
 
+# State enum kept for animation mapping only.
+# Values match server EnemyState:
+# 0=Idle, 1=Chase, 2=MeleeTelegraph, 3=MeleeAttack, 4=RangedTelegraph,
+# 5=RangedAttack, 6=AoETelegraph, 7=AoESlam, 8=ChargeTelegraph, 9=Charge,
+# 10=Cooldown, 11=PhaseTransition, 12=Dead
 enum State {
 	IDLE, CHASE,
 	MELEE_TELEGRAPH, MELEE_ATTACK,
@@ -16,37 +20,34 @@ enum State {
 	COOLDOWN, PHASE_TRANSITION, DEAD,
 }
 
-# Base stats (Phase 1 values, overridden by phase getters)
+# Stats needed for health bar display
 @export var max_health: float = 2000.0
 @export var melee_range: float = 3.0
 
 var health: float
 var state: State = State.IDLE
-var _state_timer: float = 0.0
-var _chase_timer: float = 0.0
-var _target_player: CharacterBody3D = null
-var _ranged_target_position: Vector3
-var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
-# Phase tracking
+# Phase tracking (for health bar color and charge distance)
 var _current_phase: int = 1
-var _phase_transitioned: Array[int] = []
-var _last_attack: String = ""
 
-# Charge tracking
-var _charge_direction: Vector3 = Vector3.ZERO
-var _charge_distance_traveled: float = 0.0
-var _charge_hit_players: Array = []
+# Enemy uses peer_id = 0 as its network identity (reserved for the boss)
+var peer_id: int = 0
 
-# Navigation
-@onready var nav_agent: NavigationAgent3D = $NavigationAgent3D
+# Server state (set by main.gd from WorldState)
+var _server_position: Vector3 = Vector3.ZERO
+var _server_rotation_y: float = 0.0
+var _server_health: float = 2000.0
+var _server_state: int = 0
+var _server_phase: int = 1
+var _server_ranged_target: Vector3 = Vector3.ZERO
+var _server_charge_dir: Vector3 = Vector3.ZERO
+var _server_alive: bool = true
 
-# Attack weights per phase: [melee, ranged, aoe, charge]
-const PHASE_WEIGHTS := {
-	1: [30, 30, 20, 20],
-	2: [25, 25, 25, 25],
-	3: [20, 20, 25, 35],
-}
+# Interpolation
+const NET_INTERP_SPEED := 15.0
+var _last_synced_state: int = -1
+var _prev_position: Vector3 = Vector3.ZERO
+var _visual_velocity: Vector3 = Vector3.ZERO
 
 # Dynamic visual nodes
 var _melee_telegraph_mesh: MeshInstance3D
@@ -61,14 +62,10 @@ var _aoe_particles: GPUParticles3D
 var _aoe_slam_particles: GPUParticles3D
 
 # Scene references
-@onready var melee_area: Area3D = $MeleeArea
-@onready var melee_collision: CollisionShape3D = $MeleeArea/CollisionShape3D
 @onready var character_model: Node3D = $CharacterModel
 
-const PROJECTILE_SCENE_PATH := "res://scenes/enemies/basic_enemy/enemy_projectile.tscn"
 const SWORD_SCENE_PATH := "res://assets/models/weapons/weapon_longsword.glb"
 const GUN_SCENE_PATH := "res://assets/models/weapons/weapon_rifle.glb"
-var _projectile_scene: PackedScene
 
 # Weapon nodes (bone-attached via CharacterModel)
 var _sword_node: Node3D
@@ -77,32 +74,17 @@ var _sword_attachment: BoneAttachment3D
 var _gun_attachment: BoneAttachment3D
 var _last_weapon: String = "sword"  # which weapon to show between attacks
 
-# Network sync
-var _net_state: int = 0  # synced State enum as int for remote clients
-var _last_synced_state: int = -1
-var _net_position: Vector3 = Vector3.ZERO
-var _net_rotation_y: float = 0.0
-const NET_INTERP_SPEED := 15.0
-
-
-# Enemy uses peer_id = 0 as its network identity (reserved for the boss)
-var peer_id: int = 0
-
-
-func _is_host() -> bool:
-	if not NetworkManager.is_active:
-		return true
-	return NetworkManager.is_host
+# Ranged target position for laser warning visual
+var _ranged_target_position: Vector3
+# Charge direction for charge telegraph visual
+var _charge_direction: Vector3 = Vector3.ZERO
 
 
 func _ready() -> void:
 	health = max_health
-	_net_position = global_position
-	_net_rotation_y = rotation.y
-	_projectile_scene = load(PROJECTILE_SCENE_PATH)
-	melee_collision.disabled = true
+	_server_position = global_position
+	_server_rotation_y = rotation.y
 	GameManager.register_enemy(self)
-	NetworkManager.message_received.connect(_on_network_message)
 
 	_create_health_bar()
 	_create_melee_telegraph()
@@ -111,7 +93,6 @@ func _ready() -> void:
 	_create_aoe_particles()
 	_create_charge_telegraph()
 	_attach_weapons.call_deferred()
-	_change_state(State.CHASE)
 
 	# Debug: log loaded animations
 	call_deferred("_log_loaded_anims")
@@ -126,689 +107,102 @@ func _log_loaded_anims() -> void:
 			print("[Boss] WARNING: animation '%s' not loaded — will use fallback" % needed)
 
 
-func _sync_state_to_peers() -> void:
-	var payload := NetSerializer.encode_enemy_sync(
-		_net_position, _net_rotation_y, health, _net_state,
-		_current_phase, _ranged_target_position, _charge_direction)
-	NetworkManager.send_msg(NetSerializer.OP_ENEMY_SYNC, payload)
-
-
-func _on_network_message(opcode: int, _sender_id: int, payload: PackedByteArray) -> void:
-	if opcode == NetSerializer.OP_ENEMY_SYNC and not _is_host():
-		var data := NetSerializer.decode_enemy_sync(payload)
-		_net_position = data.pos
-		_net_rotation_y = data.rot_y
-		health = data.hp
-		_net_state = data.state
-		_current_phase = data.phase
-		_ranged_target_position = data.ranged_pos
-		_charge_direction = data.charge_dir
-	elif opcode == NetSerializer.OP_DAMAGE:
-		var data := NetSerializer.decode_damage(payload)
-		if data.target_peer == 0 and _is_host():
-			_apply_damage(data.amount, data.hit_pos)
-	elif opcode == NetSerializer.OP_PROJECTILE_SPAWN and not _is_host():
-		var data := NetSerializer.decode_projectile_spawn(payload)
-		_spawn_projectile_local(data.spawn_pos, data.direction, data.dmg)
-
-
 func _exit_tree() -> void:
 	GameManager.unregister_enemy(self)
+
+
+# =============================================================================
+# Server state application
+# =============================================================================
+
+func apply_server_state(data: Dictionary) -> void:
+	_server_position = data.pos
+	_server_rotation_y = data.rot_y
+	_server_health = data.health
+	_server_state = data.state
+	_server_phase = data.phase
+	_server_ranged_target = data.ranged_target
+	_server_charge_dir = data.charge_dir
+	_server_alive = data.alive
+	health = _server_health
+	_current_phase = _server_phase
+	_ranged_target_position = _server_ranged_target
+	_charge_direction = _server_charge_dir
 
 
 func _physics_process(delta: float) -> void:
 	_face_health_bar_to_camera()
 	_update_weapons(delta)
-	_update_boss_animation()
 	character_model.position.y = 0.0
 
-	if not _is_host():
-		# Client: interpolate position and sync visuals
-		global_position = global_position.lerp(_net_position, NET_INTERP_SPEED * delta)
-		rotation.y = lerp_angle(rotation.y, _net_rotation_y, NET_INTERP_SPEED * delta)
-		_process_remote_sync()
-		return
+	# Interpolate position/rotation from server
+	var old_pos := global_position
+	global_position = global_position.lerp(_server_position, NET_INTERP_SPEED * delta)
+	rotation.y = lerp_angle(rotation.y, _server_rotation_y, NET_INTERP_SPEED * delta)
+	# Compute visual velocity for animation (run vs idle)
+	if delta > 0.001:
+		_visual_velocity = (global_position - old_pos) / delta
 
-	if not is_on_floor():
-		velocity.y -= _gravity * delta
+	# Update visuals based on server state
+	_update_state_visuals()
+	_update_health_bar()
+	_update_health_bar_color()
+	_update_boss_animation()
 
-	_state_timer -= delta
-	_net_state = state
-
-	match state:
-		State.CHASE:
-			_process_chase(delta)
-		State.MELEE_TELEGRAPH:
-			_process_melee_telegraph()
-		State.MELEE_ATTACK:
-			_process_melee_attack()
-		State.RANGED_TELEGRAPH:
-			_process_ranged_telegraph()
-		State.RANGED_ATTACK:
-			_process_ranged_attack()
-		State.AOE_TELEGRAPH:
-			_process_aoe_telegraph()
-		State.AOE_SLAM:
-			_process_aoe_slam()
-		State.CHARGE_TELEGRAPH:
-			_process_charge_telegraph()
-		State.CHARGE:
-			_process_charge(delta)
-		State.COOLDOWN:
-			_process_cooldown()
-		State.PHASE_TRANSITION:
-			_process_phase_transition()
-		State.DEAD:
-			velocity = Vector3.ZERO
-
-	move_and_slide()
-
-	# Sync to remote peers
-	_net_position = global_position
-	_net_rotation_y = rotation.y
-	if NetworkManager.is_active:
-		_sync_state_to_peers()
+	# Handle death
+	if not _server_alive and visible:
+		visible = false
+		collision_layer = 0
+		died.emit()
 
 
-func _process_remote_sync() -> void:
-	var synced_state: State = _net_state as State
+# =============================================================================
+# State visual sync
+# =============================================================================
+
+func _update_state_visuals() -> void:
+	# Map server state int to telegraph visibility
+	var synced_state: int = _server_state
 	if synced_state != _last_synced_state:
 		_last_synced_state = synced_state
-		# Update telegraph visibility based on synced state
 		_melee_telegraph_mesh.visible = false
 		_laser_warning_mesh.visible = false
 		_aoe_telegraph_mesh.visible = false
 		_charge_telegraph_mesh.visible = false
 		if _aoe_particles:
 			_aoe_particles.emitting = false
+		# 2=MeleeTelegraph, 4=RangedTelegraph, 6=AoETelegraph,
+		# 7=AoESlam, 8=ChargeTelegraph, 12=Dead
 		match synced_state:
-			State.MELEE_TELEGRAPH:
+			2:  # MELEE_TELEGRAPH
 				_melee_telegraph_mesh.visible = true
-			State.RANGED_TELEGRAPH:
+			4:  # RANGED_TELEGRAPH
 				_laser_warning_mesh.visible = true
-			State.AOE_TELEGRAPH:
+			6:  # AOE_TELEGRAPH
 				_aoe_telegraph_mesh.visible = true
 				if _aoe_particles:
 					_aoe_particles.emitting = true
-			State.AOE_SLAM:
+			7:  # AOE_SLAM
 				if _aoe_slam_particles:
 					_aoe_slam_particles.emitting = true
-			State.CHARGE_TELEGRAPH:
+			8:  # CHARGE_TELEGRAPH
 				_charge_telegraph_mesh.visible = true
-			State.DEAD:
+			12:  # DEAD
 				visible = false
-		state = synced_state
+		state = synced_state as State
 	# Update telegraph positions for synced data
 	if _laser_warning_mesh.visible:
 		_update_laser_warning()
 	if _charge_telegraph_mesh.visible:
 		_update_charge_indicator()
-	# Health bar
-	_update_health_bar()
-	_update_health_bar_color()
 
 
 # =============================================================================
-# Phase-aware stat getters
+# Damage visual (called externally for hit flash)
 # =============================================================================
 
-func _get_move_speed() -> float:
-	match _current_phase:
-		2: return 5.0
-		3: return 6.0
-	return 4.0
-
-
-func _get_melee_damage() -> float:
-	if _current_phase == 3:
-		return 35.0
-	return 30.0
-
-
-func _get_melee_telegraph_time() -> float:
-	match _current_phase:
-		2: return 0.9
-		3: return 0.7
-	return 1.2
-
-
-func _get_ranged_telegraph_time() -> float:
-	match _current_phase:
-		2: return 0.8
-		3: return 0.6
-	return 1.0
-
-
-func _get_ranged_per_projectile_damage() -> float:
-	match _current_phase:
-		2: return 15.0
-		3: return 12.0
-	return 20.0
-
-
-func _get_ranged_burst_count() -> int:
-	match _current_phase:
-		2: return 2
-		3: return 3
-	return 1
-
-
-func _get_aoe_damage() -> float:
-	if _current_phase == 3:
-		return 45.0
-	return 40.0
-
-
-func _get_aoe_radius() -> float:
-	match _current_phase:
-		2: return 6.0
-		3: return 7.0
-	return 5.0
-
-
-func _get_aoe_telegraph_time() -> float:
-	match _current_phase:
-		2: return 1.2
-		3: return 1.0
-	return 1.5
-
-
-func _get_charge_damage() -> float:
-	if _current_phase == 3:
-		return 40.0
-	return 35.0
-
-
-func _get_charge_speed() -> float:
-	match _current_phase:
-		2: return 14.0
-		3: return 16.0
-	return 12.0
-
-
-func _get_charge_telegraph_time() -> float:
-	match _current_phase:
-		2: return 0.8
-		3: return 0.6
-	return 1.0
-
-
-func _get_charge_max_distance() -> float:
-	match _current_phase:
-		2: return 18.0
-		3: return 20.0
-	return 15.0
-
-
-func _get_cooldown_time() -> float:
-	match _current_phase:
-		2: return 1.2
-		3: return 0.9
-	return 1.5
-
-
-# =============================================================================
-# Line of sight
-# =============================================================================
-
-func _has_line_of_sight(target_pos: Vector3) -> bool:
-	var space := get_world_3d().direct_space_state
-	if not space:
-		return true
-	var from := global_position + Vector3(0.0, 1.0, 0.0)
-	var to := target_pos + Vector3(0.0, 1.0, 0.0)
-	var query := PhysicsRayQueryParameters3D.create(from, to, 1)  # mask 1 = World layer
-	query.exclude = [get_rid()]
-	var result := space.intersect_ray(query)
-	return result.is_empty()
-
-
-# =============================================================================
-# Attack selection (weighted random with context + anti-repeat)
-# =============================================================================
-
-func _select_attack() -> State:
-	var weights: Array = PHASE_WEIGHTS[_current_phase].duplicate()
-	var attack_names := ["melee", "ranged", "aoe", "charge"]
-
-	# Context: distance to nearest player
-	var nearest := GameManager.get_nearest_player(global_position)
-	var distance := 999.0
-	if nearest and is_instance_valid(nearest):
-		var to := nearest.global_position - global_position
-		to.y = 0.0
-		distance = to.length()
-
-	# Line of sight check — no ranged or charge without clear path
-	var has_los := _has_line_of_sight(nearest.global_position) if nearest else false
-	if not has_los:
-		weights[1] = 0  # no ranged without LOS
-		weights[3] = 0  # no charge without LOS
-
-	if distance <= melee_range * 2.0:
-		weights[0] = int(weights[0] * 1.5)  # melee boost
-		weights[1] = 0                       # no ranged at close range
-		weights[2] = int(weights[2] * 1.3)  # AoE good up close
-		weights[3] = int(weights[3] * 0.3)  # charge useless up close
-	elif distance > melee_range * 3.0:
-		weights[0] = int(weights[0] * 0.3)  # melee unlikely if far
-		weights[1] = int(weights[1] * 1.5)  # ranged boost
-		weights[3] = int(weights[3] * 1.5)  # charge to close gap
-
-	# Anti-repeat: halve weight of last attack
-	var last_idx := attack_names.find(_last_attack)
-	if last_idx >= 0:
-		weights[last_idx] = maxi(weights[last_idx] / 2, 1)
-
-	# Weighted random
-	var total := 0
-	for w in weights:
-		total += w
-	var roll := randi() % maxi(total, 1)
-	var cumulative := 0
-	for i in weights.size():
-		cumulative += weights[i]
-		if roll < cumulative:
-			_last_attack = attack_names[i]
-			match i:
-				0: return State.MELEE_TELEGRAPH
-				1: return State.RANGED_TELEGRAPH
-				2: return State.AOE_TELEGRAPH
-				3: return State.CHARGE_TELEGRAPH
-
-	_last_attack = "melee"
-	return State.MELEE_TELEGRAPH
-
-
-# =============================================================================
-# State processors
-# =============================================================================
-
-func _process_chase(delta: float) -> void:
-	_chase_timer += delta
-	var target := GameManager.get_nearest_player(global_position)
-	if not target:
-		velocity.x = 0.0
-		velocity.z = 0.0
-		return
-
-	_target_player = target
-	var to_target := target.global_position - global_position
-	to_target.y = 0.0
-	var distance := to_target.length()
-
-	if distance > 0.1:
-		look_at(global_position + to_target.normalized(), Vector3.UP)
-
-	# In melee range — attack immediately (never ranged up close)
-	if distance <= melee_range:
-		var attack := _select_attack()
-		if attack == State.RANGED_TELEGRAPH:
-			attack = State.MELEE_TELEGRAPH
-		if attack == State.CHARGE_TELEGRAPH:
-			attack = State.AOE_TELEGRAPH
-		_change_state(attack)
-		return
-
-	# Out of melee range — attack after short chase (1.5s), or immediately if far
-	var chase_threshold := 1.5 if distance <= melee_range * 3.0 else 0.5
-	if _chase_timer >= chase_threshold:
-		var attack := _select_attack()
-		# Can't melee from here — reroll
-		if attack == State.MELEE_TELEGRAPH and distance > melee_range:
-			if _has_line_of_sight(target.global_position):
-				attack = State.CHARGE_TELEGRAPH if distance > melee_range * 2.0 else State.RANGED_TELEGRAPH
-			else:
-				attack = State.AOE_TELEGRAPH  # AoE doesn't need LOS
-		# AoE slam useless at long range — reroll
-		if attack == State.AOE_TELEGRAPH and distance > _get_aoe_radius() * 1.5:
-			if _has_line_of_sight(target.global_position):
-				attack = State.CHARGE_TELEGRAPH
-			else:
-				# No LOS and too far for AoE — keep chasing
-				_chase_timer = 0.0
-				# fall through to navigation movement below
-				attack = State.CHASE
-		if attack != State.CHASE:
-			if attack == State.RANGED_TELEGRAPH:
-				var ranged_target := GameManager.get_farthest_player(global_position)
-				if ranged_target:
-					_target_player = ranged_target
-			_change_state(attack)
-			return
-
-	# --- Navigation-based movement (with direct fallback) ---
-	if distance > melee_range * 0.8:
-		var dir: Vector3
-		var spd := _get_move_speed()
-
-		# Only update nav target when player moved significantly (avoids per-frame pathfinding)
-		if nav_agent.target_position.distance_to(target.global_position) > 1.5:
-			nav_agent.target_position = target.global_position
-		if not nav_agent.is_navigation_finished():
-			var next_pos := nav_agent.get_next_path_position()
-			dir = (next_pos - global_position)
-			dir.y = 0.0
-			if dir.length() > 0.1:
-				dir = dir.normalized()
-			else:
-				dir = to_target.normalized()
-		else:
-			# Fallback: direct movement toward target
-			dir = to_target.normalized()
-
-		velocity.x = dir.x * spd
-		velocity.z = dir.z * spd
-	else:
-		velocity.x = 0.0
-		velocity.z = 0.0
-
-
-func _process_melee_telegraph() -> void:
-	velocity.x = 0.0
-	velocity.z = 0.0
-
-	if _target_player and is_instance_valid(_target_player):
-		var to_target := _target_player.global_position - global_position
-		to_target.y = 0.0
-		if to_target.length() > 0.1:
-			look_at(global_position + to_target.normalized(), Vector3.UP)
-
-	if _state_timer <= 0.0:
-		_change_state(State.MELEE_ATTACK)
-
-
-func _process_melee_attack() -> void:
-	velocity.x = 0.0
-	velocity.z = 0.0
-
-	if _state_timer <= 0.0:
-		# Damage lands at end of swing
-		CombatLog.log_boss_attack("melee", _current_phase, global_position, _target_player.global_position if _target_player and is_instance_valid(_target_player) else global_position)
-		var hit_any := false
-		for player in GameManager.players:
-			if not is_instance_valid(player) or not player.visible:
-				continue
-			var dist := global_position.distance_to(player.global_position)
-			if dist <= melee_range:
-				var hit_dir := (player.global_position - global_position).normalized()
-				_deal_damage_to(player, _get_melee_damage(), global_position + hit_dir)
-				CombatLog.log_boss_hit("melee", _get_melee_damage(), player.name, player.global_position)
-				hit_any = true
-		if not hit_any:
-			CombatLog.log_boss_miss("melee")
-
-		_change_state(State.COOLDOWN)
-
-
-func _process_ranged_telegraph() -> void:
-	velocity.x = 0.0
-	velocity.z = 0.0
-
-	if _target_player and is_instance_valid(_target_player):
-		_ranged_target_position = _target_player.global_position + Vector3(0.0, 1.0, 0.0)
-		_update_laser_warning()
-
-	if _state_timer <= 0.0:
-		_change_state(State.RANGED_ATTACK)
-
-
-func _process_ranged_attack() -> void:
-	# Cancel if no LOS at fire time (player ducked behind cover during telegraph)
-	if _target_player and is_instance_valid(_target_player) and not _has_line_of_sight(_target_player.global_position):
-		CombatLog.log_boss_miss("ranged_no_los")
-		_change_state(State.COOLDOWN)
-		return
-
-	CombatLog.log_boss_attack("ranged_x%d" % _get_ranged_burst_count(), _current_phase, global_position, _ranged_target_position)
-	var count := _get_ranged_burst_count()
-	var spread_angle := deg_to_rad(5.0)
-
-	for i in count:
-		var offset := (i - (count - 1) / 2.0) * spread_angle
-		_fire_projectile_with_offset(offset)
-
-	_change_state(State.COOLDOWN)
-
-
-func _process_aoe_telegraph() -> void:
-	velocity.x = 0.0
-	velocity.z = 0.0
-
-	# Scale AoE indicator to current phase radius
-	var radius := _get_aoe_radius()
-	_aoe_telegraph_mesh.mesh.size = Vector2(radius * 2.0, radius * 2.0)
-
-	# Fire particles ramp up during telegraph
-	if _aoe_particles and _aoe_particles.emitting:
-		var total_time := _get_aoe_telegraph_time()
-		var progress := 1.0 - (_state_timer / total_time) if total_time > 0.0 else 1.0
-		var mat: ParticleProcessMaterial = _aoe_particles.process_material
-		# Ramp emission radius and intensity over telegraph
-		mat.emission_sphere_radius = radius * 0.3 * progress
-		mat.initial_velocity_min = 2.0 + 4.0 * progress
-		mat.initial_velocity_max = 4.0 + 6.0 * progress
-		mat.scale_min = 0.1 + 0.3 * progress
-		mat.scale_max = 0.2 + 0.5 * progress
-
-	if _state_timer <= 0.0:
-		_change_state(State.AOE_SLAM)
-
-
-func _process_aoe_slam() -> void:
-	velocity.x = 0.0
-	velocity.z = 0.0
-
-	# Stop charging particles, fire the slam burst
-	if _aoe_particles:
-		_aoe_particles.emitting = false
-	if _aoe_slam_particles:
-		var radius := _get_aoe_radius()
-		var slam_mat: ParticleProcessMaterial = _aoe_slam_particles.process_material
-		slam_mat.emission_sphere_radius = radius * 0.15  # tight core
-		# Velocity tuned so the fireball fills the damage radius over ~0.3s
-		slam_mat.initial_velocity_min = radius * 1.2
-		slam_mat.initial_velocity_max = radius * 2.5
-		_aoe_slam_particles.emitting = true
-
-	var radius := _get_aoe_radius()
-	var damage := _get_aoe_damage()
-	CombatLog.log_boss_attack("aoe_slam", _current_phase, global_position, global_position)
-	var hit_any := false
-	for player in GameManager.players:
-		if not is_instance_valid(player) or not player.visible:
-			continue
-		var dist := global_position.distance_to(player.global_position)
-		if dist <= radius:
-			_deal_damage_to(player, damage, global_position)
-			CombatLog.log_boss_hit("aoe_slam", damage, player.name, player.global_position)
-			hit_any = true
-	if not hit_any:
-		CombatLog.log_boss_miss("aoe_slam")
-
-	_change_state(State.COOLDOWN)
-
-
-func _process_charge_telegraph() -> void:
-	velocity.x = 0.0
-	velocity.z = 0.0
-
-	if _target_player and is_instance_valid(_target_player):
-		var to_target := _target_player.global_position - global_position
-		to_target.y = 0.0
-		if to_target.length() > 0.1:
-			_charge_direction = to_target.normalized()
-			look_at(global_position + _charge_direction, Vector3.UP)
-	_update_charge_indicator()
-
-	if _state_timer <= 0.0:
-		_change_state(State.CHARGE)
-
-
-func _process_charge(delta: float) -> void:
-	# Log on first frame — cancel if no LOS to target player
-	if _charge_distance_traveled == 0.0:
-		var target_pos := global_position + _charge_direction * _get_charge_max_distance()
-		if _target_player and is_instance_valid(_target_player) and not _has_line_of_sight(_target_player.global_position):
-			CombatLog.log_boss_miss("charge_no_los")
-			velocity.x = 0.0
-			velocity.z = 0.0
-			_change_state(State.COOLDOWN)
-			return
-		CombatLog.log_boss_attack("charge", _current_phase, global_position, target_pos)
-	var spd := _get_charge_speed()
-	velocity.x = _charge_direction.x * spd
-	velocity.z = _charge_direction.z * spd
-	_charge_distance_traveled += spd * delta
-
-	# Hit players along the path (no double-hit)
-	for player in GameManager.players:
-		if not is_instance_valid(player) or not player.visible or player in _charge_hit_players:
-			continue
-		var dist := global_position.distance_to(player.global_position)
-		if dist <= 2.0:
-			_deal_damage_to(player, _get_charge_damage(), global_position)
-			CombatLog.log_boss_hit("charge", _get_charge_damage(), player.name, player.global_position)
-			_charge_hit_players.append(player)
-
-	# Stop conditions
-	if _charge_distance_traveled >= _get_charge_max_distance() or is_on_wall():
-		if _charge_hit_players.is_empty():
-			CombatLog.log_boss_miss("charge")
-		velocity.x = 0.0
-		velocity.z = 0.0
-		_change_state(State.COOLDOWN)
-
-
-func _process_cooldown() -> void:
-	velocity.x = 0.0
-	velocity.z = 0.0
-	if _state_timer <= 0.0:
-		_chase_timer = 0.0
-		_change_state(State.CHASE)
-
-
-func _process_phase_transition() -> void:
-	velocity.x = 0.0
-	velocity.z = 0.0
-	if _state_timer <= 0.0:
-		_change_state(State.CHASE)
-
-
-# =============================================================================
-# State management
-# =============================================================================
-
-func _change_state(new_state: State) -> void:
-	# Hide all telegraphs
-	_melee_telegraph_mesh.visible = false
-	_laser_warning_mesh.visible = false
-	_aoe_telegraph_mesh.visible = false
-	_charge_telegraph_mesh.visible = false
-
-	# Stop charging particles (unless transitioning within AoE sequence)
-	if new_state != State.AOE_SLAM and new_state != State.AOE_TELEGRAPH:
-		if _aoe_particles:
-			_aoe_particles.emitting = false
-	# Slam particles are one-shot — let them play out naturally, never force-stop
-
-	# Reset model position and animation speed
-	character_model.position.y = 0.0
-	character_model.set_animation_speed(1.0)
-
-	state = new_state
-
-	match new_state:
-		State.CHASE:
-			_chase_timer = 0.0
-		State.MELEE_TELEGRAPH:
-			_state_timer = _get_melee_telegraph_time()
-			_melee_telegraph_mesh.visible = true
-		State.MELEE_ATTACK:
-			_state_timer = 0.3  # time for the fast slash to play before dealing damage
-		State.RANGED_TELEGRAPH:
-			_state_timer = _get_ranged_telegraph_time()
-			_laser_warning_mesh.visible = true
-			if _target_player and is_instance_valid(_target_player):
-				_ranged_target_position = _target_player.global_position + Vector3(0.0, 1.0, 0.0)
-		State.RANGED_ATTACK:
-			_state_timer = 0.1
-		State.AOE_TELEGRAPH:
-			_state_timer = _get_aoe_telegraph_time()
-			_aoe_telegraph_mesh.visible = true
-			if _aoe_particles:
-				_aoe_particles.emitting = true
-		State.AOE_SLAM:
-			_state_timer = 0.1
-		State.CHARGE_TELEGRAPH:
-			_state_timer = _get_charge_telegraph_time()
-			_charge_telegraph_mesh.visible = true
-			_charge_direction = Vector3.ZERO
-		State.CHARGE:
-			_charge_distance_traveled = 0.0
-			_charge_hit_players.clear()
-			if _charge_direction.length() < 0.1:
-				# Fallback: charge forward
-				_charge_direction = -global_transform.basis.z.normalized()
-		State.COOLDOWN:
-			_state_timer = _get_cooldown_time()
-		State.PHASE_TRANSITION:
-			_state_timer = 1.5
-
-
-# =============================================================================
-# Damage & Phase transitions
-# =============================================================================
-
-func take_damage(amount: float, hit_position: Vector3 = Vector3.ZERO) -> void:
-	_apply_damage(amount, hit_position)
-
-
-func _apply_damage(amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
-	if state == State.DEAD or state == State.PHASE_TRANSITION:
-		return
-	health -= amount
-	health = maxf(health, 0.0)
-	CombatLog.log_player_damage(amount, global_position, State.keys()[state])
-	_update_health_bar()
+func on_damage_visual(amount: float, hit_pos: Vector3) -> void:
 	character_model.flash_damage()
-
-	if health <= 0.0:
-		_die()
-		return
-
-	# Check phase thresholds
-	var hp_ratio := health / max_health
-	if hp_ratio <= 0.3 and 3 not in _phase_transitioned:
-		_enter_phase(3)
-	elif hp_ratio <= 0.6 and 2 not in _phase_transitioned:
-		_enter_phase(2)
-
-
-func _enter_phase(phase: int) -> void:
-	_current_phase = phase
-	_phase_transitioned.append(phase)
-	CombatLog.log_phase_transition(phase, health, CombatLog._elapsed())
-	_change_state(State.PHASE_TRANSITION)
-	_update_health_bar_color()
-
-
-func _deal_damage_to(target: Node, amount: float, hit_pos: Vector3) -> void:
-	if not target.has_method("take_damage"):
-		return
-	if NetworkManager.is_active:
-		var target_peer: int = target.peer_id if "peer_id" in target else 0
-		NetworkManager.send_msg(NetSerializer.OP_DAMAGE,
-			NetSerializer.encode_damage(target_peer, amount, hit_pos))
-	else:
-		target.take_damage(amount, hit_pos)
-
-
-func _die() -> void:
-	_change_state(State.DEAD)
-	visible = false
-	collision_layer = 0
-	died.emit()
 
 
 # =============================================================================
@@ -825,7 +219,7 @@ func _play_anim_with_fallback(primary: String, fallback: String, speed: float = 
 func _update_boss_animation() -> void:
 	match state:
 		State.CHASE:
-			var flat_speed := Vector2(velocity.x, velocity.z).length()
+			var flat_speed := Vector2(_visual_velocity.x, _visual_velocity.z).length()
 			if _last_weapon == "gun":
 				if flat_speed > 0.5:
 					_play_anim_with_fallback("rifle_aim_run", "rifle_run")
@@ -1179,7 +573,7 @@ func _create_aoe_particles() -> void:
 	slam_mat.scale_max = 4.0
 	slam_mat.angular_velocity_min = -120.0
 	slam_mat.angular_velocity_max = 120.0
-	# Color: white-hot flash → yellow → orange → red → black
+	# Color: white-hot flash -> yellow -> orange -> red -> black
 	var slam_ramp := Gradient.new()
 	slam_ramp.set_color(0, Color(1.0, 1.0, 0.95, 1.0))   # white flash
 	slam_ramp.add_point(0.08, Color(1.0, 0.9, 0.4, 1.0))  # bright yellow
@@ -1273,6 +667,14 @@ func _update_charge_indicator() -> void:
 		_charge_telegraph_mesh.look_at(end, Vector3.UP)
 
 
+# Charge max distance per phase (needed for telegraph visual only)
+func _get_charge_max_distance() -> float:
+	match _current_phase:
+		2: return 18.0
+		3: return 20.0
+	return 15.0
+
+
 # =============================================================================
 # Weapons (bone-attached via CharacterModel)
 # =============================================================================
@@ -1290,8 +692,6 @@ func _attach_weapons() -> void:
 		_sword_attachment = _sword_node.get_parent() as BoneAttachment3D
 
 	# Gun in left hand — used for ranged
-	# Need a second bone attachment (character_model.attach_weapon replaces previous)
-	# So we do it manually for the gun
 	var skel: Skeleton3D = character_model._skeleton
 	if skel:
 		var bone_idx: int = skel.find_bone("mixamorig_RightHand")
@@ -1333,33 +733,3 @@ func _update_weapons(_delta: float) -> void:
 		_sword_attachment.visible = show_sword
 	if _gun_attachment:
 		_gun_attachment.visible = show_gun
-
-
-# =============================================================================
-# Projectiles
-# =============================================================================
-
-func _fire_projectile_with_offset(angle_offset: float) -> void:
-	if not _projectile_scene:
-		return
-	# Compute spawn position and direction on host
-	var spawn_pos: Vector3
-	if _gun_node and _gun_attachment and _gun_attachment.visible:
-		spawn_pos = _gun_node.global_position + (-global_transform.basis.z * 0.8)
-	else:
-		spawn_pos = global_position + Vector3(0.0, 1.0, 0.0)
-	var base_direction := (_ranged_target_position - spawn_pos).normalized()
-	var rotated := base_direction.rotated(Vector3.UP, angle_offset)
-	var dmg := _get_ranged_per_projectile_damage()
-
-	if NetworkManager.is_active:
-		NetworkManager.send_msg(NetSerializer.OP_PROJECTILE_SPAWN,
-			NetSerializer.encode_projectile_spawn(spawn_pos, rotated, dmg))
-	_spawn_projectile_local(spawn_pos, rotated, dmg)
-
-
-func _spawn_projectile_local(spawn_pos: Vector3, direction: Vector3, dmg: float) -> void:
-	var projectile: Node3D = _projectile_scene.instantiate()
-	get_tree().current_scene.add_child(projectile)
-	projectile.global_position = spawn_pos
-	projectile.setup(direction, dmg)
