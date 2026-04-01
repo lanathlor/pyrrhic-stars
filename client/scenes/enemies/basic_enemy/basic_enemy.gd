@@ -85,11 +85,14 @@ var _net_rotation_y: float = 0.0
 const NET_INTERP_SPEED := 15.0
 
 
+# Enemy uses peer_id = 0 as its network identity (reserved for the boss)
+var peer_id: int = 0
+
+
 func _is_host() -> bool:
-	var peer := multiplayer.multiplayer_peer
-	if peer == null or peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
+	if not NetworkManager.is_active:
 		return true
-	return multiplayer.is_server()
+	return NetworkManager.is_host
 
 
 func _ready() -> void:
@@ -99,6 +102,7 @@ func _ready() -> void:
 	_projectile_scene = load(PROJECTILE_SCENE_PATH)
 	melee_collision.disabled = true
 	GameManager.register_enemy(self)
+	NetworkManager.message_received.connect(_on_network_message)
 
 	_create_health_bar()
 	_create_melee_telegraph()
@@ -123,20 +127,29 @@ func _log_loaded_anims() -> void:
 
 
 func _sync_state_to_peers() -> void:
-	_net_sync.rpc(_net_position, _net_rotation_y, health, _net_state,
+	var payload := NetSerializer.encode_enemy_sync(
+		_net_position, _net_rotation_y, health, _net_state,
 		_current_phase, _ranged_target_position, _charge_direction)
+	NetworkManager.send_msg(NetSerializer.OP_ENEMY_SYNC, payload)
 
 
-@rpc("any_peer", "call_remote", "unreliable_ordered")
-func _net_sync(pos: Vector3, rot_y: float, hp: float, net_state: int,
-		phase: int, ranged_pos: Vector3, charge_dir: Vector3) -> void:
-	_net_position = pos
-	_net_rotation_y = rot_y
-	health = hp
-	_net_state = net_state
-	_current_phase = phase
-	_ranged_target_position = ranged_pos
-	_charge_direction = charge_dir
+func _on_network_message(opcode: int, _sender_id: int, payload: PackedByteArray) -> void:
+	if opcode == NetSerializer.OP_ENEMY_SYNC and not _is_host():
+		var data := NetSerializer.decode_enemy_sync(payload)
+		_net_position = data.pos
+		_net_rotation_y = data.rot_y
+		health = data.hp
+		_net_state = data.state
+		_current_phase = data.phase
+		_ranged_target_position = data.ranged_pos
+		_charge_direction = data.charge_dir
+	elif opcode == NetSerializer.OP_DAMAGE:
+		var data := NetSerializer.decode_damage(payload)
+		if data.target_peer == 0 and _is_host():
+			_apply_damage(data.amount, data.hit_pos)
+	elif opcode == NetSerializer.OP_PROJECTILE_SPAWN and not _is_host():
+		var data := NetSerializer.decode_projectile_spawn(payload)
+		_spawn_projectile_local(data.spawn_pos, data.direction, data.dmg)
 
 
 func _exit_tree() -> void:
@@ -193,8 +206,7 @@ func _physics_process(delta: float) -> void:
 	# Sync to remote peers
 	_net_position = global_position
 	_net_rotation_y = rotation.y
-	var peer := multiplayer.multiplayer_peer
-	if peer and peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+	if NetworkManager.is_active:
 		_sync_state_to_peers()
 
 
@@ -748,10 +760,11 @@ func _change_state(new_state: State) -> void:
 # Damage & Phase transitions
 # =============================================================================
 
-@rpc("any_peer", "call_local", "reliable")
-func take_damage(amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
-	if not _is_host():
-		return
+func take_damage(amount: float, hit_position: Vector3 = Vector3.ZERO) -> void:
+	_apply_damage(amount, hit_position)
+
+
+func _apply_damage(amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
 	if state == State.DEAD or state == State.PHASE_TRANSITION:
 		return
 	health -= amount
@@ -783,8 +796,10 @@ func _enter_phase(phase: int) -> void:
 func _deal_damage_to(target: Node, amount: float, hit_pos: Vector3) -> void:
 	if not target.has_method("take_damage"):
 		return
-	if multiplayer.has_multiplayer_peer():
-		target.take_damage.rpc(amount, hit_pos)
+	if NetworkManager.is_active:
+		var target_peer: int = target.peer_id if "peer_id" in target else 0
+		NetworkManager.send_msg(NetSerializer.OP_DAMAGE,
+			NetSerializer.encode_damage(target_peer, amount, hit_pos))
 	else:
 		target.take_damage(amount, hit_pos)
 
@@ -1337,15 +1352,10 @@ func _fire_projectile_with_offset(angle_offset: float) -> void:
 	var rotated := base_direction.rotated(Vector3.UP, angle_offset)
 	var dmg := _get_ranged_per_projectile_damage()
 
-	if multiplayer.has_multiplayer_peer():
-		_spawn_projectile_on_all.rpc(spawn_pos, rotated, dmg)
-	else:
-		_spawn_projectile_local(spawn_pos, rotated, dmg)
-
-
-@rpc("authority", "call_local", "reliable")
-func _spawn_projectile_on_all(spawn_pos: Vector3, direction: Vector3, dmg: float) -> void:
-	_spawn_projectile_local(spawn_pos, direction, dmg)
+	if NetworkManager.is_active:
+		NetworkManager.send_msg(NetSerializer.OP_PROJECTILE_SPAWN,
+			NetSerializer.encode_projectile_spawn(spawn_pos, rotated, dmg))
+	_spawn_projectile_local(spawn_pos, rotated, dmg)
 
 
 func _spawn_projectile_local(spawn_pos: Vector3, direction: Vector3, dmg: float) -> void:

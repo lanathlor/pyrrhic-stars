@@ -14,7 +14,7 @@ var _is_host: bool = true
 func setup(dir: Vector3, dmg: float) -> void:
 	direction = dir.normalized()
 	damage = dmg
-	_is_host = not multiplayer.has_multiplayer_peer() or multiplayer.is_server()
+	_is_host = not NetworkManager.is_active or NetworkManager.is_host
 	if direction.length() > 0.1:
 		look_at(global_position + direction, Vector3.UP)
 
@@ -28,8 +28,10 @@ func _physics_process(delta: float) -> void:
 
 func _on_body_entered(body: Node3D) -> void:
 	if _is_host and body.has_method("take_damage"):
-		if multiplayer.has_multiplayer_peer():
-			body.take_damage.rpc(damage, global_position)
+		if NetworkManager.is_active:
+			var target_peer: int = body.peer_id if "peer_id" in body else 0
+			NetworkManager.send_msg(NetSerializer.OP_DAMAGE,
+				NetSerializer.encode_damage(target_peer, damage, global_position))
 		else:
 			body.take_damage(damage, global_position)
 		CombatLog.log_boss_hit("ranged", damage, body.name, body.global_position)

@@ -1,5 +1,7 @@
 # Codex Online - Task Runner
 
+mod server
+
 # --- Docker Compose ---
 
 up:
@@ -60,30 +62,10 @@ blender:
 blender-open file:
     blender --python-use-system-env "{{file}}"
 
-# --- Server (local dev) ---
-
-server-gateway:
-    cd server && go run ./cmd/gateway/
-
-server-zone:
-    cd server && go run ./cmd/zone/
-
-server-chat:
-    cd server && go run ./cmd/chat/
-
-server-test:
-    cd server && go test ./...
-
-server-build:
-    cd server && go build ./cmd/gateway/ ./cmd/zone/ ./cmd/chat/
-
 # --- Utilities ---
 
 fmt:
     cd server && goimports -w .
-
-lint:
-    cd server && go vet ./...
 
 psql:
     psql postgres://codex:codex@localhost:5432/codex

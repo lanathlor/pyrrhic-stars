@@ -47,6 +47,7 @@ enum State { MOVE, EDGE, SURGE_WINDUP, SURGE, GUARD, RECALL, DASH, STAGGER, DEAD
 # Health
 var health: float = 100.0
 var max_health: float = 150.0
+var peer_id: int = 0
 
 # Camera
 @export var camera_distance: float = 6.0
@@ -106,6 +107,7 @@ func _ready() -> void:
 	_net_position = global_position
 	_net_rotation_y = rotation.y
 	camera.top_level = true
+	NetworkManager.message_received.connect(_on_network_message)
 
 	if _is_local():
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
@@ -125,23 +127,29 @@ func _exit_tree() -> void:
 
 
 func _is_local() -> bool:
-	var peer := multiplayer.multiplayer_peer
-	if peer == null or peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
+	if not NetworkManager.is_active:
 		return true
-	return is_multiplayer_authority()
+	return peer_id == NetworkManager.get_my_id()
 
 
 func _sync_state_to_peers() -> void:
-	_net_sync.rpc(_net_position, _net_rotation_y, _net_anim, _net_anim_speed, health)
+	var payload := NetSerializer.encode_player_sync(
+		_net_position, _net_rotation_y, _net_anim, _net_anim_speed, health)
+	NetworkManager.send_msg(NetSerializer.OP_PLAYER_SYNC, payload)
 
 
-@rpc("any_peer", "call_remote", "unreliable_ordered")
-func _net_sync(pos: Vector3, rot_y: float, anim: String, anim_speed: float, hp: float) -> void:
-	_net_position = pos
-	_net_rotation_y = rot_y
-	_net_anim = anim
-	_net_anim_speed = anim_speed
-	health = hp
+func _on_network_message(opcode: int, sender_id: int, payload: PackedByteArray) -> void:
+	if opcode == NetSerializer.OP_PLAYER_SYNC and sender_id == peer_id:
+		var data := NetSerializer.decode_player_sync(payload)
+		_net_position = data.pos
+		_net_rotation_y = data.rot_y
+		_net_anim = data.anim
+		_net_anim_speed = data.anim_speed
+		health = data.hp
+	elif opcode == NetSerializer.OP_DAMAGE:
+		var data := NetSerializer.decode_damage(payload)
+		if data.target_peer == peer_id and _is_local():
+			_apply_damage(data.amount, data.hit_pos)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -204,8 +212,7 @@ func _physics_process(delta: float) -> void:
 	# Sync to remote peers
 	_net_position = global_position
 	_net_rotation_y = rotation.y
-	var peer := multiplayer.multiplayer_peer
-	if peer and peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+	if NetworkManager.is_active:
 		_sync_state_to_peers()
 
 
@@ -566,10 +573,11 @@ func _find_lock_target() -> Node3D:
 
 # --- Damage ---
 
-@rpc("any_peer", "call_local", "reliable")
-func take_damage(amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
-	if multiplayer.has_multiplayer_peer() and not is_multiplayer_authority():
-		return
+func take_damage(amount: float, hit_position: Vector3 = Vector3.ZERO) -> void:
+	_apply_damage(amount, hit_position)
+
+
+func _apply_damage(amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
 	if state == State.DEAD:
 		return
 	if _is_invincible:
@@ -597,8 +605,10 @@ func _die() -> void:
 func _deal_damage(target: Node, amount: float, hit_pos: Vector3) -> void:
 	if not target.has_method("take_damage"):
 		return
-	if multiplayer.has_multiplayer_peer():
-		target.take_damage.rpc(amount, hit_pos)
+	if NetworkManager.is_active:
+		var target_peer: int = target.peer_id if "peer_id" in target else 0
+		NetworkManager.send_msg(NetSerializer.OP_DAMAGE,
+			NetSerializer.encode_damage(target_peer, amount, hit_pos))
 	else:
 		target.take_damage(amount, hit_pos)
 

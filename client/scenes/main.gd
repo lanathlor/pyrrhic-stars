@@ -1,9 +1,9 @@
 extends Node3D
 
 ## Game flow: Menu → Lobby → Fight → Result → Lobby.
-## Supports solo play and local ENet multiplayer.
+## Supports solo play and WebSocket multiplayer via Go relay server.
 ## Solo: single player, no networking.
-## Host/Join: ENet multiplayer, dynamic player spawning.
+## Host/Join: WebSocket relay, dynamic player spawning.
 
 enum GameState { MENU, LOBBY, FIGHT, RESULT }
 
@@ -81,6 +81,7 @@ func _ready() -> void:
 	NetworkManager.connection_failed.connect(_on_net_connection_failed)
 	NetworkManager.all_players_ready.connect(_on_all_players_ready)
 	NetworkManager.player_info_changed.connect(_update_lobby_display)
+	NetworkManager.message_received.connect(_on_network_message)
 
 	_enter_menu()
 
@@ -131,13 +132,17 @@ func _on_solo_pressed() -> void:
 func _on_host_pressed() -> void:
 	_is_solo = false
 	NetworkManager.disconnect_game()
-	var err := NetworkManager.host_game()
+	var address := _address_input.text.strip_edges()
+	if address == "":
+		address = "127.0.0.1"
+	var err := NetworkManager.connect_to_server(address)
 	if err != OK:
-		print("[Main] Failed to host: %s" % error_string(err))
+		print("[Main] Failed to connect: %s" % error_string(err))
 		return
-	print("[Main] Hosting on port %d" % NetworkManager.PORT)
+	print("[Main] Connecting to %s:%d..." % [address, NetworkManager.DEFAULT_PORT])
 	_menu_layer.visible = false
-	_enter_lobby()
+	_lobby_layer.visible = true
+	_lobby_status_label.text = "Connecting..."
 
 
 func _on_join_pressed() -> void:
@@ -146,11 +151,11 @@ func _on_join_pressed() -> void:
 	var address := _address_input.text.strip_edges()
 	if address == "":
 		address = "127.0.0.1"
-	var err := NetworkManager.join_game(address)
+	var err := NetworkManager.connect_to_server(address)
 	if err != OK:
-		print("[Main] Failed to join: %s" % error_string(err))
+		print("[Main] Failed to connect: %s" % error_string(err))
 		return
-	print("[Main] Connecting to %s:%d..." % [address, NetworkManager.PORT])
+	print("[Main] Connecting to %s:%d..." % [address, NetworkManager.DEFAULT_PORT])
 	_menu_layer.visible = false
 	_lobby_layer.visible = true
 	_lobby_status_label.text = "Connecting..."
@@ -223,7 +228,7 @@ func _enter_lobby() -> void:
 func _select_class(class_name_str: String) -> void:
 	_local_class = class_name_str
 	if NetworkManager.is_active:
-		NetworkManager.set_player_class.rpc(class_name_str)
+		NetworkManager.set_player_class(class_name_str)
 	_update_lobby_display()
 
 
@@ -240,13 +245,13 @@ func _toggle_ready() -> void:
 	if my_id not in NetworkManager.player_info:
 		return
 	var currently_ready: bool = NetworkManager.player_info[my_id]["ready"]
-	NetworkManager.set_player_ready.rpc(not currently_ready)
+	NetworkManager.set_player_ready(not currently_ready)
 
 
 func _on_all_players_ready() -> void:
 	# Host spawns all players in the lobby
 	if NetworkManager.is_host:
-		_spawn_multiplayer_players.rpc()
+		NetworkManager.send_msg(NetSerializer.OP_SPAWN_PLAYERS)
 
 
 func _update_lobby_display() -> void:
@@ -268,7 +273,7 @@ func _update_lobby_display() -> void:
 	var text := ""
 	if NetworkManager.is_host:
 		var ip := _get_lan_ip()
-		text += "LAN Address: %s:%d\n\n" % [ip, NetworkManager.PORT]
+		text += "Server: %s:%d\n\n" % [ip, NetworkManager.DEFAULT_PORT]
 	text += "Players:\n"
 	for pid in NetworkManager.player_info:
 		var info: Dictionary = NetworkManager.player_info[pid]
@@ -307,7 +312,6 @@ func _spawn_solo_player() -> void:
 	state = GameState.LOBBY  # still in lobby, waiting to enter arena
 
 
-@rpc("authority", "call_local", "reliable")
 func _spawn_multiplayer_players() -> void:
 	_lobby_layer.visible = false
 
@@ -323,8 +327,8 @@ func _spawn_multiplayer_players() -> void:
 		var player := scene.instantiate() as CharacterBody3D
 		player.name = "Player_%d" % pid
 		var spawn_pos: Vector3 = PLAYER_SPAWNS[spawn_idx % PLAYER_SPAWNS.size()]
-		# Authority MUST be set before add_child so _ready() sees the correct authority
-		player.set_multiplayer_authority(pid)
+		# Set peer_id before add_child so _ready() can check ownership
+		player.peer_id = pid
 		_players_node.add_child(player)
 		player.global_position = spawn_pos
 		_spawned_players[pid] = player
@@ -381,12 +385,7 @@ func _on_trigger_entered(body: Node3D) -> void:
 	if _is_solo:
 		_start_fight()
 	elif NetworkManager.is_active and NetworkManager.is_host:
-		_start_fight_rpc.rpc()
-
-
-@rpc("authority", "call_local", "reliable")
-func _start_fight_rpc() -> void:
-	_start_fight()
+		NetworkManager.send_msg(NetSerializer.OP_START_FIGHT)
 
 
 func _on_player_died() -> void:
@@ -402,7 +401,12 @@ func _on_player_died() -> void:
 	if all_dead:
 		CombatLog.end_fight("PLAYER_DIED")
 		if _is_solo or (NetworkManager.is_active and NetworkManager.is_host):
-			_show_result_rpc.rpc("YOU DIED", Color(0.8, 0.15, 0.15)) if NetworkManager.is_active else _show_result("YOU DIED", Color(0.8, 0.15, 0.15))
+			var text := "YOU DIED"
+			var color := Color(0.8, 0.15, 0.15)
+			if NetworkManager.is_active:
+				NetworkManager.send_msg(NetSerializer.OP_SHOW_RESULT, NetSerializer.encode_show_result(text, color))
+			else:
+				_show_result(text, color)
 
 
 func _on_enemy_died() -> void:
@@ -410,12 +414,12 @@ func _on_enemy_died() -> void:
 		return
 	CombatLog.end_fight("VICTORY")
 	if _is_solo or (NetworkManager.is_active and NetworkManager.is_host):
-		_show_result_rpc.rpc("VICTORY", Color(0.15, 0.8, 0.3)) if NetworkManager.is_active else _show_result("VICTORY", Color(0.15, 0.8, 0.3))
-
-
-@rpc("authority", "call_local", "reliable")
-func _show_result_rpc(text: String, color: Color) -> void:
-	_show_result(text, color)
+		var text := "VICTORY"
+		var color := Color(0.15, 0.8, 0.3)
+		if NetworkManager.is_active:
+			NetworkManager.send_msg(NetSerializer.OP_SHOW_RESULT, NetSerializer.encode_show_result(text, color))
+		else:
+			_show_result(text, color)
 
 
 func _show_result(text: String, color: Color) -> void:
@@ -431,6 +435,17 @@ func _show_result(text: String, color: Color) -> void:
 
 func _on_result_timeout() -> void:
 	_enter_lobby()
+
+
+func _on_network_message(opcode: int, _sender_id: int, payload: PackedByteArray) -> void:
+	match opcode:
+		NetSerializer.OP_SPAWN_PLAYERS:
+			_spawn_multiplayer_players()
+		NetSerializer.OP_START_FIGHT:
+			_start_fight()
+		NetSerializer.OP_SHOW_RESULT:
+			var data := NetSerializer.decode_show_result(payload)
+			_show_result(data.text, data.color)
 
 
 func _toggle_pause() -> void:
