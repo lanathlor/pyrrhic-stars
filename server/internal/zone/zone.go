@@ -185,7 +185,6 @@ func (z *Zone) processTick() {
 	if z.Type == ZoneTypeHub {
 		z.tickHub()
 	} else {
-		z.damageEvents = z.damageEvents[:0]
 		switch z.State {
 		case StateLobby:
 			z.tickLobby()
@@ -200,6 +199,10 @@ func (z *Zone) processTick() {
 
 	// 3. Broadcast state
 	z.broadcastState()
+
+	// 4. Clear damage events after broadcast (not before — input processing
+	// appends events in step 1 that must survive to step 3).
+	z.damageEvents = z.damageEvents[:0]
 }
 
 func (z *Zone) handleInput(inp inputMsg) {
@@ -288,6 +291,7 @@ func (z *Zone) handleAbilityInput(peerID uint16, payload []byte) {
 			}
 			evt := combat.ResolvePlayerAttackOnEnemy(p, z.Enemy)
 			if evt != nil {
+				evt.SourcePeerID = peerID
 				z.damageEvents = append(z.damageEvents, *evt)
 			}
 		}
@@ -301,6 +305,7 @@ func (z *Zone) handleAbilityInput(peerID uint16, payload []byte) {
 			}
 			evt := combat.ResolvePlayerAttackOnEnemy(p, z.Enemy)
 			if evt != nil {
+				evt.SourcePeerID = peerID
 				z.damageEvents = append(z.damageEvents, *evt)
 			}
 		}
@@ -309,6 +314,7 @@ func (z *Zone) handleAbilityInput(peerID uint16, payload []byte) {
 			p.FireCooldown = 0.8
 			evt := combat.ResolvePlayerAttackOnEnemy(p, z.Enemy)
 			if evt != nil {
+				evt.SourcePeerID = peerID
 				z.damageEvents = append(z.damageEvents, *evt)
 			}
 		}
@@ -1113,8 +1119,9 @@ func (z *Zone) broadcastWorldState() {
 
 func (z *Zone) broadcastDamageEvents() {
 	for _, evt := range z.damageEvents {
-		buf := make([]byte, 0, 20)
+		buf := make([]byte, 0, 21)
 		buf = appendUint16(buf, evt.TargetPeerID)
+		buf = appendUint16(buf, evt.SourcePeerID)
 		buf = appendFloat32(buf, evt.Amount)
 		buf = appendFloat32(buf, evt.HitPos.X)
 		buf = appendFloat32(buf, evt.HitPos.Y)
