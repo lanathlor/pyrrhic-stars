@@ -33,6 +33,7 @@ type InteractInputMsg struct {
 type LobbyPlayerInfo struct {
 	PeerID    uint16
 	ClassName string
+	Username  string
 	Ready     bool
 }
 

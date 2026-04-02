@@ -514,10 +514,12 @@ func decode_lobby_state(data: PackedByteArray) -> Dictionary:
 	for i in range(player_count):
 		var peer_id := buf.get_u16()
 		var class_name_str := _get_str8(buf)
+		var username := _get_str8(buf)
 		var is_ready := buf.get_u8() == 1
 		players.append({
 			"peer_id": peer_id,
 			"class_name": class_name_str,
+			"username": username,
 			"is_ready": is_ready,
 		})
 	return {"players": players}
@@ -529,6 +531,7 @@ func encode_lobby_state(players: Array[Dictionary]) -> PackedByteArray:
 	for player in players:
 		buf.put_u16(player["peer_id"])
 		_put_str8(buf, player["class_name"])
+		_put_str8(buf, player.get("username", ""))
 		buf.put_u8(1 if player["is_ready"] else 0)
 	return buf.data_array
 

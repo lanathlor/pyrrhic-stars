@@ -1025,6 +1025,7 @@ func (z *Zone) broadcastLobbyState() {
 		infos = append(infos, codec.LobbyPlayerInfo{
 			PeerID:    p.PeerID,
 			ClassName: p.ClassName,
+			Username:  p.Username,
 			Ready:     p.Ready,
 		})
 	}

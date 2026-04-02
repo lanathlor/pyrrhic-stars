@@ -264,7 +264,7 @@ func _handle_lobby_state(payload: PackedByteArray) -> void:
 	var data := NetSerializer.decode_lobby_state(payload)
 	player_info.clear()
 	for p in data.players:
-		player_info[p.peer_id] = {"class_name": p.class_name, "ready": p.is_ready}
+		player_info[p.peer_id] = {"class_name": p.class_name, "username": p.username, "ready": p.is_ready}
 	lobby_state_updated.emit(data.players)
 	player_info_changed.emit()
 

@@ -70,6 +70,7 @@ func EncodeLobbyState(players []LobbyPlayerInfo) []byte {
 	for _, p := range players {
 		buf = appendU16(buf, p.PeerID)
 		buf = appendStr8(buf, p.ClassName)
+		buf = appendStr8(buf, p.Username)
 		if p.Ready {
 			buf = append(buf, 1)
 		} else {

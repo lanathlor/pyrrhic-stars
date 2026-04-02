@@ -340,8 +340,8 @@ func TestEncodeWorldStateNilEnemy(t *testing.T) {
 
 func TestEncodeLobbyStateWireFormat(t *testing.T) {
 	infos := []LobbyPlayerInfo{
-		{PeerID: 1, ClassName: "gunner", Ready: true},
-		{PeerID: 2, ClassName: "vanguard", Ready: false},
+		{PeerID: 1, ClassName: "gunner", Username: "Alice", Ready: true},
+		{PeerID: 2, ClassName: "vanguard", Username: "Bob", Ready: false},
 	}
 	buf := EncodeLobbyState(infos)
 
@@ -362,6 +362,13 @@ func TestEncodeLobbyStateWireFormat(t *testing.T) {
 	if class != "gunner" {
 		t.Errorf("p1 class = %q, want %q", class, "gunner")
 	}
+	nameLen := int(buf[off])
+	off++
+	name := string(buf[off : off+nameLen])
+	off += nameLen
+	if name != "Alice" {
+		t.Errorf("p1 username = %q, want %q", name, "Alice")
+	}
 	if buf[off] != 1 {
 		t.Errorf("p1 ready = %d, want 1", buf[off])
 	}
@@ -378,6 +385,13 @@ func TestEncodeLobbyStateWireFormat(t *testing.T) {
 	off += classLen
 	if class != "vanguard" {
 		t.Errorf("p2 class = %q, want %q", class, "vanguard")
+	}
+	nameLen = int(buf[off])
+	off++
+	name = string(buf[off : off+nameLen])
+	off += nameLen
+	if name != "Bob" {
+		t.Errorf("p2 username = %q, want %q", name, "Bob")
 	}
 	if buf[off] != 0 {
 		t.Errorf("p2 ready = %d, want 0", buf[off])
