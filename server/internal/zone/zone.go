@@ -95,6 +95,7 @@ func New(id string, zoneType ZoneType) *Zone {
 	}
 	if zoneType == ZoneTypeArena {
 		z.Enemy = entity.NewEnemy(0)
+		z.Enemy.Alive = false // dormant until fight starts
 		z.playerSpawns = []entity.Vec3{
 			{X: -2.0, Y: 0.1, Z: 20.0},
 			{X: 0.0, Y: 0.1, Z: 20.0},
@@ -119,14 +120,51 @@ func New(id string, zoneType ZoneType) *Zone {
 // AddClient adds a connected client to the zone.
 func (z *Zone) AddClient(c *Client) {
 	z.mu.Lock()
-	defer z.mu.Unlock()
 	z.clients[c.PeerID] = c
 	if p, ok := z.Players[c.PeerID]; !ok {
 		np := entity.NewPlayer(c.PeerID, "gunner")
 		np.Username = c.Username
+		// Set spawn position immediately so the tick loop never sees origin
+		if z.Type == ZoneTypeArena && len(z.playerSpawns) > 0 {
+			idx := len(z.Players) % len(z.playerSpawns)
+			np.Position = z.playerSpawns[idx]
+		} else if len(z.playerSpawns) > 0 {
+			idx := len(z.Players) % len(z.playerSpawns)
+			np.Position = z.playerSpawns[idx]
+		}
 		z.Players[c.PeerID] = np
 	} else {
 		p.Username = c.Username
+	}
+
+	// Arena: initialize player fully and send catch-up state
+	var catchUpFlow uint8
+	if z.Type == ZoneTypeArena {
+		z.spawnPlayer(c.PeerID)
+		switch z.State {
+		case StateLobby:
+			z.State = StateSpawned
+			catchUpFlow = message.FlowSpawnPlayers
+			slog.Info("arena entered, skipping lobby", "zone_id", z.ID)
+		case StateSpawned:
+			catchUpFlow = message.FlowSpawnPlayers
+		case StateFight:
+			catchUpFlow = message.FlowFightStart
+		case StateFightOver:
+			if z.BossDefeated {
+				catchUpFlow = message.FlowBossDead
+			} else {
+				catchUpFlow = message.FlowAllDead
+			}
+		}
+	}
+	z.mu.Unlock()
+
+	// Send catch-up to the joining client (and broadcast if we just changed state)
+	if catchUpFlow > 0 {
+		payload := codec.EncodeGameFlow(catchUpFlow, "")
+		msg := message.Encode(message.OpGameFlowEvent, 0, payload)
+		c.Send(msg)
 	}
 }
 
@@ -232,8 +270,19 @@ func (z *Zone) handlePlayerInput(peerID uint16, payload []byte) {
 		return
 	}
 
+	// Reject positions that teleport too far from the server-assigned position.
+	// This catches the first bogus (0,0,0) frame from a freshly spawned client.
+	newPos := entity.Vec3{X: inp.PosX, Y: inp.PosY, Z: inp.PosZ}
+	dx := newPos.X - p.Position.X
+	dy := newPos.Y - p.Position.Y
+	dz := newPos.Z - p.Position.Z
+	dist := dx*dx + dy*dy + dz*dz
+	if dist > 100.0 { // > 10 units teleport = reject
+		return
+	}
+
 	// Client-authoritative: accept position, clamp to boundaries
-	p.Position = entity.Vec3{X: inp.PosX, Y: inp.PosY, Z: inp.PosZ}
+	p.Position = newPos
 	if z.Type == ZoneTypeHub {
 		p.Position.X = entity.Clamp(p.Position.X, -14.5, 14.5)
 		p.Position.Z = entity.Clamp(p.Position.Z, -9.5, 14.5)
@@ -411,6 +460,25 @@ func (z *Zone) spawnPlayers() {
 		p.InvincibleTimer = 0
 		idx++
 	}
+}
+
+// spawnPlayer initializes a single player at the next available spawn point.
+func (z *Zone) spawnPlayer(peerID uint16) {
+	p, ok := z.Players[peerID]
+	if !ok {
+		return
+	}
+	idx := len(z.Players) - 1
+	spawnPos := z.playerSpawns[idx%len(z.playerSpawns)]
+	p.Position = spawnPos
+	p.Health = p.MaxHealth
+	p.Alive = true
+	p.State = entity.PlayerStateMove
+	p.Velocity = entity.Vec3{}
+	p.IsRolling = false
+	p.RollCooldown = 0
+	p.Invincible = false
+	p.InvincibleTimer = 0
 }
 
 // tickSpawned processes the state where players are spawned but haven't entered the arena yet.

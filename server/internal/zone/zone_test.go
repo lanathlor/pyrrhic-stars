@@ -3,11 +3,13 @@ package zone
 import (
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/message"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"math"
 	"sync"
 	"testing"
+	"time"
 )
 
 // buildShootPayload creates an OpAbilityInput payload for a gunner shot.
@@ -837,5 +839,139 @@ func TestHubZoneTick(t *testing.T) {
 
 	if !findOpcode(*msgs, message.OpWorldState) {
 		t.Error("client did not receive OpWorldState from hub zone tick")
+	}
+}
+
+// =============================================================================
+// Test: Arena entry — fight must NOT start until a player crosses the trigger
+// =============================================================================
+
+func TestArenaEntry_FightDoesNotStartImmediately(t *testing.T) {
+	z := New("test_arena", ZoneTypeArena)
+
+	// Verify enemy starts dormant
+	if z.Enemy.Alive {
+		t.Fatal("Enemy.Alive = true on fresh arena, want false")
+	}
+
+	// Simulate a player joining via AddClient (like gateway.transferPlayer does)
+	send, msgs := captureSend()
+	c := &Client{PeerID: 1, Username: "TestPlayer", Send: send}
+	z.AddClient(c)
+
+	// Verify state transitioned to Spawned (not Fight)
+	if z.State != StateSpawned {
+		t.Fatalf("State = %d after AddClient, want StateSpawned (%d)", z.State, StateSpawned)
+	}
+
+	// Verify player is in the warmup area (Z >= 12)
+	p := z.Players[1]
+	if p == nil {
+		t.Fatal("Player not found after AddClient")
+	}
+	t.Logf("Player position after AddClient: %+v", p.Position)
+	if p.Position.Z < 12.0 {
+		t.Fatalf("Player.Position.Z = %f, want >= 12 (warmup area). Player spawned in fight trigger zone!", p.Position.Z)
+	}
+
+	// Run 10 ticks — fight should NOT start
+	for i := 0; i < 10; i++ {
+		z.processTick()
+	}
+
+	if z.State != StateSpawned {
+		t.Errorf("State = %d after 10 ticks, want StateSpawned (%d). Fight started prematurely!", z.State, StateSpawned)
+	}
+	if z.Enemy.Alive {
+		t.Error("Enemy.Alive = true after 10 ticks in Spawned state, want false. Boss should be dormant until fight starts.")
+	}
+
+	// Verify NO FlowFightStart was sent
+	if findGameFlowEvent(*msgs, message.FlowFightStart) {
+		t.Error("Client received FlowFightStart — fight started without anyone crossing the trigger zone!")
+	}
+
+	// Now move the player into the arena (Z < 12) and tick
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5.0}
+	z.processTick()
+
+	if z.State != StateFight {
+		t.Errorf("State = %d after player crossed trigger, want StateFight (%d)", z.State, StateFight)
+	}
+	if !z.Enemy.Alive {
+		t.Error("Enemy.Alive = false after fight started, want true")
+	}
+	if !findGameFlowEvent(*msgs, message.FlowFightStart) {
+		t.Error("Client did NOT receive FlowFightStart after crossing trigger")
+	}
+}
+
+// TestArenaEntry_ConcurrentTickDoesNotTriggerFight tests the REAL scenario:
+// zone.Run goroutine is ticking while AddClient is called.
+func TestArenaEntry_ConcurrentTickDoesNotTriggerFight(t *testing.T) {
+	z := New("test_arena_concurrent", ZoneTypeArena)
+
+	send, msgs := captureSend()
+	c := &Client{PeerID: 1, Username: "TestPlayer", Send: send}
+
+	// Start the zone tick loop (like the real server does)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go z.Run(ctx)
+
+	// Add client (like transferPlayer does)
+	z.AddClient(c)
+
+	// Let the zone tick for a bit
+	time.Sleep(200 * time.Millisecond) // ~4 ticks at 20Hz
+
+	cancel()
+	time.Sleep(50 * time.Millisecond) // let goroutine exit
+
+	// Check state — should still be StateSpawned, NOT StateFight
+	if z.State == StateFight {
+		t.Errorf("State = StateFight after 200ms — fight started without player crossing trigger! Player.Z=%f", z.Players[1].Position.Z)
+	}
+	if z.Enemy.Alive {
+		t.Error("Enemy.Alive = true — boss spawned without fight starting")
+	}
+	if findGameFlowEvent(*msgs, message.FlowFightStart) {
+		t.Error("Client received FlowFightStart — fight triggered prematurely")
+	}
+	t.Logf("Final state: %d, Player pos: %+v, Enemy alive: %v", z.State, z.Players[1].Position, z.Enemy.Alive)
+}
+
+func TestArenaEntry_SecondPlayerGetsCatchUp(t *testing.T) {
+	z := New("test_arena", ZoneTypeArena)
+
+	// First player joins
+	c1 := &Client{PeerID: 1, Username: "Player1", Send: func([]byte) {}}
+	z.AddClient(c1)
+
+	// Move player into arena and start fight
+	z.Players[1].Position = entity.Vec3{X: 0, Y: 0.1, Z: 5.0}
+	z.processTick()
+
+	if z.State != StateFight {
+		t.Fatalf("State = %d, want StateFight", z.State)
+	}
+
+	// Second player joins mid-fight
+	send2, msgs2 := captureSend()
+	c2 := &Client{PeerID: 2, Username: "Player2", Send: send2}
+	z.AddClient(c2)
+
+	// Second player should receive FlowFightStart catch-up
+	if !findGameFlowEvent(*msgs2, message.FlowFightStart) {
+		t.Error("Second player did NOT receive FlowFightStart catch-up on join")
+	}
+
+	// Second player should be in warmup area
+	p2 := z.Players[2]
+	if p2 == nil {
+		t.Fatal("Player 2 not found")
+	}
+	if p2.Position.Z < 12.0 {
+		t.Errorf("Player2.Position.Z = %f, want >= 12 (warmup spawn)", p2.Position.Z)
 	}
 }

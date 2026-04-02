@@ -607,29 +607,18 @@ func handleServerMessage(gw *gateway, client *wsClient, opcode uint16, payload [
 			sendGroupError(client, "can only enter portal from hub")
 			return
 		}
+		// Group arena if grouped, solo arena otherwise
 		grp := gw.groups.GetGroup(sess.id)
+		var arenaID string
 		if grp != nil {
-			// Grouped: only leader can trigger
-			if grp.LeaderID != sess.id {
-				sendGroupError(client, "only the group leader can enter the portal")
-				return
-			}
-			arenaID := fmt.Sprintf("arena_g%d", grp.ID)
-			slog.Info("group entering portal", "group_id", grp.ID, "arena", arenaID)
-			// Transfer all group members
-			for _, memberID := range grp.Members {
-				memberSess := gw.getSessionByID(memberID)
-				if memberSess != nil {
-					gw.transferPlayer(memberSess, arenaID, zone.ZoneTypeArena)
-				}
-			}
-			// Re-broadcast group state with updated arena peer IDs
-			gw.broadcastGroupState(grp)
+			arenaID = fmt.Sprintf("arena_g%d", grp.ID)
 		} else {
-			// Solo: own instance
-			arenaID := fmt.Sprintf("arena_s%d", sess.id)
-			slog.Info("solo player entering portal", "player_id", sess.id, "arena", arenaID)
-			gw.transferPlayer(sess, arenaID, zone.ZoneTypeArena)
+			arenaID = fmt.Sprintf("arena_s%d", sess.id)
+		}
+		slog.Info("player entering portal", "player_id", sess.id, "arena", arenaID)
+		gw.transferPlayer(sess, arenaID, zone.ZoneTypeArena)
+		if grp != nil {
+			gw.broadcastGroupState(grp)
 		}
 
 	default:

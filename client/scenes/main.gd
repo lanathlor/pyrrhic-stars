@@ -38,6 +38,7 @@ const CLASS_SCENES := {
 var _spawned_players: Dictionary = {}  # peer_id -> CharacterBody3D
 var _spawned_projectiles: Dictionary = {}  # proj_id -> Node3D
 var _local_class: String = "gunner"
+var _class_button_group: ButtonGroup = ButtonGroup.new()
 var _players_node: Node3D
 var _projectiles_node: Node3D
 var _username: String = ""
@@ -159,22 +160,6 @@ func _input(event: InputEvent) -> void:
 				_alt_held = event.pressed
 				_update_cursor_mode()
 
-	# Class selection in hub or arena lobby
-	if (state == GameState.HUB or state == GameState.ARENA_LOBBY) and not paused:
-		if event is InputEventKey and event.pressed:
-			if event.physical_keycode == KEY_1:
-				_select_class("gunner")
-			elif event.physical_keycode == KEY_2:
-				_select_class("vanguard")
-			elif event.physical_keycode == KEY_3:
-				_select_class("blade_dancer")
-
-	# Ready toggle in arena lobby
-	if state == GameState.ARENA_LOBBY and not paused:
-		if event is InputEventKey and event.pressed:
-			if event.physical_keycode == KEY_ENTER or event.physical_keycode == KEY_KP_ENTER:
-				_toggle_ready()
-
 	# Hub interactions
 	if state == GameState.HUB and not paused:
 		if event is InputEventKey and event.pressed:
@@ -246,6 +231,8 @@ func _connect_to_address(address: String) -> void:
 
 func _on_net_connected() -> void:
 	print("[Main] Connected as peer %d" % NetworkManager.get_my_id())
+	# Send class selected at login
+	NetworkManager.set_player_class(_local_class)
 	_enter_hub()
 
 
@@ -316,7 +303,7 @@ func _check_portal_proximity() -> void:
 
 func _update_hub_display() -> void:
 	if _hub_class_label:
-		_hub_class_label.text = "[1] Gunner  [2] Vanguard  [3] Blade Dancer\nSelected: %s" % _local_class.to_upper()
+		_hub_class_label.text = "Class: %s" % _local_class.to_upper()
 
 
 func _update_overhead_name(player: CharacterBody3D, peer_id: int) -> void:
@@ -512,7 +499,7 @@ func _update_lobby_display() -> void:
 	if not _lobby_layer or not _lobby_layer.visible:
 		return
 
-	_lobby_class_label.text = "[1] Gunner   [2] Vanguard   [3] Blade Dancer\nSelected: %s" % _local_class.to_upper()
+	_lobby_class_label.text = "Class: %s" % _local_class.to_upper()
 
 	if not NetworkManager.is_active:
 		_lobby_status_label.text = "Connecting..."
@@ -682,7 +669,24 @@ func _on_zone_transfer(zone_type: int, new_peer_id: int) -> void:
 		_load_environment(ARENA_SCENE)
 		_create_gate()
 		_create_enemy()
-		_enter_arena_lobby()
+		# Hide enemy until fight starts
+		if _enemy_node:
+			_enemy_node.visible = false
+			_enemy_node.collision_layer = 0
+			_enemy_node.set_physics_process(false)
+		# Open gate so players can walk freely in warmup
+		if _gate:
+			_gate.visible = false
+			_gate.use_collision = false
+		# Spawn local player in warmup room immediately
+		state = GameState.ARENA_LOBBY
+		_lobby_layer.visible = false
+		_hub_layer.visible = false
+		_menu_layer.visible = false
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		var my_id := NetworkManager.get_my_id()
+		if my_id > 0:
+			_spawn_player(my_id, _local_class, LOBBY_SPAWN)
 	else:
 		_unload_environment()
 		_load_environment(HUB_SCENE)
@@ -1023,6 +1027,32 @@ func _create_menu_ui() -> void:
 	_username_input.custom_minimum_size.y = 50.0
 	_username_input.max_length = 20
 	vbox.add_child(_username_input)
+
+	# Class selection
+	var class_label := Label.new()
+	class_label.text = "Select Class"
+	class_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	class_label.add_theme_font_size_override("font_size", 20)
+	class_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
+	vbox.add_child(class_label)
+
+	var class_hbox := HBoxContainer.new()
+	class_hbox.add_theme_constant_override("separation", 8)
+	class_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_child(class_hbox)
+
+	var classes := ["gunner", "vanguard", "blade_dancer"]
+	var class_labels := ["Gunner", "Vanguard", "Blade Dancer"]
+	for i in classes.size():
+		var btn := Button.new()
+		btn.text = class_labels[i]
+		btn.custom_minimum_size = Vector2(90.0, 40.0)
+		btn.toggle_mode = true
+		btn.button_pressed = (classes[i] == _local_class)
+		btn.button_group = _class_button_group
+		var cls: String = classes[i]
+		btn.pressed.connect(func(): _local_class = cls)
+		class_hbox.add_child(btn)
 
 	var spacer2 := Control.new()
 	spacer2.custom_minimum_size.y = 10.0
