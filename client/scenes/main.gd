@@ -2,7 +2,6 @@ extends Node3D
 
 ## Game flow: Menu -> Hub -> Arena (Lobby -> Fight -> Fight Over) -> Hub.
 ## Server-authoritative: all game flow is driven by server events.
-## Solo mode connects to ws://127.0.0.1:7777 (requires local Go server).
 
 enum GameState { MENU, HUB, ARENA_LOBBY, FIGHT, FIGHT_OVER }
 
@@ -130,7 +129,6 @@ func _ready() -> void:
 	NetworkManager.player_info_changed.connect(_update_lobby_display)
 	NetworkManager.world_state_received.connect(_on_world_state)
 	NetworkManager.damage_event_received.connect(_on_damage_event)
-	NetworkManager.hub_state_received.connect(_on_hub_state)
 	NetworkManager.zone_transfer_received.connect(_on_zone_transfer)
 	NetworkManager.group_state_updated.connect(_on_group_state)
 	NetworkManager.group_invite_received.connect(_on_group_invite)
@@ -223,22 +221,18 @@ func _enter_menu() -> void:
 	_unload_environment()
 
 
-func _on_solo_pressed() -> void:
-	_connect_to_address("127.0.0.1")
-
-
 func _on_connect_pressed() -> void:
 	var address := _address_input.text.strip_edges()
 	if address == "":
-		address = "127.0.0.1"
+		address = "109.222.207.243"
 	_connect_to_address(address)
 
 
 func _connect_to_address(address: String) -> void:
-	# Store username
 	_username = _username_input.text.strip_edges()
 	if _username == "":
-		_username = "Player"
+		_username_input.grab_focus()
+		return
 	NetworkManager.username = _username
 
 	NetworkManager.disconnect_game()
@@ -302,62 +296,6 @@ func _enter_hub() -> void:
 	_update_group_panel()
 	if _shared_hud:
 		_shared_hud.on_enter_hub()
-
-
-func _on_hub_state(data: Dictionary) -> void:
-	if state != GameState.HUB:
-		return
-
-	var players_data: Array = data.get("players", [])
-	var seen_peers: Dictionary = {}
-
-	for p_data in players_data:
-		var pid: int = p_data["peer_id"]
-		seen_peers[pid] = true
-
-		# Store player names
-		var uname: String = p_data.get("username", "")
-		if uname != "":
-			_player_names[pid] = uname
-
-		if pid == NetworkManager.get_my_id():
-			# Hub has no combat — trust client prediction entirely.
-			# Only snap on extreme desync (teleport/lag spike).
-			if pid in _spawned_players:
-				var player: CharacterBody3D = _spawned_players[pid]
-				if is_instance_valid(player):
-					var server_pos: Vector3 = p_data["pos"]
-					if player.global_position.distance_to(server_pos) > 8.0:
-						player.global_position = server_pos
-			continue
-
-		# Remote player
-		if pid not in _spawned_players:
-			var cls: String = p_data.get("class_name", "gunner")
-			_spawn_player(pid, cls, p_data["pos"])
-
-		var player: CharacterBody3D = _spawned_players[pid]
-		if is_instance_valid(player):
-			# Update the controller's net sync targets — the controller's
-			# _physics_process handles interpolation toward these values.
-			player._net_position = p_data["pos"]
-			player._net_rotation_y = p_data["rot_y"]
-			player._net_anim = p_data.get("anim_name", "")
-			player._net_anim_speed = p_data.get("anim_speed", 1.0)
-
-			# Update overhead name
-			_update_overhead_name(player, pid)
-
-	# Remove players that are no longer in the hub state
-	var to_remove: Array = []
-	for pid in _spawned_players:
-		if pid not in seen_peers:
-			to_remove.append(pid)
-	for pid in to_remove:
-		var player = _spawned_players[pid]
-		if is_instance_valid(player):
-			player.queue_free()
-		_spawned_players.erase(pid)
 
 
 func _check_portal_proximity() -> void:
@@ -771,23 +709,63 @@ func _on_game_flow_event(flow_type: int, text: String) -> void:
 
 
 func _on_world_state(data: Dictionary) -> void:
-	if state != GameState.ARENA_LOBBY and state != GameState.FIGHT and state != GameState.FIGHT_OVER:
+	if state == GameState.MENU:
 		return
 
 	var players_data: Array = data.get("players", [])
+	var seen_peers: Dictionary = {}
+	var my_id := NetworkManager.get_my_id()
+
 	for p_data in players_data:
 		var pid: int = p_data["peer_id"]
-		if pid in _spawned_players:
-			var player: CharacterBody3D = _spawned_players[pid]
-			if is_instance_valid(player) and player.has_method("apply_server_state"):
-				player.apply_server_state(p_data)
+		seen_peers[pid] = true
 
+		# Store player names
+		var uname: String = p_data.get("username", "")
+		if uname != "":
+			_player_names[pid] = uname
+
+		# Spawn remote player if needed
+		if pid != my_id and pid not in _spawned_players:
+			var cls: String = p_data.get("class_name", "gunner")
+			_spawn_player(pid, cls, p_data["pos"])
+
+		if pid not in _spawned_players:
+			continue
+
+		var player: CharacterBody3D = _spawned_players[pid]
+		if not is_instance_valid(player):
+			continue
+
+		if pid == my_id and state == GameState.HUB:
+			# Hub: client-authoritative movement, only snap on extreme desync
+			var server_pos: Vector3 = p_data["pos"]
+			if player.global_position.distance_to(server_pos) > 8.0:
+				player.global_position = server_pos
+		elif player.has_method("apply_server_state"):
+			player.apply_server_state(p_data)
+
+		# Update overhead name for remote players in hub
+		if state == GameState.HUB and pid != my_id:
+			_update_overhead_name(player, pid)
+
+	# Despawn players no longer in state
+	var to_remove: Array = []
+	for pid in _spawned_players:
+		if pid not in seen_peers:
+			to_remove.append(pid)
+	for pid in to_remove:
+		var player = _spawned_players[pid]
+		if is_instance_valid(player):
+			player.queue_free()
+		_spawned_players.erase(pid)
+
+	# Enemy (inert in hub — dead at origin, _enemy_node is null in hub)
 	var enemy_data: Dictionary = data.get("enemy", {})
 	if not enemy_data.is_empty() and is_instance_valid(_enemy_node) and _enemy_node.has_method("apply_server_state"):
 		_enemy_node.apply_server_state(enemy_data)
 
 	# Projectiles: spawn/update/remove
-	# First, prune any projectiles that freed themselves (e.g. on collision)
 	var stale: Array = []
 	for pid in _spawned_projectiles:
 		if not is_instance_valid(_spawned_projectiles[pid]):
@@ -804,12 +782,11 @@ func _on_world_state(data: Dictionary) -> void:
 			_spawn_projectile(pid, p["pos"], p["direction"])
 		else:
 			_spawned_projectiles[pid].global_position = p["pos"]
-	# Remove projectiles no longer in server state
-	var to_remove: Array = []
+	var proj_to_remove: Array = []
 	for pid in _spawned_projectiles:
 		if pid not in active_ids:
-			to_remove.append(pid)
-	for pid in to_remove:
+			proj_to_remove.append(pid)
+	for pid in proj_to_remove:
 		var proj = _spawned_projectiles[pid]
 		if is_instance_valid(proj):
 			proj.queue_free()
@@ -1054,18 +1031,12 @@ func _create_menu_ui() -> void:
 	spacer2.custom_minimum_size.y = 10.0
 	vbox.add_child(spacer2)
 
-	var solo_btn := Button.new()
-	solo_btn.text = "Solo (localhost)"
-	solo_btn.custom_minimum_size.y = 50.0
-	solo_btn.pressed.connect(_on_solo_pressed)
-	vbox.add_child(solo_btn)
-
 	var connect_hbox := HBoxContainer.new()
 	connect_hbox.add_theme_constant_override("separation", 8)
 	vbox.add_child(connect_hbox)
 
 	_address_input = LineEdit.new()
-	_address_input.placeholder_text = "127.0.0.1"
+	_address_input.placeholder_text = "109.222.207.243"
 	_address_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_address_input.custom_minimum_size.y = 50.0
 	connect_hbox.add_child(_address_input)

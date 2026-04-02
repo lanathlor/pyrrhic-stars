@@ -106,8 +106,6 @@ func _ready() -> void:
 
 	if _is_local():
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-		hud.update_health(health, max_health)
-		hud.update_stamina(stamina, max_stamina)
 	else:
 		$HUDLayer.visible = false
 		camera.current = false
@@ -137,11 +135,16 @@ func _is_local() -> bool:
 func apply_server_state(data: Dictionary) -> void:
 	if _is_local():
 		health = data.health
-		hud.update_health(health, max_health)
 		if health <= 0.0 and _alive:
 			_alive = false
+			_enter_state(State.DEAD)
 			died.emit()
-		# Client-authoritative movement: no position correction needed
+		elif health > 0.0 and not _alive:
+			_alive = true
+			_enter_state(State.MOVE)
+			# Snap to server position on respawn
+			global_position = data.pos
+			_net_position = data.pos
 	else:
 		# Remote player: apply all state
 		_net_position = data.pos
@@ -158,7 +161,6 @@ func on_hit_confirmed(amount: float) -> void:
 
 ## Visual-only damage feedback (called from main.gd on DamageEvent).
 func on_damage_visual(_amount: float, _hit_pos: Vector3) -> void:
-	hud.update_health(health, max_health)
 	hud.show_damage_flash()
 	_show_body_flash()
 
@@ -255,14 +257,16 @@ func _process_move(delta: float) -> void:
 		if _combo_window_timer <= 0.0:
 			_queued_light = false
 
-	# Attack inputs
-	if Input.is_action_just_pressed("light_attack") and stamina >= light_stamina_cost:
+	var cursor_active := Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED
+
+	# Attack inputs (disabled when cursor is visible)
+	if not cursor_active and Input.is_action_just_pressed("light_attack") and stamina >= light_stamina_cost:
 		_start_light_attack(1)
 		return
 	if Input.is_action_just_pressed("heavy_attack") and stamina >= heavy_stamina_cost:
 		_start_heavy_attack()
 		return
-	if Input.is_action_pressed("block"):
+	if not cursor_active and Input.is_action_pressed("block"):
 		_enter_state(State.BLOCK)
 		_parry_timer = parry_window
 		return
@@ -564,7 +568,6 @@ func _consume_stamina(amount: float) -> void:
 	stamina -= amount
 	stamina = maxf(stamina, 0.0)
 	_stamina_cooldown_timer = stamina_regen_delay
-	hud.update_stamina(stamina, max_stamina)
 
 
 func _update_stamina(delta: float) -> void:
@@ -575,7 +578,6 @@ func _update_stamina(delta: float) -> void:
 		return
 	if stamina < max_stamina:
 		stamina = minf(stamina + stamina_regen_rate * delta, max_stamina)
-		hud.update_stamina(stamina, max_stamina)
 
 
 # --- Lock-on ---

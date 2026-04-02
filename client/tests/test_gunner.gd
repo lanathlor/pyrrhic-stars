@@ -138,3 +138,81 @@ func test_model_hidden_for_fps() -> void:
 	for child in _gunner.character_model.get_children():
 		if child is Node3D:
 			assert_bool(child.visible).is_false()
+
+
+# --- Remote tracer (bullet line) state transition ---
+
+func _make_remote_gunner() -> CharacterBody3D:
+	var remote := auto_free(load(GUNNER_SCENE).instantiate())
+	remote.peer_id = 99  # non-zero, not matching NetworkManager
+	remote.position = Vector3(5.0, 5.0, 0.0)
+	add_child(remote)
+	await get_tree().process_frame
+	return remote
+
+
+func _count_tracers() -> int:
+	var count := 0
+	for child in get_tree().current_scene.get_children():
+		if child is MeshInstance3D and child.mesh is BoxMesh:
+			var box: BoxMesh = child.mesh
+			# Tracers use a thin box (0.03 x 0.03 x length)
+			if box.size.x < 0.05 and box.size.y < 0.05:
+				count += 1
+	return count
+
+
+func test_remote_attack_state_spawns_tracer() -> void:
+	var remote := await _make_remote_gunner()
+	var before := _count_tracers()
+	# Simulate server sending state=2 (PlayerStateAttack)
+	remote.apply_server_state({
+		"pos": Vector3(5.0, 0.0, 0.0),
+		"rot_y": 0.0,
+		"health": 100.0,
+		"state": 2,  # PlayerStateAttack
+		"anim_name": "rifle_idle",
+		"anim_speed": 1.0,
+		"aim_pitch": 0.0,
+	})
+	assert_int(_count_tracers()).is_greater(before)
+
+
+func test_remote_attack_state_no_retrigger_same_state() -> void:
+	var remote := await _make_remote_gunner()
+	# First transition: should spawn tracer
+	remote.apply_server_state({
+		"pos": Vector3(5.0, 0.0, 0.0), "rot_y": 0.0, "health": 100.0,
+		"state": 2, "anim_name": "", "anim_speed": 1.0, "aim_pitch": 0.0,
+	})
+	await get_tree().process_frame
+	var count_after_first := _count_tracers()
+	# Second tick with same state: should NOT spawn another tracer
+	remote.apply_server_state({
+		"pos": Vector3(5.0, 0.0, 0.0), "rot_y": 0.0, "health": 100.0,
+		"state": 2, "anim_name": "", "anim_speed": 1.0, "aim_pitch": 0.0,
+	})
+	assert_int(_count_tracers()).is_equal(count_after_first)
+
+
+func test_remote_tracer_fires_again_after_state_reset() -> void:
+	var remote := await _make_remote_gunner()
+	# Transition to attack
+	remote.apply_server_state({
+		"pos": Vector3(5.0, 0.0, 0.0), "rot_y": 0.0, "health": 100.0,
+		"state": 2, "anim_name": "", "anim_speed": 1.0, "aim_pitch": 0.0,
+	})
+	await get_tree().process_frame
+	# Reset to move
+	remote.apply_server_state({
+		"pos": Vector3(5.0, 0.0, 0.0), "rot_y": 0.0, "health": 100.0,
+		"state": 0, "anim_name": "", "anim_speed": 1.0, "aim_pitch": 0.0,
+	})
+	await get_tree().process_frame
+	var before := _count_tracers()
+	# Second attack: should fire again
+	remote.apply_server_state({
+		"pos": Vector3(5.0, 0.0, 0.0), "rot_y": 0.0, "health": 100.0,
+		"state": 2, "anim_name": "", "anim_speed": 1.0, "aim_pitch": 0.0,
+	})
+	assert_int(_count_tracers()).is_greater(before)

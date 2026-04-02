@@ -1,10 +1,12 @@
 package combat
 
 import (
-	"codex-online/server/internal/entity"
 	"encoding/binary"
 	"math"
 	"testing"
+
+	"codex-online/server/internal/codec"
+	"codex-online/server/internal/entity"
 )
 
 // makeGunner creates a gunner aimed directly at a target position.
@@ -39,7 +41,7 @@ func TestGunnerHit(t *testing.T) {
 	// Gunner at Z=10 aiming at origin (enemy center mass is at Y=1)
 	player := makeGunner(42, entity.Vec3{X: 0, Y: 0, Z: 10}, entity.Vec3{X: 0, Y: 1, Z: 0})
 
-	evt := ResolvePlayerAttackOnEnemy(player, enemy)
+	evt := ResolvePlayerAttackOnEnemy(player, enemy, nil)
 	if evt == nil {
 		t.Fatal("expected hit, got nil")
 	}
@@ -73,7 +75,7 @@ func TestGunnerMiss(t *testing.T) {
 		Alive:     true,
 	}
 
-	evt := ResolvePlayerAttackOnEnemy(player, enemy)
+	evt := ResolvePlayerAttackOnEnemy(player, enemy, nil)
 	if evt != nil {
 		t.Errorf("expected miss (nil), got %+v", evt)
 	}
@@ -84,7 +86,7 @@ func TestDeadEnemyIgnored(t *testing.T) {
 	enemy.Alive = false
 	player := makeGunner(1, entity.Vec3{Z: 10}, entity.Vec3{Y: 1})
 
-	evt := ResolvePlayerAttackOnEnemy(player, enemy)
+	evt := ResolvePlayerAttackOnEnemy(player, enemy, nil)
 	if evt != nil {
 		t.Errorf("expected nil for dead enemy, got %+v", evt)
 	}
@@ -108,7 +110,7 @@ func TestVanguardMelee(t *testing.T) {
 	// Face toward the enemy (positive Z)
 	player.RotationY = float32(math.Pi)
 
-	evt := ResolvePlayerAttackOnEnemy(player, enemy)
+	evt := ResolvePlayerAttackOnEnemy(player, enemy, nil)
 	if evt == nil {
 		t.Fatal("expected melee hit, got nil")
 	}
@@ -129,15 +131,7 @@ func TestDamageEventWireFormat(t *testing.T) {
 		SourceType:   SourcePlayerAttack,
 	}
 
-	// Reproduce the exact encoding from zone.go broadcastDamageEvents
-	buf := make([]byte, 0, 22)
-	buf = appendUint16(buf, evt.TargetPeerID)
-	buf = appendUint16(buf, evt.SourcePeerID)
-	buf = appendFloat32(buf, evt.Amount)
-	buf = appendFloat32(buf, evt.HitPos.X)
-	buf = appendFloat32(buf, evt.HitPos.Y)
-	buf = appendFloat32(buf, evt.HitPos.Z)
-	buf = append(buf, evt.SourceType)
+	buf := codec.EncodeDamageEvent(evt.TargetPeerID, evt.SourcePeerID, evt.Amount, evt.HitPos.X, evt.HitPos.Y, evt.HitPos.Z, evt.SourceType)
 
 	if len(buf) != 21 {
 		t.Fatalf("wire length = %d, want 21 bytes", len(buf))
@@ -192,14 +186,7 @@ func TestEnemyDamageEventWireFormat(t *testing.T) {
 		SourceType:   SourceEnemyMelee,
 	}
 
-	buf := make([]byte, 0, 22)
-	buf = appendUint16(buf, evt.TargetPeerID)
-	buf = appendUint16(buf, evt.SourcePeerID)
-	buf = appendFloat32(buf, evt.Amount)
-	buf = appendFloat32(buf, evt.HitPos.X)
-	buf = appendFloat32(buf, evt.HitPos.Y)
-	buf = appendFloat32(buf, evt.HitPos.Z)
-	buf = append(buf, evt.SourceType)
+	buf := codec.EncodeDamageEvent(evt.TargetPeerID, evt.SourcePeerID, evt.Amount, evt.HitPos.X, evt.HitPos.Y, evt.HitPos.Z, evt.SourceType)
 
 	if len(buf) != 21 {
 		t.Fatalf("wire length = %d, want 21", len(buf))
@@ -224,15 +211,3 @@ func TestEnemyDamageEventWireFormat(t *testing.T) {
 	}
 }
 
-// appendUint16/appendFloat32 mirror the zone.go helpers for testing.
-func appendUint16(buf []byte, v uint16) []byte {
-	b := make([]byte, 2)
-	binary.LittleEndian.PutUint16(b, v)
-	return append(buf, b...)
-}
-
-func appendFloat32(buf []byte, v float32) []byte {
-	b := make([]byte, 4)
-	binary.LittleEndian.PutUint32(b, math.Float32bits(v))
-	return append(buf, b...)
-}

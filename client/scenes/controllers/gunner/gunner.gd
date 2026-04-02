@@ -78,6 +78,7 @@ var _bob_time: float = 0.0
 
 # Remote fire detection
 var _net_aim_pitch: float = 0.0
+var _net_state: int = 0  # track remote state for attack transition detection
 
 
 func _ready() -> void:
@@ -426,6 +427,10 @@ func apply_server_state(data: Dictionary) -> void:
 		_net_anim = data.anim_name
 		_net_anim_speed = data.anim_speed
 		_net_aim_pitch = data.get("aim_pitch", 0.0)
+		var new_state: int = data.get("state", 0)
+		if new_state == 2 and _net_state != 2:  # transition into attack
+			_fire_remote_tracer()
+		_net_state = new_state
 
 
 func _update_animation() -> void:

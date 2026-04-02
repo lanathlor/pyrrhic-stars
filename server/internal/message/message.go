@@ -31,9 +31,10 @@ const (
 	OpResetReady   uint16 = 0x0023
 
 	// Client → Server inputs.
-	OpPlayerInput   uint16 = 0x0030 // movement + continuous actions
-	OpAbilityInput  uint16 = 0x0031 // discrete ability activation
-	OpInteractInput uint16 = 0x0032 // lobby actions (class select, ready)
+	OpPlayerInput    uint16 = 0x0030 // movement + continuous actions
+	OpAbilityInput   uint16 = 0x0031 // discrete ability activation
+	OpInteractInput  uint16 = 0x0032 // lobby actions (class select, ready)
+	OpRespawnRequest uint16 = 0x0033 // death respawn (arena or hub)
 
 	// Server → Client authoritative state.
 	OpWorldState     uint16 = 0x0040 // full entity snapshot per tick
@@ -127,10 +128,13 @@ const (
 	FlowPhaseTransition uint8 = 4
 	FlowReturnLobby    uint8 = 5
 	FlowReturnHub      uint8 = 6
+	FlowBossDead       uint8 = 7
+	FlowAllDead        uint8 = 8
 )
 
 // Interact input action types sent within OpInteractInput payload.
 const (
 	InteractClassSelect uint8 = 0
 	InteractReadyToggle uint8 = 1
+	InteractExitPortal  uint8 = 2
 )

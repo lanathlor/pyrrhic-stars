@@ -33,28 +33,6 @@ anchor_bottom = 1.0
 mouse_filter = 2
 script = ExtResource("2")
 
-[node name="HealthBar" type="ProgressBar" parent="HUDLayer/VanguardHUD"]
-layout_mode = 1
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 20.0
-offset_top = -70.0
-offset_right = 320.0
-offset_bottom = -50.0
-value = 100.0
-show_percentage = false
-
-[node name="StaminaBar" type="ProgressBar" parent="HUDLayer/VanguardHUD"]
-layout_mode = 1
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 20.0
-offset_top = -45.0
-offset_right = 320.0
-offset_bottom = -25.0
-value = 100.0
-show_percentage = false
-
 [node name="DamageOverlay" type="ColorRect" parent="HUDLayer/VanguardHUD"]
 layout_mode = 1
 anchors_preset = 15

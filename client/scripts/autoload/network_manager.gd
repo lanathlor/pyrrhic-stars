@@ -17,7 +17,6 @@ signal lobby_state_updated(players: Array)
 signal world_state_received(state: Dictionary)
 signal damage_event_received(event: Dictionary)
 signal game_flow_event(flow_type: int, text: String)
-signal hub_state_received(state: Dictionary)
 signal zone_transfer_received(zone_type: int, new_peer_id: int)
 signal group_state_updated(data: Dictionary)
 signal group_invite_received(group_id: int, leader_name: String)
@@ -204,8 +203,6 @@ func _on_message(data: PackedByteArray) -> void:
 			_handle_damage_event(payload)
 		NetSerializer.OP_GAME_FLOW_EVENT:
 			_handle_game_flow_event(payload)
-		NetSerializer.OP_HUB_STATE:
-			_handle_hub_state(payload)
 
 		# -- Group --
 		NetSerializer.OP_GROUP_STATE:
@@ -288,11 +285,6 @@ func _handle_game_flow_event(payload: PackedByteArray) -> void:
 	# Emit all_players_ready for legacy compatibility when server sends FLOW_SPAWN_PLAYERS
 	if data.flow_type == NetSerializer.FLOW_SPAWN_PLAYERS:
 		all_players_ready.emit()
-
-
-func _handle_hub_state(payload: PackedByteArray) -> void:
-	var data := NetSerializer.decode_hub_state(payload)
-	hub_state_received.emit(data)
 
 
 func _handle_zone_transfer(payload: PackedByteArray) -> void:

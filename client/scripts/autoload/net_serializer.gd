@@ -389,6 +389,8 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 		var rot_y := buf.get_float()
 		var health := buf.get_float()
 		var state := buf.get_u8()
+		var class_name_str := _get_str8(buf)
+		var username := _get_str8(buf)
 		var anim_name := _get_str8(buf)
 		var anim_speed := buf.get_float()
 		var aim_pitch := buf.get_float()
@@ -398,6 +400,8 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 			"rot_y": rot_y,
 			"health": health,
 			"state": state,
+			"class_name": class_name_str,
+			"username": username,
 			"anim_name": anim_name,
 			"anim_speed": anim_speed,
 			"aim_pitch": aim_pitch,
@@ -541,39 +545,6 @@ func encode_username(username: String) -> PackedByteArray:
 	if name_bytes.size() > 0:
 		buf.put_data(name_bytes)
 	return buf.data_array
-
-
-# =============================================================================
-# Hub state (server -> client)
-# =============================================================================
-
-## Format: [tick:u32][player_count:u8]
-##   per player: [peer_id:u16][x:f32][y:f32][z:f32][rot_y:f32]
-##               [class_len:u8][class:...][name_len:u8][name:...]
-func decode_hub_state(data: PackedByteArray) -> Dictionary:
-	var buf := StreamPeerBuffer.new()
-	buf.data_array = data
-	var tick := buf.get_u32()
-	var player_count := buf.get_u8()
-	var players: Array[Dictionary] = []
-	for i in range(player_count):
-		var peer_id := buf.get_u16()
-		var pos := Vector3(buf.get_float(), buf.get_float(), buf.get_float())
-		var rot_y := buf.get_float()
-		var class_name_str := _get_str8(buf)
-		var username := _get_str8(buf)
-		var anim_name := _get_str8(buf)
-		var anim_speed := buf.get_float()
-		players.append({
-			"peer_id": peer_id,
-			"pos": pos,
-			"rot_y": rot_y,
-			"class_name": class_name_str,
-			"username": username,
-			"anim_name": anim_name,
-			"anim_speed": anim_speed,
-		})
-	return {"tick": tick, "players": players}
 
 
 # =============================================================================

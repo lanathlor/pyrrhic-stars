@@ -54,6 +54,43 @@ client-e2e-vanguard duration="30":
 client-remote:
     godot --path client/ -- --remote --capture
 
+# --- Web Export ---
+
+# Download Godot export templates (needed once)
+web-install-templates:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    FULL=$(godot --version)
+    VERSION=$(echo "$FULL" | cut -d. -f1-3)
+    STATUS=$(echo "$FULL" | cut -d. -f4)
+    TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/${VERSION}.${STATUS}"
+    if [ -d "$TEMPLATE_DIR" ] && ls "$TEMPLATE_DIR"/web_* 1>/dev/null 2>&1; then
+        echo "Export templates already installed at $TEMPLATE_DIR"
+        exit 0
+    fi
+    echo "Downloading Godot ${VERSION}-${STATUS} export templates..."
+    mkdir -p "$TEMPLATE_DIR"
+    TMPDIR=$(mktemp -d)
+    trap 'rm -rf "$TMPDIR"' EXIT
+    curl -L --progress-bar \
+        "https://github.com/godotengine/godot/releases/download/${VERSION}-${STATUS}/Godot_v${VERSION}-${STATUS}_export_templates.tpz" \
+        -o "$TMPDIR/templates.tpz"
+    unzip -q "$TMPDIR/templates.tpz" -d "$TMPDIR"
+    cp "$TMPDIR"/templates/* "$TEMPLATE_DIR/"
+    echo "Templates installed to $TEMPLATE_DIR"
+
+# Export client as web build
+web-export: web-install-templates
+    mkdir -p build/web
+    godot --headless --path client/ --export-release "Web" ../build/web/index.html
+
+# Serve web build with required COOP/COEP headers
+web-serve:
+    GOPATH="{{justfile_directory()}}/.go" go run tools/webserve/main.go
+
+# Export and serve in one command
+web: web-export web-serve
+
 # --- Assets ---
 
 blender:

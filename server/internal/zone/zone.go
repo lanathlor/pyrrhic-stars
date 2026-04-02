@@ -2,13 +2,13 @@ package zone
 
 import (
 	"context"
-	"encoding/binary"
 	"log/slog"
 	"math"
 	"math/rand"
 	"sync"
 	"time"
 
+	"codex-online/server/internal/codec"
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/message"
@@ -223,7 +223,8 @@ func (z *Zone) handleInput(inp inputMsg) {
 // =============================================================================
 
 func (z *Zone) handlePlayerInput(peerID uint16, payload []byte) {
-	if len(payload) < 16 {
+	inp := codec.DecodePlayerInput(payload)
+	if inp == nil {
 		return
 	}
 	p, ok := z.Players[peerID]
@@ -231,19 +232,8 @@ func (z *Zone) handlePlayerInput(peerID uint16, payload []byte) {
 		return
 	}
 
-	posX := math.Float32frombits(binary.LittleEndian.Uint32(payload[0:4]))
-	posY := math.Float32frombits(binary.LittleEndian.Uint32(payload[4:8]))
-	posZ := math.Float32frombits(binary.LittleEndian.Uint32(payload[8:12]))
-	rotY := math.Float32frombits(binary.LittleEndian.Uint32(payload[12:16]))
-
-	var tick uint32
-	if len(payload) >= 20 {
-		tick = binary.LittleEndian.Uint32(payload[16:20])
-	}
-
 	// Client-authoritative: accept position, clamp to boundaries
-	p.Position = entity.Vec3{X: posX, Y: posY, Z: posZ}
-	// Clamp to zone boundaries
+	p.Position = entity.Vec3{X: inp.PosX, Y: inp.PosY, Z: inp.PosZ}
 	if z.Type == ZoneTypeHub {
 		p.Position.X = entity.Clamp(p.Position.X, -14.5, 14.5)
 		p.Position.Z = entity.Clamp(p.Position.Z, -9.5, 14.5)
@@ -251,30 +241,16 @@ func (z *Zone) handlePlayerInput(peerID uint16, payload []byte) {
 		p.Position.X = entity.Clamp(p.Position.X, -19.5, 19.5)
 		p.Position.Z = entity.Clamp(p.Position.Z, -14.5, 24.5)
 	}
-	p.RotationY = rotY
-	p.LastInput = &entity.PlayerInput{PosX: posX, PosY: posY, PosZ: posZ, RotY: rotY, Tick: tick}
-
-	// Parse animation name + speed (appended after tick)
-	off := 20
-	if off < len(payload) {
-		animLen := int(payload[off])
-		off++
-		if off+animLen <= len(payload) {
-			p.AnimName = string(payload[off : off+animLen])
-			off += animLen
-		}
-		if off+4 <= len(payload) {
-			p.AnimSpeed = math.Float32frombits(binary.LittleEndian.Uint32(payload[off : off+4]))
-			off += 4
-		}
-		if off+4 <= len(payload) {
-			p.AimPitch = math.Float32frombits(binary.LittleEndian.Uint32(payload[off : off+4]))
-		}
-	}
+	p.RotationY = inp.RotY
+	p.LastInput = &entity.PlayerInput{PosX: inp.PosX, PosY: inp.PosY, PosZ: inp.PosZ, RotY: inp.RotY, Tick: inp.Tick}
+	p.AnimName = inp.AnimName
+	p.AnimSpeed = inp.AnimSpeed
+	p.AimPitch = inp.AimPitch
 }
 
 func (z *Zone) handleAbilityInput(peerID uint16, payload []byte) {
-	if len(payload) < 1 {
+	inp := codec.DecodeAbilityInput(payload)
+	if inp == nil {
 		return
 	}
 	p, ok := z.Players[peerID]
@@ -285,17 +261,13 @@ func (z *Zone) handleAbilityInput(peerID uint16, payload []byte) {
 		return
 	}
 
-	action := payload[0]
-	switch action {
+	switch inp.Action {
 	case entity.ActionShoot:
 		// Gunner: hitscan, gated by fire cooldown
 		if p.ClassName == "gunner" && p.FireCooldown <= 0 {
 			p.FireCooldown = 0.18
 			p.State = entity.PlayerStateAttack
-			// If payload includes aim pitch, use it
-			if len(payload) >= 5 {
-				p.AimPitch = math.Float32frombits(binary.LittleEndian.Uint32(payload[1:5]))
-			}
+			p.AimPitch = inp.AimPitch
 			evt := combat.ResolvePlayerAttackOnEnemy(p, z.Enemy, arenaObstacles)
 			if evt != nil {
 				evt.SourcePeerID = peerID
@@ -331,7 +303,8 @@ func (z *Zone) handleAbilityInput(peerID uint16, payload []byte) {
 }
 
 func (z *Zone) handleInteractInput(peerID uint16, payload []byte) {
-	if len(payload) < 1 {
+	inp := codec.DecodeInteractInput(payload)
+	if inp == nil {
 		return
 	}
 	p, ok := z.Players[peerID]
@@ -339,17 +312,9 @@ func (z *Zone) handleInteractInput(peerID uint16, payload []byte) {
 		return
 	}
 
-	action := payload[0]
-	switch action {
+	switch inp.Action {
 	case message.InteractClassSelect:
-		if len(payload) < 3 {
-			return
-		}
-		nameLen := int(payload[1])
-		if len(payload) < 2+nameLen {
-			return
-		}
-		className := string(payload[2 : 2+nameLen])
+		className := inp.ClassName
 		if className == "gunner" || className == "vanguard" || className == "blade_dancer" {
 			p.ClassName = className
 			// Re-init class stats
@@ -372,10 +337,10 @@ func (z *Zone) handleInteractInput(peerID uint16, payload []byte) {
 }
 
 func (z *Zone) handleRespawnRequest(peerID uint16, payload []byte) {
-	if len(payload) < 1 {
+	respawnType, ok := codec.DecodeRespawnRequest(payload)
+	if !ok {
 		return
 	}
-	respawnType := payload[0]
 	player := z.Players[peerID]
 	if player == nil || player.Alive {
 		return
@@ -1041,7 +1006,7 @@ func (z *Zone) broadcastState() {
 	defer z.mu.Unlock()
 
 	if z.Type == ZoneTypeHub {
-		z.broadcastHubState()
+		z.broadcastWorldState()
 		return
 	}
 
@@ -1055,120 +1020,28 @@ func (z *Zone) broadcastState() {
 }
 
 func (z *Zone) broadcastLobbyState() {
-	// Format: [player_count:1] for each: [peer_id:2][class_len:1][class:...][ready:1]
-	buf := make([]byte, 0, 256)
-	buf = append(buf, byte(len(z.Players)))
+	infos := make([]codec.LobbyPlayerInfo, 0, len(z.Players))
 	for _, p := range z.Players {
-		b := make([]byte, 2)
-		binary.LittleEndian.PutUint16(b, p.PeerID)
-		buf = append(buf, b...)
-		className := []byte(p.ClassName)
-		buf = append(buf, byte(len(className)))
-		buf = append(buf, className...)
-		if p.Ready {
-			buf = append(buf, 1)
-		} else {
-			buf = append(buf, 0)
-		}
+		infos = append(infos, codec.LobbyPlayerInfo{
+			PeerID:    p.PeerID,
+			ClassName: p.ClassName,
+			Ready:     p.Ready,
+		})
 	}
-	msg := message.Encode(message.OpLobbyState, 0, buf)
-	for _, c := range z.clients {
-		c.Send(msg)
-	}
-}
-
-func (z *Zone) broadcastHubState() {
-	// Format: [tick:4 LE][player_count:1] per player:
-	//   [peer_id:2 LE][x:f32][y:f32][z:f32][rot_y:f32]
-	//   [class_len:1][class:...][name_len:1][name:...]
-	//   [anim_len:1][anim:...][anim_speed:f32]
-	buf := make([]byte, 0, 512)
-	buf = appendUint32(buf, z.Tick)
-	buf = append(buf, byte(len(z.Players)))
-	for _, p := range z.Players {
-		buf = appendUint16(buf, p.PeerID)
-		buf = appendFloat32(buf, p.Position.X)
-		buf = appendFloat32(buf, p.Position.Y)
-		buf = appendFloat32(buf, p.Position.Z)
-		buf = appendFloat32(buf, p.RotationY)
-		classBytes := []byte(p.ClassName)
-		buf = append(buf, byte(len(classBytes)))
-		buf = append(buf, classBytes...)
-		nameBytes := []byte(p.Username)
-		buf = append(buf, byte(len(nameBytes)))
-		buf = append(buf, nameBytes...)
-		animBytes := []byte(p.AnimName)
-		buf = append(buf, byte(len(animBytes)))
-		buf = append(buf, animBytes...)
-		buf = appendFloat32(buf, p.AnimSpeed)
-	}
-	msg := message.Encode(message.OpHubState, 0, buf)
+	payload := codec.EncodeLobbyState(infos)
+	msg := message.Encode(message.OpLobbyState, 0, payload)
 	for _, c := range z.clients {
 		c.Send(msg)
 	}
 }
 
 func (z *Zone) broadcastWorldState() {
-	// Format: [tick:4][player_count:1]...players...[enemy_alive:1]...enemy...[proj_count:1]...projs...
-	buf := make([]byte, 0, 512)
-
-	// Tick
-	b4 := make([]byte, 4)
-	binary.LittleEndian.PutUint32(b4, z.Tick)
-	buf = append(buf, b4...)
-
-	// Players
-	buf = append(buf, byte(len(z.Players)))
+	players := make([]*entity.Player, 0, len(z.Players))
 	for _, p := range z.Players {
-		buf = appendUint16(buf, p.PeerID)
-		buf = appendFloat32(buf, p.Position.X)
-		buf = appendFloat32(buf, p.Position.Y)
-		buf = appendFloat32(buf, p.Position.Z)
-		buf = appendFloat32(buf, p.RotationY)
-		buf = appendFloat32(buf, p.Health)
-		buf = append(buf, byte(p.State))
-		animBytes := []byte(p.AnimName)
-		buf = append(buf, byte(len(animBytes)))
-		buf = append(buf, animBytes...)
-		buf = appendFloat32(buf, p.AnimSpeed)
-		buf = appendFloat32(buf, p.AimPitch)
+		players = append(players, p)
 	}
-
-	// Enemy
-	e := z.Enemy
-	if e.Alive {
-		buf = append(buf, 1)
-	} else {
-		buf = append(buf, 0)
-	}
-	buf = appendUint16(buf, e.ID)
-	buf = appendFloat32(buf, e.Position.X)
-	buf = appendFloat32(buf, e.Position.Y)
-	buf = appendFloat32(buf, e.Position.Z)
-	buf = appendFloat32(buf, e.RotationY)
-	buf = appendFloat32(buf, e.Health)
-	buf = append(buf, byte(e.State))
-	buf = append(buf, byte(e.Phase))
-	buf = appendFloat32(buf, e.RangedTargetPos.X)
-	buf = appendFloat32(buf, e.RangedTargetPos.Y)
-	buf = appendFloat32(buf, e.RangedTargetPos.Z)
-	buf = appendFloat32(buf, e.ChargeDirection.X)
-	buf = appendFloat32(buf, e.ChargeDirection.Y)
-	buf = appendFloat32(buf, e.ChargeDirection.Z)
-
-	// Projectiles
-	buf = append(buf, byte(len(z.Projectiles)))
-	for _, proj := range z.Projectiles {
-		buf = appendUint32(buf, proj.ID)
-		buf = appendFloat32(buf, proj.Position.X)
-		buf = appendFloat32(buf, proj.Position.Y)
-		buf = appendFloat32(buf, proj.Position.Z)
-		buf = appendFloat32(buf, proj.Direction.X)
-		buf = appendFloat32(buf, proj.Direction.Y)
-		buf = appendFloat32(buf, proj.Direction.Z)
-	}
-
-	msg := message.Encode(message.OpWorldState, 0, buf)
+	payload := codec.EncodeWorldState(z.Tick, players, z.Enemy, z.Projectiles)
+	msg := message.Encode(message.OpWorldState, 0, payload)
 	for _, c := range z.clients {
 		c.Send(msg)
 	}
@@ -1176,15 +1049,12 @@ func (z *Zone) broadcastWorldState() {
 
 func (z *Zone) broadcastDamageEvents() {
 	for _, evt := range z.damageEvents {
-		buf := make([]byte, 0, 21)
-		buf = appendUint16(buf, evt.TargetPeerID)
-		buf = appendUint16(buf, evt.SourcePeerID)
-		buf = appendFloat32(buf, evt.Amount)
-		buf = appendFloat32(buf, evt.HitPos.X)
-		buf = appendFloat32(buf, evt.HitPos.Y)
-		buf = appendFloat32(buf, evt.HitPos.Z)
-		buf = append(buf, evt.SourceType)
-		msg := message.Encode(message.OpDamageEvent, 0, buf)
+		payload := codec.EncodeDamageEvent(
+			evt.TargetPeerID, evt.SourcePeerID, evt.Amount,
+			evt.HitPos.X, evt.HitPos.Y, evt.HitPos.Z,
+			evt.SourceType,
+		)
+		msg := message.Encode(message.OpDamageEvent, 0, payload)
 		for _, c := range z.clients {
 			c.Send(msg)
 		}
@@ -1194,11 +1064,8 @@ func (z *Zone) broadcastDamageEvents() {
 func (z *Zone) broadcastGameFlow(flowType uint8, text string) {
 	z.mu.Lock()
 	defer z.mu.Unlock()
-	buf := []byte{flowType}
-	textBytes := []byte(text)
-	buf = append(buf, byte(len(textBytes)))
-	buf = append(buf, textBytes...)
-	msg := message.Encode(message.OpGameFlowEvent, 0, buf)
+	payload := codec.EncodeGameFlow(flowType, text)
+	msg := message.Encode(message.OpGameFlowEvent, 0, payload)
 	for _, c := range z.clients {
 		c.Send(msg)
 	}
@@ -1264,25 +1131,6 @@ func rotateVecY(v entity.Vec3, angle float32) entity.Vec3 {
 		Y: v.Y,
 		Z: -v.X*s + v.Z*c,
 	}
-}
-
-// Binary encoding helpers
-func appendFloat32(buf []byte, v float32) []byte {
-	b := make([]byte, 4)
-	binary.LittleEndian.PutUint32(b, math.Float32bits(v))
-	return append(buf, b...)
-}
-
-func appendUint16(buf []byte, v uint16) []byte {
-	b := make([]byte, 2)
-	binary.LittleEndian.PutUint16(b, v)
-	return append(buf, b...)
-}
-
-func appendUint32(buf []byte, v uint32) []byte {
-	b := make([]byte, 4)
-	binary.LittleEndian.PutUint32(b, v)
-	return append(buf, b...)
 }
 
 // GetPeerIDs returns the IDs of all connected clients.

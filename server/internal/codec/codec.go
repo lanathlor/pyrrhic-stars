@@ -1,0 +1,75 @@
+package codec
+
+import (
+	"encoding/binary"
+	"math"
+)
+
+// --- Decode output types (zone input handlers consume these) ---
+
+// PlayerInputMsg is the decoded client movement packet.
+type PlayerInputMsg struct {
+	PosX, PosY, PosZ, RotY float32
+	Tick                    uint32
+	AnimName                string
+	AnimSpeed, AimPitch     float32
+}
+
+// AbilityInputMsg is the decoded ability activation packet.
+type AbilityInputMsg struct {
+	Action   uint8
+	AimPitch float32
+}
+
+// InteractInputMsg is the decoded lobby/interact packet.
+type InteractInputMsg struct {
+	Action    uint8
+	ClassName string
+}
+
+// --- Encode input types (zone builds these, codec serializes) ---
+
+// LobbyPlayerInfo carries per-player lobby data for encoding.
+type LobbyPlayerInfo struct {
+	PeerID    uint16
+	ClassName string
+	Ready     bool
+}
+
+// --- Private wire helpers ---
+
+func appendF32(buf []byte, v float32) []byte {
+	b := make([]byte, 4)
+	binary.LittleEndian.PutUint32(b, math.Float32bits(v))
+	return append(buf, b...)
+}
+
+func appendU16(buf []byte, v uint16) []byte {
+	b := make([]byte, 2)
+	binary.LittleEndian.PutUint16(b, v)
+	return append(buf, b...)
+}
+
+func appendU32(buf []byte, v uint32) []byte {
+	b := make([]byte, 4)
+	binary.LittleEndian.PutUint32(b, v)
+	return append(buf, b...)
+}
+
+func appendStr8(buf []byte, s string) []byte {
+	b := []byte(s)
+	buf = append(buf, byte(len(b)))
+	return append(buf, b...)
+}
+
+func getF32(b []byte) float32 {
+	return math.Float32frombits(binary.LittleEndian.Uint32(b))
+}
+
+func getU16(b []byte) uint16 {
+	return binary.LittleEndian.Uint16(b)
+}
+
+func getU32(b []byte) uint32 {
+	return binary.LittleEndian.Uint32(b)
+}

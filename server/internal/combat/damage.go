@@ -21,28 +21,28 @@ const (
 )
 
 // ResolvePlayerAttackOnEnemy checks if a player's attack hits the enemy and applies damage.
-func ResolvePlayerAttackOnEnemy(player *entity.Player, enemy *entity.Enemy) *DamageEvent {
+func ResolvePlayerAttackOnEnemy(player *entity.Player, enemy *entity.Enemy, obstacles []Obstacle) *DamageEvent {
 	if !enemy.Alive || enemy.State == entity.EnemyDead {
 		return nil
 	}
 
 	switch player.ClassName {
 	case "gunner":
-		return resolveGunnerShot(player, enemy)
+		return resolveGunnerShot(player, enemy, obstacles)
 	case "vanguard":
-		return resolveVanguardMelee(player, enemy)
+		return resolveVanguardMelee(player, enemy, obstacles)
 	case "blade_dancer":
-		return resolveBladeDancerAttack(player, enemy)
+		return resolveBladeDancerAttack(player, enemy, obstacles)
 	}
 	return nil
 }
 
-func resolveGunnerShot(player *entity.Player, enemy *entity.Enemy) *DamageEvent {
+func resolveGunnerShot(player *entity.Player, enemy *entity.Enemy, obstacles []Obstacle) *DamageEvent {
 	origin := player.EyePosition()
 	direction := player.AimDirection()
 	targetCenter := enemy.Position.Add(entity.Vec3{Y: 1.0})
 
-	if !CheckHitscan(origin, direction, targetCenter, 1.0, 100.0) {
+	if !CheckHitscan(origin, direction, targetCenter, 1.0, 100.0, obstacles) {
 		return nil
 	}
 
@@ -59,8 +59,8 @@ func resolveGunnerShot(player *entity.Player, enemy *entity.Enemy) *DamageEvent 
 	}
 }
 
-func resolveVanguardMelee(player *entity.Player, enemy *entity.Enemy) *DamageEvent {
-	if !CheckMeleeArc(player.Position, player.Forward(), enemy.Position, entity.MeleeRange, 120.0) {
+func resolveVanguardMelee(player *entity.Player, enemy *entity.Enemy, obstacles []Obstacle) *DamageEvent {
+	if !CheckMeleeArc(player.Position, player.Forward(), enemy.Position, entity.MeleeRange, 120.0, obstacles) {
 		return nil
 	}
 
@@ -90,12 +90,12 @@ func resolveVanguardMelee(player *entity.Player, enemy *entity.Enemy) *DamageEve
 	}
 }
 
-func resolveBladeDancerAttack(player *entity.Player, enemy *entity.Enemy) *DamageEvent {
+func resolveBladeDancerAttack(player *entity.Player, enemy *entity.Enemy, obstacles []Obstacle) *DamageEvent {
 	origin := player.EyePosition()
 	direction := player.AimDirection()
 	targetCenter := enemy.Position.Add(entity.Vec3{Y: 1.0})
 
-	if !CheckHitscan(origin, direction, targetCenter, 1.0, 20.0) {
+	if !CheckHitscan(origin, direction, targetCenter, 1.0, 20.0, obstacles) {
 		return nil
 	}
 

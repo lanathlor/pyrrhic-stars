@@ -32,6 +32,9 @@
           redis
           postgresql
 
+          # Audio
+          ffmpeg
+
           # Tools
           jq            # used in hooks
           just          # task runner

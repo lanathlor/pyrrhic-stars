@@ -1,9 +1,7 @@
 extends Control
 
-## Vanguard HUD — health bar, stamina bar, lock-on reticle, damage/parry feedback.
+## Vanguard HUD — lock-on reticle, damage/parry feedback, hit marker.
 
-@onready var health_bar: ProgressBar = $HealthBar
-@onready var stamina_bar: ProgressBar = $StaminaBar
 @onready var damage_overlay: ColorRect = $DamageOverlay
 @onready var lock_on_reticle: Control = $LockOnReticle
 
@@ -18,13 +16,6 @@ const HIT_MARKER_DURATION: float = 0.15
 
 func _ready() -> void:
 	damage_overlay.modulate.a = 0.0
-	# Style stamina bar gold
-	var stamina_fill := StyleBoxFlat.new()
-	stamina_fill.bg_color = Color(0.85, 0.75, 0.2)
-	stamina_bar.add_theme_stylebox_override("fill", stamina_fill)
-	var stamina_bg := StyleBoxFlat.new()
-	stamina_bg.bg_color = Color(0.15, 0.15, 0.1)
-	stamina_bar.add_theme_stylebox_override("background", stamina_bg)
 
 
 func _process(delta: float) -> void:
@@ -57,16 +48,6 @@ func _draw() -> void:
 	draw_line(center + Vector2(gap + x_len, -gap - x_len), center + Vector2(gap, -gap), color, thick, true)
 	draw_line(center + Vector2(-gap - x_len, gap + x_len), center + Vector2(-gap, gap), color, thick, true)
 	draw_line(center + Vector2(gap + x_len, gap + x_len), center + Vector2(gap, gap), color, thick, true)
-
-
-func update_health(current: float, maximum: float) -> void:
-	health_bar.max_value = maximum
-	health_bar.value = current
-
-
-func update_stamina(current: float, maximum: float) -> void:
-	stamina_bar.max_value = maximum
-	stamina_bar.value = current
 
 
 func show_damage_flash() -> void:

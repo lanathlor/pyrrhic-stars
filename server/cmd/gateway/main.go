@@ -155,10 +155,10 @@ func (g *gateway) transferPlayer(sess *playerSession, targetZoneID string, targe
 	// Create/get target zone
 	zi := g.getOrCreateZone(targetZoneID, targetType)
 
-	// If arena, set OnResultEnd callback
+	// If arena, set callbacks
 	if targetType == zone.ZoneTypeArena {
-		zi.zone.OnResultEnd = func(zoneID string) {
-			g.handleArenaResultEnd(zoneID)
+		zi.zone.OnPlayerRespawnHub = func(peerID uint16) {
+			g.handlePlayerRespawnHub(targetZoneID, peerID)
 		}
 	}
 
@@ -212,26 +212,24 @@ func (g *gateway) transferPlayer(sess *playerSession, targetZoneID string, targe
 	slog.Info("player transferred", "player_id", sess.id, "to_zone", targetZoneID, "new_peer", newPeerID)
 }
 
-// handleArenaResultEnd is called when an arena zone's result timer expires.
-func (g *gateway) handleArenaResultEnd(zoneID string) {
-	slog.Info("arena result ended, returning players to hub", "zone_id", zoneID)
-	// Collect all sessions in this zone
-	g.mu.Lock()
-	var sessionsToMove []*playerSession
-	for _, sess := range g.sessions {
-		if sess.zoneID == zoneID {
-			sessionsToMove = append(sessionsToMove, sess)
-		}
+// handlePlayerRespawnHub transfers a single dead player back to the hub.
+func (g *gateway) handlePlayerRespawnHub(zoneID string, peerID uint16) {
+	globalID := g.resolveZonePeerToGlobal(zoneID, peerID)
+	if globalID == 0 {
+		return
 	}
-	g.mu.Unlock()
-
-	// Transfer each player back to hub
-	for _, sess := range sessionsToMove {
-		g.transferPlayer(sess, "hub", zone.ZoneTypeHub)
+	sess := g.getSessionByID(globalID)
+	if sess == nil {
+		return
 	}
+	slog.Info("player respawning to hub", "player_id", sess.id, "from_zone", zoneID)
+	g.transferPlayer(sess, "hub", zone.ZoneTypeHub)
 
-	// Destroy the arena zone
-	g.removeZone(zoneID)
+	// Re-broadcast group state with updated hub peer ID
+	grp := g.groups.GetGroup(sess.id)
+	if grp != nil {
+		g.broadcastGroupState(grp)
+	}
 }
 
 func encodeInteractClassSelect(className string) []byte {
@@ -625,6 +623,8 @@ func handleServerMessage(gw *gateway, client *wsClient, opcode uint16, payload [
 					gw.transferPlayer(memberSess, arenaID, zone.ZoneTypeArena)
 				}
 			}
+			// Re-broadcast group state with updated arena peer IDs
+			gw.broadcastGroupState(grp)
 		} else {
 			// Solo: own instance
 			arenaID := fmt.Sprintf("arena_s%d", sess.id)

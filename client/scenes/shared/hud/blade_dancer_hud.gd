@@ -1,8 +1,7 @@
 extends Control
 
-## Blade Dancer HUD — health bar, configuration state display, ability bar, lock-on, damage flash.
+## Blade Dancer HUD — configuration state display, ability bar, lock-on, damage flash.
 
-@onready var health_bar: ProgressBar = $HealthBar
 @onready var damage_overlay: ColorRect = $DamageOverlay
 @onready var lock_on_reticle: Control = $LockOnReticle
 @onready var config_display: Control = $ConfigDisplay
@@ -19,13 +18,14 @@ const HIT_MARKER_DURATION: float = 0.15
 const ORBIT_COLOR := Color(0.2, 0.8, 0.9, 1.0)
 const LANCE_COLOR := Color(1.0, 0.6, 0.1, 1.0)
 
-# Ability names per config: [orbit_name, lance_name]
-const ABILITY_LABELS := [
-	["LMB: Slash", "LMB: Pierce"],
-	["R: Launch", "R: Impale"],
-	["RMB: Barrier", "RMB: Recall"],
-	["C: Dash Fwd", "C: Retreat"],
+# Ability short names per config: [orbit_name, lance_name]
+const ABILITY_NAMES := [
+	["Slash", "Pierce"],
+	["Launch", "Impale"],
+	["Barrier", "Recall"],
+	["Dash", "Retreat"],
 ]
+const ABILITY_KEYBINDS := ["LMB", "R", "RMB", "C"]
 
 
 func _ready() -> void:
@@ -59,11 +59,6 @@ func _draw() -> void:
 	draw_line(center + Vector2(gap + x_len, gap + x_len), center + Vector2(gap, gap), color, thick, true)
 	config_display.queue_redraw()
 	ability_bar.queue_redraw()
-
-
-func update_health(current: float, maximum: float) -> void:
-	health_bar.max_value = maximum
-	health_bar.value = current
 
 
 func update_config(config_value: int) -> void:
@@ -105,45 +100,67 @@ func _draw_config() -> void:
 	var config_name := "ORBIT" if _current_config == 0 else "LANCE"
 	var color := ORBIT_COLOR if _current_config == 0 else LANCE_COLOR
 
-	# Config name
 	var font := ThemeDB.fallback_font
-	display.draw_string(font, Vector2(center_x - 40.0, 28.0), config_name, HORIZONTAL_ALIGNMENT_CENTER, 80, 24, color)
-
-	# GCD arc (small circle, fills as GCD ticks down)
-	if _gcd_ratio > 0.01:
-		var arc_center := Vector2(center_x, 45.0)
-		var arc_radius: float = 10.0
-		var bg_color := Color(0.3, 0.3, 0.3, 0.4)
-		display.draw_arc(arc_center, arc_radius, 0.0, TAU, 32, bg_color, 2.0)
-		var fill_angle := _gcd_ratio * TAU
-		display.draw_arc(arc_center, arc_radius, -PI / 2.0, -PI / 2.0 + fill_angle, 16, color, 3.0)
+	display.draw_string(font, Vector2(center_x - 40.0, 28.0), config_name,
+		HORIZONTAL_ALIGNMENT_CENTER, 80, 24, color)
 
 
-# --- Ability bar (drawn on AbilityBar control) ---
+# --- Ability bar — MMO action bar style (drawn on AbilityBar control) ---
 
 func _draw_abilities() -> void:
 	var bar := ability_bar
-	var y := bar.size.y - 30.0
-	var total_width := bar.size.x
-	var slot_width := 140.0
-	var gap := 10.0
-	var total := slot_width * 4.0 + gap * 3.0
-	var start_x := (total_width - total) / 2.0
+	var slot_size := 52.0
+	var slot_gap := 4.0
+	var slot_count := 4
+	var total_w := slot_size * slot_count + slot_gap * (slot_count - 1)
+	var start_x := (bar.size.x - total_w) / 2.0
+	var y := bar.size.y - slot_size - 10.0
 	var font := ThemeDB.fallback_font
 
 	var active_color := ORBIT_COLOR if _current_config == 0 else LANCE_COLOR
-	var bg_color := Color(0.1, 0.1, 0.15, 0.6)
+	var bg_color := Color(0.08, 0.08, 0.12, 0.85)
+	var border_color := Color(0.3, 0.3, 0.35, 0.9)
 	var text_color := Color(0.9, 0.9, 0.9, 0.9)
+	var keybind_color := Color(0.7, 0.7, 0.7, 0.6)
 
-	for i in 4:
-		var x := start_x + i * (slot_width + gap)
-		var rect := Rect2(x, y, slot_width, 24.0)
+	for i in slot_count:
+		var x := start_x + i * (slot_size + slot_gap)
+		var slot_rect := Rect2(x, y, slot_size, slot_size)
 
-		# Background
-		bar.draw_rect(rect, bg_color)
-		# Border
-		bar.draw_rect(rect, active_color, false, 1.5)
+		# Dark background
+		bar.draw_rect(slot_rect, bg_color)
 
-		# Label
-		var label: String = ABILITY_LABELS[i][_current_config]
-		bar.draw_string(font, Vector2(x + 8.0, y + 17.0), label, HORIZONTAL_ALIGNMENT_LEFT, slot_width - 16.0, 13, text_color)
+		# GCD sweep overlay (clockwise dark pie from 12 o'clock)
+		if _gcd_ratio > 0.01:
+			_draw_gcd_sweep(bar, Vector2(x + slot_size / 2.0, y + slot_size / 2.0),
+				slot_size / 2.0, _gcd_ratio)
+
+		# Outer border (subtle gray)
+		bar.draw_rect(slot_rect, border_color, false, 1.5)
+		# Inner glow border (config-colored)
+		var inner := Rect2(x + 1.5, y + 1.5, slot_size - 3.0, slot_size - 3.0)
+		bar.draw_rect(inner, Color(active_color, 0.35), false, 1.5)
+
+		# Keybind label (top-left corner)
+		bar.draw_string(font, Vector2(x + 4.0, y + 12.0), ABILITY_KEYBINDS[i],
+			HORIZONTAL_ALIGNMENT_LEFT, slot_size - 8.0, 10, keybind_color)
+
+		# Ability name (centered in lower portion)
+		var ability_name: String = ABILITY_NAMES[i][_current_config]
+		bar.draw_string(font, Vector2(x + 4.0, y + slot_size - 6.0), ability_name,
+			HORIZONTAL_ALIGNMENT_LEFT, slot_size - 8.0, 11, text_color)
+
+
+## Draw a clockwise dark pie-slice overlay for GCD feedback.
+func _draw_gcd_sweep(canvas: Control, center: Vector2, radius: float, ratio: float) -> void:
+	var overlay_color := Color(0.0, 0.0, 0.0, 0.55)
+	var start_angle := -PI / 2.0
+	var sweep_angle := ratio * TAU
+	var points := PackedVector2Array()
+	points.append(center)
+	var segments := 16
+	for j in range(segments + 1):
+		var angle := start_angle + sweep_angle * (float(j) / float(segments))
+		points.append(center + Vector2(cos(angle), sin(angle)) * radius)
+	if points.size() >= 3:
+		canvas.draw_colored_polygon(points, overlay_color)

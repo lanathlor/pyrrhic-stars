@@ -111,7 +111,6 @@ func _ready() -> void:
 
 	if _is_local():
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-		hud.update_health(health, max_health)
 		hud.update_config(config)
 	else:
 		$HUDLayer.visible = false
@@ -136,11 +135,16 @@ func _is_local() -> bool:
 func apply_server_state(data: Dictionary) -> void:
 	if _is_local():
 		health = data.health
-		hud.update_health(health, max_health)
 		if health <= 0.0 and _alive:
 			_alive = false
+			_enter_state(State.DEAD)
 			died.emit()
-		# Client-authoritative movement: no position correction needed
+		elif health > 0.0 and not _alive:
+			_alive = true
+			_enter_state(State.MOVE)
+			# Snap to server position on respawn
+			global_position = data.pos
+			_net_position = data.pos
 	else:
 		_net_position = data.pos
 		_net_rotation_y = data.rot_y
@@ -156,7 +160,6 @@ func on_hit_confirmed(amount: float) -> void:
 
 ## Visual-only damage feedback.
 func on_damage_visual(_amount: float, _hit_pos: Vector3) -> void:
-	hud.update_health(health, max_health)
 	hud.show_damage_flash()
 	_show_body_flash()
 
@@ -245,8 +248,10 @@ func _get_camera_wish_dir() -> Vector3:
 
 
 func _process_move(delta: float) -> void:
-	# Ability inputs (gated by GCD)
-	if _gcd_timer <= 0.0:
+	var cursor_active := Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED
+
+	# Ability inputs (gated by GCD, disabled when cursor is visible)
+	if _gcd_timer <= 0.0 and not cursor_active:
 		if Input.is_action_just_pressed("light_attack"):
 			_start_edge()
 			return

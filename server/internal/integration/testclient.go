@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"codex-online/server/internal/codec"
 	"codex-online/server/internal/message"
 
 	"github.com/coder/websocket"
@@ -223,6 +224,136 @@ func (tc *TestClient) DrainMessages() []Message {
 	copy(out, tc.msgs)
 	tc.msgs = tc.msgs[:0]
 	return out
+}
+
+// SetUsername sends OpSetUsername with the given name.
+func (tc *TestClient) SetUsername(name string) {
+	tc.t.Helper()
+	nameBytes := []byte(name)
+	payload := make([]byte, 1+len(nameBytes))
+	payload[0] = byte(len(nameBytes))
+	copy(payload[1:], nameBytes)
+	tc.send(message.Encode(message.OpSetUsername, 0, payload))
+}
+
+// ReadyUp sends OpInteractInput with InteractReadyToggle.
+func (tc *TestClient) ReadyUp() {
+	tc.t.Helper()
+	tc.send(message.Encode(message.OpInteractInput, 0, []byte{message.InteractReadyToggle}))
+}
+
+// SendAbilityInput sends an OpAbilityInput with action and optional aim pitch.
+func (tc *TestClient) SendAbilityInput(action uint8, aimPitch float32) {
+	tc.t.Helper()
+	tc.send(message.Encode(message.OpAbilityInput, 0, codec.EncodeAbilityInput(action, aimPitch)))
+}
+
+// SendPlayerInput sends an OpPlayerInput (position + rotation + tick + anim + aim_pitch).
+func (tc *TestClient) SendPlayerInput(posX, posY, posZ, rotY float32, tick uint32, aimPitch float32) {
+	tc.t.Helper()
+	buf := codec.EncodePlayerInput(posX, posY, posZ, rotY, tick, "idle", 1.0, aimPitch)
+	tc.send(message.Encode(message.OpPlayerInput, 0, buf))
+}
+
+// WaitForWorldStateWithPlayerState waits for an OpWorldState that contains
+// the specified peer with the given player state byte. Returns the full message.
+func (tc *TestClient) WaitForWorldStateWithPlayerState(peerID uint16, wantState uint8, timeout time.Duration) Message {
+	tc.t.Helper()
+	deadline := time.Now().Add(timeout)
+
+	tc.mu.Lock()
+	defer tc.mu.Unlock()
+
+	for {
+		for i, m := range tc.msgs {
+			if m.Opcode == message.OpWorldState {
+				if s := parsePlayerStateFromWorldState(m.Payload, peerID); s == int(wantState) {
+					tc.msgs = append(tc.msgs[:i], tc.msgs[i+1:]...)
+					return m
+				}
+			}
+		}
+
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			// Dump what we have for debugging
+			var states []int
+			for _, m := range tc.msgs {
+				if m.Opcode == message.OpWorldState {
+					s := parsePlayerStateFromWorldState(m.Payload, peerID)
+					states = append(states, s)
+				}
+			}
+			tc.t.Fatalf("timeout: no WorldState with peer %d state=%d (found states: %v, %d msgs buffered)",
+				peerID, wantState, states, len(tc.msgs))
+		}
+
+		done := make(chan struct{})
+		go func() {
+			timer := time.NewTimer(remaining)
+			defer timer.Stop()
+			select {
+			case <-timer.C:
+				tc.cond.Broadcast()
+			case <-done:
+			}
+		}()
+
+		tc.cond.Wait()
+		close(done)
+	}
+}
+
+// parsePlayerStateFromWorldState extracts the state byte for a given peer ID
+// from an OpWorldState payload. Returns -1 if peer not found.
+func parsePlayerStateFromWorldState(payload []byte, wantPeer uint16) int {
+	if len(payload) < 5 {
+		return -1
+	}
+	// tick:4, player_count:1
+	playerCount := int(payload[4])
+	off := 5
+	for i := 0; i < playerCount; i++ {
+		if off+2 > len(payload) {
+			return -1
+		}
+		peerID := binary.LittleEndian.Uint16(payload[off : off+2])
+		off += 2
+		// pos(3*4) + rot_y(4) + health(4) = 20 bytes
+		off += 20
+		if off >= len(payload) {
+			return -1
+		}
+		state := int(payload[off])
+		off++ // state
+		// class:str8
+		if off >= len(payload) {
+			return -1
+		}
+		classLen := int(payload[off])
+		off++ // class_len
+		off += classLen
+		// name:str8
+		if off >= len(payload) {
+			return -1
+		}
+		nameLen := int(payload[off])
+		off++ // name_len
+		off += nameLen
+		// anim:str8
+		if off >= len(payload) {
+			return -1
+		}
+		animLen := int(payload[off])
+		off++ // anim_len
+		off += animLen
+		off += 4 // anim_speed
+		off += 4 // aim_pitch
+		if peerID == wantPeer {
+			return state
+		}
+	}
+	return -1
 }
 
 // Disconnect gracefully closes the WebSocket connection.
