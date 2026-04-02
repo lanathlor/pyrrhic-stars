@@ -1,7 +1,6 @@
 # Godot
 client/.godot/
 client/.import/
-client/export_presets.cfg
 *.translation
 
 # Blender
@@ -12,6 +11,9 @@ client/export_presets.cfg
 .go/
 server/bin/
 server/gateway
+
+# Build
+build/
 
 # Nix
 result

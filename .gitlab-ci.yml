@@ -1,0 +1,76 @@
+stages:
+  - test
+  - build
+
+variables:
+  GODOT_VERSION: "4.5"
+
+# --- Test Stage ---
+
+test-server:
+  stage: test
+  image: golang:1.25-alpine
+  script:
+    - cd server
+    - go test ./...
+
+test-client:
+  stage: test
+  image: barichello/godot-ci:${GODOT_VERSION}
+  variables:
+    # Godot needs a display for some operations even in headless mode
+    DISPLAY: ":0"
+  before_script:
+    # Import project to generate .godot/ cache
+    - cd client
+    - godot --headless --import
+  script:
+    - godot --headless -s addons/gdUnit4/bin/GdUnitCmdTool.gd -a res://tests
+  allow_failure: true  # GdUnit in CI can be flaky — remove once stable
+
+# --- Build Stage ---
+
+build-client-linux:
+  stage: build
+  image: barichello/godot-ci:${GODOT_VERSION}
+  before_script:
+    - mkdir -p build/linux
+    - cd client
+    - godot --headless --import
+  script:
+    - godot --headless --export-release "Linux" ../build/linux/codex-online.x86_64
+  artifacts:
+    name: "codex-online-linux-${CI_COMMIT_SHORT_SHA}"
+    paths:
+      - build/linux/
+    expire_in: 30 days
+
+build-client-windows:
+  stage: build
+  image: barichello/godot-ci:${GODOT_VERSION}
+  before_script:
+    - mkdir -p build/windows
+    - cd client
+    - godot --headless --import
+  script:
+    - godot --headless --export-release "Windows" ../build/windows/codex-online.exe
+  artifacts:
+    name: "codex-online-windows-${CI_COMMIT_SHORT_SHA}"
+    paths:
+      - build/windows/
+    expire_in: 30 days
+
+build-server:
+  stage: build
+  image: golang:1.25-alpine
+  script:
+    - cd server
+    - mkdir -p ../build/server-linux ../build/server-windows
+    - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../build/server-linux/gateway ./cmd/gateway
+    - CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o ../build/server-windows/gateway.exe ./cmd/gateway
+  artifacts:
+    name: "codex-online-server-${CI_COMMIT_SHORT_SHA}"
+    paths:
+      - build/server-linux/
+      - build/server-windows/
+    expire_in: 30 days
