@@ -524,7 +524,7 @@ func _update_lobby_display() -> void:
 		var info: Dictionary = NetworkManager.player_info[pid]
 		var ready_str := " [READY]" if info["ready"] else ""
 		var you_str := " (you)" if pid == NetworkManager.get_my_id() else ""
-		var uname: String = _player_names.get(pid, "Peer %d" % pid)
+		var uname: String = info.get("username", _player_names.get(pid, "Peer %d" % pid))
 		text += "  %s: %s%s%s\n" % [uname, info["class_name"].to_upper(), ready_str, you_str]
 
 	_lobby_players_label.text = text
@@ -812,11 +812,8 @@ func _on_damage_event(data: Dictionary) -> void:
 			var local_player: CharacterBody3D = _spawned_players.get(source_peer)
 			if is_instance_valid(local_player) and local_player.has_method("on_hit_confirmed"):
 				local_player.on_hit_confirmed(amount)
-		# Show tracer from remote gunner to hit point
-		if source_peer != NetworkManager.get_my_id() and source_peer in _spawned_players:
-			var source_player: CharacterBody3D = _spawned_players[source_peer]
-			if is_instance_valid(source_player) and source_player.has_method("on_hit_tracer"):
-				source_player.on_hit_tracer(hit_pos)
+		# Remote tracer is already spawned via state-transition detection in
+		# apply_server_state — no duplicate needed from damage events.
 		# Floating damage number
 		_spawn_damage_number(amount, hit_pos)
 	elif target_peer in _spawned_players:

@@ -380,7 +380,13 @@ func _get_muzzle_pos() -> Vector3:
 
 ## Spawn a tracer for a remote gunner using their synced aim data.
 func _fire_remote_tracer() -> void:
-	var from_pos := _get_muzzle_pos()
+	# Use the latest server position + shoulder height for a reliable origin.
+	# weapon_node.global_position is stale here (signal handler runs before
+	# _physics_process interpolates the skeleton pose).
+	# Then offset forward along the aim direction to approximate the barrel tip.
+	var shoulder := _net_position + Vector3(0.0, 1.3, 0.0)
+	var fwd := Vector3(0, 0, -1).rotated(Vector3(0, 1, 0), _net_rotation_y)
+	var from_pos := shoulder + fwd * 0.5
 	var dir := Vector3(0, 0, -1)
 	dir = dir.rotated(Vector3(1, 0, 0), _net_aim_pitch)
 	dir = dir.rotated(Vector3(0, 1, 0), _net_rotation_y)
