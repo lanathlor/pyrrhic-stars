@@ -35,7 +35,7 @@ signal died
 @export var roll_cooldown: float = 2.5
 
 # Health
-var health: float = 100.0
+var health: float = 150.0
 var max_health: float = 150.0
 var _alive: bool = true
 

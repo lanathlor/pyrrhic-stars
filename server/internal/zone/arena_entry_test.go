@@ -57,8 +57,8 @@ func TestArenaEntry_ZeroPositionTriggersFight(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	z.mu.Lock()
-	state := z.State
-	pos := z.Players[1].Position
+	state := z.world.State
+	pos := z.world.Players[1].Position
 	z.mu.Unlock()
 
 	t.Logf("After (0,0,0) input: state=%d, pos=%+v", state, pos)
@@ -95,7 +95,7 @@ func TestArenaEntry_HubPositionDoesNotTriggerFight(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	z.mu.Lock()
-	state := z.State
+	state := z.world.State
 	z.mu.Unlock()
 
 	if state == StateFight {
@@ -109,7 +109,7 @@ func TestArenaEntry_HubPositionDoesNotTriggerFight(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	z.mu.Lock()
-	state = z.State
+	state = z.world.State
 	z.mu.Unlock()
 
 	if state != StateFight {

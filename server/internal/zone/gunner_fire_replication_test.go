@@ -16,9 +16,9 @@ import (
 // transition detection logic to prove whether a tracer would be spawned.
 //
 // Root cause found: the server never sets a fire animation (AnimName) when a
-// gunner fires — but more critically for the tracer issue, the state
+// gunner fires -- but more critically for the tracer issue, the state
 // transition that drives remote tracer spawning depends on the exact tick
-// order and the observer client correctly detecting Move→Attack.
+// order and the observer client correctly detecting Move->Attack.
 // =============================================================================
 
 // mockSendCollector records all messages sent to a client.
@@ -36,7 +36,7 @@ func (c *mockSendCollector) collect(msg []byte) {
 func setupTwoPlayerFight(t *testing.T) (*Zone, uint16, uint16, *mockSendCollector) {
 	t.Helper()
 	z := New("test-arena", ZoneTypeArena)
-	z.State = StateFight
+	z.world.State = StateFight
 
 	// Gunner (shooter)
 	var shooterID uint16 = 1
@@ -45,7 +45,7 @@ func setupTwoPlayerFight(t *testing.T) (*Zone, uint16, uint16, *mockSendCollecto
 		Username: "Shooter",
 		Send:     func([]byte) {}, // discard
 	})
-	shooter := z.Players[shooterID]
+	shooter := z.world.Players[shooterID]
 	shooter.ClassName = "gunner"
 	shooter.Position = entity.Vec3{X: 0, Y: 0, Z: 10}
 	shooter.RotationY = 0
@@ -53,7 +53,7 @@ func setupTwoPlayerFight(t *testing.T) (*Zone, uint16, uint16, *mockSendCollecto
 	shooter.AnimName = "rifle_idle"
 	shooter.AnimSpeed = 1.0
 
-	// Observer (receives broadcasts — simulates the remote client)
+	// Observer (receives broadcasts -- simulates the remote client)
 	var observerID uint16 = 2
 	col := &mockSendCollector{}
 	z.AddClient(&Client{
@@ -61,7 +61,7 @@ func setupTwoPlayerFight(t *testing.T) (*Zone, uint16, uint16, *mockSendCollecto
 		Username: "Observer",
 		Send:     col.collect,
 	})
-	obs := z.Players[observerID]
+	obs := z.world.Players[observerID]
 	obs.ClassName = "vanguard"
 	obs.Position = entity.Vec3{X: 5, Y: 0, Z: 10}
 
@@ -197,14 +197,14 @@ func TestGunnerFire_RemoteClientTracerDetection(t *testing.T) {
 	}
 
 	if tracersFired == 0 {
-		t.Error("BUG: observer never detected a Move→Attack transition — no tracer would fire")
+		t.Error("BUG: observer never detected a Move->Attack transition -- no tracer would fire")
 	} else {
-		t.Logf("OK: observer detected %d Move→Attack transition(s) — tracer(s) would fire", tracersFired)
+		t.Logf("OK: observer detected %d Move->Attack transition(s) -- tracer(s) would fire", tracersFired)
 	}
 }
 
 // =============================================================================
-// BUG: AnimName is not updated when gunner fires — the broadcast carries
+// BUG: AnimName is not updated when gunner fires -- the broadcast carries
 // the pre-fire animation ("rifle_idle"), so remote clients see no fire anim.
 // =============================================================================
 
@@ -230,10 +230,10 @@ func TestGunnerFire_AnimNameUnchanged(t *testing.T) {
 			t.Errorf("state=%d, want %d (Attack)", st, entity.PlayerStateAttack)
 		}
 
-		// BUG: AnimName is still whatever the client last sent — server never
+		// BUG: AnimName is still whatever the client last sent -- server never
 		// sets a fire animation. Remote clients animate from AnimName, not State.
 		if animName == "rifle_idle" {
-			t.Errorf("BUG: during fire, broadcast AnimName=%q — server does not set "+
+			t.Errorf("BUG: during fire, broadcast AnimName=%q -- server does not set "+
 				"a fire animation, remote clients will play idle/run while gunner shoots",
 				animName)
 		}
@@ -286,20 +286,20 @@ func TestGunnerSustainedFire_RemoteTracerCount(t *testing.T) {
 			}
 			if st == byte(entity.PlayerStateAttack) && clientNetState != byte(entity.PlayerStateAttack) {
 				tracersFired++
-				t.Logf("tick %d: Move→Attack transition detected (tracer #%d)", tick, tracersFired)
+				t.Logf("tick %d: Move->Attack transition detected (tracer #%d)", tick, tracersFired)
 			}
 			clientNetState = st
 		}
 		observerCol.msgs = nil
 	}
 
-	// At 0.18s cooldown / 0.05s tick, expect ~5.5 shots in 2s → ~5-6 tracers
+	// At 0.18s cooldown / 0.05s tick, expect ~5.5 shots in 2s -> ~5-6 tracers
 	// (each shot = ~4 ticks Attack + 1 tick Move before next shot)
 	if tracersFired == 0 {
-		t.Errorf("BUG: 0 tracers detected during 2s sustained fire — remote client "+
+		t.Errorf("BUG: 0 tracers detected during 2s sustained fire -- remote client "+
 			"would see NO bullets at all")
 	} else if tracersFired == 1 {
-		t.Errorf("BUG: only 1 tracer detected during 2s sustained fire — state "+
+		t.Errorf("BUG: only 1 tracer detected during 2s sustained fire -- state "+
 			"never returned to Move between shots, remote client sees ONE bullet "+
 			"for the entire burst")
 	} else {
@@ -309,7 +309,7 @@ func TestGunnerSustainedFire_RemoteTracerCount(t *testing.T) {
 	// Also verify total shots the server actually processed
 	shotsFired := 0
 	for tick := 1; tick <= 40; tick++ {
-		p := z.Players[shooterID]
+		p := z.world.Players[shooterID]
 		if p.State == entity.PlayerStateAttack {
 			shotsFired++
 		}
@@ -324,7 +324,7 @@ func TestGunnerSustainedFire_RemoteTracerCount(t *testing.T) {
 
 func TestGunnerFire_TickByTickStateSequence(t *testing.T) {
 	z, peerID := setupFightZone(t)
-	p := z.Players[peerID]
+	p := z.world.Players[peerID]
 
 	// Fire once
 	z.QueueInput(peerID, message.OpAbilityInput, buildShootPayload(0.0))
@@ -367,9 +367,9 @@ func TestGunnerFire_TickByTickStateSequence(t *testing.T) {
 // ROOT CAUSE: Server silently drops ability inputs outside StateFight.
 //
 // The client fires in ANY state (hub, lobby, warmup) because _handle_shooting
-// has no game-state check — it spawns a local tracer and sends OpAbilityInput.
-// But the server's handleAbilityInput returns early if z.State != StateFight.
-// State never becomes Attack → remote clients never see a transition → no tracer.
+// has no game-state check -- it spawns a local tracer and sends OpAbilityInput.
+// But the server's handleAbilityInput returns early if w.State != StateFight.
+// State never becomes Attack -> remote clients never see a transition -> no tracer.
 //
 // This is the primary bug: local player sees their own tracers (client-side),
 // but the server never acknowledges the shot, so remote clients see nothing.
@@ -383,25 +383,25 @@ func TestGunnerFire_ServerDropsInputOutsideFight(t *testing.T) {
 		wantState entity.PlayerState
 	}{
 		{
-			name:      "Hub zone — server drops ability input",
+			name:      "Hub zone -- server drops ability input",
 			zoneType:  ZoneTypeHub,
 			zoneState: StateLobby,
 			wantState: entity.PlayerStateMove, // NOT Attack
 		},
 		{
-			name:      "Arena lobby — server drops ability input",
+			name:      "Arena lobby -- server drops ability input",
 			zoneType:  ZoneTypeArena,
 			zoneState: StateLobby,
 			wantState: entity.PlayerStateMove,
 		},
 		{
-			name:      "Arena spawned/warmup — server drops ability input",
+			name:      "Arena spawned/warmup -- server drops ability input",
 			zoneType:  ZoneTypeArena,
 			zoneState: StateSpawned,
 			wantState: entity.PlayerStateMove,
 		},
 		{
-			name:      "Arena fight — server processes ability input",
+			name:      "Arena fight -- server processes ability input",
 			zoneType:  ZoneTypeArena,
 			zoneState: StateFight,
 			wantState: entity.PlayerStateAttack, // only state that works
@@ -411,14 +411,14 @@ func TestGunnerFire_ServerDropsInputOutsideFight(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			z := New("test", tc.zoneType)
-			z.State = tc.zoneState
+			z.world.State = tc.zoneState
 
 			var peerID uint16 = 1
 			var observerMsgs [][]byte
 			z.AddClient(&Client{PeerID: peerID, Username: "Gunner", Send: func([]byte) {}})
 			z.AddClient(&Client{PeerID: 2, Username: "Observer", Send: func(m []byte) { observerMsgs = append(observerMsgs, m) }})
 
-			p := z.Players[peerID]
+			p := z.world.Players[peerID]
 			p.ClassName = "gunner"
 			p.Position = entity.Vec3{X: 0, Y: 0, Z: 10}
 			p.AnimName = "rifle_idle"
@@ -458,7 +458,7 @@ func TestGunnerFire_ServerDropsInputOutsideFight(t *testing.T) {
 			}
 			if tc.wantState == entity.PlayerStateMove {
 				t.Logf("BUG SCENARIO: client fires locally (sees tracer), server drops input "+
-					"(State stays Move), remote client sees nothing — no tracer, no animation")
+					"(State stays Move), remote client sees nothing -- no tracer, no animation")
 			}
 		})
 	}

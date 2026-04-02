@@ -46,10 +46,12 @@ type Player struct {
 	OnGround  bool
 
 	// State
-	Health    float32
-	MaxHealth float32
-	State     PlayerState
-	Alive     bool
+	Health         float32
+	MaxHealth      float32
+	State          PlayerState
+	Alive          bool
+	InCombat       bool   // true when targeted by an enemy or recently damaged
+	LastDamageTick uint32 // tick when last took damage (for combat exit timer)
 
 	// Dodge
 	IsRolling     bool
@@ -102,22 +104,19 @@ func NewPlayer(peerID uint16, className string) *Player {
 	}
 	switch className {
 	case "gunner":
-		p.Health = 100.0
 		p.MaxHealth = 150.0
 	case "vanguard":
-		p.Health = 150.0
 		p.MaxHealth = 200.0
 		p.Stamina = 100.0
 		p.MaxStamina = 100.0
 		p.StaminaRegen = 30.0
 		p.StaminaDelay = 0.6
 	case "blade_dancer":
-		p.Health = 120.0
 		p.MaxHealth = 150.0
 	default:
-		p.Health = 100.0
 		p.MaxHealth = 150.0
 	}
+	p.Health = p.MaxHealth // spawn at full HP
 	return p
 }
 

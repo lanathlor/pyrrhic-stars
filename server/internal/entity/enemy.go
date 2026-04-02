@@ -31,10 +31,11 @@ type Enemy struct {
 	Phase     int
 	PhaseTransitioned []int
 
-	State      EnemyState
-	StateTimer float32
-	ChaseTimer float32
-	LastAttack string
+	State          EnemyState
+	StateTimer     float32
+	ChaseTimer     float32
+	LastAttack     string
+	ActiveAbility  int // index into EnemyDef.Abilities
 
 	// Target
 	TargetPlayerID uint16

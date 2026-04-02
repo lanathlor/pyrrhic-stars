@@ -3,6 +3,7 @@ package zone
 import (
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/message"
+	"codex-online/server/internal/system"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -26,14 +27,14 @@ func buildShootPayload(aimPitch float32) []byte {
 func setupFightZone(t *testing.T) (*Zone, uint16) {
 	t.Helper()
 	z := New("test_arena", ZoneTypeArena)
-	z.State = StateFight
+	z.world.State = StateFight
 
 	peerID := uint16(1)
 
 	// Position enemy at origin
-	z.Enemy.Position = entity.Vec3{X: 0, Y: 0, Z: 0}
-	z.Enemy.Alive = true
-	z.Enemy.State = entity.EnemyIdle
+	z.world.Enemies[0].Position = entity.Vec3{X: 0, Y: 0, Z: 0}
+	z.world.Enemies[0].Alive = true
+	z.world.Enemies[0].State = entity.EnemyIdle
 
 	// Position player at Z=10, aimed at enemy center mass (0, 1, 0)
 	eyePos := entity.Vec3{X: 0, Y: 1.6, Z: 10}
@@ -47,10 +48,10 @@ func setupFightZone(t *testing.T) (*Zone, uint16) {
 	player.RotationY = yaw
 	player.AimPitch = pitch
 	player.Alive = true
-	z.Players[peerID] = player
+	z.world.Players[peerID] = player
 
 	// Add a mock client that captures sent messages
-	z.clients[peerID] = &Client{
+	z.world.Clients[peerID] = &Client{
 		PeerID:   peerID,
 		Username: "TestPlayer",
 		Send:     func([]byte) {}, // no-op
@@ -63,22 +64,22 @@ func setupFightZone(t *testing.T) (*Zone, uint16) {
 // player ability inputs during processTick are NOT cleared before broadcast.
 //
 // This is a regression test for a bug where processTick:
-//   1. Processed inputs (handleAbilityInput → appended to damageEvents)
+//   1. Processed inputs (handleAbilityInput -> appended to damageEvents)
 //   2. Cleared damageEvents at the start of tickFight
-//   3. Broadcast damageEvents (now empty — player events lost)
+//   3. Broadcast damageEvents (now empty -- player events lost)
 func TestPlayerDamageEventsSurviveTick(t *testing.T) {
 	z, peerID := setupFightZone(t)
 
 	// Record all messages sent to the client
 	var sentMessages [][]byte
-	z.clients[peerID].Send = func(msg []byte) {
+	z.world.Clients[peerID].Send = func(msg []byte) {
 		sentMessages = append(sentMessages, msg)
 	}
 
 	// Queue a shoot input
-	aimPitch := z.Players[peerID].AimPitch
+	aimPitch := z.world.Players[peerID].AimPitch
 	z.mu.Lock()
-	z.inputQueue = append(z.inputQueue, inputMsg{
+	z.pendingInputs = append(z.pendingInputs, system.InputMsg{
 		PeerID:  peerID,
 		Opcode:  message.OpAbilityInput,
 		Payload: buildShootPayload(aimPitch),
@@ -125,18 +126,18 @@ func TestPlayerDamageEventsSurviveTick(t *testing.T) {
 	}
 }
 
-// TestEnemyDamageEventsStillWork verifies that enemy→player damage events
+// TestEnemyDamageEventsStillWork verifies that enemy->player damage events
 // (created during tickFight) are still broadcast correctly.
 func TestEnemyDamageEventsStillWork(t *testing.T) {
 	z, peerID := setupFightZone(t)
 
 	// Put enemy in melee attack state, right next to the player
-	z.Enemy.Position = entity.Vec3{X: 0, Y: 0, Z: 10}
-	z.Enemy.State = entity.EnemyMeleeAttack
-	z.Enemy.StateTimer = 0.001 // about to finish
+	z.world.Enemies[0].Position = entity.Vec3{X: 0, Y: 0, Z: 10}
+	z.world.Enemies[0].State = entity.EnemyMeleeAttack
+	z.world.Enemies[0].StateTimer = 0.001 // about to finish
 
 	var sentMessages [][]byte
-	z.clients[peerID].Send = func(msg []byte) {
+	z.world.Clients[peerID].Send = func(msg []byte) {
 		sentMessages = append(sentMessages, msg)
 	}
 
@@ -177,18 +178,18 @@ func TestEnemyDamageEventsStillWork(t *testing.T) {
 func setupMultiPlayerFightZone(t *testing.T, n int) (*Zone, []uint16) {
 	t.Helper()
 	z := New("test_arena", ZoneTypeArena)
-	z.State = StateFight
-	z.Enemy.Position = entity.Vec3{X: 0, Y: 0, Z: 0}
-	z.Enemy.Alive = true
-	z.Enemy.State = entity.EnemyIdle
+	z.world.State = StateFight
+	z.world.Enemies[0].Position = entity.Vec3{X: 0, Y: 0, Z: 0}
+	z.world.Enemies[0].Alive = true
+	z.world.Enemies[0].State = entity.EnemyIdle
 	var ids []uint16
 	for i := 0; i < n; i++ {
 		pid := uint16(i + 1)
 		p := entity.NewPlayer(pid, "gunner")
 		p.Position = entity.Vec3{X: float32(i) * 2, Y: 0.1, Z: 10}
 		p.Alive = true
-		z.Players[pid] = p
-		z.clients[pid] = &Client{PeerID: pid, Username: fmt.Sprintf("P%d", pid), Send: func([]byte) {}}
+		z.world.Players[pid] = p
+		z.world.Clients[pid] = &Client{PeerID: pid, Username: fmt.Sprintf("P%d", pid), Send: func([]byte) {}}
 		ids = append(ids, pid)
 	}
 	return z, ids
@@ -237,29 +238,29 @@ func findOpcode(messages [][]byte, op uint16) bool {
 }
 
 // =============================================================================
-// Test: checkFightEnd — Boss Dead
+// Test: checkFightEnd -- Boss Dead
 // =============================================================================
 
 func TestCheckFightEnd_BossDead(t *testing.T) {
 	z, peerID := setupFightZone(t)
 
 	send, msgs := captureSend()
-	z.clients[peerID].Send = send
+	z.world.Clients[peerID].Send = send
 
 	// Kill the enemy
-	z.Enemy.State = entity.EnemyDead
-	z.Enemy.Alive = false
+	z.world.Enemies[0].State = entity.EnemyDead
+	z.world.Enemies[0].Alive = false
 
 	z.processTick()
 
-	if z.State != StateFightOver {
-		t.Errorf("State = %d, want StateFightOver (%d)", z.State, StateFightOver)
+	if z.world.State != StateFightOver {
+		t.Errorf("State = %d, want StateFightOver (%d)", z.world.State, StateFightOver)
 	}
-	if !z.BossDefeated {
+	if !z.world.BossDefeated {
 		t.Error("BossDefeated = false, want true")
 	}
-	if z.Projectiles != nil {
-		t.Errorf("Projectiles = %v, want nil", z.Projectiles)
+	if z.world.Projectiles != nil {
+		t.Errorf("Projectiles = %v, want nil", z.world.Projectiles)
 	}
 	if !findGameFlowEvent(*msgs, message.FlowBossDead) {
 		t.Error("client did not receive FlowBossDead game flow event")
@@ -267,7 +268,7 @@ func TestCheckFightEnd_BossDead(t *testing.T) {
 }
 
 // =============================================================================
-// Test: checkFightEnd — All Players Dead (Wipe)
+// Test: checkFightEnd -- All Players Dead (Wipe)
 // =============================================================================
 
 func TestCheckFightEnd_AllPlayersDead(t *testing.T) {
@@ -275,29 +276,29 @@ func TestCheckFightEnd_AllPlayersDead(t *testing.T) {
 
 	send, msgs := captureSend()
 	for _, pid := range ids {
-		z.clients[pid].Send = send
+		z.world.Clients[pid].Send = send
 	}
 
 	// Kill all players
 	for _, pid := range ids {
-		z.Players[pid].Alive = false
-		z.Players[pid].State = entity.PlayerStateDead
+		z.world.Players[pid].Alive = false
+		z.world.Players[pid].State = entity.PlayerStateDead
 	}
 
 	z.processTick()
 
-	if z.State != StateFightOver {
-		t.Errorf("State = %d, want StateFightOver (%d)", z.State, StateFightOver)
+	if z.world.State != StateFightOver {
+		t.Errorf("State = %d, want StateFightOver (%d)", z.world.State, StateFightOver)
 	}
-	if z.BossDefeated {
+	if z.world.BossDefeated {
 		t.Error("BossDefeated = true, want false after wipe")
 	}
 	// Enemy should have been reset
-	if !z.Enemy.Alive {
+	if !z.world.Enemies[0].Alive {
 		t.Error("Enemy.Alive = false, want true after reset")
 	}
-	if z.Enemy.Health != z.Enemy.MaxHealth {
-		t.Errorf("Enemy.Health = %f, want %f (MaxHealth)", z.Enemy.Health, z.Enemy.MaxHealth)
+	if z.world.Enemies[0].Health != z.world.Enemies[0].MaxHealth {
+		t.Errorf("Enemy.Health = %f, want %f (MaxHealth)", z.world.Enemies[0].Health, z.world.Enemies[0].MaxHealth)
 	}
 	if !findGameFlowEvent(*msgs, message.FlowAllDead) {
 		t.Error("client did not receive FlowAllDead game flow event")
@@ -305,7 +306,7 @@ func TestCheckFightEnd_AllPlayersDead(t *testing.T) {
 }
 
 // =============================================================================
-// Test: checkFightEnd — Fight Continues
+// Test: checkFightEnd -- Fight Continues
 // =============================================================================
 
 func TestCheckFightEnd_FightContinues(t *testing.T) {
@@ -314,34 +315,34 @@ func TestCheckFightEnd_FightContinues(t *testing.T) {
 	// Player alive, enemy alive — fight should continue
 	z.processTick()
 
-	if z.State != StateFight {
-		t.Errorf("State = %d, want StateFight (%d)", z.State, StateFight)
+	if z.world.State != StateFight {
+		t.Errorf("State = %d, want StateFight (%d)", z.world.State, StateFight)
 	}
 }
 
 // =============================================================================
-// Test: tickFightOver — All Respawn After Wipe -> Lobby Transition
+// Test: tickFightOver -- All Respawn After Wipe -> Lobby Transition
 // =============================================================================
 
 func TestTickFightOver_AllRespawnedAfterWipe(t *testing.T) {
 	z, ids := setupMultiPlayerFightZone(t, 2)
-	z.State = StateFightOver
-	z.BossDefeated = false
+	z.world.State = StateFightOver
+	z.world.BossDefeated = false
 
 	send, msgs := captureSend()
 	for _, pid := range ids {
-		z.clients[pid].Send = send
+		z.world.Clients[pid].Send = send
 	}
 
 	// All players alive (they have respawned)
 	for _, pid := range ids {
-		z.Players[pid].Alive = true
+		z.world.Players[pid].Alive = true
 	}
 
 	z.processTick()
 
-	if z.State != StateLobby {
-		t.Errorf("State = %d, want StateLobby (%d)", z.State, StateLobby)
+	if z.world.State != StateLobby {
+		t.Errorf("State = %d, want StateLobby (%d)", z.world.State, StateLobby)
 	}
 	if !findGameFlowEvent(*msgs, message.FlowReturnLobby) {
 		t.Error("client did not receive FlowReturnLobby game flow event")
@@ -349,48 +350,48 @@ func TestTickFightOver_AllRespawnedAfterWipe(t *testing.T) {
 }
 
 // =============================================================================
-// Test: tickFightOver — Boss Dead, No Auto-Lobby
+// Test: tickFightOver -- Boss Dead, No Auto-Lobby
 // =============================================================================
 
 func TestTickFightOver_BossDeadNoAutoLobby(t *testing.T) {
 	z, ids := setupMultiPlayerFightZone(t, 2)
-	z.State = StateFightOver
-	z.BossDefeated = true
+	z.world.State = StateFightOver
+	z.world.BossDefeated = true
 
 	for _, pid := range ids {
-		z.Players[pid].Alive = true
+		z.world.Players[pid].Alive = true
 	}
 
 	z.processTick()
 
-	if z.State != StateFightOver {
-		t.Errorf("State = %d, want StateFightOver (%d) — boss dead should not auto-lobby", z.State, StateFightOver)
+	if z.world.State != StateFightOver {
+		t.Errorf("State = %d, want StateFightOver (%d) — boss dead should not auto-lobby", z.world.State, StateFightOver)
 	}
 }
 
 // =============================================================================
-// Test: tickFightOver — Wipe, Not All Respawned Yet
+// Test: tickFightOver -- Wipe, Not All Respawned Yet
 // =============================================================================
 
 func TestTickFightOver_WipeNotAllRespawned(t *testing.T) {
 	z, ids := setupMultiPlayerFightZone(t, 2)
-	z.State = StateFightOver
-	z.BossDefeated = false
+	z.world.State = StateFightOver
+	z.world.BossDefeated = false
 
 	// One alive, one still dead
-	z.Players[ids[0]].Alive = true
-	z.Players[ids[1]].Alive = false
-	z.Players[ids[1]].State = entity.PlayerStateDead
+	z.world.Players[ids[0]].Alive = true
+	z.world.Players[ids[1]].Alive = false
+	z.world.Players[ids[1]].State = entity.PlayerStateDead
 
 	z.processTick()
 
-	if z.State != StateFightOver {
-		t.Errorf("State = %d, want StateFightOver (%d) — not all respawned yet", z.State, StateFightOver)
+	if z.world.State != StateFightOver {
+		t.Errorf("State = %d, want StateFightOver (%d) — not all respawned yet", z.world.State, StateFightOver)
 	}
 }
 
 // =============================================================================
-// Test: handleRespawnRequest — table-driven
+// Test: handleRespawnRequest -- table-driven
 // =============================================================================
 
 func TestHandleRespawnRequest(t *testing.T) {
@@ -440,9 +441,9 @@ func TestHandleRespawnRequest(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			z, peerID := setupFightZone(t)
-			z.State = tc.state
+			z.world.State = tc.state
 
-			p := z.Players[peerID]
+			p := z.world.Players[peerID]
 			p.Alive = tc.playerAlive
 			if !tc.playerAlive {
 				p.State = entity.PlayerStateDead
@@ -458,7 +459,7 @@ func TestHandleRespawnRequest(t *testing.T) {
 
 			// Queue respawn request
 			z.mu.Lock()
-			z.inputQueue = append(z.inputQueue, inputMsg{
+			z.pendingInputs = append(z.pendingInputs, system.InputMsg{
 				PeerID:  peerID,
 				Opcode:  message.OpRespawnRequest,
 				Payload: []byte{tc.respawnType},
@@ -494,7 +495,7 @@ func TestHandleRespawnRequest(t *testing.T) {
 }
 
 // =============================================================================
-// Test: InteractExitPortal — table-driven
+// Test: InteractExitPortal -- table-driven
 // =============================================================================
 
 func TestInteractExitPortal(t *testing.T) {
@@ -527,8 +528,8 @@ func TestInteractExitPortal(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			z, peerID := setupFightZone(t)
-			z.State = tc.state
-			z.BossDefeated = tc.bossDefeated
+			z.world.State = tc.state
+			z.world.BossDefeated = tc.bossDefeated
 
 			var callbackCalled bool
 			z.OnPlayerRespawnHub = func(pid uint16) {
@@ -537,7 +538,7 @@ func TestInteractExitPortal(t *testing.T) {
 
 			// Queue InteractExitPortal
 			z.mu.Lock()
-			z.inputQueue = append(z.inputQueue, inputMsg{
+			z.pendingInputs = append(z.pendingInputs, system.InputMsg{
 				PeerID:  peerID,
 				Opcode:  message.OpInteractInput,
 				Payload: []byte{message.InteractExitPortal},
@@ -564,20 +565,20 @@ func TestLobbyToSpawnedToFight(t *testing.T) {
 	p := entity.NewPlayer(peerID, "gunner")
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 20}
 	p.Alive = true
-	z.Players[peerID] = p
+	z.world.Players[peerID] = p
 
 	send, msgs := captureSend()
-	z.clients[peerID] = &Client{PeerID: peerID, Username: "TestPlayer", Send: send}
+	z.world.Clients[peerID] = &Client{PeerID: peerID, Username: "TestPlayer", Send: send}
 
 	// Step 1: lobby — player not ready, should stay in lobby
 	z.processTick()
-	if z.State != StateLobby {
-		t.Fatalf("expected StateLobby before ready, got %d", z.State)
+	if z.world.State != StateLobby {
+		t.Fatalf("expected StateLobby before ready, got %d", z.world.State)
 	}
 
 	// Step 2: player readies up
 	z.mu.Lock()
-	z.inputQueue = append(z.inputQueue, inputMsg{
+	z.pendingInputs = append(z.pendingInputs, system.InputMsg{
 		PeerID:  peerID,
 		Opcode:  message.OpInteractInput,
 		Payload: []byte{message.InteractReadyToggle},
@@ -586,8 +587,8 @@ func TestLobbyToSpawnedToFight(t *testing.T) {
 
 	z.processTick()
 
-	if z.State != StateSpawned {
-		t.Fatalf("expected StateSpawned after all ready, got %d", z.State)
+	if z.world.State != StateSpawned {
+		t.Fatalf("expected StateSpawned after all ready, got %d", z.world.State)
 	}
 	if !findGameFlowEvent(*msgs, message.FlowSpawnPlayers) {
 		t.Error("client did not receive FlowSpawnPlayers game flow event")
@@ -597,8 +598,8 @@ func TestLobbyToSpawnedToFight(t *testing.T) {
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5}
 	z.processTick()
 
-	if z.State != StateFight {
-		t.Fatalf("expected StateFight after arena entry, got %d", z.State)
+	if z.world.State != StateFight {
+		t.Fatalf("expected StateFight after arena entry, got %d", z.world.State)
 	}
 	if !findGameFlowEvent(*msgs, message.FlowFightStart) {
 		t.Error("client did not receive FlowFightStart game flow event")
@@ -611,11 +612,11 @@ func TestLobbyToSpawnedToFight(t *testing.T) {
 
 func TestBroadcastState_FightOver(t *testing.T) {
 	z, peerID := setupFightZone(t)
-	z.State = StateFightOver
-	z.BossDefeated = true // keeps state at FightOver (no auto-lobby)
+	z.world.State = StateFightOver
+	z.world.BossDefeated = true // keeps state at FightOver (no auto-lobby)
 
 	send, msgs := captureSend()
-	z.clients[peerID].Send = send
+	z.world.Clients[peerID].Send = send
 
 	z.processTick()
 
@@ -679,8 +680,8 @@ func extractPlayerState(msg []byte, wantPeer uint16) int {
 		animLen := int(payload[off])
 		off++ // anim_len
 		off += animLen // anim bytes
-		off += 4 // anim_speed
-		off += 4 // aim_pitch
+		off += 4       // anim_speed
+		off += 4       // aim_pitch
 		if peerID == wantPeer {
 			return state
 		}
@@ -692,7 +693,7 @@ func TestGunnerShotBroadcastsAttackState(t *testing.T) {
 	z, peerID := setupFightZone(t)
 
 	send, msgs := captureSend()
-	z.clients[peerID].Send = send
+	z.world.Clients[peerID].Send = send
 
 	// Verify initial state is Move (0)
 	z.processTick()
@@ -712,9 +713,9 @@ func TestGunnerShotBroadcastsAttackState(t *testing.T) {
 
 	// Queue a gunner shot
 	*msgs = (*msgs)[:0]
-	aimPitch := z.Players[peerID].AimPitch
+	aimPitch := z.world.Players[peerID].AimPitch
 	z.mu.Lock()
-	z.inputQueue = append(z.inputQueue, inputMsg{
+	z.pendingInputs = append(z.pendingInputs, system.InputMsg{
 		PeerID:  peerID,
 		Opcode:  message.OpAbilityInput,
 		Payload: buildShootPayload(aimPitch),
@@ -743,12 +744,12 @@ func TestGunnerAttackStateResetsAfterCooldown(t *testing.T) {
 	z, peerID := setupFightZone(t)
 
 	send, msgs := captureSend()
-	z.clients[peerID].Send = send
+	z.world.Clients[peerID].Send = send
 
 	// Fire a shot
-	aimPitch := z.Players[peerID].AimPitch
+	aimPitch := z.world.Players[peerID].AimPitch
 	z.mu.Lock()
-	z.inputQueue = append(z.inputQueue, inputMsg{
+	z.pendingInputs = append(z.pendingInputs, system.InputMsg{
 		PeerID:  peerID,
 		Opcode:  message.OpAbilityInput,
 		Payload: buildShootPayload(aimPitch),
@@ -756,7 +757,7 @@ func TestGunnerAttackStateResetsAfterCooldown(t *testing.T) {
 	z.mu.Unlock()
 	z.processTick()
 
-	// Run enough ticks for cooldown to expire (0.18s / 0.05s = 3.6 → 4 ticks)
+	// Run enough ticks for cooldown to expire (0.18s / 0.05s = 3.6 -> 4 ticks)
 	for i := 0; i < 5; i++ {
 		*msgs = (*msgs)[:0]
 		z.processTick()
@@ -786,19 +787,19 @@ func TestRemotePlayerReceivesGunnerAttackState(t *testing.T) {
 	eyePos := entity.Vec3{X: 0, Y: 1.6, Z: 10}
 	targetCenter := entity.Vec3{X: 0, Y: 1, Z: 0}
 	dir := targetCenter.Sub(eyePos).Normalized()
-	z.Players[shooterID].RotationY = float32(-math.Atan2(float64(-dir.X), float64(-dir.Z)))
-	z.Players[shooterID].AimPitch = float32(math.Asin(float64(dir.Y)))
+	z.world.Players[shooterID].RotationY = float32(-math.Atan2(float64(-dir.X), float64(-dir.Z)))
+	z.world.Players[shooterID].AimPitch = float32(math.Asin(float64(dir.Y)))
 
 	// Capture observer's messages
 	send, msgs := captureSend()
-	z.clients[observerID].Send = send
+	z.world.Clients[observerID].Send = send
 
 	// Shooter fires
 	z.mu.Lock()
-	z.inputQueue = append(z.inputQueue, inputMsg{
+	z.pendingInputs = append(z.pendingInputs, system.InputMsg{
 		PeerID:  shooterID,
 		Opcode:  message.OpAbilityInput,
-		Payload: buildShootPayload(z.Players[shooterID].AimPitch),
+		Payload: buildShootPayload(z.world.Players[shooterID].AimPitch),
 	})
 	z.mu.Unlock()
 	z.processTick()
@@ -829,10 +830,10 @@ func TestHubZoneTick(t *testing.T) {
 
 	p := entity.NewPlayer(peerID, "gunner")
 	p.Alive = true
-	z.Players[peerID] = p
+	z.world.Players[peerID] = p
 
 	send, msgs := captureSend()
-	z.clients[peerID] = &Client{PeerID: peerID, Username: "HubPlayer", Send: send}
+	z.world.Clients[peerID] = &Client{PeerID: peerID, Username: "HubPlayer", Send: send}
 
 	// Should not panic
 	z.processTick()
@@ -843,14 +844,14 @@ func TestHubZoneTick(t *testing.T) {
 }
 
 // =============================================================================
-// Test: Arena entry — fight must NOT start until a player crosses the trigger
+// Test: Arena entry -- fight must NOT start until a player crosses the trigger
 // =============================================================================
 
 func TestArenaEntry_FightDoesNotStartImmediately(t *testing.T) {
 	z := New("test_arena", ZoneTypeArena)
 
 	// Verify enemy starts dormant
-	if z.Enemy.Alive {
+	if z.world.Enemies[0].Alive {
 		t.Fatal("Enemy.Alive = true on fresh arena, want false")
 	}
 
@@ -860,12 +861,12 @@ func TestArenaEntry_FightDoesNotStartImmediately(t *testing.T) {
 	z.AddClient(c)
 
 	// Verify state transitioned to Spawned (not Fight)
-	if z.State != StateSpawned {
-		t.Fatalf("State = %d after AddClient, want StateSpawned (%d)", z.State, StateSpawned)
+	if z.world.State != StateSpawned {
+		t.Fatalf("State = %d after AddClient, want StateSpawned (%d)", z.world.State, StateSpawned)
 	}
 
 	// Verify player is in the warmup area (Z >= 12)
-	p := z.Players[1]
+	p := z.world.Players[1]
 	if p == nil {
 		t.Fatal("Player not found after AddClient")
 	}
@@ -879,10 +880,10 @@ func TestArenaEntry_FightDoesNotStartImmediately(t *testing.T) {
 		z.processTick()
 	}
 
-	if z.State != StateSpawned {
-		t.Errorf("State = %d after 10 ticks, want StateSpawned (%d). Fight started prematurely!", z.State, StateSpawned)
+	if z.world.State != StateSpawned {
+		t.Errorf("State = %d after 10 ticks, want StateSpawned (%d). Fight started prematurely!", z.world.State, StateSpawned)
 	}
-	if z.Enemy.Alive {
+	if z.world.Enemies[0].Alive {
 		t.Error("Enemy.Alive = true after 10 ticks in Spawned state, want false. Boss should be dormant until fight starts.")
 	}
 
@@ -895,10 +896,10 @@ func TestArenaEntry_FightDoesNotStartImmediately(t *testing.T) {
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5.0}
 	z.processTick()
 
-	if z.State != StateFight {
-		t.Errorf("State = %d after player crossed trigger, want StateFight (%d)", z.State, StateFight)
+	if z.world.State != StateFight {
+		t.Errorf("State = %d after player crossed trigger, want StateFight (%d)", z.world.State, StateFight)
 	}
-	if !z.Enemy.Alive {
+	if !z.world.Enemies[0].Alive {
 		t.Error("Enemy.Alive = false after fight started, want true")
 	}
 	if !findGameFlowEvent(*msgs, message.FlowFightStart) {
@@ -929,16 +930,16 @@ func TestArenaEntry_ConcurrentTickDoesNotTriggerFight(t *testing.T) {
 	time.Sleep(50 * time.Millisecond) // let goroutine exit
 
 	// Check state — should still be StateSpawned, NOT StateFight
-	if z.State == StateFight {
-		t.Errorf("State = StateFight after 200ms — fight started without player crossing trigger! Player.Z=%f", z.Players[1].Position.Z)
+	if z.world.State == StateFight {
+		t.Errorf("State = StateFight after 200ms — fight started without player crossing trigger! Player.Z=%f", z.world.Players[1].Position.Z)
 	}
-	if z.Enemy.Alive {
+	if z.world.Enemies[0].Alive {
 		t.Error("Enemy.Alive = true — boss spawned without fight starting")
 	}
 	if findGameFlowEvent(*msgs, message.FlowFightStart) {
 		t.Error("Client received FlowFightStart — fight triggered prematurely")
 	}
-	t.Logf("Final state: %d, Player pos: %+v, Enemy alive: %v", z.State, z.Players[1].Position, z.Enemy.Alive)
+	t.Logf("Final state: %d, Player pos: %+v, Enemy alive: %v", z.world.State, z.world.Players[1].Position, z.world.Enemies[0].Alive)
 }
 
 func TestArenaEntry_SecondPlayerGetsCatchUp(t *testing.T) {
@@ -949,11 +950,11 @@ func TestArenaEntry_SecondPlayerGetsCatchUp(t *testing.T) {
 	z.AddClient(c1)
 
 	// Move player into arena and start fight
-	z.Players[1].Position = entity.Vec3{X: 0, Y: 0.1, Z: 5.0}
+	z.world.Players[1].Position = entity.Vec3{X: 0, Y: 0.1, Z: 5.0}
 	z.processTick()
 
-	if z.State != StateFight {
-		t.Fatalf("State = %d, want StateFight", z.State)
+	if z.world.State != StateFight {
+		t.Fatalf("State = %d, want StateFight", z.world.State)
 	}
 
 	// Second player joins mid-fight
@@ -967,7 +968,7 @@ func TestArenaEntry_SecondPlayerGetsCatchUp(t *testing.T) {
 	}
 
 	// Second player should be in warmup area
-	p2 := z.Players[2]
+	p2 := z.world.Players[2]
 	if p2 == nil {
 		t.Fatal("Player 2 not found")
 	}

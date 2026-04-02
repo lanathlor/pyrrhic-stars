@@ -49,7 +49,7 @@ enum State { MOVE, DODGE, LIGHT_1, LIGHT_2, LIGHT_3, HEAVY_WINDUP, HEAVY, BLOCK,
 @export var block_stamina_drain: float = 15.0
 
 # Health & Stamina
-var health: float = 150.0
+var health: float = 200.0
 var max_health: float = 200.0
 var peer_id: int = 0
 var stamina: float = 100.0

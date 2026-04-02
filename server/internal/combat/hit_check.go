@@ -6,10 +6,11 @@ import (
 	"codex-online/server/internal/entity"
 )
 
-// Obstacle represents a rectangular obstacle in the arena (XZ plane).
+// Obstacle represents a rectangular obstacle in the arena.
 type Obstacle struct {
-	CX, CZ float32 // center
-	HX, HZ float32 // half-extents
+	CX, CZ float32 // center (XZ plane)
+	HX, HZ float32 // half-extents (XZ plane)
+	Height float32 // obstacle height from ground (0 = infinitely tall)
 }
 
 // SegmentHitsObstacle checks if a line segment from a to b (on the XZ plane)
@@ -159,8 +160,13 @@ func CheckProjectileHit(projPos, targetPos entity.Vec3, hitRadius float32) bool 
 }
 
 // ProjectileHitsObstacle checks if a projectile at pos overlaps any obstacle.
+// Respects obstacle height — projectiles above a short obstacle pass over it.
 func ProjectileHitsObstacle(pos entity.Vec3, radius float32, obstacles []Obstacle) bool {
 	for _, obs := range obstacles {
+		// Skip if projectile is above this obstacle
+		if obs.Height > 0 && pos.Y > obs.Height {
+			continue
+		}
 		// Expand obstacle by projectile radius (Minkowski sum)
 		exHx := obs.HX + radius
 		exHz := obs.HZ + radius
@@ -171,6 +177,152 @@ func ProjectileHitsObstacle(pos entity.Vec3, radius float32, obstacles []Obstacl
 		}
 	}
 	return false
+}
+
+// SegmentHitsExpandedObstacle is like SegmentHitsObstacle but expands each
+// obstacle by the given radius before testing. Use this for AI line-of-sight
+// checks where the entity has a body radius that must clear the obstacle.
+// Unlike SegmentHitsObstacle, it does NOT skip obstacles containing the origin.
+func SegmentHitsExpandedObstacle(a, b entity.Vec3, obstacles []Obstacle, radius float32) bool {
+	dx := b.X - a.X
+	dz := b.Z - a.Z
+	length := float32(math.Sqrt(float64(dx*dx + dz*dz)))
+	if length < 1e-6 {
+		return false
+	}
+
+	for _, obs := range obstacles {
+		minX := obs.CX - obs.HX - radius
+		maxX := obs.CX + obs.HX + radius
+		minZ := obs.CZ - obs.HZ - radius
+		maxZ := obs.CZ + obs.HZ + radius
+
+		var tMin, tMax float32 = 0, 1
+
+		// X slab
+		if abs32(dx) < 1e-6 {
+			if a.X < minX || a.X > maxX {
+				continue
+			}
+		} else {
+			invD := 1.0 / dx
+			t1 := (minX - a.X) * invD
+			t2 := (maxX - a.X) * invD
+			if t1 > t2 {
+				t1, t2 = t2, t1
+			}
+			if t1 > tMin {
+				tMin = t1
+			}
+			if t2 < tMax {
+				tMax = t2
+			}
+			if tMin > tMax {
+				continue
+			}
+		}
+
+		// Z slab
+		if abs32(dz) < 1e-6 {
+			if a.Z < minZ || a.Z > maxZ {
+				continue
+			}
+		} else {
+			invD := 1.0 / dz
+			t1 := (minZ - a.Z) * invD
+			t2 := (maxZ - a.Z) * invD
+			if t1 > t2 {
+				t1, t2 = t2, t1
+			}
+			if t1 > tMin {
+				tMin = t1
+			}
+			if t2 < tMax {
+				tMax = t2
+			}
+			if tMin > tMax {
+				continue
+			}
+		}
+
+		return true
+	}
+	return false
+}
+
+// NearestObstacleOnSegment returns the center of the first obstacle that
+// blocks the segment from a to b (expanded by radius). Returns false if clear.
+func NearestObstacleOnSegment(a, b entity.Vec3, obstacles []Obstacle, radius float32) (Obstacle, bool) {
+	dx := b.X - a.X
+	dz := b.Z - a.Z
+	length := float32(math.Sqrt(float64(dx*dx + dz*dz)))
+	if length < 1e-6 {
+		return Obstacle{}, false
+	}
+
+	bestT := float32(2.0)
+	bestObs := Obstacle{}
+	found := false
+
+	for _, obs := range obstacles {
+		minX := obs.CX - obs.HX - radius
+		maxX := obs.CX + obs.HX + radius
+		minZ := obs.CZ - obs.HZ - radius
+		maxZ := obs.CZ + obs.HZ + radius
+
+		var tMin, tMax float32 = 0, 1
+
+		if abs32(dx) < 1e-6 {
+			if a.X < minX || a.X > maxX {
+				continue
+			}
+		} else {
+			invD := 1.0 / dx
+			t1 := (minX - a.X) * invD
+			t2 := (maxX - a.X) * invD
+			if t1 > t2 {
+				t1, t2 = t2, t1
+			}
+			if t1 > tMin {
+				tMin = t1
+			}
+			if t2 < tMax {
+				tMax = t2
+			}
+			if tMin > tMax {
+				continue
+			}
+		}
+
+		if abs32(dz) < 1e-6 {
+			if a.Z < minZ || a.Z > maxZ {
+				continue
+			}
+		} else {
+			invD := 1.0 / dz
+			t1 := (minZ - a.Z) * invD
+			t2 := (maxZ - a.Z) * invD
+			if t1 > t2 {
+				t1, t2 = t2, t1
+			}
+			if t1 > tMin {
+				tMin = t1
+			}
+			if t2 < tMax {
+				tMax = t2
+			}
+			if tMin > tMax {
+				continue
+			}
+		}
+
+		if tMin < bestT {
+			bestT = tMin
+			bestObs = obs
+			found = true
+		}
+	}
+	return bestObs, found
 }
 
 func abs32(x float32) float32 {

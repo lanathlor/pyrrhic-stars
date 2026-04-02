@@ -45,7 +45,7 @@ enum State { MOVE, EDGE, SURGE_WINDUP, SURGE, GUARD, RECALL, DASH, STAGGER, DEAD
 @export var lance_recall_damage: float = 25.0
 
 # Health
-var health: float = 100.0
+var health: float = 150.0
 var max_health: float = 150.0
 var peer_id: int = 0
 
