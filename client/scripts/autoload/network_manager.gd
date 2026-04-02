@@ -93,10 +93,10 @@ func send_msg(opcode: int, payload: PackedByteArray = PackedByteArray()) -> void
 
 
 ## Send position + rotation + animation for one simulation tick.
-func send_player_position(pos: Vector3, rot_y: float, anim_name: String = "", anim_speed: float = 1.0) -> void:
+func send_player_position(pos: Vector3, rot_y: float, anim_name: String = "", anim_speed: float = 1.0, aim_pitch: float = 0.0) -> void:
 	_input_tick += 1
 	send_msg(NetSerializer.OP_PLAYER_INPUT,
-		NetSerializer.encode_player_input(pos, rot_y, _input_tick, anim_name, anim_speed))
+		NetSerializer.encode_player_input(pos, rot_y, _input_tick, anim_name, anim_speed, aim_pitch))
 
 
 ## Send a combat action to the server.
@@ -343,3 +343,8 @@ func send_group_leave() -> void:
 
 func send_enter_portal() -> void:
 	send_msg(NetSerializer.OP_ENTER_PORTAL)
+
+
+## Send a respawn request. type: 0 = arena, 1 = hub.
+func send_respawn_request(type: int) -> void:
+	send_msg(NetSerializer.OP_RESPAWN_REQUEST, PackedByteArray([type]))

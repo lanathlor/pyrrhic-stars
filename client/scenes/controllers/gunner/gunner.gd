@@ -24,6 +24,11 @@ signal died
 @export var _weapon_offset_pos := Vector3(0.0, 0.1, 0.0)
 @export var _weapon_offset_rot_deg := Vector3(180.0, 90.0, 0.0)
 
+# Viewmodel (FPS weapon view)
+@export var _vm_pos := Vector3(0.2, -0.2, -0.25)
+@export var _vm_rot_deg := Vector3(90.0, 180.0, 180.0)
+@export var _vm_scale := Vector3(0.8, 0.8, 0.8)
+
 # Dodge roll
 @export var roll_speed: float = 14.0
 @export var roll_duration: float = 0.3
@@ -64,6 +69,16 @@ const WEAPON_SCENE := "res://assets/models/weapons/weapon_rifle.glb"
 
 var _muzzle_flash_timer: float = 0.0
 
+# Viewmodel state
+var _viewmodel: Node3D
+var _viewmodel_weapon: Node3D
+var _recoil_offset: float = 0.0
+var _bob_time: float = 0.0
+
+
+# Remote fire detection
+var _net_aim_pitch: float = 0.0
+
 
 func _ready() -> void:
 	GameManager.register_player(self)
@@ -71,10 +86,10 @@ func _ready() -> void:
 	_net_rotation_y = rotation.y
 	if _is_local():
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-		hud.update_health(health, max_health)
 		# FPS: hide own body so it doesn't clip into the camera
 		character_model.hide_model()
 		_attach_weapon.call_deferred()
+		_setup_viewmodel.call_deferred()
 	else:
 		# Remote player: show model, hide HUD, disable camera
 		$HUDLayer.visible = false
@@ -90,6 +105,67 @@ func _attach_weapon() -> void:
 	character_model.attach_weapon(WEAPON_SCENE, "mixamorig_RightHand", offset_pos, offset_rot)
 
 
+func _setup_viewmodel() -> void:
+	_viewmodel = Node3D.new()
+	_viewmodel.name = "Viewmodel"
+	camera.add_child(_viewmodel)
+	_viewmodel.position = _vm_pos
+	_viewmodel.rotation = Vector3(
+		deg_to_rad(_vm_rot_deg.x),
+		deg_to_rad(_vm_rot_deg.y),
+		deg_to_rad(_vm_rot_deg.z))
+	_viewmodel.scale = _vm_scale
+
+	var weapon_scene := load(WEAPON_SCENE) as PackedScene
+	if weapon_scene:
+		_viewmodel_weapon = weapon_scene.instantiate()
+		_viewmodel.add_child(_viewmodel_weapon)
+
+
+## Spawn a bullet tracer line in world space from origin to end point.
+func _spawn_tracer(from_pos: Vector3, to_pos: Vector3) -> void:
+	var diff := to_pos - from_pos
+	var length := diff.length()
+	if length < 0.1:
+		return
+
+	var dir := diff.normalized()
+	var mid := (from_pos + to_pos) / 2.0
+
+	# Build transform manually — no need for look_at or being in tree
+	var tracer := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(0.03, 0.03, length)
+	tracer.mesh = box
+	tracer.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(1.0, 0.95, 0.6, 0.7)
+	mat.emission_enabled = true
+	mat.emission = Color(1.0, 0.85, 0.3)
+	mat.emission_energy_multiplier = 6.0
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	tracer.material_override = mat
+
+	# Orient along the line using a manual basis
+	var up := Vector3.UP
+	if absf(dir.dot(up)) > 0.99:
+		up = Vector3.RIGHT
+	var z_axis := -dir
+	var x_axis := up.cross(z_axis).normalized()
+	var y_axis := z_axis.cross(x_axis).normalized()
+	tracer.transform = Transform3D(Basis(x_axis, y_axis, z_axis), mid)
+
+	get_tree().current_scene.add_child(tracer)
+
+	# Fade out and free
+	var tween := get_tree().create_tween()
+	tween.tween_property(mat, "albedo_color:a", 0.0, 0.12)
+	tween.parallel().tween_property(mat, "emission_energy_multiplier", 0.0, 0.12)
+	tween.tween_callback(tracer.queue_free)
+
+
 func _process(_delta: float) -> void:
 	# Live-update weapon offset from inspector while game runs
 	if character_model.weapon_node:
@@ -98,6 +174,14 @@ func _process(_delta: float) -> void:
 			deg_to_rad(_weapon_offset_rot_deg.x),
 			deg_to_rad(_weapon_offset_rot_deg.y),
 			deg_to_rad(_weapon_offset_rot_deg.z))
+	# Live-update viewmodel from inspector
+	if _viewmodel and _is_local():
+		if _recoil_offset <= 0.001:
+			_viewmodel.rotation = Vector3(
+				deg_to_rad(_vm_rot_deg.x),
+				deg_to_rad(_vm_rot_deg.y),
+				deg_to_rad(_vm_rot_deg.z))
+		_viewmodel.scale = _vm_scale
 
 
 func _exit_tree() -> void:
@@ -128,6 +212,13 @@ func _physics_process(delta: float) -> void:
 			character_model.play_anim(_net_anim, _net_anim_speed)
 		return
 
+	# Dead: freeze movement and abilities, but keep sending position
+	if not _alive:
+		velocity = Vector3.ZERO
+		if NetworkManager.is_active:
+			NetworkManager.send_player_position(global_position, rotation.y, _net_anim, _net_anim_speed)
+		return
+
 	_roll_cooldown_timer = maxf(_roll_cooldown_timer - delta, 0.0)
 	_apply_gravity(delta)
 
@@ -144,12 +235,13 @@ func _physics_process(delta: float) -> void:
 		_handle_shooting(delta)
 
 	_update_muzzle_flash(delta)
+	_update_viewmodel(delta)
 	_update_animation()
 	hud.update_roll_cooldown(_roll_cooldown_timer, roll_cooldown)
 
 	# Send position + animation to server
 	if NetworkManager.is_active:
-		NetworkManager.send_player_position(global_position, rotation.y, _net_anim, _net_anim_speed)
+		NetworkManager.send_player_position(global_position, rotation.y, _net_anim, _net_anim_speed, head.rotation.x)
 
 
 func _apply_gravity(delta: float) -> void:
@@ -219,7 +311,7 @@ func _process_roll(delta: float) -> void:
 
 func _handle_shooting(delta: float) -> void:
 	_fire_cooldown -= delta
-	if Input.is_action_pressed("shoot") and _fire_cooldown <= 0.0:
+	if Input.is_action_pressed("shoot") and _fire_cooldown <= 0.0 and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
 		_shoot()
 		_fire_cooldown = fire_rate
 
@@ -229,11 +321,20 @@ func _shoot() -> void:
 	_muzzle_flash_timer = 0.05
 	muzzle_light.visible = true
 	hud.on_shoot()
+	_recoil_offset = 0.06
+
+	# Tracer line from weapon muzzle to hit (or max range)
+	var tracer_from := _get_muzzle_pos()
+	var tracer_to: Vector3
+	if gun_ray.is_colliding():
+		tracer_to = gun_ray.get_collision_point()
+	else:
+		tracer_to = head.global_position + head.global_transform.basis * Vector3(0, 0, -100)
+	_spawn_tracer(tracer_from, tracer_to)
+
 	# Tell server we fired
 	if NetworkManager.is_active:
 		NetworkManager.send_ability(0, head.rotation.x)  # 0 = ActionShoot
-
-	# Hit marker is now driven by server-confirmed damage events (on_hit_confirmed)
 
 
 func _update_muzzle_flash(delta: float) -> void:
@@ -243,15 +344,62 @@ func _update_muzzle_flash(delta: float) -> void:
 			muzzle_light.visible = false
 
 
+func _update_viewmodel(delta: float) -> void:
+	if not _viewmodel:
+		return
+	var flat_vel := Vector3(velocity.x, 0.0, velocity.z)
+	var speed := flat_vel.length()
+
+	# Walk bob
+	if speed > 0.5 and is_on_floor():
+		_bob_time += delta * speed * 1.2
+		var bob_y := sin(_bob_time * 2.0) * 0.006
+		var bob_x := cos(_bob_time) * 0.003
+		_viewmodel.position = _vm_pos + Vector3(bob_x, bob_y, 0.0)
+	else:
+		_bob_time = 0.0
+		_viewmodel.position = _viewmodel.position.lerp(_vm_pos, delta * 10.0)
+
+	# Recoil recovery
+	if _recoil_offset > 0.001:
+		_recoil_offset = lerpf(_recoil_offset, 0.0, delta * 18.0)
+	else:
+		_recoil_offset = 0.0
+	_viewmodel.rotation.x = deg_to_rad(_vm_rot_deg.x) - _recoil_offset
+
+
+## Get the muzzle position — from viewmodel for local, from bone weapon for remote.
+func _get_muzzle_pos() -> Vector3:
+	if _is_local() and _viewmodel:
+		return _viewmodel.global_position
+	if character_model.weapon_node and is_instance_valid(character_model.weapon_node):
+		return character_model.weapon_node.global_position
+	return global_position + Vector3(0.0, 1.4, 0.0)
+
+
+## Spawn a tracer for a remote gunner using their synced aim data.
+func _fire_remote_tracer() -> void:
+	var from_pos := _get_muzzle_pos()
+	var dir := Vector3(0, 0, -1)
+	dir = dir.rotated(Vector3(1, 0, 0), _net_aim_pitch)
+	dir = dir.rotated(Vector3(0, 1, 0), _net_rotation_y)
+	var to_pos := from_pos + dir * 100.0
+	_spawn_tracer(from_pos, to_pos)
+
+
 ## Called by main.gd when server confirms this player hit an enemy.
 func on_hit_confirmed(amount: float) -> void:
 	hud.show_hit_marker()
 
 
+## Called by main.gd on remote gunners when a damage event confirms they hit something.
+func on_hit_tracer(hit_pos: Vector3) -> void:
+	_spawn_tracer(_get_muzzle_pos(), hit_pos)
+
+
 ## Called by main.gd when the server sends a DAMAGE_EVENT targeting this player.
 ## Health is already updated via apply_server_state -- this is visuals only.
 func on_damage_visual(amount: float, hit_pos: Vector3) -> void:
-	hud.update_health(health, max_health)
 	hud.show_damage_flash()
 	character_model.flash_damage()
 
@@ -262,11 +410,14 @@ func apply_server_state(data: Dictionary) -> void:
 	#           anim_name (String), anim_speed (float)
 	if _is_local():
 		health = data.health
-		hud.update_health(health, max_health)
 		if health <= 0.0 and _alive:
 			_alive = false
 			died.emit()
-		# Client-authoritative movement: no position correction needed
+		elif health > 0.0 and not _alive:
+			_alive = true
+			# Snap to server position on respawn
+			global_position = data.pos
+			_net_position = data.pos
 	else:
 		# Remote player: apply all state
 		_net_position = data.pos
@@ -274,6 +425,7 @@ func apply_server_state(data: Dictionary) -> void:
 		health = data.health
 		_net_anim = data.anim_name
 		_net_anim_speed = data.anim_speed
+		_net_aim_pitch = data.get("aim_pitch", 0.0)
 
 
 func _update_animation() -> void:

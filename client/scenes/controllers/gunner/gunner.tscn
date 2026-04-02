@@ -55,17 +55,6 @@ anchor_bottom = 1.0
 mouse_filter = 2
 script = ExtResource("3")
 
-[node name="HealthBar" type="ProgressBar" parent="HUDLayer/GunnerHUD"]
-layout_mode = 1
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 20.0
-offset_top = -50.0
-offset_right = 320.0
-offset_bottom = -20.0
-value = 100.0
-show_percentage = false
-
 [node name="DamageOverlay" type="ColorRect" parent="HUDLayer/GunnerHUD"]
 layout_mode = 1
 anchors_preset = 15

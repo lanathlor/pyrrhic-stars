@@ -277,18 +277,17 @@ func _import_anim_from_fbx(anim_name: String, fbx_path: String) -> void:
 	temp.queue_free()
 
 
-## Strip horizontal root motion from animation tracks.
-## Finds position tracks for root/hips bones and zeros X/Z keyframes.
+## Strip root motion from animation tracks.
+## Finds position tracks for root/hips bones and zeros keyframes.
+## If strip_y is true, also zeros Y (used for combat anims that move hips down).
 func _strip_root_motion(anim: Animation) -> void:
 	for track_idx in anim.get_track_count():
 		if anim.track_get_type(track_idx) != Animation.TYPE_POSITION_3D:
 			continue
 		var path := anim.track_get_path(track_idx)
 		var path_str := str(path).to_lower()
-		# Match root or hips bone position tracks
 		if "hips" not in path_str and "root" not in path_str:
 			continue
-		# Zero out X and Z on every keyframe, keep Y for vertical motion
 		for key_idx in anim.track_get_key_count(track_idx):
 			var pos: Vector3 = anim.track_get_key_value(track_idx, key_idx)
 			pos.x = 0.0

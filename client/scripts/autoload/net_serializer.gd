@@ -24,6 +24,7 @@ const OP_RESET_READY := 0x0023
 const OP_PLAYER_INPUT := 0x0030
 const OP_ABILITY_INPUT := 0x0031
 const OP_INTERACT_INPUT := 0x0032
+const OP_RESPAWN_REQUEST := 0x0033
 
 # Server -> Client authoritative state
 const OP_WORLD_STATE := 0x0040
@@ -56,6 +57,8 @@ const FLOW_SHOW_RESULT := 3
 const FLOW_PHASE_TRANSITION := 4
 const FLOW_RETURN_LOBBY := 5
 const FLOW_RETURN_HUB := 6
+const FLOW_BOSS_DEAD := 7
+const FLOW_ALL_DEAD := 8
 
 # Zone type constants
 const ZONE_TYPE_HUB := 0
@@ -303,7 +306,7 @@ func decode_peer_id(data: PackedByteArray) -> int:
 
 ## Client-authoritative movement: send position + current animation.
 ## Format: [pos_x:f32][pos_y:f32][pos_z:f32][rot_y:f32][tick:u32][anim_len:u8][anim:...][anim_speed:f32]
-func encode_player_input(pos: Vector3, rot_y: float, tick: int, anim_name: String = "", anim_speed: float = 1.0) -> PackedByteArray:
+func encode_player_input(pos: Vector3, rot_y: float, tick: int, anim_name: String = "", anim_speed: float = 1.0, aim_pitch: float = 0.0) -> PackedByteArray:
 	var buf := StreamPeerBuffer.new()
 	buf.put_float(pos.x)
 	buf.put_float(pos.y)
@@ -312,6 +315,7 @@ func encode_player_input(pos: Vector3, rot_y: float, tick: int, anim_name: Strin
 	buf.put_u32(tick)
 	_put_str8(buf, anim_name)
 	buf.put_float(anim_speed)
+	buf.put_float(aim_pitch)
 	return buf.data_array
 
 
@@ -387,6 +391,7 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 		var state := buf.get_u8()
 		var anim_name := _get_str8(buf)
 		var anim_speed := buf.get_float()
+		var aim_pitch := buf.get_float()
 		players.append({
 			"peer_id": peer_id,
 			"pos": pos,
@@ -395,6 +400,7 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 			"state": state,
 			"anim_name": anim_name,
 			"anim_speed": anim_speed,
+			"aim_pitch": aim_pitch,
 		})
 
 	# Enemy — always read all fields (server writes them regardless of alive status)

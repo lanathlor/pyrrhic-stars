@@ -1,16 +1,17 @@
 extends Node3D
 
-## Game flow: Menu -> Hub -> Arena (Lobby -> Fight -> Result) -> Hub.
+## Game flow: Menu -> Hub -> Arena (Lobby -> Fight -> Fight Over) -> Hub.
 ## Server-authoritative: all game flow is driven by server events.
 ## Solo mode connects to ws://127.0.0.1:7777 (requires local Go server).
 
-enum GameState { MENU, HUB, ARENA_LOBBY, FIGHT, RESULT }
+enum GameState { MENU, HUB, ARENA_LOBBY, FIGHT, FIGHT_OVER }
 
 var state: GameState = GameState.MENU
 var paused: bool = false
 
 const HUB_SCENE := "res://scenes/environments/hub/hub.tscn"
 const ARENA_SCENE := "res://scenes/environments/arena/arena.tscn"
+const EXIT_PORTAL_POS := Vector3(0.0, 0.1, 0.0)
 
 const LOBBY_SPAWN := Vector3(0.0, 0.1, 20.0)
 const ENEMY_SPAWN := Vector3(0.0, 0.1, 0.0)
@@ -49,8 +50,6 @@ var _enemy_node: CharacterBody3D = null
 # Dynamic nodes
 var _gate: CSGBox3D
 var _pause_layer: CanvasLayer
-var _result_layer: CanvasLayer
-var _result_label: Label
 var _menu_layer: CanvasLayer
 var _lobby_layer: CanvasLayer
 var _lobby_status_label: Label
@@ -79,6 +78,25 @@ var _near_portal: bool = false
 var _player_names: Dictionary = {}  # peer_id -> username
 var _group_data: Dictionary = {}  # current group state
 var _aimed_peer_id: int = 0  # peer id under crosshair for invite
+var _cursor_toggled: bool = false  # backtick toggle state
+var _alt_held: bool = false        # alt hold state
+
+# Shared HUD (boss frame, group frames, damage meter, minimap, player status)
+var _shared_hud_layer: CanvasLayer
+var _shared_hud: Control
+
+# Death overlay
+var _death_overlay_layer: CanvasLayer
+var _death_overlay_bg: ColorRect
+var _death_label: Label
+var _respawn_btn: Button
+var _respawn_hub_btn: Button
+var _local_player_dead: bool = false
+
+# Exit portal (spawns after boss kill)
+var _exit_portal: CSGCylinder3D = null
+var _near_exit_portal: bool = false
+var _exit_portal_prompt: Label = null
 
 
 func _ready() -> void:
@@ -95,12 +113,13 @@ func _ready() -> void:
 	add_child(_projectiles_node)
 
 	_create_pause_menu()
-	_create_result_overlay()
 	_create_menu_ui()
 	_create_lobby_ui()
 	_create_hub_ui()
 	_create_group_panel()
 	_create_invite_popup()
+	_create_shared_hud()
+	_create_death_overlay()
 
 	# Connect network signals
 	NetworkManager.player_disconnected.connect(_on_net_player_disconnected)
@@ -122,12 +141,25 @@ func _ready() -> void:
 
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if state == GameState.RESULT:
+		if state == GameState.FIGHT_OVER:
 			return
 		if state == GameState.MENU:
 			return
 		_toggle_pause()
 		get_viewport().set_input_as_handled()
+
+	# Cursor mode: Alt (hold) + backtick/tilde (toggle)
+	if not paused and (state == GameState.FIGHT or state == GameState.FIGHT_OVER or state == GameState.HUB or state == GameState.ARENA_LOBBY):
+		if event is InputEventKey:
+			# Backtick toggle
+			if event.physical_keycode == KEY_QUOTELEFT and event.pressed and not event.echo:
+				_cursor_toggled = not _cursor_toggled
+				_update_cursor_mode()
+				get_viewport().set_input_as_handled()
+			# Alt hold
+			elif event.keycode == KEY_ALT:
+				_alt_held = event.pressed
+				_update_cursor_mode()
 
 	# Class selection in hub or arena lobby
 	if (state == GameState.HUB or state == GameState.ARENA_LOBBY) and not paused:
@@ -160,11 +192,20 @@ func _input(event: InputEvent) -> void:
 				else:
 					NetworkManager.send_group_create()
 
+	# Arena exit portal interaction
+	if state == GameState.FIGHT_OVER and not paused:
+		if event is InputEventKey and event.pressed:
+			if event.physical_keycode == KEY_E:
+				if _near_exit_portal:
+					NetworkManager.send_interact(2)  # InteractExitPortal
+
 
 func _physics_process(_delta: float) -> void:
 	if state == GameState.HUB:
 		_check_portal_proximity()
 		_check_aim_at_player()
+	elif state == GameState.FIGHT_OVER:
+		_check_exit_portal_proximity()
 
 
 # =============================================================================
@@ -177,7 +218,6 @@ func _enter_menu() -> void:
 	_menu_layer.visible = true
 	_lobby_layer.visible = false
 	_hub_layer.visible = false
-	_result_layer.visible = false
 	_pause_layer.visible = false
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	_unload_environment()
@@ -238,7 +278,6 @@ func _enter_hub() -> void:
 	get_tree().paused = false
 	paused = false
 	_pause_layer.visible = false
-	_result_layer.visible = false
 	_menu_layer.visible = false
 	_lobby_layer.visible = false
 	_hub_layer.visible = true
@@ -261,6 +300,8 @@ func _enter_hub() -> void:
 
 	_update_hub_display()
 	_update_group_panel()
+	if _shared_hud:
+		_shared_hud.on_enter_hub()
 
 
 func _on_hub_state(data: Dictionary) -> void:
@@ -411,6 +452,8 @@ func _check_aim_at_player() -> void:
 func _on_group_state(data: Dictionary) -> void:
 	_group_data = data
 	_update_group_panel()
+	if _shared_hud:
+		_shared_hud.update_group_members(data)
 
 
 func _on_group_invite(group_id: int, leader_name: String) -> void:
@@ -482,8 +525,8 @@ func _enter_arena_lobby() -> void:
 	get_tree().paused = false
 	paused = false
 	_pause_layer.visible = false
-	_result_layer.visible = false
 	_menu_layer.visible = false
+	_remove_exit_portal()
 	_hub_layer.visible = false
 	_lobby_layer.visible = true
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
@@ -593,6 +636,13 @@ func _spawn_player(peer_id: int, class_name_str: String, spawn_pos: Vector3) -> 
 	player._net_rotation_y = player.rotation.y
 	_spawned_players[peer_id] = player
 
+	# Feed local player to shared HUD and connect death signal
+	if peer_id == NetworkManager.get_my_id():
+		if _shared_hud:
+			_shared_hud.set_local_player(player, class_name_str, peer_id)
+		if player.has_signal("died"):
+			player.died.connect(_on_local_player_died)
+
 	# Add overhead name for remote players in hub
 	if state == GameState.HUB and peer_id != NetworkManager.get_my_id():
 		_update_overhead_name(player, peer_id)
@@ -605,6 +655,8 @@ func _despawn_all_players() -> void:
 			player.queue_free()
 	_spawned_players.clear()
 	_despawn_all_projectiles()
+	if _shared_hud:
+		_shared_hud.clear_local_player()
 
 
 func _despawn_all_projectiles() -> void:
@@ -636,6 +688,8 @@ func _start_fight() -> void:
 	state = GameState.FIGHT
 	_lobby_layer.visible = false
 	_hub_layer.visible = false
+	_cursor_toggled = false
+	_alt_held = false
 
 	if _gate:
 		_gate.visible = true
@@ -646,17 +700,33 @@ func _start_fight() -> void:
 		_enemy_node.collision_layer = 4
 		_enemy_node.set_physics_process(true)
 	CombatLog.start_fight()
+	if _shared_hud:
+		_shared_hud.on_fight_start()
 
 
-func _show_result(text: String, color: Color) -> void:
-	if state == GameState.RESULT:
-		return
-	state = GameState.RESULT
-	_result_label.text = text
-	_result_label.add_theme_color_override("font_color", color)
-	_result_layer.visible = true
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-	CombatLog.end_fight(text)
+func _on_boss_dead() -> void:
+	state = GameState.FIGHT_OVER
+	if _gate:
+		_gate.visible = false
+		_gate.use_collision = false
+	_spawn_exit_portal()
+	if _local_player_dead and _death_overlay_layer.visible:
+		_respawn_btn.disabled = false
+	CombatLog.end_fight("VICTORY")
+	if _shared_hud:
+		_shared_hud.on_fight_end()
+
+
+func _on_all_dead() -> void:
+	state = GameState.FIGHT_OVER
+	if _gate:
+		_gate.visible = false
+		_gate.use_collision = false
+	if _local_player_dead and _death_overlay_layer.visible:
+		_respawn_btn.disabled = false
+	CombatLog.end_fight("WIPE")
+	if _shared_hud:
+		_shared_hud.on_fight_end()
 
 
 # =============================================================================
@@ -665,6 +735,8 @@ func _show_result(text: String, color: Color) -> void:
 
 func _on_zone_transfer(zone_type: int, new_peer_id: int) -> void:
 	print("[Main] Zone transfer: type=%d, new_peer=%d" % [zone_type, new_peer_id])
+	_hide_death_overlay()
+	_remove_exit_portal()
 	_despawn_all_players()
 
 	if zone_type == NetSerializer.ZONE_TYPE_ARENA:
@@ -689,17 +761,17 @@ func _on_game_flow_event(flow_type: int, text: String) -> void:
 			_spawn_multiplayer_players()
 		NetSerializer.FLOW_FIGHT_START:
 			_start_fight()
-		NetSerializer.FLOW_SHOW_RESULT:
-			var color := Color(0.15, 0.8, 0.3) if text == "VICTORY" else Color(0.8, 0.15, 0.15)
-			_show_result(text, color)
+		NetSerializer.FLOW_BOSS_DEAD:
+			_on_boss_dead()
+		NetSerializer.FLOW_ALL_DEAD:
+			_on_all_dead()
 		NetSerializer.FLOW_RETURN_LOBBY:
+			_hide_death_overlay()
 			_enter_arena_lobby()
-		NetSerializer.FLOW_RETURN_HUB:
-			_enter_hub()
 
 
 func _on_world_state(data: Dictionary) -> void:
-	if state != GameState.ARENA_LOBBY and state != GameState.FIGHT and state != GameState.RESULT:
+	if state != GameState.ARENA_LOBBY and state != GameState.FIGHT and state != GameState.FIGHT_OVER:
 		return
 
 	var players_data: Array = data.get("players", [])
@@ -743,6 +815,10 @@ func _on_world_state(data: Dictionary) -> void:
 			proj.queue_free()
 		_spawned_projectiles.erase(pid)
 
+	# Feed shared HUD
+	if _shared_hud:
+		_shared_hud.update_world_state(data)
+
 
 func _on_damage_event(data: Dictionary) -> void:
 	var target_peer: int = data.get("target_peer_id", -1)
@@ -759,12 +835,21 @@ func _on_damage_event(data: Dictionary) -> void:
 			var local_player: CharacterBody3D = _spawned_players.get(source_peer)
 			if is_instance_valid(local_player) and local_player.has_method("on_hit_confirmed"):
 				local_player.on_hit_confirmed(amount)
+		# Show tracer from remote gunner to hit point
+		if source_peer != NetworkManager.get_my_id() and source_peer in _spawned_players:
+			var source_player: CharacterBody3D = _spawned_players[source_peer]
+			if is_instance_valid(source_player) and source_player.has_method("on_hit_tracer"):
+				source_player.on_hit_tracer(hit_pos)
 		# Floating damage number
 		_spawn_damage_number(amount, hit_pos)
 	elif target_peer in _spawned_players:
 		var player: CharacterBody3D = _spawned_players[target_peer]
 		if is_instance_valid(player) and player.has_method("on_damage_visual"):
 			player.on_damage_visual(amount, hit_pos)
+
+	# Feed shared HUD damage meter
+	if _shared_hud:
+		_shared_hud.on_damage_event(data)
 
 
 func _spawn_damage_number(amount: float, world_pos: Vector3) -> void:
@@ -794,7 +879,19 @@ func _toggle_pause() -> void:
 	paused = not paused
 	get_tree().paused = paused
 	_pause_layer.visible = paused
+	_cursor_toggled = false
+	_alt_held = false
 	if paused:
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	else:
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
+
+## Show/hide cursor for UI interaction without pausing.
+## Active when Alt is held or backtick is toggled on.
+func _update_cursor_mode() -> void:
+	var want_cursor := _cursor_toggled or _alt_held
+	if want_cursor:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	else:
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
@@ -815,7 +912,11 @@ func _unload_environment() -> void:
 	if _current_env and is_instance_valid(_current_env):
 		_current_env.queue_free()
 		_current_env = null
+	if _enemy_node and is_instance_valid(_enemy_node):
+		_enemy_node.queue_free()
 	_enemy_node = null
+	if _gate and is_instance_valid(_gate):
+		_gate.queue_free()
 	_gate = null
 
 
@@ -899,41 +1000,6 @@ func _create_pause_menu() -> void:
 	quit_btn.text = "Quit"
 	quit_btn.pressed.connect(func(): get_tree().quit())
 	vbox.add_child(quit_btn)
-
-
-func _create_result_overlay() -> void:
-	_result_layer = CanvasLayer.new()
-	_result_layer.layer = 19
-	_result_layer.visible = false
-	add_child(_result_layer)
-
-	var bg := ColorRect.new()
-	bg.color = Color(0.0, 0.0, 0.0, 0.5)
-	bg.anchor_right = 1.0
-	bg.anchor_bottom = 1.0
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_result_layer.add_child(bg)
-
-	_result_label = Label.new()
-	_result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_result_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_result_label.anchor_left = 0.0
-	_result_label.anchor_right = 1.0
-	_result_label.anchor_top = 0.3
-	_result_label.anchor_bottom = 0.5
-	_result_label.add_theme_font_size_override("font_size", 64)
-	_result_layer.add_child(_result_label)
-
-	var sub := Label.new()
-	sub.text = "Returning to hub..."
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sub.anchor_left = 0.0
-	sub.anchor_right = 1.0
-	sub.anchor_top = 0.5
-	sub.anchor_bottom = 0.6
-	sub.add_theme_font_size_override("font_size", 20)
-	sub.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-	_result_layer.add_child(sub)
 
 
 func _create_menu_ui() -> void:
@@ -1096,8 +1162,8 @@ func _create_hub_ui() -> void:
 	_hub_status_label.anchor_right = 1.0
 	_hub_status_label.anchor_top = 0.0
 	_hub_status_label.anchor_bottom = 0.0
-	_hub_status_label.offset_top = 40.0
-	_hub_status_label.offset_bottom = 70.0
+	_hub_status_label.offset_top = 65.0
+	_hub_status_label.offset_bottom = 90.0
 	_hub_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hub_status_label.add_theme_font_size_override("font_size", 14)
 	_hub_status_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
@@ -1195,6 +1261,164 @@ func _create_invite_popup() -> void:
 	decline_btn.custom_minimum_size = Vector2(100, 40)
 	decline_btn.pressed.connect(_decline_invite)
 	hbox.add_child(decline_btn)
+
+
+func _create_shared_hud() -> void:
+	_shared_hud_layer = CanvasLayer.new()
+	_shared_hud_layer.layer = 9  # below class HUDs (10), below damage overlay
+	add_child(_shared_hud_layer)
+
+	_shared_hud = preload("res://scenes/shared/hud/shared_hud.gd").new()
+	_shared_hud.name = "SharedHUD"
+	_shared_hud.anchor_right = 1.0
+	_shared_hud.anchor_bottom = 1.0
+	_shared_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_shared_hud_layer.add_child(_shared_hud)
+	_shared_hud.set_player_names(_player_names)
+
+
+# =============================================================================
+# Death overlay
+# =============================================================================
+
+func _create_death_overlay() -> void:
+	_death_overlay_layer = CanvasLayer.new()
+	_death_overlay_layer.layer = 12
+	_death_overlay_layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	_death_overlay_layer.visible = false
+	add_child(_death_overlay_layer)
+
+	_death_overlay_bg = ColorRect.new()
+	_death_overlay_bg.color = Color(0.0, 0.0, 0.0, 0.5)
+	_death_overlay_bg.anchor_right = 1.0
+	_death_overlay_bg.anchor_bottom = 1.0
+	_death_overlay_bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	_death_overlay_layer.add_child(_death_overlay_bg)
+
+	_death_label = Label.new()
+	_death_label.text = "YOU DIED"
+	_death_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_death_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_death_label.anchor_left = 0.0
+	_death_label.anchor_right = 1.0
+	_death_label.anchor_top = 0.3
+	_death_label.anchor_bottom = 0.45
+	_death_label.add_theme_font_size_override("font_size", 64)
+	_death_label.add_theme_color_override("font_color", Color(0.8, 0.1, 0.1))
+	_death_overlay_layer.add_child(_death_label)
+
+	var btn_container := VBoxContainer.new()
+	btn_container.anchor_left = 0.5
+	btn_container.anchor_right = 0.5
+	btn_container.anchor_top = 0.55
+	btn_container.anchor_bottom = 0.7
+	btn_container.offset_left = -120.0
+	btn_container.offset_right = 120.0
+	btn_container.add_theme_constant_override("separation", 12)
+	_death_overlay_layer.add_child(btn_container)
+
+	_respawn_btn = Button.new()
+	_respawn_btn.text = "Respawn"
+	_respawn_btn.custom_minimum_size.y = 45.0
+	_respawn_btn.disabled = true
+	_respawn_btn.pressed.connect(_on_respawn)
+	btn_container.add_child(_respawn_btn)
+
+	_respawn_hub_btn = Button.new()
+	_respawn_hub_btn.text = "Return to Hub"
+	_respawn_hub_btn.custom_minimum_size.y = 45.0
+	_respawn_hub_btn.pressed.connect(_on_respawn_hub)
+	btn_container.add_child(_respawn_hub_btn)
+
+
+func _on_local_player_died() -> void:
+	_local_player_dead = true
+	_death_overlay_layer.visible = true
+	_respawn_btn.disabled = (state == GameState.FIGHT)
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+
+
+func _on_respawn() -> void:
+	NetworkManager.send_respawn_request(0)
+	_hide_death_overlay()
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
+
+func _on_respawn_hub() -> void:
+	NetworkManager.send_respawn_request(1)
+	_hide_death_overlay()
+
+
+func _hide_death_overlay() -> void:
+	_local_player_dead = false
+	_death_overlay_layer.visible = false
+	_respawn_btn.disabled = true
+
+
+# =============================================================================
+# Exit portal
+# =============================================================================
+
+func _spawn_exit_portal() -> void:
+	if _exit_portal:
+		return
+	_exit_portal = CSGCylinder3D.new()
+	_exit_portal.radius = 1.5
+	_exit_portal.height = 0.1
+	_exit_portal.transform.origin = EXIT_PORTAL_POS
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.2, 0.5, 1.0, 0.7)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.emission_enabled = true
+	mat.emission = Color(0.3, 0.6, 1.0)
+	mat.emission_energy_multiplier = 2.0
+	_exit_portal.material = mat
+	if _current_env:
+		_current_env.add_child(_exit_portal)
+	else:
+		add_child(_exit_portal)
+
+	# Create prompt label
+	_exit_portal_prompt = Label.new()
+	_exit_portal_prompt.text = "[E] Return to Hub"
+	_exit_portal_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_exit_portal_prompt.anchor_left = 0.3
+	_exit_portal_prompt.anchor_right = 0.7
+	_exit_portal_prompt.anchor_top = 0.6
+	_exit_portal_prompt.anchor_bottom = 0.65
+	_exit_portal_prompt.add_theme_font_size_override("font_size", 20)
+	_exit_portal_prompt.visible = false
+	if _shared_hud_layer:
+		_shared_hud_layer.add_child(_exit_portal_prompt)
+
+
+func _remove_exit_portal() -> void:
+	if _exit_portal and is_instance_valid(_exit_portal):
+		_exit_portal.queue_free()
+	_exit_portal = null
+	if _exit_portal_prompt and is_instance_valid(_exit_portal_prompt):
+		_exit_portal_prompt.queue_free()
+	_exit_portal_prompt = null
+	_near_exit_portal = false
+
+
+func _check_exit_portal_proximity() -> void:
+	if not _exit_portal or not is_instance_valid(_exit_portal):
+		_near_exit_portal = false
+		if _exit_portal_prompt and is_instance_valid(_exit_portal_prompt):
+			_exit_portal_prompt.visible = false
+		return
+	var my_id := NetworkManager.get_my_id()
+	if my_id not in _spawned_players:
+		_near_exit_portal = false
+		return
+	var player: CharacterBody3D = _spawned_players[my_id]
+	if not is_instance_valid(player):
+		return
+	var dist := player.global_position.distance_to(EXIT_PORTAL_POS)
+	_near_exit_portal = dist < 3.0
+	if _exit_portal_prompt and is_instance_valid(_exit_portal_prompt):
+		_exit_portal_prompt.visible = _near_exit_portal
 
 
 # =============================================================================

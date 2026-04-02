@@ -27,7 +27,7 @@ const (
 	StateLobby   GameFlowState = iota
 	StateSpawned // players spawned, waiting for arena entry
 	StateFight
-	StateResult
+	StateFightOver
 )
 
 // ZoneType distinguishes hub (social) zones from arena (combat) zones.
@@ -51,8 +51,8 @@ type Zone struct {
 	Type ZoneType
 	Tick uint32
 
-	State      GameFlowState
-	ResultTimer float32
+	State        GameFlowState
+	BossDefeated bool
 
 	Players     map[uint16]*entity.Player
 	Enemy       *entity.Enemy
@@ -73,9 +73,9 @@ type Zone struct {
 	playerSpawns []entity.Vec3
 	enemySpawn   entity.Vec3
 
-	// OnResultEnd is called when the arena result timer expires.
-	// Set by the gateway to trigger zone transfer back to hub.
-	OnResultEnd func(zoneID string)
+	// OnPlayerRespawnHub is called when a dead player requests to return to hub.
+	// Set by the gateway to trigger zone transfer for a single player.
+	OnPlayerRespawnHub func(peerID uint16)
 }
 
 type inputMsg struct {
@@ -192,8 +192,8 @@ func (z *Zone) processTick() {
 			z.tickSpawned()
 		case StateFight:
 			z.tickFight()
-		case StateResult:
-			z.tickResult()
+		case StateFightOver:
+			z.tickFightOver()
 		}
 	}
 
@@ -213,6 +213,8 @@ func (z *Zone) handleInput(inp inputMsg) {
 		z.handleAbilityInput(inp.PeerID, inp.Payload)
 	case message.OpInteractInput:
 		z.handleInteractInput(inp.PeerID, inp.Payload)
+	case message.OpRespawnRequest:
+		z.handleRespawnRequest(inp.PeerID, inp.Payload)
 	}
 }
 
@@ -263,6 +265,10 @@ func (z *Zone) handlePlayerInput(peerID uint16, payload []byte) {
 		}
 		if off+4 <= len(payload) {
 			p.AnimSpeed = math.Float32frombits(binary.LittleEndian.Uint32(payload[off : off+4]))
+			off += 4
+		}
+		if off+4 <= len(payload) {
+			p.AimPitch = math.Float32frombits(binary.LittleEndian.Uint32(payload[off : off+4]))
 		}
 	}
 }
@@ -285,11 +291,12 @@ func (z *Zone) handleAbilityInput(peerID uint16, payload []byte) {
 		// Gunner: hitscan, gated by fire cooldown
 		if p.ClassName == "gunner" && p.FireCooldown <= 0 {
 			p.FireCooldown = 0.18
+			p.State = entity.PlayerStateAttack
 			// If payload includes aim pitch, use it
 			if len(payload) >= 5 {
 				p.AimPitch = math.Float32frombits(binary.LittleEndian.Uint32(payload[1:5]))
 			}
-			evt := combat.ResolvePlayerAttackOnEnemy(p, z.Enemy)
+			evt := combat.ResolvePlayerAttackOnEnemy(p, z.Enemy, arenaObstacles)
 			if evt != nil {
 				evt.SourcePeerID = peerID
 				z.damageEvents = append(z.damageEvents, *evt)
@@ -303,7 +310,8 @@ func (z *Zone) handleAbilityInput(peerID uint16, payload []byte) {
 			} else {
 				p.FireCooldown = 0.3
 			}
-			evt := combat.ResolvePlayerAttackOnEnemy(p, z.Enemy)
+			p.State = entity.PlayerStateAttack
+			evt := combat.ResolvePlayerAttackOnEnemy(p, z.Enemy, arenaObstacles)
 			if evt != nil {
 				evt.SourcePeerID = peerID
 				z.damageEvents = append(z.damageEvents, *evt)
@@ -312,7 +320,8 @@ func (z *Zone) handleAbilityInput(peerID uint16, payload []byte) {
 	case entity.ActionHeavy:
 		if p.ClassName == "vanguard" && p.FireCooldown <= 0 {
 			p.FireCooldown = 0.8
-			evt := combat.ResolvePlayerAttackOnEnemy(p, z.Enemy)
+			p.State = entity.PlayerStateAttack
+			evt := combat.ResolvePlayerAttackOnEnemy(p, z.Enemy, arenaObstacles)
 			if evt != nil {
 				evt.SourcePeerID = peerID
 				z.damageEvents = append(z.damageEvents, *evt)
@@ -353,6 +362,36 @@ func (z *Zone) handleInteractInput(peerID uint16, payload []byte) {
 	case message.InteractReadyToggle:
 		p.Ready = !p.Ready
 		slog.Info("player ready toggled", "peer_id", peerID, "ready", p.Ready)
+	case message.InteractExitPortal:
+		if z.State == StateFightOver && z.BossDefeated {
+			if z.OnPlayerRespawnHub != nil {
+				z.OnPlayerRespawnHub(peerID)
+			}
+		}
+	}
+}
+
+func (z *Zone) handleRespawnRequest(peerID uint16, payload []byte) {
+	if len(payload) < 1 {
+		return
+	}
+	respawnType := payload[0]
+	player := z.Players[peerID]
+	if player == nil || player.Alive {
+		return
+	}
+
+	if respawnType == 1 { // hub
+		if z.OnPlayerRespawnHub != nil {
+			z.OnPlayerRespawnHub(peerID)
+		}
+	} else if respawnType == 0 { // arena
+		if z.State == StateFightOver || z.State == StateLobby {
+			player.Alive = true
+			player.Health = player.MaxHealth
+			player.State = entity.PlayerStateMove
+			player.Position = entity.Vec3{X: 0, Y: 0.1, Z: 20}
+		}
 	}
 }
 
@@ -444,6 +483,9 @@ func (z *Zone) tickFight() {
 	for _, p := range z.Players {
 		if p.Alive {
 			p.FireCooldown -= dt
+			if p.State == entity.PlayerStateAttack && p.FireCooldown <= 0 {
+				p.State = entity.PlayerStateMove
+			}
 		}
 	}
 
@@ -506,26 +548,20 @@ func (z *Zone) processEnemyAI(dt float32) {
 	z.pushOutOfObstacles(&e.Position)
 }
 
-// arenaObstacle represents a rectangular obstacle in the arena (XZ plane).
-type arenaObstacle struct {
-	cx, cz float32 // center
-	hx, hz float32 // half-extents
-}
-
 // Arena obstacles: 6 pillars (1.5x1.5) + 4 cover boxes
-var arenaObstacles = []arenaObstacle{
+var arenaObstacles = []combat.Obstacle{
 	// Pillars
-	{cx: -8, cz: -6, hx: 0.75, hz: 0.75},
-	{cx: 8, cz: -6, hx: 0.75, hz: 0.75},
-	{cx: -8, cz: 6, hx: 0.75, hz: 0.75},
-	{cx: 8, cz: 6, hx: 0.75, hz: 0.75},
-	{cx: 0, cz: -10, hx: 0.75, hz: 0.75},
-	{cx: 0, cz: 10, hx: 0.75, hz: 0.75},
+	{CX: -8, CZ: -6, HX: 0.75, HZ: 0.75},
+	{CX: 8, CZ: -6, HX: 0.75, HZ: 0.75},
+	{CX: -8, CZ: 6, HX: 0.75, HZ: 0.75},
+	{CX: 8, CZ: 6, HX: 0.75, HZ: 0.75},
+	{CX: 0, CZ: -10, HX: 0.75, HZ: 0.75},
+	{CX: 0, CZ: 10, HX: 0.75, HZ: 0.75},
 	// Cover boxes
-	{cx: -5, cz: -2, hx: 1.5, hz: 0.5},
-	{cx: 5, cz: 2, hx: 1.5, hz: 0.5},
-	{cx: -12, cz: 0, hx: 0.5, hz: 1.5},
-	{cx: 12, cz: 0, hx: 0.5, hz: 1.5},
+	{CX: -5, CZ: -2, HX: 1.5, HZ: 0.5},
+	{CX: 5, CZ: 2, HX: 1.5, HZ: 0.5},
+	{CX: -12, CZ: 0, HX: 0.5, HZ: 1.5},
+	{CX: 12, CZ: 0, HX: 0.5, HZ: 1.5},
 }
 
 const enemyRadius float32 = 1.0
@@ -534,25 +570,25 @@ const enemyRadius float32 = 1.0
 func (z *Zone) pushOutOfObstacles(pos *entity.Vec3) {
 	for _, obs := range arenaObstacles {
 		// Expand obstacle by enemy radius (Minkowski sum)
-		exHx := obs.hx + enemyRadius
-		exHz := obs.hz + enemyRadius
-		dx := pos.X - obs.cx
-		dz := pos.Z - obs.cz
+		exHx := obs.HX + enemyRadius
+		exHz := obs.HZ + enemyRadius
+		dx := pos.X - obs.CX
+		dz := pos.Z - obs.CZ
 		if dx > -exHx && dx < exHx && dz > -exHz && dz < exHz {
 			// Inside — push out along shortest axis
 			pushX := exHx - abs32(dx)
 			pushZ := exHz - abs32(dz)
 			if pushX < pushZ {
 				if dx > 0 {
-					pos.X = obs.cx + exHx
+					pos.X = obs.CX + exHx
 				} else {
-					pos.X = obs.cx - exHx
+					pos.X = obs.CX - exHx
 				}
 			} else {
 				if dz > 0 {
-					pos.Z = obs.cz + exHz
+					pos.Z = obs.CZ + exHz
 				} else {
-					pos.Z = obs.cz - exHz
+					pos.Z = obs.CZ - exHz
 				}
 			}
 		}
@@ -712,7 +748,7 @@ func (z *Zone) processEnemyMeleeAttack() {
 				continue
 			}
 			dist := e.Position.DistanceTo(p.Position)
-			if dist <= entity.MeleeRange {
+			if dist <= entity.MeleeRange && !combat.SegmentHitsObstacle(e.Position, p.Position, arenaObstacles) {
 				dealt := p.ApplyDamage(e.GetMeleeDamage())
 				if dealt > 0 {
 					hitDir := p.Position.Sub(e.Position).Normalized()
@@ -783,7 +819,7 @@ func (z *Zone) processEnemyAoESlam() {
 			if !p.Alive {
 				continue
 			}
-			if combat.CheckAoERadius(e.Position, p.Position, radius) {
+			if combat.CheckAoERadius(e.Position, p.Position, radius, arenaObstacles) {
 				dealt := p.ApplyDamage(damage)
 				if dealt > 0 {
 					z.damageEvents = append(z.damageEvents, combat.DamageEvent{
@@ -893,6 +929,12 @@ func (z *Zone) processProjectiles(dt float32) {
 			continue
 		}
 
+		// Kill projectile if it hits an obstacle
+		if combat.ProjectileHitsObstacle(proj.Position, entity.ProjectileHitRadius, arenaObstacles) {
+			proj.Alive = false
+			continue
+		}
+
 		// Check hit against players (enemy projectiles)
 		if proj.OwnerID == 0 {
 			for _, p := range z.Players {
@@ -927,9 +969,10 @@ func (z *Zone) processProjectiles(dt float32) {
 
 func (z *Zone) checkFightEnd() {
 	if z.Enemy.State == entity.EnemyDead {
-		z.State = StateResult
-		z.ResultTimer = 3.0
-		z.broadcastGameFlow(message.FlowShowResult, "VICTORY")
+		z.State = StateFightOver
+		z.BossDefeated = true
+		z.Projectiles = nil
+		z.broadcastGameFlow(message.FlowBossDead, "")
 		return
 	}
 
@@ -941,9 +984,11 @@ func (z *Zone) checkFightEnd() {
 		}
 	}
 	if allDead && len(z.Players) > 0 {
-		z.State = StateResult
-		z.ResultTimer = 3.0
-		z.broadcastGameFlow(message.FlowShowResult, "YOU DIED")
+		z.State = StateFightOver
+		z.BossDefeated = false
+		z.Projectiles = nil
+		z.Enemy.Reset(z.enemySpawn)
+		z.broadcastGameFlow(message.FlowAllDead, "")
 	}
 }
 
@@ -951,12 +996,23 @@ func (z *Zone) checkFightEnd() {
 // Result tick
 // =============================================================================
 
-func (z *Zone) tickResult() {
-	z.ResultTimer -= DeltaTime
-	if z.ResultTimer <= 0 {
-		if z.OnResultEnd != nil {
-			z.OnResultEnd(z.ID)
-		} else {
+func (z *Zone) tickFightOver() {
+	for _, p := range z.Players {
+		if p.Alive {
+			p.FireCooldown -= DeltaTime
+		}
+	}
+
+	// After a wipe, transition back to lobby once all players have respawned
+	if !z.BossDefeated {
+		allAlive := true
+		for _, p := range z.Players {
+			if !p.Alive {
+				allAlive = false
+				break
+			}
+		}
+		if allAlive && len(z.Players) > 0 {
 			z.returnToLobby()
 		}
 	}
@@ -992,7 +1048,7 @@ func (z *Zone) broadcastState() {
 	switch z.State {
 	case StateLobby:
 		z.broadcastLobbyState()
-	case StateSpawned, StateFight, StateResult:
+	case StateSpawned, StateFight, StateFightOver:
 		z.broadcastWorldState()
 		z.broadcastDamageEvents()
 	}
@@ -1075,6 +1131,7 @@ func (z *Zone) broadcastWorldState() {
 		buf = append(buf, byte(len(animBytes)))
 		buf = append(buf, animBytes...)
 		buf = appendFloat32(buf, p.AnimSpeed)
+		buf = appendFloat32(buf, p.AimPitch)
 	}
 
 	// Enemy

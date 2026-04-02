@@ -1,9 +1,8 @@
 extends Control
 
-## Gunner HUD — crosshair, health bar, hit/damage feedback, roll cooldown.
+## Gunner HUD — crosshair, hit/damage feedback, roll cooldown.
 
 @onready var crosshair: Control = $Crosshair
-@onready var health_bar: ProgressBar = $HealthBar
 @onready var damage_overlay: ColorRect = $DamageOverlay
 
 var _hit_marker_timer: float = 0.0
@@ -29,11 +28,6 @@ func _process(delta: float) -> void:
 	if _recoil_timer > 0.0:
 		_recoil_timer -= delta
 	crosshair.queue_redraw()
-
-
-func update_health(current: float, maximum: float) -> void:
-	health_bar.max_value = maximum
-	health_bar.value = current
 
 
 func update_roll_cooldown(remaining: float, total: float) -> void:
