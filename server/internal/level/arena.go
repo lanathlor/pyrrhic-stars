@@ -48,6 +48,12 @@ func NewArenaLevel() *Level {
 			{CX: 5, CZ: 2, HX: 1.5, HZ: 0.5, Height: 1.2},
 			{CX: -12, CZ: 0, HX: 0.5, HZ: 1.5, Height: 1.2},
 			{CX: 12, CZ: 0, HX: 0.5, HZ: 1.5, Height: 1.2},
+			// Connector walls between hallway (X ±8) and boss room (X ±20) at Z=13
+			{CX: -14, CZ: 11.6, HX: 6.0, HZ: 0.25},
+			{CX: 14, CZ: 11.6, HX: 6.0, HZ: 0.25},
+			// Hallway side walls (X ±8, Z 12-40)
+			{CX: -8, CZ: 26, HX: 0.25, HZ: 14.0},
+			{CX: 8, CZ: 26, HX: 0.25, HZ: 14.0},
 			// Hallway cover crates (waist-height, 1.2m)
 			{CX: 0, CZ: 27, HX: 1.0, HZ: 0.5, Height: 1.2},
 			{CX: -4, CZ: 30, HX: 0.5, HZ: 0.5, Height: 1.2},
@@ -112,7 +118,7 @@ func NewArenaLevel() *Level {
 			{
 				Position: entity.Vec3{X: 0, Y: 0.1, Z: 0}, DefName: "guard_captain",
 				PatrolA: entity.Vec3{X: -5, Y: 0.1, Z: 0}, PatrolB: entity.Vec3{X: 5, Y: 0.1, Z: 0},
-				IsBoss: true, AggroRadius: 15, LeashRadius: 30,
+				IsBoss: true, AggroRadius: 10, LeashRadius: 30,
 			},
 		},
 	}
