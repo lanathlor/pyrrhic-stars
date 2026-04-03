@@ -45,18 +45,35 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	if _hit_marker_timer <= 0.0:
-		return
 	var center := size / 2.0
-	var t: float = _hit_marker_timer / HIT_MARKER_DURATION
-	var color := Color(1.0, 0.2, 0.2, t)
-	var gap: float = 5.0
-	var x_len: float = 10.0
-	var thick: float = 2.5
-	draw_line(center + Vector2(-gap - x_len, -gap - x_len), center + Vector2(-gap, -gap), color, thick, true)
-	draw_line(center + Vector2(gap + x_len, -gap - x_len), center + Vector2(gap, -gap), color, thick, true)
-	draw_line(center + Vector2(-gap - x_len, gap + x_len), center + Vector2(-gap, gap), color, thick, true)
-	draw_line(center + Vector2(gap + x_len, gap + x_len), center + Vector2(gap, gap), color, thick, true)
+
+	# GCD arc on crosshair
+	if _gcd_ratio > 0.01:
+		var radius := 22.0
+		var thickness := 3.0
+		var arc_color := ORBIT_COLOR if _current_config == 0 else LANCE_COLOR
+		arc_color.a = 0.7
+		var start_angle := -PI / 2.0
+		var sweep_angle := _gcd_ratio * TAU
+		var segments := 32
+		for i in range(segments):
+			var a1 := start_angle + sweep_angle * (float(i) / float(segments))
+			var a2 := start_angle + sweep_angle * (float(i + 1) / float(segments))
+			draw_line(center + Vector2(cos(a1), sin(a1)) * radius,
+				center + Vector2(cos(a2), sin(a2)) * radius, arc_color, thickness, true)
+
+	# Hit marker
+	if _hit_marker_timer > 0.0:
+		var t: float = _hit_marker_timer / HIT_MARKER_DURATION
+		var color := Color(1.0, 0.2, 0.2, t)
+		var gap: float = 5.0
+		var x_len: float = 10.0
+		var thick: float = 2.5
+		draw_line(center + Vector2(-gap - x_len, -gap - x_len), center + Vector2(-gap, -gap), color, thick, true)
+		draw_line(center + Vector2(gap + x_len, -gap - x_len), center + Vector2(gap, -gap), color, thick, true)
+		draw_line(center + Vector2(-gap - x_len, gap + x_len), center + Vector2(-gap, gap), color, thick, true)
+		draw_line(center + Vector2(gap + x_len, gap + x_len), center + Vector2(gap, gap), color, thick, true)
+
 	config_display.queue_redraw()
 	ability_bar.queue_redraw()
 
@@ -101,7 +118,7 @@ func _draw_config() -> void:
 	var color := ORBIT_COLOR if _current_config == 0 else LANCE_COLOR
 
 	var font := ThemeDB.fallback_font
-	display.draw_string(font, Vector2(center_x - 40.0, 28.0), config_name,
+	display.draw_string(font, Vector2(center_x - 40.0, 32.0), config_name,
 		HORIZONTAL_ALIGNMENT_CENTER, 80, 24, color)
 
 
@@ -130,11 +147,6 @@ func _draw_abilities() -> void:
 		# Dark background
 		bar.draw_rect(slot_rect, bg_color)
 
-		# GCD sweep overlay (clockwise dark pie from 12 o'clock)
-		if _gcd_ratio > 0.01:
-			_draw_gcd_sweep(bar, Vector2(x + slot_size / 2.0, y + slot_size / 2.0),
-				slot_size / 2.0, _gcd_ratio)
-
 		# Outer border (subtle gray)
 		bar.draw_rect(slot_rect, border_color, false, 1.5)
 		# Inner glow border (config-colored)
@@ -150,17 +162,3 @@ func _draw_abilities() -> void:
 		bar.draw_string(font, Vector2(x + 4.0, y + slot_size - 6.0), ability_name,
 			HORIZONTAL_ALIGNMENT_LEFT, slot_size - 8.0, 11, text_color)
 
-
-## Draw a clockwise dark pie-slice overlay for GCD feedback.
-func _draw_gcd_sweep(canvas: Control, center: Vector2, radius: float, ratio: float) -> void:
-	var overlay_color := Color(0.0, 0.0, 0.0, 0.55)
-	var start_angle := -PI / 2.0
-	var sweep_angle := ratio * TAU
-	var points := PackedVector2Array()
-	points.append(center)
-	var segments := 16
-	for j in range(segments + 1):
-		var angle := start_angle + sweep_angle * (float(j) / float(segments))
-		points.append(center + Vector2(cos(angle), sin(angle)) * radius)
-	if points.size() >= 3:
-		canvas.draw_colored_polygon(points, overlay_color)

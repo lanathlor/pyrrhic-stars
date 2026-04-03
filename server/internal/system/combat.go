@@ -23,6 +23,14 @@ func (s *CombatSystem) Tick(w *World, dt float32) {
 		if p.State == entity.PlayerStateAttack && p.FireCooldown <= 0 {
 			p.State = entity.PlayerStateMove
 		}
+		// Blade dancer guard timer
+		if p.GuardActive {
+			p.GuardTimer -= dt
+			if p.GuardTimer <= 0 {
+				p.GuardActive = false
+				p.GuardTimer = 0
+			}
+		}
 	}
 
 	// Update combat state per player

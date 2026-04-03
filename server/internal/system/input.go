@@ -109,9 +109,18 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 				enemy.AddThreat(peerID, evt.Amount)
 			}
 		}
+	case entity.ActionGuard:
+		if p.ClassName == "blade_dancer" && !p.GuardActive {
+			p.GuardActive = true
+			p.GuardTimer = 1.5
+		}
 	case entity.ActionHeavy:
-		if p.ClassName == "vanguard" && p.FireCooldown <= 0 {
-			p.FireCooldown = 0.8
+		if (p.ClassName == "vanguard" || p.ClassName == "blade_dancer") && p.FireCooldown <= 0 {
+			if p.ClassName == "vanguard" {
+				p.FireCooldown = 0.8
+			} else {
+				p.FireCooldown = 0.5
+			}
 			p.State = entity.PlayerStateAttack
 			evt := combat.ResolvePlayerAttackOnEnemy(p, enemy, w.Level.Obstacles)
 			if evt != nil {
@@ -171,7 +180,7 @@ func handleRespawnRequest(w *World, peerID uint16, payload []byte) {
 			w.OnPlayerRespawnHub(peerID)
 		}
 	} else if respawnType == 0 { // arena
-		if w.State == StateFightOver || w.State == StateLobby {
+		if w.State == StateFightOver || w.State == StateLobby || w.State == StateSpawned {
 			player.Alive = true
 			player.Health = player.MaxHealth
 			player.State = entity.PlayerStateMove

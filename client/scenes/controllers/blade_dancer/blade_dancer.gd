@@ -427,6 +427,9 @@ func _start_guard() -> void:
 	_config_at_cast = config
 	_has_hit_this_attack = false
 	_gcd_timer = gcd_duration
+	# Tell server we're guarding
+	if NetworkManager.is_active:
+		NetworkManager.send_ability(4)  # 4 = ActionGuard
 	match _config_at_cast:
 		Config.ORBIT:
 			_guard_active = true

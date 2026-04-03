@@ -27,9 +27,10 @@ type PlayerInput struct {
 // AbilityAction identifies a combat action sent via OpAbilityInput.
 const (
 	ActionShoot uint8 = 0 // gunner: fire weapon
-	ActionMelee uint8 = 1 // vanguard: light attack
-	ActionHeavy uint8 = 2 // vanguard: heavy attack
+	ActionMelee uint8 = 1 // vanguard/blade_dancer: light attack
+	ActionHeavy uint8 = 2 // vanguard/blade_dancer: heavy attack
 	ActionDodge uint8 = 3 // any class: dodge roll
+	ActionGuard uint8 = 4 // blade_dancer: guard / barrier
 )
 
 // Player represents a player entity on the server.
