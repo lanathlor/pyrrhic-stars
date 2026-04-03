@@ -22,11 +22,11 @@ const PLAYER_SPAWNS := [
 	Vector3(1.0, 0.1, 21.0),
 ]
 const HUB_SPAWNS := [
-	Vector3(-2.0, 0.1, -5.0),
-	Vector3(0.0, 0.1, -5.0),
-	Vector3(2.0, 0.1, -5.0),
-	Vector3(-1.0, 0.1, -3.0),
-	Vector3(1.0, 0.1, -3.0),
+	Vector3(-2.0, 0.9, -5.0),
+	Vector3(0.0, 0.9, -5.0),
+	Vector3(2.0, 0.9, -5.0),
+	Vector3(-1.0, 0.9, -4.0),
+	Vector3(1.0, 0.9, -4.0),
 ]
 
 const CLASS_SCENES := {
@@ -294,8 +294,8 @@ func _check_portal_proximity() -> void:
 	var player: CharacterBody3D = _spawned_players[my_id]
 	if not is_instance_valid(player):
 		return
-	# Portal is at (0, 2, 12) in hub
-	var portal_pos := Vector3(0.0, 0.1, 12.0)
+	# Portal is at (0, 2, 14.5) in hub — against the south wall
+	var portal_pos := Vector3(0.0, 0.1, 14.5)
 	var dist := player.global_position.distance_to(portal_pos)
 	_near_portal = dist < 4.0
 	_portal_prompt.visible = _near_portal

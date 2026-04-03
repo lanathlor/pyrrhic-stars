@@ -32,7 +32,6 @@ CombatLog="*res://scripts/autoload/combat_log.gd"
 window/size/viewport_width=1920
 window/size/viewport_height=1080
 window/stretch/mode="viewport"
-window/dpi/allow_hidpi=true
 display_server/driver.linuxbsd="wayland"
 
 [input]
