@@ -206,12 +206,12 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _physics_process(delta: float) -> void:
 	if not _is_local():
-		# Remote: interpolate toward synced position/rotation
 		global_position = global_position.move_toward(_net_position, 12.0 * delta)
 		rotation.y = lerp_angle(rotation.y, _net_rotation_y, 8.0 * delta)
 		if _net_anim != "":
 			character_model.play_anim(_net_anim, _net_anim_speed)
 		return
+
 
 	# Dead: freeze movement and abilities, but keep sending position
 	if not _alive:
@@ -335,7 +335,7 @@ func _shoot() -> void:
 
 	# Tell server we fired
 	if NetworkManager.is_active:
-		NetworkManager.send_ability(0, head.rotation.x)  # 0 = ActionShoot
+		NetworkManager.send_ability(0, head.rotation.x, rotation.y)  # 0 = ActionShoot
 
 
 func _update_muzzle_flash(delta: float) -> void:

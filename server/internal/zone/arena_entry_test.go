@@ -1,6 +1,8 @@
 package zone
 
 import (
+	"codex-online/server/internal/entity"
+	"codex-online/server/internal/message"
 	"context"
 	"encoding/binary"
 	"math"
@@ -36,9 +38,54 @@ func buildPlayerInputPayload(x, y, z, rotY float32, tick uint32, animName string
 	return buf
 }
 
-// TestArenaEntry_ZeroPositionTriggersFight tests if a (0,0,0) position
-// from client input triggers the fight prematurely.
-func TestArenaEntry_ZeroPositionTriggersFight(t *testing.T) {
+// TestArenaInstance_EnemiesAliveFromCreation verifies that enemies are
+// alive and patrolling as soon as the arena zone is created.
+func TestArenaInstance_EnemiesAliveFromCreation(t *testing.T) {
+	z := New("test_arena", ZoneTypeArena)
+
+	aliveCount := 0
+	patrolCount := 0
+	for _, e := range z.world.Enemies {
+		if e.Alive {
+			aliveCount++
+		}
+		if e.State == entity.EnemyPatrol {
+			patrolCount++
+		}
+	}
+
+	if aliveCount == 0 {
+		t.Error("no alive enemies after zone creation — InitInstance should activate them")
+	}
+	if patrolCount != aliveCount {
+		t.Errorf("patrol=%d, alive=%d — all enemies should start in patrol state", patrolCount, aliveCount)
+	}
+	t.Logf("zone created with %d alive enemies, all patrolling", aliveCount)
+}
+
+// TestArenaInstance_FightStartsOnPlayerJoin verifies that the state
+// transitions to StateFight once a player joins and a tick runs.
+func TestArenaInstance_FightStartsOnPlayerJoin(t *testing.T) {
+	z := New("test_arena", ZoneTypeArena)
+
+	send, msgs := captureSend()
+	c := &Client{PeerID: 1, Username: "TestPlayer", Send: send}
+	z.AddClient(c)
+
+	// Run a tick — should transition from Spawned to Fight
+	z.processTick()
+
+	if z.world.State != StateFight {
+		t.Errorf("State = %d, want StateFight (%d)", z.world.State, StateFight)
+	}
+	if !findGameFlowEvent(*msgs, message.FlowFightStart) {
+		t.Error("client did not receive FlowFightStart")
+	}
+}
+
+// TestArenaInstance_TeleportRejected verifies that a (0,0,0) position
+// from client input is rejected as a teleport.
+func TestArenaInstance_TeleportRejected(t *testing.T) {
 	z := New("test_arena_zero", ZoneTypeArena)
 
 	send, _ := captureSend()
@@ -50,34 +97,27 @@ func TestArenaEntry_ZeroPositionTriggersFight(t *testing.T) {
 
 	z.AddClient(c)
 
-	// Simulate client sending (0, 0, 0) position
+	// Simulate client sending (0, 0, 0) position — too far from spawn (Z≈48)
 	zeroPayload := buildPlayerInputPayload(0, 0, 0, 0, 1, "idle", 1.0, 0)
 	z.QueueInput(1, 0x0030, zeroPayload)
 
 	time.Sleep(100 * time.Millisecond)
 
 	z.mu.Lock()
-	state := z.world.State
 	pos := z.world.Players[1].Position
 	z.mu.Unlock()
 
-	t.Logf("After (0,0,0) input: state=%d, pos=%+v", state, pos)
-
-	if state == StateFight {
-		t.Error("Fight started because client sent (0,0,0) position — server should clamp Z >= 12 during warmup")
-	}
-	if pos.Z < 12.0 {
-		t.Errorf("Player Z=%f after (0,0,0) input — server should have clamped to Z >= 12", pos.Z)
+	if pos.Z < 40.0 {
+		t.Errorf("Player Z=%f after (0,0,0) input — server should have rejected the teleport", pos.Z)
 	}
 
 	cancel()
 	time.Sleep(50 * time.Millisecond)
 }
 
-// TestArenaEntry_HubPositionDoesNotTriggerFight tests that a position
-// right at the portal (Z=12) doesn't trigger the fight.
-func TestArenaEntry_HubPositionDoesNotTriggerFight(t *testing.T) {
-	z := New("test_arena_hub", ZoneTypeArena)
+// TestArenaInstance_ConcurrentTickSafe verifies no race between Run and AddClient.
+func TestArenaInstance_ConcurrentTickSafe(t *testing.T) {
+	z := New("test_arena_concurrent", ZoneTypeArena)
 
 	send, _ := captureSend()
 	c := &Client{PeerID: 1, Username: "TestPlayer", Send: send}
@@ -87,35 +127,14 @@ func TestArenaEntry_HubPositionDoesNotTriggerFight(t *testing.T) {
 	go z.Run(ctx)
 
 	z.AddClient(c)
-
-	// Z=12 is the portal position — should NOT trigger (condition is Z < 12, not Z <= 12)
-	portalPayload := buildPlayerInputPayload(0, 0.1, 12.0, 0, 1, "idle", 1.0, 0)
-	z.QueueInput(1, 0x0030, portalPayload)
-
-	time.Sleep(100 * time.Millisecond)
-
-	z.mu.Lock()
-	state := z.world.State
-	z.mu.Unlock()
-
-	if state == StateFight {
-		t.Error("Fight started at Z=12.0 — portal position should not trigger fight")
-	}
-
-	// Z=11.9 should trigger
-	enterPayload := buildPlayerInputPayload(0, 0.1, 11.9, 0, 2, "idle", 1.0, 0)
-	z.QueueInput(1, 0x0030, enterPayload)
-
-	time.Sleep(100 * time.Millisecond)
-
-	z.mu.Lock()
-	state = z.world.State
-	z.mu.Unlock()
-
-	if state != StateFight {
-		t.Errorf("State = %d after Z=11.9, want StateFight", state)
-	}
+	time.Sleep(200 * time.Millisecond)
 
 	cancel()
 	time.Sleep(50 * time.Millisecond)
+
+	// Should be in fight state (ticked at least once with a player)
+	if z.world.State != StateFight {
+		t.Errorf("State = %d after 200ms, want StateFight", z.world.State)
+	}
+	t.Logf("Final state: %d, Player pos: %+v", z.world.State, z.world.Players[1].Position)
 }

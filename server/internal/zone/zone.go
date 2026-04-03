@@ -89,11 +89,32 @@ func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
 	}
 
 	if zoneType == ZoneTypeArena {
-		enemy := entity.NewEnemy(0)
-		enemy.Alive = false // dormant until fight starts
-		brain := enemyai.NewBrain(&enemyai.GuardCaptain, enemy)
-		z.world.Enemies = []*entity.Enemy{enemy}
-		z.world.Brains = []*enemyai.Brain{brain}
+		for i, sp := range l.EnemySpawns {
+			def := enemyai.DefRegistry[sp.DefName]
+			if def == nil {
+				slog.Warn("unknown enemy def", "def_name", sp.DefName)
+				continue
+			}
+			enemy := entity.NewEnemy(uint16(1000+i), def.MaxHealth, sp.DefName)
+			enemy.Alive = false // dormant until fight starts
+			enemy.IsBoss = sp.IsBoss
+			enemy.PatrolA = sp.PatrolA
+			enemy.PatrolB = sp.PatrolB
+			enemy.AggroRadius = sp.AggroRadius
+			enemy.LeashOrigin = sp.Position
+			enemy.LeashRadius = sp.LeashRadius
+			enemy.GroupID = sp.GroupID
+			brain := enemyai.NewBrain(def, enemy)
+			// Brain bounds = full instance bounds (leash handles area restriction)
+			brain.BoundsMinX = l.EnemyBoundsMinX
+			brain.BoundsMaxX = l.EnemyBoundsMaxX
+			brain.BoundsMinZ = l.EnemyBoundsMinZ
+			brain.BoundsMaxZ = l.EnemyBoundsMaxZ
+			z.world.Enemies = append(z.world.Enemies, enemy)
+			z.world.Brains = append(z.world.Brains, brain)
+		}
+		// Activate all enemies immediately — they patrol from the start
+		system.InitInstance(&z.world)
 	}
 
 	// Build system pipeline based on zone type.

@@ -98,6 +98,182 @@ func TestCheckHitscanDirect(t *testing.T) {
 	}
 }
 
+// TestCheckHitscanAngles tests hitscan from all cardinal directions and diagonals
+// using realistic player eye height (1.6) aiming at enemy center (Y=1.0).
+func TestCheckHitscanAngles(t *testing.T) {
+	target := entity.Vec3{X: 0, Y: 1.0, Z: 0} // enemy center mass
+	radius := float32(2.0)
+	maxRange := float32(100.0)
+
+	// Helper: compute aim direction from eye position to a point
+	aimAt := func(from, to entity.Vec3) entity.Vec3 {
+		return to.Sub(from).Normalized()
+	}
+
+	eyeY := float32(1.6)
+	enemyFeet := entity.Vec3{X: 0, Y: 0.1, Z: 0}
+
+	tests := []struct {
+		name   string
+		origin entity.Vec3
+		dir    entity.Vec3
+		want   bool
+	}{
+		// === Direct aim at center from all 4 cardinal directions, distance 10 ===
+		{
+			name:   "front Z+10 aim at center",
+			origin: entity.Vec3{X: 0, Y: eyeY, Z: 10},
+			dir:    aimAt(entity.Vec3{X: 0, Y: eyeY, Z: 10}, target),
+			want:   true,
+		},
+		{
+			name:   "back Z-10 aim at center",
+			origin: entity.Vec3{X: 0, Y: eyeY, Z: -10},
+			dir:    aimAt(entity.Vec3{X: 0, Y: eyeY, Z: -10}, target),
+			want:   true,
+		},
+		{
+			name:   "left X-10 aim at center",
+			origin: entity.Vec3{X: -10, Y: eyeY, Z: 0},
+			dir:    aimAt(entity.Vec3{X: -10, Y: eyeY, Z: 0}, target),
+			want:   true,
+		},
+		{
+			name:   "right X+10 aim at center",
+			origin: entity.Vec3{X: 10, Y: eyeY, Z: 0},
+			dir:    aimAt(entity.Vec3{X: 10, Y: eyeY, Z: 0}, target),
+			want:   true,
+		},
+		// === Diagonals ===
+		{
+			name:   "diagonal NE aim at center",
+			origin: entity.Vec3{X: 7, Y: eyeY, Z: 7},
+			dir:    aimAt(entity.Vec3{X: 7, Y: eyeY, Z: 7}, target),
+			want:   true,
+		},
+		{
+			name:   "diagonal SW aim at center",
+			origin: entity.Vec3{X: -7, Y: eyeY, Z: -7},
+			dir:    aimAt(entity.Vec3{X: -7, Y: eyeY, Z: -7}, target),
+			want:   true,
+		},
+		// === Close range side shot (the reported problem) ===
+		{
+			name:   "close left X-3 aim at center",
+			origin: entity.Vec3{X: -3, Y: eyeY, Z: 0},
+			dir:    aimAt(entity.Vec3{X: -3, Y: eyeY, Z: 0}, target),
+			want:   true,
+		},
+		{
+			name:   "close right X+3 aim at center",
+			origin: entity.Vec3{X: 3, Y: eyeY, Z: 0},
+			dir:    aimAt(entity.Vec3{X: 3, Y: eyeY, Z: 0}, target),
+			want:   true,
+		},
+		// === Aim at feet from the side ===
+		{
+			name:   "side aim at feet",
+			origin: entity.Vec3{X: 5, Y: eyeY, Z: 0},
+			dir:    aimAt(entity.Vec3{X: 5, Y: eyeY, Z: 0}, enemyFeet),
+			want:   true,
+		},
+		// === Aim straight horizontal from the side (Y=1.0, no pitch) ===
+		{
+			name:   "side pure horizontal",
+			origin: entity.Vec3{X: 10, Y: 1.0, Z: 0},
+			dir:    entity.Vec3{X: -1, Y: 0, Z: 0},
+			want:   true,
+		},
+		// === Aim level from side at eye height (Y=1.6) — slight downward needed ===
+		{
+			name:   "side eye height level aim (no pitch)",
+			origin: entity.Vec3{X: 10, Y: eyeY, Z: 0},
+			dir:    entity.Vec3{X: -1, Y: 0, Z: 0}, // pure horizontal
+			want:   true, // Y=1.6 is within cylinder [0, 2.5]
+		},
+		// === Close range side, aim slightly past center ===
+		{
+			name:   "close side aim slightly past",
+			origin: entity.Vec3{X: -4, Y: eyeY, Z: 0.5},
+			dir:    aimAt(entity.Vec3{X: -4, Y: eyeY, Z: 0.5}, entity.Vec3{X: 0, Y: 1.0, Z: 0.5}),
+			want:   true,
+		},
+		// === Miss cases ===
+		{
+			name:   "side aim above head",
+			origin: entity.Vec3{X: 10, Y: eyeY, Z: 0},
+			dir:    entity.Vec3{X: -1, Y: 0.5, Z: 0}, // aiming up
+			want:   false,
+		},
+		{
+			name:   "side aim wide miss",
+			origin: entity.Vec3{X: 10, Y: eyeY, Z: 5},
+			dir:    entity.Vec3{X: -1, Y: 0, Z: 0}, // parallel, 5 units offset
+			want:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := CheckHitscan(tt.origin, tt.dir, target, radius, maxRange, nil)
+			if got != tt.want {
+				t.Errorf("CheckHitscan = %v, want %v\n  origin=%v dir=%v target=%v radius=%.1f",
+					got, tt.want, tt.origin, tt.dir, target, radius)
+			}
+		})
+	}
+}
+
+// TestCheckHitscanRealisticGunner simulates a real gunner shooting using
+// the same yaw/pitch → direction math as entity.Player.AimDirection().
+func TestCheckHitscanRealisticGunner(t *testing.T) {
+	type scenario struct {
+		name      string
+		playerPos entity.Vec3
+		enemyPos  entity.Vec3
+	}
+
+	scenarios := []scenario{
+		{"side shot from +X", entity.Vec3{X: 5, Y: 0.1, Z: 32}, entity.Vec3{X: 0, Y: 0.1, Z: 32}},
+		{"side shot from -X", entity.Vec3{X: -5, Y: 0.1, Z: 32}, entity.Vec3{X: 0, Y: 0.1, Z: 32}},
+		{"front shot from +Z", entity.Vec3{X: 0, Y: 0.1, Z: 42}, entity.Vec3{X: 0, Y: 0.1, Z: 32}},
+		{"back shot from -Z", entity.Vec3{X: 0, Y: 0.1, Z: 22}, entity.Vec3{X: 0, Y: 0.1, Z: 32}},
+		{"diagonal shot", entity.Vec3{X: 5, Y: 0.1, Z: 37}, entity.Vec3{X: 0, Y: 0.1, Z: 32}},
+		{"close side shot", entity.Vec3{X: 3, Y: 0.1, Z: 32}, entity.Vec3{X: 0, Y: 0.1, Z: 32}},
+	}
+
+	for _, sc := range scenarios {
+		t.Run(sc.name, func(t *testing.T) {
+			eye := entity.Vec3{X: sc.playerPos.X, Y: 1.6, Z: sc.playerPos.Z}
+			targetCenter := sc.enemyPos.Add(entity.Vec3{Y: 1.0})
+
+			// Compute direction exactly like the Godot client + server AimDirection:
+			// AimDirection: dir = (-sin(yaw)*cos(pitch), sin(pitch), -cos(yaw)*cos(pitch))
+			// Solving for yaw: -sin(yaw) = dir.X/cos(pitch), -cos(yaw) = dir.Z/cos(pitch)
+			// So yaw = atan2(-dir.X, -dir.Z) = atan2(sin(yaw), cos(yaw))
+			// For a desired direction toward the enemy:
+			toEnemy := targetCenter.Sub(eye)
+			horizDist := float32(math.Sqrt(float64(toEnemy.X*toEnemy.X + toEnemy.Z*toEnemy.Z)))
+			pitch := float32(math.Atan2(float64(toEnemy.Y), float64(horizDist)))
+			// yaw such that (-sin(yaw), -cos(yaw)) points toward target on XZ plane
+			yaw := float32(math.Atan2(float64(-toEnemy.X), float64(-toEnemy.Z)))
+
+			cp := float32(math.Cos(float64(pitch)))
+			sp := float32(math.Sin(float64(pitch)))
+			sy := float32(math.Sin(float64(yaw)))
+			cy := float32(math.Cos(float64(yaw)))
+			dir := entity.Vec3{X: -sy * cp, Y: sp, Z: -cy * cp}
+
+			t.Logf("eye=%v target=%v yaw=%.3f pitch=%.3f dir=%v", eye, targetCenter, yaw, pitch, dir)
+
+			got := CheckHitscan(eye, dir, targetCenter, 2.0, 100.0, nil)
+			if !got {
+				t.Errorf("MISSED — direct aim at enemy should hit")
+			}
+		})
+	}
+}
+
 func TestCheckMeleeArc(t *testing.T) {
 	tests := []struct {
 		name      string

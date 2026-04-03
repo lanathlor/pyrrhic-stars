@@ -59,6 +59,8 @@ const FLOW_RETURN_LOBBY := 5
 const FLOW_RETURN_HUB := 6
 const FLOW_BOSS_DEAD := 7
 const FLOW_ALL_DEAD := 8
+const FLOW_BOSS_ACTIVATED := 9
+const FLOW_BOSS_RESET := 10
 
 # Zone type constants
 const ZONE_TYPE_HUB := 0
@@ -322,12 +324,12 @@ func encode_player_input(pos: Vector3, rot_y: float, tick: int, anim_name: Strin
 ## Encode an ability/action request.
 ## Format: [action_id:u8][extra...]
 ## action_id: 0=shoot, 1=melee, 2=heavy, 3=dodge
-## For shoot: [action_id:u8][aim_pitch:f32]
-func encode_ability(action_id: int, aim_pitch: float = 0.0) -> PackedByteArray:
+## For shoot: [action_id:u8][aim_pitch:f32][rot_y:f32]
+func encode_ability(action_id: int, aim_pitch: float = 0.0, rot_y: float = 0.0) -> PackedByteArray:
 	var buf := StreamPeerBuffer.new()
 	buf.put_u8(action_id)
-	if action_id == 0:  # shoot includes aim pitch
-		buf.put_float(aim_pitch)
+	buf.put_float(aim_pitch)
+	buf.put_float(rot_y)
 	return buf.data_array
 
 
@@ -368,10 +370,12 @@ func decode_interact_input(data: PackedByteArray) -> Dictionary:
 
 ## Format: [tick:u32][player_count:u8]
 ##   per player: [peer_id:u16][x:f32][y:f32][z:f32][rot_y:f32][health:f32]
-##               [state:u8][anim_name_len:u8][anim_name:...][anim_speed:f32]
-## Then: [enemy_alive:u8]
-##   if alive: [enemy_id:u16][ex:f32][ey:f32][ez:f32][erot_y:f32][ehealth:f32]
-##             [estate:u8][ephase:u8][ranged_target:3f][charge_dir:3f]
+##               [state:u8][class_len:u8][class:...][username_len:u8][username:...]
+##               [anim_name_len:u8][anim_name:...][anim_speed:f32][aim_pitch:f32]
+## Then: [enemy_count:u8]
+##   per enemy: [alive:u8][enemy_id:u16][ex:f32][ey:f32][ez:f32][erot_y:f32]
+##              [ehealth:f32][estate:u8][ephase:u8][emax_health:f32]
+##              [def_name_len:u8][def_name:...][ranged_target:3f][charge_dir:3f]
 ## Then: [proj_count:u8]
 ##   per projectile: [proj_id:u32][px:f32][py:f32][pz:f32][dx:f32][dy:f32][dz:f32]
 func decode_world_state(data: PackedByteArray) -> Dictionary:
@@ -407,27 +411,34 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 			"aim_pitch": aim_pitch,
 		})
 
-	# Enemy — always read all fields (server writes them regardless of alive status)
-	var enemy_alive := buf.get_u8() == 1
-	var enemy_id := buf.get_u16()
-	var epos := Vector3(buf.get_float(), buf.get_float(), buf.get_float())
-	var erot_y := buf.get_float()
-	var ehealth := buf.get_float()
-	var estate := buf.get_u8()
-	var ephase := buf.get_u8()
-	var ranged_target := Vector3(buf.get_float(), buf.get_float(), buf.get_float())
-	var charge_dir := Vector3(buf.get_float(), buf.get_float(), buf.get_float())
-	var enemy := {
-		"alive": enemy_alive,
-		"enemy_id": enemy_id,
-		"pos": epos,
-		"rot_y": erot_y,
-		"health": ehealth,
-		"state": estate,
-		"phase": ephase,
-		"ranged_target": ranged_target,
-		"charge_dir": charge_dir,
-	}
+	# Enemies — count-prefixed array
+	var enemy_count := buf.get_u8()
+	var enemies: Array[Dictionary] = []
+	for i in range(enemy_count):
+		var enemy_alive := buf.get_u8() == 1
+		var enemy_id := buf.get_u16()
+		var epos := Vector3(buf.get_float(), buf.get_float(), buf.get_float())
+		var erot_y := buf.get_float()
+		var ehealth := buf.get_float()
+		var estate := buf.get_u8()
+		var ephase := buf.get_u8()
+		var emax_health := buf.get_float()
+		var edef_name := _get_str8(buf)
+		var ranged_target := Vector3(buf.get_float(), buf.get_float(), buf.get_float())
+		var charge_dir := Vector3(buf.get_float(), buf.get_float(), buf.get_float())
+		enemies.append({
+			"alive": enemy_alive,
+			"enemy_id": enemy_id,
+			"pos": epos,
+			"rot_y": erot_y,
+			"health": ehealth,
+			"state": estate,
+			"phase": ephase,
+			"max_health": emax_health,
+			"def_name": edef_name,
+			"ranged_target": ranged_target,
+			"charge_dir": charge_dir,
+		})
 
 	# Projectiles
 	var proj_count := buf.get_u8()
@@ -445,7 +456,7 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 	return {
 		"tick": tick,
 		"players": players,
-		"enemy": enemy,
+		"enemies": enemies,
 		"projectiles": projectiles,
 	}
 

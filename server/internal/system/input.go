@@ -77,7 +77,11 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 		return
 	}
 
-	enemy := w.FirstEnemy()
+	// Update rotation from ability packet so hitscan uses the exact aim at time of shot
+	if inp.RotY != 0 {
+		p.RotationY = inp.RotY
+	}
+	p.AimPitch = inp.AimPitch
 
 	switch inp.Action {
 	case entity.ActionShoot:
@@ -85,12 +89,12 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 		if p.ClassName == "gunner" && p.FireCooldown <= 0 {
 			p.FireCooldown = 0.18
 			p.State = entity.PlayerStateAttack
-			p.AimPitch = inp.AimPitch
-			evt := combat.ResolvePlayerAttackOnEnemy(p, enemy, w.Level.Obstacles)
+			evt, hitEnemy := combat.ResolvePlayerAttackOnEnemies(p, w.Enemies, w.Level.Obstacles)
 			if evt != nil {
 				evt.SourcePeerID = peerID
 				w.DamageEvents = append(w.DamageEvents, *evt)
-				enemy.AddThreat(peerID, evt.Amount)
+				hitEnemy.AddThreat(peerID, evt.Amount)
+				w.AggroEnemy(hitEnemy, peerID)
 			}
 		}
 	case entity.ActionMelee:
@@ -102,11 +106,12 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 				p.FireCooldown = 0.3
 			}
 			p.State = entity.PlayerStateAttack
-			evt := combat.ResolvePlayerAttackOnEnemy(p, enemy, w.Level.Obstacles)
+			evt, hitEnemy := combat.ResolvePlayerAttackOnEnemies(p, w.Enemies, w.Level.Obstacles)
 			if evt != nil {
 				evt.SourcePeerID = peerID
 				w.DamageEvents = append(w.DamageEvents, *evt)
-				enemy.AddThreat(peerID, evt.Amount)
+				hitEnemy.AddThreat(peerID, evt.Amount)
+				w.AggroEnemy(hitEnemy, peerID)
 			}
 		}
 	case entity.ActionGuard:
@@ -122,11 +127,12 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 				p.FireCooldown = 0.5
 			}
 			p.State = entity.PlayerStateAttack
-			evt := combat.ResolvePlayerAttackOnEnemy(p, enemy, w.Level.Obstacles)
+			evt, hitEnemy := combat.ResolvePlayerAttackOnEnemies(p, w.Enemies, w.Level.Obstacles)
 			if evt != nil {
 				evt.SourcePeerID = peerID
 				w.DamageEvents = append(w.DamageEvents, *evt)
-				enemy.AddThreat(peerID, evt.Amount)
+				hitEnemy.AddThreat(peerID, evt.Amount)
+				w.AggroEnemy(hitEnemy, peerID)
 			}
 		}
 	}
@@ -184,7 +190,7 @@ func handleRespawnRequest(w *World, peerID uint16, payload []byte) {
 			player.Alive = true
 			player.Health = player.MaxHealth
 			player.State = entity.PlayerStateMove
-			player.Position = entity.Vec3{X: 0, Y: 0.1, Z: 20}
+			player.Position = entity.Vec3{X: 0, Y: 0.1, Z: 48}
 		}
 	}
 }

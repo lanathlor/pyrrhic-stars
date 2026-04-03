@@ -56,11 +56,7 @@ func broadcastWorldState(w *World) {
 	for _, p := range w.Players {
 		players = append(players, p)
 	}
-	var enemy *entity.Enemy
-	if len(w.Enemies) > 0 {
-		enemy = w.Enemies[0]
-	}
-	payload := codec.EncodeWorldState(w.TickNum, players, enemy, w.Projectiles)
+	payload := codec.EncodeWorldState(w.TickNum, players, w.Enemies, w.Projectiles)
 	msg := message.Encode(message.OpWorldState, 0, payload)
 	for _, c := range w.Clients {
 		c.Send(msg)

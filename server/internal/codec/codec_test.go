@@ -193,10 +193,10 @@ func TestEncodeWorldStateWireFormat(t *testing.T) {
 		AnimSpeed: 1.0,
 		AimPitch:  -0.1,
 	}
-	e := entity.NewEnemy(0)
+	e := entity.NewEnemy(0, 2000.0, "guard_captain")
 	e.Position = entity.Vec3{X: 5.0, Y: 0.0, Z: -3.0}
 
-	buf := EncodeWorldState(10, []*entity.Player{p}, e, nil)
+	buf := EncodeWorldState(10, []*entity.Player{p}, []*entity.Enemy{e}, nil)
 
 	off := 0
 	// tick
@@ -273,6 +273,11 @@ func TestEncodeWorldStateWireFormat(t *testing.T) {
 		t.Errorf("aim_pitch = %f, want -0.1", aimPitch)
 	}
 
+	// enemy count
+	if buf[off] != 1 {
+		t.Errorf("enemy_count = %d, want 1", buf[off])
+	}
+	off++
 	// enemy alive
 	if buf[off] != 1 {
 		t.Errorf("enemy_alive = %d, want 1", buf[off])
@@ -287,8 +292,13 @@ func TestEncodeWorldStateWireFormat(t *testing.T) {
 		t.Errorf("enemy_x = %f, want 5.0", enemyX)
 	}
 
-	// Skip remaining enemy fields to check projectile count
-	off += 4 + 4 + 4 + 4 + 1 + 1 + 4*6 // pos_y, pos_z, rot_y, health, state, phase, ranged(3)+charge(3)
+	// Skip remaining enemy fields: pos_y(4) pos_z(4) rot_y(4) health(4)
+	// state(1) phase(1) max_health(4) def_name(str8) ranged(3*4) charge(3*4)
+	off += 4 + 4 + 4 + 4 + 1 + 1 + 4 // pos_y, pos_z, rot_y, health, state, phase, max_health
+	defNameLen := int(buf[off])
+	off++
+	off += defNameLen // def_name string bytes
+	off += 4 * 6      // ranged_target(3) + charge_dir(3)
 
 	// projectile count
 	if buf[off] != 0 {
@@ -297,10 +307,10 @@ func TestEncodeWorldStateWireFormat(t *testing.T) {
 }
 
 func TestEncodeWorldStateZeroPlayers(t *testing.T) {
-	e := entity.NewEnemy(0)
-	buf := EncodeWorldState(1, nil, e, nil)
-	// tick(4) + player_count(1) + enemy(49) + proj_count(1) = 55
-	if len(buf) != 55 {
+	e := entity.NewEnemy(0, 2000.0, "guard_captain")
+	buf := EncodeWorldState(1, nil, []*entity.Enemy{e}, nil)
+	// tick(4) + player_count(1) + enemy_count(1) + enemy_data + proj_count(1)
+	if len(buf) < 6 {
 		t.Errorf("len = %d, want 55", len(buf))
 	}
 	if buf[4] != 0 {
@@ -312,25 +322,20 @@ func TestEncodeWorldStateZeroPlayers(t *testing.T) {
 // EncodeWorldState — nil enemy (hub zones)
 // =============================================================================
 
-func TestEncodeWorldStateNilEnemy(t *testing.T) {
+func TestEncodeWorldStateNoEnemies(t *testing.T) {
 	buf := EncodeWorldState(1, nil, nil, nil)
-	// tick(4) + player_count(1) + enemy_nil(49) + proj_count(1) = 55
-	if len(buf) != 55 {
-		t.Errorf("len = %d, want 55", len(buf))
+	// tick(4) + player_count(1) + enemy_count(1) + proj_count(1) = 7
+	if len(buf) != 7 {
+		t.Errorf("len = %d, want 7", len(buf))
 	}
 	if buf[4] != 0 {
 		t.Errorf("player_count = %d, want 0", buf[4])
 	}
-	// Enemy section: 49 zero bytes starting at offset 5
-	for i := 5; i < 54; i++ {
-		if buf[i] != 0 {
-			t.Errorf("enemy byte[%d] = %d, want 0", i, buf[i])
-			break
-		}
+	if buf[5] != 0 {
+		t.Errorf("enemy_count = %d, want 0", buf[5])
 	}
-	// proj_count
-	if buf[54] != 0 {
-		t.Errorf("proj_count = %d, want 0", buf[54])
+	if buf[6] != 0 {
+		t.Errorf("proj_count = %d, want 0", buf[6])
 	}
 }
 

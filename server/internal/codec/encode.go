@@ -2,8 +2,8 @@ package codec
 
 import "codex-online/server/internal/entity"
 
-// EncodeWorldState serializes the arena tick snapshot (players, enemy, projectiles).
-func EncodeWorldState(tick uint32, players []*entity.Player, enemy *entity.Enemy, projectiles []*entity.Projectile) []byte {
+// EncodeWorldState serializes the arena tick snapshot (players, enemies, projectiles).
+func EncodeWorldState(tick uint32, players []*entity.Player, enemies []*entity.Enemy, projectiles []*entity.Projectile) []byte {
 	buf := make([]byte, 0, 512)
 
 	buf = appendU32(buf, tick)
@@ -24,29 +24,30 @@ func EncodeWorldState(tick uint32, players []*entity.Player, enemy *entity.Enemy
 		buf = appendF32(buf, p.AimPitch)
 	}
 
-	if enemy != nil {
-		if enemy.Alive {
+	// Enemies: [count:u8] then per enemy
+	buf = append(buf, byte(len(enemies)))
+	for _, e := range enemies {
+		if e.Alive {
 			buf = append(buf, 1)
 		} else {
 			buf = append(buf, 0)
 		}
-		buf = appendU16(buf, enemy.ID)
-		buf = appendF32(buf, enemy.Position.X)
-		buf = appendF32(buf, enemy.Position.Y)
-		buf = appendF32(buf, enemy.Position.Z)
-		buf = appendF32(buf, enemy.RotationY)
-		buf = appendF32(buf, enemy.Health)
-		buf = append(buf, byte(enemy.State))
-		buf = append(buf, byte(enemy.Phase))
-		buf = appendF32(buf, enemy.RangedTargetPos.X)
-		buf = appendF32(buf, enemy.RangedTargetPos.Y)
-		buf = appendF32(buf, enemy.RangedTargetPos.Z)
-		buf = appendF32(buf, enemy.ChargeDirection.X)
-		buf = appendF32(buf, enemy.ChargeDirection.Y)
-		buf = appendF32(buf, enemy.ChargeDirection.Z)
-	} else {
-		// Nil enemy (hub zones): 49 zero bytes — inert dead enemy at origin.
-		buf = append(buf, make([]byte, 49)...)
+		buf = appendU16(buf, e.ID)
+		buf = appendF32(buf, e.Position.X)
+		buf = appendF32(buf, e.Position.Y)
+		buf = appendF32(buf, e.Position.Z)
+		buf = appendF32(buf, e.RotationY)
+		buf = appendF32(buf, e.Health)
+		buf = append(buf, byte(e.State))
+		buf = append(buf, byte(e.Phase))
+		buf = appendF32(buf, e.MaxHealth)
+		buf = appendStr8(buf, e.DefName)
+		buf = appendF32(buf, e.RangedTargetPos.X)
+		buf = appendF32(buf, e.RangedTargetPos.Y)
+		buf = appendF32(buf, e.RangedTargetPos.Z)
+		buf = appendF32(buf, e.ChargeDirection.X)
+		buf = appendF32(buf, e.ChargeDirection.Y)
+		buf = appendF32(buf, e.ChargeDirection.Z)
 	}
 
 	buf = append(buf, byte(len(projectiles)))
@@ -120,7 +121,13 @@ func EncodePlayerInput(posX, posY, posZ, rotY float32, tick uint32, animName str
 
 // EncodeAbilityInput serializes a client→server ability activation packet.
 // Used by test clients to build OpAbilityInput payloads.
-func EncodeAbilityInput(action uint8, aimPitch float32) []byte {
+func EncodeAbilityInput(action uint8, aimPitch float32, rotY ...float32) []byte {
 	buf := []byte{action}
-	return appendF32(buf, aimPitch)
+	buf = appendF32(buf, aimPitch)
+	if len(rotY) > 0 {
+		buf = appendF32(buf, rotY[0])
+	} else {
+		buf = appendF32(buf, 0)
+	}
+	return buf
 }

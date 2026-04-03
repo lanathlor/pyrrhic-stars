@@ -20,7 +20,7 @@ const (
 	SourceEnemyCharge  uint8 = 4
 )
 
-// ResolvePlayerAttackOnEnemy checks if a player's attack hits the enemy and applies damage.
+// ResolvePlayerAttackOnEnemy checks if a player's attack hits a single enemy and applies damage.
 func ResolvePlayerAttackOnEnemy(player *entity.Player, enemy *entity.Enemy, obstacles []Obstacle) *DamageEvent {
 	if !enemy.Alive || enemy.State == entity.EnemyDead {
 		return nil
@@ -37,12 +37,41 @@ func ResolvePlayerAttackOnEnemy(player *entity.Player, enemy *entity.Enemy, obst
 	return nil
 }
 
+// ResolvePlayerAttackOnEnemies checks if a player's attack hits any enemy.
+// Returns the damage event and the enemy that was hit.
+func ResolvePlayerAttackOnEnemies(player *entity.Player, enemies []*entity.Enemy, obstacles []Obstacle) (*DamageEvent, *entity.Enemy) {
+	// For hitscan classes (gunner, blade_dancer), check each enemy and hit the first valid one.
+	// For melee classes (vanguard), check each enemy and hit the nearest in range.
+	var bestEvt *DamageEvent
+	var bestEnemy *entity.Enemy
+	bestDistSq := float32(1e18)
+
+	for _, e := range enemies {
+		if e == nil || !e.Alive || e.State == entity.EnemyDead {
+			continue
+		}
+		evt := ResolvePlayerAttackOnEnemy(player, e, obstacles)
+		if evt == nil {
+			continue
+		}
+		// For hitscan: return first hit (order doesn't matter much, but prefer closer)
+		// For melee: prefer nearest
+		distSq := e.Position.DistanceToSq(player.Position)
+		if distSq < bestDistSq {
+			bestDistSq = distSq
+			bestEvt = evt
+			bestEnemy = e
+		}
+	}
+	return bestEvt, bestEnemy
+}
+
 func resolveGunnerShot(player *entity.Player, enemy *entity.Enemy, obstacles []Obstacle) *DamageEvent {
 	origin := player.EyePosition()
 	direction := player.AimDirection()
 	targetCenter := enemy.Position.Add(entity.Vec3{Y: 1.0})
 
-	if !CheckHitscan(origin, direction, targetCenter, 1.0, 100.0, obstacles) {
+	if !CheckHitscan(origin, direction, targetCenter, 1.2, 100.0, obstacles) {
 		return nil
 	}
 
@@ -95,7 +124,7 @@ func resolveBladeDancerAttack(player *entity.Player, enemy *entity.Enemy, obstac
 	direction := player.AimDirection()
 	targetCenter := enemy.Position.Add(entity.Vec3{Y: 1.0})
 
-	if !CheckHitscan(origin, direction, targetCenter, 1.0, 20.0, obstacles) {
+	if !CheckHitscan(origin, direction, targetCenter, 1.2, 20.0, obstacles) {
 		return nil
 	}
 

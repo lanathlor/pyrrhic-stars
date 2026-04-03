@@ -12,6 +12,10 @@ import (
 type Brain struct {
 	Def   *EnemyDef
 	enemy *entity.Enemy
+
+	// Bounds for charge wall-stop detection. Set by zone at init.
+	BoundsMinX, BoundsMaxX float32
+	BoundsMinZ, BoundsMaxZ float32
 }
 
 // NewBrain creates a brain for the given enemy.
@@ -25,6 +29,7 @@ func (b *Brain) Enemy() *entity.Enemy { return b.enemy }
 // Tick advances the AI by dt seconds. Returns damage events to emit.
 func (b *Brain) Tick(dt float32, players map[uint16]*entity.Player, obstacles []combat.Obstacle, spawnProjectile func(pos, dir entity.Vec3, speed, damage, lifetime float32)) []combat.DamageEvent {
 	e := b.enemy
+
 	e.StateTimer -= dt
 
 	var events []combat.DamageEvent
@@ -54,6 +59,8 @@ func (b *Brain) Tick(dt float32, players map[uint16]*entity.Player, obstacles []
 		b.tickPhaseTransition()
 	case entity.EnemyDead:
 		e.Velocity = entity.Vec3{}
+	case entity.EnemyPatrol:
+		b.tickPatrol(dt, players)
 	}
 
 	// Apply velocity
@@ -67,6 +74,12 @@ func (b *Brain) Tick(dt float32, players map[uint16]*entity.Player, obstacles []
 func (b *Brain) tickChase(dt float32, players map[uint16]*entity.Player, obstacles []combat.Obstacle) {
 	e := b.enemy
 	def := b.Def
+
+	// Leash check: if mob is too far from spawn, reset to patrol
+	if e.LeashRadius > 0 && b.checkLeash() {
+		return
+	}
+
 	e.ChaseTimer += dt
 
 	target := NearestAlivePlayer(e.Position, players)
@@ -128,7 +141,7 @@ func (b *Brain) tickChase(dt float32, players map[uint16]*entity.Player, obstacl
 	if e.ChaseTimer >= chaseThreshold && hasLoS {
 		ability := b.selectAbility(distance, players)
 		if ability != nil {
-			// Can't melee from far
+			// Can't melee from far — try substitutes
 			if ability.Type == AbilityMelee && distance > meleeRange {
 				if distance > meleeRange*2.0 {
 					ability = b.findAbilityByType(AbilityCharge)
@@ -137,15 +150,18 @@ func (b *Brain) tickChase(dt float32, players map[uint16]*entity.Player, obstacl
 				}
 			}
 			// AoE useless at long range
-			resolved := b.Def.ResolveAbility(ability, e.Phase)
-			if ability.Type == AbilityAoE && distance > resolved.AoERadius*1.5 {
-				ability = b.findAbilityByType(AbilityCharge)
+			if ability != nil {
+				resolved := b.Def.ResolveAbility(ability, e.Phase)
+				if ability.Type == AbilityAoE && distance > resolved.AoERadius*1.5 {
+					ability = b.findAbilityByType(AbilityCharge)
+				}
 			}
 			if ability != nil {
 				b.startAbility(ability, e, players, obstacles)
+				return
 			}
 		}
-		return
+		// No usable ability at this range — keep chasing (fall through to movement)
 	}
 
 	// Movement: chase, hold position, or backpedal depending on PreferredRange
@@ -350,8 +366,8 @@ func (b *Brain) tickCharge(dt float32, players map[uint16]*entity.Player, obstac
 	stop := e.ChargeDistance >= ability.ChargeMaxDistance
 	if ability.ChargeStopOnWall {
 		stop = stop || combat.IsAtWall(e.Position,
-			b.Def.arenaBoundsMinX(), b.Def.arenaBoundsMaxX(),
-			b.Def.arenaBoundsMinZ(), b.Def.arenaBoundsMaxZ())
+			b.BoundsMinX, b.BoundsMaxX,
+			b.BoundsMinZ, b.BoundsMaxZ)
 	}
 	if ability.ChargeStopOnObstacle {
 		stop = stop || combat.IsAtObstacle(e.Position, obstacles, b.Def.Radius)
@@ -548,10 +564,60 @@ func (b *Brain) isChargeHit(peerID uint16) bool {
 	return false
 }
 
-// arenaBoundsMinX etc. return arena bounds from the Level (passed via obstacles context).
-// For now, hardcoded to match the arena since the Brain doesn't hold a Level reference.
-// TODO: pass Level to Brain or extract bounds into EnemyDef.
-func (d *EnemyDef) arenaBoundsMinX() float32 { return -19.5 }
-func (d *EnemyDef) arenaBoundsMaxX() float32 { return 19.5 }
-func (d *EnemyDef) arenaBoundsMinZ() float32 { return -14.5 }
-func (d *EnemyDef) arenaBoundsMaxZ() float32 { return 14.5 }
+// tickPatrol walks between PatrolA/PatrolB at half speed, checking for player aggro.
+func (b *Brain) tickPatrol(dt float32, players map[uint16]*entity.Player) {
+	e := b.enemy
+
+	// Check aggro: if any alive player within AggroRadius, switch to Chase
+	for _, p := range players {
+		if !p.Alive {
+			continue
+		}
+		distSq := e.Position.Flat().DistanceToSq(p.Position.Flat())
+		if distSq <= e.AggroRadius*e.AggroRadius {
+			e.TargetPlayerID = p.PeerID
+			e.State = entity.EnemyChase
+			e.ChaseTimer = 0
+			return
+		}
+	}
+
+	// Walk toward current patrol target
+	var target entity.Vec3
+	if e.PatrolTarget == 0 {
+		target = e.PatrolA
+	} else {
+		target = e.PatrolB
+	}
+	toTarget := target.Sub(e.Position).Flat()
+	dist := toTarget.Length()
+	if dist < 0.5 {
+		// Reached waypoint, flip target
+		e.PatrolTarget = 1 - e.PatrolTarget
+		e.Velocity = entity.Vec3{}
+		return
+	}
+	dir := toTarget.Normalized()
+	spd := b.Def.MoveSpeed * 0.5 // patrol at half speed
+	e.Velocity = entity.Vec3{X: dir.X * spd, Z: dir.Z * spd}
+	e.RotationY = float32(math.Atan2(float64(-dir.X), float64(-dir.Z)))
+}
+
+// checkLeash resets the enemy to patrol if too far from spawn. Returns true if leashed.
+func (b *Brain) checkLeash() bool {
+	e := b.enemy
+	if e.LeashRadius <= 0 {
+		return false
+	}
+	distSq := e.Position.Flat().DistanceToSq(e.LeashOrigin.Flat())
+	if distSq > e.LeashRadius*e.LeashRadius {
+		e.Position = e.LeashOrigin
+		e.Health = e.MaxHealth
+		e.State = entity.EnemyPatrol
+		e.Velocity = entity.Vec3{}
+		e.ChaseTimer = 0
+		e.ThreatTable = make(map[uint16]float32)
+		return true
+	}
+	return false
+}

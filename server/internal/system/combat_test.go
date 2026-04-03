@@ -22,7 +22,7 @@ func makeWorld(players map[uint16]*entity.Player, enemies []*entity.Enemy) *Worl
 
 func TestInCombatWhenOnThreatTable(t *testing.T) {
 	p := entity.NewPlayer(1, "gunner")
-	e := entity.NewEnemy(0)
+	e := entity.NewEnemy(0, 2000.0, "guard_captain")
 	e.Alive = true
 	e.AddThreat(1, 10.0)
 
@@ -37,7 +37,7 @@ func TestInCombatWhenOnThreatTable(t *testing.T) {
 
 func TestNotInCombatWhenNotOnThreatTable(t *testing.T) {
 	p := entity.NewPlayer(1, "gunner")
-	e := entity.NewEnemy(0)
+	e := entity.NewEnemy(0, 2000.0, "guard_captain")
 	e.Alive = true
 	// no threat added
 
@@ -54,7 +54,7 @@ func TestRegenOnlyOutOfCombat(t *testing.T) {
 	p := entity.NewPlayer(1, "gunner")
 	p.Health = 100.0 // below max (150)
 
-	e := entity.NewEnemy(0)
+	e := entity.NewEnemy(0, 2000.0, "guard_captain")
 	e.Alive = true
 	e.AddThreat(1, 10.0)
 
@@ -81,7 +81,7 @@ func TestMultiplePlayersAllInCombat(t *testing.T) {
 	p2 := entity.NewPlayer(2, "vanguard")
 	p3 := entity.NewPlayer(3, "blade_dancer")
 
-	e := entity.NewEnemy(0)
+	e := entity.NewEnemy(0, 2000.0, "guard_captain")
 	e.Alive = true
 	e.AddThreat(1, 10.0)
 	e.AddThreat(2, 30.0)
@@ -101,7 +101,7 @@ func TestMultiplePlayersAllInCombat(t *testing.T) {
 
 func TestNotInCombatAfterEnemyDies(t *testing.T) {
 	p := entity.NewPlayer(1, "gunner")
-	e := entity.NewEnemy(0)
+	e := entity.NewEnemy(0, 2000.0, "guard_captain")
 	e.Alive = true
 	e.AddThreat(1, 50.0)
 
@@ -131,7 +131,7 @@ func TestThreatGeneratedOnPlayerAttack(t *testing.T) {
 	p.RotationY = 0 // facing -Z (toward enemy at origin)
 	p.AimPitch = 0
 
-	e := entity.NewEnemy(0)
+	e := entity.NewEnemy(0, 2000.0, "guard_captain")
 	e.Alive = true
 	e.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 
@@ -162,7 +162,7 @@ func TestCombatEndsOnEnemyDeath(t *testing.T) {
 	p2 := entity.NewPlayer(2, "vanguard")
 	p2.Health = 150.0 // below max (200)
 
-	e := entity.NewEnemy(0)
+	e := entity.NewEnemy(0, 2000.0, "guard_captain")
 	e.Alive = true
 	e.AddThreat(1, 10.0)
 	e.AddThreat(2, 20.0)

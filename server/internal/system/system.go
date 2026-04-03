@@ -55,6 +55,7 @@ type World struct {
 	// Game state
 	State        GameFlowState
 	BossDefeated bool
+	BossGateActive bool // true when boss room is sealed (boss is fighting)
 
 	// Entities
 	Players     map[uint16]*entity.Player
@@ -90,6 +91,31 @@ func (w *World) FirstEnemy() *entity.Enemy {
 		return w.Enemies[0]
 	}
 	return nil
+}
+
+// AggroEnemy forces an enemy out of patrol into chase, targeting the given player.
+// If the enemy belongs to a group, all group members also aggro.
+func (w *World) AggroEnemy(e *entity.Enemy, targetPeerID uint16) {
+	if e.State != entity.EnemyPatrol {
+		return
+	}
+	e.State = entity.EnemyChase
+	e.ChaseTimer = 0
+	e.TargetPlayerID = targetPeerID
+
+	// Group aggro: wake all allies in the same group
+	if e.GroupID > 0 {
+		for _, other := range w.Enemies {
+			if other == e || !other.Alive || other.GroupID != e.GroupID {
+				continue
+			}
+			if other.State == entity.EnemyPatrol {
+				other.State = entity.EnemyChase
+				other.ChaseTimer = 0
+				other.TargetPlayerID = targetPeerID
+			}
+		}
+	}
 }
 
 // SpawnProjectile creates a new projectile in the world.

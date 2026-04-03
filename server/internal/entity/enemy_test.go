@@ -3,7 +3,7 @@ package entity
 import "testing"
 
 func TestAddThreat(t *testing.T) {
-	e := NewEnemy(0)
+	e := NewEnemy(0, 2000.0, "guard_captain")
 	e.AddThreat(1, 10.0)
 	e.AddThreat(1, 5.0)
 	e.AddThreat(2, 20.0)
@@ -17,7 +17,7 @@ func TestAddThreat(t *testing.T) {
 }
 
 func TestHasThreat(t *testing.T) {
-	e := NewEnemy(0)
+	e := NewEnemy(0, 2000.0, "guard_captain")
 	if e.HasThreat(1) {
 		t.Error("HasThreat(1) = true on fresh enemy, want false")
 	}
@@ -31,7 +31,7 @@ func TestHasThreat(t *testing.T) {
 }
 
 func TestClearThreat(t *testing.T) {
-	e := NewEnemy(0)
+	e := NewEnemy(0, 2000.0, "guard_captain")
 	e.AddThreat(1, 10.0)
 	e.AddThreat(2, 20.0)
 	e.ClearThreat()
@@ -45,7 +45,7 @@ func TestClearThreat(t *testing.T) {
 }
 
 func TestResetClearsThreat(t *testing.T) {
-	e := NewEnemy(0)
+	e := NewEnemy(0, 2000.0, "guard_captain")
 	e.AddThreat(1, 50.0)
 	e.AddThreat(3, 100.0)
 	e.Reset(Vec3{})

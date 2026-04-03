@@ -97,7 +97,7 @@ func test_update_world_state_populates_players() -> void:
 			{"peer_id": 1, "pos": Vector3(1.0, 0.0, 2.0), "health": 100.0, "rot_y": 0.5},
 			{"peer_id": 2, "pos": Vector3(3.0, 0.0, 4.0), "health": 80.0, "rot_y": 1.0},
 		],
-		"enemy": {},
+		"enemies": [],
 	}
 	_hud.update_world_state(data)
 	assert_dict(_hud._world_players).has_size(2)
@@ -105,20 +105,44 @@ func test_update_world_state_populates_players() -> void:
 	assert_float(_hud._world_players[2]["health"]).is_equal(80.0)
 
 
-func test_update_world_state_populates_enemy() -> void:
+func test_update_world_state_populates_boss() -> void:
 	var data := {
 		"players": [],
-		"enemy": {
-			"alive": true,
-			"pos": Vector3(10.0, 0.0, 10.0),
-			"health": 1500.0,
-			"phase": 2,
-		},
+		"enemies": [
+			{
+				"alive": true,
+				"pos": Vector3(10.0, 0.0, 10.0),
+				"health": 1500.0,
+				"phase": 2,
+				"def_name": "guard_captain",
+				"max_health": 2000.0,
+			},
+		],
 	}
 	_hud.update_world_state(data)
 	assert_bool(_hud._enemy_alive).is_true()
+	assert_bool(_hud._boss_visible).is_true()
 	assert_float(_hud._boss_health).is_equal(1500.0)
 	assert_int(_hud._boss_phase).is_equal(2)
+
+
+func test_update_world_state_trash_no_boss_frame() -> void:
+	var data := {
+		"players": [],
+		"enemies": [
+			{
+				"alive": true,
+				"pos": Vector3(5.0, 0.0, 25.0),
+				"health": 150.0,
+				"phase": 1,
+				"def_name": "hallway_melee",
+				"max_health": 200.0,
+			},
+		],
+	}
+	_hud.update_world_state(data)
+	assert_bool(_hud._enemy_alive).is_true()
+	assert_bool(_hud._boss_visible).is_false()
 
 
 func test_update_world_state_clears_old_players() -> void:
@@ -128,7 +152,7 @@ func test_update_world_state_clears_old_players() -> void:
 			{"peer_id": 1, "pos": Vector3.ZERO, "health": 100.0, "rot_y": 0.0},
 			{"peer_id": 2, "pos": Vector3.ZERO, "health": 80.0, "rot_y": 0.0},
 		],
-		"enemy": {},
+		"enemies": [],
 	})
 	assert_dict(_hud._world_players).has_size(2)
 	# Second update with 1 player
@@ -136,7 +160,7 @@ func test_update_world_state_clears_old_players() -> void:
 		"players": [
 			{"peer_id": 1, "pos": Vector3.ZERO, "health": 100.0, "rot_y": 0.0},
 		],
-		"enemy": {},
+		"enemies": [],
 	})
 	assert_dict(_hud._world_players).has_size(1)
 
@@ -150,8 +174,18 @@ func test_on_fight_start_activates_fight() -> void:
 	assert_bool(_hud._fight_active).is_true()
 
 
-func test_on_fight_start_shows_boss() -> void:
+func test_on_fight_start_boss_driven_by_world_state() -> void:
+	# Boss visibility is now driven by update_world_state, not fight_start
 	_hud.on_fight_start()
+	assert_bool(_hud._boss_visible).is_false()
+	# Feed boss data to make it visible
+	_hud.update_world_state({
+		"players": [],
+		"enemies": [{
+			"alive": true, "pos": Vector3.ZERO, "health": 2000.0,
+			"phase": 1, "def_name": "guard_captain", "max_health": 2000.0,
+		}],
+	})
 	assert_bool(_hud._boss_visible).is_true()
 
 
@@ -177,10 +211,18 @@ func test_on_fight_end_deactivates_fight() -> void:
 	assert_bool(_hud._fight_active).is_false()
 
 
-func test_on_fight_end_keeps_boss_visible() -> void:
+func test_on_fight_end_keeps_boss_if_world_state() -> void:
 	_hud.on_fight_start()
+	# Feed boss via world state
+	_hud.update_world_state({
+		"players": [],
+		"enemies": [{
+			"alive": true, "pos": Vector3.ZERO, "health": 2000.0,
+			"phase": 1, "def_name": "guard_captain", "max_health": 2000.0,
+		}],
+	})
 	_hud.on_fight_end()
-	# Boss frame stays visible for result screen
+	# Boss frame stays visible as long as world state says so
 	assert_bool(_hud._boss_visible).is_true()
 
 
@@ -224,36 +266,36 @@ func test_on_enter_hub_resets_duration() -> void:
 
 func test_on_damage_event_accumulates_damage() -> void:
 	_hud.on_fight_start()
-	_hud.on_damage_event({"target_peer_id": 0, "source_peer_id": 1, "amount": 50.0})
-	_hud.on_damage_event({"target_peer_id": 0, "source_peer_id": 1, "amount": 30.0})
+	_hud.on_damage_event({"target_peer_id": 1000, "source_peer_id": 1, "amount": 50.0})
+	_hud.on_damage_event({"target_peer_id": 1000, "source_peer_id": 1, "amount": 30.0})
 	assert_float(_hud._damage_totals[1]).is_equal(80.0)
 
 
 func test_on_damage_event_tracks_multiple_sources() -> void:
 	_hud.on_fight_start()
-	_hud.on_damage_event({"target_peer_id": 0, "source_peer_id": 1, "amount": 50.0})
-	_hud.on_damage_event({"target_peer_id": 0, "source_peer_id": 2, "amount": 70.0})
+	_hud.on_damage_event({"target_peer_id": 1000, "source_peer_id": 1, "amount": 50.0})
+	_hud.on_damage_event({"target_peer_id": 1000, "source_peer_id": 2, "amount": 70.0})
 	assert_float(_hud._damage_totals[1]).is_equal(50.0)
 	assert_float(_hud._damage_totals[2]).is_equal(70.0)
 
 
-func test_on_damage_event_ignores_non_enemy_target() -> void:
+func test_on_damage_event_ignores_player_target() -> void:
 	_hud.on_fight_start()
-	# target_peer_id != 0 means damage to a player, not the enemy
-	_hud.on_damage_event({"target_peer_id": 1, "source_peer_id": 0, "amount": 100.0})
+	# target_peer_id < 1000 means damage to a player, not an enemy
+	_hud.on_damage_event({"target_peer_id": 1, "source_peer_id": 1000, "amount": 100.0})
 	assert_dict(_hud._damage_totals).is_empty()
 
 
 func test_on_damage_event_ignores_when_fight_inactive() -> void:
 	# Fight not started
-	_hud.on_damage_event({"target_peer_id": 0, "source_peer_id": 1, "amount": 50.0})
+	_hud.on_damage_event({"target_peer_id": 1000, "source_peer_id": 1, "amount": 50.0})
 	assert_dict(_hud._damage_totals).is_empty()
 
 
 func test_on_damage_event_ignores_zero_source() -> void:
 	_hud.on_fight_start()
-	# source_peer_id 0 = enemy dealing damage to itself (should not count)
-	_hud.on_damage_event({"target_peer_id": 0, "source_peer_id": 0, "amount": 50.0})
+	# source_peer_id 0 = no source (should not count)
+	_hud.on_damage_event({"target_peer_id": 1000, "source_peer_id": 0, "amount": 50.0})
 	assert_dict(_hud._damage_totals).is_empty()
 
 

@@ -411,7 +411,7 @@ func _start_light_attack(combo_step: int) -> void:
 	_consume_stamina(light_stamina_cost)
 	# Tell server we're attacking
 	if NetworkManager.is_active:
-		NetworkManager.send_ability(1)  # 1 = ActionMelee
+		NetworkManager.send_ability(1, 0.0, rotation.y)  # 1 = ActionMelee
 
 	match combo_step:
 		1:
@@ -484,7 +484,7 @@ func _start_heavy_attack() -> void:
 	_consume_stamina(heavy_stamina_cost)
 	# Tell server we're heavy attacking
 	if NetworkManager.is_active:
-		NetworkManager.send_ability(2)  # 2 = ActionHeavy
+		NetworkManager.send_ability(2, 0.0, rotation.y)  # 2 = ActionHeavy
 	_enter_state(State.HEAVY_WINDUP)
 	_state_timer = heavy_windup_time
 

@@ -12,15 +12,16 @@ const HUB_SCENE := "res://scenes/environments/hub/hub.tscn"
 const ARENA_SCENE := "res://scenes/environments/arena/arena.tscn"
 const EXIT_PORTAL_POS := Vector3(0.0, 0.1, 0.0)
 
-const LOBBY_SPAWN := Vector3(0.0, 0.1, 20.0)
-const ENEMY_SPAWN := Vector3(0.0, 0.1, 0.0)
+const LOBBY_SPAWN := Vector3(0.0, 0.1, 48.0)
 const PLAYER_SPAWNS := [
-	Vector3(-2.0, 0.1, 20.0),
-	Vector3(0.0, 0.1, 20.0),
-	Vector3(2.0, 0.1, 20.0),
-	Vector3(-1.0, 0.1, 21.0),
-	Vector3(1.0, 0.1, 21.0),
+	Vector3(-2.0, 0.1, 48.0),
+	Vector3(0.0, 0.1, 48.0),
+	Vector3(2.0, 0.1, 48.0),
+	Vector3(-1.0, 0.1, 49.0),
+	Vector3(1.0, 0.1, 49.0),
 ]
+const ARENA_ENTRY_Z := 40.0
+const BOSS_ROOM_ENTRY_Z := 12.0
 const HUB_SPAWNS := [
 	Vector3(-2.0, 0.9, -5.0),
 	Vector3(0.0, 0.9, -5.0),
@@ -45,10 +46,10 @@ var _username: String = ""
 
 # Scene management
 var _current_env: Node3D = null
-var _enemy_node: CharacterBody3D = null
+var _enemy_nodes: Dictionary = {}  # enemy_id -> CharacterBody3D
 
 # Dynamic nodes
-var _gate: CSGBox3D
+var _boss_gate: CSGBox3D
 var _pause_layer: CanvasLayer
 var _menu_layer: CanvasLayer
 var _address_input: LineEdit
@@ -450,19 +451,7 @@ func _enter_arena_warmup() -> void:
 	if _current_env == null or _current_env.name != "Arena":
 		_unload_environment()
 		_load_environment(ARENA_SCENE)
-		_create_gate()
-		_create_enemy()
-
-	# Hide enemy
-	if _enemy_node:
-		_enemy_node.visible = false
-		_enemy_node.collision_layer = 0
-		_enemy_node.set_physics_process(false)
-
-	# Open gate so players can walk into the arena
-	if _gate:
-		_gate.visible = false
-		_gate.use_collision = false
+		_create_hallway_geometry()
 
 
 func _select_class(class_name_str: String) -> void:
@@ -561,14 +550,7 @@ func _start_fight() -> void:
 	_cursor_toggled = false
 	_alt_held = false
 
-	if _gate:
-		_gate.visible = true
-		_gate.use_collision = true
-
-	if _enemy_node:
-		_enemy_node.visible = true
-		_enemy_node.collision_layer = 4
-		_enemy_node.set_physics_process(true)
+	# Enemies are managed dynamically via _update_enemies from world state
 	CombatLog.start_fight()
 	if _shared_hud:
 		_shared_hud.on_fight_start()
@@ -576,9 +558,7 @@ func _start_fight() -> void:
 
 func _on_boss_dead() -> void:
 	state = GameState.FIGHT_OVER
-	if _gate:
-		_gate.visible = false
-		_gate.use_collision = false
+	_open_boss_gate()
 	_spawn_exit_portal()
 	if _local_player_dead and _death_overlay_layer.visible:
 		_respawn_btn.disabled = false
@@ -589,9 +569,7 @@ func _on_boss_dead() -> void:
 
 func _on_all_dead() -> void:
 	state = GameState.FIGHT_OVER
-	if _gate:
-		_gate.visible = false
-		_gate.use_collision = false
+	_open_boss_gate()
 	if _local_player_dead and _death_overlay_layer.visible:
 		_respawn_btn.disabled = false
 	CombatLog.end_fight("WIPE")
@@ -608,21 +586,12 @@ func _on_zone_transfer(zone_type: int, new_peer_id: int) -> void:
 	_hide_death_overlay()
 	_remove_exit_portal()
 	_despawn_all_players()
+	_clear_all_enemies()
 
 	if zone_type == NetSerializer.ZONE_TYPE_ARENA:
 		_unload_environment()
 		_load_environment(ARENA_SCENE)
-		_create_gate()
-		_create_enemy()
-		# Hide enemy until fight starts
-		if _enemy_node:
-			_enemy_node.visible = false
-			_enemy_node.collision_layer = 0
-			_enemy_node.set_physics_process(false)
-		# Open gate so players can walk freely in warmup
-		if _gate:
-			_gate.visible = false
-			_gate.use_collision = false
+		_create_hallway_geometry()
 		# Spawn local player in warmup room immediately
 		state = GameState.ARENA_LOBBY
 		_hub_layer.visible = false
@@ -653,7 +622,12 @@ func _on_game_flow_event(flow_type: int, text: String) -> void:
 			_on_all_dead()
 		NetSerializer.FLOW_RETURN_LOBBY:
 			_hide_death_overlay()
+			_clear_all_enemies()
 			_enter_arena_warmup()
+		NetSerializer.FLOW_BOSS_ACTIVATED:
+			_close_boss_gate()
+		NetSerializer.FLOW_BOSS_RESET:
+			_open_boss_gate()
 
 
 func _on_world_state(data: Dictionary) -> void:
@@ -708,10 +682,9 @@ func _on_world_state(data: Dictionary) -> void:
 			player.queue_free()
 		_spawned_players.erase(pid)
 
-	# Enemy (inert in hub — dead at origin, _enemy_node is null in hub)
-	var enemy_data: Dictionary = data.get("enemy", {})
-	if not enemy_data.is_empty() and is_instance_valid(_enemy_node) and _enemy_node.has_method("apply_server_state"):
-		_enemy_node.apply_server_state(enemy_data)
+	# Enemies — dynamically spawn/update/despawn from server state
+	var enemies_data: Array = data.get("enemies", [])
+	_update_enemies(enemies_data)
 
 	# Projectiles: spawn/update/remove
 	var stale: Array = []
@@ -751,17 +724,17 @@ func _on_damage_event(data: Dictionary) -> void:
 	var amount: float = data.get("amount", 0.0)
 	var hit_pos: Vector3 = data.get("hit_pos", Vector3.ZERO)
 	var source_type: int = data.get("source_type", 0)
-	if target_peer == 0:
-		# Player hit the enemy
-		if is_instance_valid(_enemy_node) and _enemy_node.has_method("on_damage_visual"):
-			_enemy_node.on_damage_visual(amount, hit_pos)
+	if target_peer >= 1000:
+		# Player hit an enemy (enemy IDs are >= 1000)
+		if target_peer in _enemy_nodes:
+			var enode: CharacterBody3D = _enemy_nodes[target_peer]
+			if is_instance_valid(enode) and enode.has_method("on_damage_visual"):
+				enode.on_damage_visual(amount, hit_pos)
 		# Server-confirmed hit marker on the attacker's HUD
 		if source_peer == NetworkManager.get_my_id():
 			var local_player: CharacterBody3D = _spawned_players.get(source_peer)
 			if is_instance_valid(local_player) and local_player.has_method("on_hit_confirmed"):
 				local_player.on_hit_confirmed(amount)
-		# Remote tracer is already spawned via state-transition detection in
-		# apply_server_state — no duplicate needed from damage events.
 		# Floating damage number
 		_spawn_damage_number(amount, hit_pos)
 	elif target_peer in _spawned_players:
@@ -834,39 +807,195 @@ func _unload_environment() -> void:
 	if _current_env and is_instance_valid(_current_env):
 		_current_env.queue_free()
 		_current_env = null
-	if _enemy_node and is_instance_valid(_enemy_node):
-		_enemy_node.queue_free()
-	_enemy_node = null
-	if _gate and is_instance_valid(_gate):
-		_gate.queue_free()
-	_gate = null
+	_clear_all_enemies()
+	if _boss_gate and is_instance_valid(_boss_gate):
+		_boss_gate.queue_free()
+	_boss_gate = null
 
 
-func _create_gate() -> void:
-	_gate = CSGBox3D.new()
-	_gate.size = Vector3(5.0, 5.0, 0.5)
-	_gate.transform.origin = Vector3(0.0, 2.5, 15.0)
-	_gate.use_collision = true
-	_gate.collision_layer = 1
-	_gate.collision_mask = 0
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.5, 0.2, 0.2)
-	_gate.material = mat
-	_gate.visible = false
-	_gate.use_collision = false
-	add_child(_gate)
+func _update_enemies(enemies_data: Array) -> void:
+	var seen_ids: Dictionary = {}
+	for edata in enemies_data:
+		var eid: int = edata["enemy_id"]
+		seen_ids[eid] = true
+		var alive: bool = edata["alive"]
+		if alive and eid not in _enemy_nodes:
+			# Spawn new enemy node
+			var scene := load("res://scenes/enemies/basic_enemy/basic_enemy.tscn") as PackedScene
+			if scene:
+				var node := scene.instantiate() as CharacterBody3D
+				node.name = "Enemy_%d" % eid
+				node.peer_id = eid
+				add_child(node)
+				_enemy_nodes[eid] = node
+		if eid in _enemy_nodes:
+			var node: CharacterBody3D = _enemy_nodes[eid]
+			if is_instance_valid(node):
+				if alive:
+					node.visible = true
+					node.collision_layer = 4
+					node.set_physics_process(true)
+					if node.has_method("apply_server_state"):
+						node.apply_server_state(edata)
+				else:
+					node.visible = false
+					node.collision_layer = 0
+					node.set_physics_process(false)
+	# Remove enemies no longer in state
+	var to_remove: Array = []
+	for eid in _enemy_nodes:
+		if eid not in seen_ids:
+			to_remove.append(eid)
+	for eid in to_remove:
+		var node = _enemy_nodes[eid]
+		if is_instance_valid(node):
+			node.queue_free()
+		_enemy_nodes.erase(eid)
 
 
-func _create_enemy() -> void:
-	var enemy_scene := load("res://scenes/enemies/basic_enemy/basic_enemy.tscn") as PackedScene
-	if enemy_scene:
-		_enemy_node = enemy_scene.instantiate() as CharacterBody3D
-		_enemy_node.name = "BasicEnemy"
-		_enemy_node.global_position = ENEMY_SPAWN
-		_enemy_node.visible = false
-		_enemy_node.collision_layer = 0
-		_enemy_node.set_physics_process(false)
-		add_child(_enemy_node)
+func _clear_all_enemies() -> void:
+	for eid in _enemy_nodes:
+		var node = _enemy_nodes[eid]
+		if is_instance_valid(node):
+			node.queue_free()
+	_enemy_nodes.clear()
+
+
+func _create_hallway_geometry() -> void:
+	# Hallway connects warmup room (Z 40-52) to boss room (Z -14.5 to 12).
+	# Hallway spans Z 12 to 40, X -8 to 8 (narrower corridor).
+	var mat_floor := StandardMaterial3D.new()
+	mat_floor.albedo_color = Color(0.22, 0.22, 0.25)
+	var mat_wall := StandardMaterial3D.new()
+	mat_wall.albedo_color = Color(0.32, 0.32, 0.35)
+	var mat_cover := StandardMaterial3D.new()
+	mat_cover.albedo_color = Color(0.3, 0.33, 0.38)
+
+	# Hallway floor (16 wide x 28 deep)
+	var hall_floor := CSGBox3D.new()
+	hall_floor.name = "HallwayFloor"
+	hall_floor.size = Vector3(16.0, 0.5, 28.0)
+	hall_floor.transform.origin = Vector3(0.0, -0.25, 26.0)
+	hall_floor.use_collision = true
+	hall_floor.collision_layer = 1
+	hall_floor.collision_mask = 0
+	hall_floor.material = mat_floor
+	add_child(hall_floor)
+
+	# Hallway left wall
+	var hall_wall_l := CSGBox3D.new()
+	hall_wall_l.name = "HallwayWallLeft"
+	hall_wall_l.size = Vector3(0.5, 5.0, 28.0)
+	hall_wall_l.transform.origin = Vector3(-8.0, 2.5, 26.0)
+	hall_wall_l.use_collision = true
+	hall_wall_l.collision_layer = 1
+	hall_wall_l.collision_mask = 0
+	hall_wall_l.material = mat_wall
+	add_child(hall_wall_l)
+
+	# Hallway right wall
+	var hall_wall_r := CSGBox3D.new()
+	hall_wall_r.name = "HallwayWallRight"
+	hall_wall_r.size = Vector3(0.5, 5.0, 28.0)
+	hall_wall_r.transform.origin = Vector3(8.0, 2.5, 26.0)
+	hall_wall_r.use_collision = true
+	hall_wall_r.collision_layer = 1
+	hall_wall_r.collision_mask = 0
+	hall_wall_r.material = mat_wall
+	add_child(hall_wall_r)
+
+	# Connector walls: fill the gap between hallway (X 8) and boss room (X 20)
+	# Left connector at Z=12
+	var conn_wall_l := CSGBox3D.new()
+	conn_wall_l.name = "ConnectorWallLeft"
+	conn_wall_l.size = Vector3(12.0, 5.0, 0.5)
+	conn_wall_l.transform.origin = Vector3(-14.0, 2.5, 12.0)
+	conn_wall_l.use_collision = true
+	conn_wall_l.collision_layer = 1
+	conn_wall_l.collision_mask = 0
+	conn_wall_l.material = mat_wall
+	add_child(conn_wall_l)
+
+	# Right connector at Z=12
+	var conn_wall_r := CSGBox3D.new()
+	conn_wall_r.name = "ConnectorWallRight"
+	conn_wall_r.size = Vector3(12.0, 5.0, 0.5)
+	conn_wall_r.transform.origin = Vector3(14.0, 2.5, 12.0)
+	conn_wall_r.use_collision = true
+	conn_wall_r.collision_layer = 1
+	conn_wall_r.collision_mask = 0
+	conn_wall_r.material = mat_wall
+	add_child(conn_wall_r)
+
+	# Hallway cover obstacles (matching server hallway obstacles)
+	var cover_positions := [
+		Vector3(-4.0, 0.6, 27.0),
+		Vector3(4.0, 0.6, 27.0),
+		Vector3(-4.0, 0.6, 17.0),
+		Vector3(4.0, 0.6, 17.0),
+	]
+	for i in cover_positions.size():
+		var cover := CSGBox3D.new()
+		cover.name = "HallwayCover%d" % i
+		cover.size = Vector3(2.0, 1.2, 1.0)
+		cover.transform.origin = cover_positions[i]
+		cover.use_collision = true
+		cover.collision_layer = 1
+		cover.collision_mask = 0
+		cover.material = mat_cover
+		add_child(cover)
+
+	# Hallway lighting
+	var light1 := OmniLight3D.new()
+	light1.name = "HallwayLight1"
+	light1.transform.origin = Vector3(0.0, 3.5, 32.0)
+	light1.light_color = Color(0.5, 0.5, 0.7)
+	light1.light_energy = 2.0
+	light1.omni_range = 12.0
+	add_child(light1)
+
+	var light2 := OmniLight3D.new()
+	light2.name = "HallwayLight2"
+	light2.transform.origin = Vector3(0.0, 3.5, 22.0)
+	light2.light_color = Color(0.5, 0.5, 0.7)
+	light2.light_energy = 2.0
+	light2.omni_range = 12.0
+	add_child(light2)
+
+	# Boss room gate at Z=12 (hidden by default, closes when boss aggros)
+	_boss_gate = CSGBox3D.new()
+	_boss_gate.size = Vector3(40.0, 5.0, 0.5)
+	_boss_gate.transform.origin = Vector3(0.0, 2.5, BOSS_ROOM_ENTRY_Z)
+	_boss_gate.use_collision = true
+	_boss_gate.collision_layer = 1
+	_boss_gate.collision_mask = 0
+	var gate_mat := StandardMaterial3D.new()
+	gate_mat.albedo_color = Color(0.6, 0.15, 0.15)
+	gate_mat.emission_enabled = true
+	gate_mat.emission = Color(0.5, 0.1, 0.1)
+	gate_mat.emission_energy_multiplier = 0.5
+	_boss_gate.material = gate_mat
+	_boss_gate.visible = false
+	_boss_gate.use_collision = false
+	add_child(_boss_gate)
+
+
+func _close_boss_gate() -> void:
+	if _boss_gate:
+		_boss_gate.visible = true
+		_boss_gate.use_collision = true
+	# Push local player into the boss room if near the gate
+	var my_id := NetworkManager.get_my_id()
+	if my_id in _spawned_players:
+		var player: CharacterBody3D = _spawned_players[my_id]
+		if is_instance_valid(player) and player.global_position.z > BOSS_ROOM_ENTRY_Z - 2.0 and player.global_position.z < BOSS_ROOM_ENTRY_Z + 2.0:
+			player.global_position.z = BOSS_ROOM_ENTRY_Z - 3.0
+
+
+func _open_boss_gate() -> void:
+	if _boss_gate:
+		_boss_gate.visible = false
+		_boss_gate.use_collision = false
 
 
 # =============================================================================

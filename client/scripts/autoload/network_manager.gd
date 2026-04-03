@@ -99,9 +99,9 @@ func send_player_position(pos: Vector3, rot_y: float, anim_name: String = "", an
 
 
 ## Send a combat action to the server.
-func send_ability(action_id: int, aim_pitch: float = 0.0) -> void:
+func send_ability(action_id: int, aim_pitch: float = 0.0, rot_y: float = 0.0) -> void:
 	send_msg(NetSerializer.OP_ABILITY_INPUT,
-		NetSerializer.encode_ability(action_id, aim_pitch))
+		NetSerializer.encode_ability(action_id, aim_pitch, rot_y))
 
 
 ## Send a generic interaction to the server (class select, ready toggle, etc.).

@@ -19,6 +19,7 @@ type Obstacle struct {
 // out of geometry you're standing in.
 func SegmentHitsObstacle(a, b entity.Vec3, obstacles []Obstacle) bool {
 	dx := b.X - a.X
+	dy := b.Y - a.Y
 	dz := b.Z - a.Z
 	length := float32(math.Sqrt(float64(dx*dx + dz*dz)))
 	if length < 1e-6 {
@@ -26,14 +27,12 @@ func SegmentHitsObstacle(a, b entity.Vec3, obstacles []Obstacle) bool {
 	}
 
 	for _, obs := range obstacles {
-		// Compute entry/exit t along the segment for both axes
 		minX := obs.CX - obs.HX
 		maxX := obs.CX + obs.HX
 		minZ := obs.CZ - obs.HZ
 		maxZ := obs.CZ + obs.HZ
 
-		// Skip obstacles that contain the origin or target point —
-		// entities standing inside geometry can still shoot/be hit.
+		// Skip obstacles that contain the origin or target point
 		if a.X >= minX && a.X <= maxX && a.Z >= minZ && a.Z <= maxZ {
 			continue
 		}
@@ -45,7 +44,6 @@ func SegmentHitsObstacle(a, b entity.Vec3, obstacles []Obstacle) bool {
 
 		// X slab
 		if abs32(dx) < 1e-6 {
-			// Ray parallel to X slab — check if origin inside
 			if a.X < minX || a.X > maxX {
 				continue
 			}
@@ -90,7 +88,17 @@ func SegmentHitsObstacle(a, b entity.Vec3, obstacles []Obstacle) bool {
 			}
 		}
 
-		// Segment intersects this obstacle
+		// Height check: if obstacle has a finite height, the segment
+		// only hits if it passes through the obstacle's vertical extent.
+		// Skip if the ray is entirely above the obstacle at the intersection.
+		if obs.Height > 0 {
+			yAtEntry := a.Y + dy*tMin
+			yAtExit := a.Y + dy*tMax
+			if yAtEntry > obs.Height && yAtExit > obs.Height {
+				continue // ray passes over the obstacle
+			}
+		}
+
 		return true
 	}
 	return false
@@ -98,21 +106,54 @@ func SegmentHitsObstacle(a, b entity.Vec3, obstacles []Obstacle) bool {
 
 // CheckHitscan tests if a ray from origin in direction hits a sphere at target
 // with the given radius, within maxRange. Returns false if an obstacle blocks LOS.
+// CheckHitscan tests if a ray from origin in direction hits a vertical cylinder
+// centered on target with the given radius and height 2.5m (feet to head).
+// The cylinder extends from target.Y-1.0 to target.Y+1.5.
 func CheckHitscan(origin, direction entity.Vec3, target entity.Vec3, targetRadius, maxRange float32, obstacles []Obstacle) bool {
 	dir := direction.Normalized()
-	toTarget := target.Sub(origin)
-	projection := toTarget.Dot(dir)
-	if projection < 0 || projection > maxRange {
-		return false
+
+	// Find closest approach on XZ plane (cylinder test, ignoring Y)
+	toTarget2D := entity.Vec3{X: target.X - origin.X, Z: target.Z - origin.Z}
+	dir2D := entity.Vec3{X: dir.X, Z: dir.Z}
+	dir2DLen := dir2D.Length()
+	if dir2DLen < 1e-6 {
+		// Shooting straight up/down — check XZ distance directly
+		dxz := toTarget2D.Length()
+		return dxz <= targetRadius
 	}
-	closestPoint := origin.Add(dir.Scale(projection))
-	distSq := closestPoint.DistanceToSq(target)
-	if distSq > targetRadius*targetRadius {
+	dir2DN := entity.Vec3{X: dir2D.X / dir2DLen, Z: dir2D.Z / dir2DLen}
+
+	proj := toTarget2D.X*dir2DN.X + toTarget2D.Z*dir2DN.Z
+	if proj < 0 {
 		return false
 	}
 
-	// Check if any obstacle blocks the line of sight
-	return !SegmentHitsObstacle(origin, target, obstacles)
+	// 3D range check
+	toTarget3D := target.Sub(origin)
+	proj3D := toTarget3D.Dot(dir)
+	if proj3D > maxRange {
+		return false
+	}
+
+	// Perpendicular XZ distance to the ray
+	closestX := origin.X + dir2DN.X*proj
+	closestZ := origin.Z + dir2DN.Z*proj
+	dxSq := (closestX - target.X) * (closestX - target.X)
+	dzSq := (closestZ - target.Z) * (closestZ - target.Z)
+	if dxSq+dzSq > targetRadius*targetRadius {
+		return false
+	}
+
+	// Y check: ray must pass through the cylinder height [target.Y-1, target.Y+1.5]
+	t := proj / dir2DLen
+	hitY := origin.Y + dir.Y*t
+	if hitY < target.Y-1.0 || hitY > target.Y+1.5 {
+		return false
+	}
+
+	// LoS check along the actual bullet path to the hit point
+	hitPoint := entity.Vec3{X: closestX, Y: hitY, Z: closestZ}
+	return !SegmentHitsObstacle(origin, hitPoint, obstacles)
 }
 
 // CheckMeleeArc tests if a target is within melee range and arc of the attacker.

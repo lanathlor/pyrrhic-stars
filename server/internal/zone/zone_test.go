@@ -4,26 +4,38 @@ import (
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/message"
 	"codex-online/server/internal/system"
-	"context"
 	"encoding/binary"
 	"fmt"
 	"math"
 	"sync"
 	"testing"
-	"time"
 )
 
 // buildShootPayload creates an OpAbilityInput payload for a gunner shot.
 // Format: [action:u8][aim_pitch:f32 LE]
-func buildShootPayload(aimPitch float32) []byte {
-	buf := make([]byte, 5)
+func buildShootPayload(aimPitch float32, rotY ...float32) []byte {
+	buf := make([]byte, 9)
 	buf[0] = entity.ActionShoot
 	binary.LittleEndian.PutUint32(buf[1:], math.Float32bits(aimPitch))
+	if len(rotY) > 0 {
+		binary.LittleEndian.PutUint32(buf[5:], math.Float32bits(rotY[0]))
+	}
 	return buf
 }
 
+// findBoss returns the boss enemy from a zone, or nil.
+func findBoss(z *Zone) *entity.Enemy {
+	for _, e := range z.world.Enemies {
+		if e.IsBoss {
+			return e
+		}
+	}
+	return nil
+}
+
 // setupFightZone creates an arena zone in the FIGHT state with one gunner
-// player aimed directly at the enemy, and returns it ready for testing.
+// player aimed directly at the boss, and returns it ready for testing.
+// All enemies (trash + boss) are activated and alive.
 func setupFightZone(t *testing.T) (*Zone, uint16) {
 	t.Helper()
 	z := New("test_arena", ZoneTypeArena)
@@ -31,12 +43,20 @@ func setupFightZone(t *testing.T) (*Zone, uint16) {
 
 	peerID := uint16(1)
 
-	// Position enemy at origin
-	z.world.Enemies[0].Position = entity.Vec3{X: 0, Y: 0, Z: 0}
-	z.world.Enemies[0].Alive = true
-	z.world.Enemies[0].State = entity.EnemyIdle
+	// Activate all enemies
+	for _, e := range z.world.Enemies {
+		e.Alive = true
+		e.State = entity.EnemyIdle
+	}
 
-	// Position player at Z=10, aimed at enemy center mass (0, 1, 0)
+	// Position boss at origin
+	boss := findBoss(z)
+	if boss == nil {
+		t.Fatal("no boss enemy found in arena zone")
+	}
+	boss.Position = entity.Vec3{X: 0, Y: 0, Z: 0}
+
+	// Position player at Z=10, aimed at boss center mass (0, 1, 0)
 	eyePos := entity.Vec3{X: 0, Y: 1.6, Z: 10}
 	targetCenter := entity.Vec3{X: 0, Y: 1, Z: 0}
 	dir := targetCenter.Sub(eyePos).Normalized()
@@ -110,7 +130,7 @@ func TestPlayerDamageEventsSurviveTick(t *testing.T) {
 			amount := math.Float32frombits(binary.LittleEndian.Uint32(payload[4:8]))
 			sourceType := payload[20]
 
-			if targetPeer == 0 && sourcePeer == peerID && sourceType == 0 {
+			if targetPeer >= 1000 && sourcePeer == peerID && sourceType == 0 {
 				foundDamageEvent = true
 				if amount != 10.0 {
 					t.Errorf("damage amount = %f, want 10.0", amount)
@@ -179,9 +199,15 @@ func setupMultiPlayerFightZone(t *testing.T, n int) (*Zone, []uint16) {
 	t.Helper()
 	z := New("test_arena", ZoneTypeArena)
 	z.world.State = StateFight
-	z.world.Enemies[0].Position = entity.Vec3{X: 0, Y: 0, Z: 0}
-	z.world.Enemies[0].Alive = true
-	z.world.Enemies[0].State = entity.EnemyIdle
+	// Activate all enemies
+	for _, e := range z.world.Enemies {
+		e.Alive = true
+		e.State = entity.EnemyIdle
+	}
+	boss := findBoss(z)
+	if boss != nil {
+		boss.Position = entity.Vec3{X: 0, Y: 0, Z: 0}
+	}
 	var ids []uint16
 	for i := 0; i < n; i++ {
 		pid := uint16(i + 1)
@@ -247,9 +273,13 @@ func TestCheckFightEnd_BossDead(t *testing.T) {
 	send, msgs := captureSend()
 	z.world.Clients[peerID].Send = send
 
-	// Kill the enemy
-	z.world.Enemies[0].State = entity.EnemyDead
-	z.world.Enemies[0].Alive = false
+	// Kill the boss directly
+	boss := findBoss(z)
+	if boss == nil {
+		t.Fatal("no boss found")
+	}
+	boss.State = entity.EnemyDead
+	boss.Alive = false
 
 	z.processTick()
 
@@ -293,12 +323,11 @@ func TestCheckFightEnd_AllPlayersDead(t *testing.T) {
 	if z.world.BossDefeated {
 		t.Error("BossDefeated = true, want false after wipe")
 	}
-	// Enemy should have been reset
-	if !z.world.Enemies[0].Alive {
-		t.Error("Enemy.Alive = false, want true after reset")
-	}
-	if z.world.Enemies[0].Health != z.world.Enemies[0].MaxHealth {
-		t.Errorf("Enemy.Health = %f, want %f (MaxHealth)", z.world.Enemies[0].Health, z.world.Enemies[0].MaxHealth)
+	// Alive enemies should be reset to patrol, dead ones stay dead
+	for _, e := range z.world.Enemies {
+		if e.Alive && e.State != entity.EnemyPatrol {
+			t.Errorf("Enemy %d State = %d, want EnemyPatrol after wipe reset", e.ID, e.State)
+		}
 	}
 	if !findGameFlowEvent(*msgs, message.FlowAllDead) {
 		t.Error("client did not receive FlowAllDead game flow event")
@@ -412,7 +441,7 @@ func TestHandleRespawnRequest(t *testing.T) {
 			respawnType:     0,
 			wantAlive:       true,
 			wantHealthReset: true,
-			wantPosition:    &entity.Vec3{X: 0, Y: 0.1, Z: 20},
+			wantPosition:    &entity.Vec3{X: 0, Y: 0.1, Z: 48},
 		},
 		{
 			name:        "arena respawn rejected during fight",
@@ -563,7 +592,7 @@ func TestLobbyToSpawnedToFight(t *testing.T) {
 	peerID := uint16(1)
 
 	p := entity.NewPlayer(peerID, "gunner")
-	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 20}
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 48}
 	p.Alive = true
 	z.world.Players[peerID] = p
 
@@ -594,12 +623,11 @@ func TestLobbyToSpawnedToFight(t *testing.T) {
 		t.Error("client did not receive FlowSpawnPlayers game flow event")
 	}
 
-	// Step 3: player moves into arena (Z < 12)
-	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5}
+	// Step 3: next tick transitions Spawned → Fight automatically (players present)
 	z.processTick()
 
 	if z.world.State != StateFight {
-		t.Fatalf("expected StateFight after arena entry, got %d", z.world.State)
+		t.Fatalf("expected StateFight after spawned tick, got %d", z.world.State)
 	}
 	if !findGameFlowEvent(*msgs, message.FlowFightStart) {
 		t.Error("client did not receive FlowFightStart game flow event")
@@ -847,110 +875,45 @@ func TestHubZoneTick(t *testing.T) {
 // Test: Arena entry -- fight must NOT start until a player crosses the trigger
 // =============================================================================
 
-func TestArenaEntry_FightDoesNotStartImmediately(t *testing.T) {
+func TestArenaInstance_EnemiesAliveOnCreation(t *testing.T) {
 	z := New("test_arena", ZoneTypeArena)
 
-	// Verify enemy starts dormant
-	if z.world.Enemies[0].Alive {
-		t.Fatal("Enemy.Alive = true on fresh arena, want false")
+	// Enemies should be alive and patrolling from zone creation
+	for _, e := range z.world.Enemies {
+		if !e.Alive {
+			t.Errorf("Enemy %d Alive = false, want true", e.ID)
+		}
+		if e.State != entity.EnemyPatrol {
+			t.Errorf("Enemy %d State = %d, want EnemyPatrol (%d)", e.ID, e.State, entity.EnemyPatrol)
+		}
 	}
+}
 
-	// Simulate a player joining via AddClient (like gateway.transferPlayer does)
+func TestArenaInstance_FightAfterPlayerJoin(t *testing.T) {
+	z := New("test_arena", ZoneTypeArena)
+
 	send, msgs := captureSend()
 	c := &Client{PeerID: 1, Username: "TestPlayer", Send: send}
 	z.AddClient(c)
 
-	// Verify state transitioned to Spawned (not Fight)
-	if z.world.State != StateSpawned {
-		t.Fatalf("State = %d after AddClient, want StateSpawned (%d)", z.world.State, StateSpawned)
-	}
-
-	// Verify player is in the warmup area (Z >= 12)
-	p := z.world.Players[1]
-	if p == nil {
-		t.Fatal("Player not found after AddClient")
-	}
-	t.Logf("Player position after AddClient: %+v", p.Position)
-	if p.Position.Z < 12.0 {
-		t.Fatalf("Player.Position.Z = %f, want >= 12 (warmup area). Player spawned in fight trigger zone!", p.Position.Z)
-	}
-
-	// Run 10 ticks — fight should NOT start
-	for i := 0; i < 10; i++ {
-		z.processTick()
-	}
-
-	if z.world.State != StateSpawned {
-		t.Errorf("State = %d after 10 ticks, want StateSpawned (%d). Fight started prematurely!", z.world.State, StateSpawned)
-	}
-	if z.world.Enemies[0].Alive {
-		t.Error("Enemy.Alive = true after 10 ticks in Spawned state, want false. Boss should be dormant until fight starts.")
-	}
-
-	// Verify NO FlowFightStart was sent
-	if findGameFlowEvent(*msgs, message.FlowFightStart) {
-		t.Error("Client received FlowFightStart — fight started without anyone crossing the trigger zone!")
-	}
-
-	// Now move the player into the arena (Z < 12) and tick
-	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5.0}
+	// First tick transitions Spawned → Fight (player is present)
 	z.processTick()
 
 	if z.world.State != StateFight {
-		t.Errorf("State = %d after player crossed trigger, want StateFight (%d)", z.world.State, StateFight)
-	}
-	if !z.world.Enemies[0].Alive {
-		t.Error("Enemy.Alive = false after fight started, want true")
+		t.Errorf("State = %d, want StateFight (%d)", z.world.State, StateFight)
 	}
 	if !findGameFlowEvent(*msgs, message.FlowFightStart) {
-		t.Error("Client did NOT receive FlowFightStart after crossing trigger")
+		t.Error("Client did NOT receive FlowFightStart")
 	}
 }
 
-// TestArenaEntry_ConcurrentTickDoesNotTriggerFight tests the REAL scenario:
-// zone.Run goroutine is ticking while AddClient is called.
-func TestArenaEntry_ConcurrentTickDoesNotTriggerFight(t *testing.T) {
-	z := New("test_arena_concurrent", ZoneTypeArena)
-
-	send, msgs := captureSend()
-	c := &Client{PeerID: 1, Username: "TestPlayer", Send: send}
-
-	// Start the zone tick loop (like the real server does)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go z.Run(ctx)
-
-	// Add client (like transferPlayer does)
-	z.AddClient(c)
-
-	// Let the zone tick for a bit
-	time.Sleep(200 * time.Millisecond) // ~4 ticks at 20Hz
-
-	cancel()
-	time.Sleep(50 * time.Millisecond) // let goroutine exit
-
-	// Check state — should still be StateSpawned, NOT StateFight
-	if z.world.State == StateFight {
-		t.Errorf("State = StateFight after 200ms — fight started without player crossing trigger! Player.Z=%f", z.world.Players[1].Position.Z)
-	}
-	if z.world.Enemies[0].Alive {
-		t.Error("Enemy.Alive = true — boss spawned without fight starting")
-	}
-	if findGameFlowEvent(*msgs, message.FlowFightStart) {
-		t.Error("Client received FlowFightStart — fight triggered prematurely")
-	}
-	t.Logf("Final state: %d, Player pos: %+v, Enemy alive: %v", z.world.State, z.world.Players[1].Position, z.world.Enemies[0].Alive)
-}
-
-func TestArenaEntry_SecondPlayerGetsCatchUp(t *testing.T) {
+func TestArenaInstance_SecondPlayerGetsCatchUp(t *testing.T) {
 	z := New("test_arena", ZoneTypeArena)
 
-	// First player joins
 	c1 := &Client{PeerID: 1, Username: "Player1", Send: func([]byte) {}}
 	z.AddClient(c1)
 
-	// Move player into arena and start fight
-	z.world.Players[1].Position = entity.Vec3{X: 0, Y: 0.1, Z: 5.0}
+	// Tick to enter fight
 	z.processTick()
 
 	if z.world.State != StateFight {
@@ -962,7 +925,6 @@ func TestArenaEntry_SecondPlayerGetsCatchUp(t *testing.T) {
 	c2 := &Client{PeerID: 2, Username: "Player2", Send: send2}
 	z.AddClient(c2)
 
-	// Second player should receive FlowFightStart catch-up
 	if !findGameFlowEvent(*msgs2, message.FlowFightStart) {
 		t.Error("Second player did NOT receive FlowFightStart catch-up on join")
 	}
@@ -972,7 +934,7 @@ func TestArenaEntry_SecondPlayerGetsCatchUp(t *testing.T) {
 	if p2 == nil {
 		t.Fatal("Player 2 not found")
 	}
-	if p2.Position.Z < 12.0 {
-		t.Errorf("Player2.Position.Z = %f, want >= 12 (warmup spawn)", p2.Position.Z)
+	if p2.Position.Z < 40.0 {
+		t.Errorf("Player2.Position.Z = %f, want >= 40 (warmup spawn)", p2.Position.Z)
 	}
 }

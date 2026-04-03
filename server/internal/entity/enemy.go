@@ -17,6 +17,7 @@ const (
 	EnemyCooldown
 	EnemyPhaseTransition
 	EnemyDead
+	EnemyPatrol
 )
 
 // Enemy represents a server-side enemy entity (the arena boss).
@@ -53,14 +54,28 @@ type Enemy struct {
 
 	// Alive
 	Alive bool
+
+	// Patrol — trash mobs patrol between two waypoints
+	PatrolA      Vec3
+	PatrolB      Vec3
+	PatrolTarget int // 0 = heading to A, 1 = heading to B
+
+	// Dungeon mob fields
+	AggroRadius float32 // distance at which mob detects players
+	IsBoss      bool    // true for the boss, false for trash
+	LeashOrigin Vec3    // where the mob spawned (for leash behavior)
+	LeashRadius float32 // max distance from spawn before resetting
+	DefName     string  // name of the EnemyDef, for client-side identification
+	GroupID     int     // mobs with the same GroupID aggro together (0 = no group)
 }
 
-// NewEnemy creates a fresh boss enemy.
-func NewEnemy(id uint16) *Enemy {
+// NewEnemy creates a fresh enemy with the given max health.
+func NewEnemy(id uint16, maxHealth float32, defName string) *Enemy {
 	return &Enemy{
 		ID:                id,
-		MaxHealth:         2000.0,
-		Health:            2000.0,
+		MaxHealth:         maxHealth,
+		Health:            maxHealth,
+		DefName:           defName,
 		Phase:             1,
 		PhaseTransitioned: []int{},
 		State:             EnemyIdle,
@@ -70,12 +85,16 @@ func NewEnemy(id uint16) *Enemy {
 	}
 }
 
-// Reset restores the enemy to full health and initial state.
-func (e *Enemy) Reset(spawnPos Vec3) {
+// Reset restores the enemy to full health. initialState defaults to EnemyChase.
+func (e *Enemy) Reset(spawnPos Vec3, initialState ...EnemyState) {
 	e.Health = e.MaxHealth
 	e.Phase = 1
 	e.PhaseTransitioned = []int{}
-	e.State = EnemyChase
+	state := EnemyChase
+	if len(initialState) > 0 {
+		state = initialState[0]
+	}
+	e.State = state
 	e.StateTimer = 0
 	e.ChaseTimer = 0
 	e.LastAttack = ""
@@ -91,7 +110,7 @@ func (e *Enemy) Reset(spawnPos Vec3) {
 // ApplyDamage reduces enemy health and checks phase transitions.
 // Returns actual damage dealt.
 func (e *Enemy) ApplyDamage(amount float32) (dealt float32, phaseTrigger int) {
-	if e.State == EnemyDead || e.State == EnemyPhaseTransition {
+	if e.State == EnemyDead {
 		return 0, 0
 	}
 	e.Health -= amount
@@ -172,6 +191,9 @@ func (e *Enemy) ChangeState(s EnemyState) {
 	case EnemyDead:
 		e.Velocity = Vec3{}
 		e.Alive = false
+	case EnemyPatrol:
+		e.Velocity = Vec3{}
+		e.ChaseTimer = 0
 	}
 }
 

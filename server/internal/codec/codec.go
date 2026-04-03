@@ -19,6 +19,7 @@ type PlayerInputMsg struct {
 type AbilityInputMsg struct {
 	Action   uint8
 	AimPitch float32
+	RotY     float32
 }
 
 // InteractInputMsg is the decoded lobby/interact packet.

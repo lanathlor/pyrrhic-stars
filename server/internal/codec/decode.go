@@ -44,6 +44,9 @@ func DecodeAbilityInput(payload []byte) *AbilityInputMsg {
 	if len(payload) >= 5 {
 		msg.AimPitch = getF32(payload[1:5])
 	}
+	if len(payload) >= 9 {
+		msg.RotY = getF32(payload[5:9])
+	}
 	return msg
 }
 

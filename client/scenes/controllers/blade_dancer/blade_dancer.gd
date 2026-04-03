@@ -357,7 +357,7 @@ func _start_edge() -> void:
 	_has_hit_this_attack = false
 	# Tell server we're attacking
 	if NetworkManager.is_active:
-		NetworkManager.send_ability(1)  # 1 = ActionMelee
+		NetworkManager.send_ability(1, 0.0, rotation.y)  # 1 = ActionMelee
 	_enter_state(State.EDGE)
 	_state_timer = 0.3
 	_gcd_timer = gcd_duration
@@ -387,7 +387,7 @@ func _start_surge() -> void:
 	_has_hit_this_attack = false
 	# Tell server we're attacking (heavy)
 	if NetworkManager.is_active:
-		NetworkManager.send_ability(2)  # 2 = ActionHeavy
+		NetworkManager.send_ability(2, 0.0, rotation.y)  # 2 = ActionHeavy
 	_gcd_timer = gcd_duration
 	match _config_at_cast:
 		Config.ORBIT:

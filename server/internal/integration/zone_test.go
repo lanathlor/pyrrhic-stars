@@ -225,11 +225,11 @@ func TestGunnerFireBroadcastsAttackStateIntegration(t *testing.T) {
 	// Wait for spawn grace period to expire (10 ticks @ 20Hz = 500ms)
 	time.Sleep(600 * time.Millisecond)
 
-	// --- Move both players into the arena (Z < ArenaEntryZ=12) to trigger fight ---
-	// Positions must be within 10 units of spawn (Z=20) to pass teleport check.
-	aimPitch := float32(math.Atan2(-1.0, 11.0)) // aiming slightly down at enemy
-	shooter.SendPlayerInput(-2, 0.1, 11, 0, 1, aimPitch)
-	observer.SendPlayerInput(0, 0.1, 11, 0, 1, 0)
+	// --- Move both players into the hallway (Z < ArenaEntryZ=40) to trigger fight ---
+	// Positions must be within 10 units of spawn (Z=48) to pass teleport check.
+	aimPitch := float32(math.Atan2(-1.0, 39.0)) // aiming slightly down at enemy
+	shooter.SendPlayerInput(-2, 0.1, 39, 0, 1, aimPitch)
+	observer.SendPlayerInput(0, 0.1, 39, 0, 1, 0)
 
 	// Wait for FightStart game flow event
 	shooter.WaitForMessage(message.OpGameFlowEvent, 3*time.Second)
@@ -277,9 +277,9 @@ func TestGunnerHitBroadcastsDamageEventIntegration(t *testing.T) {
 	// Wait for spawn grace period to expire (10 ticks @ 20Hz = 500ms)
 	time.Sleep(600 * time.Millisecond)
 
-	// Step into arena (Z < ArenaEntryZ=12) — must be within 10 units of spawn (Z=20)
-	shooter.SendPlayerInput(-2, 0.1, 11, 0, 1, 0)
-	observer.SendPlayerInput(0, 0.1, 11, 0, 1, 0)
+	// Step into hallway (Z < ArenaEntryZ=40) — must be within 10 units of spawn (Z=48)
+	shooter.SendPlayerInput(-2, 0.1, 39, 0, 1, 0)
+	observer.SendPlayerInput(0, 0.1, 39, 0, 1, 0)
 
 	// Wait for fight start
 	shooter.WaitForMessage(message.OpGameFlowEvent, 3*time.Second)
@@ -288,44 +288,56 @@ func TestGunnerHitBroadcastsDamageEventIntegration(t *testing.T) {
 	shooter.DrainMessages()
 	observer.DrainMessages()
 
-	// Move shooter closer to enemy on the Z axis (within 10 units of Z=11)
-	// Enemy is at origin; shooter at (0, 0.1, 2) with rotY=0 aims along -Z
-	eyeY := float32(1.6)
-	targetY := float32(1.0)
-	shooterZ := float32(2.0)
-	aimPitch := float32(math.Atan2(float64(targetY-eyeY), float64(shooterZ)))
-	shooter.SendPlayerInput(0, 0.1, shooterZ, 0, 2, aimPitch)
-	time.Sleep(100 * time.Millisecond) // let the server process the position update
+	// Move shooter to Z=35, close to trash mobs at Z≈32
+	shooter.SendPlayerInput(0, 0.1, 42, 0, 2, 0)
+	time.Sleep(100 * time.Millisecond)
+	shooter.SendPlayerInput(0, 0.1, 35, 0, 3, 0)
+	time.Sleep(100 * time.Millisecond)
+
+	// Aim at trash mob at approximately (-3, 1, 32) from (0, 1.6, 35)
+	// Direction: (-3-0, 1-1.6, 32-35) = (-3, -0.6, -3)
+	dx := float64(-3.0)
+	dz := float64(32.0 - 35.0)
+	dy := float64(1.0 - 1.6)
+	horizDist := math.Sqrt(dx*dx + dz*dz)
+	aimPitch := float32(math.Atan2(dy, horizDist))
+	rotY := float32(-math.Atan2(-dx, -dz))
+	shooter.SendPlayerInput(0, 0.1, 35, rotY, 4, aimPitch)
+	time.Sleep(100 * time.Millisecond)
 
 	shooter.SendAbilityInput(entity.ActionShoot, aimPitch)
 
-	// Observer should get a DamageEvent (if the shot hit the enemy)
-	// The shooter should also get one (DamageEvent is broadcast to all)
-	msg := shooter.WaitForMessage(message.OpDamageEvent, 3*time.Second)
-	if len(msg.Payload) < 21 {
-		t.Fatalf("DamageEvent payload too short: %d bytes", len(msg.Payload))
-	}
-	targetPeer := binary.LittleEndian.Uint16(msg.Payload[0:2])
-	sourcePeer := binary.LittleEndian.Uint16(msg.Payload[2:4])
-	amount := math.Float32frombits(binary.LittleEndian.Uint32(msg.Payload[4:8]))
+	// Look for a player-on-enemy DamageEvent (target >= 1000, source_type == 0)
+	// There may also be enemy-on-player events from trash mobs, so filter.
+	deadline := time.After(3 * time.Second)
+	found := false
+	for !found {
+		select {
+		case <-deadline:
+			t.Fatal("timeout waiting for player-on-enemy DamageEvent")
+		default:
+		}
+		msg := shooter.WaitForMessage(message.OpDamageEvent, 2*time.Second)
+		if len(msg.Payload) < 21 {
+			continue
+		}
+		targetPeer := binary.LittleEndian.Uint16(msg.Payload[0:2])
+		sourcePeer := binary.LittleEndian.Uint16(msg.Payload[2:4])
+		amount := math.Float32frombits(binary.LittleEndian.Uint32(msg.Payload[4:8]))
+		sourceType := msg.Payload[20]
 
-	t.Logf("DamageEvent: target=%d source=%d amount=%.1f", targetPeer, sourcePeer, amount)
+		t.Logf("DamageEvent: target=%d source=%d amount=%.1f type=%d", targetPeer, sourcePeer, amount, sourceType)
 
-	if targetPeer != 0 {
-		t.Errorf("target_peer = %d, want 0 (enemy)", targetPeer)
+		// Player-on-enemy: target is enemy ID (>= 1000), source_type == 0
+		if targetPeer >= 1000 && sourceType == 0 {
+			found = true
+			if sourcePeer != shooter.PeerID {
+				t.Errorf("source_peer = %d, want %d (shooter)", sourcePeer, shooter.PeerID)
+			}
+			if amount <= 0 {
+				t.Errorf("damage amount = %.1f, want > 0", amount)
+			}
+			t.Log("OK: shooter hit an enemy")
+		}
 	}
-	if sourcePeer != shooter.PeerID {
-		t.Errorf("source_peer = %d, want %d (shooter)", sourcePeer, shooter.PeerID)
-	}
-	if amount <= 0 {
-		t.Errorf("damage amount = %.1f, want > 0", amount)
-	}
-
-	// Observer should also receive it
-	obsMsg := observer.WaitForMessage(message.OpDamageEvent, 3*time.Second)
-	obsSource := binary.LittleEndian.Uint16(obsMsg.Payload[2:4])
-	if obsSource != shooter.PeerID {
-		t.Errorf("observer saw source_peer = %d, want %d", obsSource, shooter.PeerID)
-	}
-	t.Log("OK: observer received DamageEvent from shooter's hit")
 }

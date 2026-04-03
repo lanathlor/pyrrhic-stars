@@ -28,6 +28,7 @@ var _boss_visible: bool = false
 var _boss_name: String = "Arena Guardian"
 var _boss_health: float = 2000.0
 var _boss_phase: int = 1
+var _fight_over: bool = false  # keep boss frame visible after fight ends
 
 # --- Damage Meter (bottom right) ---
 var _damage_totals: Dictionary = {}  # pid → float
@@ -35,9 +36,10 @@ var _fight_active: bool = false
 var _fight_duration: float = 0.0
 
 # --- Minimap (top right) ---
-var _enemy_pos: Vector3 = Vector3.ZERO
+var _enemy_positions: Array = []  # Array of Vector3 for all alive enemies
 var _enemy_alive: bool = false
 var _player_rot_y: float = 0.0
+var _boss_max_health: float = 2000.0
 
 # --- Constants ---
 const CLASS_MAX_HP := {
@@ -75,9 +77,9 @@ func _draw() -> void:
 	_draw_group_frames()
 	if _boss_visible:
 		_draw_boss_frame()
-	if _fight_active or _boss_visible:
+	if _fight_active or _boss_visible or _fight_over:
 		_draw_damage_meter()
-	if _boss_visible or _fight_active:
+	if _fight_active or _boss_visible or _fight_over:
 		_draw_minimap()
 
 
@@ -96,6 +98,7 @@ func clear_local_player() -> void:
 	_local_player = null
 	_boss_visible = false
 	_fight_active = false
+	_fight_over = false
 	_damage_totals.clear()
 	_world_players.clear()
 
@@ -116,13 +119,23 @@ func update_world_state(data: Dictionary) -> void:
 			"rot_y": p.get("rot_y", 0.0),
 		}
 
-	# Enemy / boss
-	var enemy: Dictionary = data.get("enemy", {})
-	if not enemy.is_empty():
-		_enemy_alive = enemy.get("alive", false)
-		_enemy_pos = enemy.get("pos", Vector3.ZERO)
-		_boss_health = enemy.get("health", 0.0)
-		_boss_phase = enemy.get("phase", 1)
+	# Enemies — track boss and all alive positions for minimap
+	var enemies: Array = data.get("enemies", [])
+	_enemy_positions.clear()
+	_enemy_alive = false
+	# Only update boss visibility if fight is not over (preserve frame on result screen)
+	if not _fight_over:
+		_boss_visible = false
+	for edata in enemies:
+		if edata.get("alive", false):
+			_enemy_alive = true
+			_enemy_positions.append(edata.get("pos", Vector3.ZERO))
+			# Boss frame: show only for the guard_captain
+			if edata.get("def_name", "") == "guard_captain":
+				_boss_health = edata.get("health", 0.0)
+				_boss_phase = edata.get("phase", 1)
+				_boss_max_health = edata.get("max_health", 2000.0)
+				_boss_visible = true
 
 
 func update_group_members(data: Dictionary) -> void:
@@ -143,26 +156,29 @@ func on_damage_event(data: Dictionary) -> void:
 	var target: int = data.get("target_peer_id", -1)
 	var source: int = data.get("source_peer_id", 0)
 	var amount: float = data.get("amount", 0.0)
-	# Only count damage TO the enemy (target 0 = enemy)
-	if target == 0 and source > 0:
+	# Only count damage TO enemies (enemy IDs are >= 1000)
+	if target >= 1000 and source > 0:
 		_damage_totals[source] = _damage_totals.get(source, 0.0) + amount
 
 
 func on_fight_start() -> void:
 	_fight_active = true
-	_boss_visible = true
+	_fight_over = false
+	# Boss visibility is driven by update_world_state — guard_captain presence
 	_damage_totals.clear()
 	_fight_duration = 0.0
 
 
 func on_fight_end() -> void:
 	_fight_active = false
+	_fight_over = true
 	# Keep boss frame and damage meter visible for result screen
 
 
 func on_enter_hub() -> void:
 	_boss_visible = false
 	_fight_active = false
+	_fight_over = false
 	_damage_totals.clear()
 	_fight_duration = 0.0
 	_world_players.clear()
@@ -335,7 +351,7 @@ func _draw_boss_frame() -> void:
 	draw_rect(bg_rect, Color(0.1, 0.05, 0.05, 0.75))
 
 	# Bar fill — color shifts by phase
-	var hp_ratio := clampf(_boss_health / ENEMY_MAX_HP, 0.0, 1.0)
+	var hp_ratio := clampf(_boss_health / maxf(_boss_max_health, 1.0), 0.0, 1.0)
 	var bar_color: Color
 	match _boss_phase:
 		1: bar_color = Color(0.2, 0.75, 0.2)
@@ -349,7 +365,7 @@ func _draw_boss_frame() -> void:
 	draw_rect(bg_rect, Color(0.4, 0.35, 0.3, 0.8), false, 1.5)
 
 	# HP numbers
-	var hp_text := "%d / %d" % [int(_boss_health), int(ENEMY_MAX_HP)]
+	var hp_text := "%d / %d" % [int(_boss_health), int(_boss_max_health)]
 	draw_string(font, Vector2(center_x - 50.0, bar_y + 14.0), hp_text,
 		HORIZONTAL_ALIGNMENT_CENTER, 100, 12, Color(1.0, 1.0, 1.0, 0.9))
 
@@ -465,9 +481,9 @@ func _draw_minimap() -> void:
 		if map_pos.distance_to(map_center) <= MINIMAP_RADIUS:
 			draw_circle(map_pos, 3.0, Color(0.3, 0.9, 0.3, 0.9))
 
-	# Enemy (red dot)
-	if _enemy_alive:
-		var enemy_map := _world_to_minimap(_enemy_pos, local_pos, map_center, scale_factor)
+	# Enemies (red dots)
+	for epos in _enemy_positions:
+		var enemy_map := _world_to_minimap(epos, local_pos, map_center, scale_factor)
 		if enemy_map.distance_to(map_center) <= MINIMAP_RADIUS:
 			draw_circle(enemy_map, 4.0, Color(0.9, 0.2, 0.2, 0.9))
 

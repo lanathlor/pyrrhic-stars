@@ -10,7 +10,7 @@ signal died
 # Values match server EnemyState:
 # 0=Idle, 1=Chase, 2=MeleeTelegraph, 3=MeleeAttack, 4=RangedTelegraph,
 # 5=RangedAttack, 6=AoETelegraph, 7=AoESlam, 8=ChargeTelegraph, 9=Charge,
-# 10=Cooldown, 11=PhaseTransition, 12=Dead
+# 10=Cooldown, 11=PhaseTransition, 12=Dead, 13=Patrol
 enum State {
 	IDLE, CHASE,
 	MELEE_TELEGRAPH, MELEE_ATTACK,
@@ -18,6 +18,7 @@ enum State {
 	AOE_TELEGRAPH, AOE_SLAM,
 	CHARGE_TELEGRAPH, CHARGE,
 	COOLDOWN, PHASE_TRANSITION, DEAD,
+	PATROL,
 }
 
 # Stats needed for health bar display
@@ -30,7 +31,7 @@ var state: State = State.IDLE
 # Phase tracking (for health bar color and charge distance)
 var _current_phase: int = 1
 
-# Enemy uses peer_id = 0 as its network identity (reserved for the boss)
+# Enemy network identity (server assigns IDs >= 1000 to avoid player peer ID collision)
 var peer_id: int = 0
 
 # Server state (set by main.gd from WorldState)
@@ -73,6 +74,7 @@ var _gun_node: Node3D
 var _sword_attachment: BoneAttachment3D
 var _gun_attachment: BoneAttachment3D
 var _last_weapon: String = "sword"  # which weapon to show between attacks
+var _def_name: String = ""          # enemy definition name from server
 
 # Ranged target position for laser warning visual
 var _ranged_target_position: Vector3
@@ -92,6 +94,7 @@ func _ready() -> void:
 	_create_aoe_telegraph()
 	_create_aoe_particles()
 	_create_charge_telegraph()
+	_create_hitbox_debug()
 	_attach_weapons.call_deferred()
 
 	# Debug: log loaded animations
@@ -128,6 +131,15 @@ func apply_server_state(data: Dictionary) -> void:
 	_current_phase = _server_phase
 	_ranged_target_position = _server_ranged_target
 	_charge_direction = _server_charge_dir
+	# Dynamic max_health from server (varies per enemy def)
+	if data.has("max_health") and data["max_health"] > 0.0:
+		max_health = data["max_health"]
+	if data.has("def_name") and data["def_name"] != "":
+		if _def_name == "" and data["def_name"] != _def_name:
+			_def_name = data["def_name"]
+			# Ranged enemies default to gun weapon
+			if _def_name == "hallway_ranged":
+				_last_weapon = "gun"
 
 
 func _physics_process(delta: float) -> void:
@@ -218,6 +230,12 @@ func _play_anim_with_fallback(primary: String, fallback: String, speed: float = 
 
 func _update_boss_animation() -> void:
 	match state:
+		State.PATROL:
+			# Patrolling trash mobs walk at half speed — use weapon-appropriate anim
+			if _last_weapon == "gun":
+				_play_anim_with_fallback("rifle_aim_run", "run", 0.5)
+			else:
+				_play_anim_with_fallback("sword_run", "run", 0.5)
 		State.CHASE:
 			var flat_speed := Vector2(_visual_velocity.x, _visual_velocity.z).length()
 			if _last_weapon == "gun":
@@ -640,6 +658,29 @@ func _create_charge_telegraph() -> void:
 	add_child(_charge_telegraph_mesh)
 
 
+func _create_hitbox_debug() -> void:
+	# Wireframe cylinder matching server hitbox: radius 2.0, Y from 0 to 2.5
+	# Target center is at Y=1.0, cylinder spans Y=-1.0 to Y=1.5 relative to that = Y=0 to Y=2.5 from feet
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = 1.2
+	mesh.bottom_radius = 1.2
+	mesh.height = 2.5
+	mesh.radial_segments = 16
+	mesh.rings = 0
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.position = Vector3(0.0, 1.25, 0.0)  # center of cylinder at half height
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.0, 1.0, 0.0, 0.15)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.no_depth_test = true
+	mi.set_surface_override_material(0, mat)
+	mi.name = "HitboxDebug"
+	add_child(mi)
+
+
 func _update_laser_warning() -> void:
 	var start := global_position + Vector3(0.0, 1.0, 0.0)
 	var end := _ranged_target_position
@@ -708,11 +749,11 @@ func _attach_weapons() -> void:
 				_gun_node.scale = Vector3(1.5, 1.5, 1.5)  # boss-sized
 				_gun_attachment.add_child(_gun_node)
 
-	# Start with sword visible (default weapon)
+	# Show weapon based on _last_weapon (set by apply_server_state before deferred call)
 	if _sword_attachment:
-		_sword_attachment.visible = true
+		_sword_attachment.visible = (_last_weapon == "sword")
 	if _gun_attachment:
-		_gun_attachment.visible = false
+		_gun_attachment.visible = (_last_weapon == "gun")
 
 
 func _update_weapons(_delta: float) -> void:

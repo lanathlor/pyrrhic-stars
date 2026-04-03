@@ -29,7 +29,7 @@ func makeGunner(peerID uint16, pos entity.Vec3, targetPos entity.Vec3) *entity.P
 }
 
 func makeEnemy() *entity.Enemy {
-	e := entity.NewEnemy(0)
+	e := entity.NewEnemy(0, 2000.0, "guard_captain")
 	e.Alive = true
 	e.State = entity.EnemyIdle
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: 0}

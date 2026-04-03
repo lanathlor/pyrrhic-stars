@@ -1,6 +1,8 @@
 package enemyai
 
-import "math"
+import (
+	"math"
+)
 
 // GuardCaptain is the first dungeon boss — a corrupted guard captain
 // encountered in the Derelict City arena. Three-phase fight with melee,
@@ -154,4 +156,79 @@ var GuardCaptain = EnemyDef{
 			},
 		},
 	},
+}
+
+// HallwayMelee is a simple melee-only grunt for hallway trash packs.
+var HallwayMelee = EnemyDef{
+	Name:      "hallway_melee",
+	MaxHealth: 200.0,
+	MoveSpeed: 5.0,
+	Radius:    0.8,
+
+	ChaseThreshold:        0.5,
+	ChaseThresholdFar:     0.3,
+	FarDistanceMultiplier: 2.0,
+	AntiRepeat:            1.0,
+
+	Abilities: []AbilityDef{
+		{
+			Name:             "melee_slash",
+			Type:             AbilityMelee,
+			TargetStrategy:   TargetNearest,
+			TelegraphTime:    0.5,
+			ExecuteTime:      0.2,
+			CooldownTime:     0.4,
+			BaseWeight:       100,
+			MaxRange:         2.5,
+			FaceTarget:       true,
+			MeleeRange:       2.5,
+			MeleeDamage:      15.0,
+			DamageSourceType: SourceEnemyMelee,
+		},
+	},
+}
+
+// HallwayRanged is a ranged caster for hallway trash packs.
+// Keeps distance from players, backpedals when too close.
+var HallwayRanged = EnemyDef{
+	Name:           "hallway_ranged",
+	MaxHealth:      150.0,
+	MoveSpeed:      3.5,
+	PreferredRange: 8.0,
+	BackpedalSpeed: 3.0,
+	Radius:         0.8,
+
+	ChaseThreshold:        0.8,
+	ChaseThresholdFar:     0.5,
+	FarDistanceMultiplier: 2.0,
+	AntiRepeat:            1.0,
+
+	Abilities: []AbilityDef{
+		{
+			Name:               "energy_bolt",
+			Type:               AbilityRanged,
+			TargetStrategy:     TargetNearest,
+			TelegraphTime:      0.6,
+			ExecuteTime:        0.1,
+			CooldownTime:       1.2,
+			BaseWeight:         100,
+			MinRange:           2.0,
+			FaceTarget:         false,
+			TrackTarget:        true,
+			ProjectileCount:    1,
+			ProjectileSpeed:    18.0,
+			ProjectileDamage:   12.0,
+			ProjectileSpread:   0,
+			ProjectileOriginY:  1.2,
+			ProjectileLifetime: 4.0,
+			DamageSourceType:   SourceEnemyRanged,
+		},
+	},
+}
+
+// DefRegistry maps def names to their definitions.
+var DefRegistry = map[string]*EnemyDef{
+	"guard_captain":  &GuardCaptain,
+	"hallway_melee":  &HallwayMelee,
+	"hallway_ranged": &HallwayRanged,
 }
