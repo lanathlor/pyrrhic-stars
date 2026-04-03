@@ -11,6 +11,7 @@ client/.import/
 .go/
 server/bin/
 server/gateway
+server/tmp/
 
 # Build
 build/

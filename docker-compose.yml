@@ -2,9 +2,12 @@ services:
   gateway:
     build:
       context: ./server
-    command: ["/bin/gateway"]
+      dockerfile: Dockerfile.dev
+    command: ["-c", ".air.gateway.toml"]
     ports:
-      - "8080:8080"
+      - "7777:7777"
+    volumes:
+      - ./server:/app
     depends_on:
       redis:
         condition: service_healthy
@@ -17,9 +20,12 @@ services:
   zone:
     build:
       context: ./server
-    command: ["/bin/zone"]
+      dockerfile: Dockerfile.dev
+    command: ["-c", ".air.zone.toml"]
     ports:
       - "8081:8081"
+    volumes:
+      - ./server:/app
     depends_on:
       redis:
         condition: service_healthy
@@ -32,9 +38,12 @@ services:
   chat:
     build:
       context: ./server
-    command: ["/bin/chat"]
+      dockerfile: Dockerfile.dev
+    command: ["-c", ".air.chat.toml"]
     ports:
       - "8082:8082"
+    volumes:
+      - ./server:/app
     depends_on:
       redis:
         condition: service_healthy
