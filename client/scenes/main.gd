@@ -51,10 +51,6 @@ var _enemy_node: CharacterBody3D = null
 var _gate: CSGBox3D
 var _pause_layer: CanvasLayer
 var _menu_layer: CanvasLayer
-var _lobby_layer: CanvasLayer
-var _lobby_status_label: Label
-var _lobby_players_label: Label
-var _lobby_class_label: Label
 var _address_input: LineEdit
 var _username_input: LineEdit
 
@@ -114,7 +110,6 @@ func _ready() -> void:
 
 	_create_pause_menu()
 	_create_menu_ui()
-	_create_lobby_ui()
 	_create_hub_ui()
 	_create_group_panel()
 	_create_invite_popup()
@@ -127,7 +122,6 @@ func _ready() -> void:
 	NetworkManager.connection_failed.connect(_on_net_connection_failed)
 	# Server-authoritative signals
 	NetworkManager.game_flow_event.connect(_on_game_flow_event)
-	NetworkManager.player_info_changed.connect(_update_lobby_display)
 	NetworkManager.world_state_received.connect(_on_world_state)
 	NetworkManager.damage_event_received.connect(_on_damage_event)
 	NetworkManager.zone_transfer_received.connect(_on_zone_transfer)
@@ -199,7 +193,6 @@ func _enter_menu() -> void:
 	state = GameState.MENU
 	NetworkManager.disconnect_game()
 	_menu_layer.visible = true
-	_lobby_layer.visible = false
 	_hub_layer.visible = false
 	_pause_layer.visible = false
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
@@ -260,7 +253,6 @@ func _enter_hub() -> void:
 	paused = false
 	_pause_layer.visible = false
 	_menu_layer.visible = false
-	_lobby_layer.visible = false
 	_hub_layer.visible = true
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	_near_portal = false
@@ -442,10 +434,10 @@ func _update_group_panel() -> void:
 
 
 # =============================================================================
-# Arena Lobby (warmup room)
+# Arena warmup
 # =============================================================================
 
-func _enter_arena_lobby() -> void:
+func _enter_arena_warmup() -> void:
 	state = GameState.ARENA_LOBBY
 	get_tree().paused = false
 	paused = false
@@ -453,8 +445,6 @@ func _enter_arena_lobby() -> void:
 	_menu_layer.visible = false
 	_remove_exit_portal()
 	_hub_layer.visible = false
-	_lobby_layer.visible = true
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 	# Load arena scene if not already loaded
 	if _current_env == null or _current_env.name != "Arena":
@@ -469,59 +459,17 @@ func _enter_arena_lobby() -> void:
 		_enemy_node.collision_layer = 0
 		_enemy_node.set_physics_process(false)
 
-	# Open gate
+	# Open gate so players can walk into the arena
 	if _gate:
 		_gate.visible = false
 		_gate.use_collision = false
-
-	_update_lobby_display()
 
 
 func _select_class(class_name_str: String) -> void:
 	_local_class = class_name_str
 	if NetworkManager.is_active:
 		NetworkManager.set_player_class(class_name_str)
-	_update_lobby_display()
 	_update_hub_display()
-
-
-func _toggle_ready() -> void:
-	if not NetworkManager.is_active:
-		return
-	var my_id := NetworkManager.get_my_id()
-	if my_id not in NetworkManager.player_info:
-		return
-	var currently_ready: bool = NetworkManager.player_info[my_id]["ready"]
-	NetworkManager.set_player_ready(not currently_ready)
-
-
-func _update_lobby_display() -> void:
-	if not _lobby_layer or not _lobby_layer.visible:
-		return
-
-	_lobby_class_label.text = "Class: %s" % _local_class.to_upper()
-
-	if not NetworkManager.is_active:
-		_lobby_status_label.text = "Connecting..."
-		_lobby_players_label.text = ""
-		return
-
-	var text := "Players:\n"
-	for pid in NetworkManager.player_info:
-		var info: Dictionary = NetworkManager.player_info[pid]
-		var ready_str := " [READY]" if info["ready"] else ""
-		var you_str := " (you)" if pid == NetworkManager.get_my_id() else ""
-		var uname: String = info.get("username", _player_names.get(pid, "Peer %d" % pid))
-		text += "  %s: %s%s%s\n" % [uname, info["class_name"].to_upper(), ready_str, you_str]
-
-	_lobby_players_label.text = text
-
-	var my_id := NetworkManager.get_my_id()
-	var am_ready: bool = NetworkManager.player_info.get(my_id, {}).get("ready", false)
-	if am_ready:
-		_lobby_status_label.text = "Waiting for other players..."
-	else:
-		_lobby_status_label.text = "Press ENTER when ready"
 
 
 # =============================================================================
@@ -529,8 +477,6 @@ func _update_lobby_display() -> void:
 # =============================================================================
 
 func _spawn_multiplayer_players() -> void:
-	_lobby_layer.visible = false
-
 	var spawn_idx := 0
 	for pid in NetworkManager.player_info:
 		var info: Dictionary = NetworkManager.player_info[pid]
@@ -611,7 +557,6 @@ func _spawn_projectile(proj_id: int, pos: Vector3, dir: Vector3) -> void:
 
 func _start_fight() -> void:
 	state = GameState.FIGHT
-	_lobby_layer.visible = false
 	_hub_layer.visible = false
 	_cursor_toggled = false
 	_alt_held = false
@@ -680,7 +625,6 @@ func _on_zone_transfer(zone_type: int, new_peer_id: int) -> void:
 			_gate.use_collision = false
 		# Spawn local player in warmup room immediately
 		state = GameState.ARENA_LOBBY
-		_lobby_layer.visible = false
 		_hub_layer.visible = false
 		_menu_layer.visible = false
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
@@ -709,7 +653,7 @@ func _on_game_flow_event(flow_type: int, text: String) -> void:
 			_on_all_dead()
 		NetSerializer.FLOW_RETURN_LOBBY:
 			_hide_death_overlay()
-			_enter_arena_lobby()
+			_enter_arena_warmup()
 
 
 func _on_world_state(data: Dictionary) -> void:
@@ -1073,64 +1017,6 @@ func _create_menu_ui() -> void:
 	connect_btn.custom_minimum_size = Vector2(100.0, 50.0)
 	connect_btn.pressed.connect(_on_connect_pressed)
 	connect_hbox.add_child(connect_btn)
-
-
-func _create_lobby_ui() -> void:
-	_lobby_layer = CanvasLayer.new()
-	_lobby_layer.layer = 15
-	_lobby_layer.visible = false
-	add_child(_lobby_layer)
-
-	var bg := ColorRect.new()
-	bg.color = Color(0.05, 0.05, 0.1, 0.85)
-	bg.anchor_right = 1.0
-	bg.anchor_bottom = 1.0
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_lobby_layer.add_child(bg)
-
-	var vbox := VBoxContainer.new()
-	vbox.anchor_left = 0.5
-	vbox.anchor_right = 0.5
-	vbox.anchor_top = 0.15
-	vbox.anchor_bottom = 0.85
-	vbox.offset_left = -200.0
-	vbox.offset_right = 200.0
-	vbox.add_theme_constant_override("separation", 16)
-	_lobby_layer.add_child(vbox)
-
-	var title := Label.new()
-	title.text = "ARENA LOBBY"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 36)
-	vbox.add_child(title)
-
-	_lobby_class_label = Label.new()
-	_lobby_class_label.text = "[1] Gunner   [2] Vanguard   [3] Blade Dancer"
-	_lobby_class_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_lobby_class_label.add_theme_font_size_override("font_size", 20)
-	_lobby_class_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.9))
-	vbox.add_child(_lobby_class_label)
-
-	var spacer := Control.new()
-	spacer.custom_minimum_size.y = 20.0
-	vbox.add_child(spacer)
-
-	_lobby_players_label = Label.new()
-	_lobby_players_label.text = ""
-	_lobby_players_label.add_theme_font_size_override("font_size", 18)
-	_lobby_players_label.add_theme_color_override("font_color", Color(0.7, 0.8, 0.7))
-	vbox.add_child(_lobby_players_label)
-
-	var spacer2 := Control.new()
-	spacer2.custom_minimum_size.y = 20.0
-	vbox.add_child(spacer2)
-
-	_lobby_status_label = Label.new()
-	_lobby_status_label.text = "Press ENTER when ready"
-	_lobby_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_lobby_status_label.add_theme_font_size_override("font_size", 22)
-	_lobby_status_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.5))
-	vbox.add_child(_lobby_status_label)
 
 
 func _create_hub_ui() -> void:

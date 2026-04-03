@@ -341,8 +341,8 @@ func TestTickFightOver_AllRespawnedAfterWipe(t *testing.T) {
 
 	z.processTick()
 
-	if z.world.State != StateLobby {
-		t.Errorf("State = %d, want StateLobby (%d)", z.world.State, StateLobby)
+	if z.world.State != StateSpawned {
+		t.Errorf("State = %d, want StateSpawned (%d)", z.world.State, StateSpawned)
 	}
 	if !findGameFlowEvent(*msgs, message.FlowReturnLobby) {
 		t.Error("client did not receive FlowReturnLobby game flow event")

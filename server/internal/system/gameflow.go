@@ -136,7 +136,7 @@ func tickFightOver(w *World, dt float32) {
 }
 
 func returnToLobby(w *World) {
-	w.State = StateLobby
+	w.State = StateSpawned
 	w.Projectiles = nil
 	for _, p := range w.Players {
 		p.Ready = false
