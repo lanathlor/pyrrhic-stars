@@ -50,6 +50,7 @@ var _enemy_nodes: Dictionary = {}  # enemy_id -> CharacterBody3D
 
 # Dynamic nodes
 var _boss_gate: CSGBox3D
+var _atmosphere: Node3D
 var _pause_layer: CanvasLayer
 var _menu_layer: CanvasLayer
 var _address_input: LineEdit
@@ -452,6 +453,7 @@ func _enter_arena_warmup() -> void:
 		_unload_environment()
 		_load_environment(ARENA_SCENE)
 		_create_hallway_geometry()
+		_create_atmosphere()
 
 
 func _select_class(class_name_str: String) -> void:
@@ -592,6 +594,7 @@ func _on_zone_transfer(zone_type: int, new_peer_id: int) -> void:
 		_unload_environment()
 		_load_environment(ARENA_SCENE)
 		_create_hallway_geometry()
+		_create_atmosphere()
 		# Spawn local player in warmup room immediately
 		state = GameState.ARENA_LOBBY
 		_hub_layer.visible = false
@@ -811,6 +814,7 @@ func _unload_environment() -> void:
 	if _boss_gate and is_instance_valid(_boss_gate):
 		_boss_gate.queue_free()
 	_boss_gate = null
+	_atmosphere = null
 
 
 func _update_enemies(enemies_data: Array) -> void:
@@ -865,11 +869,15 @@ func _create_hallway_geometry() -> void:
 	# Hallway connects warmup room (Z 40-52) to boss room (Z -14.5 to 12).
 	# Hallway spans Z 12 to 40, X -8 to 8 (narrower corridor).
 	var mat_floor := StandardMaterial3D.new()
-	mat_floor.albedo_color = Color(0.22, 0.22, 0.25)
+	mat_floor.albedo_color = Color(0.12, 0.12, 0.15)
+	mat_floor.roughness = 0.3
+	mat_floor.metallic = 0.25
 	var mat_wall := StandardMaterial3D.new()
-	mat_wall.albedo_color = Color(0.32, 0.32, 0.35)
+	mat_wall.albedo_color = Color(0.18, 0.18, 0.22)
+	mat_wall.roughness = 0.75
 	var mat_cover := StandardMaterial3D.new()
-	mat_cover.albedo_color = Color(0.3, 0.33, 0.38)
+	mat_cover.albedo_color = Color(0.16, 0.18, 0.22)
+	mat_cover.roughness = 0.7
 
 	# Hallway floor (16 wide x 28 deep)
 	var hall_floor := CSGBox3D.new()
@@ -909,7 +917,7 @@ func _create_hallway_geometry() -> void:
 	var conn_wall_l := CSGBox3D.new()
 	conn_wall_l.name = "ConnectorWallLeft"
 	conn_wall_l.size = Vector3(12.0, 5.0, 0.5)
-	conn_wall_l.transform.origin = Vector3(-14.0, 2.5, 12.0)
+	conn_wall_l.transform.origin = Vector3(-14.0, 2.5, 11.6)
 	conn_wall_l.use_collision = true
 	conn_wall_l.collision_layer = 1
 	conn_wall_l.collision_mask = 0
@@ -920,7 +928,7 @@ func _create_hallway_geometry() -> void:
 	var conn_wall_r := CSGBox3D.new()
 	conn_wall_r.name = "ConnectorWallRight"
 	conn_wall_r.size = Vector3(12.0, 5.0, 0.5)
-	conn_wall_r.transform.origin = Vector3(14.0, 2.5, 12.0)
+	conn_wall_r.transform.origin = Vector3(14.0, 2.5, 11.6)
 	conn_wall_r.use_collision = true
 	conn_wall_r.collision_layer = 1
 	conn_wall_r.collision_mask = 0
@@ -945,23 +953,6 @@ func _create_hallway_geometry() -> void:
 		cover.material = mat_cover
 		add_child(cover)
 
-	# Hallway lighting
-	var light1 := OmniLight3D.new()
-	light1.name = "HallwayLight1"
-	light1.transform.origin = Vector3(0.0, 3.5, 32.0)
-	light1.light_color = Color(0.5, 0.5, 0.7)
-	light1.light_energy = 2.0
-	light1.omni_range = 12.0
-	add_child(light1)
-
-	var light2 := OmniLight3D.new()
-	light2.name = "HallwayLight2"
-	light2.transform.origin = Vector3(0.0, 3.5, 22.0)
-	light2.light_color = Color(0.5, 0.5, 0.7)
-	light2.light_energy = 2.0
-	light2.omni_range = 12.0
-	add_child(light2)
-
 	# Boss room gate at Z=12 (hidden by default, closes when boss aggros)
 	_boss_gate = CSGBox3D.new()
 	_boss_gate.size = Vector3(40.0, 5.0, 0.5)
@@ -978,6 +969,16 @@ func _create_hallway_geometry() -> void:
 	_boss_gate.visible = false
 	_boss_gate.use_collision = false
 	add_child(_boss_gate)
+
+
+func _create_atmosphere() -> void:
+	if _atmosphere and is_instance_valid(_atmosphere):
+		_atmosphere.queue_free()
+	var AtmosphereScript := load("res://scenes/environments/arena/dungeon_atmosphere.gd")
+	_atmosphere = Node3D.new()
+	_atmosphere.name = "DungeonAtmosphere"
+	_atmosphere.set_script(AtmosphereScript)
+	_current_env.add_child(_atmosphere)
 
 
 func _close_boss_gate() -> void:
