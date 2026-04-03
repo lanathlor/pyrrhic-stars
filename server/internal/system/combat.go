@@ -3,10 +3,6 @@ package system
 import "codex-online/server/internal/entity"
 
 const (
-	// CombatExitTicks is the number of ticks after last damage before
-	// a player is considered out of combat (5 seconds at 20Hz).
-	CombatExitTicks uint32 = 100
-
 	// RegenRate is the fraction of MaxHealth regenerated per second
 	// when out of combat (5% = full heal in 20 seconds).
 	RegenRate float32 = 0.05
@@ -37,17 +33,12 @@ func (s *CombatSystem) Tick(w *World, dt float32) {
 
 		inCombat := false
 
-		// Check if any alive enemy is targeting this player
+		// Player is in combat if they're on any alive enemy's threat table
 		for _, e := range w.Enemies {
-			if e != nil && e.Alive && e.TargetPlayerID == p.PeerID {
+			if e != nil && e.Alive && e.HasThreat(p.PeerID) {
 				inCombat = true
 				break
 			}
-		}
-
-		// Check if player took damage recently
-		if !inCombat && p.LastDamageTick > 0 && w.TickNum-p.LastDamageTick < CombatExitTicks {
-			inCombat = true
 		}
 
 		p.InCombat = inCombat

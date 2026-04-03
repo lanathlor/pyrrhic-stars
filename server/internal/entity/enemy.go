@@ -48,6 +48,9 @@ type Enemy struct {
 	ChargeDistance    float32
 	ChargeHitPlayers []uint16
 
+	// Threat table — tracks which players are engaged (peerID → threat)
+	ThreatTable map[uint16]float32
+
 	// Alive
 	Alive bool
 }
@@ -63,6 +66,7 @@ func NewEnemy(id uint16) *Enemy {
 		State:             EnemyIdle,
 		Alive:             true,
 		ChargeHitPlayers:  []uint16{},
+		ThreatTable:       make(map[uint16]float32),
 	}
 }
 
@@ -81,6 +85,7 @@ func (e *Enemy) Reset(spawnPos Vec3) {
 	e.Alive = true
 	e.ChargeHitPlayers = []uint16{}
 	e.ChargeDistance = 0
+	e.ThreatTable = make(map[uint16]float32)
 }
 
 // ApplyDamage reduces enemy health and checks phase transitions.
@@ -168,6 +173,25 @@ func (e *Enemy) ChangeState(s EnemyState) {
 		e.Velocity = Vec3{}
 		e.Alive = false
 	}
+}
+
+// AddThreat increases a player's threat on this enemy.
+func (e *Enemy) AddThreat(peerID uint16, amount float32) {
+	if e.ThreatTable == nil {
+		e.ThreatTable = make(map[uint16]float32)
+	}
+	e.ThreatTable[peerID] += amount
+}
+
+// HasThreat returns true if the player is on this enemy's threat table.
+func (e *Enemy) HasThreat(peerID uint16) bool {
+	_, ok := e.ThreatTable[peerID]
+	return ok
+}
+
+// ClearThreat wipes the threat table.
+func (e *Enemy) ClearThreat() {
+	e.ThreatTable = make(map[uint16]float32)
 }
 
 // MeleeRange is the melee hit check distance.

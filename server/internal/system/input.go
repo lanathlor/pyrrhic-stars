@@ -36,8 +36,15 @@ func handlePlayerInput(w *World, peerID uint16, payload []byte) {
 		return
 	}
 
+	// After a zone transfer, the client may send stale positions from the
+	// previous zone for a few frames before it processes the transfer.
+	// Reject all position updates within 10 ticks (~500ms) of spawn.
+	const spawnGraceTicks uint32 = 10
+	if p.SpawnTick > 0 && w.TickNum-p.SpawnTick < spawnGraceTicks {
+		return
+	}
+
 	// Reject positions that teleport too far from the server-assigned position.
-	// This catches the first bogus (0,0,0) frame from a freshly spawned client.
 	newPos := entity.Vec3{X: inp.PosX, Y: inp.PosY, Z: inp.PosZ}
 	dx := newPos.X - p.Position.X
 	dy := newPos.Y - p.Position.Y
@@ -83,6 +90,7 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 			if evt != nil {
 				evt.SourcePeerID = peerID
 				w.DamageEvents = append(w.DamageEvents, *evt)
+				enemy.AddThreat(peerID, evt.Amount)
 			}
 		}
 	case entity.ActionMelee:
@@ -98,6 +106,7 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 			if evt != nil {
 				evt.SourcePeerID = peerID
 				w.DamageEvents = append(w.DamageEvents, *evt)
+				enemy.AddThreat(peerID, evt.Amount)
 			}
 		}
 	case entity.ActionHeavy:
@@ -108,6 +117,7 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 			if evt != nil {
 				evt.SourcePeerID = peerID
 				w.DamageEvents = append(w.DamageEvents, *evt)
+				enemy.AddThreat(peerID, evt.Amount)
 			}
 		}
 	}

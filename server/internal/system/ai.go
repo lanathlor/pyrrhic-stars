@@ -15,8 +15,8 @@ func (s *AISystem) Tick(w *World, dt float32) {
 		}
 		events := w.Brains[i].Tick(dt, w.Players, w.Level.Obstacles, w.SpawnProjectile)
 		for _, evt := range events {
-			if p, ok := w.Players[evt.TargetPeerID]; ok {
-				p.LastDamageTick = w.TickNum
+			if _, ok := w.Players[evt.TargetPeerID]; ok {
+				e.AddThreat(evt.TargetPeerID, evt.Amount)
 			}
 		}
 		w.DamageEvents = append(w.DamageEvents, events...)

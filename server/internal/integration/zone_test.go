@@ -222,11 +222,14 @@ func TestGunnerFireBroadcastsAttackStateIntegration(t *testing.T) {
 	observer.WaitForMessage(message.OpGameFlowEvent, 3*time.Second)
 	t.Log("both players spawned")
 
-	// --- Move both players into the arena (Z < 12) to trigger fight ---
-	// Send position updates placing players in the fight zone aimed at enemy
-	aimPitch := float32(math.Atan2(-1.0, 10.0)) // aiming slightly down at enemy
-	shooter.SendPlayerInput(0, 0.1, 5, 0, 1, aimPitch)
-	observer.SendPlayerInput(3, 0.1, 5, 0, 1, 0)
+	// Wait for spawn grace period to expire (10 ticks @ 20Hz = 500ms)
+	time.Sleep(600 * time.Millisecond)
+
+	// --- Move both players into the arena (Z < ArenaEntryZ=12) to trigger fight ---
+	// Positions must be within 10 units of spawn (Z=20) to pass teleport check.
+	aimPitch := float32(math.Atan2(-1.0, 11.0)) // aiming slightly down at enemy
+	shooter.SendPlayerInput(-2, 0.1, 11, 0, 1, aimPitch)
+	observer.SendPlayerInput(0, 0.1, 11, 0, 1, 0)
 
 	// Wait for FightStart game flow event
 	shooter.WaitForMessage(message.OpGameFlowEvent, 3*time.Second)
@@ -271,16 +274,12 @@ func TestGunnerHitBroadcastsDamageEventIntegration(t *testing.T) {
 	shooter.WaitForMessage(message.OpGameFlowEvent, 3*time.Second)
 	observer.WaitForMessage(message.OpGameFlowEvent, 3*time.Second)
 
-	// Move into arena and aim at enemy (enemy is at origin, center mass ~(0,1,0))
-	// Position shooter at Z=10, aimed directly at enemy
-	eyeY := float32(1.6)
-	targetY := float32(1.0)
-	targetZ := float32(0.0)
-	shooterZ := float32(10.0)
-	aimPitch := float32(math.Atan2(float64(targetY-eyeY), float64(shooterZ-targetZ)))
+	// Wait for spawn grace period to expire (10 ticks @ 20Hz = 500ms)
+	time.Sleep(600 * time.Millisecond)
 
-	shooter.SendPlayerInput(0, 0.1, 5, 0, 1, aimPitch)
-	observer.SendPlayerInput(3, 0.1, 5, 0, 1, 0)
+	// Step into arena (Z < ArenaEntryZ=12) — must be within 10 units of spawn (Z=20)
+	shooter.SendPlayerInput(-2, 0.1, 11, 0, 1, 0)
+	observer.SendPlayerInput(0, 0.1, 11, 0, 1, 0)
 
 	// Wait for fight start
 	shooter.WaitForMessage(message.OpGameFlowEvent, 3*time.Second)
@@ -289,9 +288,13 @@ func TestGunnerHitBroadcastsDamageEventIntegration(t *testing.T) {
 	shooter.DrainMessages()
 	observer.DrainMessages()
 
-	// Fire — shooter is at (0, 0.1, 5) aimed at enemy at origin
-	// Update position to be closer and properly aimed
-	shooter.SendPlayerInput(0, 0.1, 10, 0, 2, aimPitch)
+	// Move shooter closer to enemy on the Z axis (within 10 units of Z=11)
+	// Enemy is at origin; shooter at (0, 0.1, 2) with rotY=0 aims along -Z
+	eyeY := float32(1.6)
+	targetY := float32(1.0)
+	shooterZ := float32(2.0)
+	aimPitch := float32(math.Atan2(float64(targetY-eyeY), float64(shooterZ)))
+	shooter.SendPlayerInput(0, 0.1, shooterZ, 0, 2, aimPitch)
 	time.Sleep(100 * time.Millisecond) // let the server process the position update
 
 	shooter.SendAbilityInput(entity.ActionShoot, aimPitch)

@@ -182,6 +182,7 @@ func spawnPlayers(w *World) {
 		p.RollCooldown = 0
 		p.Invincible = false
 		p.InvincibleTimer = 0
+		p.SpawnTick = w.TickNum
 		idx++
 	}
 }
@@ -204,4 +205,5 @@ func SpawnPlayer(w *World, peerID uint16) {
 	p.RollCooldown = 0
 	p.Invincible = false
 	p.InvincibleTimer = 0
+	p.SpawnTick = w.TickNum
 }

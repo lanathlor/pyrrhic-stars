@@ -52,6 +52,7 @@ type Player struct {
 	Alive          bool
 	InCombat       bool   // true when targeted by an enemy or recently damaged
 	LastDamageTick uint32 // tick when last took damage (for combat exit timer)
+	SpawnTick      uint32 // tick when player was spawned (reject stale positions)
 
 	// Dodge
 	IsRolling     bool
