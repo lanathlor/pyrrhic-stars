@@ -48,7 +48,7 @@ const CLASS_MAX_HP := {
 	"blade_dancer": 150.0,
 }
 const ENEMY_MAX_HP := 2000.0
-const MINIMAP_RADIUS := 60.0
+const MINIMAP_RADIUS := 80.0
 const MINIMAP_WORLD_RADIUS := 25.0  # world units shown in minimap
 
 
@@ -496,7 +496,7 @@ func _draw_minimap() -> void:
 
 func _world_to_minimap(world_pos: Vector3, center_pos: Vector3, map_center: Vector2, scale: float) -> Vector2:
 	var dx := (world_pos.x - center_pos.x) * scale
-	var dz := -(world_pos.z - center_pos.z) * scale  # Z is forward in Godot, up on minimap
+	var dz := (world_pos.z - center_pos.z) * scale  # -Z is forward in Godot, -Y is up on screen
 	return map_center + Vector2(dx, dz)
 
 
