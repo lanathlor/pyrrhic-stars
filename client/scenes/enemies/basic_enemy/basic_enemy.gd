@@ -94,7 +94,6 @@ func _ready() -> void:
 	_create_aoe_telegraph()
 	_create_aoe_particles()
 	_create_charge_telegraph()
-	_create_hitbox_debug()
 	_attach_weapons.call_deferred()
 
 	# Debug: log loaded animations
@@ -656,29 +655,6 @@ func _create_charge_telegraph() -> void:
 	_charge_telegraph_mesh.visible = false
 	_charge_telegraph_mesh.top_level = true
 	add_child(_charge_telegraph_mesh)
-
-
-func _create_hitbox_debug() -> void:
-	# Wireframe cylinder matching server hitbox: radius 2.0, Y from 0 to 2.5
-	# Target center is at Y=1.0, cylinder spans Y=-1.0 to Y=1.5 relative to that = Y=0 to Y=2.5 from feet
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = 1.2
-	mesh.bottom_radius = 1.2
-	mesh.height = 2.5
-	mesh.radial_segments = 16
-	mesh.rings = 0
-	var mi := MeshInstance3D.new()
-	mi.mesh = mesh
-	mi.position = Vector3(0.0, 1.25, 0.0)  # center of cylinder at half height
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.0, 1.0, 0.0, 0.15)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mat.no_depth_test = true
-	mi.set_surface_override_material(0, mat)
-	mi.name = "HitboxDebug"
-	add_child(mi)
 
 
 func _update_laser_warning() -> void:
