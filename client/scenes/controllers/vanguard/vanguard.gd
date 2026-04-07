@@ -42,6 +42,7 @@ enum State { MOVE, DODGE, LIGHT_1, LIGHT_2, LIGHT_3, HEAVY_WINDUP, HEAVY, BLOCK,
 # Melee hit detection
 @export var melee_range: float = 3.0
 @export var melee_arc_degrees: float = 120.0
+@export var attack_move_speed_mult: float = 0.55
 
 # Block / parry
 @export var block_damage_reduction: float = 0.7
@@ -366,6 +367,19 @@ func _face_attack_direction(delta: float) -> void:
 		rotation.y = _facing_angle
 
 
+## Apply reduced movement during attack states.
+func _apply_attack_movement(delta: float) -> void:
+	var wish_dir := _get_camera_wish_dir()
+	var speed := run_speed * attack_move_speed_mult
+	if wish_dir.length() > 0.1:
+		var target_vel := wish_dir * speed
+		velocity.x = move_toward(velocity.x, target_vel.x, ground_accel * delta)
+		velocity.z = move_toward(velocity.z, target_vel.z, ground_accel * delta)
+	else:
+		velocity.x = move_toward(velocity.x, 0.0, ground_decel * delta)
+		velocity.z = move_toward(velocity.z, 0.0, ground_decel * delta)
+
+
 # --- Dodge ---
 
 func _start_dodge() -> void:
@@ -430,9 +444,8 @@ func _process_light_attack(delta: float) -> void:
 
 	var dur := _get_current_light_duration()
 
-	# Stop movement during attack (server doesn't model lunge)
-	velocity.x = 0.0
-	velocity.z = 0.0
+	# Reduced movement during attacks — vanguard can reposition while swinging
+	_apply_attack_movement(delta)
 
 	# Buffer next attack
 	if Input.is_action_just_pressed("light_attack"):
@@ -444,8 +457,6 @@ func _process_light_attack(delta: float) -> void:
 		_perform_melee_hit(_get_current_light_damage())
 
 	if _state_timer <= 0.0:
-		velocity.x = 0.0
-		velocity.z = 0.0
 		var next := _get_next_combo_step()
 		if _queued_light and next > 0 and stamina >= light_stamina_cost:
 			_start_light_attack(next)
@@ -501,16 +512,13 @@ func _process_heavy_windup(delta: float) -> void:
 func _process_heavy_attack(delta: float) -> void:
 	_face_attack_direction(delta)
 
-	# Stop movement during attack (server doesn't model lunge)
-	velocity.x = 0.0
-	velocity.z = 0.0
+	# Reduced movement during heavy attack
+	_apply_attack_movement(delta)
 
 	if not _has_hit_this_attack and _state_timer <= heavy_attack_duration * 0.5:
 		_has_hit_this_attack = true
 		_perform_melee_hit(heavy_damage)
 	if _state_timer <= 0.0:
-		velocity.x = 0.0
-		velocity.z = 0.0
 		_enter_state(State.MOVE)
 
 
