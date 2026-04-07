@@ -42,8 +42,17 @@ func (s *CombatSystem) Tick(w *World, dt float32) {
 		inCombat := false
 
 		// Player is in combat if they're on any alive enemy's threat table
+		// and on the same side of the boss gate
+		playerInBossRoom := w.Level != nil && p.Position.Z < w.Level.BossRoomEntryZ
 		for _, e := range w.Enemies {
 			if e != nil && e.Alive && e.HasThreat(p.PeerID) {
+				// When the boss gate is active, only count enemies on the same side
+				if w.BossGateActive {
+					enemyInBossRoom := e.Position.Z < w.Level.BossRoomEntryZ
+					if playerInBossRoom != enemyInBossRoom {
+						continue
+					}
+				}
 				inCombat = true
 				break
 			}

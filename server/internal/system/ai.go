@@ -16,7 +16,17 @@ func (s *AISystem) Tick(w *World, dt float32) {
 		if e == nil || !e.Alive || i >= len(w.Brains) {
 			continue
 		}
-		events := w.Brains[i].Tick(dt, w.Players, w.Level.Obstacles, w.SpawnProjectile)
+		idx := i
+		spawnFn := func(pos, dir entity.Vec3, speed, damage, lifetime float32) {
+			w.SpawnEnemyProjectile(idx, pos, dir, speed, damage, lifetime)
+		}
+		// When the boss gate is active, enemies only see players on
+		// their side of the gate (Z < BossRoomEntryZ = boss room).
+		visiblePlayers := w.Players
+		if w.BossGateActive {
+			visiblePlayers = playersOnSameSide(w.Players, e.Position.Z, w.Level.BossRoomEntryZ)
+		}
+		events := w.Brains[i].Tick(dt, visiblePlayers, w.Level.Obstacles, spawnFn)
 		for _, evt := range events {
 			if _, ok := w.Players[evt.TargetPeerID]; ok {
 				e.AddThreat(evt.TargetPeerID, evt.Amount)
@@ -30,6 +40,21 @@ func (s *AISystem) Tick(w *World, dt float32) {
 	// Group aggro propagation: if any mob in a group is chasing, wake all
 	// patrol members of that group.
 	propagateGroupAggro(w)
+}
+
+// playersOnSameSide returns only the players that are on the same side of
+// gateZ as the given enemyZ. Enemies in the boss room (Z < gateZ) only see
+// players in the boss room, and vice-versa.
+func playersOnSameSide(players map[uint16]*entity.Player, enemyZ, gateZ float32) map[uint16]*entity.Player {
+	enemyInBossRoom := enemyZ < gateZ
+	filtered := make(map[uint16]*entity.Player, len(players))
+	for id, p := range players {
+		playerInBossRoom := p.Position.Z < gateZ
+		if playerInBossRoom == enemyInBossRoom {
+			filtered[id] = p
+		}
+	}
+	return filtered
 }
 
 // propagateGroupAggro ensures that if any mob in a group has left patrol
