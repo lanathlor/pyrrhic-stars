@@ -888,7 +888,7 @@ func _create_hallway_geometry() -> void:
 	hall_floor.collision_layer = 1
 	hall_floor.collision_mask = 0
 	hall_floor.material = mat_floor
-	add_child(hall_floor)
+	_current_env.add_child(hall_floor)
 
 	# Hallway left wall
 	var hall_wall_l := CSGBox3D.new()
@@ -899,7 +899,7 @@ func _create_hallway_geometry() -> void:
 	hall_wall_l.collision_layer = 1
 	hall_wall_l.collision_mask = 0
 	hall_wall_l.material = mat_wall
-	add_child(hall_wall_l)
+	_current_env.add_child(hall_wall_l)
 
 	# Hallway right wall
 	var hall_wall_r := CSGBox3D.new()
@@ -910,7 +910,7 @@ func _create_hallway_geometry() -> void:
 	hall_wall_r.collision_layer = 1
 	hall_wall_r.collision_mask = 0
 	hall_wall_r.material = mat_wall
-	add_child(hall_wall_r)
+	_current_env.add_child(hall_wall_r)
 
 	# Connector walls: fill the gap between hallway (X 8) and boss room (X 20)
 	# Left connector at Z=12
@@ -922,7 +922,7 @@ func _create_hallway_geometry() -> void:
 	conn_wall_l.collision_layer = 1
 	conn_wall_l.collision_mask = 0
 	conn_wall_l.material = mat_wall
-	add_child(conn_wall_l)
+	_current_env.add_child(conn_wall_l)
 
 	# Right connector at Z=12
 	var conn_wall_r := CSGBox3D.new()
@@ -933,7 +933,7 @@ func _create_hallway_geometry() -> void:
 	conn_wall_r.collision_layer = 1
 	conn_wall_r.collision_mask = 0
 	conn_wall_r.material = mat_wall
-	add_child(conn_wall_r)
+	_current_env.add_child(conn_wall_r)
 
 	# Hallway cover obstacles (matching server hallway obstacles)
 	var cover_positions := [
@@ -951,7 +951,7 @@ func _create_hallway_geometry() -> void:
 		cover.collision_layer = 1
 		cover.collision_mask = 0
 		cover.material = mat_cover
-		add_child(cover)
+		_current_env.add_child(cover)
 
 	# Boss room gate at Z=12 (hidden by default, closes when boss aggros)
 	_boss_gate = CSGBox3D.new()
@@ -968,7 +968,7 @@ func _create_hallway_geometry() -> void:
 	_boss_gate.material = gate_mat
 	_boss_gate.visible = false
 	_boss_gate.use_collision = false
-	add_child(_boss_gate)
+	_current_env.add_child(_boss_gate)
 
 
 func _create_atmosphere() -> void:
