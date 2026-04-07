@@ -1,0 +1,771 @@
+[gd_scene load_steps=20 format=3]
+
+[ext_resource type="Script" path="res://scenes/environments/prime_hub/military_building_collision.gd" id="collision_script"]
+[ext_resource type="Script" path="res://scenes/environments/prime_hub/lift.gd" id="lift_script"]
+[ext_resource type="Script" path="res://scenes/environments/prime_hub/spatial_debug.gd" id="spatial_debug"]
+
+; === SKY ===
+[sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
+sky_top_color = Color(0.05, 0.08, 0.18, 1)
+sky_horizon_color = Color(0.12, 0.15, 0.25, 1)
+ground_bottom_color = Color(0.02, 0.02, 0.05, 1)
+ground_horizon_color = Color(0.08, 0.08, 0.12, 1)
+
+[sub_resource type="Sky" id="sky"]
+sky_material = SubResource("sky_mat")
+
+[sub_resource type="Environment" id="env"]
+background_mode = 2
+sky = SubResource("sky")
+ambient_light_source = 2
+ambient_light_color = Color(0.9, 0.88, 0.85, 1)
+ambient_light_energy = 1.6
+tonemap_mode = 2
+tonemap_white = 6.0
+glow_enabled = true
+glow_intensity = 0.08
+ssao_enabled = true
+
+; === MATERIALS ===
+[sub_resource type="StandardMaterial3D" id="floor_mat"]
+albedo_color = Color(0.82, 0.81, 0.8, 1)
+roughness = 0.55
+metallic = 0.0
+
+[sub_resource type="StandardMaterial3D" id="wall_mat"]
+albedo_color = Color(0.88, 0.87, 0.86, 1)
+roughness = 0.8
+metallic = 0.0
+
+[sub_resource type="StandardMaterial3D" id="ceiling_mat"]
+albedo_color = Color(0.92, 0.91, 0.9, 1)
+roughness = 0.9
+metallic = 0.0
+
+[sub_resource type="StandardMaterial3D" id="glass_mat"]
+albedo_color = Color(0.6, 0.7, 0.8, 0.15)
+transparency = 1
+roughness = 0.1
+metallic = 0.2
+
+[sub_resource type="StandardMaterial3D" id="trim_mat"]
+albedo_color = Color(0.35, 0.55, 0.8, 1)
+emission_enabled = true
+emission = Color(0.3, 0.6, 1.0, 1)
+emission_energy_multiplier = 1.5
+roughness = 0.3
+metallic = 0.3
+
+[sub_resource type="StandardMaterial3D" id="shaft_mat"]
+albedo_color = Color(0.45, 0.44, 0.43, 1)
+roughness = 0.7
+metallic = 0.0
+
+[sub_resource type="StandardMaterial3D" id="door_mat"]
+albedo_color = Color(0.7, 0.69, 0.68, 1)
+roughness = 0.5
+metallic = 0.05
+
+[sub_resource type="StandardMaterial3D" id="tower_ext_mat"]
+albedo_color = Color(0.85, 0.84, 0.83, 1)
+roughness = 0.75
+metallic = 0.0
+
+[sub_resource type="StandardMaterial3D" id="band_mat"]
+albedo_color = Color(0.65, 0.64, 0.63, 1)
+roughness = 0.6
+metallic = 0.0
+
+; === COLLISION SHAPES ===
+[sub_resource type="BoxShape3D" id="cab_floor_shape"]
+size = Vector3(3.4, 0.1, 3.4)
+
+[sub_resource type="BoxShape3D" id="cab_wall_side"]
+size = Vector3(0.15, 3, 3.4)
+
+[sub_resource type="BoxShape3D" id="cab_wall_back"]
+size = Vector3(3.4, 3, 0.15)
+
+[sub_resource type="BoxShape3D" id="cab_seal"]
+size = Vector3(3.4, 3, 0.05)
+
+[sub_resource type="BoxShape3D" id="door_shape"]
+size = Vector3(2.0, 3, 0.15)
+
+[sub_resource type="BoxShape3D" id="platform_main_shape"]
+size = Vector3(6, 0.3, 4)
+
+[sub_resource type="CylinderShape3D" id="platform_circle_shape"]
+radius = 5.0
+height = 0.3
+
+[sub_resource type="CylinderShape3D" id="portal_shape"]
+radius = 2.5
+height = 4.0
+
+
+; ================================================================
+; ROOT — Tower footprint: X[-12,12] Z[-1,21], height 130m
+; Ground lobby at Y=0, operations at Y=100
+; ================================================================
+
+[node name="MilitaryBuilding" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("env")
+
+
+; ================================================================
+; TOWER EXTERIOR — 24m x 22m x 130m white tower
+; ================================================================
+
+[node name="TowerExterior" type="Node3D" parent="."]
+
+; Front (north) wall — glass with solid frame
+[node name="FrontWallLeft" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 65, -1)
+size = Vector3(8, 130, 0.4)
+material = SubResource("tower_ext_mat")
+
+[node name="FrontWallRight" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 65, -1)
+size = Vector3(8, 130, 0.4)
+material = SubResource("tower_ext_mat")
+
+[node name="FrontGlassGF" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, -1)
+size = Vector3(8, 5, 0.05)
+material = SubResource("glass_mat")
+
+[node name="FrontLintel" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.5, -1)
+size = Vector3(8, 1, 0.4)
+material = SubResource("tower_ext_mat")
+
+[node name="FrontGlassUpper" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 68, -1)
+size = Vector3(8, 124, 0.05)
+material = SubResource("glass_mat")
+
+; Back wall — split around elevator door openings at Y[0,3] and Y[100,103]
+[node name="BackWallLeft" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 65, 21)
+size = Vector3(10, 130, 0.4)
+material = SubResource("tower_ext_mat")
+
+[node name="BackWallRight" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 65, 21)
+size = Vector3(10, 130, 0.4)
+material = SubResource("tower_ext_mat")
+
+[node name="BackWallMid" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 51.5, 21)
+size = Vector3(4, 97, 0.4)
+material = SubResource("tower_ext_mat")
+
+[node name="BackWallTop" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 116.5, 21)
+size = Vector3(4, 27, 0.4)
+material = SubResource("tower_ext_mat")
+
+; West wall — solid with glass strips every 16m
+[node name="WestWallSolid" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 65, 10)
+size = Vector3(0.4, 130, 22)
+material = SubResource("tower_ext_mat")
+
+; East wall — split for landing pad opening at Y[100,104] Z[2,9]
+[node name="EastWallBelow" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 50, 10)
+size = Vector3(0.4, 100, 22)
+material = SubResource("tower_ext_mat")
+
+[node name="EastWallAbove" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 117, 10)
+size = Vector3(0.4, 26, 22)
+material = SubResource("tower_ext_mat")
+
+[node name="EastWallLeftOfPad" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 102, -0.5)
+size = Vector3(0.4, 4, 3)
+material = SubResource("tower_ext_mat")
+
+[node name="EastWallRightOfPad" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 102, 15.5)
+size = Vector3(0.4, 4, 11)
+material = SubResource("tower_ext_mat")
+
+; Blue trim around landing pad opening
+[node name="PadTrimTop" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.05, 104.03, 5.5)
+size = Vector3(0.1, 0.06, 7.1)
+material = SubResource("trim_mat")
+
+[node name="PadTrimBottom" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.05, 99.97, 5.5)
+size = Vector3(0.1, 0.06, 7.1)
+material = SubResource("trim_mat")
+
+; Roof
+[node name="Roof" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 130.2, 10)
+size = Vector3(24.8, 0.4, 22.8)
+material = SubResource("tower_ext_mat")
+
+; Horizontal bands every 20m (floor markers visible from outside)
+[node name="Band1" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20, -1.15)
+size = Vector3(24.2, 0.6, 0.3)
+material = SubResource("band_mat")
+
+[node name="Band2" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 40, -1.15)
+size = Vector3(24.2, 0.6, 0.3)
+material = SubResource("band_mat")
+
+[node name="Band3" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 60, -1.15)
+size = Vector3(24.2, 0.6, 0.3)
+material = SubResource("band_mat")
+
+[node name="Band4" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 80, -1.15)
+size = Vector3(24.2, 0.6, 0.3)
+material = SubResource("band_mat")
+
+[node name="Band5" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 100, -1.15)
+size = Vector3(24.2, 0.6, 0.3)
+material = SubResource("band_mat")
+
+[node name="Band6" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 120, -1.15)
+size = Vector3(24.2, 0.6, 0.3)
+material = SubResource("band_mat")
+
+; Blue trim at ground entrance
+[node name="EntranceTrimTop" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.05, -1.05)
+size = Vector3(8.4, 0.1, 0.1)
+material = SubResource("trim_mat")
+
+[node name="EntranceTrimL" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.05, 2.5, -1.05)
+size = Vector3(0.1, 5, 0.1)
+material = SubResource("trim_mat")
+
+[node name="EntranceTrimR" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.05, 2.5, -1.05)
+size = Vector3(0.1, 5, 0.1)
+material = SubResource("trim_mat")
+
+
+; ================================================================
+; GROUND FLOOR LOBBY — Y[0,5], inside tower
+; X[-11,11] Z[0,18], entrance at Z=0 (facing north through glass)
+; ================================================================
+
+[node name="GroundFloor" type="Node3D" parent="."]
+
+[node name="Floor" type="CSGBox3D" parent="GroundFloor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 10)
+size = Vector3(24, 0.2, 22)
+material = SubResource("floor_mat")
+
+; Ceiling — one solid piece (shaft is behind back wall now)
+[node name="Ceiling" type="CSGBox3D" parent="GroundFloor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.15, 10)
+size = Vector3(24, 0.3, 22)
+material = SubResource("ceiling_mat")
+
+; Blue floor trim along glass front
+[node name="FloorTrim" type="CSGBox3D" parent="GroundFloor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.03, -0.5)
+size = Vector3(20, 0.06, 0.06)
+material = SubResource("trim_mat")
+
+
+; ================================================================
+; ELEVATOR SHAFT — behind back wall, X[-2,2] Z[21,25]
+; Not visible from inside — back wall has door openings
+; ================================================================
+
+[node name="LiftShaft" type="Node3D" parent="."]
+
+[node name="ShaftWallW" type="CSGBox3D" parent="LiftShaft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.15, 65, 23)
+size = Vector3(0.3, 130, 4)
+material = SubResource("shaft_mat")
+
+[node name="ShaftWallE" type="CSGBox3D" parent="LiftShaft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.15, 65, 23)
+size = Vector3(0.3, 130, 4)
+material = SubResource("shaft_mat")
+
+[node name="ShaftWallBack" type="CSGBox3D" parent="LiftShaft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 65, 25.15)
+size = Vector3(4, 130, 0.3)
+material = SubResource("shaft_mat")
+
+; Blue trim around GF elevator opening in back wall
+[node name="ElevTrimGF" type="CSGBox3D" parent="LiftShaft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.03, 20.85)
+size = Vector3(4.4, 0.06, 0.06)
+material = SubResource("trim_mat")
+
+; Blue trim around UF elevator opening
+[node name="ElevTrimUF" type="CSGBox3D" parent="LiftShaft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 100.03, 20.85)
+size = Vector3(4.4, 0.06, 0.06)
+material = SubResource("trim_mat")
+
+
+; ================================================================
+; OPERATIONS FLOOR — Y[100,105]
+; One solid floor (with shaft hole), one solid ceiling
+; Glass walls on 3 sides, partition + divider for rooms
+; ================================================================
+
+[node name="OpsFloor" type="Node3D" parent="."]
+
+; Floor — one solid piece (shaft is behind back wall)
+[node name="Floor" type="CSGBox3D" parent="OpsFloor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 99.85, 10)
+size = Vector3(24, 0.3, 22)
+material = SubResource("floor_mat")
+
+; Ceiling — one solid piece covering everything
+[node name="Ceiling" type="CSGBox3D" parent="OpsFloor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 105.15, 10)
+size = Vector3(24, 0.3, 22)
+material = SubResource("ceiling_mat")
+
+; Glass walls — floor-to-ceiling on 3 sides
+[node name="GlassFront" type="CSGBox3D" parent="OpsFloor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 102.5, -0.8)
+size = Vector3(24, 5, 0.05)
+material = SubResource("glass_mat")
+
+[node name="GlassWest" type="CSGBox3D" parent="OpsFloor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.8, 102.5, 10)
+size = Vector3(0.05, 5, 22)
+material = SubResource("glass_mat")
+
+; East glass — split for landing pad opening at Z[2,9]
+[node name="GlassEastFront" type="CSGBox3D" parent="OpsFloor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.8, 102.5, 0.5)
+size = Vector3(0.05, 5, 3)
+material = SubResource("glass_mat")
+
+[node name="GlassEastBack" type="CSGBox3D" parent="OpsFloor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.8, 102.5, 15.5)
+size = Vector3(0.05, 5, 11)
+material = SubResource("glass_mat")
+
+; Partition at Z=10 — separates landing from rooms, 2 doorways 3.5m wide
+[node name="PartitionL" type="CSGBox3D" parent="OpsFloor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8.5, 102.5, 10)
+size = Vector3(5, 5, 0.3)
+material = SubResource("wall_mat")
+
+[node name="PartitionC" type="CSGBox3D" parent="OpsFloor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 102.5, 10)
+size = Vector3(2, 5, 0.3)
+material = SubResource("wall_mat")
+
+[node name="PartitionR" type="CSGBox3D" parent="OpsFloor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.5, 102.5, 10)
+size = Vector3(5, 5, 0.3)
+material = SubResource("wall_mat")
+
+[node name="LintelL" type="CSGBox3D" parent="OpsFloor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.5, 104.5, 10)
+size = Vector3(4, 1, 0.3)
+material = SubResource("wall_mat")
+
+[node name="LintelR" type="CSGBox3D" parent="OpsFloor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 104.5, 10)
+size = Vector3(4, 1, 0.3)
+material = SubResource("wall_mat")
+
+; Divider between briefing and portal rooms
+[node name="RoomDivider" type="CSGBox3D" parent="OpsFloor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 102.5, 5)
+size = Vector3(0.3, 5, 10)
+material = SubResource("wall_mat")
+
+; Blue trim at glass edge
+[node name="TrimFront" type="CSGBox3D" parent="OpsFloor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 100.03, -0.5)
+size = Vector3(22, 0.06, 0.06)
+material = SubResource("trim_mat")
+
+
+; ================================================================
+; LIGHTING
+; ================================================================
+
+[node name="Lights" type="Node3D" parent="."]
+
+[node name="Sun" type="DirectionalLight3D" parent="Lights"]
+transform = Transform3D(0.866, -0.25, 0.433, 0, 0.866, 0.5, -0.5, -0.433, 0.75, 0, 140, 0)
+light_color = Color(0.98, 0.96, 0.92, 1)
+light_energy = 1.5
+shadow_enabled = true
+
+[node name="Fill" type="DirectionalLight3D" parent="Lights"]
+transform = Transform3D(0.866, 0.25, -0.433, 0, 0.866, 0.5, 0.5, -0.433, 0.75, 0, 140, 0)
+light_color = Color(0.9, 0.92, 0.96, 1)
+light_energy = 0.8
+
+; GF lobby lights
+[node name="GFLight1" type="SpotLight3D" parent="Lights"]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, -4, 4.9, 5)
+light_color = Color(0.98, 0.96, 0.92, 1)
+light_energy = 2.0
+spot_range = 12.0
+spot_angle = 70.0
+
+[node name="GFLight2" type="SpotLight3D" parent="Lights"]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 4, 4.9, 5)
+light_color = Color(0.98, 0.96, 0.92, 1)
+light_energy = 2.0
+spot_range = 12.0
+spot_angle = 70.0
+
+[node name="GFLight3" type="SpotLight3D" parent="Lights"]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, -4, 4.9, 12)
+light_color = Color(0.98, 0.96, 0.92, 1)
+light_energy = 2.0
+spot_range = 12.0
+spot_angle = 70.0
+
+[node name="GFLight4" type="SpotLight3D" parent="Lights"]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 4, 4.9, 12)
+light_color = Color(0.98, 0.96, 0.92, 1)
+light_energy = 2.0
+spot_range = 12.0
+spot_angle = 70.0
+
+; Ops floor lights
+[node name="OpsLight1" type="SpotLight3D" parent="Lights"]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 104.9, 14)
+light_color = Color(0.98, 0.96, 0.92, 1)
+light_energy = 2.0
+spot_range = 12.0
+spot_angle = 70.0
+
+[node name="OpsLight2" type="SpotLight3D" parent="Lights"]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, -5, 104.9, 5)
+light_color = Color(0.98, 0.96, 0.92, 1)
+light_energy = 2.0
+spot_range = 12.0
+spot_angle = 70.0
+
+[node name="OpsLight3" type="SpotLight3D" parent="Lights"]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 5, 104.9, 5)
+light_color = Color(0.96, 0.96, 1.0, 1)
+light_energy = 2.0
+spot_range = 12.0
+spot_angle = 70.0
+
+; Portal blue glow
+[node name="PortalGlow" type="OmniLight3D" parent="Lights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.5, 102, 5.5)
+light_color = Color(0.3, 0.6, 1.0, 1)
+light_energy = 3.0
+omni_range = 6.0
+
+; Shaft blue accent
+[node name="ShaftGlow" type="OmniLight3D" parent="Lights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 50, 18)
+light_color = Color(0.3, 0.6, 1.0, 1)
+light_energy = 1.5
+omni_range = 5.0
+
+
+; ================================================================
+; ELEVATOR CAB — starts at Y=0, travels to Y=100
+; Cab center at Z=23 (center of shaft behind back wall)
+; Doors face -Z (toward lobby/landing)
+; ================================================================
+
+[node name="ElevatorCab" type="AnimatableBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 23)
+script = ExtResource("lift_script")
+collision_layer = 1
+collision_mask = 0
+sync_to_physics = true
+
+[node name="CabFloor" type="CollisionShape3D" parent="ElevatorCab"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
+shape = SubResource("cab_floor_shape")
+
+[node name="CabFloorVis" type="CSGBox3D" parent="ElevatorCab"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
+size = Vector3(3.4, 0.1, 3.4)
+material = SubResource("floor_mat")
+
+[node name="CabCeilingVis" type="CSGBox3D" parent="ElevatorCab"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.05, 0)
+size = Vector3(3.4, 0.1, 3.4)
+material = SubResource("ceiling_mat")
+
+[node name="CabWallW" type="CollisionShape3D" parent="ElevatorCab"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.625, 1.5, 0)
+shape = SubResource("cab_wall_side")
+
+[node name="CabWallWVis" type="CSGBox3D" parent="ElevatorCab"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.625, 1.5, 0)
+size = Vector3(0.15, 3, 3.4)
+material = SubResource("shaft_mat")
+
+[node name="CabWallE" type="CollisionShape3D" parent="ElevatorCab"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.625, 1.5, 0)
+shape = SubResource("cab_wall_side")
+
+[node name="CabWallEVis" type="CSGBox3D" parent="ElevatorCab"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.625, 1.5, 0)
+size = Vector3(0.15, 3, 3.4)
+material = SubResource("shaft_mat")
+
+[node name="CabWallBack" type="CollisionShape3D" parent="ElevatorCab"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 1.625)
+shape = SubResource("cab_wall_back")
+
+[node name="CabWallBackVis" type="CSGBox3D" parent="ElevatorCab"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 1.625)
+size = Vector3(3.4, 3, 0.15)
+material = SubResource("shaft_mat")
+
+[node name="CabFrontSeal" type="CollisionShape3D" parent="ElevatorCab"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -1.7)
+shape = SubResource("cab_seal")
+disabled = true
+
+[node name="CabLight" type="OmniLight3D" parent="ElevatorCab"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.8, 0)
+light_color = Color(0.98, 0.96, 0.92, 1)
+light_energy = 4.0
+omni_range = 4.0
+
+; Cab blue trim
+[node name="CabTrim" type="CSGBox3D" parent="ElevatorCab"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.03, 0)
+size = Vector3(3.2, 0.06, 3.2)
+material = SubResource("trim_mat")
+
+
+; ================================================================
+; DOORS — GF at Z=15.85 (shaft front), UF at Z=15.85 Y=100
+; ================================================================
+
+[node name="DoorGF_L" type="AnimatableBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 21)
+collision_layer = 1
+collision_mask = 0
+sync_to_physics = true
+
+[node name="Shape" type="CollisionShape3D" parent="DoorGF_L"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.0, 1.5, 0)
+shape = SubResource("door_shape")
+
+[node name="Visual" type="CSGBox3D" parent="DoorGF_L"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.0, 1.5, 0)
+size = Vector3(2.0, 3, 0.15)
+material = SubResource("door_mat")
+
+[node name="DoorGF_R" type="AnimatableBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 21)
+collision_layer = 1
+collision_mask = 0
+sync_to_physics = true
+
+[node name="Shape" type="CollisionShape3D" parent="DoorGF_R"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.0, 1.5, 0)
+shape = SubResource("door_shape")
+
+[node name="Visual" type="CSGBox3D" parent="DoorGF_R"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.0, 1.5, 0)
+size = Vector3(2.0, 3, 0.15)
+material = SubResource("door_mat")
+
+[node name="DoorUF_L" type="AnimatableBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 100, 21)
+collision_layer = 1
+collision_mask = 0
+sync_to_physics = true
+
+[node name="Shape" type="CollisionShape3D" parent="DoorUF_L"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.0, 1.5, 0)
+shape = SubResource("door_shape")
+
+[node name="Visual" type="CSGBox3D" parent="DoorUF_L"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.0, 1.5, 0)
+size = Vector3(2.0, 3, 0.15)
+material = SubResource("door_mat")
+
+[node name="DoorUF_R" type="AnimatableBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 100, 21)
+collision_layer = 1
+collision_mask = 0
+sync_to_physics = true
+
+[node name="Shape" type="CollisionShape3D" parent="DoorUF_R"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.0, 1.5, 0)
+shape = SubResource("door_shape")
+
+[node name="Visual" type="CSGBox3D" parent="DoorUF_R"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.0, 1.5, 0)
+size = Vector3(2.0, 3, 0.15)
+material = SubResource("door_mat")
+
+
+; ================================================================
+; COLLISION — every position matches its CSG node exactly
+; ================================================================
+
+[node name="BuildingCollision" type="StaticBody3D" parent="."]
+script = ExtResource("collision_script")
+collision_layer = 1
+collision_mask = 0
+
+; Tower walls
+[node name="TowerWallN" type="CollisionShape3D" parent="BuildingCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 65, -1)
+
+[node name="TowerWallSL" type="CollisionShape3D" parent="BuildingCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 65, 21)
+
+[node name="TowerWallSR" type="CollisionShape3D" parent="BuildingCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 65, 21)
+
+[node name="TowerWallSMid" type="CollisionShape3D" parent="BuildingCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 51.5, 21)
+
+[node name="TowerWallSTop" type="CollisionShape3D" parent="BuildingCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 116.5, 21)
+
+[node name="TowerWallW" type="CollisionShape3D" parent="BuildingCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 65, 10)
+
+; East wall collision — split for landing pad opening
+[node name="TowerWallEBelow" type="CollisionShape3D" parent="BuildingCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 50, 10)
+
+[node name="TowerWallEAbove" type="CollisionShape3D" parent="BuildingCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 117, 10)
+
+; GF floor & ceiling
+[node name="GFFloor" type="CollisionShape3D" parent="BuildingCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 10)
+
+[node name="GFCeiling" type="CollisionShape3D" parent="BuildingCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.15, 10)
+
+; Shaft walls (behind back wall at Z=23)
+[node name="ShaftWallW" type="CollisionShape3D" parent="BuildingCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.15, 65, 23)
+
+[node name="ShaftWallE" type="CollisionShape3D" parent="BuildingCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.15, 65, 23)
+
+[node name="ShaftWallBack" type="CollisionShape3D" parent="BuildingCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 65, 25.15)
+
+; Ops floor & ceiling — one piece each
+[node name="OpsFloor" type="CollisionShape3D" parent="BuildingCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 99.85, 10)
+
+[node name="OpsCeiling" type="CollisionShape3D" parent="BuildingCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 105.15, 10)
+
+; Ops partition
+[node name="OpsPartL" type="CollisionShape3D" parent="BuildingCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8.5, 102.5, 10)
+
+[node name="OpsPartC" type="CollisionShape3D" parent="BuildingCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 102.5, 10)
+
+[node name="OpsPartR" type="CollisionShape3D" parent="BuildingCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.5, 102.5, 10)
+
+; Room divider
+[node name="OpsDivider" type="CollisionShape3D" parent="BuildingCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 102.5, 5)
+
+
+; ================================================================
+; PORTAL AREA — portal room center, upper floor
+; ================================================================
+
+; Portal trigger — on the circular landing pad
+; LandingPad is at (18, 100, 5.5), circle center is at local (2, 0, 0) = global (20, 100, 5.5)
+[node name="PortalArea" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 102, 5.5)
+collision_layer = 0
+collision_mask = 2
+
+[node name="PortalShape" type="CollisionShape3D" parent="PortalArea"]
+shape = SubResource("portal_shape")
+
+; ================================================================
+; LANDING PAD — outdoor platform extending east from the tower
+; At ops level Y=100, extends from X=12 to X=24 (12m out), Z[2,9]
+; Future: ship docks here. Current: portal ring placeholder.
+; ================================================================
+
+[node name="LandingPad" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 100, 5.5)
+
+; Ramp — 4m wide, 6m long connecting building to circle
+[node name="Ramp" type="CSGBox3D" parent="LandingPad"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, -0.15, 0)
+size = Vector3(6, 0.3, 4)
+material = SubResource("shaft_mat")
+
+; Circular landing pad at the end — radius 5m
+[node name="Circle" type="CSGCylinder3D" parent="LandingPad"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, -0.15, 0)
+radius = 5
+height = 0.3
+sides = 48
+material = SubResource("shaft_mat")
+
+; Blue trim ring on circle edge
+[node name="TrimRing" type="CSGTorus3D" parent="LandingPad"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0.03, 0)
+inner_radius = 4.8
+outer_radius = 5.0
+sides = 48
+ring_sides = 8
+material = SubResource("trim_mat")
+
+; Portal ring (placeholder for ship)
+[node name="PortalRing" type="CSGTorus3D" parent="LandingPad"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 2, 0)
+inner_radius = 1.6
+outer_radius = 2.0
+sides = 32
+ring_sides = 16
+material = SubResource("trim_mat")
+
+[node name="PortalGlow" type="CSGCylinder3D" parent="LandingPad"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 2, 0)
+radius = 1.6
+height = 0.05
+sides = 32
+material = SubResource("glass_mat")
+
+; Pad collision
+[node name="PadCollision" type="StaticBody3D" parent="LandingPad"]
+collision_layer = 1
+collision_mask = 0
+
+[node name="RampShape" type="CollisionShape3D" parent="LandingPad/PadCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, -0.15, 0)
+shape = SubResource("platform_main_shape")
+
+[node name="CircleShape" type="CollisionShape3D" parent="LandingPad/PadCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, -0.15, 0)
+shape = SubResource("platform_circle_shape")

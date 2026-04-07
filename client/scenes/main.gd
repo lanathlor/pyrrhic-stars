@@ -8,7 +8,7 @@ enum GameState { MENU, HUB, ARENA_LOBBY, FIGHT, FIGHT_OVER }
 var state: GameState = GameState.MENU
 var paused: bool = false
 
-const HUB_SCENE := "res://scenes/environments/hub/hub.tscn"
+const HUB_SCENE := "res://scenes/environments/prime_hub/military_building.tscn"
 const ARENA_SCENE := "res://scenes/environments/arena/arena.tscn"
 const EXIT_PORTAL_POS := Vector3(0.0, 0.1, 0.0)
 
@@ -23,11 +23,11 @@ const PLAYER_SPAWNS := [
 const ARENA_ENTRY_Z := 40.0
 const BOSS_ROOM_ENTRY_Z := 12.0
 const HUB_SPAWNS := [
-	Vector3(-2.0, 0.9, -5.0),
-	Vector3(0.0, 0.9, -5.0),
-	Vector3(2.0, 0.9, -5.0),
-	Vector3(-1.0, 0.9, -4.0),
-	Vector3(1.0, 0.9, -4.0),
+	Vector3(-1.5, 0.1, 3.0),
+	Vector3(0.0, 0.1, 3.0),
+	Vector3(1.5, 0.1, 3.0),
+	Vector3(-0.75, 0.1, 4.0),
+	Vector3(0.75, 0.1, 4.0),
 ]
 
 const CLASS_SCENES := {
@@ -73,6 +73,8 @@ var _pending_invite_group_id: int = 0
 
 # Hub state
 var _near_portal: bool = false
+var _near_lift: bool = false
+var _lift_prompt: Label
 var _player_names: Dictionary = {}  # peer_id -> username
 var _group_data: Dictionary = {}  # current group state
 var _aimed_peer_id: int = 0  # peer id under crosshair for invite
@@ -160,7 +162,9 @@ func _input(event: InputEvent) -> void:
 	if state == GameState.HUB and not paused:
 		if event is InputEventKey and event.pressed:
 			if event.physical_keycode == KEY_E:
-				if _near_portal:
+				if _near_lift:
+					_interact_lift()
+				elif _near_portal:
 					NetworkManager.send_enter_portal()
 				elif _aimed_peer_id > 0:
 					NetworkManager.send_group_invite(_aimed_peer_id)
@@ -182,6 +186,7 @@ func _input(event: InputEvent) -> void:
 func _physics_process(_delta: float) -> void:
 	if state == GameState.HUB:
 		_check_portal_proximity()
+		_check_lift_proximity()
 		_check_aim_at_player()
 	elif state == GameState.FIGHT_OVER:
 		_check_exit_portal_proximity()
@@ -259,6 +264,9 @@ func _enter_hub() -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	_near_portal = false
 	_portal_prompt.visible = false
+	_near_lift = false
+	if _lift_prompt:
+		_lift_prompt.visible = false
 
 	# Load hub scene if not already loaded
 	if _current_env == null or _current_env.name != "Hub":
@@ -288,11 +296,57 @@ func _check_portal_proximity() -> void:
 	var player: CharacterBody3D = _spawned_players[my_id]
 	if not is_instance_valid(player):
 		return
-	# Portal is at (0, 2, 14.5) in hub — against the south wall
-	var portal_pos := Vector3(0.0, 0.1, 14.5)
-	var dist := player.global_position.distance_to(portal_pos)
+	# Use the actual PortalArea node position
+	var portal_area := _current_env.get_node_or_null("PortalArea") if _current_env else null
+	if not portal_area:
+		_near_portal = false
+		_portal_prompt.visible = false
+		return
+	var dist := player.global_position.distance_to(portal_area.global_position)
 	_near_portal = dist < 4.0
 	_portal_prompt.visible = _near_portal
+
+
+func _check_lift_proximity() -> void:
+	var my_id := NetworkManager.get_my_id()
+	if my_id not in _spawned_players:
+		_near_lift = false
+		if _lift_prompt:
+			_lift_prompt.visible = false
+		return
+	var player: CharacterBody3D = _spawned_players[my_id]
+	if not is_instance_valid(player):
+		return
+
+	var lift := _current_env.get_node_or_null("ElevatorCab") if _current_env else null
+	if not lift or not lift.is_idle():
+		_near_lift = false
+		if _lift_prompt:
+			_lift_prompt.visible = false
+		return
+
+	var pos: Vector3 = player.global_position
+	var lift_node: Node3D = lift as Node3D
+	var lift_pos: Vector3 = lift_node.global_position
+	var bottom_y: float = lift.get("BOTTOM_Y")
+	var top_y: float = lift.get("TOP_Y")
+	# Check proximity to elevator door (front face of cab, at cab Z minus ~2m)
+	var door_z: float = lift_pos.z - 2.0
+	var in_x := absf(pos.x - lift_pos.x) < 2.5
+	var near_door := in_x and absf(pos.z - door_z) < 3.0
+	var near_gf := near_door and pos.y < (bottom_y + 5.0)
+	var near_uf := near_door and pos.y > (top_y - 5.0)
+
+	_near_lift = near_gf or near_uf
+	if _lift_prompt:
+		_lift_prompt.text = "Press [E] — %s" % lift.get_floor_label()
+		_lift_prompt.visible = _near_lift
+
+
+func _interact_lift() -> void:
+	var lift := _current_env.get_node_or_null("ElevatorCab") if _current_env else null
+	if lift and lift.has_method("activate"):
+		lift.activate()
 
 
 func _update_hub_display() -> void:
@@ -1195,6 +1249,19 @@ func _create_hub_ui() -> void:
 	_portal_prompt.add_theme_color_override("font_color", Color(0.3, 0.6, 1.0))
 	_portal_prompt.visible = false
 	_hub_layer.add_child(_portal_prompt)
+
+	# Lift prompt
+	_lift_prompt = Label.new()
+	_lift_prompt.text = "Press [E] — Go up"
+	_lift_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_lift_prompt.anchor_left = 0.0
+	_lift_prompt.anchor_right = 1.0
+	_lift_prompt.anchor_top = 0.65
+	_lift_prompt.anchor_bottom = 0.7
+	_lift_prompt.add_theme_font_size_override("font_size", 24)
+	_lift_prompt.add_theme_color_override("font_color", Color(0.5, 0.7, 1.0))
+	_lift_prompt.visible = false
+	_hub_layer.add_child(_lift_prompt)
 
 
 func _create_group_panel() -> void:
