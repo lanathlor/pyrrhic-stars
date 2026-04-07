@@ -42,8 +42,9 @@ type AbilityDef struct {
 	TrackTarget bool // continuously update target position during telegraph
 
 	// Melee-specific
-	MeleeRange  float32
-	MeleeDamage float32
+	MeleeRange     float32
+	MeleeDamage    float32
+	MeleeConeAngle float32 // full cone angle in radians (0 = default 180°)
 
 	// Ranged-specific
 	ProjectileCount    int

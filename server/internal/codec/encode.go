@@ -48,6 +48,8 @@ func EncodeWorldState(tick uint32, players []*entity.Player, enemies []*entity.E
 		buf = appendF32(buf, e.ChargeDirection.X)
 		buf = appendF32(buf, e.ChargeDirection.Y)
 		buf = appendF32(buf, e.ChargeDirection.Z)
+		buf = appendF32(buf, e.MeleeConeAngle)
+		buf = appendF32(buf, e.MeleeRange)
 	}
 
 	buf = append(buf, byte(len(projectiles)))

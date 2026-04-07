@@ -426,6 +426,8 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 		var edef_name := _get_str8(buf)
 		var ranged_target := Vector3(buf.get_float(), buf.get_float(), buf.get_float())
 		var charge_dir := Vector3(buf.get_float(), buf.get_float(), buf.get_float())
+		var melee_cone_angle := buf.get_float()
+		var e_melee_range := buf.get_float()
 		enemies.append({
 			"alive": enemy_alive,
 			"enemy_id": enemy_id,
@@ -438,6 +440,8 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 			"def_name": edef_name,
 			"ranged_target": ranged_target,
 			"charge_dir": charge_dir,
+			"melee_cone_angle": melee_cone_angle,
+			"melee_range": e_melee_range,
 		})
 
 	# Projectiles

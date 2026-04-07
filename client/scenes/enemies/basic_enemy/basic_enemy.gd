@@ -24,6 +24,7 @@ enum State {
 # Stats needed for health bar display
 @export var max_health: float = 2000.0
 @export var melee_range: float = 3.0
+var _melee_cone_angle: float = PI  # full cone angle in radians (default 180°)
 
 var health: float
 var state: State = State.IDLE
@@ -133,6 +134,10 @@ func apply_server_state(data: Dictionary) -> void:
 	# Dynamic max_health from server (varies per enemy def)
 	if data.has("max_health") and data["max_health"] > 0.0:
 		max_health = data["max_health"]
+	if data.has("melee_cone_angle") and data["melee_cone_angle"] > 0.0:
+		_melee_cone_angle = data["melee_cone_angle"]
+	if data.has("melee_range") and data["melee_range"] > 0.0:
+		melee_range = data["melee_range"]
 	if data.has("def_name") and data["def_name"] != "":
 		if _def_name == "" and data["def_name"] != _def_name:
 			_def_name = data["def_name"]
@@ -186,6 +191,7 @@ func _update_state_visuals() -> void:
 		# 7=AoESlam, 8=ChargeTelegraph, 12=Dead
 		match synced_state:
 			2:  # MELEE_TELEGRAPH
+				_update_melee_telegraph_params()
 				_melee_telegraph_mesh.visible = true
 			4:  # RANGED_TELEGRAPH
 				_laser_warning_mesh.visible = true
@@ -342,6 +348,17 @@ func _face_health_bar_to_camera() -> void:
 # Telegraph visuals
 # =============================================================================
 
+func _update_melee_telegraph_params() -> void:
+	# Update mesh size to match active melee range
+	var mesh := _melee_telegraph_mesh.mesh as PlaneMesh
+	if mesh:
+		mesh.size = Vector2(melee_range * 2.0, melee_range * 2.0)
+	# Update cone half-angle
+	var mat := _melee_telegraph_mesh.get_surface_override_material(0) as ShaderMaterial
+	if mat:
+		mat.set_shader_parameter("half_angle", _melee_cone_angle / 2.0)
+
+
 func _create_melee_telegraph() -> void:
 	_melee_telegraph_mesh = MeshInstance3D.new()
 	var mesh := PlaneMesh.new()
@@ -350,10 +367,11 @@ func _create_melee_telegraph() -> void:
 	mesh.subdivide_depth = 32
 	_melee_telegraph_mesh.mesh = mesh
 	var mat := ShaderMaterial.new()
-	mat.shader = _create_circle_shader()
+	mat.shader = _create_cone_shader()
 	mat.set_shader_parameter("color", Color(1.0, 0.1, 0.1, 0.45))
 	mat.set_shader_parameter("edge_color", Color(1.0, 0.2, 0.1, 0.9))
 	mat.set_shader_parameter("edge_width", 0.08)
+	mat.set_shader_parameter("half_angle", deg_to_rad(90.0))  # 180° cone = 90° half
 	_melee_telegraph_mesh.set_surface_override_material(0, mat)
 	_melee_telegraph_mesh.visible = false
 	_melee_telegraph_mesh.position = Vector3(0.0, 0.02, 0.0)
@@ -396,6 +414,41 @@ void fragment() {
 	}
 	float edge_inner = 1.0 - edge_width;
 	float t = smoothstep(edge_inner - 0.02, edge_inner, dist);
+	ALBEDO = mix(color.rgb, edge_color.rgb, t);
+	ALPHA = mix(color.a, edge_color.a, t);
+}
+"
+	return shader
+
+
+func _create_cone_shader() -> Shader:
+	var shader := Shader.new()
+	shader.code = "
+shader_type spatial;
+render_mode unshaded, cull_disabled;
+
+uniform vec4 color : source_color = vec4(1.0, 0.1, 0.1, 0.45);
+uniform vec4 edge_color : source_color = vec4(1.0, 0.2, 0.1, 0.9);
+uniform float edge_width : hint_range(0.0, 0.2) = 0.08;
+uniform float half_angle : hint_range(0.0, 3.14159) = 1.5708; // radians
+
+void fragment() {
+	vec2 uv = UV * 2.0 - 1.0;
+	float dist = length(uv);
+	if (dist > 1.0) {
+		discard;
+	}
+	// Cone check: forward is -Z in local space = -Y in centered UV
+	float angle = acos(clamp(-uv.y / max(dist, 0.001), -1.0, 1.0));
+	if (angle > half_angle) {
+		discard;
+	}
+	// Edge glow at outer radius
+	float edge_inner = 1.0 - edge_width;
+	float t = smoothstep(edge_inner - 0.02, edge_inner, dist);
+	// Edge glow at cone boundary
+	float cone_edge = smoothstep(half_angle - 0.12, half_angle, angle);
+	t = max(t, cone_edge);
 	ALBEDO = mix(color.rgb, edge_color.rgb, t);
 	ALPHA = mix(color.a, edge_color.a, t);
 }

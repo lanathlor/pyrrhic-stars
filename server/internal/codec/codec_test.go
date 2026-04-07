@@ -299,6 +299,7 @@ func TestEncodeWorldStateWireFormat(t *testing.T) {
 	off++
 	off += defNameLen // def_name string bytes
 	off += 4 * 6      // ranged_target(3) + charge_dir(3)
+	off += 4 * 2      // melee_cone_angle + melee_range
 
 	// projectile count
 	if buf[off] != 0 {

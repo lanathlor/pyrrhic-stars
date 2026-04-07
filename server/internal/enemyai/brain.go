@@ -219,23 +219,47 @@ func (b *Brain) tickMeleeAttack(players map[uint16]*entity.Player, obstacles []c
 	}
 
 	ability := b.activeAbilityResolved()
+
+	// Frontal cone: enemy's facing direction from RotationY (locked during telegraph).
+	// Default cone = 180° (π rad) if not specified.
+	coneAngle := ability.MeleeConeAngle
+	if coneAngle <= 0 {
+		coneAngle = math.Pi // 180° default
+	}
+	halfAngle := float64(coneAngle) / 2.0
+	// Forward direction from RotationY: atan2(-x, -z) → forward = (-sinR, 0, -cosR)
+	forwardX := -math.Sin(float64(e.RotationY))
+	forwardZ := -math.Cos(float64(e.RotationY))
+
 	var events []combat.DamageEvent
 	for _, p := range players {
 		if !p.Alive {
 			continue
 		}
-		dist := e.Position.DistanceTo(p.Position)
-		if dist <= ability.MeleeRange && !combat.SegmentHitsObstacle(e.Position, p.Position, obstacles) {
-			dealt := p.ApplyDamage(ability.MeleeDamage)
-			if dealt > 0 {
-				hitDir := p.Position.Sub(e.Position).Normalized()
-				events = append(events, combat.DamageEvent{
-					TargetPeerID: p.PeerID,
-					Amount:       dealt,
-					HitPos:       e.Position.Add(hitDir),
-					SourceType:   ability.DamageSourceType,
-				})
-			}
+		toPlayer := p.Position.Sub(e.Position).Flat()
+		dist := toPlayer.Length()
+		if dist > ability.MeleeRange || dist < 0.01 {
+			continue
+		}
+		// Cone check: angle between forward and direction to player
+		dx := float64(toPlayer.X) / float64(dist)
+		dz := float64(toPlayer.Z) / float64(dist)
+		dot := forwardX*dx + forwardZ*dz
+		if dot < math.Cos(halfAngle) {
+			continue
+		}
+		if combat.SegmentHitsObstacle(e.Position, p.Position, obstacles) {
+			continue
+		}
+		dealt := p.ApplyDamage(ability.MeleeDamage)
+		if dealt > 0 {
+			hitDir := toPlayer.Normalized()
+			events = append(events, combat.DamageEvent{
+				TargetPeerID: p.PeerID,
+				Amount:       dealt,
+				HitPos:       e.Position.Add(hitDir),
+				SourceType:   ability.DamageSourceType,
+			})
 		}
 	}
 	b.enterCooldown()
@@ -467,6 +491,12 @@ func (b *Brain) startAbility(ability *AbilityDef, e *entity.Enemy, players map[u
 	case AbilityMelee:
 		e.State = entity.EnemyMeleeTelegraph
 		e.StateTimer = resolved.TelegraphTime
+		e.MeleeRange = resolved.MeleeRange
+		coneAngle := resolved.MeleeConeAngle
+		if coneAngle <= 0 {
+			coneAngle = math.Pi // default 180°
+		}
+		e.MeleeConeAngle = coneAngle
 	case AbilityRanged:
 		e.State = entity.EnemyRangedTelegraph
 		e.StateTimer = resolved.TelegraphTime

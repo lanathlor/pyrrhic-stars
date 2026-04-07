@@ -41,6 +41,10 @@ type Enemy struct {
 	// Target
 	TargetPlayerID uint16
 
+	// Melee (set by brain when starting melee ability)
+	MeleeConeAngle float32 // full cone angle in radians (for client telegraph)
+	MeleeRange     float32 // active melee ability range (for client telegraph)
+
 	// Ranged
 	RangedTargetPos Vec3
 

@@ -31,6 +31,7 @@ var GuardCaptain = EnemyDef{
 			FaceTarget:       true,
 			MeleeRange:       3.0,
 			MeleeDamage:      30.0,
+			MeleeConeAngle:   math.Pi,          // 180° — wide boss sweep
 			DamageSourceType: SourceEnemyMelee,
 		},
 		{
@@ -183,6 +184,7 @@ var HallwayMelee = EnemyDef{
 			FaceTarget:       true,
 			MeleeRange:       2.5,
 			MeleeDamage:      15.0,
+			MeleeConeAngle:   120.0 * math.Pi / 180.0, // 120° — narrow mob swing
 			DamageSourceType: SourceEnemyMelee,
 		},
 	},
