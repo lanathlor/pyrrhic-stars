@@ -118,9 +118,16 @@ func (w *World) AggroEnemy(e *entity.Enemy, targetPeerID uint16) {
 	}
 }
 
-// SpawnProjectile creates a new projectile in the world.
-func (w *World) SpawnProjectile(pos, dir entity.Vec3, speed, damage, lifetime float32) {
+// SpawnEnemyProjectile creates an enemy-owned projectile in the world.
+func (w *World) SpawnEnemyProjectile(enemyIdx int, pos, dir entity.Vec3, speed, damage, lifetime float32) {
 	w.NextProjID++
-	p := entity.NewProjectile(w.NextProjID, 0, pos, dir, speed, damage, lifetime)
+	p := entity.NewProjectile(w.NextProjID, 0, enemyIdx, pos, dir, speed, damage, lifetime)
+	w.Projectiles = append(w.Projectiles, p)
+}
+
+// SpawnPlayerProjectile creates a player-owned projectile in the world.
+func (w *World) SpawnPlayerProjectile(ownerID uint16, pos, dir entity.Vec3, speed, damage, lifetime float32) {
+	w.NextProjID++
+	p := entity.NewProjectile(w.NextProjID, ownerID, -1, pos, dir, speed, damage, lifetime)
 	w.Projectiles = append(w.Projectiles, p)
 }

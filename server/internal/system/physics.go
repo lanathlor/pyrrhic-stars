@@ -35,12 +35,12 @@ func (s *PhysicsSystem) Tick(w *World, dt float32) {
 				if combat.CheckProjectileHit(proj.Position, p.Position, entity.ProjectileHitRadius+0.5) {
 					dealt := p.ApplyDamage(proj.Damage)
 					if dealt > 0 {
-						// Add player to threat table of the projectile's owner enemy
-						for _, e := range w.Enemies {
-							if e != nil && e.Alive {
-								e.AddThreat(p.PeerID, dealt)
-							}
+						// Add player to threat table of the specific enemy that fired
+					if proj.EnemyIdx >= 0 && proj.EnemyIdx < len(w.Enemies) {
+						if e := w.Enemies[proj.EnemyIdx]; e != nil && e.Alive {
+							e.AddThreat(p.PeerID, dealt)
 						}
+					}
 						w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
 							TargetPeerID: p.PeerID,
 							Amount:       dealt,

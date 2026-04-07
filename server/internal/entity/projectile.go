@@ -3,7 +3,8 @@ package entity
 // Projectile is a server-side projectile entity.
 type Projectile struct {
 	ID        uint32
-	OwnerID   uint16 // 0 = enemy-owned
+	OwnerID   uint16 // 0 = enemy-owned, >0 = player peer ID
+	EnemyIdx  int    // index into World.Enemies (-1 = player-owned)
 	Position  Vec3
 	Direction Vec3
 	Speed     float32
@@ -14,10 +15,11 @@ type Projectile struct {
 }
 
 // NewProjectile creates a projectile.
-func NewProjectile(id uint32, ownerID uint16, pos, dir Vec3, speed, damage, lifetime float32) *Projectile {
+func NewProjectile(id uint32, ownerID uint16, enemyIdx int, pos, dir Vec3, speed, damage, lifetime float32) *Projectile {
 	return &Projectile{
 		ID:        id,
 		OwnerID:   ownerID,
+		EnemyIdx:  enemyIdx,
 		Position:  pos,
 		Direction: dir.Normalized(),
 		Speed:     speed,
