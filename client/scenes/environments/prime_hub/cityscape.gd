@@ -284,14 +284,135 @@ func _generate() -> void:
 	# Visible through volumetric fog as distant glowing patches
 	_build_city_glow(rng)
 
+	# Hardcoded tall buildings north of shaft, reaching up to plaza bottom (Y=-4.3)
+	# Ground at Y=-180, so height ~176m to reach Y=-4
+	var lower_tall := [
+		# [X, Z, width, depth, height]
+		[-60.0, -90.0, 30.0, 25.0, 176.0],
+		[-100.0, -60.0, 25.0, 30.0, 174.0],
+		[60.0, -100.0, 28.0, 22.0, 175.0],
+		[90.0, -70.0, 22.0, 28.0, 173.0],
+	]
+	for lt in lower_tall:
+		var ltx: float = lt[0]
+		var ltz: float = lt[1]
+		var ltw: float = lt[2]
+		var ltd: float = lt[3]
+		var lth: float = lt[4]
+		bldg.append(Transform3D(
+			Basis.from_scale(Vector3(ltw, lth, ltd)),
+			Vector3(ltx, -180.0 + lth * 0.5, ltz)))
+		# Window strips on these
+		win_warm.append(Transform3D(
+			Basis.from_scale(Vector3(0.3, lth * 0.5, ltd * 0.35)),
+			Vector3(ltx + ltw * 0.5 + 0.15, -180.0 + lth * 0.4, ltz)))
+		win_blue.append(Transform3D(
+			Basis.from_scale(Vector3(ltw * 0.35, lth * 0.5, 0.3)),
+			Vector3(ltx, -180.0 + lth * 0.4, ltz + ltd * 0.5 + 0.15)))
+
+	# Lower cityscape at Y=-180 — buildings barely poking above Y=-150
+	# Clears the shaft area (X -15..25, Z -75..-35) and south building (Z > 45)
+	var lower_ground_y := -180.0
+	for lgx in range(-30, 31):
+		for lgz in range(-30, 31):
+			var lcx: float = lgx * 22.0 + rng.randf_range(-6, 6)
+			var lcz: float = lgz * 22.0 + rng.randf_range(-6, 6)
+			# Skip shaft exclusion
+			if lcx > -15.0 and lcx < 25.0 and lcz > -75.0 and lcz < -35.0:
+				continue
+			# Skip south building + plaza above
+			if lcx > -PLAZA_X and lcx < PLAZA_X and lcz > 45.0 and lcz < PLAZA_Z_MAX + 10.0:
+				continue
+			var ldist := maxf(absf(lcx), absf(lcz))
+			if ldist > 650.0:
+				continue
+			if rng.randf() < 0.25:
+				continue
+			var lw: float = rng.randf_range(12, 32)
+			var ld: float = rng.randf_range(10, 28)
+			var lh: float = rng.randf_range(40, 160)
+			bldg.append(Transform3D(
+				Basis.from_scale(Vector3(lw, lh, ld)),
+				Vector3(lcx, lower_ground_y + lh * 0.5, lcz)))
+			# Windows on multiple faces for nearby buildings
+			if lh > 15.0:
+				var win_y: float = lower_ground_y + lh * 0.35
+				var win_h: float = lh * 0.5
+				# X-facing windows (front and back)
+				for side in [-1.0, 1.0]:
+					if rng.randf() < 0.6:
+						var fx: float = lcx + (lw * 0.5 + 0.1) * side
+						var wlist: Array = win_warm if rng.randf() < 0.7 else win_blue
+						wlist.append(Transform3D(
+							Basis.from_scale(Vector3(0.2, win_h, ld * 0.35)),
+							Vector3(fx, win_y, lcz)))
+				# Z-facing windows (left and right)
+				for side in [-1.0, 1.0]:
+					if rng.randf() < 0.6:
+						var fz: float = lcz + (ld * 0.5 + 0.1) * side
+						var wlist: Array = win_warm if rng.randf() < 0.7 else win_blue
+						wlist.append(Transform3D(
+							Basis.from_scale(Vector3(lw * 0.35, win_h, 0.2)),
+							Vector3(lcx, win_y, fz)))
+				# Blue trim cap
+				if rng.randf() < 0.3:
+					trims.append(Transform3D(
+						Basis.from_scale(Vector3(lw + 0.3, 0.2, ld + 0.3)),
+						Vector3(lcx, lower_ground_y + lh + 0.1, lcz)))
+
 	# 5 multimeshes = 5 draw calls
-	# Buildings: light grey/white, like clean Empire architecture at night
-	_mm("Buildings", bldg, _solid(Color(0.35, 0.36, 0.38), 0.75))
+	# Buildings: varied shades of dark grey
+	_mm_varied("Buildings", bldg, rng)
 	# Windows: faint warm yellow glow, not bright blue rectangles
 	_mm("WarmWindows", win_warm, _glow(Color(0.4, 0.35, 0.25), Color(0.6, 0.5, 0.3), 0.6))
 	_mm("BlueWindows", win_blue, _glow(Color(0.3, 0.32, 0.38), Color(0.4, 0.45, 0.55), 0.4))
 	# Trims: subtle blue accent, not neon
 	_mm("Trims", trims, _glow(Color(0.3, 0.4, 0.55), Color(0.2, 0.35, 0.6), 0.5))
+
+
+func _mm_varied(nm: String, xforms: Array[Transform3D], rng: RandomNumberGenerator) -> void:
+	if xforms.is_empty():
+		return
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3.ONE
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_custom_data = true
+	mm.instance_count = xforms.size()
+	mm.mesh = mesh
+	for i in xforms.size():
+		mm.set_instance_transform(i, xforms[i])
+		# Pack a brightness variation into custom data (0.7 to 1.3 range)
+		var shade: float = rng.randf_range(0.7, 1.3)
+		# Slight hue shift: some buildings slightly warmer, some cooler
+		var warm: float = rng.randf_range(-0.03, 0.03)
+		mm.set_instance_custom_data(i, Color(shade, warm, 0.0, 0.0))
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.name = nm
+	# Shader material that reads INSTANCE_CUSTOM for color variation
+	var shader := Shader.new()
+	shader.code = "shader_type spatial;
+render_mode cull_back;
+uniform vec3 base_color = vec3(0.35, 0.36, 0.38);
+uniform float roughness_val : hint_range(0.0, 1.0) = 0.75;
+varying float v_shade;
+varying float v_warm;
+void vertex() {
+	v_shade = INSTANCE_CUSTOM.r;
+	v_warm = INSTANCE_CUSTOM.g;
+}
+void fragment() {
+	ALBEDO = base_color * v_shade + vec3(v_warm, v_warm * 0.5, -v_warm);
+	ROUGHNESS = roughness_val;
+}
+"
+	var mat := ShaderMaterial.new()
+	mat.shader = shader
+	mat.set_shader_parameter("base_color", Vector3(0.35, 0.36, 0.38))
+	mat.set_shader_parameter("roughness_val", 0.75)
+	mmi.material_override = mat
+	add_child(mmi)
 
 
 func _mm(nm: String, xforms: Array[Transform3D], mat: StandardMaterial3D) -> void:

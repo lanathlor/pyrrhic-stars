@@ -1,12 +1,16 @@
-[gd_scene load_steps=33 format=3]
+[gd_scene load_steps=44 format=3]
 
 [ext_resource type="Script" path="res://scenes/environments/prime_hub/military_building_collision.gd" id="collision_script"]
 [ext_resource type="Script" path="res://scenes/environments/prime_hub/lift.gd" id="lift_script"]
 [ext_resource type="Script" path="res://scenes/environments/prime_hub/spatial_debug.gd" id="spatial_debug"]
 [ext_resource type="Script" path="res://scenes/environments/prime_hub/plaza_collision.gd" id="plaza_collision"]
+[ext_resource type="Script" path="res://scenes/environments/prime_hub/public_lift.gd" id="public_lift_script"]
+[ext_resource type="Script" path="res://scenes/environments/prime_hub/energy_railing.gd" id="energy_railing_script"]
 [ext_resource type="Script" path="res://scenes/environments/prime_hub/cityscape.gd" id="cityscape"]
 [ext_resource type="Script" path="res://scenes/environments/prime_hub/starfield.gd" id="starfield"]
 [ext_resource type="Script" path="res://scenes/environments/prime_hub/air_traffic.gd" id="air_traffic"]
+[ext_resource type="Script" path="res://scenes/environments/prime_hub/underground_building.gd" id="underground_building"]
+[ext_resource type="Script" path="res://scenes/environments/prime_hub/lower_cityscape.gd" id="lower_cityscape"]
 
 ; === SKY ===
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
@@ -151,6 +155,34 @@ height = 0.3
 [sub_resource type="CylinderShape3D" id="portal_shape"]
 radius = 2.5
 height = 4.0
+
+; Underground building material (matches cityscape buildings)
+[sub_resource type="StandardMaterial3D" id="city_bld_mat"]
+albedo_color = Color(0.35, 0.36, 0.38, 1)
+roughness = 0.75
+metallic = 0.0
+
+; Public lift shapes
+[sub_resource type="BoxShape3D" id="plift_platform_shape"]
+size = Vector3(6, 0.2, 6)
+
+[sub_resource type="BoxShape3D" id="plift_railing_shape"]
+size = Vector3(0.1, 2.0, 6)
+
+[sub_resource type="BoxShape3D" id="plift_railing_z_shape"]
+size = Vector3(6, 2.0, 0.1)
+
+[sub_resource type="BoxShape3D" id="plift_shaft_wall_shape"]
+size = Vector3(0.3, 150, 6.6)
+
+[sub_resource type="BoxShape3D" id="plift_shaft_wall_mid_shape"]
+size = Vector3(0.3, 147, 6.6)
+
+[sub_resource type="BoxShape3D" id="plift_shaft_back_shape"]
+size = Vector3(6.6, 150, 0.3)
+
+[sub_resource type="BoxShape3D" id="plift_lower_floor_shape"]
+size = Vector3(12, 0.3, 12)
 
 
 ; ================================================================
@@ -719,12 +751,36 @@ material = SubResource("door_mat")
 
 [node name="Plaza" type="Node3D" parent="."]
 
-; --- Base ground plane (250x272, grass — garden is the default) ---
-; Top at Y=-0.15, well below path bottoms at Y=-0.105 to prevent Z-fighting
-[node name="GroundPlane" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 21)
-size = Vector3(250, 0.2, 272)
+; --- Base ground plane (split into 4 pieces around lift shaft at X=5 Z=-55) ---
+; 4m thick slab in floor_mat, thin grass layer on top for garden look
+; Shaft hole: 6x6 centered at (5, -55) — matches platform exactly
+
+; Grass top layer (thin, full coverage — visual only, no collision)
+[node name="GrassTop" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.16, 21)
+size = Vector3(250, 0.08, 272)
 material = SubResource("grass_mat")
+
+; 4m thick slab pieces (city_bld_mat to match buildings from below) with shaft hole
+[node name="GroundPlaneW" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -61.5, -2.2, 21)
+size = Vector3(127, 4, 272)
+material = SubResource("city_bld_mat")
+
+[node name="GroundPlaneE" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 66.5, -2.2, 21)
+size = Vector3(117, 4, 272)
+material = SubResource("city_bld_mat")
+
+[node name="GroundPlaneN" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, -2.2, -86.5)
+size = Vector3(6, 4, 57)
+material = SubResource("city_bld_mat")
+
+[node name="GroundPlaneS" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, -2.2, 52.5)
+size = Vector3(6, 4, 209)
+material = SubResource("city_bld_mat")
 
 ; --- North edge: glass railing for the open view ---
 [node name="EdgeN" type="CSGBox3D" parent="Plaza"]
@@ -927,11 +983,125 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 76, -0.08, 21)
 size = Vector3(96, 0.05, 3)
 material = SubResource("path_mat")
 
-; Public lift platform marker (west side)
-[node name="PublicLiftMarker" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 0.02, 21)
-size = Vector3(6, 0.04, 6)
+; ================================================================
+; PUBLIC LIFT — open platform at X=5, Z=-55 (beside north path, open toward -X)
+; Descends from Y=0 (plaza) to Y=-150
+; Open design with railings on 3 sides, front open for entry/exit
+; ================================================================
+
+; --- Lift area (no shaft — open air) ---
+[node name="PublicLiftShaft" type="Node3D" parent="Plaza"]
+
+; Blue trim at top of lift opening
+[node name="ShaftTrimTop" type="CSGBox3D" parent="Plaza/PublicLiftShaft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0.03, -55)
+size = Vector3(6.8, 0.06, 6.8)
 material = SubResource("trim_mat")
+
+; --- Lower landing area (Y=-150) ---
+[node name="LowerLanding" type="CSGBox3D" parent="Plaza/PublicLiftShaft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, -150.15, -55)
+size = Vector3(12, 0.3, 12)
+material = SubResource("floor_mat")
+
+; Lower landing light
+[node name="LowerLight" type="SpotLight3D" parent="Plaza/PublicLiftShaft"]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 5, -148, -55)
+light_color = Color(0.95, 0.88, 0.7, 1)
+light_energy = 2.0
+spot_range = 8.0
+spot_angle = 60.0
+
+; Lower landing collision
+[node name="ShaftCollision" type="StaticBody3D" parent="Plaza/PublicLiftShaft"]
+collision_layer = 1
+collision_mask = 0
+
+[node name="LowerFloorCol" type="CollisionShape3D" parent="Plaza/PublicLiftShaft/ShaftCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, -150.15, -55)
+shape = SubResource("plift_lower_floor_shape")
+
+; --- Paved area around shaft entrance ---
+[node name="LiftPad" type="CSGBox3D" parent="Plaza/PublicLiftShaft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, -0.08, -55)
+size = Vector3(10, 0.05, 10)
+material = SubResource("path_mat")
+
+; --- Connecting path from north path to lift entrance ---
+[node name="PathToLift" type="CSGBox3D" parent="Plaza/PublicLiftShaft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.25, -0.08, -55)
+size = Vector3(4.5, 0.05, 3)
+material = SubResource("path_mat")
+
+; --- Platform (AnimatableBody3D, rides up/down) ---
+[node name="PublicLift" type="AnimatableBody3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0, -55)
+script = ExtResource("public_lift_script")
+collision_layer = 1
+collision_mask = 0
+sync_to_physics = true
+
+; Platform floor
+[node name="PlatformShape" type="CollisionShape3D" parent="Plaza/PublicLift"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0)
+shape = SubResource("plift_platform_shape")
+
+[node name="PlatformVis" type="CSGBox3D" parent="Plaza/PublicLift"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0)
+size = Vector3(6, 0.2, 6)
+material = SubResource("path_mat")
+
+; Platform trim
+[node name="PlatformTrim" type="CSGBox3D" parent="Plaza/PublicLift"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, 0)
+size = Vector3(5.6, 0.04, 5.6)
+material = SubResource("trim_mat")
+
+; Railings (3 sides — east/north/south, open toward -X for path entry)
+; Collision shapes are 2m tall (invisible barrier), energy beams are 1.2m tall (visible)
+[node name="RailEastCol" type="CollisionShape3D" parent="Plaza/PublicLift"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.95, 1.0, 0)
+shape = SubResource("plift_railing_shape")
+
+[node name="RailEastVis" type="Node3D" parent="Plaza/PublicLift"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.95, 0.6, 0)
+script = ExtResource("energy_railing_script")
+beam_size = Vector3(0.1, 1.2, 6)
+
+[node name="RailNorthCol" type="CollisionShape3D" parent="Plaza/PublicLift"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, -2.95)
+shape = SubResource("plift_railing_z_shape")
+
+[node name="RailNorthVis" type="Node3D" parent="Plaza/PublicLift"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, -2.95)
+script = ExtResource("energy_railing_script")
+beam_size = Vector3(6, 1.2, 0.1)
+
+[node name="RailSouthCol" type="CollisionShape3D" parent="Plaza/PublicLift"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, 2.95)
+shape = SubResource("plift_railing_z_shape")
+
+[node name="RailSouthVis" type="Node3D" parent="Plaza/PublicLift"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 2.95)
+script = ExtResource("energy_railing_script")
+beam_size = Vector3(6, 1.2, 0.1)
+
+; West railing (entry side — deployed when lift is moving, hidden when idle)
+[node name="RailWestCol" type="CollisionShape3D" parent="Plaza/PublicLift"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.95, 1.0, 0)
+shape = SubResource("plift_railing_shape")
+
+[node name="RailWestVis" type="Node3D" parent="Plaza/PublicLift"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.95, 0.6, 0)
+script = ExtResource("energy_railing_script")
+beam_size = Vector3(0.1, 1.2, 6)
+
+; Platform light
+[node name="PlatLight" type="OmniLight3D" parent="Plaza/PublicLift"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+light_color = Color(0.95, 0.88, 0.7, 1)
+light_energy = 2.0
+omni_range = 6.0
 
 
 ; ================================================================
@@ -2338,6 +2508,30 @@ shape = SubResource("platform_main_shape")
 [node name="CircleShape" type="CollisionShape3D" parent="LandingPad/PadCollision"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, -0.15, 0)
 shape = SubResource("platform_circle_shape")
+
+
+; ================================================================
+; UNDERGROUND BUILDING — solid box under the south part of the plaza
+; ================================================================
+
+; South building (Z=50 to Z=157, Y=-4.3 to Y=-300)
+[node name="UndergroundBuilding" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -152.15, 103.5)
+size = Vector3(250, 295.7, 107)
+material = SubResource("city_bld_mat")
+
+; Base box below the lift (full plaza footprint, Y=-155 to Y=-300, covers gaps between lower buildings)
+[node name="UndergroundBase" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -227.5, 21)
+size = Vector3(250, 145, 272)
+material = SubResource("city_bld_mat")
+
+; Windows on the north face (Z=49.9) — glass bands every 4m, Y=-6 to Y=-150
+[node name="SouthBldgWindows" type="Node3D" parent="."]
+script = ExtResource("underground_building")
+glass_mat = SubResource("glass_mat")
+trim_mat = SubResource("trim_mat")
+
 
 
 ; ================================================================

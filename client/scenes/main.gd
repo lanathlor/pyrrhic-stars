@@ -318,35 +318,61 @@ func _check_lift_proximity() -> void:
 	if not is_instance_valid(player):
 		return
 
-	var lift := _current_env.get_node_or_null("ElevatorCab") if _current_env else null
-	if not lift or not lift.is_idle():
-		_near_lift = false
-		if _lift_prompt:
-			_lift_prompt.visible = false
-		return
-
 	var pos: Vector3 = player.global_position
-	var lift_node: Node3D = lift as Node3D
-	var lift_pos: Vector3 = lift_node.global_position
-	var bottom_y: float = lift.get("BOTTOM_Y")
-	var top_y: float = lift.get("TOP_Y")
-	# Check proximity to elevator door (front face of cab, at cab Z minus ~2m)
-	var door_z: float = lift_pos.z - 2.0
-	var in_x := absf(pos.x - lift_pos.x) < 2.5
-	var near_door := in_x and absf(pos.z - door_z) < 3.0
-	var near_gf := near_door and pos.y < (bottom_y + 5.0)
-	var near_uf := near_door and pos.y > (top_y - 5.0)
+	var found_lift: Node = null
 
-	_near_lift = near_gf or near_uf
+	# Check interior elevator (ElevatorCab)
+	var elev := _current_env.get_node_or_null("ElevatorCab") if _current_env else null
+	if elev and elev.is_idle():
+		var elev_pos: Vector3 = (elev as Node3D).global_position
+		var door_z: float = elev_pos.z - 2.0
+		var in_x := absf(pos.x - elev_pos.x) < 2.5
+		var near_door := in_x and absf(pos.z - door_z) < 3.0
+		var bottom_y: float = elev.get("BOTTOM_Y")
+		var top_y: float = elev.get("TOP_Y")
+		if near_door and (pos.y < bottom_y + 5.0 or pos.y > top_y - 5.0):
+			found_lift = elev
+
+	# Check public lift (PublicLift) — open platform, proximity by distance
+	if not found_lift:
+		var plift := _current_env.get_node_or_null("Plaza/PublicLift") if _current_env else null
+		if plift and plift.is_idle():
+			var plift_pos: Vector3 = (plift as Node3D).global_position
+			var dist_xz := Vector2(pos.x - plift_pos.x, pos.z - plift_pos.z).length()
+			var near_platform := dist_xz < 5.0 and absf(pos.y - plift_pos.y) < 3.0
+			if near_platform:
+				found_lift = plift
+
+	_near_lift = found_lift != null
 	if _lift_prompt:
-		_lift_prompt.text = "Press [E] — %s" % lift.get_floor_label()
+		if found_lift:
+			_lift_prompt.text = "Press [E] — %s" % found_lift.get_floor_label()
 		_lift_prompt.visible = _near_lift
 
 
 func _interact_lift() -> void:
-	var lift := _current_env.get_node_or_null("ElevatorCab") if _current_env else null
-	if lift and lift.has_method("activate"):
-		lift.activate()
+	var pos: Vector3 = Vector3.ZERO
+	var my_id := NetworkManager.get_my_id()
+	if my_id in _spawned_players:
+		pos = _spawned_players[my_id].global_position
+
+	# Try interior elevator first
+	var elev := _current_env.get_node_or_null("ElevatorCab") if _current_env else null
+	if elev and elev.is_idle():
+		var elev_pos: Vector3 = (elev as Node3D).global_position
+		var door_z: float = elev_pos.z - 2.0
+		if absf(pos.x - elev_pos.x) < 2.5 and absf(pos.z - door_z) < 3.0:
+			elev.activate()
+			return
+
+	# Try public lift
+	var plift := _current_env.get_node_or_null("Plaza/PublicLift") if _current_env else null
+	if plift and plift.is_idle():
+		var plift_pos: Vector3 = (plift as Node3D).global_position
+		var dist_xz := Vector2(pos.x - plift_pos.x, pos.z - plift_pos.z).length()
+		if dist_xz < 5.0 and absf(pos.y - plift_pos.y) < 3.0:
+			plift.activate()
+			return
 
 
 func _update_hub_display() -> void:
