@@ -23,11 +23,11 @@ const PLAYER_SPAWNS := [
 const ARENA_ENTRY_Z := 40.0
 const BOSS_ROOM_ENTRY_Z := 12.0
 const HUB_SPAWNS := [
-	Vector3(-1.5, 0.1, 3.0),
-	Vector3(0.0, 0.1, 3.0),
-	Vector3(1.5, 0.1, 3.0),
-	Vector3(-0.75, 0.1, 4.0),
-	Vector3(0.75, 0.1, 4.0),
+	Vector3(3.5, -199.8, -55.0),
+	Vector3(5.0, -199.8, -55.0),
+	Vector3(6.5, -199.8, -55.0),
+	Vector3(4.25, -199.8, -53.5),
+	Vector3(5.75, -199.8, -53.5),
 ]
 
 const CLASS_SCENES := {
@@ -333,20 +333,31 @@ func _check_lift_proximity() -> void:
 		if near_door and (pos.y < bottom_y + 5.0 or pos.y > top_y - 5.0):
 			found_lift = elev
 
-	# Check public lift (PublicLift) — open platform, proximity by distance
+	# Check public lift — detect at BOTH stations (top and bottom)
+	# Top station: (5, 0, -55), Bottom station: (5, -200, -55)
 	if not found_lift:
 		var plift := _current_env.get_node_or_null("Plaza/PublicLift") if _current_env else null
 		if plift and plift.is_idle():
-			var plift_pos: Vector3 = (plift as Node3D).global_position
-			var dist_xz := Vector2(pos.x - plift_pos.x, pos.z - plift_pos.z).length()
-			var near_platform := dist_xz < 5.0 and absf(pos.y - plift_pos.y) < 3.0
-			if near_platform:
-				found_lift = plift
+			var station_x := 5.0
+			var station_z := -55.0
+			var dist_xz := Vector2(pos.x - station_x, pos.z - station_z).length()
+			if dist_xz < 6.0:
+				# Near top station (Y around 0)
+				var near_top := pos.y > -5.0 and pos.y < 5.0
+				# Near bottom station (Y around -200)
+				var near_bottom := pos.y > -205.0 and pos.y < -195.0
+				if near_top or near_bottom:
+					found_lift = plift
 
 	_near_lift = found_lift != null
 	if _lift_prompt:
 		if found_lift:
-			_lift_prompt.text = "Press [E] — %s" % found_lift.get_floor_label()
+			var plift_pos_y: float = (found_lift as Node3D).global_position.y
+			var lift_here := absf(pos.y - plift_pos_y) < 5.0
+			if lift_here:
+				_lift_prompt.text = "Press [E] — %s" % found_lift.get_floor_label()
+			else:
+				_lift_prompt.text = "Press [E] — Call lift"
 		_lift_prompt.visible = _near_lift
 
 
@@ -365,12 +376,13 @@ func _interact_lift() -> void:
 			elev.activate()
 			return
 
-	# Try public lift
+	# Try public lift — fixed stations at top (Y=0) and bottom (Y=-200)
 	var plift := _current_env.get_node_or_null("Plaza/PublicLift") if _current_env else null
 	if plift and plift.is_idle():
-		var plift_pos: Vector3 = (plift as Node3D).global_position
-		var dist_xz := Vector2(pos.x - plift_pos.x, pos.z - plift_pos.z).length()
-		if dist_xz < 5.0 and absf(pos.y - plift_pos.y) < 3.0:
+		var dist_xz := Vector2(pos.x - 5.0, pos.z - (-55.0)).length()
+		var near_top := pos.y > -5.0 and pos.y < 5.0
+		var near_bottom := pos.y > -205.0 and pos.y < -195.0
+		if dist_xz < 6.0 and (near_top or near_bottom):
 			plift.activate()
 			return
 
@@ -572,6 +584,7 @@ func _spawn_player(peer_id: int, class_name_str: String, spawn_pos: Vector3) -> 
 	player.name = "Player_%d" % peer_id
 	player.peer_id = peer_id
 	_players_node.add_child(player)
+	player.add_to_group("players")
 	player.global_position = spawn_pos
 	# Initialize net sync targets so remote interpolation starts at the correct position
 	player._net_position = spawn_pos

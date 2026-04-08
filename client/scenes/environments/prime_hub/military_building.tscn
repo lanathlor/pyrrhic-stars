@@ -1,10 +1,11 @@
-[gd_scene load_steps=44 format=3]
+[gd_scene load_steps=54 format=3]
 
 [ext_resource type="Script" path="res://scenes/environments/prime_hub/military_building_collision.gd" id="collision_script"]
 [ext_resource type="Script" path="res://scenes/environments/prime_hub/lift.gd" id="lift_script"]
 [ext_resource type="Script" path="res://scenes/environments/prime_hub/spatial_debug.gd" id="spatial_debug"]
 [ext_resource type="Script" path="res://scenes/environments/prime_hub/plaza_collision.gd" id="plaza_collision"]
 [ext_resource type="Script" path="res://scenes/environments/prime_hub/public_lift.gd" id="public_lift_script"]
+[ext_resource type="Script" path="res://scenes/environments/prime_hub/lower_district_collision.gd" id="lower_district_col"]
 [ext_resource type="Script" path="res://scenes/environments/prime_hub/energy_railing.gd" id="energy_railing_script"]
 [ext_resource type="Script" path="res://scenes/environments/prime_hub/cityscape.gd" id="cityscape"]
 [ext_resource type="Script" path="res://scenes/environments/prime_hub/starfield.gd" id="starfield"]
@@ -161,6 +162,51 @@ height = 4.0
 albedo_color = Color(0.35, 0.36, 0.38, 1)
 roughness = 0.75
 metallic = 0.0
+
+; Lower district materials
+[sub_resource type="StandardMaterial3D" id="street_floor_mat"]
+albedo_color = Color(0.3, 0.27, 0.24, 1)
+roughness = 0.75
+metallic = 0.0
+
+[sub_resource type="StandardMaterial3D" id="street_pavement_mat"]
+albedo_color = Color(0.36, 0.33, 0.28, 1)
+roughness = 0.65
+metallic = 0.0
+
+[sub_resource type="StandardMaterial3D" id="lower_bldg_mat"]
+albedo_color = Color(0.45, 0.35, 0.25, 1)
+roughness = 0.75
+metallic = 0.0
+
+[sub_resource type="StandardMaterial3D" id="lower_window_mat"]
+albedo_color = Color(0.5, 0.4, 0.25, 1)
+emission_enabled = true
+emission = Color(0.8, 0.6, 0.3, 1)
+emission_energy_multiplier = 0.8
+roughness = 0.4
+metallic = 0.0
+
+[sub_resource type="StandardMaterial3D" id="neon_orange_mat"]
+albedo_color = Color(0.9, 0.5, 0.15, 1)
+emission_enabled = true
+emission = Color(1.0, 0.6, 0.2, 1)
+emission_energy_multiplier = 2.5
+roughness = 0.3
+metallic = 0.0
+
+[sub_resource type="StandardMaterial3D" id="lower_ceiling_mat"]
+albedo_color = Color(0.38, 0.32, 0.25, 1)
+roughness = 0.85
+metallic = 0.0
+
+[sub_resource type="StandardMaterial3D" id="plaza_center_mat"]
+albedo_color = Color(0.4, 0.36, 0.3, 1)
+roughness = 0.5
+metallic = 0.05
+
+[sub_resource type="BoxShape3D" id="lower_ground_shape"]
+size = Vector3(200, 0.3, 200)
 
 ; Public lift shapes
 [sub_resource type="BoxShape3D" id="plift_platform_shape"]
@@ -998,15 +1044,54 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0.03, -55)
 size = Vector3(6.8, 0.06, 6.8)
 material = SubResource("trim_mat")
 
-; --- Lower landing area (Y=-150) ---
+; --- Bottom station (Y=-200) — paved pad with markers ---
 [node name="LowerLanding" type="CSGBox3D" parent="Plaza/PublicLiftShaft"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, -150.15, -55)
-size = Vector3(12, 0.3, 12)
-material = SubResource("floor_mat")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, -200.15, -55)
+size = Vector3(14, 0.3, 14)
+material = SubResource("plaza_center_mat")
 
-; Lower landing light
+[node name="LowerStationTrim" type="CSGBox3D" parent="Plaza/PublicLiftShaft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, -199.95, -55)
+size = Vector3(8, 0.06, 8)
+material = SubResource("trim_mat")
+
+; Orange glow pillars at corners
+[node name="LowerPillar1" type="CSGBox3D" parent="Plaza/PublicLiftShaft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, -198.5, -59)
+size = Vector3(0.3, 3, 0.3)
+material = SubResource("neon_orange_mat")
+
+[node name="LowerPillar2" type="CSGBox3D" parent="Plaza/PublicLiftShaft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, -198.5, -59)
+size = Vector3(0.3, 3, 0.3)
+material = SubResource("neon_orange_mat")
+
+[node name="LowerPillar3" type="CSGBox3D" parent="Plaza/PublicLiftShaft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, -198.5, -51)
+size = Vector3(0.3, 3, 0.3)
+material = SubResource("neon_orange_mat")
+
+[node name="LowerPillar4" type="CSGBox3D" parent="Plaza/PublicLiftShaft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, -198.5, -51)
+size = Vector3(0.3, 3, 0.3)
+material = SubResource("neon_orange_mat")
+
+; Station lights
+[node name="LowerStationLight1" type="OmniLight3D" parent="Plaza/PublicLiftShaft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, -197, -55)
+light_color = Color(1.0, 0.75, 0.45, 1)
+light_energy = 2.5
+omni_range = 10.0
+
+[node name="LowerStationLight2" type="OmniLight3D" parent="Plaza/PublicLiftShaft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, -197, -55)
+light_color = Color(1.0, 0.75, 0.45, 1)
+light_energy = 2.5
+omni_range = 10.0
+
+; Overhead light
 [node name="LowerLight" type="SpotLight3D" parent="Plaza/PublicLiftShaft"]
-transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 5, -148, -55)
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 5, -196, -55)
 light_color = Color(0.95, 0.88, 0.7, 1)
 light_energy = 2.0
 spot_range = 8.0
@@ -1018,7 +1103,7 @@ collision_layer = 1
 collision_mask = 0
 
 [node name="LowerFloorCol" type="CollisionShape3D" parent="Plaza/PublicLiftShaft/ShaftCollision"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, -150.15, -55)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, -200.15, -55)
 shape = SubResource("plift_lower_floor_shape")
 
 ; --- Paved area around shaft entrance ---
@@ -1049,7 +1134,7 @@ shape = SubResource("plift_platform_shape")
 [node name="PlatformVis" type="CSGBox3D" parent="Plaza/PublicLift"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0)
 size = Vector3(6, 0.2, 6)
-material = SubResource("path_mat")
+material = SubResource("neon_orange_mat")
 
 ; Platform trim
 [node name="PlatformTrim" type="CSGBox3D" parent="Plaza/PublicLift"]
@@ -2540,6 +2625,469 @@ trim_mat = SubResource("trim_mat")
 ; thousands of buildings, 4 draw calls total.
 ; S/W/E: tall buildings (surrounded). N: shorter (open vista).
 ; ================================================================
+
+; ================================================================
+; LOWER DISTRICT — hand-crafted streets inside UndergroundBase
+; Ground at Y=-200, ceiling at Y=-156. Lift lands at (5,-200,-55).
+; Streets: 3 N-S avenues, 3 E-W boulevards, central plaza.
+; ================================================================
+
+[node name="LowerDistrict" type="Node3D" parent="."]
+
+; --- Ground plane (200m x 200m, dark warm pavement) ---
+[node name="Ground" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, -200.15, -55)
+size = Vector3(200, 0.3, 200)
+material = SubResource("street_floor_mat")
+
+; --- Ceiling (warm, 8x8m hole at X[1,9] Z[-59,-51] for lift shaft) ---
+[node name="CeilingW" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -47, -156, -55)
+size = Vector3(96, 0.3, 200)
+material = SubResource("lower_ceiling_mat")
+
+[node name="CeilingE" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 57, -156, -55)
+size = Vector3(96, 0.3, 200)
+material = SubResource("lower_ceiling_mat")
+
+[node name="CeilingFront" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, -156, -107)
+size = Vector3(8, 0.3, 96)
+material = SubResource("lower_ceiling_mat")
+
+[node name="CeilingBack" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, -156, -3)
+size = Vector3(8, 0.3, 96)
+material = SubResource("lower_ceiling_mat")
+
+; --- Ground collision ---
+[node name="GroundBody" type="StaticBody3D" parent="LowerDistrict"]
+collision_layer = 1
+collision_mask = 0
+
+[node name="GroundCol" type="CollisionShape3D" parent="LowerDistrict/GroundBody"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, -200.15, -55)
+shape = SubResource("lower_ground_shape")
+
+; === CENTRAL PLAZA (30m x 30m around lift, slightly raised) ===
+[node name="PlazaFloor" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, -199.9, -55)
+size = Vector3(30, 0.1, 30)
+material = SubResource("plaza_center_mat")
+
+; Monument (simple obelisk offset from lift)
+[node name="Monument" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, -195, -55)
+size = Vector3(1.5, 10, 1.5)
+material = SubResource("lower_bldg_mat")
+
+[node name="MonumentTrim" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, -190, -55)
+size = Vector3(1.8, 0.3, 1.8)
+material = SubResource("trim_mat")
+
+; Streets are 8-10m wide gaps between building rows. No separate pavement CSG.
+
+; === DENSE BUILDING ROWS ===
+; Layout: buildings line streets forming canyons. Streets are 8-10m gaps.
+; Ceiling at Y=-156, floor at Y=-200. Buildings 30-44m tall.
+;
+; GRID (streets are the gaps):
+;   N-S avenues: X=-40, X=0(central), X=50
+;   E-W streets: Z=-100, Z=-55(market/plaza), Z=-10
+;   Buildings fill the blocks between these streets.
+;
+; === ROW A: North wall (Z=-100 to Z=-150, full width) ===
+
+; A1: west block
+[node name="A1" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -65, -179, -125)
+size = Vector3(50, 46, 45)
+material = SubResource("lower_bldg_mat")
+use_collision = true
+
+[node name="A1_Win" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -39.8, -180, -125)
+size = Vector3(0.2, 35, 20)
+material = SubResource("lower_window_mat")
+
+[node name="A1_Sign" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -53.5, -195, -108)
+size = Vector3(3, 1.5, 0.3)
+material = SubResource("neon_orange_mat")
+
+; A2: central-north block (gap at X[-5,10] for central avenue)
+[node name="A2" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, -179, -130)
+size = Vector3(30, 46, 30)
+material = SubResource("lower_bldg_mat")
+use_collision = true
+
+[node name="A2_Win" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.8, -180, -130)
+size = Vector3(0.2, 35, 14)
+material = SubResource("lower_window_mat")
+
+[node name="BK2_B" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55, -178, -118)
+size = Vector3(15, 44, 12)
+material = SubResource("lower_bldg_mat")
+
+; A3: east-north block
+[node name="A3" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, -179, -125)
+size = Vector3(40, 46, 40)
+material = SubResource("lower_bldg_mat")
+use_collision = true
+
+[node name="A3_Win" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.8, -178, -125)
+size = Vector3(0.2, 38, 18)
+material = SubResource("lower_window_mat")
+
+[node name="A3_Sign" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, -195, -104.8)
+size = Vector3(6, 2, 0.3)
+material = SubResource("neon_orange_mat")
+
+; A4: far-east north block
+[node name="A4" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 75, -179, -130)
+size = Vector3(25, 46, 35)
+material = SubResource("lower_bldg_mat")
+use_collision = true
+
+[node name="A4_Win" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 62.3, -180, -130)
+size = Vector3(0.2, 36, 15)
+material = SubResource("lower_window_mat")
+
+; === ROW B: West of plaza (X[-90,-45] Z[-100,-10]) ===
+[node name="B1" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -65, -179, -80)
+size = Vector3(40, 46, 15)
+material = SubResource("lower_bldg_mat")
+use_collision = true
+
+[node name="B1_Win" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -44.8, -180, -80)
+size = Vector3(0.2, 36, 8)
+material = SubResource("lower_window_mat")
+
+[node name="B1_Sign" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -44.8, -194, -75)
+size = Vector3(0.3, 1.5, 4)
+material = SubResource("neon_orange_mat")
+
+[node name="B2" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -68, -179, -55)
+size = Vector3(35, 46, 14)
+material = SubResource("lower_bldg_mat")
+use_collision = true
+
+[node name="B2_Win" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -50.3, -182, -55)
+size = Vector3(0.2, 32, 7)
+material = SubResource("lower_window_mat")
+
+[node name="B3" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -62, -179, -30)
+size = Vector3(42, 46, 16)
+material = SubResource("lower_bldg_mat")
+use_collision = true
+
+[node name="B3_Win" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40.8, -180, -30)
+size = Vector3(0.2, 38, 10)
+material = SubResource("lower_window_mat")
+
+[node name="B3_Sign" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -62, -193, -21.8)
+size = Vector3(5, 2, 0.3)
+material = SubResource("neon_orange_mat")
+
+; === ROW C: East of plaza (X[15,90] Z[-100,-10]) ===
+[node name="C1" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, -179, -82)
+size = Vector3(30, 46, 12)
+material = SubResource("lower_bldg_mat")
+use_collision = true
+
+[node name="C1_Win" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14.8, -180, -82)
+size = Vector3(0.2, 36, 7)
+material = SubResource("lower_window_mat")
+
+[node name="C1_Sign" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14.8, -195, -78)
+size = Vector3(0.3, 1.5, 3.5)
+material = SubResource("neon_orange_mat")
+
+[node name="C2" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 65, -179, -80)
+size = Vector3(30, 46, 14)
+material = SubResource("lower_bldg_mat")
+use_collision = true
+
+[node name="C2_Win" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 65, -180, -72.8)
+size = Vector3(14, 36, 0.2)
+material = SubResource("lower_window_mat")
+
+[node name="C3" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, -179, -42)
+size = Vector3(28, 46, 18)
+material = SubResource("lower_bldg_mat")
+use_collision = true
+
+[node name="C3_Sign" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.8, -194, -42)
+size = Vector3(0.3, 2, 5)
+material = SubResource("neon_orange_mat")
+
+[node name="C4" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 70, -179, -38)
+size = Vector3(35, 46, 15)
+material = SubResource("lower_bldg_mat")
+use_collision = true
+
+[node name="C4_Win" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 52.3, -180, -38)
+size = Vector3(0.2, 38, 8)
+material = SubResource("lower_window_mat")
+
+; === ROW D: South blocks (Z[-10,40]) ===
+[node name="D1" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60, -179, 15)
+size = Vector3(45, 46, 40)
+material = SubResource("lower_bldg_mat")
+use_collision = true
+
+[node name="D1_Win" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -37.3, -180, 15)
+size = Vector3(0.2, 36, 18)
+material = SubResource("lower_window_mat")
+
+[node name="D1_Sign" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60, -194, -4.8)
+size = Vector3(6, 2, 0.3)
+material = SubResource("neon_orange_mat")
+
+[node name="D2" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, -179, 20)
+size = Vector3(30, 46, 30)
+material = SubResource("lower_bldg_mat")
+use_collision = true
+
+[node name="D2_Win" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.8, -180, 20)
+size = Vector3(0.2, 38, 14)
+material = SubResource("lower_window_mat")
+
+[node name="D3" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, -179, 18)
+size = Vector3(35, 46, 35)
+material = SubResource("lower_bldg_mat")
+use_collision = true
+
+[node name="D3_Win" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.3, -180, 18)
+size = Vector3(0.2, 38, 16)
+material = SubResource("lower_window_mat")
+
+[node name="D3_Sign" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, -195, 35.5)
+size = Vector3(5, 1.5, 0.3)
+material = SubResource("neon_orange_mat")
+
+[node name="D4" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 75, -179, 15)
+size = Vector3(28, 46, 35)
+material = SubResource("lower_bldg_mat")
+use_collision = true
+
+[node name="D4_Win" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60.8, -180, 15)
+size = Vector3(0.2, 36, 14)
+material = SubResource("lower_window_mat")
+
+; === LIGHTING (warm orange) ===
+
+; Central plaza lights (4 corners + center)
+[node name="PlazaLight1" type="OmniLight3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, -192, -72)
+light_color = Color(1.0, 0.75, 0.45, 1)
+light_energy = 3.0
+omni_range = 25.0
+
+[node name="PlazaLight2" type="OmniLight3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, -192, -72)
+light_color = Color(1.0, 0.75, 0.45, 1)
+light_energy = 3.0
+omni_range = 25.0
+
+[node name="PlazaLight3" type="OmniLight3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, -192, -38)
+light_color = Color(1.0, 0.75, 0.45, 1)
+light_energy = 3.0
+omni_range = 25.0
+
+[node name="PlazaLight4" type="OmniLight3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, -192, -38)
+light_color = Color(1.0, 0.75, 0.45, 1)
+light_energy = 3.0
+omni_range = 25.0
+
+; Street lights along boulevards
+[node name="StreetN1" type="OmniLight3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -35, -194, -95)
+light_color = Color(1.0, 0.7, 0.35, 1)
+light_energy = 2.5
+omni_range = 20.0
+
+[node name="StreetN2" type="OmniLight3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45, -194, -95)
+light_color = Color(1.0, 0.7, 0.35, 1)
+light_energy = 2.5
+omni_range = 20.0
+
+[node name="StreetS1" type="OmniLight3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -35, -194, -15)
+light_color = Color(1.0, 0.7, 0.35, 1)
+light_energy = 2.5
+omni_range = 20.0
+
+[node name="StreetS2" type="OmniLight3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45, -194, -15)
+light_color = Color(1.0, 0.7, 0.35, 1)
+light_energy = 2.5
+omni_range = 20.0
+
+[node name="StreetW1" type="OmniLight3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -35, -194, -55)
+light_color = Color(1.0, 0.7, 0.35, 1)
+light_energy = 2.5
+omni_range = 20.0
+
+[node name="StreetE1" type="OmniLight3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45, -194, -55)
+light_color = Color(1.0, 0.7, 0.35, 1)
+light_energy = 2.5
+omni_range = 20.0
+
+; Large ambient orange fill
+[node name="AmbientOrange" type="OmniLight3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, -175, -55)
+light_color = Color(1.0, 0.7, 0.4, 1)
+light_energy = 1.2
+omni_range = 120.0
+
+; === PERIMETER WALLS (enclose the district, 45m tall from floor to ceiling) ===
+; District: X[-95,105] Z[-155,45], Y[-200,-156], walls are 44m tall
+
+[node name="WallNorth" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, -178, -155)
+size = Vector3(200, 44, 0.5)
+material = SubResource("lower_bldg_mat")
+
+[node name="WallSouth" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, -178, 45)
+size = Vector3(200, 44, 0.5)
+material = SubResource("lower_bldg_mat")
+
+[node name="WallWest" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -95, -178, -55)
+size = Vector3(0.5, 44, 200)
+material = SubResource("lower_bldg_mat")
+
+[node name="WallEast" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 105, -178, -55)
+size = Vector3(0.5, 44, 200)
+material = SubResource("lower_bldg_mat")
+
+; Window strips on perimeter walls (warm amber glow)
+[node name="WallNorthWin1" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, -185, -154.7)
+size = Vector3(20, 25, 0.2)
+material = SubResource("lower_window_mat")
+
+[node name="WallNorthWin2" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40, -183, -154.7)
+size = Vector3(15, 28, 0.2)
+material = SubResource("lower_window_mat")
+
+[node name="WallSouthWin1" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, -185, 44.7)
+size = Vector3(18, 25, 0.2)
+material = SubResource("lower_window_mat")
+
+[node name="WallSouthWin2" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50, -182, 44.7)
+size = Vector3(22, 30, 0.2)
+material = SubResource("lower_window_mat")
+
+[node name="WallWestWin1" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -94.7, -184, -80)
+size = Vector3(0.2, 26, 16)
+material = SubResource("lower_window_mat")
+
+[node name="WallWestWin2" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -94.7, -186, -20)
+size = Vector3(0.2, 22, 14)
+material = SubResource("lower_window_mat")
+
+[node name="WallEastWin1" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 104.7, -183, -90)
+size = Vector3(0.2, 28, 18)
+material = SubResource("lower_window_mat")
+
+[node name="WallEastWin2" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 104.7, -185, -30)
+size = Vector3(0.2, 24, 15)
+material = SubResource("lower_window_mat")
+
+; Neon signs on perimeter walls
+[node name="WallNSign1" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, -194, -154.6)
+size = Vector3(6, 2, 0.3)
+material = SubResource("neon_orange_mat")
+
+[node name="WallSSign1" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, -195, 44.6)
+size = Vector3(5, 1.5, 0.3)
+material = SubResource("neon_orange_mat")
+
+[node name="WallWSign1" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -94.6, -193, -55)
+size = Vector3(0.3, 2, 5)
+material = SubResource("neon_orange_mat")
+
+[node name="WallESign1" type="CSGBox3D" parent="LowerDistrict"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 104.6, -194, -40)
+size = Vector3(0.3, 1.5, 4)
+material = SubResource("neon_orange_mat")
+
+; (old storefronts/extras removed — building rows now define street edges)
+
+; === WALL COLLISION ===
+[node name="WallCollision" type="StaticBody3D" parent="LowerDistrict"]
+script = ExtResource("lower_district_col")
+collision_layer = 1
+collision_mask = 0
+
+[node name="WallNCol" type="CollisionShape3D" parent="LowerDistrict/WallCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, -178, -155)
+
+[node name="WallSCol" type="CollisionShape3D" parent="LowerDistrict/WallCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, -178, 45)
+
+[node name="WallWCol" type="CollisionShape3D" parent="LowerDistrict/WallCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -95, -178, -55)
+
+[node name="WallECol" type="CollisionShape3D" parent="LowerDistrict/WallCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 105, -178, -55)
+
 
 [node name="Cityscape" type="Node3D" parent="."]
 script = ExtResource("cityscape")

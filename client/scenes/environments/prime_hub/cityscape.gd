@@ -15,6 +15,12 @@ const PLAZA_X: float = 135.0
 const PLAZA_Z_MIN: float = -120.0
 const PLAZA_Z_MAX: float = 145.0
 
+# Lower street district exclusion (hand-crafted area inside UndergroundBase)
+const DISTRICT_X_MIN: float = -100.0
+const DISTRICT_X_MAX: float = 110.0
+const DISTRICT_Z_MIN: float = -160.0
+const DISTRICT_Z_MAX: float = 50.0
+
 
 func _ready() -> void:
 	_generate()
@@ -56,6 +62,10 @@ func _generate() -> void:
 
 				# Skip plaza footprint
 				if cx > -PLAZA_X and cx < PLAZA_X and cz > PLAZA_Z_MIN and cz < PLAZA_Z_MAX:
+					continue
+
+				# Skip lower street district (hand-crafted zone)
+				if cx > DISTRICT_X_MIN and cx < DISTRICT_X_MAX and cz > DISTRICT_Z_MIN and cz < DISTRICT_Z_MAX:
 					continue
 
 				# Skip if inside inner radius (already populated by denser band)
@@ -284,14 +294,15 @@ func _generate() -> void:
 	# Visible through volumetric fog as distant glowing patches
 	_build_city_glow(rng)
 
-	# Hardcoded tall buildings north of shaft, reaching up to plaza bottom (Y=-4.3)
-	# Ground at Y=-180, so height ~176m to reach Y=-4
+	# Tall buildings sitting ON TOP of UndergroundBase ceiling (Y=-155)
+	# They do NOT extend into the underground — they sit on the roof.
+	var lower_roof_y := -155.0
+
 	var lower_tall := [
-		# [X, Z, width, depth, height]
-		[-60.0, -90.0, 30.0, 25.0, 176.0],
-		[-100.0, -60.0, 25.0, 30.0, 174.0],
-		[60.0, -100.0, 28.0, 22.0, 175.0],
-		[90.0, -70.0, 22.0, 28.0, 173.0],
+		[-60.0, -90.0, 30.0, 25.0, 150.0],
+		[-100.0, -60.0, 25.0, 30.0, 148.0],
+		[60.0, -100.0, 28.0, 22.0, 149.0],
+		[90.0, -70.0, 22.0, 28.0, 147.0],
 	]
 	for lt in lower_tall:
 		var ltx: float = lt[0]
@@ -301,24 +312,21 @@ func _generate() -> void:
 		var lth: float = lt[4]
 		bldg.append(Transform3D(
 			Basis.from_scale(Vector3(ltw, lth, ltd)),
-			Vector3(ltx, -180.0 + lth * 0.5, ltz)))
-		# Window strips on these
+			Vector3(ltx, lower_roof_y + lth * 0.5, ltz)))
 		win_warm.append(Transform3D(
 			Basis.from_scale(Vector3(0.3, lth * 0.5, ltd * 0.35)),
-			Vector3(ltx + ltw * 0.5 + 0.15, -180.0 + lth * 0.4, ltz)))
+			Vector3(ltx + ltw * 0.5 + 0.15, lower_roof_y + lth * 0.4, ltz)))
 		win_blue.append(Transform3D(
 			Basis.from_scale(Vector3(ltw * 0.35, lth * 0.5, 0.3)),
-			Vector3(ltx, -180.0 + lth * 0.4, ltz + ltd * 0.5 + 0.15)))
+			Vector3(ltx, lower_roof_y + lth * 0.4, ltz + ltd * 0.5 + 0.15)))
 
-	# Lower cityscape at Y=-180 — buildings barely poking above Y=-150
-	# Clears the shaft area (X -15..25, Z -75..-35) and south building (Z > 45)
-	var lower_ground_y := -180.0
+	# Lower cityscape — buildings on the UndergroundBase roof, not inside it
 	for lgx in range(-30, 31):
 		for lgz in range(-30, 31):
 			var lcx: float = lgx * 22.0 + rng.randf_range(-6, 6)
 			var lcz: float = lgz * 22.0 + rng.randf_range(-6, 6)
-			# Skip shaft exclusion
-			if lcx > -15.0 and lcx < 25.0 and lcz > -75.0 and lcz < -35.0:
+			# Skip lower street district
+			if lcx > DISTRICT_X_MIN and lcx < DISTRICT_X_MAX and lcz > DISTRICT_Z_MIN and lcz < DISTRICT_Z_MAX:
 				continue
 			# Skip south building + plaza above
 			if lcx > -PLAZA_X and lcx < PLAZA_X and lcz > 45.0 and lcz < PLAZA_Z_MAX + 10.0:
@@ -333,12 +341,10 @@ func _generate() -> void:
 			var lh: float = rng.randf_range(40, 160)
 			bldg.append(Transform3D(
 				Basis.from_scale(Vector3(lw, lh, ld)),
-				Vector3(lcx, lower_ground_y + lh * 0.5, lcz)))
-			# Windows on multiple faces for nearby buildings
+				Vector3(lcx, lower_roof_y + lh * 0.5, lcz)))
 			if lh > 15.0:
-				var win_y: float = lower_ground_y + lh * 0.35
+				var win_y: float = lower_roof_y + lh * 0.35
 				var win_h: float = lh * 0.5
-				# X-facing windows (front and back)
 				for side in [-1.0, 1.0]:
 					if rng.randf() < 0.6:
 						var fx: float = lcx + (lw * 0.5 + 0.1) * side
@@ -346,7 +352,6 @@ func _generate() -> void:
 						wlist.append(Transform3D(
 							Basis.from_scale(Vector3(0.2, win_h, ld * 0.35)),
 							Vector3(fx, win_y, lcz)))
-				# Z-facing windows (left and right)
 				for side in [-1.0, 1.0]:
 					if rng.randf() < 0.6:
 						var fz: float = lcz + (ld * 0.5 + 0.1) * side
@@ -354,11 +359,10 @@ func _generate() -> void:
 						wlist.append(Transform3D(
 							Basis.from_scale(Vector3(lw * 0.35, win_h, 0.2)),
 							Vector3(lcx, win_y, fz)))
-				# Blue trim cap
 				if rng.randf() < 0.3:
 					trims.append(Transform3D(
 						Basis.from_scale(Vector3(lw + 0.3, 0.2, ld + 0.3)),
-						Vector3(lcx, lower_ground_y + lh + 0.1, lcz)))
+						Vector3(lcx, lower_roof_y + lh + 0.1, lcz)))
 
 	# 5 multimeshes = 5 draw calls
 	# Buildings: varied shades of dark grey
