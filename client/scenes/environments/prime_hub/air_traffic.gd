@@ -134,6 +134,8 @@ func _process(delta: float) -> void:
 		var b: Vector3 = v["b"]
 		var speed: float = v["speed"]
 		var lane_len: float = a.distance_to(b)
+		if lane_len < 0.001:
+			continue
 		var dt: float = (speed * delta) / lane_len
 
 		v["t"] += dt
