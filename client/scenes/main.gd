@@ -98,6 +98,9 @@ var _exit_portal: CSGCylinder3D = null
 var _near_exit_portal: bool = false
 var _exit_portal_prompt: Label = null
 
+# Portal trail (hub guide)
+var _portal_trail: Node3D
+
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -285,6 +288,7 @@ func _enter_hub() -> void:
 	_update_group_panel()
 	if _shared_hud:
 		_shared_hud.on_enter_hub()
+	_create_portal_trail()
 
 
 func _check_portal_proximity() -> void:
@@ -908,6 +912,7 @@ func _unload_environment() -> void:
 		_boss_gate.queue_free()
 	_boss_gate = null
 	_atmosphere = null
+	_remove_portal_trail()
 
 
 func _update_enemies(enemies_data: Array) -> void:
@@ -1563,3 +1568,18 @@ func _bake_hub_navigation() -> void:
 	]), Transform3D.IDENTITY)
 
 	NavigationServer3D.bake_from_source_geometry_data(nav_mesh, source_geo)
+
+
+func _create_portal_trail() -> void:
+	_remove_portal_trail()
+	var TrailScript := load("res://scenes/environments/prime_hub/portal_trail.gd")
+	_portal_trail = Node3D.new()
+	_portal_trail.name = "PortalTrail"
+	_portal_trail.set_script(TrailScript)
+	add_child(_portal_trail)
+
+
+func _remove_portal_trail() -> void:
+	if _portal_trail and is_instance_valid(_portal_trail):
+		_portal_trail.queue_free()
+	_portal_trail = null
