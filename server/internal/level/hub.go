@@ -5,11 +5,11 @@ import "codex-online/server/internal/entity"
 // NewHubLevel returns the hub level definition.
 func NewHubLevel() *Level {
 	return &Level{
-		// Tower interior X[-12,12] + landing pad extends to X=24
-		PlayerBoundsMinX: -12.0,
-		PlayerBoundsMaxX: 24.0,
-		PlayerBoundsMinZ: -2.0,
-		PlayerBoundsMaxZ: 22.0,
+		// 250m x 250m hub plaza centered around tower
+		PlayerBoundsMinX: -125.0,
+		PlayerBoundsMaxX: 125.0,
+		PlayerBoundsMinZ: -115.0,
+		PlayerBoundsMaxZ: 135.0,
 
 		PlayerSpawns: []entity.Vec3{
 			{X: -1.5, Y: 0.1, Z: 3.0},

@@ -1,15 +1,19 @@
-[gd_scene load_steps=20 format=3]
+[gd_scene load_steps=33 format=3]
 
 [ext_resource type="Script" path="res://scenes/environments/prime_hub/military_building_collision.gd" id="collision_script"]
 [ext_resource type="Script" path="res://scenes/environments/prime_hub/lift.gd" id="lift_script"]
 [ext_resource type="Script" path="res://scenes/environments/prime_hub/spatial_debug.gd" id="spatial_debug"]
+[ext_resource type="Script" path="res://scenes/environments/prime_hub/plaza_collision.gd" id="plaza_collision"]
+[ext_resource type="Script" path="res://scenes/environments/prime_hub/cityscape.gd" id="cityscape"]
+[ext_resource type="Script" path="res://scenes/environments/prime_hub/starfield.gd" id="starfield"]
+[ext_resource type="Script" path="res://scenes/environments/prime_hub/air_traffic.gd" id="air_traffic"]
 
 ; === SKY ===
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
-sky_top_color = Color(0.05, 0.08, 0.18, 1)
-sky_horizon_color = Color(0.12, 0.15, 0.25, 1)
-ground_bottom_color = Color(0.02, 0.02, 0.05, 1)
-ground_horizon_color = Color(0.08, 0.08, 0.12, 1)
+sky_top_color = Color(0.02, 0.03, 0.1, 1)
+sky_horizon_color = Color(0.06, 0.07, 0.14, 1)
+ground_bottom_color = Color(0.01, 0.01, 0.03, 1)
+ground_horizon_color = Color(0.04, 0.04, 0.08, 1)
 
 [sub_resource type="Sky" id="sky"]
 sky_material = SubResource("sky_mat")
@@ -18,13 +22,26 @@ sky_material = SubResource("sky_mat")
 background_mode = 2
 sky = SubResource("sky")
 ambient_light_source = 2
-ambient_light_color = Color(0.9, 0.88, 0.85, 1)
-ambient_light_energy = 1.6
+ambient_light_color = Color(0.55, 0.6, 0.75, 1)
+ambient_light_energy = 0.6
 tonemap_mode = 2
 tonemap_white = 6.0
 glow_enabled = true
-glow_intensity = 0.08
+glow_intensity = 0.15
+glow_bloom = 0.1
 ssao_enabled = true
+fog_enabled = true
+fog_light_color = Color(0.05, 0.05, 0.08, 1)
+fog_density = 0.00005
+fog_sky_affect = 0.1
+volumetric_fog_enabled = true
+volumetric_fog_density = 0.0004
+volumetric_fog_albedo = Color(0.08, 0.08, 0.12, 1)
+volumetric_fog_emission = Color(0.01, 0.01, 0.02, 1)
+volumetric_fog_emission_energy = 0.05
+volumetric_fog_length = 4000.0
+volumetric_fog_detail_spread = 0.9
+volumetric_fog_ambient_inject = 0.02
 
 ; === MATERIALS ===
 [sub_resource type="StandardMaterial3D" id="floor_mat"]
@@ -75,6 +92,38 @@ metallic = 0.0
 albedo_color = Color(0.65, 0.64, 0.63, 1)
 roughness = 0.6
 metallic = 0.0
+
+; === OUTDOOR MATERIALS ===
+[sub_resource type="StandardMaterial3D" id="plaza_mat"]
+albedo_color = Color(0.72, 0.71, 0.7, 1)
+roughness = 0.8
+metallic = 0.0
+
+[sub_resource type="StandardMaterial3D" id="grass_mat"]
+albedo_color = Color(0.25, 0.42, 0.2, 1)
+roughness = 0.95
+metallic = 0.0
+
+[sub_resource type="StandardMaterial3D" id="path_mat"]
+albedo_color = Color(0.78, 0.76, 0.73, 1)
+roughness = 0.7
+metallic = 0.0
+
+[sub_resource type="StandardMaterial3D" id="planter_mat"]
+albedo_color = Color(0.6, 0.58, 0.55, 1)
+roughness = 0.85
+metallic = 0.0
+
+[sub_resource type="StandardMaterial3D" id="water_mat"]
+albedo_color = Color(0.2, 0.35, 0.5, 0.6)
+transparency = 1
+roughness = 0.05
+metallic = 0.1
+
+[sub_resource type="StandardMaterial3D" id="railing_mat"]
+albedo_color = Color(0.7, 0.7, 0.72, 1)
+roughness = 0.4
+metallic = 0.2
 
 ; === COLLISION SHAPES ===
 [sub_resource type="BoxShape3D" id="cab_floor_shape"]
@@ -131,11 +180,6 @@ material = SubResource("tower_ext_mat")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 65, -1)
 size = Vector3(8, 130, 0.4)
 material = SubResource("tower_ext_mat")
-
-[node name="FrontGlassGF" type="CSGBox3D" parent="TowerExterior"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, -1)
-size = Vector3(8, 5, 0.05)
-material = SubResource("glass_mat")
 
 [node name="FrontLintel" type="CSGBox3D" parent="TowerExterior"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.5, -1)
@@ -407,43 +451,46 @@ material = SubResource("trim_mat")
 
 [node name="Lights" type="Node3D" parent="."]
 
-[node name="Sun" type="DirectionalLight3D" parent="Lights"]
+[node name="Moon" type="DirectionalLight3D" parent="Lights"]
 transform = Transform3D(0.866, -0.25, 0.433, 0, 0.866, 0.5, -0.5, -0.433, 0.75, 0, 140, 0)
-light_color = Color(0.98, 0.96, 0.92, 1)
-light_energy = 1.5
+light_color = Color(0.65, 0.7, 0.9, 1)
+light_energy = 0.6
 shadow_enabled = true
+light_volumetric_fog_energy = 1.0
+directional_shadow_max_distance = 500.0
 
 [node name="Fill" type="DirectionalLight3D" parent="Lights"]
 transform = Transform3D(0.866, 0.25, -0.433, 0, 0.866, 0.5, 0.5, -0.433, 0.75, 0, 140, 0)
-light_color = Color(0.9, 0.92, 0.96, 1)
-light_energy = 0.8
+light_color = Color(0.5, 0.55, 0.7, 1)
+light_energy = 0.3
+light_volumetric_fog_energy = 0.5
 
-; GF lobby lights
+; GF lobby lights — warm interior glow contrasting cool moonlight
 [node name="GFLight1" type="SpotLight3D" parent="Lights"]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, -4, 4.9, 5)
-light_color = Color(0.98, 0.96, 0.92, 1)
-light_energy = 2.0
+light_color = Color(0.95, 0.85, 0.65, 1)
+light_energy = 2.5
 spot_range = 12.0
 spot_angle = 70.0
 
 [node name="GFLight2" type="SpotLight3D" parent="Lights"]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 4, 4.9, 5)
-light_color = Color(0.98, 0.96, 0.92, 1)
-light_energy = 2.0
+light_color = Color(0.95, 0.85, 0.65, 1)
+light_energy = 2.5
 spot_range = 12.0
 spot_angle = 70.0
 
 [node name="GFLight3" type="SpotLight3D" parent="Lights"]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, -4, 4.9, 12)
-light_color = Color(0.98, 0.96, 0.92, 1)
-light_energy = 2.0
+light_color = Color(0.95, 0.85, 0.65, 1)
+light_energy = 2.5
 spot_range = 12.0
 spot_angle = 70.0
 
 [node name="GFLight4" type="SpotLight3D" parent="Lights"]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 4, 4.9, 12)
-light_color = Color(0.98, 0.96, 0.92, 1)
-light_energy = 2.0
+light_color = Color(0.95, 0.85, 0.65, 1)
+light_energy = 2.5
 spot_range = 12.0
 spot_angle = 70.0
 
@@ -622,6 +669,1483 @@ material = SubResource("door_mat")
 
 
 ; ================================================================
+; EXTERIOR PLAZA & GARDENS — surrounds tower at Y=0
+; Tower: X[-12,12] Z[-1,21]. Total area 250x250 centered on tower.
+; Paved plaza in front, walkways around building, gardens filling the rest.
+; Bounds: X[-125,125] Z[-115,135]
+; ================================================================
+
+[node name="Plaza" type="Node3D" parent="."]
+
+; --- Base ground plane (250x250, grass — garden is the default) ---
+; Top at Y=-0.15, well below path bottoms at Y=-0.105 to prevent Z-fighting
+[node name="GroundPlane" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 10)
+size = Vector3(250, 0.2, 250)
+material = SubResource("grass_mat")
+
+; --- North edge: glass railing for the open view ---
+[node name="EdgeN" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, -115)
+size = Vector3(250, 1.2, 0.1)
+material = SubResource("glass_mat")
+
+[node name="EdgeNRail" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, -115)
+size = Vector3(250, 0.05, 0.15)
+material = SubResource("railing_mat")
+
+; --- South/West/East edges: glass railings ---
+[node name="EdgeS" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 135)
+size = Vector3(250, 1.2, 0.1)
+material = SubResource("glass_mat")
+
+[node name="EdgeSRail" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 135)
+size = Vector3(250, 0.05, 0.15)
+material = SubResource("railing_mat")
+
+[node name="EdgeW" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -125, 0.6, 10)
+size = Vector3(0.1, 1.2, 250)
+material = SubResource("glass_mat")
+
+[node name="EdgeWRail" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -125, 1.25, 10)
+size = Vector3(0.15, 0.05, 250)
+material = SubResource("railing_mat")
+
+[node name="EdgeE" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 125, 0.6, 10)
+size = Vector3(0.1, 1.2, 250)
+material = SubResource("glass_mat")
+
+[node name="EdgeERail" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 125, 1.25, 10)
+size = Vector3(0.15, 0.05, 250)
+material = SubResource("railing_mat")
+
+
+; ================================================================
+; PAVED FRONT PLAZA — open area in front of the building entrance
+; X[-25,25] Z[-40,-1], widens near door
+; ================================================================
+
+; Main plaza paving
+[node name="FrontPlaza" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.08, -20.5)
+size = Vector3(50, 0.05, 39)
+material = SubResource("plaza_mat")
+
+; Accent strip across front of building entrance
+[node name="EntranceStrip" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.06, -2)
+size = Vector3(30, 0.06, 2)
+material = SubResource("path_mat")
+
+; --- Benches along front plaza ---
+[node name="BenchFL1" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0.22, -12)
+size = Vector3(2.5, 0.44, 0.6)
+material = SubResource("planter_mat")
+
+[node name="BenchFL2" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0.22, -22)
+size = Vector3(2.5, 0.44, 0.6)
+material = SubResource("planter_mat")
+
+[node name="BenchFR1" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0.22, -12)
+size = Vector3(2.5, 0.44, 0.6)
+material = SubResource("planter_mat")
+
+[node name="BenchFR2" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0.22, -22)
+size = Vector3(2.5, 0.44, 0.6)
+material = SubResource("planter_mat")
+
+; Water feature — shallow reflecting pool centered in plaza
+[node name="WaterPool" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, -25)
+size = Vector3(8, 0.15, 6)
+material = SubResource("water_mat")
+
+[node name="WaterPoolEdge" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, -25)
+size = Vector3(8.4, 0.12, 6.4)
+material = SubResource("planter_mat")
+
+; Small ornamental planters in the plaza (not full garden, just accents)
+[node name="PlazaPlanterL" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 0.25, -18)
+size = Vector3(3, 0.5, 3)
+material = SubResource("planter_mat")
+
+[node name="PlazaPlanterLGrass" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 0.55, -18)
+size = Vector3(2.6, 0.1, 2.6)
+material = SubResource("grass_mat")
+
+[node name="PlazaPlanterR" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0.25, -18)
+size = Vector3(3, 0.5, 3)
+material = SubResource("planter_mat")
+
+[node name="PlazaPlanterRGrass" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0.55, -18)
+size = Vector3(2.6, 0.1, 2.6)
+material = SubResource("grass_mat")
+
+; Small plaza trees (accent, not garden)
+[node name="PlazaTreeLTrunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 1.8, -18)
+radius = 0.15
+height = 3.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="PlazaTreeLCanopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 3.8, -18)
+radius = 1.8
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="PlazaTreeRTrunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 1.8, -18)
+radius = 0.15
+height = 3.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="PlazaTreeRCanopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 3.8, -18)
+radius = 1.8
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+
+; ================================================================
+; PERIMETER WALKWAY — 4m wide paved ring around tower
+; ================================================================
+
+; North perimeter (wider to merge with plaza)
+[node name="WalkNorth" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.08, -3)
+size = Vector3(32, 0.05, 4)
+material = SubResource("path_mat")
+
+; South perimeter
+[node name="WalkSouth" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.08, 23)
+size = Vector3(32, 0.05, 4)
+material = SubResource("path_mat")
+
+; West perimeter
+[node name="WalkWest" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14, -0.08, 10)
+size = Vector3(4, 0.05, 26)
+material = SubResource("path_mat")
+
+; East perimeter
+[node name="WalkEast" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, -0.08, 10)
+size = Vector3(4, 0.05, 26)
+material = SubResource("path_mat")
+
+
+; ================================================================
+; RADIATING PATHS — connect perimeter to garden edges
+; 3m wide paths going N, S, E, W through the gardens
+; ================================================================
+
+; North path (from front plaza to north edge)
+[node name="PathNorth" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.08, -77.5)
+size = Vector3(3, 0.05, 75)
+material = SubResource("path_mat")
+
+; South path (from rear walkway to south edge)
+[node name="PathSouth" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.08, 80)
+size = Vector3(3, 0.05, 110)
+material = SubResource("path_mat")
+
+; West path (from west walkway to west edge)
+[node name="PathWest" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -69.5, -0.08, 10)
+size = Vector3(109, 0.05, 3)
+material = SubResource("path_mat")
+
+; East path (from east walkway to east edge)
+[node name="PathEast" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 69.5, -0.08, 10)
+size = Vector3(109, 0.05, 3)
+material = SubResource("path_mat")
+
+; Public lift platform marker (west side)
+[node name="PublicLiftMarker" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 0.02, 10)
+size = Vector3(6, 0.04, 6)
+material = SubResource("trim_mat")
+
+
+; ================================================================
+; GARDEN ZONE NW — X[-125,-25] Z[-115,-1] (left of front plaza)
+; Dense vegetation with trees, hedges, shrubs
+; ================================================================
+
+; Raised bed border along plaza edge
+[node name="HedgeNW_PlazaEdge" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -28, 0.35, -20)
+size = Vector3(1.0, 0.7, 38)
+material = SubResource("grass_mat")
+
+; Trees — NW quadrant
+[node name="TreeNW1Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -35, 3, -15)
+radius = 0.25
+height = 6.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeNW1Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -35, 7, -15)
+radius = 3.5
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeNW2Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -50, 3.5, -25)
+radius = 0.3
+height = 7.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeNW2Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -50, 8, -25)
+radius = 4.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeNW3Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -42, 2.5, -5)
+radius = 0.2
+height = 5.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeNW3Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -42, 5.5, -5)
+radius = 2.5
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeNW4Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -65, 3, -40)
+radius = 0.3
+height = 6.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeNW4Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -65, 7, -40)
+radius = 3.5
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeNW5Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -80, 4, -60)
+radius = 0.35
+height = 8.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeNW5Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -80, 9, -60)
+radius = 4.5
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeNW6Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -95, 3, -80)
+radius = 0.25
+height = 6.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeNW6Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -95, 7, -80)
+radius = 3.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+; Hedges — NW
+[node name="HedgeNW1" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -45, 0.6, -30)
+size = Vector3(12, 1.2, 1.5)
+material = SubResource("grass_mat")
+
+[node name="HedgeNW2" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -70, 0.5, -15)
+size = Vector3(1.5, 1.0, 18)
+material = SubResource("grass_mat")
+
+[node name="HedgeNW3" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -55, 0.5, -55)
+size = Vector3(15, 1.0, 1.5)
+material = SubResource("grass_mat")
+
+; Shrubs — NW (small round bushes)
+[node name="ShrubNW1" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -35, 0.6, -8)
+radius = 0.8
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubNW2" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -38, 0.5, -22)
+radius = 0.6
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubNW3" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -58, 0.7, -10)
+radius = 0.9
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubNW4" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -75, 0.6, -45)
+radius = 0.8
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubNW5" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -100, 0.5, -50)
+radius = 0.7
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+; Flower beds — NW (colored low boxes)
+[node name="FlowerNW1" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40, 0.12, -12)
+size = Vector3(4, 0.24, 3)
+material = SubResource("planter_mat")
+
+[node name="FlowerNW2" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60, 0.12, -35)
+size = Vector3(5, 0.24, 4)
+material = SubResource("planter_mat")
+
+[node name="FlowerNW3" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -85, 0.12, -70)
+size = Vector3(6, 0.24, 4)
+material = SubResource("planter_mat")
+
+
+; ================================================================
+; GARDEN ZONE NE — X[25,125] Z[-115,-1] (right of front plaza)
+; ================================================================
+
+; Raised bed border along plaza edge
+[node name="HedgeNE_PlazaEdge" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28, 0.35, -20)
+size = Vector3(1.0, 0.7, 38)
+material = SubResource("grass_mat")
+
+; Trees — NE quadrant
+[node name="TreeNE1Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 3, -10)
+radius = 0.25
+height = 6.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeNE1Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 7, -10)
+radius = 3.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeNE2Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55, 3.5, -30)
+radius = 0.3
+height = 7.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeNE2Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55, 8, -30)
+radius = 4.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeNE3Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45, 2.5, -5)
+radius = 0.2
+height = 5.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeNE3Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45, 5.5, -5)
+radius = 2.5
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeNE4Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 70, 3, -50)
+radius = 0.3
+height = 6.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeNE4Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 70, 7, -50)
+radius = 3.5
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeNE5Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 90, 4, -70)
+radius = 0.35
+height = 8.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeNE5Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 90, 9, -70)
+radius = 4.5
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+; Hedges — NE
+[node name="HedgeNE1" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50, 0.6, -18)
+size = Vector3(14, 1.2, 1.5)
+material = SubResource("grass_mat")
+
+[node name="HedgeNE2" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 75, 0.5, -20)
+size = Vector3(1.5, 1.0, 20)
+material = SubResource("grass_mat")
+
+; Shrubs — NE
+[node name="ShrubNE1" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 33, 0.6, -20)
+radius = 0.8
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubNE2" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 0.7, -8)
+radius = 0.9
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubNE3" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 80, 0.6, -40)
+radius = 0.8
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubNE4" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 105, 0.5, -60)
+radius = 0.7
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+; Flower beds — NE
+[node name="FlowerNE1" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 42, 0.12, -25)
+size = Vector3(4, 0.24, 3)
+material = SubResource("planter_mat")
+
+[node name="FlowerNE2" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 65, 0.12, -15)
+size = Vector3(5, 0.24, 4)
+material = SubResource("planter_mat")
+
+
+; ================================================================
+; GARDEN ZONE W — X[-125,-16] Z[-1,21] (west of tower)
+; ================================================================
+
+[node name="TreeW1Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -38, 3, 17)
+radius = 0.25
+height = 6.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeW1Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -38, 7, 17)
+radius = 3.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeW2Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -45, 3.5, 18)
+radius = 0.3
+height = 7.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeW2Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -45, 8, 18)
+radius = 3.5
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeW3Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60, 3, 15)
+radius = 0.25
+height = 6.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeW3Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60, 7, 17)
+radius = 3.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeW4Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -90, 4, 19)
+radius = 0.35
+height = 8.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeW4Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -90, 9, 19)
+radius = 4.5
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="HedgeW1" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -35, 0.5, 3)
+size = Vector3(10, 1.0, 1.5)
+material = SubResource("grass_mat")
+
+[node name="ShrubW1" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24, 0.6, 3)
+radius = 0.8
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubW2" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24, 0.6, 17)
+radius = 0.7
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubW3" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -55, 0.7, 18)
+radius = 0.9
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="FlowerW1" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -50, 0.12, 15)
+size = Vector3(5, 0.24, 3)
+material = SubResource("planter_mat")
+
+
+; ================================================================
+; GARDEN ZONE E — X[16,125] Z[-1,21] (east of tower)
+; ================================================================
+
+[node name="TreeE1Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25, 3, 17)
+radius = 0.25
+height = 6.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeE1Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25, 7, 17)
+radius = 3.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeE2Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50, 3.5, 17)
+radius = 0.3
+height = 7.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeE2Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50, 8, 17)
+radius = 3.5
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeE3Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 75, 3, 3)
+radius = 0.25
+height = 6.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeE3Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 75, 7, 18)
+radius = 3.5
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeE4Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 4, 18)
+radius = 0.35
+height = 8.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeE4Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 9, 18)
+radius = 4.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="HedgeE1" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40, 0.5, 18)
+size = Vector3(12, 1.0, 1.5)
+material = SubResource("grass_mat")
+
+[node name="ShrubE1" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 0.6, 5)
+radius = 0.8
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubE2" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 0.7, 15)
+radius = 0.9
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="FlowerE1" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 0.12, 5)
+size = Vector3(4, 0.24, 3)
+material = SubResource("planter_mat")
+
+
+; ================================================================
+; GARDEN ZONE SW — X[-125,-16] Z[25,135] (behind tower, west)
+; ================================================================
+
+[node name="TreeSW1Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 3, 35)
+radius = 0.25
+height = 6.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeSW1Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 7, 35)
+radius = 3.5
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeSW2Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -50, 3.5, 50)
+radius = 0.3
+height = 7.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeSW2Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -50, 8, 50)
+radius = 4.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeSW3Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -70, 4, 70)
+radius = 0.35
+height = 8.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeSW3Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -70, 9, 70)
+radius = 4.5
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeSW4Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40, 3, 80)
+radius = 0.25
+height = 6.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeSW4Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40, 7, 80)
+radius = 3.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeSW5Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -90, 3.5, 100)
+radius = 0.3
+height = 7.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeSW5Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -90, 8, 100)
+radius = 4.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="HedgeSW1" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -35, 0.6, 45)
+size = Vector3(15, 1.2, 1.5)
+material = SubResource("grass_mat")
+
+[node name="HedgeSW2" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60, 0.5, 60)
+size = Vector3(1.5, 1.0, 16)
+material = SubResource("grass_mat")
+
+[node name="ShrubSW1" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24, 0.6, 32)
+radius = 0.8
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubSW2" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -55, 0.7, 40)
+radius = 0.9
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubSW3" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -80, 0.6, 55)
+radius = 0.8
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubSW4" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -100, 0.5, 85)
+radius = 0.7
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="FlowerSW1" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -45, 0.12, 60)
+size = Vector3(5, 0.24, 4)
+material = SubResource("planter_mat")
+
+[node name="FlowerSW2" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -75, 0.12, 90)
+size = Vector3(6, 0.24, 4)
+material = SubResource("planter_mat")
+
+
+; ================================================================
+; GARDEN ZONE SE — X[16,125] Z[25,135] (behind tower, east)
+; ================================================================
+
+[node name="TreeSE1Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 3, 35)
+radius = 0.25
+height = 6.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeSE1Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 7, 35)
+radius = 3.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeSE2Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55, 3.5, 55)
+radius = 0.3
+height = 7.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeSE2Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55, 8, 55)
+radius = 4.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeSE3Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 80, 4, 75)
+radius = 0.35
+height = 8.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeSE3Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 80, 9, 75)
+radius = 4.5
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeSE4Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45, 3, 90)
+radius = 0.25
+height = 6.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeSE4Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45, 7, 90)
+radius = 3.5
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeSE5Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 3.5, 110)
+radius = 0.3
+height = 7.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeSE5Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 8, 110)
+radius = 3.5
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="HedgeSE1" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40, 0.6, 50)
+size = Vector3(14, 1.2, 1.5)
+material = SubResource("grass_mat")
+
+[node name="HedgeSE2" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 65, 0.5, 65)
+size = Vector3(1.5, 1.0, 18)
+material = SubResource("grass_mat")
+
+[node name="ShrubSE1" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 0.6, 32)
+radius = 0.8
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubSE2" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 0.7, 42)
+radius = 0.9
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubSE3" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 90, 0.6, 60)
+radius = 0.8
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubSE4" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 110, 0.5, 95)
+radius = 0.7
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="FlowerSE1" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50, 0.12, 40)
+size = Vector3(5, 0.24, 4)
+material = SubResource("planter_mat")
+
+[node name="FlowerSE2" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 85, 0.12, 95)
+size = Vector3(6, 0.24, 4)
+material = SubResource("planter_mat")
+
+
+; ================================================================
+; GARDEN ZONE S_CENTER — X[-16,16] Z[25,135] (directly behind tower)
+; ================================================================
+
+[node name="TreeSC1Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 3, 35)
+radius = 0.3
+height = 6.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeSC1Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 7, 35)
+radius = 3.5
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeSC2Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 3, 40)
+radius = 0.25
+height = 6.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeSC2Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 7, 40)
+radius = 3.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeSC3Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 3.5, 65)
+radius = 0.3
+height = 7.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeSC3Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 8, 65)
+radius = 4.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeSC4Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 4, 95)
+radius = 0.35
+height = 8.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeSC4Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 9, 95)
+radius = 4.5
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="HedgeSC1" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0.6, 30)
+size = Vector3(24, 1.2, 1.5)
+material = SubResource("grass_mat")
+
+[node name="ShrubSC1" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0.7, 50)
+radius = 0.9
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubSC2" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0.6, 55)
+radius = 0.8
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="FlowerSC1" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0.12, 45)
+size = Vector3(5, 0.24, 4)
+material = SubResource("planter_mat")
+
+
+; ================================================================
+; GARDEN FAR CORNERS — extra large trees to fill distant areas
+; ================================================================
+
+; Far NW corner
+[node name="TreeFarNW1Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -110, 4, -95)
+radius = 0.4
+height = 8.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeFarNW1Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -110, 9.5, -95)
+radius = 5.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeFarNW2Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -95, 3.5, -105)
+radius = 0.35
+height = 7.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeFarNW2Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -95, 8.5, -105)
+radius = 4.5
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+; Far NE corner
+[node name="TreeFarNE1Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 110, 4, -95)
+radius = 0.4
+height = 8.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeFarNE1Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 110, 9.5, -95)
+radius = 5.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeFarNE2Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 3.5, -100)
+radius = 0.35
+height = 7.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeFarNE2Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 8.5, -100)
+radius = 4.5
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+; Far SW corner
+[node name="TreeFarSW1Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -110, 4, 120)
+radius = 0.4
+height = 8.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeFarSW1Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -110, 9.5, 120)
+radius = 5.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeFarSW2Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -100, 3.5, 125)
+radius = 0.35
+height = 7.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeFarSW2Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -100, 8.5, 125)
+radius = 4.5
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+; Far SE corner
+[node name="TreeFarSE1Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 110, 4, 120)
+radius = 0.4
+height = 8.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeFarSE1Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 110, 9.5, 120)
+radius = 5.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeFarSE2Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 3.5, 125)
+radius = 0.35
+height = 7.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeFarSE2Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 8.5, 125)
+radius = 4.5
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+; Far N center
+[node name="TreeFarN1Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 3.5, -90)
+radius = 0.3
+height = 7.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeFarN1Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 8, -90)
+radius = 4.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeFarN2Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 3.5, -95)
+radius = 0.3
+height = 7.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeFarN2Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 8, -95)
+radius = 4.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+; Far S center
+[node name="TreeFarS1Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 4, 115)
+radius = 0.35
+height = 8.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeFarS1Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 9.5, 115)
+radius = 5.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeFarS2Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 4, 120)
+radius = 0.35
+height = 8.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeFarS2Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 9.5, 120)
+radius = 5.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+; Far W & E midpoints
+[node name="TreeFarW1Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -115, 3.5, 20)
+radius = 0.35
+height = 7.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeFarW1Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -115, 8.5, 20)
+radius = 5.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+[node name="TreeFarE1Trunk" type="CSGCylinder3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 115, 3.5, 20)
+radius = 0.35
+height = 7.0
+sides = 8
+material = SubResource("planter_mat")
+
+[node name="TreeFarE1Canopy" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 115, 8.5, 20)
+radius = 5.0
+radial_segments = 12
+rings = 6
+material = SubResource("grass_mat")
+
+; Additional hedge rows at mid-range to break up space
+[node name="HedgeFarNL" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -22, 0.5, -75)
+size = Vector3(17, 1.0, 1.5)
+material = SubResource("grass_mat")
+[node name="HedgeFarNR" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0.5, -75)
+size = Vector3(17, 1.0, 1.5)
+material = SubResource("grass_mat")
+
+[node name="HedgeFarSL" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -22, 0.5, 85)
+size = Vector3(17, 1.0, 1.5)
+material = SubResource("grass_mat")
+[node name="HedgeFarSR" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0.5, 85)
+size = Vector3(17, 1.0, 1.5)
+material = SubResource("grass_mat")
+
+[node name="HedgeFarWN" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -80, 0.5, -5)
+size = Vector3(1.5, 1.0, 12)
+material = SubResource("grass_mat")
+[node name="HedgeFarWS" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -80, 0.5, 25)
+size = Vector3(1.5, 1.0, 12)
+material = SubResource("grass_mat")
+
+[node name="HedgeFarEN" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 80, 0.5, -5)
+size = Vector3(1.5, 1.0, 12)
+material = SubResource("grass_mat")
+[node name="HedgeFarES" type="CSGBox3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 80, 0.5, 25)
+size = Vector3(1.5, 1.0, 12)
+material = SubResource("grass_mat")
+
+; Extra shrubs to fill gaps
+[node name="ShrubFar1" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -50, 0.8, -80)
+radius = 1.0
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubFar2" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50, 0.8, -85)
+radius = 1.0
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubFar3" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -70, 0.9, 40)
+radius = 1.1
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubFar4" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 70, 0.9, 45)
+radius = 1.1
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubFar5" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 0.7, -60)
+radius = 0.9
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubFar6" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 0.7, -65)
+radius = 0.9
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubFar7" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -105, 0.8, -20)
+radius = 1.0
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubFar8" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 105, 0.8, -25)
+radius = 1.0
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubFar9" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -105, 0.8, 50)
+radius = 1.0
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+[node name="ShrubFar10" type="CSGSphere3D" parent="Plaza"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 105, 0.8, 55)
+radius = 1.0
+radial_segments = 8
+rings = 4
+material = SubResource("grass_mat")
+
+
+; ================================================================
+; PLAZA OUTDOOR LIGHTING — warm path lights create pools of light at night
+; ================================================================
+
+[node name="PlazaLights" type="Node3D" parent="Plaza"]
+
+; Front plaza lights
+[node name="PlazaLight1" type="OmniLight3D" parent="Plaza/PlazaLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 1.5, -10)
+light_color = Color(0.95, 0.8, 0.5, 1)
+light_energy = 2.0
+omni_range = 12.0
+
+[node name="PlazaLight2" type="OmniLight3D" parent="Plaza/PlazaLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 1.5, -10)
+light_color = Color(0.95, 0.8, 0.5, 1)
+light_energy = 2.0
+omni_range = 12.0
+
+[node name="PlazaLight3" type="OmniLight3D" parent="Plaza/PlazaLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 1.5, -25)
+light_color = Color(0.95, 0.8, 0.5, 1)
+light_energy = 2.0
+omni_range = 12.0
+
+[node name="PlazaLight4" type="OmniLight3D" parent="Plaza/PlazaLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 1.5, -25)
+light_color = Color(0.95, 0.8, 0.5, 1)
+light_energy = 2.0
+omni_range = 12.0
+
+; Perimeter walkway lights
+[node name="WalkLightN" type="OmniLight3D" parent="Plaza/PlazaLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -5)
+light_color = Color(0.95, 0.8, 0.5, 1)
+light_energy = 1.8
+omni_range = 10.0
+
+[node name="WalkLightS" type="OmniLight3D" parent="Plaza/PlazaLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 25)
+light_color = Color(0.95, 0.8, 0.5, 1)
+light_energy = 1.8
+omni_range = 10.0
+
+[node name="WalkLightW" type="OmniLight3D" parent="Plaza/PlazaLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -16, 1.5, 10)
+light_color = Color(0.95, 0.8, 0.5, 1)
+light_energy = 1.8
+omni_range = 10.0
+
+[node name="WalkLightE" type="OmniLight3D" parent="Plaza/PlazaLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 1.5, 10)
+light_color = Color(0.95, 0.8, 0.5, 1)
+light_energy = 1.8
+omni_range = 10.0
+
+; Garden path lights (along radiating paths)
+[node name="PathLightN1" type="OmniLight3D" parent="Plaza/PlazaLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -55)
+light_color = Color(0.95, 0.8, 0.5, 1)
+light_energy = 1.5
+omni_range = 14.0
+
+[node name="PathLightN2" type="OmniLight3D" parent="Plaza/PlazaLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -90)
+light_color = Color(0.95, 0.8, 0.5, 1)
+light_energy = 1.5
+omni_range = 14.0
+
+[node name="PathLightS1" type="OmniLight3D" parent="Plaza/PlazaLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 55)
+light_color = Color(0.95, 0.8, 0.5, 1)
+light_energy = 1.5
+omni_range = 14.0
+
+[node name="PathLightS2" type="OmniLight3D" parent="Plaza/PlazaLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 100)
+light_color = Color(0.95, 0.8, 0.5, 1)
+light_energy = 1.5
+omni_range = 14.0
+
+[node name="PathLightW1" type="OmniLight3D" parent="Plaza/PlazaLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -55, 1.5, 10)
+light_color = Color(0.95, 0.8, 0.5, 1)
+light_energy = 1.5
+omni_range = 14.0
+
+[node name="PathLightW2" type="OmniLight3D" parent="Plaza/PlazaLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -100, 1.5, 10)
+light_color = Color(0.95, 0.8, 0.5, 1)
+light_energy = 1.5
+omni_range = 14.0
+
+[node name="PathLightE1" type="OmniLight3D" parent="Plaza/PlazaLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55, 1.5, 10)
+light_color = Color(0.95, 0.8, 0.5, 1)
+light_energy = 1.5
+omni_range = 14.0
+
+[node name="PathLightE2" type="OmniLight3D" parent="Plaza/PlazaLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 1.5, 10)
+light_color = Color(0.95, 0.8, 0.5, 1)
+light_energy = 1.5
+omni_range = 14.0
+
+
+; ================================================================
+; PLAZA GROUND COLLISION — 250x250 ground + edge walls
+; ================================================================
+
+[node name="PlazaCollision" type="StaticBody3D" parent="Plaza"]
+script = ExtResource("plaza_collision")
+collision_layer = 1
+collision_mask = 0
+
+[node name="GroundShape" type="CollisionShape3D" parent="Plaza/PlazaCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.2, 10)
+
+[node name="EdgeNShape" type="CollisionShape3D" parent="Plaza/PlazaCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -115)
+
+[node name="EdgeSShape" type="CollisionShape3D" parent="Plaza/PlazaCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 135)
+
+[node name="EdgeWShape" type="CollisionShape3D" parent="Plaza/PlazaCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -125, 1.5, 10)
+
+[node name="EdgeEShape" type="CollisionShape3D" parent="Plaza/PlazaCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 125, 1.5, 10)
+
+
+; ================================================================
 ; COLLISION — every position matches its CSG node exactly
 ; ================================================================
 
@@ -631,8 +2155,11 @@ collision_layer = 1
 collision_mask = 0
 
 ; Tower walls
-[node name="TowerWallN" type="CollisionShape3D" parent="BuildingCollision"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 65, -1)
+[node name="TowerWallNL" type="CollisionShape3D" parent="BuildingCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 65, -1)
+
+[node name="TowerWallNR" type="CollisionShape3D" parent="BuildingCollision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 65, -1)
 
 [node name="TowerWallSL" type="CollisionShape3D" parent="BuildingCollision"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 65, 21)
@@ -769,3 +2296,31 @@ shape = SubResource("platform_main_shape")
 [node name="CircleShape" type="CollisionShape3D" parent="LandingPad/PadCollision"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, -0.15, 0)
 shape = SubResource("platform_circle_shape")
+
+
+; ================================================================
+; CITYSCAPE — procedural building forest via MultiMesh
+; Generated at runtime by cityscape.gd. Ground at Y=-80,
+; thousands of buildings, 4 draw calls total.
+; S/W/E: tall buildings (surrounded). N: shorter (open vista).
+; ================================================================
+
+[node name="Cityscape" type="Node3D" parent="."]
+script = ExtResource("cityscape")
+
+
+
+; ================================================================
+; STARS — small emissive spheres on a large dome around the scene
+; Placed at Y=300+, large radius so they appear as distant points
+; ================================================================
+
+[node name="Stars" type="Node3D" parent="."]
+script = ExtResource("starfield")
+
+; ================================================================
+; AIR TRAFFIC — animated vehicles flying between buildings
+; ================================================================
+
+[node name="AirTraffic" type="Node3D" parent="."]
+script = ExtResource("air_traffic")

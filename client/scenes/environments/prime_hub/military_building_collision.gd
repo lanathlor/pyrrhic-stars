@@ -10,7 +10,8 @@ func _ready() -> void:
 func _generate_wall_shapes() -> void:
 	var wall_shapes: Dictionary = {
 		# Tower exterior walls
-		"TowerWallN": Vector3(24, 130, 0.5),
+		"TowerWallNL": Vector3(8, 130, 0.5),
+		"TowerWallNR": Vector3(8, 130, 0.5),
 		"TowerWallSL": Vector3(10, 130, 0.4),
 		"TowerWallSR": Vector3(10, 130, 0.4),
 		"TowerWallSMid": Vector3(4, 97, 0.4),
