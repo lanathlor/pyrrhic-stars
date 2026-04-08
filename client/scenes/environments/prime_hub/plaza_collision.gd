@@ -4,11 +4,11 @@ extends StaticBody3D
 
 func _ready() -> void:
 	var shapes: Dictionary = {
-		"GroundShape": Vector3(250, 0.2, 250),
+		"GroundShape": Vector3(250, 0.2, 272),
 		"EdgeNShape": Vector3(250, 3, 0.5),
 		"EdgeSShape": Vector3(250, 3, 0.5),
-		"EdgeWShape": Vector3(0.5, 3, 250),
-		"EdgeEShape": Vector3(0.5, 3, 250),
+		"EdgeWShape": Vector3(0.5, 3, 272),
+		"EdgeEShape": Vector3(0.5, 3, 272),
 	}
 
 	for node_name in shapes:
