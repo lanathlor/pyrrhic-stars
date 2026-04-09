@@ -325,9 +325,9 @@ func TestEncodeWorldStateZeroPlayers(t *testing.T) {
 
 func TestEncodeWorldStateNoEnemies(t *testing.T) {
 	buf := EncodeWorldState(1, nil, nil, nil)
-	// tick(4) + player_count(1) + enemy_count(1) + proj_count(1) = 7
-	if len(buf) != 7 {
-		t.Errorf("len = %d, want 7", len(buf))
+	// tick(4) + player_count(1) + enemy_count(1) + proj_count(1) + npc_count(1) = 8
+	if len(buf) != 8 {
+		t.Errorf("len = %d, want 8", len(buf))
 	}
 	if buf[4] != 0 {
 		t.Errorf("player_count = %d, want 0", buf[4])
@@ -337,6 +337,9 @@ func TestEncodeWorldStateNoEnemies(t *testing.T) {
 	}
 	if buf[6] != 0 {
 		t.Errorf("proj_count = %d, want 0", buf[6])
+	}
+	if buf[7] != 0 {
+		t.Errorf("npc_count = %d, want 0", buf[7])
 	}
 }
 

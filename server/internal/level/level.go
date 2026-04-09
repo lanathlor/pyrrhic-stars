@@ -55,6 +55,17 @@ type Level struct {
 
 	// Default enemy collision radius
 	EnemyRadius float32
+
+	// NPC spawn points (hub only)
+	NPCSpawns []NPCSpawnPoint
+}
+
+// NPCSpawnPoint defines a hub NPC with patrol waypoints.
+type NPCSpawnPoint struct {
+	DefName      string      // visual definition name
+	Speed        float32     // walk speed (m/s)
+	IdleDuration float32     // seconds to idle at each waypoint
+	Waypoints    []entity.Vec3
 }
 
 // ClampPlayer restricts a position within player bounds.

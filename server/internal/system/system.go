@@ -61,6 +61,7 @@ type World struct {
 	Players     map[uint16]*entity.Player
 	Enemies     []*entity.Enemy
 	Projectiles []*entity.Projectile
+	NPCs        []*entity.NPC
 	NextProjID  uint32
 
 	// AI brains (parallel to Enemies)

@@ -2,8 +2,8 @@ package codec
 
 import "codex-online/server/internal/entity"
 
-// EncodeWorldState serializes the arena tick snapshot (players, enemies, projectiles).
-func EncodeWorldState(tick uint32, players []*entity.Player, enemies []*entity.Enemy, projectiles []*entity.Projectile) []byte {
+// EncodeWorldState serializes the tick snapshot (players, enemies, projectiles, npcs).
+func EncodeWorldState(tick uint32, players []*entity.Player, enemies []*entity.Enemy, projectiles []*entity.Projectile, npcs ...[]*entity.NPC) []byte {
 	buf := make([]byte, 0, 512)
 
 	buf = appendU32(buf, tick)
@@ -61,6 +61,22 @@ func EncodeWorldState(tick uint32, players []*entity.Player, enemies []*entity.E
 		buf = appendF32(buf, proj.Direction.X)
 		buf = appendF32(buf, proj.Direction.Y)
 		buf = appendF32(buf, proj.Direction.Z)
+	}
+
+	// NPCs (optional, appended after projectiles for backwards compat)
+	var npcList []*entity.NPC
+	if len(npcs) > 0 {
+		npcList = npcs[0]
+	}
+	buf = append(buf, byte(len(npcList)))
+	for _, n := range npcList {
+		buf = appendU16(buf, n.ID)
+		buf = appendF32(buf, n.Position.X)
+		buf = appendF32(buf, n.Position.Y)
+		buf = appendF32(buf, n.Position.Z)
+		buf = appendF32(buf, n.RotationY)
+		buf = append(buf, byte(n.State))
+		buf = appendStr8(buf, n.DefName)
 	}
 
 	return buf

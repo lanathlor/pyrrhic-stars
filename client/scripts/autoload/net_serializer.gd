@@ -457,11 +457,30 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 			"direction": pdir,
 		})
 
+	# NPCs (appended after projectiles)
+	var npc_list: Array[Dictionary] = []
+	if buf.get_position() < buf.get_size():
+		var npc_count := buf.get_u8()
+		for i in range(npc_count):
+			var npc_id := buf.get_u16()
+			var npc_pos := Vector3(buf.get_float(), buf.get_float(), buf.get_float())
+			var npc_rot_y := buf.get_float()
+			var npc_state := buf.get_u8()
+			var npc_def_name := _get_str8(buf)
+			npc_list.append({
+				"npc_id": npc_id,
+				"pos": npc_pos,
+				"rot_y": npc_rot_y,
+				"state": npc_state,
+				"def_name": npc_def_name,
+			})
+
 	return {
 		"tick": tick,
 		"players": players,
 		"enemies": enemies,
 		"projectiles": projectiles,
+		"npcs": npc_list,
 	}
 
 

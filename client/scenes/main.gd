@@ -47,6 +47,7 @@ var _username: String = ""
 # Scene management
 var _current_env: Node3D = null
 var _enemy_nodes: Dictionary = {}  # enemy_id -> CharacterBody3D
+var _npc_nodes: Dictionary = {}  # npc_id -> Node3D
 
 # Dynamic nodes
 var _boss_gate: CSGBox3D
@@ -686,6 +687,7 @@ func _on_zone_transfer(zone_type: int, new_peer_id: int) -> void:
 	_remove_exit_portal()
 	_despawn_all_players()
 	_clear_all_enemies()
+	_clear_all_npcs()
 
 	if zone_type == NetSerializer.ZONE_TYPE_ARENA:
 		_unload_environment()
@@ -723,6 +725,7 @@ func _on_game_flow_event(flow_type: int, text: String) -> void:
 		NetSerializer.FLOW_RETURN_LOBBY:
 			_hide_death_overlay()
 			_clear_all_enemies()
+			_clear_all_npcs()
 			_enter_arena_warmup()
 		NetSerializer.FLOW_BOSS_ACTIVATED:
 			_close_boss_gate()
@@ -785,6 +788,10 @@ func _on_world_state(data: Dictionary) -> void:
 	# Enemies — dynamically spawn/update/despawn from server state
 	var enemies_data: Array = data.get("enemies", [])
 	_update_enemies(enemies_data)
+
+	# NPCs — hub ambient characters
+	var npcs_data: Array = data.get("npcs", [])
+	_update_npcs(npcs_data)
 
 	# Projectiles: spawn/update/remove
 	var stale: Array = []
@@ -908,6 +915,7 @@ func _unload_environment() -> void:
 		_current_env.queue_free()
 		_current_env = null
 	_clear_all_enemies()
+	_clear_all_npcs()
 	if _boss_gate and is_instance_valid(_boss_gate):
 		_boss_gate.queue_free()
 	_boss_gate = null
@@ -961,6 +969,80 @@ func _clear_all_enemies() -> void:
 		if is_instance_valid(node):
 			node.queue_free()
 	_enemy_nodes.clear()
+
+
+func _update_npcs(npcs_data: Array) -> void:
+	var seen_ids: Dictionary = {}
+	for ndata in npcs_data:
+		var nid: int = ndata["npc_id"]
+		seen_ids[nid] = true
+		if nid not in _npc_nodes:
+			var node := _create_npc_node(ndata)
+			add_child(node)
+			_npc_nodes[nid] = node
+		var node: Node3D = _npc_nodes[nid]
+		if is_instance_valid(node):
+			var target_pos: Vector3 = ndata["pos"]
+			node.global_position = node.global_position.lerp(target_pos, 0.15)
+			node.rotation.y = ndata["rot_y"]
+			var model: Node3D = node.get_node_or_null("CharacterModel")
+			if model:
+				model.position.y = 0.0
+				if model.has_method("play_anim"):
+					var npc_state: int = ndata["state"]
+					var anim_name := "idle" if npc_state == 0 else "run"
+					model.play_anim(anim_name)
+	# Remove NPCs no longer in state
+	var to_remove: Array = []
+	for nid in _npc_nodes:
+		if nid not in seen_ids:
+			to_remove.append(nid)
+	for nid in to_remove:
+		var node = _npc_nodes[nid]
+		if is_instance_valid(node):
+			node.queue_free()
+		_npc_nodes.erase(nid)
+
+
+const NPC_MODEL_SCENE := "res://scenes/shared/character_model/character_model.tscn"
+const NPC_PUPPET_SCRIPT := "res://scenes/shared/npc_puppet/npc_puppet.gd"
+
+func _create_npc_node(ndata: Dictionary) -> Node3D:
+	var root := Node3D.new()
+	root.name = "NPC_%d" % ndata["npc_id"]
+	root.position = ndata["pos"]
+	root.rotation.y = ndata["rot_y"]
+	root.set_script(load(NPC_PUPPET_SCRIPT))
+
+	var def_name: String = ndata.get("def_name", "citizen")
+
+	# Character model (Mixamo) — same as enemies/players
+	var model_scene := load(NPC_MODEL_SCENE) as PackedScene
+	if model_scene:
+		var model := model_scene.instantiate()
+		model.name = "CharacterModel"
+		root.add_child(model)
+
+	# Overhead label
+	var label := Label3D.new()
+	label.name = "NameLabel"
+	label.text = def_name.capitalize()
+	label.font_size = 32
+	label.position.y = 1.9
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	label.modulate = Color(0.9, 0.9, 0.95, 0.8)
+	root.add_child(label)
+
+	return root
+
+
+func _clear_all_npcs() -> void:
+	for nid in _npc_nodes:
+		var node = _npc_nodes[nid]
+		if is_instance_valid(node):
+			node.queue_free()
+	_npc_nodes.clear()
 
 
 func _create_hallway_geometry() -> void:

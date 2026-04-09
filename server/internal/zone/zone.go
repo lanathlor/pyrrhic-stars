@@ -117,10 +117,19 @@ func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
 		system.InitInstance(&z.world)
 	}
 
+	// Spawn hub NPCs from level data
+	if zoneType == ZoneTypeHub {
+		for i, sp := range l.NPCSpawns {
+			npc := entity.NewNPC(uint16(2000+i), sp.DefName, sp.Speed, sp.IdleDuration, sp.Waypoints)
+			z.world.NPCs = append(z.world.NPCs, npc)
+		}
+	}
+
 	// Build system pipeline based on zone type.
 	if zoneType == ZoneTypeHub {
 		z.systems = []system.System{
 			&system.InputSystem{},
+			&system.NPCSystem{},
 			&system.CombatSystem{},
 			&system.NetworkSystem{},
 		}

@@ -56,6 +56,13 @@ type enemySpawnJSON struct {
 	GroupID     int      `json:"group_id,omitempty"`
 }
 
+type npcSpawnJSON struct {
+	DefName      string     `json:"def_name"`
+	Speed        float32    `json:"speed"`
+	IdleDuration float32    `json:"idle_duration"`
+	Waypoints    []vec3JSON `json:"waypoints"`
+}
+
 type levelDataJSON struct {
 	Version      int              `json:"version"`
 	Zone         string           `json:"zone"`
@@ -65,6 +72,7 @@ type levelDataJSON struct {
 	Elevators    []elevatorJSON   `json:"elevators,omitempty"`
 	PlayerSpawns []vec3JSON       `json:"player_spawns"`
 	EnemySpawns  []enemySpawnJSON `json:"enemy_spawns,omitempty"`
+	NPCSpawns    []npcSpawnJSON   `json:"npc_spawns,omitempty"`
 }
 
 // loadLevelData reads a JSON level file and applies its geometry to l.
@@ -138,6 +146,21 @@ func loadLevelData(path string, l *Level) error {
 			AggroRadius: s.AggroRadius,
 			LeashRadius: s.LeashRadius,
 			GroupID:     s.GroupID,
+		}
+	}
+
+	// NPC spawns (hub)
+	l.NPCSpawns = make([]NPCSpawnPoint, len(ld.NPCSpawns))
+	for i, s := range ld.NPCSpawns {
+		wps := make([]entity.Vec3, len(s.Waypoints))
+		for j, w := range s.Waypoints {
+			wps[j] = entity.Vec3{X: w.X, Y: w.Y, Z: w.Z}
+		}
+		l.NPCSpawns[i] = NPCSpawnPoint{
+			DefName:      s.DefName,
+			Speed:        s.Speed,
+			IdleDuration: s.IdleDuration,
+			Waypoints:    wps,
 		}
 	}
 
