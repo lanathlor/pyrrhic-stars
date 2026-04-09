@@ -23,8 +23,9 @@ One big cooldown: project a solid light barrier that lasts ~8 seconds. Hero mome
 
 | Spec | Identity | Playstyle |
 |---|---|---|
-| Guardian (healer) | Protective support | Stronger healing/shielding auras, healing beacons, Sanctuary burst heal |
+| Guardian (tank) | Aura tank | Damage reduction and taunt auras, solid light barriers, holds formation for the group |
 | Adjudicator (damage) | Offensive support | Stronger retribution aura, Judgment mark, light lance damage |
+| Luminary (healer) | Restorative light | Healing auras, healing beacons, channeled restoration, cleansing pulse |
 
 A bad Tutelaire stands still with one aura. A good one repositions constantly. A great one pre-positions before mechanics happen.
 

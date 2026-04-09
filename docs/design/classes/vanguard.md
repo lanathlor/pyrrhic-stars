@@ -8,7 +8,7 @@ Flux usage: minimal. Used narratively to explain superhuman martial ability.
 
 | Spec | Identity | Playstyle |
 |---|---|---|
-| Blade | Pure offense | Combo chains, high risk/reward. Devil May Cry |
+| Blade | AoE burst melee | Blade swirl, ground slam, wide cleave combos. Commit to big AoE swings, punish groups. Dynasty Warriors meets Dark Souls |
 | Shield | Directional tank | Block absorbs damage for nearby allies, slow, unbreakable. Monster Hunter lance |
 | Shadow | Evasion counter-attacker | Invisibility, flanking bonuses, counters. Sekiro |
 
