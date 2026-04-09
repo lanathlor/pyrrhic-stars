@@ -8,6 +8,7 @@ services:
       - "7777:7777"
     volumes:
       - ./server:/app
+      - ./shared:/shared
     depends_on:
       redis:
         condition: service_healthy
@@ -16,6 +17,7 @@ services:
     environment:
       REDIS_ADDR: redis:6379
       POSTGRES_DSN: postgres://codex:codex@postgres:5432/codex?sslmode=disable
+      CODEX_LEVELS_DIR: /shared/levels
 
   zone:
     build:
@@ -52,8 +54,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -64,8 +64,6 @@ services:
 
   postgres:
     image: postgres:16-alpine
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
