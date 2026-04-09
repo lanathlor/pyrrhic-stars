@@ -85,6 +85,7 @@ var _alt_held: bool = false        # alt hold state
 # Shared HUD (boss frame, group frames, damage meter, minimap, player status)
 var _shared_hud_layer: CanvasLayer
 var _shared_hud: Control
+var _map_overlay: Control
 
 # Death overlay
 var _death_overlay_layer: CanvasLayer
@@ -161,6 +162,28 @@ func _input(event: InputEvent) -> void:
 			elif event.keycode == KEY_ALT:
 				_alt_held = event.pressed
 				_update_cursor_mode()
+
+	# Full map toggle
+	if not paused and state != GameState.MENU:
+		if event is InputEventKey and event.pressed and not event.echo:
+			if event.physical_keycode == KEY_M:
+				if _map_overlay:
+					var my_id := NetworkManager.get_my_id()
+					if my_id in _spawned_players and is_instance_valid(_spawned_players[my_id]):
+						var player: CharacterBody3D = _spawned_players[my_id]
+						_map_overlay._player_pos = player.global_position
+						_map_overlay._player_rot_y = player.rotation.y
+					_map_overlay.toggle()
+					if _map_overlay.visible:
+						# Scan collision geometry from the live scene
+						_map_overlay.scan_environment(_current_env)
+						_map_overlay._recompute_scale()
+						if _portal_trail:
+							if my_id in _spawned_players and is_instance_valid(_spawned_players[my_id]):
+								_map_overlay.set_waypoint_path(
+									_portal_trail.get_path_to_target(
+										_spawned_players[my_id].global_position))
+					get_viewport().set_input_as_handled()
 
 	# Hub interactions
 	if state == GameState.HUB and not paused:
@@ -289,6 +312,8 @@ func _enter_hub() -> void:
 	_update_group_panel()
 	if _shared_hud:
 		_shared_hud.on_enter_hub()
+	if _map_overlay:
+		_map_overlay.reset_floor()
 	_create_portal_trail()
 
 
@@ -544,6 +569,10 @@ func _enter_arena_warmup() -> void:
 	_menu_layer.visible = false
 	_remove_exit_portal()
 	_hub_layer.visible = false
+	if _shared_hud:
+		_shared_hud.on_enter_arena()
+	if _map_overlay:
+		_map_overlay.set_floor("arena", "Arena")
 
 	# Load arena scene if not already loaded
 	if _current_env == null or _current_env.name != "Arena":
@@ -600,6 +629,8 @@ func _spawn_player(peer_id: int, class_name_str: String, spawn_pos: Vector3) -> 
 	if peer_id == NetworkManager.get_my_id():
 		if _shared_hud:
 			_shared_hud.set_local_player(player, class_name_str, peer_id)
+		if _map_overlay:
+			_map_overlay.set_local_info(peer_id, _player_names)
 		if player.has_signal("died"):
 			player.died.connect(_on_local_player_died)
 
@@ -687,6 +718,8 @@ func _on_zone_transfer(zone_type: int, new_peer_id: int) -> void:
 	_remove_exit_portal()
 	_despawn_all_players()
 	_clear_all_enemies()
+	if _map_overlay:
+		_map_overlay.visible = false
 	_clear_all_npcs()
 
 	if zone_type == NetSerializer.ZONE_TYPE_ARENA:
@@ -698,6 +731,8 @@ func _on_zone_transfer(zone_type: int, new_peer_id: int) -> void:
 		state = GameState.ARENA_LOBBY
 		_hub_layer.visible = false
 		_menu_layer.visible = false
+		if _shared_hud:
+			_shared_hud.on_enter_arena()
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		var my_id := NetworkManager.get_my_id()
 		if my_id > 0:
@@ -824,6 +859,24 @@ func _on_world_state(data: Dictionary) -> void:
 	if _shared_hud:
 		_shared_hud.update_world_state(data)
 
+	# Feed map overlay (only when visible to avoid unnecessary work)
+	if _map_overlay and _map_overlay.visible:
+		var local_pos := Vector3.ZERO
+		var local_rot := 0.0
+		if my_id in _spawned_players and is_instance_valid(_spawned_players[my_id]):
+			local_pos = _spawned_players[my_id].global_position
+			local_rot = _spawned_players[my_id].rotation.y
+		_map_overlay.update_state({
+			"player_pos": local_pos,
+			"player_rot_y": local_rot,
+			"players": _shared_hud._world_players,
+			"npcs": _shared_hud._npc_positions,
+			"enemies": _shared_hud._enemy_positions,
+		})
+		if _portal_trail and local_pos != Vector3.ZERO:
+			_map_overlay.set_waypoint_path(
+				_portal_trail.get_path_to_target(local_pos))
+
 
 func _on_damage_event(data: Dictionary) -> void:
 	var target_peer: int = data.get("target_peer_id", -1)
@@ -907,6 +960,8 @@ func _load_environment(scene_path: String) -> void:
 	var scene := load(scene_path) as PackedScene
 	_current_env = scene.instantiate()
 	add_child(_current_env)
+	if _shared_hud:
+		_shared_hud.set_environment(_current_env)
 	print("[Main] Loaded environment: %s" % scene_path)
 
 
@@ -1482,6 +1537,14 @@ func _create_shared_hud() -> void:
 	_shared_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_shared_hud_layer.add_child(_shared_hud)
 	_shared_hud.set_player_names(_player_names)
+
+	_map_overlay = preload("res://scenes/shared/hud/map_overlay.gd").new()
+	_map_overlay.name = "MapOverlay"
+	_map_overlay.anchor_right = 1.0
+	_map_overlay.anchor_bottom = 1.0
+	_map_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_map_overlay.visible = false
+	_shared_hud_layer.add_child(_map_overlay)
 
 
 # =============================================================================

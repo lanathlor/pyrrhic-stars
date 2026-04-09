@@ -4,6 +4,8 @@ extends Control
 ## Contains: player status, group frames, boss frame, damage meter, minimap.
 ## Managed by main.gd which feeds it data from network events.
 
+const MapData := preload("res://scenes/shared/hud/map_data.gd")
+
 # --- References (set by main.gd) ---
 var _local_player: CharacterBody3D = null
 var _local_class: String = "gunner"
@@ -37,9 +39,18 @@ var _fight_duration: float = 0.0
 
 # --- Minimap (top right) ---
 var _enemy_positions: Array = []  # Array of Vector3 for all alive enemies
+var _npc_positions: Array = []    # Array of Vector3 for NPCs
 var _enemy_alive: bool = false
 var _player_rot_y: float = 0.0
 var _boss_max_health: float = 2000.0
+var _hub_mode: bool = false
+var _current_floor_id: String = ""
+var _floor_rects: Array = []      # Array of {rect: Rect2, type: String}
+var _floor_circles: Array = []    # Array of {center: Vector2, radius: float, green: bool}
+var _waypoint_target: Vector3 = Vector3.ZERO
+var _has_waypoint: bool = false
+var _floor_check_timer: float = 0.0
+var _environment: Node3D = null    # ref to current environment scene for scanning
 
 # --- Constants ---
 const CLASS_MAX_HP := {
@@ -50,6 +61,8 @@ const CLASS_MAX_HP := {
 const ENEMY_MAX_HP := 2000.0
 const MINIMAP_RADIUS := 80.0
 const MINIMAP_WORLD_RADIUS := 25.0  # world units shown in minimap
+const MINIMAP_CIRCLE_POINTS := 48   # vertices for circle clipping polygon
+var _minimap_circle_poly: PackedVector2Array  # circle polygon centered at origin
 
 
 func _process(delta: float) -> void:
@@ -66,6 +79,13 @@ func _process(delta: float) -> void:
 			_player_resource = 0.0
 			_player_max_resource = 0.0
 
+		# Throttled floor detection for minimap geometry
+		if _hub_mode:
+			_floor_check_timer += delta
+			if _floor_check_timer >= 0.5:
+				_floor_check_timer = 0.0
+				_detect_floor(_local_player.global_position)
+
 	if _fight_active:
 		_fight_duration += delta
 
@@ -79,7 +99,7 @@ func _draw() -> void:
 		_draw_boss_frame()
 	if _fight_active or _boss_visible or _fight_over:
 		_draw_damage_meter()
-	if _fight_active or _boss_visible or _fight_over:
+	if _hub_mode or _fight_active or _boss_visible or _fight_over:
 		_draw_minimap()
 
 
@@ -137,6 +157,12 @@ func update_world_state(data: Dictionary) -> void:
 				_boss_max_health = edata.get("max_health", 2000.0)
 				_boss_visible = true
 
+	# NPCs — yellow dots on minimap
+	var npcs: Array = data.get("npcs", [])
+	_npc_positions.clear()
+	for ndata in npcs:
+		_npc_positions.append(ndata.get("pos", Vector3.ZERO))
+
 
 func update_group_members(data: Dictionary) -> void:
 	var members: Array = data.get("members", [])
@@ -175,13 +201,27 @@ func on_fight_end() -> void:
 	# Keep boss frame and damage meter visible for result screen
 
 
+func set_environment(env: Node3D) -> void:
+	_environment = env
+
+
 func on_enter_hub() -> void:
+	_hub_mode = true
 	_boss_visible = false
 	_fight_active = false
 	_fight_over = false
 	_damage_totals.clear()
 	_fight_duration = 0.0
 	_world_players.clear()
+	_current_floor_id = ""
+	_floor_check_timer = 10.0  # force immediate floor check
+
+
+func on_enter_arena() -> void:
+	_hub_mode = false
+	_current_floor_id = "arena"
+	_has_waypoint = false
+	_update_floor_geometry()
 
 
 # =============================================================================
@@ -458,9 +498,19 @@ func _draw_minimap() -> void:
 	var map_center := Vector2(size.x - MINIMAP_RADIUS - 16.0, MINIMAP_RADIUS + 16.0)
 	var scale_factor := MINIMAP_RADIUS / MINIMAP_WORLD_RADIUS
 
-	# Background circle
-	draw_circle(map_center, MINIMAP_RADIUS + 2.0, Color(0.0, 0.0, 0.0, 0.5))
-	draw_arc(map_center, MINIMAP_RADIUS + 2.0, 0.0, TAU, 64, Color(0.3, 0.3, 0.35, 0.7), 1.5)
+	# Build circle clipping polygon (centered at map_center)
+	if _minimap_circle_poly.is_empty():
+		_minimap_circle_poly = PackedVector2Array()
+		for i in MINIMAP_CIRCLE_POINTS:
+			var angle := TAU * i / float(MINIMAP_CIRCLE_POINTS)
+			_minimap_circle_poly.append(Vector2(cos(angle), sin(angle)) * MINIMAP_RADIUS)
+
+	var circle_at_center := PackedVector2Array()
+	for pt in _minimap_circle_poly:
+		circle_at_center.append(pt + map_center)
+
+	# Background circle — fully opaque dark
+	draw_colored_polygon(circle_at_center, Color(0.08, 0.08, 0.10, 1.0))
 
 	# Get local player position for centering
 	var local_pos := Vector3.ZERO
@@ -469,8 +519,31 @@ func _draw_minimap() -> void:
 	elif _local_player and is_instance_valid(_local_player):
 		local_pos = _local_player.global_position
 
-	# Self arrow (center of minimap, rotated)
-	_draw_minimap_arrow(map_center, _player_rot_y, Color(1.0, 1.0, 1.0, 0.9), 6.0)
+	# Floor geometry — layered and clipped to circle
+	# Color map matching the full map overlay
+	var type_colors := {
+		"floor": Color(0.30, 0.30, 0.34, 1.0),
+		"garden": Color(0.12, 0.28, 0.12, 1.0),
+		"ground": Color(0.38, 0.38, 0.42, 1.0),
+		"green": Color(0.15, 0.38, 0.15, 1.0),
+		"wall": Color(0.18, 0.18, 0.22, 1.0),
+	}
+	var draw_order := ["floor", "garden", "ground", "green", "wall"]
+	for layer in draw_order:
+		var color: Color = type_colors[layer]
+		for entry in _floor_rects:
+			if entry["type"] == layer:
+				_draw_minimap_rect_clipped(entry["rect"], local_pos, map_center,
+					scale_factor, color, circle_at_center)
+
+	# Border on top of geometry
+	draw_arc(map_center, MINIMAP_RADIUS + 2.0, 0.0, TAU, 64, Color(0.5, 0.5, 0.55, 1.0), 2.0)
+
+	# NPCs (yellow dots)
+	for npc_pos in _npc_positions:
+		var npc_map := _world_to_minimap(npc_pos, local_pos, map_center, scale_factor)
+		if npc_map.distance_to(map_center) <= MINIMAP_RADIUS:
+			draw_circle(npc_map, 2.5, Color(0.9, 0.75, 0.2, 0.8))
 
 	# Other players (green dots)
 	for pid in _world_players:
@@ -486,6 +559,14 @@ func _draw_minimap() -> void:
 		var enemy_map := _world_to_minimap(epos, local_pos, map_center, scale_factor)
 		if enemy_map.distance_to(map_center) <= MINIMAP_RADIUS:
 			draw_circle(enemy_map, 4.0, Color(0.9, 0.2, 0.2, 0.9))
+
+	# Self arrow (center of minimap, rotated)
+	_draw_minimap_arrow(map_center, _player_rot_y, Color(1.0, 1.0, 1.0, 0.9), 6.0)
+
+	# Waypoint indicator
+	if _has_waypoint:
+		var wp_map := _world_to_minimap(_waypoint_target, local_pos, map_center, scale_factor)
+		_draw_waypoint_indicator(map_center, wp_map)
 
 	# Cardinal markers
 	var font := ThemeDB.fallback_font
@@ -512,3 +593,112 @@ func _draw_minimap_arrow(pos: Vector2, rot_y: float, color: Color, arrow_size: f
 	var right_pt := pos - forward * arrow_size * 0.6 + right * arrow_size * 0.5
 
 	draw_colored_polygon(PackedVector2Array([tip, left_pt, right_pt]), color)
+
+
+func _draw_minimap_rect_clipped(rect: Rect2, center_pos: Vector3, map_center: Vector2,
+		scale: float, color: Color, clip_circle: PackedVector2Array) -> void:
+	## Draw a world-space Rect2 (XZ plane) on the minimap, clipped to the circle.
+	var world_center := Vector3(rect.position.x + rect.size.x / 2.0, 0.0,
+		rect.position.y + rect.size.y / 2.0)
+	var half_diag := Vector2(rect.size.x, rect.size.y).length() / 2.0 * scale
+	var mc := _world_to_minimap(world_center, center_pos, map_center, scale)
+	# Skip if entirely outside minimap circle
+	if mc.distance_to(map_center) > MINIMAP_RADIUS + half_diag:
+		return
+
+	# Transform four corners to minimap screen space
+	var tl := _world_to_minimap(Vector3(rect.position.x, 0.0, rect.position.y),
+		center_pos, map_center, scale)
+	var tr := _world_to_minimap(Vector3(rect.end.x, 0.0, rect.position.y),
+		center_pos, map_center, scale)
+	var br := _world_to_minimap(Vector3(rect.end.x, 0.0, rect.end.y),
+		center_pos, map_center, scale)
+	var bl := _world_to_minimap(Vector3(rect.position.x, 0.0, rect.end.y),
+		center_pos, map_center, scale)
+
+	# Skip sub-pixel slivers (walls with tiny depth)
+	if tl.distance_to(tr) < 1.0 and tl.distance_to(bl) < 1.0:
+		return
+
+	var rect_poly := PackedVector2Array([tl, tr, br, bl])
+	var clipped := Geometry2D.intersect_polygons(rect_poly, clip_circle)
+	for poly in clipped:
+		if poly.size() >= 3:
+			# Compute area to skip degenerate slivers
+			var area := 0.0
+			for i in poly.size():
+				var j := (i + 1) % poly.size()
+				area += poly[i].x * poly[j].y - poly[j].x * poly[i].y
+			if absf(area) > 1.0:
+				draw_colored_polygon(poly, color)
+
+
+func _draw_waypoint_indicator(map_center: Vector2, target_map_pos: Vector2) -> void:
+	var offset := target_map_pos - map_center
+	var dist := offset.length()
+	var waypoint_color := Color(0.3, 0.55, 1.0, 0.9)  # flux blue
+	if dist < 3.0:
+		return
+	if dist <= MINIMAP_RADIUS - 6.0:
+		# On-map: draw diamond
+		_draw_diamond(target_map_pos, 5.0, waypoint_color)
+	else:
+		# Edge: clamp and draw chevron pointing outward
+		var dir := offset.normalized()
+		var edge_pos := map_center + dir * (MINIMAP_RADIUS - 6.0)
+		_draw_chevron(edge_pos, dir, waypoint_color)
+
+
+func _draw_diamond(pos: Vector2, half_size: float, color: Color) -> void:
+	var pts := PackedVector2Array([
+		pos + Vector2(0, -half_size),
+		pos + Vector2(half_size, 0),
+		pos + Vector2(0, half_size),
+		pos + Vector2(-half_size, 0),
+	])
+	draw_colored_polygon(pts, color)
+
+
+func _draw_chevron(pos: Vector2, dir: Vector2, color: Color) -> void:
+	var perp := Vector2(dir.y, -dir.x)
+	var tip := pos + dir * 6.0
+	var left_pt := pos - perp * 4.0
+	var right_pt := pos + perp * 4.0
+	draw_colored_polygon(PackedVector2Array([tip, left_pt, right_pt]), color)
+
+
+# =============================================================================
+# Floor detection and geometry caching
+# =============================================================================
+
+func _detect_floor(player_pos: Vector3) -> void:
+	var floor_def := MapData.get_floor_for_position(player_pos)
+	var new_id: String = floor_def.get("id", "")
+	if new_id != _current_floor_id:
+		_current_floor_id = new_id
+		if floor_def.has("target"):
+			_waypoint_target = floor_def["target"]
+			_has_waypoint = true
+		else:
+			_has_waypoint = false
+	# Always rescan — geometry may have been invalidated
+	_update_floor_geometry()
+
+
+func _update_floor_geometry() -> void:
+	_floor_rects.clear()
+	_floor_circles.clear()
+	if _environment and is_instance_valid(_environment) and _local_player and is_instance_valid(_local_player):
+		var result: Dictionary = MapData.scan_scene(_environment, _local_player.global_position.y)
+		_floor_rects = result["rects"]
+		_floor_circles = result["circles"]
+	else:
+		# Fallback to MapData if no environment available
+		var geo := MapData.get_geometry_for_floor(_current_floor_id)
+		if geo.is_empty():
+			return
+		var buildings: Array = geo.get("buildings", [])
+		for b in buildings:
+			var c: Vector2 = b["center"]
+			var s: Vector2 = b["size"]
+			_floor_rects.append({"rect": Rect2(c.x - s.x / 2.0, c.y - s.y / 2.0, s.x, s.y), "type": "wall"})
