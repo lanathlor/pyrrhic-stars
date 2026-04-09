@@ -1,8 +1,6 @@
 package system
 
 import (
-	"log/slog"
-
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
 )
@@ -129,9 +127,6 @@ func (s *CombatSystem) Tick(w *World, dt float32) {
 		}
 
 		// Vanguard: stamina regen (with delay after spending)
-		if p.MaxStamina > 0 && w.TickNum%40 == 0 && p.ClassName == "vanguard" {
-			slog.Info("stamina tick", "peer", p.PeerID, "stamina", p.Stamina, "max", p.MaxStamina, "delay", p.StaminaDelay, "regen", p.StaminaRegen)
-		}
 		if p.MaxStamina > 0 && p.Stamina < p.MaxStamina {
 			regenDt := dt
 			if p.StaminaDelay > 0 {
@@ -176,6 +171,39 @@ func (s *CombatSystem) Tick(w *World, dt float32) {
 			}
 		}
 	}
+
+	// Tick Blade Dancer DoTs
+	alive := w.BDDoTs[:0]
+	for i := range w.BDDoTs {
+		dot := &w.BDDoTs[i]
+		dot.Remaining -= dt
+		if dot.Remaining <= 0 {
+			continue // expired
+		}
+		dot.TickTimer -= dt
+		if dot.TickTimer <= 0 {
+			dot.TickTimer += dot.Interval
+			// Find enemy and apply tick damage
+			for _, e := range w.Enemies {
+				if e != nil && e.ID == dot.EnemyID && e.Alive {
+					dealt, _ := e.ApplyDamage(dot.Damage)
+					if dealt > 0 {
+						w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
+							TargetPeerID: e.ID,
+							SourcePeerID: dot.SourcePeer,
+							Amount:       dealt,
+							HitPos:       e.Position.Add(entity.Vec3{Y: 1.0}),
+							SourceType:   combat.SourcePlayerAttack,
+						})
+						e.AddThreat(dot.SourcePeer, dealt)
+					}
+					break
+				}
+			}
+		}
+		alive = append(alive, *dot)
+	}
+	w.BDDoTs = alive
 
 	// Update combat state per player
 	for _, p := range w.Players {

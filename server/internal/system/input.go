@@ -1,8 +1,6 @@
 package system
 
 import (
-	"log/slog"
-
 	"codex-online/server/internal/codec"
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
@@ -120,11 +118,6 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 	}
 	p.AimPitch = inp.AimPitch
 
-	// Debug: log ability inputs for new abilities
-	if inp.Action >= 10 {
-		slog.Debug("ability input", "peer", peerID, "action", inp.Action, "class", p.ClassName, "fire_cd", p.FireCooldown, "state", w.State)
-	}
-
 	switch inp.Action {
 	case entity.ActionShoot:
 		// Gunner: hitscan, gated by fire cooldown
@@ -216,9 +209,6 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 			p.RechamberPhase = 0
 		}
 	case entity.ActionBladeSwirl:
-		if p.ClassName != "vanguard" || p.Stamina < 25.0 || p.BladeSwirlCooldown > 0 || p.BladeSwirl || p.FireCooldown > 0 {
-			slog.Info("blade swirl REJECTED", "peer", peerID, "class", p.ClassName, "stamina", p.Stamina, "swirl_cd", p.BladeSwirlCooldown, "swirl_active", p.BladeSwirl, "fire_cd", p.FireCooldown)
-		}
 		if p.ClassName == "vanguard" && p.Stamina >= 25.0 && p.BladeSwirlCooldown <= 0 && !p.BladeSwirl && p.FireCooldown <= 0 {
 			p.Stamina -= 25.0
 			p.StaminaDelay = 0.6
@@ -231,7 +221,6 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 			// Immediate first AoE tick
 			shape := combat.AoEShape{Type: combat.AoECircle, Radius: 6.0, Damage: 25.0}
 			events := combat.ResolvePlayerAoEOnEnemies(p, w.Enemies, w.Level.Obstacles, shape)
-			slog.Info("blade swirl activated", "peer", peerID, "pos", p.Position, "enemies", len(w.Enemies), "hits", len(events))
 			for _, evt := range events {
 				evt.SourcePeerID = peerID
 				w.DamageEvents = append(w.DamageEvents, evt)
@@ -245,9 +234,6 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 			}
 		}
 	case entity.ActionGroundSlam:
-		if p.ClassName != "vanguard" || p.Stamina < 20.0 || p.GroundSlamCooldown > 0 || p.FireCooldown > 0 {
-			slog.Info("ground slam REJECTED", "peer", peerID, "class", p.ClassName, "stamina", p.Stamina, "slam_cd", p.GroundSlamCooldown, "fire_cd", p.FireCooldown)
-		}
 		if p.ClassName == "vanguard" && p.Stamina >= 20.0 && p.GroundSlamCooldown <= 0 && p.FireCooldown <= 0 {
 			p.Stamina -= 20.0
 			p.StaminaDelay = 0.6
@@ -256,7 +242,6 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 			p.State = entity.PlayerStateAttack
 			shape := combat.AoEShape{Type: combat.AoECone, Radius: 7.0, ArcDegrees: 90.0, Damage: 60.0}
 			events := combat.ResolvePlayerAoEOnEnemies(p, w.Enemies, w.Level.Obstacles, shape)
-			slog.Info("ground slam activated", "peer", peerID, "pos", p.Position, "rotY", p.RotationY, "enemies", len(w.Enemies), "hits", len(events))
 			for _, evt := range events {
 				evt.SourcePeerID = peerID
 				w.DamageEvents = append(w.DamageEvents, evt)

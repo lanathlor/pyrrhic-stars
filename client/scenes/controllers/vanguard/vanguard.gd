@@ -226,13 +226,6 @@ func _physics_process(delta: float) -> void:
 	_blade_swirl_cooldown = maxf(_blade_swirl_cooldown - delta, 0.0)
 	_ground_slam_cooldown = maxf(_ground_slam_cooldown - delta, 0.0)
 
-	if Input.is_action_just_pressed("ability_1"):
-		if state != State.MOVE:
-			print("[Vanguard] F pressed but state=%d (not MOVE=0)" % state)
-	if Input.is_action_just_pressed("ability_2"):
-		if state != State.MOVE:
-			print("[Vanguard] E pressed but state=%d (not MOVE=0)" % state)
-
 	match state:
 		State.MOVE:
 			_process_move(delta)
@@ -331,30 +324,14 @@ func _process_move(delta: float) -> void:
 		return
 
 	# Blade Swirl (F)
-	if Input.is_action_just_pressed("ability_1"):
-		if cursor_active:
-			print("[Vanguard] Blade Swirl blocked: cursor active")
-		elif stamina < BLADE_SWIRL_STAMINA:
-			print("[Vanguard] Blade Swirl blocked: stamina %.1f < %.1f" % [stamina, BLADE_SWIRL_STAMINA])
-		elif _blade_swirl_cooldown > 0.0:
-			print("[Vanguard] Blade Swirl blocked: cooldown %.1f remaining" % _blade_swirl_cooldown)
-		else:
-			print("[Vanguard] Blade Swirl: FIRING action 20")
-			_start_blade_swirl()
-			return
+	if not cursor_active and Input.is_action_just_pressed("ability_1") and stamina >= BLADE_SWIRL_STAMINA and _blade_swirl_cooldown <= 0.0:
+		_start_blade_swirl()
+		return
 
 	# Ground Slam (E)
-	if Input.is_action_just_pressed("ability_2"):
-		if cursor_active:
-			print("[Vanguard] Ground Slam blocked: cursor active")
-		elif stamina < GROUND_SLAM_STAMINA:
-			print("[Vanguard] Ground Slam blocked: stamina %.1f < %.1f" % [stamina, GROUND_SLAM_STAMINA])
-		elif _ground_slam_cooldown > 0.0:
-			print("[Vanguard] Ground Slam blocked: cooldown %.1f remaining" % _ground_slam_cooldown)
-		else:
-			print("[Vanguard] Ground Slam: FIRING action 21")
-			_start_ground_slam()
-			return
+	if not cursor_active and Input.is_action_just_pressed("ability_2") and stamina >= GROUND_SLAM_STAMINA and _ground_slam_cooldown <= 0.0:
+		_start_ground_slam()
+		return
 
 	# Movement — direction derived from actual camera transform
 	var speed := sprint_speed if Input.is_action_pressed("sprint") else run_speed
@@ -677,7 +654,6 @@ func _process_ground_slam_windup(delta: float) -> void:
 	velocity.z = 0.0
 	_face_attack_direction(delta)
 	if _state_timer <= 0.0:
-		print("[Vanguard] Ground Slam windup done, entering SLAM state")
 		_enter_state(State.GROUND_SLAM)
 		_state_timer = GROUND_SLAM_HIT_TIME
 		_ground_slam_cooldown = GROUND_SLAM_COOLDOWN
@@ -688,7 +664,6 @@ func _process_ground_slam(_delta: float) -> void:
 	velocity.x = 0.0
 	velocity.z = 0.0
 	if _state_timer <= 0.0:
-		print("[Vanguard] Ground Slam complete, returning to MOVE")
 		_enter_state(State.MOVE)
 
 

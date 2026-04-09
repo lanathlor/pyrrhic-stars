@@ -73,6 +73,7 @@ type World struct {
 	// Networking
 	Clients      map[uint16]*Client
 	DamageEvents []combat.DamageEvent
+	BDDoTs       []BDDoT // active Blade Dancer DoT effects
 
 	// Input queue (consumed by InputSystem)
 	InputQueue []InputMsg

@@ -12,17 +12,29 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	var target: Node3D = get_meta("lock_target") if has_meta("lock_target") else null
-	var cam: Camera3D = get_meta("lock_camera") if has_meta("lock_camera") else null
+	var target: Node3D = null
+	var cam: Camera3D = null
+	if has_meta("lock_target"):
+		var t = get_meta("lock_target")
+		if t is Node3D and is_instance_valid(t):
+			target = t
+		else:
+			remove_meta("lock_target")
+	if has_meta("lock_camera"):
+		var c = get_meta("lock_camera")
+		if c is Camera3D and is_instance_valid(c):
+			cam = c
+		else:
+			remove_meta("lock_camera")
 
 	# Lock-on status indicator (top-center)
-	if _lock_active:
+	if _lock_active and target:
 		_draw_lock_indicator()
-	else:
+	elif not _lock_active:
 		var hint_color := Color(0.6, 0.6, 0.7, 0.4)
 		draw_string(ThemeDB.fallback_font, Vector2(size.x / 2.0 - 30.0, 33.0), "[Q] Lock On", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, hint_color)
 
-	if not target or not is_instance_valid(target) or not cam:
+	if not target or not cam:
 		return
 
 	var world_pos := target.global_position + Vector3(0.0, 2.2, 0.0)

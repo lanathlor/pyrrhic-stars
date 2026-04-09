@@ -119,6 +119,98 @@ func ResolvePlayerAoEOnEnemies(player *entity.Player, enemies []*entity.Enemy, o
 	return events
 }
 
+// ResolveAoEAtPosition checks an AoE centered on an arbitrary world position
+// (e.g. an enemy's location for target-centered spells).
+func ResolveAoEAtPosition(center entity.Vec3, sourcePeerID uint16, enemies []*entity.Enemy, obstacles []Obstacle, shape AoEShape) []DamageEvent {
+	var events []DamageEvent
+	for _, e := range enemies {
+		if e == nil || !e.Alive || e.State == entity.EnemyDead {
+			continue
+		}
+		if !CheckAoERadius(center, e.Position, shape.Radius, obstacles) {
+			continue
+		}
+		dealt, _ := e.ApplyDamage(shape.Damage)
+		if dealt == 0 {
+			continue
+		}
+		hitDir := e.Position.Sub(center)
+		if hitDir.LengthSq() > 0.01 {
+			hitDir = hitDir.Normalized()
+		}
+		events = append(events, DamageEvent{
+			TargetPeerID: e.ID,
+			SourcePeerID: sourcePeerID,
+			Amount:       dealt,
+			HitPos:       center.Add(hitDir),
+			SourceType:   SourcePlayerAttack,
+		})
+	}
+	return events
+}
+
+// ResolveNearestNEnemies hits the N nearest in-combat enemies by proximity.
+// Only targets enemies that have threat entries (are in combat with someone).
+// LoS is checked from the player to each target.
+func ResolveNearestNEnemies(player *entity.Player, enemies []*entity.Enemy, obstacles []Obstacle, n int, damage float32) []DamageEvent {
+	if n <= 0 {
+		return nil
+	}
+
+	// Collect alive, in-combat enemies with distances
+	type candidate struct {
+		enemy  *entity.Enemy
+		distSq float32
+	}
+	var candidates []candidate
+	for _, e := range enemies {
+		if e == nil || !e.Alive || e.State == entity.EnemyDead {
+			continue
+		}
+		if len(e.ThreatTable) == 0 {
+			continue // not in combat
+		}
+		distSq := e.Position.DistanceToSq(player.Position)
+		candidates = append(candidates, candidate{e, distSq})
+	}
+
+	// Sort by distance (simple insertion sort — N is small)
+	for i := 1; i < len(candidates); i++ {
+		for j := i; j > 0 && candidates[j].distSq < candidates[j-1].distSq; j-- {
+			candidates[j], candidates[j-1] = candidates[j-1], candidates[j]
+		}
+	}
+
+	// Take nearest N with LoS check
+	var events []DamageEvent
+	hits := 0
+	for _, c := range candidates {
+		if hits >= n {
+			break
+		}
+		if SegmentHitsObstacle(player.Position, c.enemy.Position, obstacles) {
+			continue // blocked by obstacle
+		}
+		dealt, _ := c.enemy.ApplyDamage(damage)
+		if dealt == 0 {
+			continue
+		}
+		hitDir := c.enemy.Position.Sub(player.Position)
+		if hitDir.LengthSq() > 0.01 {
+			hitDir = hitDir.Normalized()
+		}
+		events = append(events, DamageEvent{
+			TargetPeerID: c.enemy.ID,
+			SourcePeerID: player.PeerID,
+			Amount:       dealt,
+			HitPos:       player.Position.Add(hitDir),
+			SourceType:   SourcePlayerAttack,
+		})
+		hits++
+	}
+	return events
+}
+
 func resolveGunnerShot(player *entity.Player, enemy *entity.Enemy, obstacles []Obstacle) *DamageEvent {
 	origin := player.EyePosition()
 	direction := player.AimDirection()

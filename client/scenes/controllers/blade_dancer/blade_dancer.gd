@@ -102,34 +102,34 @@ const SPELL_SLOT_ACTIONS: Array[StringName] = [
 ## action_id = 30 + origin_config * 4 + slot
 const SPELL_TABLE := {
 	Config.ORBIT: [
-		{name="Shielded Sweep", dest=Config.FAN, dur=0.4, action_id=30, telegraph="cone", radius=4.0, arc=60.0, desc="30 dmg cone. 15% DR for 2s."},
-		{name="Guarded Thrust", dest=Config.LANCE, dur=0.3, action_id=31, telegraph="none", desc="35 dmg single. +8 shield."},
-		{name="Protected Scatter", dest=Config.SCATTER, dur=0.4, action_id=32, telegraph="circle", radius=6.0, desc="15 dmg AoE (6m). 10% DR for 1.5s."},
-		{name="Fortified Command", dest=Config.CROWN, dur=0.5, action_id=33, telegraph="circle", radius=5.0, desc="10 dmg AoE (5m). 20% DR for 2s."},
+		{name="Shielded Sweep", dest=Config.FAN, dur=0.4, action_id=30, telegraph="circle", radius=4.0, desc="8 dmg AoE (4m). 15% DR for 2s."},
+		{name="Guarded Thrust", dest=Config.LANCE, dur=0.3, action_id=31, telegraph="none", desc="25 dmg single. +8 shield."},
+		{name="Protected Scatter", dest=Config.SCATTER, dur=0.4, action_id=32, telegraph="none", desc="5 dmg x3 nearest. 1.5/tick DoT 12s. 10% DR."},
+		{name="Fortified Command", dest=Config.CROWN, dur=0.5, action_id=33, telegraph="circle_target", radius=5.0, desc="5 dmg AoE at target (5m). 20% DR for 2s."},
 	],
 	Config.FAN: [
-		{name="Reaping Guard", dest=Config.ORBIT, dur=0.4, action_id=34, telegraph="circle", radius=3.0, desc="15 dmg AoE (3m). +12 shield."},
-		{name="Cleaving Pierce", dest=Config.LANCE, dur=0.3, action_id=35, telegraph="none", desc="45 dmg single target."},
-		{name="Slashing Spread", dest=Config.SCATTER, dur=0.4, action_id=36, telegraph="circle", radius=5.0, desc="25 dmg AoE (5m)."},
-		{name="Sweeping Hex", dest=Config.CROWN, dur=0.5, action_id=37, telegraph="cone", radius=5.0, arc=60.0, desc="20 dmg cone (5m)."},
+		{name="Reaping Guard", dest=Config.ORBIT, dur=0.4, action_id=34, telegraph="circle", radius=3.0, desc="8 dmg AoE (3m). +12 shield."},
+		{name="Cleaving Pierce", dest=Config.LANCE, dur=0.3, action_id=35, telegraph="none", desc="30 dmg single target."},
+		{name="Slashing Spread", dest=Config.SCATTER, dur=0.4, action_id=36, telegraph="circle_target", radius=5.0, desc="8 dmg AoE at target (5m). 1.5/tick DoT 10s."},
+		{name="Sweeping Hex", dest=Config.CROWN, dur=0.5, action_id=37, telegraph="circle_target", radius=5.0, desc="10 dmg AoE at target (5m)."},
 	],
 	Config.LANCE: [
-		{name="Piercing Barrier", dest=Config.ORBIT, dur=0.4, action_id=38, telegraph="none", desc="25 dmg single. +15 shield."},
-		{name="Focused Slash", dest=Config.FAN, dur=0.3, action_id=39, telegraph="cone", radius=4.0, arc=45.0, desc="35 dmg cone (4m)."},
-		{name="Targeted Spread", dest=Config.SCATTER, dur=0.4, action_id=40, telegraph="none", desc="30 dmg single target."},
-		{name="Pinning Strike", dest=Config.CROWN, dur=0.3, action_id=41, telegraph="none", desc="35 dmg single target."},
+		{name="Piercing Barrier", dest=Config.ORBIT, dur=0.4, action_id=38, telegraph="none", desc="18 dmg single. +15 shield."},
+		{name="Focused Slash", dest=Config.FAN, dur=0.3, action_id=39, telegraph="circle_target", radius=4.0, desc="15 dmg AoE at target (4m)."},
+		{name="Targeted Spread", dest=Config.SCATTER, dur=0.4, action_id=40, telegraph="none", desc="12 dmg single. 2.0/tick DoT 15s."},
+		{name="Pinning Strike", dest=Config.CROWN, dur=0.3, action_id=41, telegraph="none", desc="25 dmg single target."},
 	],
 	Config.SCATTER: [
 		{name="Dispersed Shield", dest=Config.ORBIT, dur=0.5, action_id=42, telegraph="none", desc="+18 shield. 15% DR for 2s."},
-		{name="Rain of Blades", dest=Config.FAN, dur=0.4, action_id=43, telegraph="circle", radius=5.0, desc="35 dmg AoE (5m)."},
-		{name="Converging Strike", dest=Config.LANCE, dur=0.3, action_id=44, telegraph="none", desc="50 dmg single target."},
-		{name="Chaos Bind", dest=Config.CROWN, dur=0.5, action_id=45, telegraph="circle", radius=5.0, desc="15 dmg AoE (5m)."},
+		{name="Rain of Blades", dest=Config.FAN, dur=0.4, action_id=43, telegraph="circle_target", radius=5.0, desc="15 dmg AoE at target (5m). 1.0/tick DoT 10s."},
+		{name="Converging Strike", dest=Config.LANCE, dur=0.3, action_id=44, telegraph="none", desc="32 dmg single. 1.5/tick DoT 10s."},
+		{name="Chaos Bind", dest=Config.CROWN, dur=0.5, action_id=45, telegraph="none", desc="8 dmg x4 nearest enemies."},
 	],
 	Config.CROWN: [
 		{name="Commanding Ward", dest=Config.ORBIT, dur=0.5, action_id=46, telegraph="none", desc="+20 shield."},
-		{name="Royal Cleave", dest=Config.FAN, dur=0.3, action_id=47, telegraph="cone", radius=5.0, arc=60.0, desc="30 dmg cone (5m)."},
-		{name="Decree Strike", dest=Config.LANCE, dur=0.3, action_id=48, telegraph="none", desc="40 dmg single target."},
-		{name="Sovereign Scatter", dest=Config.SCATTER, dur=0.4, action_id=49, telegraph="circle", radius=6.0, desc="20 dmg AoE (6m)."},
+		{name="Royal Cleave", dest=Config.FAN, dur=0.3, action_id=47, telegraph="circle", radius=5.0, desc="12 dmg AoE (5m)."},
+		{name="Decree Strike", dest=Config.LANCE, dur=0.3, action_id=48, telegraph="none", desc="28 dmg single target."},
+		{name="Sovereign Scatter", dest=Config.SCATTER, dur=0.4, action_id=49, telegraph="none", desc="5 dmg x3 nearest. 1.5/tick DoT 12s."},
 	],
 }
 
@@ -419,14 +419,34 @@ func _spawn_spell_telegraph(spell: Dictionary) -> void:
 	if telegraph_type == "none":
 		return
 
-	var pos := global_position
 	var spell_radius: float = spell.get("radius", 5.0)
 
 	if telegraph_type == "circle":
-		PlayerTelegraph.spawn_circle(get_tree().root, pos, spell_radius, TELEGRAPH_COLOR)
-	elif telegraph_type == "cone":
-		var arc: float = spell.get("arc", 60.0)
-		PlayerTelegraph.spawn_cone(get_tree().root, pos, rotation.y, spell_radius, arc / 2.0, TELEGRAPH_COLOR)
+		PlayerTelegraph.spawn_circle(get_tree().root, global_position, spell_radius, TELEGRAPH_COLOR)
+	elif telegraph_type == "circle_target":
+		var target_pos := _get_aim_target_position()
+		if target_pos != Vector3.ZERO:
+			PlayerTelegraph.spawn_circle(get_tree().root, target_pos, spell_radius, TELEGRAPH_COLOR)
+
+
+func _get_aim_target_position() -> Vector3:
+	var origin := global_position + Vector3(0.0, 1.0, 0.0)
+	var direction: Vector3
+	if _lock_on_active and _lock_target and is_instance_valid(_lock_target):
+		return _lock_target.global_position
+	# Raycast to find enemy
+	direction = -transform.basis.z
+	direction.y = 0.0
+	direction = direction.normalized()
+	var space := get_world_3d().direct_space_state
+	if not space:
+		return Vector3.ZERO
+	var query := PhysicsRayQueryParameters3D.create(origin, origin + direction * 20.0, 4)  # layer 4 = enemies
+	query.exclude = [get_rid()]
+	var result := space.intersect_ray(query)
+	if result:
+		return result.position
+	return Vector3.ZERO
 
 
 func _process_casting(delta: float) -> void:

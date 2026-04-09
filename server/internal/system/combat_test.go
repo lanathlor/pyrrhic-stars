@@ -1,8 +1,10 @@
 package system
 
 import (
+	"math"
 	"testing"
 
+	"codex-online/server/internal/codec"
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/level"
 )
@@ -793,5 +795,234 @@ func TestCombatEndsOnEnemyDeath(t *testing.T) {
 	}
 	if p2.Health <= hp2Before {
 		t.Errorf("p2 health should have increased from regen, got %f (was %f)", p2.Health, hp2Before)
+	}
+}
+
+// =============================================================================
+// Blade Dancer — comprehensive test of all 20 spells with 4 enemies
+// =============================================================================
+
+// TestAllBladeDancerSpells fires every spell exactly once in multi-enemy context.
+// Enemy layout (player at origin, facing +Z with rotY=PI):
+//   - eFront     (1000): (0, 0.1, 3)    — in aim line, 3m from player. Hit by ST, PC(r>=3), TC, NearestN.
+//   - eNearFront (1001): (1, 0.1, 3.5)  — 1.1m from eFront, 3.6m from player. Hit by TC(r>=2) but NOT PC(r=3).
+//   - eSide      (1002): (3, 0.1, 0)    — 3m from player, 4.2m from eFront. Hit by PC(r>=3) but NOT TC(r=4 centered on eFront).
+//   - eFar       (1003): (0, 0.1, 20)   — 20m away. Never hit.
+//
+// For NearestN spells: eFront, eNearFront, eSide all have threat (in combat).
+// eFar has no threat (out of combat) so NearestN skips it.
+func TestAllBladeDancerSpells(t *testing.T) {
+	const hp float32 = 5000.0
+
+	type spellExpect struct {
+		spellIdx      int
+		name          string
+		originCfg     int
+		destCfg       int
+		frontDmg      float32 // eFront (1000)
+		nearFrontDmg  float32 // eNearFront (1001)
+		sideDmg       float32 // eSide (1002)
+		farDmg        float32 // eFar (1003) — always 0
+		shieldGain    float32
+		hasDR         bool
+		hasDoT        bool
+		dotPerTick    float32
+		dotTotalTicks int // ticks over full duration
+		dotTargets    int // how many enemies get DoT
+	}
+
+	// Distances:
+	// eFront to player: 3.0m
+	// eNearFront to player: sqrt(1+12.25) = 3.64m
+	// eNearFront to eFront: sqrt(1+0.25) = 1.12m
+	// eSide to player: 3.0m
+	// eSide to eFront: sqrt(9+9) = 4.24m
+	//
+	// PC circle r=3: hits eFront (3m=boundary), eSide (3m=boundary), misses eNearFront (3.64m)
+	// PC circle r=4: hits eFront, eNearFront (3.64m), eSide (3m)
+	// PC circle r=5: hits eFront, eNearFront, eSide
+	// TC circle r=4 (centered on eFront at Z=3): hits eNearFront (1.12m), misses eSide (4.24m > 4)
+	//   also hits eFront itself (0m = center)
+	// TC circle r=5 (centered on eFront): hits eNearFront (1.12m), hits eSide (4.24m < 5)
+	//   also hits eFront itself
+	// NearestN: sorted by dist to player: eFront(3m), eSide(3m), eNearFront(3.64m). All in combat.
+
+	spells := []spellExpect{
+		// From Orbit (config 0)
+		// 0: Shielded Sweep — PC circle r=4: eFront(3m)=HIT, eNearFront(3.64m)=HIT, eSide(3m)=HIT
+		{0, "Shielded Sweep", 0, 1, 8, 8, 8, 0, 0, true, false, 0, 0, 0},
+		// 1: Guarded Thrust — ST: eFront only
+		{1, "Guarded Thrust", 0, 2, 25, 0, 0, 0, 8, false, false, 0, 0, 0},
+		// 2: Protected Scatter — NearestN(3): hits 3 nearest in-combat = eFront+eSide+eNearFront
+		{2, "Protected Scatter", 0, 3, 5, 5, 5, 0, 0, true, true, 1.5, 11, 3},
+		// 3: Fortified Command — TC circle r=5 at eFront: eFront(0m)=HIT, eNearFront(1.12m)=HIT, eSide(4.24m)=HIT
+		{3, "Fortified Command", 0, 4, 5, 5, 5, 0, 0, true, false, 0, 0, 0},
+
+		// From Fan (config 1)
+		// 4: Reaping Guard — PC circle r=3: eFront(3m)=HIT, eNearFront(3.64m)=MISS, eSide(3m)=HIT
+		{4, "Reaping Guard", 1, 0, 8, 0, 8, 0, 12, false, false, 0, 0, 0},
+		// 5: Cleaving Pierce — ST: eFront only
+		{5, "Cleaving Pierce", 1, 2, 30, 0, 0, 0, 0, false, false, 0, 0, 0},
+		// 6: Slashing Spread — TC circle r=5 at eFront: eFront+eNearFront+eSide all HIT
+		{6, "Slashing Spread", 1, 3, 8, 8, 8, 0, 0, false, true, 1.5, 9, 3},
+		// 7: Sweeping Hex — TC circle r=5 at eFront: all 3 HIT
+		{7, "Sweeping Hex", 1, 4, 10, 10, 10, 0, 0, false, false, 0, 0, 0},
+
+		// From Lance (config 2)
+		// 8: Piercing Barrier — ST: eFront only
+		{8, "Piercing Barrier", 2, 0, 18, 0, 0, 0, 15, false, false, 0, 0, 0},
+		// 9: Focused Slash — TC circle r=4 at eFront: eFront(0m)=HIT, eNearFront(1.12m)=HIT, eSide(4.24m>4)=MISS
+		{9, "Focused Slash", 2, 1, 15, 15, 0, 0, 0, false, false, 0, 0, 0},
+		// 10: Targeted Spread — ST + DoT: eFront only
+		{10, "Targeted Spread", 2, 3, 12, 0, 0, 0, 0, false, true, 2.0, 14, 1},
+		// 11: Pinning Strike — ST: eFront only
+		{11, "Pinning Strike", 2, 4, 25, 0, 0, 0, 0, false, false, 0, 0, 0},
+
+		// From Scatter (config 3)
+		// 12: Dispersed Shield — self-buff: no damage
+		{12, "Dispersed Shield", 3, 0, 0, 0, 0, 0, 18, true, false, 0, 0, 0},
+		// 13: Rain of Blades — TC circle r=5 at eFront: all 3 HIT + DoT
+		{13, "Rain of Blades", 3, 1, 15, 15, 15, 0, 0, false, true, 1.0, 9, 3},
+		// 14: Converging Strike — ST + DoT: eFront only
+		{14, "Converging Strike", 3, 2, 32, 0, 0, 0, 0, false, true, 1.5, 9, 1},
+		// 15: Chaos Bind — NearestN(4): all 3 in-combat hit (only 3 in combat, max 4)
+		{15, "Chaos Bind", 3, 4, 8, 8, 8, 0, 0, false, false, 0, 0, 0},
+
+		// From Crown (config 4)
+		// 16: Commanding Ward — self-buff: no damage
+		{16, "Commanding Ward", 4, 0, 0, 0, 0, 0, 20, false, false, 0, 0, 0},
+		// 17: Royal Cleave — PC circle r=5: all 3 HIT
+		{17, "Royal Cleave", 4, 1, 12, 12, 12, 0, 0, false, false, 0, 0, 0},
+		// 18: Decree Strike — ST: eFront only
+		{18, "Decree Strike", 4, 2, 28, 0, 0, 0, 0, false, false, 0, 0, 0},
+		// 19: Sovereign Scatter — NearestN(3): hits 3 nearest in-combat
+		{19, "Sovereign Scatter", 4, 3, 5, 5, 5, 0, 0, false, true, 1.5, 11, 3},
+	}
+
+	for _, sp := range spells {
+		t.Run(sp.name, func(t *testing.T) {
+			p := entity.NewPlayer(1, "blade_dancer")
+			p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
+			p.RotationY = float32(math.Pi) // face +Z
+			p.AimPitch = 0
+			p.Config = sp.originCfg
+			p.GCDTimer = 0
+
+			eFront := entity.NewEnemy(1000, hp, "test")
+			eFront.Position = entity.Vec3{X: 0, Y: 0.1, Z: 3}
+			eFront.State = entity.EnemyChase
+			eFront.ThreatTable[1] = 10.0 // in combat (needed for NearestN)
+
+			eNearFront := entity.NewEnemy(1001, hp, "test")
+			eNearFront.Position = entity.Vec3{X: 1, Y: 0.1, Z: 3.5}
+			eNearFront.State = entity.EnemyChase
+			eNearFront.ThreatTable[1] = 5.0
+
+			eSide := entity.NewEnemy(1002, hp, "test")
+			eSide.Position = entity.Vec3{X: 3, Y: 0.1, Z: 0}
+			eSide.State = entity.EnemyChase
+			eSide.ThreatTable[1] = 5.0
+
+			eFar := entity.NewEnemy(1003, hp, "test")
+			eFar.Position = entity.Vec3{X: 0, Y: 0.1, Z: 20}
+			eFar.State = entity.EnemyChase
+			// eFar has NO threat — out of combat, NearestN should skip
+
+			enemies := []*entity.Enemy{eFront, eNearFront, eSide, eFar}
+			w := makeWorld(map[uint16]*entity.Player{1: p}, enemies)
+
+			actionID := entity.ActionBDSpellBase + uint8(sp.spellIdx)
+			payload := codec.EncodeAbilityInput(actionID, 0, float32(math.Pi))
+
+			inputSys := InputSystem{}
+			w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: payload}}
+			inputSys.Tick(w, 0.05)
+
+			// Config transition
+			if p.Config != sp.destCfg {
+				t.Errorf("config = %d, want %d", p.Config, sp.destCfg)
+			}
+			if p.GCDTimer <= 0 {
+				t.Error("GCD should be set")
+			}
+
+			// Check immediate damage on all 4 enemies
+			frontDmg := hp - eFront.Health
+			nearFrontDmg := hp - eNearFront.Health
+			sideDmg := hp - eSide.Health
+			farDmg := hp - eFar.Health
+
+			if frontDmg != sp.frontDmg {
+				t.Errorf("eFront dmg = %.1f, want %.1f", frontDmg, sp.frontDmg)
+			}
+			if nearFrontDmg != sp.nearFrontDmg {
+				t.Errorf("eNearFront dmg = %.1f, want %.1f", nearFrontDmg, sp.nearFrontDmg)
+			}
+			if sideDmg != sp.sideDmg {
+				t.Errorf("eSide dmg = %.1f, want %.1f", sideDmg, sp.sideDmg)
+			}
+			if farDmg != sp.farDmg {
+				t.Errorf("eFar dmg = %.1f, want 0 (should never be hit)", farDmg)
+			}
+
+			// Shield
+			if sp.shieldGain > 0 {
+				expected := sp.shieldGain
+				if expected > 25.0 {
+					expected = 25.0
+				}
+				if p.BDShieldHP != expected {
+					t.Errorf("shield = %.0f, want %.0f", p.BDShieldHP, expected)
+				}
+			} else if p.BDShieldHP != 0 {
+				t.Errorf("shield = %.0f, want 0", p.BDShieldHP)
+			}
+
+			// DR
+			if sp.hasDR && (p.BDDRFactor <= 0 || p.BDDRTimer <= 0) {
+				t.Errorf("DR should be active: factor=%.2f timer=%.2f", p.BDDRFactor, p.BDDRTimer)
+			}
+			if !sp.hasDR && p.BDDRFactor > 0 && p.BDDRTimer > 0 {
+				t.Errorf("DR should NOT be active: factor=%.2f timer=%.2f", p.BDDRFactor, p.BDDRTimer)
+			}
+
+			// DoT
+			if sp.hasDoT {
+				if len(w.BDDoTs) != sp.dotTargets {
+					t.Fatalf("DoT count = %d, want %d targets", len(w.BDDoTs), sp.dotTargets)
+				}
+				for _, dot := range w.BDDoTs {
+					if dot.Damage != sp.dotPerTick {
+						t.Errorf("DoT tick dmg = %.1f, want %.1f", dot.Damage, sp.dotPerTick)
+					}
+				}
+
+				// Tick DoTs to completion for eFront
+				combatSys := CombatSystem{}
+				frontHPBefore := eFront.Health
+				dotDuration := w.BDDoTs[0].Remaining
+				ticks := int((dotDuration+1.0)/0.05) + 1
+				for i := 0; i < ticks; i++ {
+					w.DamageEvents = w.DamageEvents[:0]
+					combatSys.Tick(w, 0.05)
+				}
+				frontDotDmg := frontHPBefore - eFront.Health
+				expectedDotDmg := sp.dotPerTick * float32(sp.dotTotalTicks)
+				if frontDotDmg < expectedDotDmg-1 || frontDotDmg > expectedDotDmg+1 {
+					t.Errorf("eFront DoT total = %.0f, want ~%.0f (%d ticks x %.1f)",
+						frontDotDmg, expectedDotDmg, sp.dotTotalTicks, sp.dotPerTick)
+				}
+				if len(w.BDDoTs) != 0 {
+					t.Errorf("DoTs should be expired, got %d", len(w.BDDoTs))
+				}
+			} else if len(w.BDDoTs) != 0 {
+				t.Errorf("expected no DoTs, got %d", len(w.BDDoTs))
+			}
+
+			// eFar never touched
+			if eFar.Health != hp {
+				t.Errorf("eFar HP = %.0f, want %.0f", eFar.Health, hp)
+			}
+		})
 	}
 }
