@@ -3,6 +3,7 @@ client/.godot/
 client/.import/
 *.import
 *.translation
+client/reports/
 
 # Blender
 *.blend1

@@ -52,6 +52,7 @@ var _npc_nodes: Dictionary = {}  # npc_id -> Node3D
 # Dynamic nodes
 var _boss_gate: CSGBox3D
 var _atmosphere: Node3D
+var _arena_buildings: Node3D
 var _pause_layer: CanvasLayer
 var _menu_layer: CanvasLayer
 var _address_input: LineEdit
@@ -580,6 +581,7 @@ func _enter_arena_warmup() -> void:
 		_load_environment(ARENA_SCENE)
 		_create_hallway_geometry()
 		_create_atmosphere()
+		_create_arena_buildings()
 
 
 func _select_class(class_name_str: String) -> void:
@@ -727,6 +729,7 @@ func _on_zone_transfer(zone_type: int, new_peer_id: int) -> void:
 		_load_environment(ARENA_SCENE)
 		_create_hallway_geometry()
 		_create_atmosphere()
+		_create_arena_buildings()
 		# Spawn local player in warmup room immediately
 		state = GameState.ARENA_LOBBY
 		_hub_layer.visible = false
@@ -975,6 +978,9 @@ func _unload_environment() -> void:
 		_boss_gate.queue_free()
 	_boss_gate = null
 	_atmosphere = null
+	if _arena_buildings and is_instance_valid(_arena_buildings):
+		_arena_buildings.queue_free()
+	_arena_buildings = null
 	_remove_portal_trail()
 
 
@@ -1204,6 +1210,16 @@ func _create_hallway_geometry() -> void:
 	_boss_gate.visible = false
 	_boss_gate.use_collision = false
 	_current_env.add_child(_boss_gate)
+
+
+func _create_arena_buildings() -> void:
+	if _arena_buildings and is_instance_valid(_arena_buildings):
+		_arena_buildings.queue_free()
+	var BuildingsScript := load("res://scenes/environments/arena/arena_buildings.gd")
+	_arena_buildings = Node3D.new()
+	_arena_buildings.name = "ArenaBuildings"
+	_arena_buildings.set_script(BuildingsScript)
+	_current_env.add_child(_arena_buildings)
 
 
 func _create_atmosphere() -> void:

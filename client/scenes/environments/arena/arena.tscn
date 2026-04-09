@@ -31,8 +31,8 @@ sky_material = SubResource("sky_mat")
 background_mode = 2
 sky = SubResource("sky")
 ambient_light_source = 2
-ambient_light_color = Color(0.06, 0.07, 0.14, 1)
-ambient_light_energy = 0.4
+ambient_light_color = Color(0.12, 0.13, 0.2, 1)
+ambient_light_energy = 1.2
 tonemap_mode = 2
 tonemap_white = 8.0
 glow_enabled = true
@@ -40,11 +40,11 @@ glow_intensity = 0.6
 glow_bloom = 0.15
 glow_blend_mode = 1
 fog_enabled = true
-fog_light_color = Color(0.04, 0.05, 0.1, 1)
-fog_density = 0.015
+fog_light_color = Color(0.05, 0.06, 0.12, 1)
+fog_density = 0.005
 
 [sub_resource type="StandardMaterial3D" id="mat_wet_floor"]
-albedo_color = Color(0.12, 0.12, 0.15, 1)
+albedo_color = Color(0.18, 0.18, 0.22, 1)
 roughness = 0.25
 metallic = 0.3
 
@@ -55,16 +55,16 @@ environment = SubResource("env")
 
 [node name="MoonLight" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.866, -0.25, 0.433, 0, 0.866, 0.5, -0.5, -0.433, 0.75, 0, 15, 0)
-light_color = Color(0.35, 0.4, 0.65, 1)
-light_energy = 0.6
+light_color = Color(0.45, 0.5, 0.75, 1)
+light_energy = 2.0
 shadow_enabled = true
 shadow_bias = 0.03
 directional_shadow_max_distance = 80.0
 
 [node name="FillLight" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.866, 0.25, -0.433, 0, 0.866, 0.5, 0.5, -0.433, 0.75, 0, 10, 0)
-light_color = Color(0.15, 0.15, 0.3, 1)
-light_energy = 0.25
+light_color = Color(0.25, 0.25, 0.4, 1)
+light_energy = 1.2
 
 [node name="Floor" type="CSGBox3D" parent="."]
 size = Vector3(40, 0.5, 27)
@@ -181,24 +181,48 @@ material = SubResource("mat_cover")
 [node name="AlienSpotLeft" type="SpotLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, -10, 4.5, -8)
 light_color = Color(0.3, 0.15, 0.7, 1)
-light_energy = 4.0
+light_energy = 6.0
 spot_range = 14.0
-spot_angle = 30.0
+spot_angle = 35.0
 shadow_enabled = true
 
 [node name="AlienSpotRight" type="SpotLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 10, 4.5, 8)
 light_color = Color(0.7, 0.25, 0.1, 1)
-light_energy = 3.5
+light_energy = 5.0
 spot_range = 14.0
-spot_angle = 30.0
+spot_angle = 35.0
 shadow_enabled = true
 
 [node name="CenterLight" type="OmniLight3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.5, 0)
-light_color = Color(0.2, 0.2, 0.4, 1)
-light_energy = 1.0
-omni_range = 15.0
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, -1.5)
+light_color = Color(0.4, 0.4, 0.6, 1)
+light_energy = 4.0
+omni_range = 25.0
+
+[node name="FloorOmniN" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -10)
+light_color = Color(0.35, 0.35, 0.55, 1)
+light_energy = 3.0
+omni_range = 18.0
+
+[node name="FloorOmniS" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 8)
+light_color = Color(0.35, 0.35, 0.55, 1)
+light_energy = 3.0
+omni_range = 18.0
+
+[node name="FloorOmniW" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14, 2, -1.5)
+light_color = Color(0.3, 0.3, 0.5, 1)
+light_energy = 2.5
+omni_range = 16.0
+
+[node name="FloorOmniE" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 2, -1.5)
+light_color = Color(0.3, 0.3, 0.5, 1)
+light_energy = 2.5
+omni_range = 16.0
 
 [node name="LobbyFloor" type="CSGBox3D" parent="."]
 size = Vector3(16, 0.5, 12)
@@ -235,5 +259,5 @@ material = SubResource("mat_wall")
 [node name="LobbyLight" type="OmniLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.5, 46)
 light_color = Color(0.3, 0.3, 0.55, 1)
-light_energy = 1.5
-omni_range = 10.0
+light_energy = 2.5
+omni_range = 12.0

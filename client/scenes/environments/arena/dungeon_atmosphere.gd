@@ -29,6 +29,9 @@ var _fire_positions := [
 	Vector3(14.0, 1.5, 5.0),     # boss room right
 	Vector3(-5.0, 1.5, 22.0),    # hallway left
 	Vector3(5.0, 1.5, 32.0),     # hallway right
+	Vector3(-20.0, 2.0, -10.0),  # west building base
+	Vector3(20.0, 2.0, 4.0),     # east building base
+	Vector3(0.0, 2.0, 15.0),     # hallway entrance, rain shaft
 ]
 
 
@@ -149,9 +152,9 @@ func _process_lightning(delta: float) -> void:
 		_lightning_flash_time -= delta
 		# Fade flash out
 		var intensity: float = clampf(_lightning_flash_time / 0.15, 0.0, 1.0)
-		_env.ambient_light_energy = lerpf(0.4, 2.5, intensity)
+		_env.ambient_light_energy = lerpf(1.2, 3.5, intensity)
 		if _lightning_flash_time <= 0.0:
-			_env.ambient_light_energy = 0.4
+			_env.ambient_light_energy = 1.2
 		return
 
 	if _lightning_timer >= _lightning_cooldown:
@@ -197,6 +200,7 @@ func _setup_hallway_flicker() -> void:
 	var hallway_light_positions := [
 		Vector3(0.0, 3.5, 32.0),
 		Vector3(0.0, 3.5, 22.0),
+		Vector3(0.0, 4.5, 12.5),   # transition building underpass
 	]
 	for pos in hallway_light_positions:
 		var light := OmniLight3D.new()
