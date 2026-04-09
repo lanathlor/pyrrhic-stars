@@ -66,6 +66,59 @@ func ResolvePlayerAttackOnEnemies(player *entity.Player, enemies []*entity.Enemy
 	return bestEvt, bestEnemy
 }
 
+// AoEShapeType identifies the geometry of an AoE check.
+type AoEShapeType uint8
+
+const (
+	AoECircle AoEShapeType = 0
+	AoECone   AoEShapeType = 1
+)
+
+// AoEShape describes an AoE attack geometry.
+type AoEShape struct {
+	Type       AoEShapeType
+	Radius     float32
+	ArcDegrees float32 // only for AoECone
+	Damage     float32
+}
+
+// ResolvePlayerAoEOnEnemies checks a player's AoE attack against all enemies,
+// returning damage events for every enemy hit (not just the first).
+func ResolvePlayerAoEOnEnemies(player *entity.Player, enemies []*entity.Enemy, obstacles []Obstacle, shape AoEShape) []DamageEvent {
+	var events []DamageEvent
+	for _, e := range enemies {
+		if e == nil || !e.Alive || e.State == entity.EnemyDead {
+			continue
+		}
+		var hit bool
+		switch shape.Type {
+		case AoECircle:
+			hit = CheckAoERadius(player.Position, e.Position, shape.Radius, obstacles)
+		case AoECone:
+			hit = CheckMeleeArc(player.Position, player.Forward(), e.Position, shape.Radius, shape.ArcDegrees, obstacles)
+		}
+		if !hit {
+			continue
+		}
+		dealt, _ := e.ApplyDamage(shape.Damage)
+		if dealt == 0 {
+			continue
+		}
+		hitDir := e.Position.Sub(player.Position)
+		if hitDir.LengthSq() > 0.01 {
+			hitDir = hitDir.Normalized()
+		}
+		events = append(events, DamageEvent{
+			TargetPeerID: e.ID,
+			SourcePeerID: player.PeerID,
+			Amount:       dealt,
+			HitPos:       player.Position.Add(hitDir),
+			SourceType:   SourcePlayerAttack,
+		})
+	}
+	return events
+}
+
 func resolveGunnerShot(player *entity.Player, enemy *entity.Enemy, obstacles []Obstacle) *DamageEvent {
 	origin := player.EyePosition()
 	direction := player.AimDirection()
@@ -75,7 +128,10 @@ func resolveGunnerShot(player *entity.Player, enemy *entity.Enemy, obstacles []O
 		return nil
 	}
 
-	const gunDamage float32 = 10.0
+	gunDamage := float32(10.0)
+	if player.RechamberBuff {
+		gunDamage = 18.0
+	}
 	dealt, _ := enemy.ApplyDamage(gunDamage)
 	if dealt == 0 {
 		return nil

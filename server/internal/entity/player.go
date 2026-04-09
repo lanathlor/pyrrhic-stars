@@ -31,6 +31,27 @@ const (
 	ActionHeavy uint8 = 2 // vanguard/blade_dancer: heavy attack
 	ActionDodge uint8 = 3 // any class: dodge roll
 	ActionGuard uint8 = 4 // blade_dancer: guard / barrier
+
+	// Gunner abilities
+	ActionOverclock        uint8 = 10
+	ActionRechamber        uint8 = 11
+	ActionRechamberConfirm uint8 = 12
+
+	// Vanguard AoE abilities
+	ActionBladeSwirl uint8 = 20
+	ActionGroundSlam uint8 = 21
+
+	// Blade Dancer: action IDs 30-49 encode (origin_config * 4 + dest_slot)
+	ActionBDSpellBase uint8 = 30
+)
+
+// Blade Dancer configuration IDs.
+const (
+	ConfigOrbit   = 0
+	ConfigFan     = 1
+	ConfigLance   = 2
+	ConfigScatter = 3
+	ConfigCrown   = 4
 )
 
 // Player represents a player entity on the server.
@@ -66,22 +87,37 @@ type Player struct {
 	InvincibleTimer float32
 
 	// Gunner
-	FireCooldown float32
+	FireCooldown       float32
+	OverclockActive    bool
+	OverclockTimer     float32 // remaining buff duration (7s)
+	OverclockCooldown  float32 // remaining cooldown (15s)
+	RechamberPhase     uint8   // 0=idle, 1=windup, 2=timing_window, 3=lockout
+	RechamberTimer     float32
+	RechamberBuff      bool
+	RechamberBuffTimer float32 // remaining damage buff duration (4s)
 
 	// Vanguard
-	Stamina      float32
-	MaxStamina   float32
-	StaminaRegen float32
-	StaminaDelay float32
-	ComboStep    int
-	IsBlocking   bool
-	ParryTimer   float32
+	Stamina            float32
+	MaxStamina         float32
+	StaminaRegen       float32
+	StaminaDelay       float32
+	ComboStep          int
+	IsBlocking         bool
+	ParryTimer         float32
+	BladeSwirl         bool
+	BladeSwirlTimer    float32 // remaining spin duration (1.5s)
+	BladeSwirlTicks    int     // damage ticks delivered so far
+	BladeSwirlCooldown float32 // remaining cooldown (10s)
+	GroundSlamCooldown float32 // remaining cooldown (8s)
 
 	// Blade dancer
-	Config       int // 0=orbit, 1=lance
-	GCDTimer     float32
-	GuardActive  bool
-	GuardTimer   float32
+	Config      int // 0=orbit, 1=fan, 2=lance, 3=scatter, 4=crown
+	GCDTimer    float32
+	GuardActive bool
+	GuardTimer  float32
+	BDShieldHP  float32 // temporary shield from Orbit-destination spells
+	BDDRFactor  float32 // active damage reduction multiplier (0 = none)
+	BDDRTimer   float32 // remaining DR buff duration
 
 	// Animation (forwarded to clients)
 	AnimName  string
@@ -181,9 +217,26 @@ func (p *Player) ApplyDamage(amount float32) float32 {
 	if p.ClassName == "vanguard" && p.IsBlocking {
 		amount *= 0.3
 	}
+	// Vanguard blade swirl — 20% DR while spinning
+	if p.ClassName == "vanguard" && p.BladeSwirl {
+		amount *= 0.8
+	}
 	// Blade dancer guard
 	if p.ClassName == "blade_dancer" && p.GuardActive {
 		amount *= 0.5
+	}
+	// Blade dancer DR buff (from transition spells)
+	if p.BDDRFactor > 0 && p.BDDRTimer > 0 {
+		amount *= p.BDDRFactor
+	}
+	// Blade dancer shield absorb
+	if p.BDShieldHP > 0 {
+		if amount <= p.BDShieldHP {
+			p.BDShieldHP -= amount
+			return amount // damage absorbed, health unchanged
+		}
+		amount -= p.BDShieldHP
+		p.BDShieldHP = 0
 	}
 	p.Health -= amount
 	if p.Health <= 0 {

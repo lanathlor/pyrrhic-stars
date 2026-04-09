@@ -51,6 +51,25 @@ var _roll_timer: float = 0.0
 var _roll_cooldown_timer: float = 0.0
 var _roll_direction: Vector3 = Vector3.ZERO
 
+# Overclock state
+var _overclock_active: bool = false
+var _overclock_timer: float = 0.0
+var _overclock_cooldown: float = 0.0
+const OVERCLOCK_DURATION: float = 7.0
+const OVERCLOCK_COOLDOWN: float = 15.0
+const OVERCLOCK_FIRE_RATE: float = 0.10
+const OVERCLOCK_SPEED_MULT: float = 1.3
+
+# Rechamber state
+var _rechamber_phase: int = 0  # 0=idle, 1=windup, 2=timing_window, 3=lockout
+var _rechamber_timer: float = 0.0
+var _rechamber_buff: bool = false
+var _rechamber_buff_timer: float = 0.0
+const RECHAMBER_WINDUP: float = 0.6
+const RECHAMBER_WINDOW: float = 0.35
+const RECHAMBER_LOCKOUT: float = 0.8
+const RECHAMBER_BUFF_DURATION: float = 4.0
+
 # Network sync
 var _net_anim: String = ""
 var _net_anim_speed: float = 1.0
@@ -234,11 +253,15 @@ func _physics_process(delta: float) -> void:
 
 	if not _is_rolling and not Input.is_action_pressed("sprint"):
 		_handle_shooting(delta)
+		_handle_overclock(delta)
+		_handle_rechamber(delta)
 
 	_update_muzzle_flash(delta)
 	_update_viewmodel(delta)
 	_update_animation()
 	hud.update_roll_cooldown(_roll_cooldown_timer, roll_cooldown)
+	hud.update_overclock(_overclock_active, _overclock_timer, OVERCLOCK_DURATION, _overclock_cooldown, OVERCLOCK_COOLDOWN)
+	hud.update_rechamber(_rechamber_phase, _rechamber_timer, _rechamber_buff, _rechamber_buff_timer, RECHAMBER_BUFF_DURATION)
 
 	# Send position + animation to server
 	if NetworkManager.is_active:
@@ -260,6 +283,8 @@ func _handle_jump() -> void:
 func _handle_movement(delta: float) -> void:
 	var on_floor := is_on_floor()
 	var speed: float = sprint_speed if Input.is_action_pressed("sprint") else walk_speed
+	if _overclock_active:
+		speed *= OVERCLOCK_SPEED_MULT
 	var accel: float = ground_accel if on_floor else air_accel
 	var decel: float = ground_decel if on_floor else air_decel
 
@@ -312,9 +337,22 @@ func _process_roll(delta: float) -> void:
 
 func _handle_shooting(delta: float) -> void:
 	_fire_cooldown -= delta
+	# During rechamber timing window, shoot button confirms the rechamber instead
+	if _rechamber_phase == 2:
+		if Input.is_action_just_pressed("shoot") and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+			_rechamber_phase = 0
+			_rechamber_buff = true
+			_rechamber_buff_timer = RECHAMBER_BUFF_DURATION
+			if NetworkManager.is_active:
+				NetworkManager.send_ability(12, head.rotation.x, rotation.y)  # RechamberConfirm
+		return
+	# Normal shooting — can't shoot during rechamber windup or lockout
+	if _rechamber_phase != 0:
+		return
+	var current_fire_rate: float = OVERCLOCK_FIRE_RATE if _overclock_active else fire_rate
 	if Input.is_action_pressed("shoot") and _fire_cooldown <= 0.0 and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
 		_shoot()
-		_fire_cooldown = fire_rate
+		_fire_cooldown = current_fire_rate
 
 
 func _shoot() -> void:
@@ -336,6 +374,56 @@ func _shoot() -> void:
 	# Tell server we fired
 	if NetworkManager.is_active:
 		NetworkManager.send_ability(0, head.rotation.x, rotation.y)  # 0 = ActionShoot
+
+
+func _handle_overclock(delta: float) -> void:
+	# Tick timers
+	if _overclock_active:
+		_overclock_timer -= delta
+		if _overclock_timer <= 0.0:
+			_overclock_active = false
+			_overclock_timer = 0.0
+	if _overclock_cooldown > 0.0:
+		_overclock_cooldown -= delta
+	# Activation
+	if Input.is_action_just_pressed("ability_1") and not _overclock_active and _overclock_cooldown <= 0.0:
+		_overclock_active = true
+		_overclock_timer = OVERCLOCK_DURATION
+		_overclock_cooldown = OVERCLOCK_COOLDOWN
+		if NetworkManager.is_active:
+			NetworkManager.send_ability(10, head.rotation.x, rotation.y)  # ActionOverclock
+
+
+func _handle_rechamber(delta: float) -> void:
+	# Tick rechamber buff
+	if _rechamber_buff:
+		_rechamber_buff_timer -= delta
+		if _rechamber_buff_timer <= 0.0:
+			_rechamber_buff = false
+			_rechamber_buff_timer = 0.0
+	# Tick rechamber phases
+	match _rechamber_phase:
+		1:  # Windup
+			_rechamber_timer -= delta
+			if _rechamber_timer <= 0.0:
+				_rechamber_phase = 2
+				_rechamber_timer = RECHAMBER_WINDOW
+		2:  # Timing window — handled in _handle_shooting for confirm
+			_rechamber_timer -= delta
+			if _rechamber_timer <= 0.0:
+				_rechamber_phase = 3
+				_rechamber_timer = RECHAMBER_LOCKOUT
+		3:  # Lockout
+			_rechamber_timer -= delta
+			if _rechamber_timer <= 0.0:
+				_rechamber_phase = 0
+	# Activation — only when idle and not shooting
+	if Input.is_action_just_pressed("ability_2") and _rechamber_phase == 0 and _fire_cooldown <= 0.0:
+		_rechamber_phase = 1
+		_rechamber_timer = RECHAMBER_WINDUP
+		_fire_cooldown = RECHAMBER_WINDUP  # lock out shooting during windup
+		if NetworkManager.is_active:
+			NetworkManager.send_ability(11, head.rotation.x, rotation.y)  # ActionRechamber
 
 
 func _update_muzzle_flash(delta: float) -> void:
@@ -417,6 +505,12 @@ func apply_server_state(data: Dictionary) -> void:
 	#           anim_name (String), anim_speed (float)
 	if _is_local():
 		health = data.health
+		# Sync buff states from server truth
+		_overclock_active = data.get("overclock_active", false)
+		_rechamber_buff = data.get("rechamber_buff", false)
+		var server_phase: int = data.get("rechamber_phase", 0)
+		if server_phase != _rechamber_phase and server_phase == 0:
+			_rechamber_phase = 0  # server reset overrides client
 		if health <= 0.0 and _alive:
 			_alive = false
 			died.emit()

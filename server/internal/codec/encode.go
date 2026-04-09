@@ -22,6 +22,30 @@ func EncodeWorldState(tick uint32, players []*entity.Player, enemies []*entity.E
 		buf = appendStr8(buf, p.AnimName)
 		buf = appendF32(buf, p.AnimSpeed)
 		buf = appendF32(buf, p.AimPitch)
+		// Buff bitflags (1 byte):
+		//   bit 0: OverclockActive
+		//   bit 1: RechamberBuff
+		//   bit 2-3: RechamberPhase (2 bits, 0-3)
+		//   bit 4: BladeSwirl
+		//   bit 5: GuardActive
+		var flags uint8
+		if p.OverclockActive {
+			flags |= 0x01
+		}
+		if p.RechamberBuff {
+			flags |= 0x02
+		}
+		flags |= (p.RechamberPhase & 0x03) << 2
+		if p.BladeSwirl {
+			flags |= 0x10
+		}
+		if p.GuardActive {
+			flags |= 0x20
+		}
+		buf = append(buf, flags)
+		buf = append(buf, byte(p.Config))
+		buf = appendF32(buf, p.Stamina)
+		buf = appendF32(buf, p.BDShieldHP)
 	}
 
 	// Enemies: [count:u8] then per enemy

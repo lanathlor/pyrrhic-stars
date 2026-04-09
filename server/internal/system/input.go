@@ -1,6 +1,8 @@
 package system
 
 import (
+	"log/slog"
+
 	"codex-online/server/internal/codec"
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
@@ -118,11 +120,20 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 	}
 	p.AimPitch = inp.AimPitch
 
+	// Debug: log ability inputs for new abilities
+	if inp.Action >= 10 {
+		slog.Debug("ability input", "peer", peerID, "action", inp.Action, "class", p.ClassName, "fire_cd", p.FireCooldown, "state", w.State)
+	}
+
 	switch inp.Action {
 	case entity.ActionShoot:
 		// Gunner: hitscan, gated by fire cooldown
 		if p.ClassName == "gunner" && p.FireCooldown <= 0 {
-			p.FireCooldown = 0.18
+			fireCooldown := float32(0.18)
+			if p.OverclockActive {
+				fireCooldown = 0.10
+			}
+			p.FireCooldown = fireCooldown
 			p.State = entity.PlayerStateAttack
 			evt, hitEnemy := combat.ResolvePlayerAttackOnEnemies(p, w.Enemies, w.Level.Obstacles)
 			if evt != nil {
@@ -133,9 +144,14 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 			}
 		}
 	case entity.ActionMelee:
-		// Vanguard/blade_dancer: melee, gated by cooldown
+		// Vanguard/blade_dancer: melee, gated by cooldown + stamina
 		if p.FireCooldown <= 0 {
 			if p.ClassName == "vanguard" {
+				if p.Stamina < 10.0 {
+					break
+				}
+				p.Stamina -= 10.0
+				p.StaminaDelay = 0.6
 				p.FireCooldown = 0.55
 			} else {
 				p.FireCooldown = 0.3
@@ -149,6 +165,12 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 				w.AggroEnemy(hitEnemy, peerID)
 			}
 		}
+	case entity.ActionDodge:
+		// Vanguard: dodge costs stamina
+		if p.ClassName == "vanguard" && p.Stamina >= 20.0 {
+			p.Stamina -= 20.0
+			p.StaminaDelay = 0.6
+		}
 	case entity.ActionGuard:
 		if p.ClassName == "blade_dancer" && !p.GuardActive {
 			p.GuardActive = true
@@ -157,6 +179,11 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 	case entity.ActionHeavy:
 		if (p.ClassName == "vanguard" || p.ClassName == "blade_dancer") && p.FireCooldown <= 0 {
 			if p.ClassName == "vanguard" {
+				if p.Stamina < 20.0 {
+					break
+				}
+				p.Stamina -= 20.0
+				p.StaminaDelay = 0.6
 				p.FireCooldown = 0.8
 			} else {
 				p.FireCooldown = 0.5
@@ -168,6 +195,89 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 				w.DamageEvents = append(w.DamageEvents, *evt)
 				hitEnemy.AddThreat(peerID, evt.Amount)
 				w.AggroEnemy(hitEnemy, peerID)
+			}
+		}
+	case entity.ActionOverclock:
+		if p.ClassName == "gunner" && !p.OverclockActive && p.OverclockCooldown <= 0 {
+			p.OverclockActive = true
+			p.OverclockTimer = 7.0
+			p.OverclockCooldown = 15.0
+		}
+	case entity.ActionRechamber:
+		if p.ClassName == "gunner" && p.RechamberPhase == 0 && p.FireCooldown <= 0 {
+			p.RechamberPhase = 1
+			p.RechamberTimer = 0.6
+			p.FireCooldown = 0.6 // lock out shooting during windup
+		}
+	case entity.ActionRechamberConfirm:
+		if p.ClassName == "gunner" && p.RechamberPhase == 2 {
+			p.RechamberBuff = true
+			p.RechamberBuffTimer = 4.0
+			p.RechamberPhase = 0
+		}
+	case entity.ActionBladeSwirl:
+		if p.ClassName != "vanguard" || p.Stamina < 25.0 || p.BladeSwirlCooldown > 0 || p.BladeSwirl || p.FireCooldown > 0 {
+			slog.Info("blade swirl REJECTED", "peer", peerID, "class", p.ClassName, "stamina", p.Stamina, "swirl_cd", p.BladeSwirlCooldown, "swirl_active", p.BladeSwirl, "fire_cd", p.FireCooldown)
+		}
+		if p.ClassName == "vanguard" && p.Stamina >= 25.0 && p.BladeSwirlCooldown <= 0 && !p.BladeSwirl && p.FireCooldown <= 0 {
+			p.Stamina -= 25.0
+			p.StaminaDelay = 0.6
+			p.BladeSwirl = true
+			p.BladeSwirlTimer = 1.5
+			p.BladeSwirlTicks = 0
+			p.BladeSwirlCooldown = 10.0
+			p.FireCooldown = 1.5 // can't do other attacks while spinning
+			p.State = entity.PlayerStateAttack
+			// Immediate first AoE tick
+			shape := combat.AoEShape{Type: combat.AoECircle, Radius: 6.0, Damage: 25.0}
+			events := combat.ResolvePlayerAoEOnEnemies(p, w.Enemies, w.Level.Obstacles, shape)
+			slog.Info("blade swirl activated", "peer", peerID, "pos", p.Position, "enemies", len(w.Enemies), "hits", len(events))
+			for _, evt := range events {
+				evt.SourcePeerID = peerID
+				w.DamageEvents = append(w.DamageEvents, evt)
+				for _, e := range w.Enemies {
+					if e != nil && e.ID == evt.TargetPeerID {
+						e.AddThreat(peerID, evt.Amount)
+						w.AggroEnemy(e, peerID)
+						break
+					}
+				}
+			}
+		}
+	case entity.ActionGroundSlam:
+		if p.ClassName != "vanguard" || p.Stamina < 20.0 || p.GroundSlamCooldown > 0 || p.FireCooldown > 0 {
+			slog.Info("ground slam REJECTED", "peer", peerID, "class", p.ClassName, "stamina", p.Stamina, "slam_cd", p.GroundSlamCooldown, "fire_cd", p.FireCooldown)
+		}
+		if p.ClassName == "vanguard" && p.Stamina >= 20.0 && p.GroundSlamCooldown <= 0 && p.FireCooldown <= 0 {
+			p.Stamina -= 20.0
+			p.StaminaDelay = 0.6
+			p.GroundSlamCooldown = 8.0
+			p.FireCooldown = 1.2
+			p.State = entity.PlayerStateAttack
+			shape := combat.AoEShape{Type: combat.AoECone, Radius: 7.0, ArcDegrees: 90.0, Damage: 60.0}
+			events := combat.ResolvePlayerAoEOnEnemies(p, w.Enemies, w.Level.Obstacles, shape)
+			slog.Info("ground slam activated", "peer", peerID, "pos", p.Position, "rotY", p.RotationY, "enemies", len(w.Enemies), "hits", len(events))
+			for _, evt := range events {
+				evt.SourcePeerID = peerID
+				w.DamageEvents = append(w.DamageEvents, evt)
+				for _, e := range w.Enemies {
+					if e != nil && e.ID == evt.TargetPeerID {
+						e.AddThreat(peerID, evt.Amount)
+						w.AggroEnemy(e, peerID)
+						break
+					}
+				}
+			}
+		}
+	default:
+		// Blade Dancer spells: action IDs 30-49
+		if inp.Action >= entity.ActionBDSpellBase && inp.Action < entity.ActionBDSpellBase+20 {
+			if p.ClassName == "blade_dancer" && p.GCDTimer <= 0 {
+				idx := int(inp.Action - entity.ActionBDSpellBase)
+				originCfg := idx / 4
+				if originCfg == p.Config {
+					resolveBladeDancerSpell(w, p, peerID, idx)
+				}
 			}
 		}
 	}
@@ -194,6 +304,8 @@ func handleInteractInput(w *World, peerID uint16, payload []byte) {
 			p.MaxHealth = np.MaxHealth
 			p.Stamina = np.Stamina
 			p.MaxStamina = np.MaxStamina
+			p.StaminaRegen = np.StaminaRegen
+			p.StaminaDelay = np.StaminaDelay
 		}
 	case message.InteractReadyToggle:
 		p.Ready = !p.Ready

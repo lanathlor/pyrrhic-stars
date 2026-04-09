@@ -1,13 +1,15 @@
 extends CharacterBody3D
 
-## Blade Dancer — Positional state machine controller.
-## Chains blade configuration transitions to set up optimal ability sequences.
+## Blade Dancer -- Positional state machine controller.
+## 5 blade configurations, 20 transition spells (4 per config).
 ## Third-person target-lock camera, no cooldowns, small GCD.
 
 signal died
 
-enum Config { ORBIT, LANCE }
-enum State { MOVE, EDGE, SURGE_WINDUP, SURGE, GUARD, RECALL, DASH, STAGGER, DEAD }
+const PlayerTelegraph := preload("res://scenes/shared/telegraph/player_telegraph.gd")
+
+enum Config { ORBIT, FAN, LANCE, SCATTER, CROWN }
+enum State { MOVE, CASTING, DASH, STAGGER, DEAD }
 
 # Movement
 @export var run_speed: float = 6.0
@@ -30,20 +32,6 @@ enum State { MOVE, EDGE, SURGE_WINDUP, SURGE, GUARD, RECALL, DASH, STAGGER, DEAD
 # Cast range (all damage abilities are ranged)
 @export var cast_range: float = 20.0
 
-# Edge (Ability 1 — LMB)
-@export var orbit_edge_damage: float = 25.0
-@export var lance_edge_damage: float = 35.0
-
-# Surge (Ability 2 — R)
-@export var orbit_surge_damage: float = 25.0
-@export var lance_surge_damage: float = 50.0
-@export var lance_surge_windup: float = 0.3
-
-# Guard (Ability 3 — RMB)
-@export var orbit_guard_reduction: float = 0.5
-@export var orbit_guard_duration: float = 1.5
-@export var lance_recall_damage: float = 25.0
-
 # Health
 var health: float = 150.0
 var max_health: float = 150.0
@@ -56,13 +44,11 @@ var peer_id: int = 0
 # State
 var state: State = State.MOVE
 var config: Config = Config.ORBIT
-var _config_at_cast: Config = Config.ORBIT
+var _cast_timer: float = 0.0
+var _casting_spell: Dictionary = {}
 var _state_timer: float = 0.0
 var _gcd_timer: float = 0.0
 var _is_invincible: bool = false
-var _has_hit_this_attack: bool = false
-var _guard_active: bool = false
-var _guard_timer: float = 0.0
 
 # Dash
 var _dash_direction: Vector3 = Vector3.ZERO
@@ -88,14 +74,64 @@ var _net_rotation_y: float = 0.0
 const NET_INTERP_SPEED := 15.0
 
 const BLADE_SCENE := "res://assets/models/weapons/weapon_floating_blade.glb"
+const TELEGRAPH_COLOR := Color(0.2, 0.75, 0.9, 0.4)
 
 # Blade visuals
 var _blade_nodes: Array[Node3D] = []
 var _blade_orbit_angle: float = 0.0
+var _blade_lerp_speed: float = 12.0
+var _blade_spin: float = 0.0
+
+# Materials -- one per config
 var _orbit_material: StandardMaterial3D
+var _fan_material: StandardMaterial3D
 var _lance_material: StandardMaterial3D
-var _blade_lerp_speed: float = 12.0  # how fast blades move to target position
-var _blade_spin: float = 0.0  # continuous spin for idle floating feel
+var _scatter_material: StandardMaterial3D
+var _crown_material: StandardMaterial3D
+
+# Input actions mapped to spell slots 0-3
+const SPELL_SLOT_ACTIONS: Array[StringName] = [
+	&"light_attack",   # slot 0 -- LMB
+	&"heavy_attack",   # slot 1 -- R
+	&"block",          # slot 2 -- RMB
+	&"ability_2",      # slot 3 -- E
+]
+
+## All 20 transition spells. SPELL_TABLE[origin_config][slot] -> spell dict.
+## Each spell transitions from origin_config to dest config.
+## action_id = 30 + origin_config * 4 + slot
+const SPELL_TABLE := {
+	Config.ORBIT: [
+		{name="Shielded Sweep", dest=Config.FAN, dur=0.4, action_id=30, telegraph="cone", radius=4.0, arc=60.0, desc="30 dmg cone. 15% DR for 2s."},
+		{name="Guarded Thrust", dest=Config.LANCE, dur=0.3, action_id=31, telegraph="none", desc="35 dmg single. +8 shield."},
+		{name="Protected Scatter", dest=Config.SCATTER, dur=0.4, action_id=32, telegraph="circle", radius=6.0, desc="15 dmg AoE (6m). 10% DR for 1.5s."},
+		{name="Fortified Command", dest=Config.CROWN, dur=0.5, action_id=33, telegraph="circle", radius=5.0, desc="10 dmg AoE (5m). 20% DR for 2s."},
+	],
+	Config.FAN: [
+		{name="Reaping Guard", dest=Config.ORBIT, dur=0.4, action_id=34, telegraph="circle", radius=3.0, desc="15 dmg AoE (3m). +12 shield."},
+		{name="Cleaving Pierce", dest=Config.LANCE, dur=0.3, action_id=35, telegraph="none", desc="45 dmg single target."},
+		{name="Slashing Spread", dest=Config.SCATTER, dur=0.4, action_id=36, telegraph="circle", radius=5.0, desc="25 dmg AoE (5m)."},
+		{name="Sweeping Hex", dest=Config.CROWN, dur=0.5, action_id=37, telegraph="cone", radius=5.0, arc=60.0, desc="20 dmg cone (5m)."},
+	],
+	Config.LANCE: [
+		{name="Piercing Barrier", dest=Config.ORBIT, dur=0.4, action_id=38, telegraph="none", desc="25 dmg single. +15 shield."},
+		{name="Focused Slash", dest=Config.FAN, dur=0.3, action_id=39, telegraph="cone", radius=4.0, arc=45.0, desc="35 dmg cone (4m)."},
+		{name="Targeted Spread", dest=Config.SCATTER, dur=0.4, action_id=40, telegraph="none", desc="30 dmg single target."},
+		{name="Pinning Strike", dest=Config.CROWN, dur=0.3, action_id=41, telegraph="none", desc="35 dmg single target."},
+	],
+	Config.SCATTER: [
+		{name="Dispersed Shield", dest=Config.ORBIT, dur=0.5, action_id=42, telegraph="none", desc="+18 shield. 15% DR for 2s."},
+		{name="Rain of Blades", dest=Config.FAN, dur=0.4, action_id=43, telegraph="circle", radius=5.0, desc="35 dmg AoE (5m)."},
+		{name="Converging Strike", dest=Config.LANCE, dur=0.3, action_id=44, telegraph="none", desc="50 dmg single target."},
+		{name="Chaos Bind", dest=Config.CROWN, dur=0.5, action_id=45, telegraph="circle", radius=5.0, desc="15 dmg AoE (5m)."},
+	],
+	Config.CROWN: [
+		{name="Commanding Ward", dest=Config.ORBIT, dur=0.5, action_id=46, telegraph="none", desc="+20 shield."},
+		{name="Royal Cleave", dest=Config.FAN, dur=0.3, action_id=47, telegraph="cone", radius=5.0, arc=60.0, desc="30 dmg cone (5m)."},
+		{name="Decree Strike", dest=Config.LANCE, dur=0.3, action_id=48, telegraph="none", desc="40 dmg single target."},
+		{name="Sovereign Scatter", dest=Config.SCATTER, dur=0.4, action_id=49, telegraph="circle", radius=6.0, desc="20 dmg AoE (6m)."},
+	],
+}
 
 @onready var camera: Camera3D = $Camera3D
 @onready var character_model: Node3D = $CharacterModel
@@ -112,6 +148,7 @@ func _ready() -> void:
 	if _is_local():
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		hud.update_config(config)
+		hud.update_spells(SPELL_TABLE[config])
 	else:
 		$HUDLayer.visible = false
 		camera.current = false
@@ -135,6 +172,14 @@ func _is_local() -> bool:
 func apply_server_state(data: Dictionary) -> void:
 	if _is_local():
 		health = data.health
+		if data.has("config"):
+			var server_config: int = data.config
+			if server_config >= 0 and server_config <= 4 and server_config != config:
+				config = server_config as Config
+				hud.update_config(config)
+				hud.update_spells(SPELL_TABLE[config])
+		var server_shield: float = data.get("shield_hp", 0.0)
+		hud.update_shield(server_shield)
 		if health <= 0.0 and _alive:
 			_alive = false
 			_enter_state(State.DEAD)
@@ -142,7 +187,6 @@ func apply_server_state(data: Dictionary) -> void:
 		elif health > 0.0 and not _alive:
 			_alive = true
 			_enter_state(State.MOVE)
-			# Snap to server position on respawn
 			global_position = data.pos
 			_net_position = data.pos
 	else:
@@ -151,6 +195,8 @@ func apply_server_state(data: Dictionary) -> void:
 		health = data.health
 		_net_anim = data.anim_name
 		_net_anim_speed = data.anim_speed
+		if data.has("config"):
+			config = data.config as Config
 
 
 ## Called by main.gd when server confirms this player hit an enemy.
@@ -188,27 +234,18 @@ func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
 	else:
-		velocity.y = -0.5  # keep pressed to floor so is_on_floor() stays reliable
+		velocity.y = -0.5
 
 	_state_timer -= delta
 	_gcd_timer -= delta
 	_update_flash(delta)
 	_update_camera()
-	_update_guard_timer(delta)
 
 	match state:
 		State.MOVE:
 			_process_move(delta)
-		State.EDGE:
-			_process_edge(delta)
-		State.SURGE_WINDUP:
-			_process_surge_windup(delta)
-		State.SURGE:
-			_process_surge(delta)
-		State.GUARD:
-			_process_guard(delta)
-		State.RECALL:
-			_process_recall(delta)
+		State.CASTING:
+			_process_casting(delta)
 		State.DASH:
 			_process_dash(delta)
 		State.STAGGER:
@@ -221,10 +258,14 @@ func _physics_process(delta: float) -> void:
 
 	_update_animation()
 	_update_blade_visual(delta)
-	hud.update_lock_on(_lock_target, camera)
+	# Clear lock if target is dead, freed, or hidden — use same path as Q toggle
+	if _lock_on_active and _lock_target:
+		if not is_instance_valid(_lock_target) or not _lock_target.visible or ("_server_alive" in _lock_target and not _lock_target._server_alive):
+			_toggle_lock_on()
+	if _lock_on_active and _lock_target:
+		hud.update_lock_on(_lock_target, camera)
 	hud.update_gcd(_gcd_timer / gcd_duration if _gcd_timer > 0.0 else 0.0)
 
-	# Send position + animation to server
 	if NetworkManager.is_active:
 		NetworkManager.send_player_position(global_position, rotation.y, _net_anim, _net_anim_speed)
 
@@ -252,22 +293,20 @@ func _process_move(delta: float) -> void:
 
 	# Ability inputs (gated by GCD, disabled when cursor is visible)
 	if _gcd_timer <= 0.0 and not cursor_active:
-		if Input.is_action_just_pressed("light_attack"):
-			_start_edge()
-			return
-		if Input.is_action_just_pressed("heavy_attack"):
-			_start_surge()
-			return
-		if Input.is_action_just_pressed("block"):
-			_start_guard()
-			return
+		# Check spell slots 0-3
+		for slot in 4:
+			if Input.is_action_just_pressed(SPELL_SLOT_ACTIONS[slot]):
+				_start_spell(slot)
+				return
+
+		# Dash on dodge key (not a spell slot)
 		if Input.is_action_just_pressed("dodge") and is_on_floor():
 			_start_dash()
 			return
 
 	# Jump
 	if Input.is_action_just_pressed("jump") and is_on_floor():
-		velocity.y = 3.5  # must match server JumpVel for blade_dancer
+		velocity.y = 3.5
 
 	# Movement
 	var speed := sprint_speed if Input.is_action_pressed("sprint") else run_speed
@@ -350,103 +389,52 @@ func _face_attack_direction(delta: float) -> void:
 		rotation.y = _facing_angle
 
 
-# --- Edge (Ability 1) ---
+# --- Spell Casting ---
 
-func _start_edge() -> void:
-	_config_at_cast = config
-	_has_hit_this_attack = false
-	# Tell server we're attacking
-	if NetworkManager.is_active:
-		NetworkManager.send_ability(1, 0.0, rotation.y)  # 1 = ActionMelee
-	_enter_state(State.EDGE)
-	_state_timer = 0.3
+func _start_spell(slot: int) -> void:
+	var spells: Array = SPELL_TABLE[config]
+	if slot < 0 or slot >= spells.size():
+		return
+	var spell: Dictionary = spells[slot]
+
+	_casting_spell = spell
+	_cast_timer = spell.dur
 	_gcd_timer = gcd_duration
 
-
-func _process_edge(delta: float) -> void:
-	_face_attack_direction(delta)
-
-	# Hit at 50% through — ranged blade command
-	if not _has_hit_this_attack and _state_timer <= 0.15:
-		_has_hit_this_attack = true
-		match _config_at_cast:
-			Config.ORBIT:
-				_perform_raycast_hit(orbit_edge_damage, cast_range)
-			Config.LANCE:
-				_perform_raycast_hit(lance_edge_damage, cast_range)
-		_transition_config_for_ability()
-
-	if _state_timer <= 0.0:
-		_enter_state(State.MOVE)
-
-
-# --- Surge (Ability 2) ---
-
-func _start_surge() -> void:
-	_config_at_cast = config
-	_has_hit_this_attack = false
-	# Tell server we're attacking (heavy)
+	# Send ability to server
 	if NetworkManager.is_active:
-		NetworkManager.send_ability(2, 0.0, rotation.y)  # 2 = ActionHeavy
-	_gcd_timer = gcd_duration
-	match _config_at_cast:
-		Config.ORBIT:
-			_enter_state(State.SURGE)
-			_state_timer = 0.2
-		Config.LANCE:
-			_enter_state(State.SURGE_WINDUP)
-			_state_timer = lance_surge_windup
+		NetworkManager.send_ability(spell.action_id, 0.0, rotation.y)
+
+	# Spawn telegraph if the spell has one
+	_spawn_spell_telegraph(spell)
+
+	# Client-side raycast for optimistic hit feedback
+	_perform_raycast_hit(cast_range)
+
+	_enter_state(State.CASTING)
 
 
-func _process_surge_windup(delta: float) -> void:
+func _spawn_spell_telegraph(spell: Dictionary) -> void:
+	var telegraph_type: String = spell.get("telegraph", "none")
+	if telegraph_type == "none":
+		return
+
+	var pos := global_position
+	var spell_radius: float = spell.get("radius", 5.0)
+
+	if telegraph_type == "circle":
+		PlayerTelegraph.spawn_circle(get_tree().root, pos, spell_radius, TELEGRAPH_COLOR)
+	elif telegraph_type == "cone":
+		var arc: float = spell.get("arc", 60.0)
+		PlayerTelegraph.spawn_cone(get_tree().root, pos, rotation.y, spell_radius, arc / 2.0, TELEGRAPH_COLOR)
+
+
+func _process_casting(delta: float) -> void:
 	_face_attack_direction(delta)
-	if _state_timer <= 0.0:
-		_enter_state(State.SURGE)
-		_state_timer = 0.2
 
-
-func _process_surge(delta: float) -> void:
-	_face_attack_direction(delta)
-
-	if not _has_hit_this_attack:
-		_has_hit_this_attack = true
-		match _config_at_cast:
-			Config.ORBIT:
-				_perform_raycast_hit(orbit_surge_damage, cast_range)
-			Config.LANCE:
-				_perform_raycast_hit(lance_surge_damage, cast_range)
-		_transition_config_for_ability()
-
-	if _state_timer <= 0.0:
-		_enter_state(State.MOVE)
-
-
-# --- Guard (Ability 3) ---
-
-func _start_guard() -> void:
-	_config_at_cast = config
-	_has_hit_this_attack = false
-	_gcd_timer = gcd_duration
-	# Tell server we're guarding
-	if NetworkManager.is_active:
-		NetworkManager.send_ability(4)  # 4 = ActionGuard
-	match _config_at_cast:
-		Config.ORBIT:
-			_guard_active = true
-			_guard_timer = orbit_guard_duration
-			_enter_state(State.GUARD)
-			_state_timer = orbit_guard_duration
-			# Orbit Guard stays in Orbit (no config transition)
-		Config.LANCE:
-			_enter_state(State.RECALL)
-			_state_timer = 0.3
-
-
-func _process_guard(delta: float) -> void:
-	# Orbit Guard: slow movement allowed, damage reduction active
+	# Slow movement while casting
 	var wish_dir := _get_camera_wish_dir()
-	var speed := run_speed * 0.5
-
+	var speed := run_speed * 0.4
 	if wish_dir.length() > 0.1:
 		var target_vel := wish_dir * speed
 		velocity.x = move_toward(velocity.x, target_vel.x, ground_accel * delta)
@@ -455,52 +443,25 @@ func _process_guard(delta: float) -> void:
 		velocity.x = move_toward(velocity.x, 0.0, ground_decel * delta)
 		velocity.z = move_toward(velocity.z, 0.0, ground_decel * delta)
 
-	if _lock_on_active and _lock_target and is_instance_valid(_lock_target):
-		_face_target(delta)
-
-	if _state_timer <= 0.0:
-		_guard_active = false
-		# Orbit Guard: config stays ORBIT
-		_enter_state(State.MOVE)
-
-
-func _process_recall(delta: float) -> void:
-	# Lance Recall: blades return from target, dealing damage on departure
-	_face_attack_direction(delta)
-
-	if not _has_hit_this_attack and _state_timer <= 0.15:
-		_has_hit_this_attack = true
-		_perform_raycast_hit(lance_recall_damage, cast_range)
-		config = Config.ORBIT
+	_cast_timer -= delta
+	if _cast_timer <= 0.0:
+		# Transition config on cast completion
+		config = _casting_spell.dest as Config
 		hud.update_config(config)
-
-	if _state_timer <= 0.0:
+		hud.update_spells(SPELL_TABLE[config])
+		_casting_spell = {}
 		_enter_state(State.MOVE)
 
 
-func _update_guard_timer(delta: float) -> void:
-	if _guard_active:
-		_guard_timer -= delta
-		if _guard_timer <= 0.0:
-			_guard_active = false
-
-
-# --- Dash (Ability 4) ---
+# --- Dash ---
 
 func _start_dash() -> void:
-	_config_at_cast = config
 	_gcd_timer = gcd_duration
-	match _config_at_cast:
-		Config.ORBIT:
-			# Forward dash
-			var wish := _get_camera_wish_dir()
-			if wish.length() > 0.1:
-				_dash_direction = wish
-			else:
-				_dash_direction = -transform.basis.z.normalized()
-		Config.LANCE:
-			# Backward retreat
-			_dash_direction = transform.basis.z.normalized()
+	var wish := _get_camera_wish_dir()
+	if wish.length() > 0.1:
+		_dash_direction = wish
+	else:
+		_dash_direction = -transform.basis.z.normalized()
 
 	_enter_state(State.DASH)
 	_state_timer = dash_duration
@@ -519,20 +480,7 @@ func _process_dash(_delta: float) -> void:
 		_is_invincible = false
 		velocity.x *= 0.3
 		velocity.z *= 0.3
-		# Orbit Dash -> Lance, Lance Dash -> Orbit
-		_transition_config_for_ability()
 		_enter_state(State.MOVE)
-
-
-# --- Config transition ---
-
-func _transition_config_for_ability() -> void:
-	match _config_at_cast:
-		Config.ORBIT:
-			config = Config.LANCE
-		Config.LANCE:
-			config = Config.ORBIT
-	hud.update_config(config)
 
 
 # --- Stagger ---
@@ -546,8 +494,8 @@ func _process_stagger() -> void:
 
 # --- Ranged Hit Detection ---
 
-func _perform_raycast_hit(_damage: float, max_range: float) -> void:
-	# Server resolves hits — client only shows optimistic hit marker
+func _perform_raycast_hit(max_range: float) -> void:
+	# Server resolves hits -- client only shows optimistic hit marker
 	var origin := global_position + Vector3(0.0, 1.0, 0.0)
 	var direction: Vector3
 	if _lock_on_active and _lock_target and is_instance_valid(_lock_target):
@@ -562,7 +510,7 @@ func _perform_raycast_hit(_damage: float, max_range: float) -> void:
 		return
 	var query := PhysicsRayQueryParameters3D.create(origin, origin + direction * max_range, 4 | 1)
 	query.exclude = [get_rid()]
-	var result := space.intersect_ray(query)
+	var _result := space.intersect_ray(query)
 	# Hit marker now driven by server-confirmed damage events (on_hit_confirmed)
 
 
@@ -595,7 +543,6 @@ func _find_lock_target() -> Node3D:
 
 
 # --- Damage (server-authoritative) ---
-# Health is updated via apply_server_state(). These are for compat only.
 
 func take_damage(_amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
 	pass  # Server handles all damage
@@ -618,25 +565,11 @@ func _update_animation() -> void:
 			_net_anim_speed = 1.0
 			character_model.play_anim_timed("roll", dash_duration)
 			return
-		State.EDGE:
+		State.CASTING:
 			_net_anim = "slash"
 			_net_anim_speed = 1.0
-			character_model.play_anim_timed("slash", 0.3)
-			return
-		State.SURGE_WINDUP, State.SURGE:
-			_net_anim = "slash"
-			_net_anim_speed = 1.0
-			character_model.play_anim_timed("slash", lance_surge_windup + 0.2)
-			return
-		State.RECALL:
-			_net_anim = "slash"
-			_net_anim_speed = 1.0
-			character_model.play_anim_timed("slash", 0.3)
-			return
-		State.GUARD:
-			_net_anim = "idle"
-			_net_anim_speed = 1.0
-			character_model.play_anim("idle")
+			var dur: float = _casting_spell.get("dur", 0.4)
+			character_model.play_anim_timed("slash", dur)
 			return
 		State.STAGGER:
 			_net_anim = "idle"
@@ -670,17 +603,35 @@ func _update_animation() -> void:
 # --- Blade Visuals ---
 
 func _setup_blade_materials() -> void:
-	_orbit_material = StandardMaterial3D.new()
-	_orbit_material.albedo_color = Color(0.2, 0.8, 0.9)
-	_orbit_material.emission_enabled = true
-	_orbit_material.emission = Color(0.1, 0.6, 0.8)
-	_orbit_material.emission_energy_multiplier = 2.0
+	_orbit_material = _make_material(Color(0.2, 0.8, 0.9), Color(0.1, 0.6, 0.8))
+	_fan_material = _make_material(Color(1.0, 0.5, 0.1), Color(0.9, 0.35, 0.05))
+	_lance_material = _make_material(Color(0.9, 0.2, 0.1), Color(0.8, 0.1, 0.05))
+	_scatter_material = _make_material(Color(0.6, 0.2, 0.9), Color(0.5, 0.1, 0.8))
+	_crown_material = _make_material(Color(1.0, 0.85, 0.3), Color(0.9, 0.75, 0.2))
 
-	_lance_material = StandardMaterial3D.new()
-	_lance_material.albedo_color = Color(1.0, 0.6, 0.1)
-	_lance_material.emission_enabled = true
-	_lance_material.emission = Color(0.9, 0.4, 0.05)
-	_lance_material.emission_energy_multiplier = 2.0
+
+func _make_material(albedo: Color, emission: Color) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = albedo
+	mat.emission_enabled = true
+	mat.emission = emission
+	mat.emission_energy_multiplier = 2.0
+	return mat
+
+
+func _get_config_material(cfg: Config) -> StandardMaterial3D:
+	match cfg:
+		Config.ORBIT:
+			return _orbit_material
+		Config.FAN:
+			return _fan_material
+		Config.LANCE:
+			return _lance_material
+		Config.SCATTER:
+			return _scatter_material
+		Config.CROWN:
+			return _crown_material
+	return _orbit_material
 
 
 func _setup_blades() -> void:
@@ -702,66 +653,42 @@ func _update_blade_visual(delta: float) -> void:
 	_blade_spin += delta * 2.0
 	_blade_orbit_angle += 120.0 * delta
 
-	# Compute target position, rotation, and material for each blade
 	var targets: Array[Vector3] = []
 	var target_rots: Array[float] = []
 	var mat: StandardMaterial3D
 	var lerp_speed := _blade_lerp_speed
 
 	match state:
-		State.EDGE:
-			# Blades sweep forward in a fan slash
-			var progress := 1.0 - (_state_timer / 0.3)  # 0→1
-			var sweep_angle := lerpf(-60.0, 60.0, progress)
-			mat = _orbit_material if _config_at_cast == Config.ORBIT else _lance_material
+		State.CASTING:
+			# During casting, blend toward destination config formation
+			var dest_cfg: Config = _casting_spell.get("dest", Config.ORBIT) as Config
+			mat = _get_config_material(dest_cfg)
 			lerp_speed = 20.0
-			for i in 3:
-				var a := deg_to_rad(sweep_angle + (i - 1) * 25.0)
-				var r := 1.8
-				targets.append(Vector3(sin(a) * r, 0.9, -cos(a) * r))
-				target_rots.append(a)
+			var dur: float = _casting_spell.get("dur", 0.4)
+			var progress := 1.0 - (_cast_timer / dur) if dur > 0.0 else 1.0
+			progress = clampf(progress, 0.0, 1.0)
 
-		State.SURGE_WINDUP:
-			# Blades pull back behind the player, charging
-			mat = _lance_material
-			lerp_speed = 15.0
-			for i in 3:
-				var spread := (i - 1) * 0.3
-				targets.append(Vector3(spread, 1.2, 1.2))
-				target_rots.append(PI)
-
-		State.SURGE:
-			# Blades thrust forward in a tight line
-			mat = _lance_material
-			lerp_speed = 30.0
-			for i in 3:
-				var d := 2.5 + i * 0.3
-				targets.append(Vector3(0.0, 0.9, -d))
-				target_rots.append(0.0)
-
-		State.GUARD:
-			# Blades form a spinning shield around the player
-			mat = _orbit_material
-			lerp_speed = 18.0
-			for i in 3:
-				var angle := deg_to_rad(_blade_orbit_angle * 2.0 + i * 120.0)
-				targets.append(Vector3(cos(angle) * 0.7, 0.9, sin(angle) * 0.7))
-				target_rots.append(angle + PI / 2.0)
-
-		State.RECALL:
-			# Blades fly back from far to close
-			var progress := 1.0 - (_state_timer / 0.3)
-			var dist := lerpf(3.0, 0.8, progress)
-			mat = _lance_material
-			lerp_speed = 25.0
-			for i in 3:
-				var spread := (i - 1) * 0.4
-				targets.append(Vector3(spread, 0.9, -dist))
-				target_rots.append(0.0)
+			# Sweep blades forward during first half, settle into dest formation second half
+			if progress < 0.5:
+				var sweep := progress * 2.0  # 0->1 in first half
+				var sweep_angle := lerpf(-60.0, 60.0, sweep)
+				for i in 3:
+					var a := deg_to_rad(sweep_angle + (i - 1) * 25.0)
+					var r := 1.8
+					targets.append(Vector3(sin(a) * r, 0.9, -cos(a) * r))
+					target_rots.append(a)
+			else:
+				var settle := (progress - 0.5) * 2.0  # 0->1 in second half
+				var dest_targets := _get_formation_positions(dest_cfg)
+				var dest_rots := _get_formation_rotations(dest_cfg)
+				for i in 3:
+					var sweep_a := deg_to_rad(60.0 + (i - 1) * 25.0)
+					var sweep_pos := Vector3(sin(sweep_a) * 1.8, 0.9, -cos(sweep_a) * 1.8)
+					targets.append(sweep_pos.lerp(dest_targets[i], settle))
+					target_rots.append(lerp_angle(sweep_a, dest_rots[i], settle))
 
 		State.DASH:
-			# Blades trail behind during dash
-			mat = _orbit_material if _config_at_cast == Config.ORBIT else _lance_material
+			mat = _get_config_material(config)
 			lerp_speed = 15.0
 			for i in 3:
 				var spread := (i - 1) * 0.5
@@ -769,38 +696,92 @@ func _update_blade_visual(delta: float) -> void:
 				target_rots.append(PI)
 
 		_:
-			# Idle / Move — use config formation
-			match config:
-				Config.ORBIT:
-					mat = _orbit_material
-					for i in 3:
-						var angle := deg_to_rad(_blade_orbit_angle + i * 120.0)
-						var radius := 1.0
-						targets.append(Vector3(cos(angle) * radius, 0.9, sin(angle) * radius))
-						target_rots.append(angle + PI / 2.0)
-				Config.LANCE:
-					mat = _lance_material
-					var local_dir: Vector3
-					if _lock_on_active and _lock_target and is_instance_valid(_lock_target):
-						var to_target := _lock_target.global_position - global_position
-						to_target.y = 0.0
-						local_dir = transform.basis.inverse() * to_target.normalized()
-					else:
-						local_dir = Vector3(0.0, 0.0, -1.0)
-					for i in 3:
-						var d := 2.0 + i * 0.4
-						targets.append(Vector3(local_dir.x * d, 0.9, local_dir.z * d))
-						target_rots.append(atan2(local_dir.x, local_dir.z))
+			# Idle / Move -- use current config formation
+			mat = _get_config_material(config)
+			targets = _get_formation_positions(config)
+			target_rots = _get_formation_rotations(config)
 
-	# Apply with lerp
 	for i in 3:
 		if i >= targets.size():
 			break
 		_blade_nodes[i].position = _blade_nodes[i].position.lerp(targets[i], lerp_speed * delta)
 		_blade_nodes[i].rotation.y = lerp_angle(_blade_nodes[i].rotation.y, target_rots[i], lerp_speed * delta)
-		# Gentle wobble on the pitch axis for a floating feel
 		_blade_nodes[i].rotation.x = sin(_blade_spin + i * 2.0) * 0.15
 		_apply_blade_material(_blade_nodes[i], mat)
+
+
+## Get idle formation positions for a given config.
+func _get_formation_positions(cfg: Config) -> Array[Vector3]:
+	var positions: Array[Vector3] = []
+	match cfg:
+		Config.ORBIT:
+			# Circular orbit around player
+			for i in 3:
+				var angle := deg_to_rad(_blade_orbit_angle + i * 120.0)
+				positions.append(Vector3(cos(angle) * 1.0, 0.9, sin(angle) * 1.0))
+		Config.FAN:
+			# Arc spread in front of player
+			for i in 3:
+				var angle := deg_to_rad(-30.0 + i * 30.0)
+				positions.append(Vector3(sin(angle) * 1.5, 0.9, -cos(angle) * 1.5))
+		Config.LANCE:
+			# Tight line aimed forward
+			var local_dir: Vector3
+			if _lock_on_active and _lock_target and is_instance_valid(_lock_target):
+				var to_target := _lock_target.global_position - global_position
+				to_target.y = 0.0
+				local_dir = transform.basis.inverse() * to_target.normalized()
+			else:
+				local_dir = Vector3(0.0, 0.0, -1.0)
+			for i in 3:
+				var d := 2.0 + i * 0.4
+				positions.append(Vector3(local_dir.x * d, 0.9, local_dir.z * d))
+		Config.SCATTER:
+			# Blades spread outward in different directions
+			for i in 3:
+				var angle := deg_to_rad(_blade_orbit_angle * 0.7 + i * 120.0)
+				var r := 1.8
+				positions.append(Vector3(cos(angle) * r, 0.6 + i * 0.3, sin(angle) * r))
+		Config.CROWN:
+			# Hover above head in a halo
+			for i in 3:
+				var angle := deg_to_rad(_blade_orbit_angle * 0.5 + i * 120.0)
+				var r := 0.6
+				positions.append(Vector3(cos(angle) * r, 1.8, sin(angle) * r))
+	return positions
+
+
+## Get idle formation rotations for a given config.
+func _get_formation_rotations(cfg: Config) -> Array[float]:
+	var rotations: Array[float] = []
+	match cfg:
+		Config.ORBIT:
+			for i in 3:
+				var angle := deg_to_rad(_blade_orbit_angle + i * 120.0)
+				rotations.append(angle + PI / 2.0)
+		Config.FAN:
+			for i in 3:
+				var angle := deg_to_rad(-30.0 + i * 30.0)
+				rotations.append(angle)
+		Config.LANCE:
+			var local_dir: Vector3
+			if _lock_on_active and _lock_target and is_instance_valid(_lock_target):
+				var to_target := _lock_target.global_position - global_position
+				to_target.y = 0.0
+				local_dir = transform.basis.inverse() * to_target.normalized()
+			else:
+				local_dir = Vector3(0.0, 0.0, -1.0)
+			for i in 3:
+				rotations.append(atan2(local_dir.x, local_dir.z))
+		Config.SCATTER:
+			for i in 3:
+				var angle := deg_to_rad(_blade_orbit_angle * 0.7 + i * 120.0)
+				rotations.append(angle + PI / 4.0)
+		Config.CROWN:
+			for i in 3:
+				var angle := deg_to_rad(_blade_orbit_angle * 0.5 + i * 120.0)
+				rotations.append(angle)
+	return rotations
 
 
 ## Apply a material override to all MeshInstance3D children in a GLB instance.
@@ -863,7 +844,4 @@ func _enter_state(new_state: State) -> void:
 	match state:
 		State.DASH:
 			_is_invincible = false
-		State.GUARD:
-			_guard_active = false
 	state = new_state
-	_has_hit_this_attack = false

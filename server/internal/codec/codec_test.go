@@ -272,6 +272,27 @@ func TestEncodeWorldStateWireFormat(t *testing.T) {
 	if aimPitch != -0.1 {
 		t.Errorf("aim_pitch = %f, want -0.1", aimPitch)
 	}
+	// buff_flags (1 byte) + config (1 byte) + stamina (4 bytes)
+	buffFlags := buf[off]
+	off++
+	if buffFlags != 0 {
+		t.Errorf("buff_flags = %d, want 0", buffFlags)
+	}
+	config := buf[off]
+	off++
+	if config != 0 {
+		t.Errorf("config = %d, want 0", config)
+	}
+	staminaVal := math.Float32frombits(binary.LittleEndian.Uint32(buf[off:]))
+	off += 4
+	if staminaVal != 0.0 {
+		t.Errorf("stamina = %f, want 0.0 (gunner has no stamina)", staminaVal)
+	}
+	shieldVal := math.Float32frombits(binary.LittleEndian.Uint32(buf[off:]))
+	off += 4
+	if shieldVal != 0.0 {
+		t.Errorf("shield = %f, want 0.0", shieldVal)
+	}
 
 	// enemy count
 	if buf[off] != 1 {

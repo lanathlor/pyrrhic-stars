@@ -204,7 +204,7 @@ func (b *Brain) tickChase(dt float32, players map[uint16]*entity.Player, obstacl
 func (b *Brain) tickMeleeTelegraph(players map[uint16]*entity.Player) {
 	e := b.enemy
 	e.Velocity = entity.Vec3{}
-	b.faceTarget(players)
+	// No rotation during telegraph — player can reposition to dodge
 	if e.StateTimer <= 0 {
 		e.State = entity.EnemyMeleeAttack
 		e.StateTimer = 0.3

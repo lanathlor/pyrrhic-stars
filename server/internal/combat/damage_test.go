@@ -92,6 +92,34 @@ func TestDeadEnemyIgnored(t *testing.T) {
 	}
 }
 
+func TestGunnerRechamberBuffDamage(t *testing.T) {
+	enemy := makeEnemy()
+	player := makeGunner(42, entity.Vec3{X: 0, Y: 0, Z: 10}, entity.Vec3{X: 0, Y: 1, Z: 0})
+	player.RechamberBuff = true
+
+	evt := ResolvePlayerAttackOnEnemy(player, enemy, nil)
+	if evt == nil {
+		t.Fatal("expected hit, got nil")
+	}
+	if evt.Amount != 18.0 {
+		t.Errorf("Amount = %f, want 18.0 (rechamber buff)", evt.Amount)
+	}
+}
+
+func TestGunnerNormalDamageWithoutBuff(t *testing.T) {
+	enemy := makeEnemy()
+	player := makeGunner(42, entity.Vec3{X: 0, Y: 0, Z: 10}, entity.Vec3{X: 0, Y: 1, Z: 0})
+	player.RechamberBuff = false
+
+	evt := ResolvePlayerAttackOnEnemy(player, enemy, nil)
+	if evt == nil {
+		t.Fatal("expected hit, got nil")
+	}
+	if evt.Amount != 10.0 {
+		t.Errorf("Amount = %f, want 10.0 (no buff)", evt.Amount)
+	}
+}
+
 func TestVanguardMelee(t *testing.T) {
 	enemy := makeEnemy()
 	enemy.Position = entity.Vec3{X: 0, Y: 0, Z: 1.5} // within melee range
@@ -173,6 +201,123 @@ func TestDamageEventWireFormat(t *testing.T) {
 	}
 	if gotType != SourcePlayerAttack {
 		t.Errorf("source_type = %d, want %d", gotType, SourcePlayerAttack)
+	}
+}
+
+// --- AoE Resolution Tests ---
+
+func makeVanguard(peerID uint16, pos entity.Vec3, rotY float32) *entity.Player {
+	return &entity.Player{
+		PeerID:    peerID,
+		ClassName: "vanguard",
+		Position:  pos,
+		RotationY: rotY,
+		Health:    200,
+		MaxHealth: 200,
+		Alive:     true,
+	}
+}
+
+func TestAoECircle_HitsMultiple(t *testing.T) {
+	player := makeVanguard(1, entity.Vec3{X: 0, Y: 0, Z: 0}, 0)
+	e1 := entity.NewEnemy(1000, 500, "test")
+	e1.Position = entity.Vec3{X: 2, Y: 0, Z: 0} // in range (dist=2, radius=4)
+	e2 := entity.NewEnemy(1001, 500, "test")
+	e2.Position = entity.Vec3{X: -1, Y: 0, Z: 1} // in range (dist=1.4)
+	e3 := entity.NewEnemy(1002, 500, "test")
+	e3.Position = entity.Vec3{X: 10, Y: 0, Z: 0} // out of range
+
+	enemies := []*entity.Enemy{e1, e2, e3}
+	shape := AoEShape{Type: AoECircle, Radius: 4.0, Damage: 25.0}
+	events := ResolvePlayerAoEOnEnemies(player, enemies, nil, shape)
+
+	if len(events) != 2 {
+		t.Fatalf("expected 2 hits, got %d", len(events))
+	}
+	for _, evt := range events {
+		if evt.Amount != 25.0 {
+			t.Errorf("expected 25.0 damage, got %f", evt.Amount)
+		}
+		if evt.SourcePeerID != 1 {
+			t.Errorf("expected source peer 1, got %d", evt.SourcePeerID)
+		}
+	}
+}
+
+func TestAoECircle_NoEnemies(t *testing.T) {
+	player := makeVanguard(1, entity.Vec3{}, 0)
+	shape := AoEShape{Type: AoECircle, Radius: 5.0, Damage: 30.0}
+	events := ResolvePlayerAoEOnEnemies(player, nil, nil, shape)
+	if len(events) != 0 {
+		t.Errorf("expected 0 hits, got %d", len(events))
+	}
+}
+
+func TestAoECircle_SkipsDeadEnemies(t *testing.T) {
+	player := makeVanguard(1, entity.Vec3{}, 0)
+	e1 := entity.NewEnemy(1000, 500, "test")
+	e1.Position = entity.Vec3{X: 1, Y: 0, Z: 0}
+	e1.Alive = false
+	e1.State = entity.EnemyDead
+
+	shape := AoEShape{Type: AoECircle, Radius: 5.0, Damage: 30.0}
+	events := ResolvePlayerAoEOnEnemies(player, []*entity.Enemy{e1}, nil, shape)
+	if len(events) != 0 {
+		t.Errorf("expected 0 hits for dead enemy, got %d", len(events))
+	}
+}
+
+func TestAoECone_HitsInArc(t *testing.T) {
+	// Player at origin facing +Z (rotY = PI)
+	player := makeVanguard(1, entity.Vec3{}, float32(math.Pi))
+	e1 := entity.NewEnemy(1000, 500, "test")
+	e1.Position = entity.Vec3{X: 0, Y: 0, Z: 3} // directly ahead, in range
+	e2 := entity.NewEnemy(1001, 500, "test")
+	e2.Position = entity.Vec3{X: 0, Y: 0, Z: -3} // behind player, should miss
+
+	shape := AoEShape{Type: AoECone, Radius: 5.0, ArcDegrees: 90.0, Damage: 60.0}
+	events := ResolvePlayerAoEOnEnemies(player, []*entity.Enemy{e1, e2}, nil, shape)
+
+	if len(events) != 1 {
+		t.Fatalf("expected 1 hit (front only), got %d", len(events))
+	}
+	if events[0].TargetPeerID != 1000 {
+		t.Errorf("expected hit on enemy 1000, got %d", events[0].TargetPeerID)
+	}
+	if events[0].Amount != 60.0 {
+		t.Errorf("expected 60.0 damage, got %f", events[0].Amount)
+	}
+}
+
+func TestAoECircle_BlockedByObstacle(t *testing.T) {
+	player := makeVanguard(1, entity.Vec3{X: 0, Y: 0, Z: 0}, 0)
+	e1 := entity.NewEnemy(1000, 500, "test")
+	e1.Position = entity.Vec3{X: 0, Y: 0, Z: 5} // in radius but behind obstacle
+
+	obstacle := Obstacle{CX: 0, CZ: 2.5, HX: 2.0, HZ: 0.5, Height: 3.0}
+	shape := AoEShape{Type: AoECircle, Radius: 10.0, Damage: 25.0}
+	events := ResolvePlayerAoEOnEnemies(player, []*entity.Enemy{e1}, []Obstacle{obstacle}, shape)
+
+	if len(events) != 0 {
+		t.Errorf("expected 0 hits (blocked by obstacle), got %d", len(events))
+	}
+}
+
+func TestAoECone_MultipleInArc(t *testing.T) {
+	// Player facing +Z, wide 180° arc
+	player := makeVanguard(1, entity.Vec3{}, float32(math.Pi))
+	e1 := entity.NewEnemy(1000, 500, "test")
+	e1.Position = entity.Vec3{X: 2, Y: 0, Z: 3} // front-right
+	e2 := entity.NewEnemy(1001, 500, "test")
+	e2.Position = entity.Vec3{X: -2, Y: 0, Z: 3} // front-left
+	e3 := entity.NewEnemy(1002, 500, "test")
+	e3.Position = entity.Vec3{X: 0, Y: 0, Z: -3} // behind
+
+	shape := AoEShape{Type: AoECone, Radius: 5.0, ArcDegrees: 180.0, Damage: 40.0}
+	events := ResolvePlayerAoEOnEnemies(player, []*entity.Enemy{e1, e2, e3}, nil, shape)
+
+	if len(events) != 2 {
+		t.Fatalf("expected 2 hits (both in front), got %d", len(events))
 	}
 }
 

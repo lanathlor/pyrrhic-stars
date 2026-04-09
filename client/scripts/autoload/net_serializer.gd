@@ -398,6 +398,11 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 		var anim_name := _get_str8(buf)
 		var anim_speed := buf.get_float()
 		var aim_pitch := buf.get_float()
+		# Buff bitflags (1 byte) + config (1 byte) + stamina (4 bytes) — ability system
+		var buff_flags := buf.get_u8() if buf.get_position() < buf.get_size() else 0
+		var config := buf.get_u8() if buf.get_position() < buf.get_size() else 0
+		var server_stamina := buf.get_float() if buf.get_position() + 4 <= buf.get_size() else -1.0
+		var shield_hp := buf.get_float() if buf.get_position() + 4 <= buf.get_size() else 0.0
 		players.append({
 			"peer_id": peer_id,
 			"pos": pos,
@@ -409,6 +414,14 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 			"anim_name": anim_name,
 			"anim_speed": anim_speed,
 			"aim_pitch": aim_pitch,
+			"overclock_active": bool(buff_flags & 0x01),
+			"rechamber_buff": bool(buff_flags & 0x02),
+			"rechamber_phase": (buff_flags >> 2) & 0x03,
+			"blade_swirl": bool(buff_flags & 0x10),
+			"guard_active": bool(buff_flags & 0x20),
+			"config": config,
+			"stamina": server_stamina,
+			"shield_hp": shield_hp,
 		})
 
 	# Enemies — count-prefixed array

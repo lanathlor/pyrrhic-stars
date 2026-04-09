@@ -1,6 +1,7 @@
 extends Node
 
-## Combat bot AI for the Blade Dancer. Chains Edge/Surge rotation, uses Guard and Dash defensively.
+## Combat bot AI for the Blade Dancer. Uses the 5-config 20-spell system,
+## cycling through transitions and dodging enemy attacks.
 ## Attach as a child of a BladeDancer CharacterBody3D.
 
 var _player: CharacterBody3D
@@ -46,21 +47,7 @@ func _physics_process(delta: float) -> void:
 	_release_movement()
 
 	# Let committed states play out
-	if _player.state in [_player.State.DASH, _player.State.STAGGER]:
-		return
-	if _player.state in [_player.State.EDGE, _player.State.SURGE, _player.State.SURGE_WINDUP]:
-		return
-	if _player.state == _player.State.RECALL:
-		return
-
-	# Let Guard play out (but can interrupt with dodge if needed)
-	if _player.state == _player.State.GUARD:
-		# Emergency dodge out of guard for AoE
-		if _is_enemy_state(target, "AOE_TELEGRAPH") and distance < 8.0:
-			if _player._gcd_timer <= 0.0 and _player.is_on_floor():
-				_move_away(dir)
-				_player._start_dash()
-			return
+	if _player.state in [_player.State.DASH, _player.State.STAGGER, _player.State.CASTING]:
 		return
 
 	# --- Priority 1: Dodge AoE slam telegraph ---
@@ -81,21 +68,13 @@ func _physics_process(delta: float) -> void:
 			_player._start_dash()
 			return
 		elif _player.state == _player.State.MOVE:
-			# Use Guard as fallback
-			if _player._gcd_timer <= 0.0 and _player.config == _player.Config.ORBIT:
-				_player._start_guard()
-			else:
-				_move_strafe(dir)
+			_move_strafe(dir)
 			return
 
-	# --- Priority 3: Guard during melee telegraph ---
+	# --- Priority 3: Dodge during melee telegraph ---
 	if _is_enemy_state(target, "MELEE_TELEGRAPH") and distance < 5.0:
-		if _player._gcd_timer <= 0.0 and _player.state == _player.State.MOVE:
-			if _player.config == _player.Config.ORBIT:
-				_player._start_guard()
-			else:
-				# In Lance, dash away
-				_player._start_dash()
+		if _player._gcd_timer <= 0.0 and _player.state == _player.State.MOVE and _player.is_on_floor():
+			_player._start_dash()
 			return
 
 	# --- Priority 4: Strafe during ranged telegraph ---
@@ -105,16 +84,13 @@ func _physics_process(delta: float) -> void:
 			_move_toward(dir)
 		return
 
-	# --- Priority 5: Guard during active melee/charge ---
+	# --- Priority 5: Dodge during active melee/charge ---
 	if (_is_enemy_state(target, "MELEE_ATTACK") or _is_enemy_state(target, "CHARGE")) and distance < 5.0:
-		if _player._gcd_timer <= 0.0 and _player.state == _player.State.MOVE:
-			if _player.config == _player.Config.ORBIT:
-				_player._start_guard()
-			else:
-				_player._start_dash()
+		if _player._gcd_timer <= 0.0 and _player.state == _player.State.MOVE and _player.is_on_floor():
+			_player._start_dash()
 		return
 
-	# --- Priority 6: DPS rotation (ranged caster — fire from distance) ---
+	# --- Priority 6: DPS rotation (cast spells from range) ---
 	if _player.state == _player.State.MOVE and _player._gcd_timer <= 0.0 and distance <= 18.0:
 		_do_dps_rotation()
 		return
@@ -133,13 +109,10 @@ func _physics_process(delta: float) -> void:
 # --- DPS rotation ---
 
 func _do_dps_rotation() -> void:
-	# Optimal: Orbit Edge (->Lance) -> Lance Surge (->Orbit) -> repeat
-	# Gives 25 + 50 = 75 damage per 2 GCDs
-	match _player.config:
-		_player.Config.ORBIT:
-			_player._start_edge()
-		_player.Config.LANCE:
-			_player._start_surge()
+	# Simple: always cast slot 0, cycling through configs.
+	# This creates a rotation: ORBIT->FAN->ORBIT->FAN... via slot 0
+	# More advanced bots could pick optimal transitions.
+	_player._start_spell(0)
 
 
 # --- Targeting ---

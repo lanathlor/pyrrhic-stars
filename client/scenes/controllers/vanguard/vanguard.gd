@@ -5,7 +5,9 @@ extends CharacterBody3D
 
 signal died
 
-enum State { MOVE, DODGE, LIGHT_1, LIGHT_2, LIGHT_3, HEAVY_WINDUP, HEAVY, BLOCK, STAGGER, DEAD }
+const PlayerTelegraph := preload("res://scenes/shared/telegraph/player_telegraph.gd")
+
+enum State { MOVE, DODGE, LIGHT_1, LIGHT_2, LIGHT_3, HEAVY_WINDUP, HEAVY, BLOCK, STAGGER, DEAD, BLADE_SWIRL, GROUND_SLAM_WINDUP, GROUND_SLAM }
 
 # Movement
 @export var run_speed: float = 5.0
@@ -21,7 +23,7 @@ enum State { MOVE, DODGE, LIGHT_1, LIGHT_2, LIGHT_3, HEAVY_WINDUP, HEAVY, BLOCK,
 @export var dodge_speed: float = 12.0
 @export var dodge_duration: float = 0.4
 @export var dodge_iframe_duration: float = 0.15
-@export var dodge_stamina_cost: float = 25.0
+@export var dodge_stamina_cost: float = 20.0
 
 # Combat — light attacks (3-hit combo, escalating damage)
 @export var light_damage_1: float = 30.0
@@ -31,13 +33,13 @@ enum State { MOVE, DODGE, LIGHT_1, LIGHT_2, LIGHT_3, HEAVY_WINDUP, HEAVY, BLOCK,
 @export var light_duration_2: float = 0.65
 @export var light_duration_3: float = 0.75
 @export var light_combo_window: float = 0.4
-@export var light_stamina_cost: float = 15.0
+@export var light_stamina_cost: float = 10.0
 
 # Combat — heavy attack
 @export var heavy_damage: float = 75.0
 @export var heavy_windup_time: float = 0.5
 @export var heavy_attack_duration: float = 0.3
-@export var heavy_stamina_cost: float = 30.0
+@export var heavy_stamina_cost: float = 20.0
 
 # Melee hit detection
 @export var melee_range: float = 3.0
@@ -69,6 +71,25 @@ var _parry_timer: float = 0.0
 var _has_hit_this_attack: bool = false
 var _queued_light: bool = false
 var _stagger_duration: float = 0.3
+
+# Blade Swirl (Q)
+var _blade_swirl_timer: float = 0.0
+var _blade_swirl_cooldown: float = 0.0
+var _blade_swirl_tick_timer: float = 0.0
+const BLADE_SWIRL_DURATION: float = 1.5
+const BLADE_SWIRL_COOLDOWN: float = 10.0
+const BLADE_SWIRL_STAMINA: float = 25.0
+const BLADE_SWIRL_SPEED_MULT: float = 0.8
+
+# Ground Slam (E)
+var _ground_slam_cooldown: float = 0.0
+const GROUND_SLAM_COOLDOWN: float = 8.0
+const GROUND_SLAM_STAMINA: float = 20.0
+const GROUND_SLAM_WINDUP_TIME: float = 0.3
+const GROUND_SLAM_HIT_TIME: float = 0.1
+
+# Telegraph color
+const VANGUARD_TELEGRAPH_COLOR := Color(0.9, 0.6, 0.3, 0.4)
 
 # Camera
 var _camera_yaw: float = 0.0
@@ -136,6 +157,10 @@ func _is_local() -> bool:
 func apply_server_state(data: Dictionary) -> void:
 	if _is_local():
 		health = data.health
+		# Sync stamina from server — server is authoritative
+		var server_stamina: float = data.get("stamina", -1.0)
+		if server_stamina >= 0.0:
+			stamina = server_stamina
 		if health <= 0.0 and _alive:
 			_alive = false
 			_enter_state(State.DEAD)
@@ -198,6 +223,15 @@ func _physics_process(delta: float) -> void:
 	_update_camera()
 	_update_stamina(delta)
 	_update_parry(delta)
+	_blade_swirl_cooldown = maxf(_blade_swirl_cooldown - delta, 0.0)
+	_ground_slam_cooldown = maxf(_ground_slam_cooldown - delta, 0.0)
+
+	if Input.is_action_just_pressed("ability_1"):
+		if state != State.MOVE:
+			print("[Vanguard] F pressed but state=%d (not MOVE=0)" % state)
+	if Input.is_action_just_pressed("ability_2"):
+		if state != State.MOVE:
+			print("[Vanguard] E pressed but state=%d (not MOVE=0)" % state)
 
 	match state:
 		State.MOVE:
@@ -214,6 +248,12 @@ func _physics_process(delta: float) -> void:
 			_process_block(delta)
 		State.STAGGER:
 			_process_stagger()
+		State.BLADE_SWIRL:
+			_process_blade_swirl(delta)
+		State.GROUND_SLAM_WINDUP:
+			_process_ground_slam_windup(delta)
+		State.GROUND_SLAM:
+			_process_ground_slam(delta)
 		State.DEAD:
 			velocity.x = 0.0
 			velocity.z = 0.0
@@ -225,7 +265,16 @@ func _physics_process(delta: float) -> void:
 
 	_update_animation()
 	_update_weapon_visual()
-	hud.update_lock_on(_lock_target, camera)
+	# Clear lock if target is dead, freed, or hidden — use same path as Q toggle
+	if _lock_on_active and _lock_target:
+		if not is_instance_valid(_lock_target) or not _lock_target.visible or ("_server_alive" in _lock_target and not _lock_target._server_alive):
+			_toggle_lock_on()
+	if _lock_on_active and _lock_target:
+		hud.update_lock_on(_lock_target, camera)
+	hud.update_ability_cooldowns(
+		_blade_swirl_cooldown, BLADE_SWIRL_COOLDOWN,
+		_ground_slam_cooldown, GROUND_SLAM_COOLDOWN
+	)
 
 	# Send position + animation to server
 	if NetworkManager.is_active:
@@ -280,6 +329,32 @@ func _process_move(delta: float) -> void:
 	if Input.is_action_just_pressed("dodge") and is_on_floor() and stamina >= dodge_stamina_cost:
 		_start_dodge()
 		return
+
+	# Blade Swirl (F)
+	if Input.is_action_just_pressed("ability_1"):
+		if cursor_active:
+			print("[Vanguard] Blade Swirl blocked: cursor active")
+		elif stamina < BLADE_SWIRL_STAMINA:
+			print("[Vanguard] Blade Swirl blocked: stamina %.1f < %.1f" % [stamina, BLADE_SWIRL_STAMINA])
+		elif _blade_swirl_cooldown > 0.0:
+			print("[Vanguard] Blade Swirl blocked: cooldown %.1f remaining" % _blade_swirl_cooldown)
+		else:
+			print("[Vanguard] Blade Swirl: FIRING action 20")
+			_start_blade_swirl()
+			return
+
+	# Ground Slam (E)
+	if Input.is_action_just_pressed("ability_2"):
+		if cursor_active:
+			print("[Vanguard] Ground Slam blocked: cursor active")
+		elif stamina < GROUND_SLAM_STAMINA:
+			print("[Vanguard] Ground Slam blocked: stamina %.1f < %.1f" % [stamina, GROUND_SLAM_STAMINA])
+		elif _ground_slam_cooldown > 0.0:
+			print("[Vanguard] Ground Slam blocked: cooldown %.1f remaining" % _ground_slam_cooldown)
+		else:
+			print("[Vanguard] Ground Slam: FIRING action 21")
+			_start_ground_slam()
+			return
 
 	# Movement — direction derived from actual camera transform
 	var speed := sprint_speed if Input.is_action_pressed("sprint") else run_speed
@@ -398,7 +473,9 @@ func _start_dodge() -> void:
 	_enter_state(State.DODGE)
 	_state_timer = dodge_duration
 	_is_invincible = true
-	_consume_stamina(dodge_stamina_cost)
+	# Stamina deducted server-side
+	if NetworkManager.is_active:
+		NetworkManager.send_ability(3, 0.0, rotation.y)  # ActionDodge
 
 
 func _process_dodge(delta: float) -> void:
@@ -422,7 +499,7 @@ func _process_dodge(delta: float) -> void:
 func _start_light_attack(combo_step: int) -> void:
 	_queued_light = false
 	_has_hit_this_attack = false
-	_consume_stamina(light_stamina_cost)
+	# Stamina deducted server-side
 	# Tell server we're attacking
 	if NetworkManager.is_active:
 		NetworkManager.send_ability(1, 0.0, rotation.y)  # 1 = ActionMelee
@@ -492,7 +569,7 @@ func _get_next_combo_step() -> int:
 
 func _start_heavy_attack() -> void:
 	_has_hit_this_attack = false
-	_consume_stamina(heavy_stamina_cost)
+	# Stamina deducted server-side
 	# Tell server we're heavy attacking
 	if NetworkManager.is_active:
 		NetworkManager.send_ability(2, 0.0, rotation.y)  # 2 = ActionHeavy
@@ -544,6 +621,74 @@ func _process_stagger() -> void:
 	velocity.x = 0.0
 	velocity.z = 0.0
 	if _state_timer <= 0.0:
+		_enter_state(State.MOVE)
+
+
+# --- Blade Swirl (Q) ---
+
+func _start_blade_swirl() -> void:
+	# Stamina deducted server-side; local gate in _process_move prevents spam
+	_blade_swirl_cooldown = BLADE_SWIRL_COOLDOWN
+	_blade_swirl_timer = BLADE_SWIRL_DURATION
+	_blade_swirl_tick_timer = 0.0
+	_enter_state(State.BLADE_SWIRL)
+	_state_timer = BLADE_SWIRL_DURATION
+	if NetworkManager.is_active:
+		NetworkManager.send_ability(20, 0.0, rotation.y)
+	PlayerTelegraph.spawn_circle(get_tree().current_scene, global_position, 6.0, VANGUARD_TELEGRAPH_COLOR)
+
+
+func _process_blade_swirl(delta: float) -> void:
+	_face_attack_direction(delta)
+
+	# Slow movement while spinning
+	var wish_dir := _get_camera_wish_dir()
+	var speed := run_speed * BLADE_SWIRL_SPEED_MULT
+	if wish_dir.length() > 0.1:
+		var target_vel := wish_dir * speed
+		velocity.x = move_toward(velocity.x, target_vel.x, ground_accel * delta)
+		velocity.z = move_toward(velocity.z, target_vel.z, ground_accel * delta)
+	else:
+		velocity.x = move_toward(velocity.x, 0.0, ground_decel * delta)
+		velocity.z = move_toward(velocity.z, 0.0, ground_decel * delta)
+
+	# Spawn telegraph every 0.5s to show damage ticks
+	_blade_swirl_tick_timer += delta
+	if _blade_swirl_tick_timer >= 0.5:
+		_blade_swirl_tick_timer -= 0.5
+		PlayerTelegraph.spawn_circle(get_tree().current_scene, global_position, 6.0, VANGUARD_TELEGRAPH_COLOR)
+
+	if _state_timer <= 0.0:
+		_enter_state(State.MOVE)
+
+
+# --- Ground Slam (E) ---
+
+func _start_ground_slam() -> void:
+	# Stamina deducted server-side; local gate in _process_move prevents spam
+	_enter_state(State.GROUND_SLAM_WINDUP)
+	_state_timer = GROUND_SLAM_WINDUP_TIME
+	if NetworkManager.is_active:
+		NetworkManager.send_ability(21, 0.0, rotation.y)
+
+
+func _process_ground_slam_windup(delta: float) -> void:
+	velocity.x = 0.0
+	velocity.z = 0.0
+	_face_attack_direction(delta)
+	if _state_timer <= 0.0:
+		print("[Vanguard] Ground Slam windup done, entering SLAM state")
+		_enter_state(State.GROUND_SLAM)
+		_state_timer = GROUND_SLAM_HIT_TIME
+		_ground_slam_cooldown = GROUND_SLAM_COOLDOWN
+		PlayerTelegraph.spawn_cone(get_tree().current_scene, global_position, rotation.y, 7.0, 45.0, VANGUARD_TELEGRAPH_COLOR)
+
+
+func _process_ground_slam(_delta: float) -> void:
+	velocity.x = 0.0
+	velocity.z = 0.0
+	if _state_timer <= 0.0:
+		print("[Vanguard] Ground Slam complete, returning to MOVE")
 		_enter_state(State.MOVE)
 
 
@@ -674,6 +819,21 @@ func _update_animation() -> void:
 			_net_anim = "sword_impact"
 			_net_anim_speed = 1.0
 			character_model.play_anim("sword_impact")
+			return
+		State.BLADE_SWIRL:
+			_net_anim = "sword_heavy"
+			_net_anim_speed = 2.0
+			character_model.play_anim("sword_heavy", 2.0)
+			return
+		State.GROUND_SLAM_WINDUP:
+			_net_anim = "sword_heavy"
+			_net_anim_speed = 0.5
+			character_model.play_anim_timed("sword_heavy", GROUND_SLAM_WINDUP_TIME + GROUND_SLAM_HIT_TIME)
+			return
+		State.GROUND_SLAM:
+			_net_anim = "sword_heavy"
+			_net_anim_speed = 3.0
+			character_model.set_animation_speed(3.0)
 			return
 		State.DEAD:
 			_net_anim = "sword_idle"
