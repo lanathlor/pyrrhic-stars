@@ -17,10 +17,20 @@ type EnemySpawnPoint struct {
 	GroupID     int         // mobs with the same GroupID aggro together (0 = no group)
 }
 
+// ElevatorVolume describes a moving platform that allows vertical player movement.
+// The server uses this to whitelist Y-axis changes inside the volume footprint.
+type ElevatorVolume struct {
+	CenterX, CenterZ float32
+	HalfX, HalfZ     float32
+	BottomY, TopY    float32
+	Speed            float32 // max upward m/s (average; smoothstep peaks at ~1.5x)
+}
+
 // Level holds static geometry and spatial data for a zone.
 type Level struct {
 	// Player boundaries (for clamping player positions)
 	PlayerBoundsMinX, PlayerBoundsMaxX float32
+	PlayerBoundsMinY, PlayerBoundsMaxY float32 // Y bounds (0,0 = disabled)
 	PlayerBoundsMinZ, PlayerBoundsMaxZ float32
 
 	// Enemy boundaries (for clamping enemy positions)
@@ -29,6 +39,9 @@ type Level struct {
 
 	// Obstacles for collision and LoS
 	Obstacles []combat.Obstacle
+
+	// Elevator volumes for Y-axis validation
+	Elevators []ElevatorVolume
 
 	// Spawn points
 	PlayerSpawns []entity.Vec3

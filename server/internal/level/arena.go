@@ -1,26 +1,39 @@
 package level
 
 import (
+	"log/slog"
+	"os"
+	"path/filepath"
+
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
 )
 
 // NewArenaLevel returns the dungeon level: warmup room → hallway (2 trash packs) → boss room.
-//
-// Layout (Z axis, north is positive):
-//
-//	Z=52     Warmup room top
-//	Z=40     Hallway entry (ArenaEntryZ — fight starts when player crosses south)
-//	Z=32     Pack 1 (4 mobs patrolling X-axis)
-//	Z=22     Pack 2 (4 mobs patrolling X-axis)
-//	Z=12     Boss room entry (BossRoomEntryZ — gate opens after trash cleared)
-//	Z=0      Boss spawn
-//	Z=-14.5  Boss room south wall
+// Loads geometry from shared/levels/arena.json if available, falls back to hardcoded values.
 func NewArenaLevel() *Level {
+	l := &Level{
+		// Game logic constants (not geometry):
+		ArenaEntryZ:    40.0,
+		BossRoomEntryZ: 12.0,
+		EnemyRadius:    1.0,
+	}
+
+	path := levelDataPath("arena")
+	if err := loadLevelData(path, l); err != nil {
+		slog.Warn("arena level data not found, using hardcoded fallback", "path", path, "err", err)
+		return hardcodedArenaLevel()
+	}
+	return l
+}
+
+func hardcodedArenaLevel() *Level {
 	return &Level{
 		// Players can move in warmup + hallway + boss room
 		PlayerBoundsMinX: -19.5,
 		PlayerBoundsMaxX: 19.5,
+		PlayerBoundsMinY: -1.0,
+		PlayerBoundsMaxY: 6.0,
 		PlayerBoundsMinZ: -14.5,
 		PlayerBoundsMaxZ: 52.0,
 
@@ -30,11 +43,10 @@ func NewArenaLevel() *Level {
 		EnemyBoundsMinZ: -14.5,
 		EnemyBoundsMaxZ: 52.0,
 
-		EnemyRadius: 1.0,
-		ArenaEntryZ:    40.0, // hallway entry: fight starts here
-		BossRoomEntryZ: 12.0, // boss room gate
+		EnemyRadius:    1.0,
+		ArenaEntryZ:    40.0,
+		BossRoomEntryZ: 12.0,
 
-		// Boss room obstacles (unchanged from original)
 		Obstacles: []combat.Obstacle{
 			// Boss room pillars (1.5x1.5, infinitely tall)
 			{CX: -8, CZ: -6, HX: 0.75, HZ: 0.75},
@@ -122,4 +134,14 @@ func NewArenaLevel() *Level {
 			},
 		},
 	}
+}
+
+// levelDataPath returns the path to a level JSON file.
+// Checks CODEX_LEVELS_DIR env var first, then falls back to ../shared/levels/.
+func levelDataPath(zone string) string {
+	dir := os.Getenv("CODEX_LEVELS_DIR")
+	if dir == "" {
+		dir = filepath.Join("..", "shared", "levels")
+	}
+	return filepath.Join(dir, zone+".json")
 }

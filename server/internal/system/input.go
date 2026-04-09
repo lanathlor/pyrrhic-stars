@@ -54,6 +54,41 @@ func handlePlayerInput(w *World, peerID uint16, payload []byte) {
 		return
 	}
 
+	// Y validation: hard reject if outside zone Y bounds
+	if w.Level.PlayerBoundsMaxY != 0 || w.Level.PlayerBoundsMinY != 0 {
+		if newPos.Y < w.Level.PlayerBoundsMinY || newPos.Y > w.Level.PlayerBoundsMaxY {
+			return
+		}
+	}
+
+	// Y validation: limit upward movement speed
+	// dt = 1/20 = 0.05 (constant 20Hz tick rate)
+	const tickDt = 1.0 / 20.0
+	deltaY := newPos.Y - p.Position.Y
+	if deltaY > 0 {
+		maxUp := float32(0.0)
+		inElevator := false
+		for _, ev := range w.Level.Elevators {
+			if newPos.X > ev.CenterX-ev.HalfX && newPos.X < ev.CenterX+ev.HalfX &&
+				newPos.Z > ev.CenterZ-ev.HalfZ && newPos.Z < ev.CenterZ+ev.HalfZ &&
+				newPos.Y >= ev.BottomY-1.0 && newPos.Y <= ev.TopY+1.0 {
+				// Elevator: allow speed * dt * 1.5 (smoothstep peaks at ~1.5x average)
+				allowed := ev.Speed * tickDt * 1.5
+				if allowed > maxUp {
+					maxUp = allowed
+				}
+				inElevator = true
+			}
+		}
+		if !inElevator {
+			// Normal: allow jump velocity (~5 m/s upward, generous for frame jitter)
+			maxUp = 5.0 * tickDt * 2.0
+		}
+		if deltaY > maxUp+0.1 {
+			newPos.Y = p.Position.Y // reject Y component, keep XZ
+		}
+	}
+
 	// Client-authoritative: accept position, clamp to boundaries
 	p.Position = newPos
 	w.Level.ClampPlayer(&p.Position)

@@ -1,0 +1,44 @@
+{
+	"version": 2,
+	"zone": "hub",
+	"source_scene": "res://scenes/environments/prime_hub/military_building.tscn",
+	"bounds": {
+		"min_x": -125.0,
+		"max_x": 125.0,
+		"min_y": -210.0,
+		"max_y": 110.0,
+		"min_z": -160.0,
+		"max_z": 160.0
+	},
+	"obstacles": [],
+	"elevators": [
+		{
+			"name": "PublicLift",
+			"center_x": 5.0,
+			"center_z": -55.0,
+			"half_x": 4.0,
+			"half_z": 4.0,
+			"bottom_y": -200.0,
+			"top_y": 0.0,
+			"speed": 10.0
+		},
+		{
+			"name": "EnclosedElevator",
+			"center_x": 0.0,
+			"center_z": 0.0,
+			"half_x": 2.0,
+			"half_z": 2.0,
+			"bottom_y": 0.0,
+			"top_y": 100.0,
+			"speed": 12.5
+		}
+	],
+	"player_spawns": [
+		{ "x": 3.5, "y": -199.8, "z": -55.0 },
+		{ "x": 5.0, "y": -199.8, "z": -55.0 },
+		{ "x": 6.5, "y": -199.8, "z": -55.0 },
+		{ "x": 4.25, "y": -199.8, "z": -53.5 },
+		{ "x": 5.75, "y": -199.8, "z": -53.5 }
+	],
+	"enemy_spawns": []
+}

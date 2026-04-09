@@ -219,9 +219,9 @@ func _physics_process(delta: float) -> void:
 			velocity.z = 0.0
 
 	move_and_slide()
-	# Safety net: respawn at floor if fallen through the world
-	if global_position.y < -5.0:
-		global_position.y = 1.0
+	# Safety net: respawn if fallen far below any valid floor (lowest is Y=-200)
+	if global_position.y < -250.0:
+		global_position.y = -199.0
 
 	_update_animation()
 	_update_weapon_visual()
