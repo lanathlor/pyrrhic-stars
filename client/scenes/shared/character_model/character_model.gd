@@ -104,10 +104,12 @@ func _ready() -> void:
 
 
 func _physics_process(_delta: float) -> void:
-	# Strip root motion — pin root bone so the model doesn't drift
+	# Strip root motion — pin root bone XZ so the model doesn't drift horizontally.
+	# Keep Y so the hips rest height is preserved (feet stay on ground).
 	if _skeleton and _root_bone_idx >= 0:
 		var pose := _skeleton.get_bone_pose(_root_bone_idx)
-		pose.origin = Vector3.ZERO
+		pose.origin.x = 0.0
+		pose.origin.z = 0.0
 		_skeleton.set_bone_pose(_root_bone_idx, pose)
 
 
