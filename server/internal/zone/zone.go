@@ -158,6 +158,7 @@ func (z *Zone) AddClient(c *Client) {
 		if len(z.world.Level.PlayerSpawns) > 0 {
 			idx := len(z.world.Players) % len(z.world.Level.PlayerSpawns)
 			np.Position = z.world.Level.PlayerSpawns[idx]
+			np.RotationY = z.world.Level.SpawnYaw
 		}
 		z.world.Players[c.PeerID] = np
 	} else {

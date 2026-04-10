@@ -45,6 +45,7 @@ type Level struct {
 
 	// Spawn points
 	PlayerSpawns []entity.Vec3
+	SpawnYaw     float32 // initial facing direction (radians) for spawned players
 	EnemySpawns  []EnemySpawnPoint
 
 	// Arena entry trigger Z threshold (0 = disabled)

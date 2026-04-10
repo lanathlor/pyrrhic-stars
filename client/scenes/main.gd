@@ -23,12 +23,13 @@ const PLAYER_SPAWNS := [
 const ARENA_ENTRY_Z := 40.0
 const BOSS_ROOM_ENTRY_Z := 12.0
 const HUB_SPAWNS := [
-	Vector3(3.5, -199.8, -55.0),
-	Vector3(5.0, -199.8, -55.0),
-	Vector3(6.5, -199.8, -55.0),
-	Vector3(4.25, -199.8, -53.5),
-	Vector3(5.75, -199.8, -53.5),
+	Vector3(14.0, -199.9, -80.0),
+	Vector3(14.0, -199.9, -78.0),
+	Vector3(14.0, -199.9, -82.0),
+	Vector3(12.5, -199.9, -79.0),
+	Vector3(12.5, -199.9, -81.0),
 ]
+const HUB_SPAWN_YAW := PI / 2.0  # face west
 
 const CLASS_SCENES := {
 	"gunner": "res://scenes/controllers/gunner/gunner.tscn",
@@ -625,6 +626,12 @@ func _spawn_player(peer_id: int, class_name_str: String, spawn_pos: Vector3) -> 
 	# Initialize net sync targets so remote interpolation starts at the correct position
 	player._net_position = spawn_pos
 	player._net_rotation_y = player.rotation.y
+	# Apply hub spawn facing direction for local player
+	if state == GameState.HUB and peer_id == NetworkManager.get_my_id():
+		player.rotation.y = HUB_SPAWN_YAW
+		player._net_rotation_y = HUB_SPAWN_YAW
+		if "_camera_yaw" in player:
+			player._camera_yaw = HUB_SPAWN_YAW
 	_spawned_players[peer_id] = player
 
 	# Feed local player to shared HUD and connect death signal

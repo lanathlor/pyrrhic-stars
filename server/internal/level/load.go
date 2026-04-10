@@ -71,6 +71,7 @@ type levelDataJSON struct {
 	Obstacles    []obstacleJSON   `json:"obstacles"`
 	Elevators    []elevatorJSON   `json:"elevators,omitempty"`
 	PlayerSpawns []vec3JSON       `json:"player_spawns"`
+	SpawnYaw     float32          `json:"spawn_yaw,omitempty"`
 	EnemySpawns  []enemySpawnJSON `json:"enemy_spawns,omitempty"`
 	NPCSpawns    []npcSpawnJSON   `json:"npc_spawns,omitempty"`
 }
@@ -134,6 +135,7 @@ func loadLevelData(path string, l *Level) error {
 	for i, s := range ld.PlayerSpawns {
 		l.PlayerSpawns[i] = entity.Vec3{X: s.X, Y: s.Y, Z: s.Z}
 	}
+	l.SpawnYaw = ld.SpawnYaw
 
 	l.EnemySpawns = make([]EnemySpawnPoint, len(ld.EnemySpawns))
 	for i, s := range ld.EnemySpawns {

@@ -241,6 +241,7 @@ func spawnPlayers(w *World) {
 	for _, p := range w.Players {
 		spawnPos := w.Level.PlayerSpawns[idx%len(w.Level.PlayerSpawns)]
 		p.Position = spawnPos
+		p.RotationY = w.Level.SpawnYaw
 		p.Health = p.MaxHealth
 		p.Alive = true
 		p.State = entity.PlayerStateMove
@@ -263,6 +264,7 @@ func SpawnPlayer(w *World, peerID uint16) {
 	idx := len(w.Players) - 1
 	spawnPos := w.Level.PlayerSpawns[idx%len(w.Level.PlayerSpawns)]
 	p.Position = spawnPos
+	p.RotationY = w.Level.SpawnYaw
 	p.Health = p.MaxHealth
 	p.Alive = true
 	p.State = entity.PlayerStateMove
