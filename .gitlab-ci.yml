@@ -3,7 +3,7 @@ stages:
   - build
 
 variables:
-  GODOT_VERSION: "4.5"
+  GODOT_VERSION: "4.5.1"
 
 # --- Test Stage ---
 
