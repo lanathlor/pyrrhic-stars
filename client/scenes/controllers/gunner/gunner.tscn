@@ -1,9 +1,10 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scenes/controllers/gunner/gunner.gd" id="1"]
 [ext_resource type="Script" path="res://scenes/shared/hud/gunner_hud.gd" id="2"]
 [ext_resource type="Script" path="res://scenes/shared/hud/crosshair.gd" id="3"]
 [ext_resource type="PackedScene" path="res://scenes/shared/character_model/character_model.tscn" id="4"]
+[ext_resource type="Script" path="res://scenes/shared/hud/spell_bar.gd" id="5"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1"]
 radius = 0.4
@@ -55,6 +56,16 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 script = ExtResource("3")
+
+[node name="AbilityBar" type="Control" parent="HUDLayer/GunnerHUD"]
+layout_mode = 1
+anchor_left = 0.0
+anchor_right = 1.0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -80.0
+mouse_filter = 2
+script = ExtResource("5")
 
 [node name="DamageOverlay" type="ColorRect" parent="HUDLayer/GunnerHUD"]
 layout_mode = 1

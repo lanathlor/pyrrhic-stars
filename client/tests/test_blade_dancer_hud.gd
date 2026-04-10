@@ -1,7 +1,7 @@
 class_name TestBladeDancerHUD
 extends GdUnitTestSuite
 
-## Tests for the Blade Dancer HUD — config display, GCD, damage flash, hit marker, lock-on.
+## Tests for the Blade Dancer HUD — config display, GCD, damage flash, hit marker, lock-on, spell bar.
 
 const BD_SCENE := "res://scenes/controllers/blade_dancer/blade_dancer.tscn"
 const DELTA := 1.0 / 60.0
@@ -82,14 +82,20 @@ func test_update_config_stores_orbit() -> void:
 	assert_int(_hud._current_config).is_equal(0)
 
 
-func test_update_config_stores_lance() -> void:
+func test_update_config_stores_fan() -> void:
 	_hud.update_config(1)
 	assert_int(_hud._current_config).is_equal(1)
 
 
 func test_update_config_initial_orbit() -> void:
-	# HUD starts in orbit (set by blade_dancer _ready when local)
 	assert_int(_hud._current_config).is_equal(0)
+
+
+func test_update_config_updates_accent_color() -> void:
+	_hud.update_config(2)  # Lance -- red
+	var bar: Control = _hud.get_node("AbilityBar")
+	assert_float(bar.accent_color.r).is_equal_approx(0.9, 0.01)
+	assert_float(bar.accent_color.g).is_equal_approx(0.2, 0.01)
 
 
 # --- GCD ---
@@ -109,14 +115,34 @@ func test_update_gcd_clamps_below_zero() -> void:
 	assert_float(_hud._gcd_ratio).is_equal(0.0)
 
 
-func test_update_gcd_zero_means_ready() -> void:
-	_hud.update_gcd(0.0)
-	assert_float(_hud._gcd_ratio).is_equal(0.0)
+func test_update_gcd_passes_to_ability_bar() -> void:
+	_hud.update_gcd(0.7)
+	var bar: Control = _hud.get_node("AbilityBar")
+	assert_float(bar._gcd_ratio).is_equal_approx(0.7, 0.01)
 
 
-func test_update_gcd_one_means_just_used() -> void:
-	_hud.update_gcd(1.0)
-	assert_float(_hud._gcd_ratio).is_equal(1.0)
+# --- Spell bar ---
+
+func test_update_spells_enriches_keybinds() -> void:
+	var spells := [
+		{name="Test Spell", desc="A test.", dest=1, dur=0.3},
+	]
+	_hud.update_spells(spells)
+	var bar: Control = _hud.get_node("AbilityBar")
+	assert_str(bar._spells[0].keybind).is_equal("LMB")
+
+
+func test_update_spells_passes_four_slots() -> void:
+	var spells := [
+		{name="A", desc="", dest=1, dur=0.3},
+		{name="B", desc="", dest=2, dur=0.3},
+		{name="C", desc="", dest=3, dur=0.4},
+		{name="D", desc="", dest=4, dur=0.5},
+	]
+	_hud.update_spells(spells)
+	var bar: Control = _hud.get_node("AbilityBar")
+	assert_int(bar._spells.size()).is_equal(4)
+	assert_str(bar._spells[3].keybind).is_equal("E")
 
 
 # --- Lock-on reticle ---
@@ -154,40 +180,11 @@ func test_hit_marker_duration_constant() -> void:
 	assert_float(_hud.HIT_MARKER_DURATION).is_equal(0.15)
 
 
-# --- Color constants ---
+# --- Config color constants ---
 
-func test_orbit_color_is_cyan() -> void:
-	assert_float(_hud.ORBIT_COLOR.r).is_equal_approx(0.2, 0.01)
-	assert_float(_hud.ORBIT_COLOR.g).is_equal_approx(0.8, 0.01)
-	assert_float(_hud.ORBIT_COLOR.b).is_equal_approx(0.9, 0.01)
-
-
-func test_lance_color_is_orange() -> void:
-	assert_float(_hud.LANCE_COLOR.r).is_equal_approx(1.0, 0.01)
-	assert_float(_hud.LANCE_COLOR.g).is_equal_approx(0.6, 0.01)
-	assert_float(_hud.LANCE_COLOR.b).is_equal_approx(0.1, 0.01)
-
-
-# --- Ability bar data ---
-
-func test_ability_names_has_four_entries() -> void:
-	assert_int(_hud.ABILITY_NAMES.size()).is_equal(4)
+func test_config_colors_has_five_entries() -> void:
+	assert_int(_hud.CONFIG_COLORS.size()).is_equal(5)
 
 
 func test_ability_keybinds_has_four_entries() -> void:
 	assert_int(_hud.ABILITY_KEYBINDS.size()).is_equal(4)
-
-
-func test_ability_names_orbit_index() -> void:
-	# Each ability name array: [orbit_name, lance_name]
-	assert_str(_hud.ABILITY_NAMES[0][0]).is_equal("Slash")
-	assert_str(_hud.ABILITY_NAMES[1][0]).is_equal("Launch")
-	assert_str(_hud.ABILITY_NAMES[2][0]).is_equal("Barrier")
-	assert_str(_hud.ABILITY_NAMES[3][0]).is_equal("Dash")
-
-
-func test_ability_names_lance_index() -> void:
-	assert_str(_hud.ABILITY_NAMES[0][1]).is_equal("Pierce")
-	assert_str(_hud.ABILITY_NAMES[1][1]).is_equal("Impale")
-	assert_str(_hud.ABILITY_NAMES[2][1]).is_equal("Recall")
-	assert_str(_hud.ABILITY_NAMES[3][1]).is_equal("Retreat")

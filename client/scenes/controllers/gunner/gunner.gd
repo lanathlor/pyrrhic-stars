@@ -259,9 +259,12 @@ func _physics_process(delta: float) -> void:
 	_update_muzzle_flash(delta)
 	_update_viewmodel(delta)
 	_update_animation()
-	hud.update_roll_cooldown(_roll_cooldown_timer, roll_cooldown)
-	hud.update_overclock(_overclock_active, _overclock_timer, OVERCLOCK_DURATION, _overclock_cooldown, OVERCLOCK_COOLDOWN)
-	hud.update_rechamber(_rechamber_phase, _rechamber_timer, _rechamber_buff, _rechamber_buff_timer, RECHAMBER_BUFF_DURATION)
+	hud.update_spells([
+		{name="Shoot", keybind="LMB", desc="10 dmg hitscan. 0.18s fire rate.", cooldown=0.0, cooldown_max=0.0},
+		{name="Roll", keybind="C", desc="Dodge roll with i-frames.", cooldown=_roll_cooldown_timer, cooldown_max=roll_cooldown},
+		{name="Overclock", keybind="Q", desc="7s fire rate + speed boost.", cooldown=_overclock_cooldown if not _overclock_active else 0.0, cooldown_max=OVERCLOCK_COOLDOWN, active=_overclock_active, active_remaining=_overclock_timer, active_max=OVERCLOCK_DURATION},
+		{name="Rechamber", keybind="E", desc="Timed reload. Perfect timing = dmg buff.", cooldown=0.0, cooldown_max=0.0, active=_rechamber_buff, active_remaining=_rechamber_buff_timer, active_max=RECHAMBER_BUFF_DURATION, status_text=_get_rechamber_status()},
+	])
 
 	# Send position + animation to server
 	if NetworkManager.is_active:
@@ -392,6 +395,13 @@ func _handle_overclock(delta: float) -> void:
 		_overclock_cooldown = OVERCLOCK_COOLDOWN
 		if NetworkManager.is_active:
 			NetworkManager.send_ability(10, head.rotation.x, rotation.y)  # ActionOverclock
+
+
+func _get_rechamber_status() -> String:
+	match _rechamber_phase:
+		1: return "..."
+		2: return "FIRE!"
+	return ""
 
 
 func _handle_rechamber(delta: float) -> void:

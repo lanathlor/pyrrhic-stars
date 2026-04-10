@@ -265,10 +265,14 @@ func _physics_process(delta: float) -> void:
 			_toggle_lock_on()
 	if _lock_on_active and _lock_target:
 		hud.update_lock_on(_lock_target, camera)
-	hud.update_ability_cooldowns(
-		_blade_swirl_cooldown, BLADE_SWIRL_COOLDOWN,
-		_ground_slam_cooldown, GROUND_SLAM_COOLDOWN
-	)
+	hud.update_spells([
+		{name="Light Attack", keybind="LMB", desc="3-hit combo. 30/35/55 dmg.", cooldown=0.0, cooldown_max=0.0},
+		{name="Heavy Attack", keybind="R", desc="75 dmg. 0.5s windup.", cooldown=0.0, cooldown_max=0.0},
+		{name="Block", keybind="RMB", desc="70% DR. 0.15s parry window.", cooldown=0.0, cooldown_max=0.0},
+		{name="Dodge", keybind="Space", desc="I-frame dodge. 20 stamina.", cooldown=0.0, cooldown_max=0.0},
+		{name="Blade Swirl", keybind="F", desc="AoE spinning attack. 25 stamina. 10s CD.", cooldown=_blade_swirl_cooldown, cooldown_max=BLADE_SWIRL_COOLDOWN},
+		{name="Ground Slam", keybind="E", desc="Cone AoE slam. 20 stamina. 8s CD.", cooldown=_ground_slam_cooldown, cooldown_max=GROUND_SLAM_COOLDOWN},
+	])
 
 	# Send position + animation to server
 	if NetworkManager.is_active:

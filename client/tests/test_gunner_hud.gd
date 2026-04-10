@@ -1,10 +1,10 @@
 class_name TestGunnerHUD
 extends GdUnitTestSuite
 
-## Tests for the Gunner HUD — health bar, roll cooldown, hit feedback state.
+## Tests for the Gunner HUD — hit feedback, damage flash, recoil, spell bar.
 
-# The HUD is embedded in the gunner scene, so we test via the gunner.
 const GUNNER_SCENE := "res://scenes/controllers/gunner/gunner.tscn"
+const DELTA := 1.0 / 60.0
 
 var _gunner: CharacterBody3D
 var _hud: Control
@@ -17,35 +17,25 @@ func before_test() -> void:
 	_hud = _gunner.hud
 
 
-# --- Health bar ---
+# --- Spell bar ---
 
-func test_health_bar_initial_value() -> void:
-	var bar: ProgressBar = _hud.get_node("HealthBar")
-	assert_float(bar.value).is_equal(100.0)
-	assert_float(bar.max_value).is_equal(100.0)
-
-
-func test_health_bar_updates_on_damage() -> void:
-	_gunner.take_damage(40.0)
-	var bar: ProgressBar = _hud.get_node("HealthBar")
-	assert_float(bar.value).is_equal(60.0)
-
-
-# --- Roll cooldown ---
-
-func test_roll_cooldown_ratio_ready() -> void:
-	_hud.update_roll_cooldown(0.0, 2.5)
-	assert_float(_hud._roll_cooldown_ratio).is_equal(0.0)
+func test_update_spells_passes_to_ability_bar() -> void:
+	var spells := [
+		{name="Shoot", keybind="LMB", desc="10 dmg.", cooldown=0.0, cooldown_max=0.0},
+		{name="Roll", keybind="C", desc="Dodge.", cooldown=1.0, cooldown_max=2.5},
+	]
+	_hud.update_spells(spells)
+	var bar: Control = _hud.get_node("AbilityBar")
+	assert_int(bar._spells.size()).is_equal(2)
+	assert_str(bar._spells[0].name).is_equal("Shoot")
+	assert_str(bar._spells[1].name).is_equal("Roll")
 
 
-func test_roll_cooldown_ratio_just_used() -> void:
-	_hud.update_roll_cooldown(2.5, 2.5)
-	assert_float(_hud._roll_cooldown_ratio).is_equal(1.0)
-
-
-func test_roll_cooldown_ratio_half() -> void:
-	_hud.update_roll_cooldown(1.25, 2.5)
-	assert_float(_hud._roll_cooldown_ratio).is_equal(0.5)
+func test_ability_bar_accent_color_is_cyan() -> void:
+	var bar: Control = _hud.get_node("AbilityBar")
+	assert_float(bar.accent_color.r).is_equal_approx(0.3, 0.01)
+	assert_float(bar.accent_color.g).is_equal_approx(0.9, 0.01)
+	assert_float(bar.accent_color.b).is_equal_approx(1.0, 0.01)
 
 
 # --- Hit marker ---
@@ -58,7 +48,7 @@ func test_hit_marker_sets_timer() -> void:
 func test_hit_marker_decays() -> void:
 	_hud.show_hit_marker()
 	var initial := _hud._hit_marker_timer
-	_hud._process(1.0 / 60.0)
+	_hud._process(DELTA)
 	assert_float(_hud._hit_marker_timer).is_less(initial)
 
 
@@ -71,7 +61,7 @@ func test_damage_flash_sets_timer() -> void:
 
 func test_damage_flash_modulates_overlay() -> void:
 	_hud.show_damage_flash()
-	_hud._process(1.0 / 60.0)
+	_hud._process(DELTA)
 	var overlay: ColorRect = _hud.get_node("DamageOverlay")
 	assert_float(overlay.modulate.a).is_greater(0.0)
 

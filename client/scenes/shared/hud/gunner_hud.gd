@@ -1,33 +1,24 @@
 extends Control
 
-## Gunner HUD — crosshair, hit/damage feedback, roll cooldown.
+## Gunner HUD — crosshair, hit/damage feedback, shared spell bar.
 
 @onready var crosshair: Control = $Crosshair
 @onready var damage_overlay: ColorRect = $DamageOverlay
+@onready var ability_bar = $AbilityBar
 
 var _hit_marker_timer: float = 0.0
 var _damage_flash_timer: float = 0.0
 var _recoil_timer: float = 0.0
-var _roll_cooldown_ratio: float = 0.0  # 0 = ready, 1 = just used
-
-# Overclock HUD state
-var _overclock_active: bool = false
-var _overclock_ratio: float = 0.0  # remaining duration ratio (1 = full, 0 = expired)
-var _overclock_cd_ratio: float = 0.0  # cooldown ratio (1 = just used, 0 = ready)
-
-# Rechamber HUD state
-var _rechamber_phase: int = 0
-var _rechamber_timer: float = 0.0
-var _rechamber_buff_active: bool = false
-var _rechamber_buff_ratio: float = 0.0  # remaining buff ratio
 
 const HIT_MARKER_DURATION: float = 0.15
 const DAMAGE_FLASH_DURATION: float = 0.3
 const RECOIL_DURATION: float = 0.06
+const GUNNER_COLOR := Color(0.3, 0.9, 1.0)
 
 
 func _ready() -> void:
 	damage_overlay.modulate.a = 0.0
+	ability_bar.accent_color = GUNNER_COLOR
 
 
 func _process(delta: float) -> void:
@@ -41,11 +32,8 @@ func _process(delta: float) -> void:
 	crosshair.queue_redraw()
 
 
-func update_roll_cooldown(remaining: float, total: float) -> void:
-	if total > 0.0:
-		_roll_cooldown_ratio = remaining / total
-	else:
-		_roll_cooldown_ratio = 0.0
+func update_spells(spells: Array) -> void:
+	ability_bar.update_spells(spells)
 
 
 func show_hit_marker() -> void:
@@ -60,26 +48,10 @@ func on_shoot() -> void:
 	_recoil_timer = RECOIL_DURATION
 
 
-func update_overclock(active: bool, timer: float, duration: float, cooldown: float, max_cooldown: float) -> void:
-	_overclock_active = active
-	_overclock_ratio = timer / duration if duration > 0.0 else 0.0
-	_overclock_cd_ratio = cooldown / max_cooldown if max_cooldown > 0.0 else 0.0
-
-
-func update_rechamber(phase: int, timer: float, buff: bool, buff_timer: float, buff_duration: float) -> void:
-	_rechamber_phase = phase
-	_rechamber_timer = timer
-	_rechamber_buff_active = buff
-	_rechamber_buff_ratio = buff_timer / buff_duration if buff_duration > 0.0 else 0.0
-
-
-## Custom crosshair + cooldown drawing — called on the Crosshair child node.
+## Custom crosshair drawing — called on the Crosshair child node.
 func draw_crosshair(canvas: Control) -> void:
 	var center := canvas.size / 2.0
 	_draw_crosshair_lines(canvas, center)
-	_draw_roll_cooldown(canvas, center)
-	_draw_overclock_indicator(canvas, center)
-	_draw_rechamber_indicator(canvas, center)
 
 
 func _draw_crosshair_lines(canvas: Control, center: Vector2) -> void:
@@ -115,96 +87,3 @@ func _draw_crosshair_lines(canvas: Control, center: Vector2) -> void:
 		canvas.draw_line(center + Vector2(-x_gap - x_len, x_gap + x_len), center + Vector2(-x_gap, x_gap), hit_color, x_thick, true)
 		# Bottom-right to center
 		canvas.draw_line(center + Vector2(x_gap + x_len, x_gap + x_len), center + Vector2(x_gap, x_gap), hit_color, x_thick, true)
-
-
-func _draw_roll_cooldown(canvas: Control, _center: Vector2) -> void:
-	var radius: float = 22.0
-	var arc_width: float = 3.0
-	var point_count: int = 32
-	# Bottom-right corner, above health bar
-	var arc_center := Vector2(360.0, canvas.size.y - 35.0)
-
-	if _roll_cooldown_ratio <= 0.0:
-		# Ready — draw full subtle circle
-		canvas.draw_arc(arc_center, radius, 0.0, TAU, point_count, Color(0.3, 0.9, 1.0, 0.5), arc_width, true)
-		# Small "C" label
-		canvas.draw_string(ThemeDB.fallback_font, arc_center + Vector2(-4.0, 5.0), "C", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color(0.3, 0.9, 1.0, 0.6))
-	else:
-		# On cooldown — draw background ring + fill arc
-		var fill := 1.0 - _roll_cooldown_ratio
-		canvas.draw_arc(arc_center, radius, 0.0, TAU, point_count, Color(0.4, 0.4, 0.4, 0.3), arc_width, true)
-		if fill > 0.01:
-			var start_angle: float = -PI / 2.0
-			var end_angle: float = start_angle + fill * TAU
-			canvas.draw_arc(arc_center, radius, start_angle, end_angle, point_count, Color(0.3, 0.9, 1.0, 0.8), arc_width, true)
-		# Dimmed label
-		canvas.draw_string(ThemeDB.fallback_font, arc_center + Vector2(-4.0, 5.0), "C", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color(0.5, 0.5, 0.5, 0.4))
-
-
-func _draw_overclock_indicator(canvas: Control, center: Vector2) -> void:
-	var radius: float = 22.0
-	var arc_width: float = 3.0
-	var point_count: int = 32
-	# Position to the right of the roll cooldown
-	var arc_center := Vector2(420.0, canvas.size.y - 35.0)
-	var oc_color := Color(0.3, 0.7, 1.0, 0.8)
-	var oc_dim := Color(0.3, 0.7, 1.0, 0.4)
-
-	if _overclock_active:
-		# Active — show remaining duration as draining arc
-		var start_angle: float = -PI / 2.0
-		var end_angle: float = start_angle + _overclock_ratio * TAU
-		canvas.draw_arc(arc_center, radius, 0.0, TAU, point_count, Color(0.15, 0.35, 0.5, 0.3), arc_width, true)
-		if _overclock_ratio > 0.01:
-			canvas.draw_arc(arc_center, radius, start_angle, end_angle, point_count, oc_color, arc_width, true)
-		canvas.draw_string(ThemeDB.fallback_font, arc_center + Vector2(-4.0, 5.0), "Q", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, oc_color)
-	elif _overclock_cd_ratio > 0.0:
-		# On cooldown
-		var fill := 1.0 - _overclock_cd_ratio
-		canvas.draw_arc(arc_center, radius, 0.0, TAU, point_count, Color(0.4, 0.4, 0.4, 0.3), arc_width, true)
-		if fill > 0.01:
-			var start_angle: float = -PI / 2.0
-			var end_angle: float = start_angle + fill * TAU
-			canvas.draw_arc(arc_center, radius, start_angle, end_angle, point_count, oc_dim, arc_width, true)
-		canvas.draw_string(ThemeDB.fallback_font, arc_center + Vector2(-4.0, 5.0), "Q", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color(0.5, 0.5, 0.5, 0.4))
-	else:
-		# Ready
-		canvas.draw_arc(arc_center, radius, 0.0, TAU, point_count, Color(0.3, 0.7, 1.0, 0.5), arc_width, true)
-		canvas.draw_string(ThemeDB.fallback_font, arc_center + Vector2(-4.0, 5.0), "Q", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color(0.3, 0.7, 1.0, 0.6))
-
-
-func _draw_rechamber_indicator(canvas: Control, center: Vector2) -> void:
-	var radius: float = 22.0
-	var arc_width: float = 3.0
-	var point_count: int = 32
-	# Position to the right of overclock
-	var arc_center := Vector2(480.0, canvas.size.y - 35.0)
-
-	match _rechamber_phase:
-		0:  # Idle
-			if _rechamber_buff_active:
-				# Buff active — golden glow
-				var buff_color := Color(1.0, 0.85, 0.3, 0.9)
-				var start_angle: float = -PI / 2.0
-				var end_angle: float = start_angle + _rechamber_buff_ratio * TAU
-				canvas.draw_arc(arc_center, radius, 0.0, TAU, point_count, Color(0.5, 0.42, 0.15, 0.3), arc_width, true)
-				if _rechamber_buff_ratio > 0.01:
-					canvas.draw_arc(arc_center, radius, start_angle, end_angle, point_count, buff_color, arc_width + 1.0, true)
-				canvas.draw_string(ThemeDB.fallback_font, arc_center + Vector2(-4.0, 5.0), "E", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, buff_color)
-			else:
-				# Ready
-				canvas.draw_arc(arc_center, radius, 0.0, TAU, point_count, Color(0.6, 0.8, 0.4, 0.5), arc_width, true)
-				canvas.draw_string(ThemeDB.fallback_font, arc_center + Vector2(-4.0, 5.0), "E", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color(0.6, 0.8, 0.4, 0.6))
-		1:  # Windup — filling arc
-			var windup_color := Color(0.9, 0.7, 0.2, 0.7)
-			canvas.draw_arc(arc_center, radius, 0.0, TAU, point_count, Color(0.4, 0.4, 0.4, 0.3), arc_width, true)
-			canvas.draw_string(ThemeDB.fallback_font, arc_center + Vector2(-4.0, 5.0), "E", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, windup_color)
-		2:  # Timing window — bright pulsing, "FIRE!" prompt
-			var window_color := Color(0.2, 1.0, 0.3, 0.9)
-			canvas.draw_arc(arc_center, radius, 0.0, TAU, point_count, window_color, arc_width + 2.0, true)
-			canvas.draw_string(ThemeDB.fallback_font, arc_center + Vector2(-12.0, -radius - 6.0), "FIRE!", HORIZONTAL_ALIGNMENT_CENTER, -1, 14, window_color)
-			canvas.draw_string(ThemeDB.fallback_font, arc_center + Vector2(-4.0, 5.0), "E", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, window_color)
-		3:  # Lockout — red/dim
-			var lock_color := Color(0.8, 0.2, 0.2, 0.5)
-			canvas.draw_arc(arc_center, radius, 0.0, TAU, point_count, lock_color, arc_width, true)
-			canvas.draw_string(ThemeDB.fallback_font, arc_center + Vector2(-4.0, 5.0), "E", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, lock_color)
