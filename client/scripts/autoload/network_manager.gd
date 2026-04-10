@@ -22,6 +22,9 @@ signal group_state_updated(data: Dictionary)
 signal group_invite_received(group_id: int, leader_name: String)
 signal group_error_received(code: int, msg: String)
 signal player_names_received(names: Dictionary)
+signal character_state_received(data: Dictionary)
+signal character_list_received(data: Dictionary)
+signal character_error_received(data: Dictionary)
 
 const DEFAULT_PORT := 7777
 
@@ -48,7 +51,9 @@ var _input_tick: int = 0
 func connect_to_server(address: String = "127.0.0.1") -> Error:
 	disconnect_game()
 	var port := DEFAULT_PORT
-	var url := "ws://%s:%d/ws" % [address, port]
+	var uuid := IdentityManager.get_player_id()
+	var encoded_name := username.uri_encode()
+	var url := "ws://%s:%d/ws?uuid=%s&username=%s" % [address, port, uuid, encoded_name]
 	print("[Net] Connecting to %s..." % url)
 	var err := _ws.connect_to_url(url)
 	if err != OK:
@@ -162,12 +167,10 @@ func _process(_delta: float) -> void:
 
 
 func _on_ws_connected() -> void:
-	print("[Net] WebSocket connected, sending username and joining hub...")
-	# Send username first, then join the hub zone
-	if username != "":
-		send_msg(NetSerializer.OP_SET_USERNAME, NetSerializer.encode_username(username))
-	send_msg(NetSerializer.OP_JOIN_ZONE, NetSerializer.encode_join_zone("hub"))
-	current_zone_type = NetSerializer.ZONE_TYPE_HUB
+	print("[Net] WebSocket connected, waiting for character list...")
+	# Auth is handled via query params during WebSocket handshake.
+	# Server will send OpCharacterList; client shows select screen before joining.
+	connection_succeeded.emit()
 
 
 # =============================================================================
@@ -185,6 +188,12 @@ func _on_message(data: PackedByteArray) -> void:
 
 	match opcode:
 		# -- Zone management --
+		NetSerializer.OP_CHARACTER_STATE:
+			_handle_character_state(payload)
+		NetSerializer.OP_CHARACTER_LIST:
+			_handle_character_list(payload)
+		NetSerializer.OP_CHARACTER_ERROR:
+			_handle_character_error(payload)
 		NetSerializer.OP_ZONE_JOINED:
 			_handle_zone_joined(payload)
 		NetSerializer.OP_PEER_CONNECTED:
@@ -285,6 +294,32 @@ func _handle_game_flow_event(payload: PackedByteArray) -> void:
 	# Emit all_players_ready for legacy compatibility when server sends FLOW_SPAWN_PLAYERS
 	if data.flow_type == NetSerializer.FLOW_SPAWN_PLAYERS:
 		all_players_ready.emit()
+
+
+func _handle_character_state(payload: PackedByteArray) -> void:
+	var data := NetSerializer.decode_character_state(payload)
+	print("[Net] Character state: class=%s pos=%s" % [data.class_name, data.position])
+	character_state_received.emit(data)
+
+
+func _handle_character_list(payload: PackedByteArray) -> void:
+	var data := NetSerializer.decode_character_list(payload)
+	print("[Net] Character list: %d characters, last_char_id=%d" % [data.characters.size(), data.last_char_id])
+	character_list_received.emit(data)
+
+
+func send_select_character(char_id: int) -> void:
+	send_msg(NetSerializer.OP_SELECT_CHARACTER, NetSerializer.encode_select_character(char_id))
+
+
+func send_create_character(class_name_str: String, char_name: String) -> void:
+	send_msg(NetSerializer.OP_CREATE_CHARACTER, NetSerializer.encode_create_character(class_name_str, char_name))
+
+
+func _handle_character_error(payload: PackedByteArray) -> void:
+	var data := NetSerializer.decode_character_error(payload)
+	print("[Net] Character error: code=%d msg=%s" % [data.error_code, data.message])
+	character_error_received.emit(data)
 
 
 func _handle_zone_transfer(payload: PackedByteArray) -> void:

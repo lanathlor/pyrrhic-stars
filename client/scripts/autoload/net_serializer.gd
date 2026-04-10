@@ -73,6 +73,11 @@ const OP_PEER_DISCONNECTED := 0xFF03
 const OP_SET_USERNAME := 0xFF04
 const OP_REQUEST_ZONE_TRANSFER := 0xFF05
 const OP_ZONE_TRANSFER := 0xFF06
+const OP_CHARACTER_STATE := 0xFF07    # server → client: character confirmed
+const OP_CHARACTER_LIST := 0xFF08     # server → client: all characters after auth
+const OP_SELECT_CHARACTER := 0xFF09   # client → server: select character by ID
+const OP_CREATE_CHARACTER := 0xFF0A   # client → server: create new character
+const OP_CHARACTER_ERROR := 0xFF0B    # server → client: character operation error
 
 const HEADER_SIZE := 4
 
@@ -611,6 +616,91 @@ func decode_zone_transfer(data: PackedByteArray) -> Dictionary:
 	buf.big_endian = true
 	var new_peer_id := buf.get_u16()
 	return {"zone_type": zone_type, "new_peer_id": new_peer_id}
+
+
+# =============================================================================
+# Character state (server -> client, confirmation after select/create)
+# =============================================================================
+
+## Format: [charID:u32 LE][class_len:u8][class:...][name_len:u8][name:...]
+##         [pos_x:f32 LE][pos_y:f32 LE][pos_z:f32 LE][rot_y:f32 LE]
+func decode_character_state(data: PackedByteArray) -> Dictionary:
+	var empty := {"char_id": 0, "class_name": "", "char_name": "", "position": Vector3.ZERO, "rot_y": 0.0}
+	if data.size() < 5:
+		return empty
+	var buf := StreamPeerBuffer.new()
+	buf.data_array = data
+	var char_id := buf.get_u32()
+	var class_name_str := _get_str8(buf)
+	var char_name := _get_str8(buf)
+	var px := buf.get_float()
+	var py := buf.get_float()
+	var pz := buf.get_float()
+	var ry := buf.get_float()
+	return {"char_id": char_id, "class_name": class_name_str, "char_name": char_name,
+		"position": Vector3(px, py, pz), "rot_y": ry}
+
+
+# =============================================================================
+# Character list (server -> client, sent once after auth)
+# =============================================================================
+
+## Format: [username_len:u8][username:...]
+##         [count:u8]
+##           per char: [charID:u32 LE][class_len:u8][class:...][name_len:u8][name:...]
+##                     [pos_x:f32][pos_y:f32][pos_z:f32][rot_y:f32]
+##         [last_char_id:u32 LE]
+func decode_character_list(data: PackedByteArray) -> Dictionary:
+	var result := {"username": "", "characters": [], "last_char_id": 0}
+	if data.size() < 1:
+		return result
+	var buf := StreamPeerBuffer.new()
+	buf.data_array = data
+	result.username = _get_str8(buf)
+	var count := buf.get_u8()
+	for i in range(count):
+		var char_id := buf.get_u32()
+		var cls := _get_str8(buf)
+		var char_name := _get_str8(buf)
+		var px := buf.get_float()
+		var py := buf.get_float()
+		var pz := buf.get_float()
+		var ry := buf.get_float()
+		result.characters.append({
+			"char_id": char_id,
+			"class_name": cls,
+			"char_name": char_name,
+			"position": Vector3(px, py, pz),
+			"rot_y": ry,
+		})
+	result.last_char_id = buf.get_u32()
+	return result
+
+
+## Encode character selection by ID: [charID:u32 LE]
+func encode_select_character(char_id: int) -> PackedByteArray:
+	var buf := StreamPeerBuffer.new()
+	buf.put_u32(char_id)
+	return buf.data_array
+
+
+## Encode create character: [class_len:u8][class:...][name_len:u8][name:...]
+func encode_create_character(class_name_str: String, char_name: String) -> PackedByteArray:
+	var buf := StreamPeerBuffer.new()
+	_put_str8(buf, class_name_str)
+	_put_str8(buf, char_name)
+	return buf.data_array
+
+
+## Decode character error: [error_code:u8][msg_len:u8][msg:...]
+func decode_character_error(data: PackedByteArray) -> Dictionary:
+	if data.size() < 2:
+		return {"error_code": 0, "message": "Unknown error"}
+	var buf := StreamPeerBuffer.new()
+	buf.data_array = data
+	var error_code := buf.get_u8()
+	var msg := _get_str8(buf)
+	return {"error_code": error_code, "message": msg}
 
 
 # =============================================================================

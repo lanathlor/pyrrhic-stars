@@ -260,6 +260,23 @@ func (z *Zone) GetPeerIDs() []uint16 {
 	return ids
 }
 
+// GetPlayer returns the player entity for a peer ID, or nil if not found.
+func (z *Zone) GetPlayer(peerID uint16) *entity.Player {
+	z.mu.Lock()
+	defer z.mu.Unlock()
+	return z.world.Players[peerID]
+}
+
+// SetPlayerPosition overrides a player's position and rotation.
+func (z *Zone) SetPlayerPosition(peerID uint16, pos entity.Vec3, rotY float32) {
+	z.mu.Lock()
+	defer z.mu.Unlock()
+	if p, ok := z.world.Players[peerID]; ok {
+		p.Position = pos
+		p.RotationY = rotY
+	}
+}
+
 // Broadcast sends a message to all clients except excludePeerID (0 = send to all).
 func (z *Zone) Broadcast(msg []byte, excludePeerID uint16) {
 	z.mu.Lock()

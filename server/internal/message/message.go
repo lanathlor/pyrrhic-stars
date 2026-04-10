@@ -68,6 +68,11 @@ const (
 	OpSetUsername      uint16 = 0xFF04
 	OpRequestZoneTransfer uint16 = 0xFF05
 	OpZoneTransfer     uint16 = 0xFF06
+	OpCharacterState   uint16 = 0xFF07 // server → client: saved character data after auth
+	OpCharacterList    uint16 = 0xFF08 // server → client: all characters after auth
+	OpSelectCharacter  uint16 = 0xFF09 // client → server: pick character to play
+	OpCreateCharacter  uint16 = 0xFF0A // client → server: create new character
+	OpCharacterError   uint16 = 0xFF0B // server → client: character operation error
 )
 
 // HeaderSize is the fixed-size message header: 2 bytes opcode + 2 bytes sender ID.

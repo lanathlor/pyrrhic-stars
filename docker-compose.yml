@@ -12,11 +12,9 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      postgres:
-        condition: service_healthy
     environment:
       REDIS_ADDR: redis:6379
-      POSTGRES_DSN: postgres://codex:codex@postgres:5432/codex?sslmode=disable
+      DB_DRIVER: sqlite
       CODEX_LEVELS_DIR: /shared/levels
 
   zone:

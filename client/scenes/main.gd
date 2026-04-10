@@ -3,7 +3,7 @@ extends Node3D
 ## Game flow: Menu -> Hub -> Arena (Lobby -> Fight -> Fight Over) -> Hub.
 ## Server-authoritative: all game flow is driven by server events.
 
-enum GameState { MENU, HUB, ARENA_LOBBY, FIGHT, FIGHT_OVER }
+enum GameState { MENU, CHARACTER_SELECT, CREATE_CHARACTER, HUB, ARENA_LOBBY, FIGHT, FIGHT_OVER }
 
 var state: GameState = GameState.MENU
 var paused: bool = false
@@ -37,13 +37,24 @@ const CLASS_SCENES := {
 	"blade_dancer": "res://scenes/controllers/blade_dancer/blade_dancer.tscn",
 }
 
+const CLASS_INFO := {
+	"gunner": {"name": "Gunner", "genre": "FPS", "desc": "Fast movement, high fire rate.\nRelentless aggression."},
+	"vanguard": {"name": "Vanguard", "genre": "Souls-like", "desc": "Big AoE swings, punish windows.\nHeavy and deliberate."},
+	"blade_dancer": {"name": "Blade Dancer", "genre": "State Machine", "desc": "5 configurations, 4 spells each.\nHighest skill ceiling."},
+}
+
 var _spawned_players: Dictionary = {}  # peer_id -> CharacterBody3D
 var _spawned_projectiles: Dictionary = {}  # proj_id -> Node3D
 var _local_class: String = "gunner"
+var _saved_hub_position: Vector3 = Vector3.ZERO
+var _saved_hub_rot_y: float = 0.0
+var _has_saved_state: bool = false
 var _class_button_group: ButtonGroup = ButtonGroup.new()
 var _players_node: Node3D
 var _projectiles_node: Node3D
 var _username: String = ""
+const SERVER_ADDRESS := "109.222.207.243"
+const USERNAME_SAVE_PATH := "user://username.txt"
 
 # Scene management
 var _current_env: Node3D = null
@@ -56,8 +67,24 @@ var _atmosphere: Node3D
 var _arena_buildings: Node3D
 var _pause_layer: CanvasLayer
 var _menu_layer: CanvasLayer
-var _address_input: LineEdit
 var _username_input: LineEdit
+var _menu_welcome_label: Label
+
+# Character select UI
+var _char_select_layer: CanvasLayer
+var _char_list_container: VBoxContainer  # holds character row buttons
+var _char_list_data: Dictionary = {}
+var _selected_char_id: int = 0
+var _enter_world_btn: Button
+var _char_select_welcome: Label
+var _account_username: String = ""
+
+# Create character UI
+var _char_create_layer: CanvasLayer
+var _char_create_cards: Dictionary = {}  # class_name -> PanelContainer
+var _char_name_input: LineEdit
+var _char_create_error_label: Label
+var _char_create_btn: Button
 
 # Hub UI
 var _hub_layer: CanvasLayer
@@ -121,6 +148,8 @@ func _ready() -> void:
 
 	_create_pause_menu()
 	_create_menu_ui()
+	_create_char_select_ui()
+	_create_char_create_ui()
 	_create_hub_ui()
 	_create_group_panel()
 	_create_invite_popup()
@@ -139,6 +168,9 @@ func _ready() -> void:
 	NetworkManager.group_state_updated.connect(_on_group_state)
 	NetworkManager.group_invite_received.connect(_on_group_invite)
 	NetworkManager.group_error_received.connect(_on_group_error)
+	NetworkManager.character_state_received.connect(_on_character_state)
+	NetworkManager.character_list_received.connect(_on_character_list)
+	NetworkManager.character_error_received.connect(_on_character_error)
 
 	_enter_menu()
 
@@ -147,7 +179,7 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		if state == GameState.FIGHT_OVER:
 			return
-		if state == GameState.MENU:
+		if state == GameState.MENU or state == GameState.CHARACTER_SELECT or state == GameState.CREATE_CHARACTER:
 			return
 		_toggle_pause()
 		get_viewport().set_input_as_handled()
@@ -230,39 +262,106 @@ func _enter_menu() -> void:
 	NetworkManager.disconnect_game()
 	_menu_layer.visible = true
 	_hub_layer.visible = false
+	_char_select_layer.visible = false
+	_char_create_layer.visible = false
 	_pause_layer.visible = false
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	_unload_environment()
+	if _enter_world_btn:
+		_enter_world_btn.disabled = false
+	# Show welcome or username input depending on saved state.
+	var saved := _load_saved_username()
+	if saved != "":
+		_username = saved
+		_username_input.visible = false
+		_menu_welcome_label.text = "Welcome back, %s" % saved
+		_menu_welcome_label.visible = true
+	else:
+		_username_input.visible = true
+		_menu_welcome_label.visible = false
 
 
 func _on_connect_pressed() -> void:
-	var address := _address_input.text.strip_edges()
-	if address == "":
-		address = "109.222.207.243"
-	_connect_to_address(address)
-
-
-func _connect_to_address(address: String) -> void:
-	_username = _username_input.text.strip_edges()
+	# If no saved username, require input.
 	if _username == "":
-		_username_input.grab_focus()
-		return
-	NetworkManager.username = _username
+		_username = _username_input.text.strip_edges()
+		if _username == "":
+			_username_input.grab_focus()
+			return
+		_save_username(_username)
 
+	NetworkManager.username = _username
 	NetworkManager.disconnect_game()
-	var err := NetworkManager.connect_to_server(address)
+	var err := NetworkManager.connect_to_server(SERVER_ADDRESS)
 	if err != OK:
 		print("[Main] Failed to connect: %s" % error_string(err))
 		return
-	print("[Main] Connecting to %s:%d..." % [address, NetworkManager.DEFAULT_PORT])
+	print("[Main] Connecting to %s:%d..." % [SERVER_ADDRESS, NetworkManager.DEFAULT_PORT])
 	_menu_layer.visible = false
 
 
+func _load_saved_username() -> String:
+	if not FileAccess.file_exists(USERNAME_SAVE_PATH):
+		return ""
+	var f := FileAccess.open(USERNAME_SAVE_PATH, FileAccess.READ)
+	if f == null:
+		return ""
+	var name := f.get_as_text().strip_edges()
+	f.close()
+	return name
+
+
+func _save_username(name: String) -> void:
+	var f := FileAccess.open(USERNAME_SAVE_PATH, FileAccess.WRITE)
+	if f == null:
+		return
+	f.store_string(name)
+	f.close()
+
+
+func _on_character_state(data: Dictionary) -> void:
+	# Server confirmed character selection. Restore position and enter hub.
+	_selected_char_id = data.get("char_id", 0)
+	if data.class_name != "":
+		_local_class = data.class_name
+	if data.position != Vector3.ZERO:
+		_saved_hub_position = data.position
+		_saved_hub_rot_y = data.rot_y
+		_has_saved_state = true
+	print("[Main] Character confirmed: id=%d class=%s name=%s pos=%s" % [
+		_selected_char_id, _local_class, data.get("char_name", ""), _saved_hub_position])
+
+
+func _on_character_list(data: Dictionary) -> void:
+	_char_list_data = data
+	_account_username = data.get("username", "")
+	var last_id: int = data.get("last_char_id", 0)
+	_selected_char_id = last_id
+	# Set local class from the last played character.
+	for ch in data.get("characters", []):
+		if ch.char_id == last_id:
+			_local_class = ch.class_name
+			break
+	print("[Main] Character list: %d characters, username=%s" % [data.characters.size(), _account_username])
+	_enter_character_select()
+
+
+func _on_character_error(data: Dictionary) -> void:
+	print("[Main] Character error: %s" % data.message)
+	if _char_create_error_label:
+		_char_create_error_label.text = data.message
+		_char_create_error_label.visible = true
+	if _char_create_btn:
+		_char_create_btn.disabled = false
+
+
 func _on_net_connected() -> void:
-	print("[Main] Connected as peer %d" % NetworkManager.get_my_id())
-	# Send class selected at login
-	NetworkManager.set_player_class(_local_class)
-	_enter_hub()
+	if state == GameState.CHARACTER_SELECT or state == GameState.CREATE_CHARACTER:
+		# ZoneJoined after character selection/creation — enter hub
+		print("[Main] Joined hub as peer %d" % NetworkManager.get_my_id())
+		_enter_hub()
+	else:
+		print("[Main] Connected, waiting for character list...")
 
 
 func _on_net_connection_failed() -> void:
@@ -289,6 +388,8 @@ func _enter_hub() -> void:
 	paused = false
 	_pause_layer.visible = false
 	_menu_layer.visible = false
+	_char_select_layer.visible = false
+	_char_create_layer.visible = false
 	_hub_layer.visible = true
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	_near_portal = false
@@ -305,10 +406,19 @@ func _enter_hub() -> void:
 	# Despawn existing players
 	_despawn_all_players()
 
-	# Spawn local player in hub
+	# Spawn local player in hub (use saved position if returning player)
 	var my_id := NetworkManager.get_my_id()
 	if my_id > 0:
-		_spawn_player(my_id, _local_class, HUB_SPAWNS[0])
+		var spawn_pos: Vector3 = HUB_SPAWNS[0]
+		if _has_saved_state:
+			spawn_pos = _saved_hub_position
+			_has_saved_state = false
+		_spawn_player(my_id, _local_class, spawn_pos)
+		if _saved_hub_rot_y != 0.0:
+			var player: CharacterBody3D = _spawned_players.get(my_id)
+			if player:
+				player.rotation.y = _saved_hub_rot_y
+			_saved_hub_rot_y = 0.0
 
 	_update_hub_display()
 	_update_group_panel()
@@ -1353,58 +1463,418 @@ func _create_menu_ui() -> void:
 	spacer.custom_minimum_size.y = 10.0
 	vbox.add_child(spacer)
 
-	# Username input
+	# Welcome label — shown for returning players.
+	_menu_welcome_label = Label.new()
+	_menu_welcome_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_menu_welcome_label.add_theme_font_size_override("font_size", 22)
+	_menu_welcome_label.add_theme_color_override("font_color", Color(0.7, 0.75, 0.9))
+	_menu_welcome_label.visible = false
+	vbox.add_child(_menu_welcome_label)
+
+	# Username input — only shown for new players (no saved username).
 	_username_input = LineEdit.new()
-	_username_input.placeholder_text = "Enter username..."
+	_username_input.placeholder_text = "Choose a username..."
 	_username_input.custom_minimum_size.y = 50.0
 	_username_input.max_length = 20
+	_username_input.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(_username_input)
 
-	# Class selection
-	var class_label := Label.new()
-	class_label.text = "Select Class"
-	class_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	class_label.add_theme_font_size_override("font_size", 20)
-	class_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
-	vbox.add_child(class_label)
+	# Load saved username — if exists, show welcome instead of input.
+	var saved := _load_saved_username()
+	if saved != "":
+		_username = saved
+		_username_input.visible = false
+		_menu_welcome_label.text = "Welcome back, %s" % saved
+		_menu_welcome_label.visible = true
 
-	var class_hbox := HBoxContainer.new()
-	class_hbox.add_theme_constant_override("separation", 8)
-	class_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_child(class_hbox)
+	var play_btn := Button.new()
+	play_btn.text = "Play"
+	play_btn.custom_minimum_size = Vector2(200.0, 55.0)
+	play_btn.pressed.connect(_on_connect_pressed)
+	vbox.add_child(play_btn)
 
-	var classes := ["gunner", "vanguard", "blade_dancer"]
-	var class_labels := ["Gunner", "Vanguard", "Blade Dancer"]
-	for i in classes.size():
+
+func _create_char_select_ui() -> void:
+	_char_select_layer = CanvasLayer.new()
+	_char_select_layer.layer = 18
+	_char_select_layer.visible = false
+	add_child(_char_select_layer)
+
+	var bg := ColorRect.new()
+	bg.color = Color(0.05, 0.05, 0.1, 0.95)
+	bg.anchor_right = 1.0
+	bg.anchor_bottom = 1.0
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	_char_select_layer.add_child(bg)
+
+	var outer := VBoxContainer.new()
+	outer.anchor_left = 0.5
+	outer.anchor_right = 0.5
+	outer.anchor_top = 0.1
+	outer.anchor_bottom = 0.9
+	outer.offset_left = -300.0
+	outer.offset_right = 300.0
+	outer.add_theme_constant_override("separation", 20)
+	_char_select_layer.add_child(outer)
+
+	# Title
+	var title := Label.new()
+	title.text = "SELECT CHARACTER"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 36)
+	title.add_theme_color_override("font_color", Color(0.8, 0.85, 1.0))
+	outer.add_child(title)
+
+	# Welcome label
+	_char_select_welcome = Label.new()
+	_char_select_welcome.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_char_select_welcome.add_theme_font_size_override("font_size", 16)
+	_char_select_welcome.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
+	outer.add_child(_char_select_welcome)
+
+	# Scrollable character list
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.custom_minimum_size.y = 200.0
+	outer.add_child(scroll)
+
+	_char_list_container = VBoxContainer.new()
+	_char_list_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_char_list_container.add_theme_constant_override("separation", 4)
+	scroll.add_child(_char_list_container)
+
+	# Buttons
+	var btn_hbox := HBoxContainer.new()
+	btn_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_hbox.add_theme_constant_override("separation", 20)
+	outer.add_child(btn_hbox)
+
+	var back_btn := Button.new()
+	back_btn.text = "Back"
+	back_btn.custom_minimum_size = Vector2(100.0, 45.0)
+	back_btn.pressed.connect(func():
+		NetworkManager.disconnect_game()
+		_enter_menu()
+	)
+	btn_hbox.add_child(back_btn)
+
+	var create_btn := Button.new()
+	create_btn.text = "Create New Character"
+	create_btn.custom_minimum_size = Vector2(200.0, 45.0)
+	create_btn.pressed.connect(_enter_create_character)
+	btn_hbox.add_child(create_btn)
+
+	_enter_world_btn = Button.new()
+	_enter_world_btn.text = "Enter World"
+	_enter_world_btn.custom_minimum_size = Vector2(160.0, 45.0)
+	_enter_world_btn.pressed.connect(_on_enter_world_pressed)
+	btn_hbox.add_child(_enter_world_btn)
+
+
+func _create_char_create_ui() -> void:
+	_char_create_layer = CanvasLayer.new()
+	_char_create_layer.layer = 18
+	_char_create_layer.visible = false
+	add_child(_char_create_layer)
+
+	var bg := ColorRect.new()
+	bg.color = Color(0.05, 0.05, 0.1, 0.95)
+	bg.anchor_right = 1.0
+	bg.anchor_bottom = 1.0
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	_char_create_layer.add_child(bg)
+
+	var outer := VBoxContainer.new()
+	outer.anchor_left = 0.5
+	outer.anchor_right = 0.5
+	outer.anchor_top = 0.1
+	outer.anchor_bottom = 0.9
+	outer.offset_left = -350.0
+	outer.offset_right = 350.0
+	outer.add_theme_constant_override("separation", 20)
+	_char_create_layer.add_child(outer)
+
+	var title := Label.new()
+	title.text = "CREATE CHARACTER"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 36)
+	title.add_theme_color_override("font_color", Color(0.8, 0.85, 1.0))
+	outer.add_child(title)
+
+	# Class cards
+	var cards_hbox := HBoxContainer.new()
+	cards_hbox.add_theme_constant_override("separation", 20)
+	cards_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	cards_hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	outer.add_child(cards_hbox)
+
+	var normal_style := StyleBoxFlat.new()
+	normal_style.bg_color = Color(0.12, 0.12, 0.18, 0.9)
+	normal_style.border_color = Color(0.3, 0.3, 0.4, 0.6)
+	normal_style.set_border_width_all(2)
+	normal_style.set_corner_radius_all(6)
+	normal_style.set_content_margin_all(16)
+
+	var selected_style := StyleBoxFlat.new()
+	selected_style.bg_color = Color(0.1, 0.12, 0.22, 0.95)
+	selected_style.border_color = Color(0.3, 0.6, 1.0, 0.9)
+	selected_style.set_border_width_all(3)
+	selected_style.set_corner_radius_all(6)
+	selected_style.set_content_margin_all(16)
+
+	for cls in CLASS_INFO:
+		var info: Dictionary = CLASS_INFO[cls]
+		var card := PanelContainer.new()
+		card.custom_minimum_size = Vector2(200.0, 250.0)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		card.add_theme_stylebox_override("panel", normal_style)
+		card.set_meta("normal_style", normal_style)
+		card.set_meta("selected_style", selected_style)
+		cards_hbox.add_child(card)
+		_char_create_cards[cls] = card
+
+		var vbox := VBoxContainer.new()
+		vbox.add_theme_constant_override("separation", 10)
+		card.add_child(vbox)
+
+		var name_label := Label.new()
+		name_label.text = info.name
+		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		name_label.add_theme_font_size_override("font_size", 24)
+		name_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95))
+		vbox.add_child(name_label)
+
+		var genre_label := Label.new()
+		genre_label.text = info.genre
+		genre_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		genre_label.add_theme_font_size_override("font_size", 14)
+		genre_label.add_theme_color_override("font_color", Color(0.4, 0.65, 1.0))
+		vbox.add_child(genre_label)
+
+		var sep := HSeparator.new()
+		sep.add_theme_color_override("separator", Color(0.3, 0.3, 0.4, 0.4))
+		vbox.add_child(sep)
+
+		var desc_label := Label.new()
+		desc_label.text = info.desc
+		desc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		desc_label.add_theme_font_size_override("font_size", 14)
+		desc_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65))
+		desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		vbox.add_child(desc_label)
+
+		# Click detection
+		var click_btn := Button.new()
+		click_btn.flat = true
+		click_btn.anchor_right = 1.0
+		click_btn.anchor_bottom = 1.0
+		click_btn.mouse_filter = Control.MOUSE_FILTER_STOP
+		var cls_capture: String = cls
+		click_btn.pressed.connect(func(): _select_create_class(cls_capture))
+		card.add_child(click_btn)
+
+	# Name input
+	var name_label := Label.new()
+	name_label.text = "Character Name"
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.add_theme_font_size_override("font_size", 18)
+	name_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
+	outer.add_child(name_label)
+
+	_char_name_input = LineEdit.new()
+	_char_name_input.placeholder_text = "Enter a name (2-20 characters)..."
+	_char_name_input.custom_minimum_size.y = 45.0
+	_char_name_input.max_length = 20
+	_char_name_input.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	outer.add_child(_char_name_input)
+
+	# Error label
+	_char_create_error_label = Label.new()
+	_char_create_error_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_char_create_error_label.add_theme_font_size_override("font_size", 14)
+	_char_create_error_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+	_char_create_error_label.visible = false
+	outer.add_child(_char_create_error_label)
+
+	# Buttons
+	var btn_hbox := HBoxContainer.new()
+	btn_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_hbox.add_theme_constant_override("separation", 20)
+	outer.add_child(btn_hbox)
+
+	var back_btn := Button.new()
+	back_btn.text = "Back"
+	back_btn.custom_minimum_size = Vector2(100.0, 45.0)
+	back_btn.pressed.connect(func():
+		_char_create_layer.visible = false
+		_enter_character_select()
+	)
+	btn_hbox.add_child(back_btn)
+
+	_char_create_btn = Button.new()
+	_char_create_btn.text = "Create"
+	_char_create_btn.custom_minimum_size = Vector2(160.0, 45.0)
+	_char_create_btn.pressed.connect(_on_create_character_pressed)
+	btn_hbox.add_child(_char_create_btn)
+
+
+# =============================================================================
+# Character Select logic
+# =============================================================================
+
+func _enter_character_select() -> void:
+	state = GameState.CHARACTER_SELECT
+	_menu_layer.visible = false
+	_hub_layer.visible = false
+	_char_create_layer.visible = false
+	_char_select_layer.visible = true
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	_populate_char_select()
+
+
+func _populate_char_select() -> void:
+	# Update welcome label.
+	if _account_username != "":
+		_char_select_welcome.text = "Welcome, %s" % _account_username
+	else:
+		_char_select_welcome.text = ""
+
+	# Clear existing rows.
+	for child in _char_list_container.get_children():
+		child.queue_free()
+
+	var characters: Array = _char_list_data.get("characters", [])
+	var last_id: int = _char_list_data.get("last_char_id", 0)
+
+	var normal_style := StyleBoxFlat.new()
+	normal_style.bg_color = Color(0.12, 0.12, 0.18, 0.8)
+	normal_style.border_color = Color(0.3, 0.3, 0.4, 0.4)
+	normal_style.set_border_width_all(1)
+	normal_style.set_corner_radius_all(4)
+	normal_style.set_content_margin_all(12)
+
+	var selected_style := StyleBoxFlat.new()
+	selected_style.bg_color = Color(0.1, 0.12, 0.22, 0.95)
+	selected_style.border_color = Color(0.3, 0.6, 1.0, 0.9)
+	selected_style.set_border_width_all(2)
+	selected_style.set_corner_radius_all(4)
+	selected_style.set_content_margin_all(12)
+
+	if characters.is_empty():
+		var empty_label := Label.new()
+		empty_label.text = "No characters yet. Create one to get started!"
+		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		empty_label.add_theme_font_size_override("font_size", 16)
+		empty_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
+		_char_list_container.add_child(empty_label)
+		_enter_world_btn.disabled = true
+		return
+
+	_enter_world_btn.disabled = false
+
+	for ch in characters:
+		var char_id: int = ch.char_id
+		var class_display: String = CLASS_INFO.get(ch.class_name, {}).get("name", ch.class_name)
+
+		var row := PanelContainer.new()
+		row.custom_minimum_size.y = 50.0
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.set_meta("char_id", char_id)
+		row.set_meta("normal_style", normal_style)
+		row.set_meta("selected_style", selected_style)
+		if char_id == _selected_char_id:
+			row.add_theme_stylebox_override("panel", selected_style)
+		else:
+			row.add_theme_stylebox_override("panel", normal_style)
+		_char_list_container.add_child(row)
+
+		var hbox := HBoxContainer.new()
+		hbox.add_theme_constant_override("separation", 20)
+		row.add_child(hbox)
+
+		var name_lbl := Label.new()
+		name_lbl.text = ch.char_name
+		name_lbl.add_theme_font_size_override("font_size", 18)
+		name_lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95))
+		name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hbox.add_child(name_lbl)
+
+		var class_lbl := Label.new()
+		class_lbl.text = class_display
+		class_lbl.add_theme_font_size_override("font_size", 16)
+		class_lbl.add_theme_color_override("font_color", Color(0.4, 0.65, 1.0))
+		hbox.add_child(class_lbl)
+
+		# Click detection
 		var btn := Button.new()
-		btn.text = class_labels[i]
-		btn.custom_minimum_size = Vector2(90.0, 40.0)
-		btn.toggle_mode = true
-		btn.button_pressed = (classes[i] == _local_class)
-		btn.button_group = _class_button_group
-		var cls: String = classes[i]
-		btn.pressed.connect(func(): _local_class = cls)
-		class_hbox.add_child(btn)
+		btn.flat = true
+		btn.anchor_right = 1.0
+		btn.anchor_bottom = 1.0
+		btn.mouse_filter = Control.MOUSE_FILTER_STOP
+		var id_capture: int = char_id
+		var cls_capture: String = ch.class_name
+		btn.pressed.connect(func(): _select_character_row(id_capture, cls_capture))
+		row.add_child(btn)
 
-	var spacer2 := Control.new()
-	spacer2.custom_minimum_size.y = 10.0
-	vbox.add_child(spacer2)
+	# Auto-select last played if none selected.
+	if _selected_char_id == 0 and not characters.is_empty():
+		_select_character_row(characters[0].char_id, characters[0].class_name)
 
-	var connect_hbox := HBoxContainer.new()
-	connect_hbox.add_theme_constant_override("separation", 8)
-	vbox.add_child(connect_hbox)
 
-	_address_input = LineEdit.new()
-	_address_input.placeholder_text = "109.222.207.243"
-	_address_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_address_input.custom_minimum_size.y = 50.0
-	connect_hbox.add_child(_address_input)
+func _select_character_row(char_id: int, class_name_str: String) -> void:
+	_selected_char_id = char_id
+	_local_class = class_name_str
+	# Update row highlights.
+	for row in _char_list_container.get_children():
+		if row is PanelContainer and row.has_meta("char_id"):
+			if row.get_meta("char_id") == char_id:
+				row.add_theme_stylebox_override("panel", row.get_meta("selected_style"))
+			else:
+				row.add_theme_stylebox_override("panel", row.get_meta("normal_style"))
 
-	var connect_btn := Button.new()
-	connect_btn.text = "Connect"
-	connect_btn.custom_minimum_size = Vector2(100.0, 50.0)
-	connect_btn.pressed.connect(_on_connect_pressed)
-	connect_hbox.add_child(connect_btn)
+
+func _on_enter_world_pressed() -> void:
+	if _selected_char_id == 0:
+		return
+	_enter_world_btn.disabled = true
+	NetworkManager.send_select_character(_selected_char_id)
+
+
+# =============================================================================
+# Create Character logic
+# =============================================================================
+
+func _enter_create_character() -> void:
+	state = GameState.CREATE_CHARACTER
+	_char_select_layer.visible = false
+	_char_create_layer.visible = true
+	_char_create_error_label.visible = false
+	_char_name_input.text = ""
+	_char_create_btn.disabled = false
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	# Default select gunner.
+	_select_create_class("gunner")
+
+
+func _select_create_class(cls: String) -> void:
+	_local_class = cls
+	for c_name in _char_create_cards:
+		var card: PanelContainer = _char_create_cards[c_name]
+		if c_name == cls:
+			card.add_theme_stylebox_override("panel", card.get_meta("selected_style"))
+		else:
+			card.add_theme_stylebox_override("panel", card.get_meta("normal_style"))
+
+
+func _on_create_character_pressed() -> void:
+	var char_name := _char_name_input.text.strip_edges()
+	if char_name.length() < 2 or char_name.length() > 20:
+		_char_create_error_label.text = "Name must be 2-20 characters."
+		_char_create_error_label.visible = true
+		return
+	_char_create_error_label.visible = false
+	_char_create_btn.disabled = true
+	NetworkManager.send_create_character(_local_class, char_name)
 
 
 func _create_hub_ui() -> void:
