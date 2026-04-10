@@ -38,7 +38,11 @@ build-client-linux:
     - cd client
     - godot --headless --import
   script:
-    - godot --headless --export-release "Linux" ../build/linux/codex-online.x86_64
+    # Godot 4.5.x may crash during post-export cleanup (signal 11) even though
+    # the pack file was written successfully. Ignore the exit code and verify
+    # the output file exists.
+    - godot --headless --export-release "Linux" ../build/linux/codex-online.x86_64 || true
+    - test -f ../build/linux/codex-online.x86_64 || (echo "Export failed — binary not found" && exit 1)
   artifacts:
     name: "codex-online-linux-${CI_COMMIT_SHORT_SHA}"
     paths:
@@ -53,7 +57,8 @@ build-client-windows:
     - cd client
     - godot --headless --import
   script:
-    - godot --headless --export-release "Windows" ../build/windows/codex-online.exe
+    - godot --headless --export-release "Windows" ../build/windows/codex-online.exe || true
+    - test -f ../build/windows/codex-online.exe || (echo "Export failed — binary not found" && exit 1)
   artifacts:
     name: "codex-online-windows-${CI_COMMIT_SHORT_SHA}"
     paths:
