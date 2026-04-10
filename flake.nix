@@ -36,6 +36,7 @@
           ffmpeg
 
           # Tools
+          git-lfs       # large file storage for GLB assets
           jq            # used in hooks
           just          # task runner
         ];
