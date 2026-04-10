@@ -71,6 +71,13 @@ func _draw() -> void:
 		draw_string(font, Vector2(x + 4.0, y + 12.0), keybind,
 			HORIZONTAL_ALIGNMENT_LEFT, SLOT_SIZE - 8.0, 10, keybind_color)
 
+		# Stamina cost (top-right, gold)
+		var stam_cost: float = spell.get("stamina_cost", 0.0)
+		if stam_cost > 0.0:
+			var stam_text := "%d" % int(stam_cost)
+			draw_string(font, Vector2(x + SLOT_SIZE - 18.0, y + 12.0), stam_text,
+				HORIZONTAL_ALIGNMENT_RIGHT, 16.0, 9, Color(0.85, 0.75, 0.2, 0.8))
+
 		# Spell name (lower portion of slot)
 		var spell_name: String = spell.get("name", "???")
 		var status_text: String = spell.get("status_text", "")
@@ -195,10 +202,17 @@ func _draw_tooltip(start_x: float, slot_y: float) -> void:
 		draw_string(font, Vector2(tip_x + tip_w - 60.0, tip_y + 16.0), "%.1fs" % cast_time,
 			HORIZONTAL_ALIGNMENT_RIGHT, 52.0, 10, Color(0.7, 0.7, 0.7, 0.8))
 
-	# Cooldown info
+	# Cost / cooldown info line
+	var info_parts: Array[String] = []
+	var stam_cost: float = spell.get("stamina_cost", 0.0)
+	if stam_cost > 0.0:
+		info_parts.append("%d stamina" % int(stam_cost))
 	if cd_max > 0.01:
-		draw_string(font, Vector2(tip_x + tip_w - 60.0, tip_y + 30.0), "CD: %ds" % ceili(cd_max),
-			HORIZONTAL_ALIGNMENT_RIGHT, 52.0, 10, Color(0.7, 0.7, 0.7, 0.6))
+		info_parts.append("CD: %ds" % ceili(cd_max))
+	if info_parts.size() > 0:
+		var info_text := " | ".join(info_parts)
+		draw_string(font, Vector2(tip_x + 8.0, tip_y + 30.0), info_text,
+			HORIZONTAL_ALIGNMENT_LEFT, tip_w - 16.0, 10, Color(0.85, 0.75, 0.2, 0.8))
 
 	# Custom tooltip content (Blade Dancer config transitions, etc.)
 	var desc_y := tip_y + 32.0

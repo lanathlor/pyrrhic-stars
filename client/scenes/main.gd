@@ -922,6 +922,9 @@ func _on_world_state(data: Dictionary) -> void:
 			var server_pos: Vector3 = p_data["pos"]
 			if player.global_position.distance_to(server_pos) > 8.0:
 				player.global_position = server_pos
+			# Still apply server state for stamina/health sync
+			if player.has_method("apply_server_state"):
+				player.apply_server_state(p_data)
 		elif player.has_method("apply_server_state"):
 			player.apply_server_state(p_data)
 

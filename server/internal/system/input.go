@@ -108,9 +108,9 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 	if !ok || !p.Alive {
 		return
 	}
-	if w.State != StateFight {
-		return
-	}
+
+	// All abilities work in any zone/state (hub, lobby, fight).
+	// Damage resolution naturally no-ops when no enemies are present.
 
 	// Update rotation from ability packet so hitscan uses the exact aim at time of shot
 	if inp.RotY != 0 {
@@ -121,7 +121,7 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 	switch inp.Action {
 	case entity.ActionShoot:
 		// Gunner: hitscan, gated by fire cooldown
-		if p.ClassName == "gunner" && p.FireCooldown <= 0 {
+if p.ClassName == "gunner" && p.FireCooldown <= 0 {
 			fireCooldown := float32(0.18)
 			if p.OverclockActive {
 				fireCooldown = 0.10
@@ -138,7 +138,7 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 		}
 	case entity.ActionMelee:
 		// Vanguard/blade_dancer: melee, gated by cooldown + stamina
-		if p.FireCooldown <= 0 {
+if p.FireCooldown <= 0 {
 			if p.ClassName == "vanguard" {
 				if p.Stamina < 10.0 {
 					break
@@ -170,7 +170,7 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 			p.GuardTimer = 1.5
 		}
 	case entity.ActionHeavy:
-		if (p.ClassName == "vanguard" || p.ClassName == "blade_dancer") && p.FireCooldown <= 0 {
+if (p.ClassName == "vanguard" || p.ClassName == "blade_dancer") && p.FireCooldown <= 0 {
 			if p.ClassName == "vanguard" {
 				if p.Stamina < 20.0 {
 					break
@@ -191,25 +191,25 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 			}
 		}
 	case entity.ActionOverclock:
-		if p.ClassName == "gunner" && !p.OverclockActive && p.OverclockCooldown <= 0 {
+if p.ClassName == "gunner" && !p.OverclockActive && p.OverclockCooldown <= 0 {
 			p.OverclockActive = true
 			p.OverclockTimer = 7.0
 			p.OverclockCooldown = 15.0
 		}
 	case entity.ActionRechamber:
-		if p.ClassName == "gunner" && p.RechamberPhase == 0 && p.FireCooldown <= 0 {
+if p.ClassName == "gunner" && p.RechamberPhase == 0 && p.FireCooldown <= 0 {
 			p.RechamberPhase = 1
 			p.RechamberTimer = 0.6
 			p.FireCooldown = 0.6 // lock out shooting during windup
 		}
 	case entity.ActionRechamberConfirm:
-		if p.ClassName == "gunner" && p.RechamberPhase == 2 {
+if p.ClassName == "gunner" && p.RechamberPhase == 2 {
 			p.RechamberBuff = true
 			p.RechamberBuffTimer = 4.0
 			p.RechamberPhase = 0
 		}
 	case entity.ActionBladeSwirl:
-		if p.ClassName == "vanguard" && p.Stamina >= 25.0 && p.BladeSwirlCooldown <= 0 && !p.BladeSwirl && p.FireCooldown <= 0 {
+if p.ClassName == "vanguard" && p.Stamina >= 25.0 && p.BladeSwirlCooldown <= 0 && !p.BladeSwirl && p.FireCooldown <= 0 {
 			p.Stamina -= 25.0
 			p.StaminaDelay = 0.6
 			p.BladeSwirl = true
@@ -234,7 +234,7 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 			}
 		}
 	case entity.ActionGroundSlam:
-		if p.ClassName == "vanguard" && p.Stamina >= 20.0 && p.GroundSlamCooldown <= 0 && p.FireCooldown <= 0 {
+if p.ClassName == "vanguard" && p.Stamina >= 20.0 && p.GroundSlamCooldown <= 0 && p.FireCooldown <= 0 {
 			p.Stamina -= 20.0
 			p.StaminaDelay = 0.6
 			p.GroundSlamCooldown = 8.0
@@ -256,7 +256,7 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 		}
 	default:
 		// Blade Dancer spells: action IDs 30-49
-		if inp.Action >= entity.ActionBDSpellBase && inp.Action < entity.ActionBDSpellBase+20 {
+if inp.Action >= entity.ActionBDSpellBase && inp.Action < entity.ActionBDSpellBase+20 {
 			if p.ClassName == "blade_dancer" && p.GCDTimer <= 0 {
 				idx := int(inp.Action - entity.ActionBDSpellBase)
 				originCfg := idx / 4

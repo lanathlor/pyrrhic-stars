@@ -266,12 +266,12 @@ func _physics_process(delta: float) -> void:
 	if _lock_on_active and _lock_target:
 		hud.update_lock_on(_lock_target, camera)
 	hud.update_spells([
-		{name="Light Attack", keybind="LMB", desc="3-hit combo. 30/35/55 dmg.", cooldown=0.0, cooldown_max=0.0},
-		{name="Heavy Attack", keybind="R", desc="75 dmg. 0.5s windup.", cooldown=0.0, cooldown_max=0.0},
+		{name="Light Attack", keybind="LMB", desc="3-hit combo. 30/35/55 dmg.", cooldown=0.0, cooldown_max=0.0, stamina_cost=light_stamina_cost},
+		{name="Heavy Attack", keybind="R", desc="75 dmg. 0.5s windup.", cooldown=0.0, cooldown_max=0.0, stamina_cost=heavy_stamina_cost},
 		{name="Block", keybind="RMB", desc="70% DR. 0.15s parry window.", cooldown=0.0, cooldown_max=0.0},
-		{name="Dodge", keybind="Space", desc="I-frame dodge. 20 stamina.", cooldown=0.0, cooldown_max=0.0},
-		{name="Blade Swirl", keybind="F", desc="AoE spinning attack. 25 stamina. 10s CD.", cooldown=_blade_swirl_cooldown, cooldown_max=BLADE_SWIRL_COOLDOWN},
-		{name="Ground Slam", keybind="E", desc="Cone AoE slam. 20 stamina. 8s CD.", cooldown=_ground_slam_cooldown, cooldown_max=GROUND_SLAM_COOLDOWN},
+		{name="Dodge", keybind="Space", desc="I-frame dodge.", cooldown=0.0, cooldown_max=0.0, stamina_cost=dodge_stamina_cost},
+		{name="Blade Swirl", keybind="F", desc="AoE spinning attack. 10s CD.", cooldown=_blade_swirl_cooldown, cooldown_max=BLADE_SWIRL_COOLDOWN, stamina_cost=BLADE_SWIRL_STAMINA},
+		{name="Ground Slam", keybind="E", desc="Cone AoE slam. 8s CD.", cooldown=_ground_slam_cooldown, cooldown_max=GROUND_SLAM_COOLDOWN, stamina_cost=GROUND_SLAM_STAMINA},
 	])
 
 	# Send position + animation to server
@@ -703,14 +703,10 @@ func _consume_stamina(amount: float) -> void:
 	_stamina_cooldown_timer = stamina_regen_delay
 
 
-func _update_stamina(delta: float) -> void:
-	if _stamina_cooldown_timer > 0.0:
-		_stamina_cooldown_timer -= delta
-		return
-	if state == State.BLOCK:
-		return
-	if stamina < max_stamina:
-		stamina = minf(stamina + stamina_regen_rate * delta, max_stamina)
+func _update_stamina(_delta: float) -> void:
+	# Stamina is server-authoritative — no client-side prediction.
+	# Value is synced every tick via apply_server_state().
+	pass
 
 
 # --- Lock-on ---

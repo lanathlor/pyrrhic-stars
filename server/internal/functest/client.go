@@ -27,6 +27,7 @@ import (
 	"testing"
 	"time"
 
+	"codex-online/server/internal/codec"
 	"codex-online/server/internal/message"
 
 	"github.com/coder/websocket"
@@ -136,6 +137,13 @@ func (c *Client) send(data []byte) {
 	if err := c.conn.Write(c.ctx, websocket.MessageBinary, data); err != nil {
 		c.t.Fatalf("functest send: %v", err)
 	}
+}
+
+// SendAbility sends an OpAbilityInput with the given action ID.
+func (c *Client) SendAbility(action uint8) {
+	c.t.Helper()
+	payload := codec.EncodeAbilityInput(action, 0.0)
+	c.send(message.Encode(message.OpAbilityInput, c.PeerID, payload))
 }
 
 // JoinZone sends OpJoinZone, waits for OpZoneJoined, and stores the PeerID.
@@ -386,6 +394,7 @@ type PlayerState struct {
 	ClassName string
 	Username  string
 	AnimName  string
+	Stamina   float32
 }
 
 // EnemyState is a single enemy from a WorldState.
@@ -491,6 +500,7 @@ func decodeWorldState(data []byte) (*WorldState, error) {
 		off += 4 // aim pitch
 		off++    // buff flags
 		off++    // config
+		p.Stamina = leF32(data[off:])
 		off += 4 // stamina
 		off += 4 // BD shield HP
 
