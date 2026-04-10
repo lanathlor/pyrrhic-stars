@@ -63,6 +63,26 @@ type RawMsg struct {
 // Dial connects to a running gateway. It generates a random UUID and sets the
 // given username (or "FuncTest" if empty). The test is failed if the connection
 // cannot be established.
+// TryDial attempts to connect without failing the test. Returns an error if unreachable.
+func TryDial(addr, username string) (*Client, error) {
+	url := fmt.Sprintf("%s?uuid=%s&username=%s", addr, uuid.New().String(), username)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	conn, _, err := websocket.Dial(ctx, url, nil)
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+	conn.SetReadLimit(1 << 20)
+	c := &Client{
+		conn:   conn,
+		ctx:    ctx,
+		cancel: cancel,
+	}
+	c.cond = sync.NewCond(&c.mu)
+	go c.readLoop()
+	return c, nil
+}
+
 func Dial(t *testing.T, addr string, username ...string) *Client {
 	t.Helper()
 	name := "FuncTest"

@@ -368,46 +368,21 @@ func TestGunnerFire_TickByTickStateSequence(t *testing.T) {
 // =============================================================================
 // ROOT CAUSE: Server silently drops ability inputs outside StateFight.
 //
-// The client fires in ANY state (hub, lobby, warmup) because _handle_shooting
-// has no game-state check -- it spawns a local tracer and sends OpAbilityInput.
-// But the server's handleAbilityInput returns early if w.State != StateFight.
-// State never becomes Attack -> remote clients never see a transition -> no tracer.
-//
-// This is the primary bug: local player sees their own tracers (client-side),
-// but the server never acknowledges the shot, so remote clients see nothing.
+// Abilities now work in every zone state (hub, lobby, warmup, fight).
+// The server processes the input, sets PlayerStateAttack, and remote
+// clients see the tracer/animation transition in all cases.
 // =============================================================================
 
-func TestGunnerFire_ServerDropsInputOutsideFight(t *testing.T) {
+func TestGunnerFire_WorksInAllZoneStates(t *testing.T) {
 	tests := []struct {
 		name      string
 		zoneType  ZoneType
 		zoneState GameFlowState
-		wantState entity.PlayerState
 	}{
-		{
-			name:      "Hub zone -- server drops ability input",
-			zoneType:  ZoneTypeHub,
-			zoneState: StateLobby,
-			wantState: entity.PlayerStateMove, // NOT Attack
-		},
-		{
-			name:      "Arena lobby -- server drops ability input",
-			zoneType:  ZoneTypeArena,
-			zoneState: StateLobby,
-			wantState: entity.PlayerStateMove,
-		},
-		{
-			name:      "Arena spawned/warmup -- server drops ability input",
-			zoneType:  ZoneTypeArena,
-			zoneState: StateSpawned,
-			wantState: entity.PlayerStateMove,
-		},
-		{
-			name:      "Arena fight -- server processes ability input",
-			zoneType:  ZoneTypeArena,
-			zoneState: StateFight,
-			wantState: entity.PlayerStateAttack, // only state that works
-		},
+		{name: "Hub zone", zoneType: ZoneTypeHub, zoneState: StateLobby},
+		{name: "Arena lobby", zoneType: ZoneTypeArena, zoneState: StateLobby},
+		{name: "Arena spawned/warmup", zoneType: ZoneTypeArena, zoneState: StateSpawned},
+		{name: "Arena fight", zoneType: ZoneTypeArena, zoneState: StateFight},
 	}
 
 	for _, tc := range tests {
@@ -426,16 +401,14 @@ func TestGunnerFire_ServerDropsInputOutsideFight(t *testing.T) {
 			p.AnimName = "rifle_idle"
 			p.AnimSpeed = 1.0
 
-			// Client fires locally (always works) and sends ability input
 			z.QueueInput(peerID, message.OpAbilityInput, buildShootPayload(-0.1))
 			z.processTick()
 
-			if p.State != tc.wantState {
-				t.Errorf("player State = %d, want %d", p.State, tc.wantState)
+			if p.State != entity.PlayerStateAttack {
+				t.Errorf("player State = %d, want %d (Attack)", p.State, entity.PlayerStateAttack)
 			}
 
-			// Check if observer would detect a tracer
-			clientNetState := uint8(0) // _net_state starts at 0
+			// Observer should detect the tracer transition
 			tracerDetected := false
 			for _, msg := range observerMsgs {
 				opcode, _, payload, err := message.Decode(msg)
@@ -446,21 +419,13 @@ func TestGunnerFire_ServerDropsInputOutsideFight(t *testing.T) {
 				if !ok {
 					continue
 				}
-				if st == byte(entity.PlayerStateAttack) && clientNetState != byte(entity.PlayerStateAttack) {
+				if st == byte(entity.PlayerStateAttack) {
 					tracerDetected = true
 				}
-				clientNetState = st
 			}
 
-			if tc.wantState == entity.PlayerStateAttack && !tracerDetected {
-				t.Error("server set Attack but observer did not detect tracer transition")
-			}
-			if tc.wantState == entity.PlayerStateMove && tracerDetected {
-				t.Error("server did NOT set Attack but observer detected tracer (impossible)")
-			}
-			if tc.wantState == entity.PlayerStateMove {
-				t.Logf("BUG SCENARIO: client fires locally (sees tracer), server drops input "+
-					"(State stays Move), remote client sees nothing -- no tracer, no animation")
+			if !tracerDetected {
+				t.Error("observer did not detect tracer transition")
 			}
 		})
 	}

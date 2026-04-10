@@ -19,7 +19,10 @@ func gatewayAddr() string {
 func skipIfNoGateway(t *testing.T) string {
 	t.Helper()
 	addr := gatewayAddr()
-	c := Dial(t, addr, "Probe")
+	c, err := TryDial(addr, "Probe")
+	if err != nil {
+		t.Skipf("skipping: gateway not reachable at %s: %v", addr, err)
+	}
 	c.Close()
 	return addr
 }
