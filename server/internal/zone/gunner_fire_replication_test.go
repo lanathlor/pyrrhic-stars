@@ -125,6 +125,8 @@ func decodeShooterState(payload []byte, targetPeerID uint16) (state uint8, animN
 		}
 		ap := math.Float32frombits(binary.LittleEndian.Uint32(payload[off:]))
 		off += 4
+		// buff_flags: u8, config: u8, stamina: f32, shield_hp: f32
+		off += 1 + 1 + 4 + 4
 
 		if peerID == targetPeerID {
 			return st, anim, ap, true
@@ -380,7 +382,8 @@ func TestGunnerFire_WorksInAllZoneStates(t *testing.T) {
 		zoneState GameFlowState
 	}{
 		{name: "Hub zone", zoneType: ZoneTypeHub, zoneState: StateLobby},
-		{name: "Arena lobby", zoneType: ZoneTypeArena, zoneState: StateLobby},
+		// Arena lobby broadcasts LobbyState (not WorldState), so observer
+		// tracer detection doesn't apply — players aren't in-world yet.
 		{name: "Arena spawned/warmup", zoneType: ZoneTypeArena, zoneState: StateSpawned},
 		{name: "Arena fight", zoneType: ZoneTypeArena, zoneState: StateFight},
 	}
@@ -388,12 +391,14 @@ func TestGunnerFire_WorksInAllZoneStates(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			z := New("test", tc.zoneType)
-			z.world.State = tc.zoneState
 
 			var peerID uint16 = 1
 			var observerMsgs [][]byte
 			z.AddClient(&Client{PeerID: peerID, Username: "Gunner", Send: func([]byte) {}})
 			z.AddClient(&Client{PeerID: 2, Username: "Observer", Send: func(m []byte) { observerMsgs = append(observerMsgs, m) }})
+
+			// Set state after AddClient — arena AddClient auto-advances to fight
+			z.world.State = tc.zoneState
 
 			p := z.world.Players[peerID]
 			p.ClassName = "gunner"
