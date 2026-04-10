@@ -82,7 +82,7 @@ func _draw() -> void:
 		var bar_w := 120.0
 		var bar_h := 8.0
 		var bar_x := center.x - bar_w / 2.0
-		var bar_y := size.y - 120.0  # above ability bar
+		var bar_y := size.y - 145.0  # above config display
 		var fill := clampf(_shield_hp / SHIELD_MAX, 0.0, 1.0)
 		# Background
 		draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), Color(0.15, 0.15, 0.2, 0.7))

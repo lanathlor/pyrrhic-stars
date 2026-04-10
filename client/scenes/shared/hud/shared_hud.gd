@@ -237,7 +237,7 @@ func _draw_player_status() -> void:
 	var bar_w := 220.0
 	var bar_h := 14.0
 	var bar_x := center_x - bar_w / 2.0
-	var bar_y := size.y - 115.0
+	var bar_y := size.y - 145.0
 
 	# HP bar background
 	var bg_rect := Rect2(bar_x, bar_y, bar_w, bar_h)
