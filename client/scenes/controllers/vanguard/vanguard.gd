@@ -100,6 +100,7 @@ var _camera_pitch: float = -0.3
 # Lock-on
 var _lock_target: Node3D = null
 var _lock_on_active: bool = false
+var _lock_cam_yaw: float = 0.0  # smoothed camera yaw for lock-on (prevents 180 snap)
 
 var _gravity: float = 8.5  # must match server gravity
 var _flash_timer: float = 0.0
@@ -720,6 +721,8 @@ func _toggle_lock_on() -> void:
 		if target:
 			_lock_on_active = true
 			_lock_target = target
+			# Init camera yaw to current position so there's no snap
+			_lock_cam_yaw = _camera_yaw
 			hud.show_lock_on()
 
 
@@ -860,23 +863,16 @@ func _update_camera() -> void:
 	var desired_cam_pos: Vector3
 
 	if _lock_on_active and _lock_target and is_instance_valid(_lock_target):
+		# Dark Souls style: camera position stays player-driven (free orbit),
+		# only the look-at changes to keep the enemy in frame.
+		var cam_offset := Vector3(0.0, 0.0, camera_distance)
+		cam_offset = cam_offset.rotated(Vector3.RIGHT, _camera_pitch)
+		cam_offset = cam_offset.rotated(Vector3.UP, _camera_yaw)
+		desired_cam_pos = player_pos + cam_offset
+		camera.global_position = _apply_camera_collision(player_pos, desired_cam_pos)
 		var target_pos := _lock_target.global_position + Vector3(0.0, 1.0, 0.0)
-		var to_target := target_pos - player_pos
-		to_target.y = 0.0
-		if to_target.length() > 0.1:
-			var behind := -to_target.normalized()
-			desired_cam_pos = player_pos + behind * camera_distance + Vector3(0.0, 3.0, 0.0)
-			camera.global_position = _apply_camera_collision(player_pos, desired_cam_pos)
-			# Look at a point between player and boss, slightly low, for better overview
-			var look_target := (player_pos + target_pos) * 0.5
-			look_target.y = 0.8
-			camera.look_at(look_target, Vector3.UP)
-			var offset := desired_cam_pos - player_pos
-			_camera_yaw = atan2(offset.x, offset.z)
-		else:
-			desired_cam_pos = player_pos + Vector3(0.0, 0.0, camera_distance)
-			camera.global_position = _apply_camera_collision(player_pos, desired_cam_pos)
-			camera.look_at(player_pos, Vector3.UP)
+		var look_target := player_pos.lerp(target_pos, 0.6)
+		camera.look_at(look_target, Vector3.UP)
 	else:
 		var cam_offset := Vector3(0.0, 0.0, camera_distance)
 		cam_offset = cam_offset.rotated(Vector3.RIGHT, _camera_pitch)

@@ -142,7 +142,7 @@ No cooldowns, small GCD. Beginners mash and blades do stuff. Experts plan 2-3 tr
 
 ## Dual Blade
 
-Two telekinetic blades, each controlled independently on separate GCDs. The player manages two parallel state machines.
+Two telekinetic blades, each controlled independently on separate GCDs. The player manages two parallel state machines — like playing piano with two hands.
 
 Each blade has 3 positions:
 
@@ -150,10 +150,48 @@ Each blade has 3 positions:
 -   **Mid** — blade hovers at mid range
 -   **Far** — blade stationed at distance on target
 
-Each position has 2 abilities per blade (12 abilities total across both blades). Repositioning a blade is instant but triggers that blade's GCD.
+Each position has 2 abilities per blade (12 abilities total across both blades). Every ability is bound to a position — using an ability repositions that blade and triggers its GCD.
 
-**Skill expression:** stagger the two GCDs so you always have one blade acting. Set up blade positions for a combined burst — e.g. both blades Far into double piercing strike. The rhythm is like playing two instruments at once.
+### Resonance — The Burst Mechanic
 
-**Monotarget burst identity:** both blades converging on a single target for coordinated strikes is the damage fantasy. The burst windows come from aligning both blades into the right positions simultaneously.
+When both blades occupy the **same position**, a **Resonance** triggers automatically. Resonance is a powerful burst spell whose strength scales with the **number of actions (GCDs) spent across both blades since the last Resonance**.
+
+After Resonance, the blades **split** to the two remaining positions. The player chooses which blade goes where.
+
+This creates the core tension: **keep the blades apart** to build charge, then **deliberately converge** at the right moment for maximum burst. Every GCD is a micro-decision — "if I use this Mid ability on Blade A, Blade B is already Mid, that'll trigger early."
+
+#### The 3 Resonances
+
+Each position produces a different Resonance spell:
+
+| Position | Resonance | Effect | Splits To |
+|---|---|---|---|
+| **Close** | **Clash** | Defensive burst — high damage + brief damage reduction | Mid + Far |
+| **Mid** | **Cross** | Balanced burst — high damage, no secondary effect | Close + Far |
+| **Far** | **Impale** | Offensive burst — highest damage, no defensive upside | Close + Mid |
+
+#### Post-Split Dynamics
+
+Where the blades land after Resonance shapes the next cycle:
+
+-   **After Clash (Close)** — blades split to Mid + Far. No blade nearby for defense. You traded safety for damage, now you're exposed until you bring a blade back Close.
+-   **After Cross (Mid)** — blades split to Close + Far. Maximum separation. Hardest to accidentally re-converge, giving the longest buildup runway for the next Resonance.
+-   **After Impale (Far)** — blades split to Close + Mid. Both blades relatively close together. Shorter runway before accidental convergence. High risk — you can build charge faster but mistakes come faster too.
+
+Expert players plan not just this Resonance, but the setup for the next one.
+
+### Skill Expression
+
+**The skill is avoidance, not memorization.** You're tracking two independent blade paths and ensuring they never accidentally cross — until you want them to.
+
+-   **Beginner:** converges every 3-4 actions. Small Resonances, fired at random positions. Still functional — the spec has a low floor.
+-   **Competent:** holds 6-8 actions, converges deliberately at the position they want. Solid burst on a reasonable cycle.
+-   **Expert:** holds 12+ actions, threading two blade paths that never overlap, dodging boss mechanics without accidentally converging, then choosing the perfect position and moment to slam them together. Plans 2 Resonance cycles ahead based on post-split positioning.
+
+### Risk / Reward
+
+-   **Boss telegraphs are the enemy of your burst.** A telegraph forces you to pull a blade Close for a defensive ability — but your other blade is already Close. You either eat the hit to protect your charge, or save yourself and pop a weak Resonance. Real decisions.
+-   **Longer buildup = bigger payoff but more exposure.** Every extra GCD is another chance for boss mechanics or positioning pressure to accidentally converge your blades.
+-   **Accidental convergence is the punishment for sloppy tracking.** Not a failed combo — a wasted burst fired at the wrong time with weak charge. You don't lose a resource, you lose an opportunity.
 
 TTRPG source: new class, no direct TTRPG equivalent
