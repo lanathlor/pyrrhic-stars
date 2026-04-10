@@ -66,9 +66,9 @@ func _draw_ability_cooldowns() -> void:
 	var arc_width: float = 3.0
 	var point_count: int = 32
 
-	# Blade Swirl (Q) — bottom-left area
+	# Blade Swirl (F) — bottom-left area
 	var q_center := Vector2(size.x / 2.0 - 40.0, size.y - 35.0)
-	_draw_cooldown_arc(q_center, radius, arc_width, point_count, "Q", _swirl_cd_ratio)
+	_draw_cooldown_arc(q_center, radius, arc_width, point_count, "F", _swirl_cd_ratio)
 
 	# Ground Slam (E) — bottom-right area
 	var e_center := Vector2(size.x / 2.0 + 40.0, size.y - 35.0)
