@@ -1,8 +1,9 @@
 package system
 
 import (
+	"encoding/binary"
+
 	"codex-online/server/internal/codec"
-	"codex-online/server/internal/entity"
 	"codex-online/server/internal/message"
 )
 
@@ -45,21 +46,48 @@ func broadcastLobbyState(w *World) {
 		})
 	}
 	payload := codec.EncodeLobbyState(infos)
-	msg := message.Encode(message.OpLobbyState, 0, payload)
+	// Pooled LobbyBuf: encode the full message.
+	if cap(w.LobbyBuf) < 4+len(payload) {
+		w.LobbyBuf = make([]byte, 0, 512)
+	}
+	w.LobbyBuf = w.LobbyBuf[:0]
+	w.LobbyBuf = message.AppendEncode(w.LobbyBuf, message.OpLobbyState, 0, payload)
 	for _, c := range w.Clients {
-		c.Send(msg)
+		if w.TestMode {
+			msg := make([]byte, len(w.LobbyBuf))
+			copy(msg, w.LobbyBuf)
+			c.Send(msg)
+		} else {
+			c.Send(w.LobbyBuf)
+		}
 	}
 }
 
 func broadcastWorldState(w *World) {
-	players := make([]*entity.Player, 0, len(w.Players))
-	for _, p := range w.Players {
-		players = append(players, p)
+	// Use pooled SendBuf: write header placeholder, encode payload, then fill header.
+	// Capacity is preserved across ticks; only grows if needed.
+	const headerSize = 4
+	if cap(w.SendBuf) < headerSize {
+		w.SendBuf = make([]byte, headerSize, 4096) // pre-allocate 4KB
 	}
-	payload := codec.EncodeWorldState(w.TickNum, players, w.Enemies, w.Projectiles, w.NPCs)
-	msg := message.Encode(message.OpWorldState, 0, payload)
+	w.SendBuf = w.SendBuf[:headerSize] // keep capacity, reset length
+
+	// Encode world state payload into SendBuf after the header area.
+	// AppendEncodeWorldState grows the buffer if needed.
+	w.SendBuf = codec.AppendEncodeWorldState(w.SendBuf, w.TickNum, w.Players, w.Enemies, w.Projectiles, w.NPCs)
+
+	// Now fill in the header: [opcode:2][senderID:2]
+	binary.BigEndian.PutUint16(w.SendBuf[0:2], message.OpWorldState)
+	binary.BigEndian.PutUint16(w.SendBuf[2:4], 0)
+
 	for _, c := range w.Clients {
-		c.Send(msg)
+		if w.TestMode {
+			msg := make([]byte, len(w.SendBuf))
+			copy(msg, w.SendBuf)
+			c.Send(msg)
+		} else {
+			c.Send(w.SendBuf)
+		}
 	}
 }
 
@@ -70,17 +98,39 @@ func broadcastDamageEvents(w *World) {
 			evt.HitPos.X, evt.HitPos.Y, evt.HitPos.Z,
 			evt.SourceType,
 		)
-		msg := message.Encode(message.OpDamageEvent, 0, payload)
+		// Pooled DamageBuf: encode the full message.
+		if cap(w.DamageBuf) < 4+len(payload) {
+			w.DamageBuf = make([]byte, 0, 256)
+		}
+		w.DamageBuf = w.DamageBuf[:0]
+		w.DamageBuf = message.AppendEncode(w.DamageBuf, message.OpDamageEvent, 0, payload)
 		for _, c := range w.Clients {
-			c.Send(msg)
+			if w.TestMode {
+				msg := make([]byte, len(w.DamageBuf))
+				copy(msg, w.DamageBuf)
+				c.Send(msg)
+			} else {
+				c.Send(w.DamageBuf)
+			}
 		}
 	}
 }
 
 func broadcastGameFlow(w *World, flowType uint8, text string) {
 	payload := codec.EncodeGameFlow(flowType, text)
-	msg := message.Encode(message.OpGameFlowEvent, 0, payload)
+	// Pooled GameFlowBuf: encode the full message.
+	if cap(w.GameFlowBuf) < 4+len(payload) {
+		w.GameFlowBuf = make([]byte, 0, 256)
+	}
+	w.GameFlowBuf = w.GameFlowBuf[:0]
+	w.GameFlowBuf = message.AppendEncode(w.GameFlowBuf, message.OpGameFlowEvent, 0, payload)
 	for _, c := range w.Clients {
-		c.Send(msg)
+		if w.TestMode {
+			msg := make([]byte, len(w.GameFlowBuf))
+			copy(msg, w.GameFlowBuf)
+			c.Send(msg)
+		} else {
+			c.Send(w.GameFlowBuf)
+		}
 	}
 }

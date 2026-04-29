@@ -84,6 +84,28 @@ type World struct {
 	// Callbacks (set by zone/gateway)
 	OnPlayerRespawnHub func(peerID uint16)
 	BroadcastToAll     func(msg []byte, excludePeerID uint16)
+
+	// SendBuf is a pooled buffer for the broadcast path.
+	// Reused every tick to avoid per-call allocations.
+	// Capacity should be pre-allocated to the max expected message size (~4KB).
+	SendBuf []byte
+
+	// DamageBuf is a pooled buffer for damage event messages.
+	// Reused every tick to avoid per-call allocations.
+	DamageBuf []byte
+
+	// GameFlowBuf is a pooled buffer for game flow event messages.
+	// Reused every tick to avoid per-call allocations.
+	GameFlowBuf []byte
+
+	// LobbyBuf is a pooled buffer for lobby state messages.
+	// Reused every tick to avoid per-call allocations.
+	LobbyBuf []byte
+
+	// TestMode enables defensive per-client copies so mock Send can inspect
+	// messages. In production and benchmarks (TestMode=false), the pooled
+	// buffer is passed directly to Send, matching real socket behavior.
+	TestMode bool
 }
 
 // FirstEnemy returns the first enemy or nil.
