@@ -196,7 +196,7 @@ func TestEncodeWorldStateWireFormat(t *testing.T) {
 	e := entity.NewEnemy(0, 2000.0, "guard_captain")
 	e.Position = entity.Vec3{X: 5.0, Y: 0.0, Z: -3.0}
 
-	buf := EncodeWorldState(10, []*entity.Player{p}, []*entity.Enemy{e}, nil)
+	buf := EncodeWorldState(10, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e}, nil)
 
 	off := 0
 	// tick
@@ -501,5 +501,412 @@ func TestEncodeGameFlowEmpty(t *testing.T) {
 	}
 	if buf[0] != 7 || buf[1] != 0 {
 		t.Errorf("buf = %v, want [7, 0]", buf)
+	}
+}
+
+// =============================================================================
+// EncodePeerID
+// =============================================================================
+
+func TestEncodePeerID(t *testing.T) {
+	tests := []struct {
+		id   uint16
+		want []byte
+	}{
+		{0, []byte{0, 0}},
+		{1, []byte{0, 1}},
+		{256, []byte{1, 0}},
+		{0xFFFF, []byte{0xFF, 0xFF}},
+		{0x1234, []byte{0x12, 0x34}},
+	}
+	for _, tc := range tests {
+		buf := EncodePeerID(tc.id)
+		if len(buf) != 2 {
+			t.Errorf("EncodePeerID(%d) len = %d, want 2", tc.id, len(buf))
+			continue
+		}
+		got := binary.BigEndian.Uint16(buf)
+		if got != tc.id {
+			t.Errorf("EncodePeerID(%d) roundtrip = %d", tc.id, got)
+		}
+	}
+}
+
+// =============================================================================
+// EncodeCharacterState
+// =============================================================================
+
+func TestEncodeCharacterState(t *testing.T) {
+	c := CharacterInfo{
+		ID:        42,
+		ClassName: "gunner",
+		Name:      "Alice",
+		PosX:      1.5,
+		PosY:      2.0,
+		PosZ:      -3.5,
+		RotY:      0.7,
+	}
+	buf := EncodeCharacterState(c)
+
+	off := 0
+	// charID
+	charID := binary.LittleEndian.Uint32(buf[off:])
+	off += 4
+	if charID != 42 {
+		t.Errorf("charID = %d, want 42", charID)
+	}
+	// class
+	classLen := int(buf[off])
+	off++
+	className := string(buf[off : off+classLen])
+	off += classLen
+	if className != "gunner" {
+		t.Errorf("class = %q, want %q", className, "gunner")
+	}
+	// name
+	nameLen := int(buf[off])
+	off++
+	name := string(buf[off : off+nameLen])
+	off += nameLen
+	if name != "Alice" {
+		t.Errorf("name = %q, want %q", name, "Alice")
+	}
+	// position
+	posX := math.Float32frombits(binary.LittleEndian.Uint32(buf[off:]))
+	off += 4
+	if posX != 1.5 {
+		t.Errorf("posX = %f, want 1.5", posX)
+	}
+	posY := math.Float32frombits(binary.LittleEndian.Uint32(buf[off:]))
+	off += 4
+	if posY != 2.0 {
+		t.Errorf("posY = %f, want 2.0", posY)
+	}
+	posZ := math.Float32frombits(binary.LittleEndian.Uint32(buf[off:]))
+	off += 4
+	if posZ != -3.5 {
+		t.Errorf("posZ = %f, want -3.5", posZ)
+	}
+	rotY := math.Float32frombits(binary.LittleEndian.Uint32(buf[off:]))
+	off += 4
+	if rotY != 0.7 {
+		t.Errorf("rotY = %f, want 0.7", rotY)
+	}
+	if off != len(buf) {
+		t.Errorf("consumed %d bytes, buf has %d", off, len(buf))
+	}
+}
+
+func TestEncodeCharacterStateEmpty(t *testing.T) {
+	c := CharacterInfo{ID: 1}
+	buf := EncodeCharacterState(c)
+	// 4 (id) + 1 (classLen=0) + 1 (nameLen=0) + 16 (4 floats) = 22
+	if len(buf) != 22 {
+		t.Errorf("len = %d, want 22", len(buf))
+	}
+}
+
+// =============================================================================
+// EncodeCharacterList
+// =============================================================================
+
+func TestEncodeCharacterList(t *testing.T) {
+	chars := []CharacterInfo{
+		{ID: 10, ClassName: "gunner", Name: "Alice", PosX: 1, PosY: 2, PosZ: 3, RotY: 0.5},
+		{ID: 20, ClassName: "vanguard", Name: "Bob"},
+	}
+	buf := EncodeCharacterList("TestUser", chars, 10)
+
+	off := 0
+	// username
+	usernameLen := int(buf[off])
+	off++
+	username := string(buf[off : off+usernameLen])
+	off += usernameLen
+	if username != "TestUser" {
+		t.Errorf("username = %q, want %q", username, "TestUser")
+	}
+	// count
+	count := int(buf[off])
+	off++
+	if count != 2 {
+		t.Fatalf("count = %d, want 2", count)
+	}
+	// char 1
+	c1ID := binary.LittleEndian.Uint32(buf[off:])
+	off += 4
+	if c1ID != 10 {
+		t.Errorf("char1 ID = %d, want 10", c1ID)
+	}
+	c1ClassLen := int(buf[off])
+	off++
+	c1Class := string(buf[off : off+c1ClassLen])
+	off += c1ClassLen
+	if c1Class != "gunner" {
+		t.Errorf("char1 class = %q, want %q", c1Class, "gunner")
+	}
+	c1NameLen := int(buf[off])
+	off++
+	c1Name := string(buf[off : off+c1NameLen])
+	off += c1NameLen
+	if c1Name != "Alice" {
+		t.Errorf("char1 name = %q, want %q", c1Name, "Alice")
+	}
+	off += 16 // skip 4 floats
+	// char 2
+	c2ID := binary.LittleEndian.Uint32(buf[off:])
+	off += 4
+	if c2ID != 20 {
+		t.Errorf("char2 ID = %d, want 20", c2ID)
+	}
+	c2ClassLen := int(buf[off])
+	off++
+	off += c2ClassLen // skip class
+	c2NameLen := int(buf[off])
+	off++
+	off += c2NameLen // skip name
+	off += 16        // skip 4 floats
+	// lastCharID
+	lastID := binary.LittleEndian.Uint32(buf[off:])
+	off += 4
+	if lastID != 10 {
+		t.Errorf("lastCharID = %d, want 10", lastID)
+	}
+	if off != len(buf) {
+		t.Errorf("consumed %d bytes, buf has %d", off, len(buf))
+	}
+}
+
+func TestEncodeCharacterListEmpty(t *testing.T) {
+	buf := EncodeCharacterList("User", nil, 0)
+	off := 0
+	usernameLen := int(buf[off])
+	off++
+	off += usernameLen
+	if buf[off] != 0 {
+		t.Errorf("count = %d, want 0", buf[off])
+	}
+	off++
+	lastID := binary.LittleEndian.Uint32(buf[off:])
+	if lastID != 0 {
+		t.Errorf("lastCharID = %d, want 0", lastID)
+	}
+}
+
+// =============================================================================
+// EncodeCharacterError
+// =============================================================================
+
+func TestEncodeCharacterError(t *testing.T) {
+	tests := []struct {
+		code uint8
+		msg  string
+	}{
+		{1, "Name already taken"},
+		{3, "Name must be 2-20 characters"},
+		{5, ""},
+	}
+	for _, tc := range tests {
+		buf := EncodeCharacterError(tc.code, tc.msg)
+		if buf[0] != tc.code {
+			t.Errorf("code = %d, want %d", buf[0], tc.code)
+		}
+		msgLen := int(buf[1])
+		if msgLen != len(tc.msg) {
+			t.Errorf("msgLen = %d, want %d", msgLen, len(tc.msg))
+		}
+		if string(buf[2:2+msgLen]) != tc.msg {
+			t.Errorf("msg = %q, want %q", string(buf[2:2+msgLen]), tc.msg)
+		}
+	}
+}
+
+// =============================================================================
+// EncodeGroupState
+// =============================================================================
+
+func TestEncodeGroupState(t *testing.T) {
+	members := []GroupMemberInfo{
+		{PeerID: 1, Username: "Alice"},
+		{PeerID: 2, Username: "Bob"},
+	}
+	buf := EncodeGroupState(99, 1, members)
+
+	off := 0
+	groupID := binary.LittleEndian.Uint32(buf[off:])
+	off += 4
+	if groupID != 99 {
+		t.Errorf("groupID = %d, want 99", groupID)
+	}
+	leaderPeer := binary.LittleEndian.Uint16(buf[off:])
+	off += 2
+	if leaderPeer != 1 {
+		t.Errorf("leaderPeer = %d, want 1", leaderPeer)
+	}
+	count := int(buf[off])
+	off++
+	if count != 2 {
+		t.Fatalf("member count = %d, want 2", count)
+	}
+	// member 1
+	m1Peer := binary.LittleEndian.Uint16(buf[off:])
+	off += 2
+	if m1Peer != 1 {
+		t.Errorf("m1 peer = %d, want 1", m1Peer)
+	}
+	m1NameLen := int(buf[off])
+	off++
+	m1Name := string(buf[off : off+m1NameLen])
+	off += m1NameLen
+	if m1Name != "Alice" {
+		t.Errorf("m1 name = %q, want %q", m1Name, "Alice")
+	}
+	// member 2
+	m2Peer := binary.LittleEndian.Uint16(buf[off:])
+	off += 2
+	if m2Peer != 2 {
+		t.Errorf("m2 peer = %d, want 2", m2Peer)
+	}
+	m2NameLen := int(buf[off])
+	off++
+	m2Name := string(buf[off : off+m2NameLen])
+	off += m2NameLen
+	if m2Name != "Bob" {
+		t.Errorf("m2 name = %q, want %q", m2Name, "Bob")
+	}
+	if off != len(buf) {
+		t.Errorf("consumed %d bytes, buf has %d", off, len(buf))
+	}
+}
+
+func TestEncodeGroupStateNoMembers(t *testing.T) {
+	buf := EncodeGroupState(1, 0, nil)
+	// 4 (groupID) + 2 (leader) + 1 (count=0) = 7
+	if len(buf) != 7 {
+		t.Errorf("len = %d, want 7", len(buf))
+	}
+}
+
+// =============================================================================
+// EncodeGroupError
+// =============================================================================
+
+func TestEncodeGroupError(t *testing.T) {
+	buf := EncodeGroupError("player not found")
+	if buf[0] != 1 {
+		t.Errorf("error code = %d, want 1", buf[0])
+	}
+	msgLen := int(buf[1])
+	msg := string(buf[2 : 2+msgLen])
+	if msg != "player not found" {
+		t.Errorf("msg = %q, want %q", msg, "player not found")
+	}
+}
+
+func TestEncodeGroupErrorEmpty(t *testing.T) {
+	buf := EncodeGroupError("")
+	if len(buf) != 2 {
+		t.Errorf("len = %d, want 2", len(buf))
+	}
+	if buf[0] != 1 || buf[1] != 0 {
+		t.Errorf("buf = %v, want [1, 0]", buf)
+	}
+}
+
+// =============================================================================
+// EncodeGroupInviteRecv
+// =============================================================================
+
+func TestEncodeGroupInviteRecv(t *testing.T) {
+	buf := EncodeGroupInviteRecv(42, "Alice")
+	off := 0
+	groupID := binary.LittleEndian.Uint32(buf[off:])
+	off += 4
+	if groupID != 42 {
+		t.Errorf("groupID = %d, want 42", groupID)
+	}
+	nameLen := int(buf[off])
+	off++
+	name := string(buf[off : off+nameLen])
+	if name != "Alice" {
+		t.Errorf("name = %q, want %q", name, "Alice")
+	}
+}
+
+// =============================================================================
+// EncodeEmptyGroupState
+// =============================================================================
+
+func TestEncodeEmptyGroupState(t *testing.T) {
+	buf := EncodeEmptyGroupState()
+	if len(buf) != 7 {
+		t.Errorf("len = %d, want 7", len(buf))
+	}
+	for i, b := range buf {
+		if b != 0 {
+			t.Errorf("buf[%d] = %d, want 0", i, b)
+		}
+	}
+}
+
+// =============================================================================
+// EncodeInteractInput roundtrip
+// =============================================================================
+
+func TestEncodeInteractInputRoundtrip(t *testing.T) {
+	buf := EncodeInteractInput(0, "vanguard")
+	msg := DecodeInteractInput(buf)
+	if msg == nil {
+		t.Fatal("DecodeInteractInput returned nil")
+	}
+	if msg.Action != 0 {
+		t.Errorf("Action = %d, want 0", msg.Action)
+	}
+	if msg.ClassName != "vanguard" {
+		t.Errorf("ClassName = %q, want %q", msg.ClassName, "vanguard")
+	}
+}
+
+func TestEncodeInteractInputEmpty(t *testing.T) {
+	buf := EncodeInteractInput(1, "")
+	msg := DecodeInteractInput(buf)
+	if msg == nil {
+		t.Fatal("DecodeInteractInput returned nil")
+	}
+	if msg.Action != 1 {
+		t.Errorf("Action = %d, want 1", msg.Action)
+	}
+	if msg.ClassName != "" {
+		t.Errorf("ClassName = %q, want empty", msg.ClassName)
+	}
+}
+
+// =============================================================================
+// EncodeRespawnRequest roundtrip
+// =============================================================================
+
+func TestEncodeRespawnRequestRoundtrip(t *testing.T) {
+	for _, rt := range []uint8{0, 1, 255} {
+		buf := EncodeRespawnRequest(rt)
+		typ, ok := DecodeRespawnRequest(buf)
+		if !ok {
+			t.Errorf("DecodeRespawnRequest(%d) failed", rt)
+		}
+		if typ != rt {
+			t.Errorf("type = %d, want %d", typ, rt)
+		}
+	}
+}
+
+// =============================================================================
+// getU16 wire helper
+// =============================================================================
+
+func TestGetU16(t *testing.T) {
+	buf := make([]byte, 2)
+	binary.LittleEndian.PutUint16(buf, 0x1234)
+	got := getU16(buf)
+	if got != 0x1234 {
+		t.Errorf("getU16 = 0x%04X, want 0x1234", got)
 	}
 }

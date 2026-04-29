@@ -155,3 +155,47 @@ func TestGetGroup(t *testing.T) {
 		t.Error("expected nil for non-member")
 	}
 }
+
+func TestGetGroupMembers(t *testing.T) {
+	m := NewManager()
+	_, _ = m.CreateGroup(1)
+	inv, _ := m.InvitePlayer(1, 2)
+	_, _ = m.AcceptInvite(2, inv.GroupID)
+
+	members := m.GetGroupMembers(1)
+	if len(members) != 2 {
+		t.Fatalf("expected 2 members, got %d", len(members))
+	}
+	// Should contain both player IDs
+	has1, has2 := false, false
+	for _, id := range members {
+		if id == 1 {
+			has1 = true
+		}
+		if id == 2 {
+			has2 = true
+		}
+	}
+	if !has1 || !has2 {
+		t.Errorf("members = %v, want [1, 2]", members)
+	}
+}
+
+func TestGetGroupMembersNoGroup(t *testing.T) {
+	m := NewManager()
+	members := m.GetGroupMembers(99)
+	if members != nil {
+		t.Errorf("expected nil for non-member, got %v", members)
+	}
+}
+
+func TestGetGroupMembersIsCopy(t *testing.T) {
+	m := NewManager()
+	_, _ = m.CreateGroup(1)
+	members := m.GetGroupMembers(1)
+	members[0] = 999 // mutate the returned slice
+	original := m.GetGroupMembers(1)
+	if original[0] == 999 {
+		t.Error("GetGroupMembers should return a copy, not the original slice")
+	}
+}

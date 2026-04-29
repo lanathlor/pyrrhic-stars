@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"codex-online/server/internal/entity"
 )
 
 func writeTempJSON(t *testing.T, content string) string {
@@ -194,5 +196,126 @@ func TestLoadHubJSON(t *testing.T) {
 	}
 	if l.Elevators[0].BottomY != -200 {
 		t.Errorf("public lift bottom_y = %f, want -200", l.Elevators[0].BottomY)
+	}
+}
+
+// =============================================================================
+// ClampPlayer / ClampEnemy
+// =============================================================================
+
+func TestClampPlayerWithinBounds(t *testing.T) {
+	l := &Level{
+		PlayerBoundsMinX: -10, PlayerBoundsMaxX: 10,
+		PlayerBoundsMinZ: -10, PlayerBoundsMaxZ: 10,
+	}
+	pos := entity.Vec3{X: 5, Y: 1, Z: -3}
+	l.ClampPlayer(&pos)
+	if pos.X != 5 || pos.Z != -3 {
+		t.Errorf("in-bounds position changed: %v", pos)
+	}
+}
+
+func TestClampPlayerOutOfBounds(t *testing.T) {
+	l := &Level{
+		PlayerBoundsMinX: -10, PlayerBoundsMaxX: 10,
+		PlayerBoundsMinZ: -10, PlayerBoundsMaxZ: 10,
+	}
+	pos := entity.Vec3{X: 15, Y: 1, Z: -20}
+	l.ClampPlayer(&pos)
+	if pos.X != 10 {
+		t.Errorf("X = %f, want 10 (clamped)", pos.X)
+	}
+	if pos.Z != -10 {
+		t.Errorf("Z = %f, want -10 (clamped)", pos.Z)
+	}
+}
+
+func TestClampEnemyWithinBounds(t *testing.T) {
+	l := &Level{
+		EnemyBoundsMinX: -20, EnemyBoundsMaxX: 20,
+		EnemyBoundsMinZ: -15, EnemyBoundsMaxZ: 50,
+	}
+	pos := entity.Vec3{X: 5, Y: 1, Z: 10}
+	l.ClampEnemy(&pos)
+	if pos.X != 5 || pos.Z != 10 {
+		t.Errorf("in-bounds position changed: %v", pos)
+	}
+}
+
+func TestClampEnemyOutOfBounds(t *testing.T) {
+	l := &Level{
+		EnemyBoundsMinX: -20, EnemyBoundsMaxX: 20,
+		EnemyBoundsMinZ: -15, EnemyBoundsMaxZ: 50,
+	}
+	pos := entity.Vec3{X: 25, Y: -1, Z: 60}
+	l.ClampEnemy(&pos)
+	if pos.X != 20 {
+		t.Errorf("X = %f, want 20 (clamped)", pos.X)
+	}
+	if pos.Z != 50 {
+		t.Errorf("Z = %f, want 50 (clamped)", pos.Z)
+	}
+	if pos.Y != 0.1 {
+		t.Errorf("Y = %f, want 0.1 (min floor)", pos.Y)
+	}
+}
+
+// =============================================================================
+// levelDataPath
+// =============================================================================
+
+func TestLevelDataPathDefault(t *testing.T) {
+	t.Setenv("CODEX_LEVELS_DIR", "")
+	path := levelDataPath("arena")
+	expected := filepath.Join("..", "shared", "levels", "arena.json")
+	if path != expected {
+		t.Errorf("path = %q, want %q", path, expected)
+	}
+}
+
+func TestLevelDataPathCustomDir(t *testing.T) {
+	t.Setenv("CODEX_LEVELS_DIR", "/tmp/levels")
+	path := levelDataPath("hub")
+	expected := filepath.Join("/tmp/levels", "hub.json")
+	if path != expected {
+		t.Errorf("path = %q, want %q", path, expected)
+	}
+}
+
+// =============================================================================
+// NewArenaLevel / NewHubLevel (hardcoded fallback)
+// =============================================================================
+
+func TestNewArenaLevelFallback(t *testing.T) {
+	t.Setenv("CODEX_LEVELS_DIR", "/nonexistent")
+	l := NewArenaLevel()
+	if l == nil {
+		t.Fatal("NewArenaLevel returned nil")
+	}
+	if l.ArenaEntryZ != 40.0 {
+		t.Errorf("ArenaEntryZ = %f, want 40", l.ArenaEntryZ)
+	}
+	if l.EnemyRadius != 1.0 {
+		t.Errorf("EnemyRadius = %f, want 1", l.EnemyRadius)
+	}
+	if len(l.PlayerSpawns) != 5 {
+		t.Errorf("PlayerSpawns = %d, want 5", len(l.PlayerSpawns))
+	}
+	if len(l.Obstacles) == 0 {
+		t.Error("expected obstacles in hardcoded arena")
+	}
+}
+
+func TestNewHubLevelFallback(t *testing.T) {
+	t.Setenv("CODEX_LEVELS_DIR", "/nonexistent")
+	l := NewHubLevel()
+	if l == nil {
+		t.Fatal("NewHubLevel returned nil")
+	}
+	if len(l.PlayerSpawns) != 5 {
+		t.Errorf("PlayerSpawns = %d, want 5", len(l.PlayerSpawns))
+	}
+	if len(l.Elevators) != 2 {
+		t.Errorf("Elevators = %d, want 2", len(l.Elevators))
 	}
 }

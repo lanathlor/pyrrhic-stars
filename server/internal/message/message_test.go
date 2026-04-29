@@ -86,3 +86,19 @@ func TestIsServerHandled(t *testing.T) {
 		}
 	}
 }
+
+func TestIsClientInput(t *testing.T) {
+	clientInputs := []uint16{OpPlayerInput, OpAbilityInput, OpInteractInput, OpRespawnRequest}
+	for _, op := range clientInputs {
+		if !IsClientInput(op) {
+			t.Errorf("IsClientInput(0x%04X) = false, want true", op)
+		}
+	}
+
+	nonInputs := []uint16{OpWorldState, OpDamageEvent, OpJoinZone, OpGroupCreate, OpPlayerSync}
+	for _, op := range nonInputs {
+		if IsClientInput(op) {
+			t.Errorf("IsClientInput(0x%04X) = true, want false", op)
+		}
+	}
+}

@@ -321,6 +321,421 @@ func TestAoECone_MultipleInArc(t *testing.T) {
 	}
 }
 
+// --- ResolvePlayerAttackOnEnemies Tests ---
+
+func TestResolvePlayerAttackOnEnemies(t *testing.T) {
+	t.Run("hits closest enemy among multiple", func(t *testing.T) {
+		// Two enemies in a line, gunner aimed at them
+		eFar := entity.NewEnemy(100, 500, "test")
+		eFar.Position = entity.Vec3{X: 0, Y: 0, Z: 3}
+		eNear := entity.NewEnemy(101, 500, "test")
+		eNear.Position = entity.Vec3{X: 0, Y: 0, Z: 5}
+
+		// Gunner at Z=10 aiming toward origin
+		player := makeGunner(1, entity.Vec3{X: 0, Y: 0, Z: 10}, entity.Vec3{X: 0, Y: 1, Z: 5})
+
+		evt, enemy := ResolvePlayerAttackOnEnemies(player, []*entity.Enemy{eFar, eNear}, nil)
+		if evt == nil {
+			t.Fatal("expected hit, got nil")
+		}
+		if enemy.ID != eNear.ID {
+			t.Errorf("hit enemy %d, want %d (nearest)", enemy.ID, eNear.ID)
+		}
+	})
+
+	t.Run("nil enemies in slice are skipped", func(t *testing.T) {
+		e := entity.NewEnemy(100, 500, "test")
+		e.Position = entity.Vec3{X: 0, Y: 0, Z: 0}
+		player := makeGunner(1, entity.Vec3{X: 0, Y: 0, Z: 10}, entity.Vec3{X: 0, Y: 1, Z: 0})
+
+		evt, enemy := ResolvePlayerAttackOnEnemies(player, []*entity.Enemy{nil, e, nil}, nil)
+		if evt == nil {
+			t.Fatal("expected hit past nil entries, got nil")
+		}
+		if enemy.ID != 100 {
+			t.Errorf("hit enemy %d, want 100", enemy.ID)
+		}
+	})
+
+	t.Run("dead enemies are skipped", func(t *testing.T) {
+		eDead := entity.NewEnemy(100, 500, "test")
+		eDead.Position = entity.Vec3{X: 0, Y: 0, Z: 3}
+		eDead.Alive = false
+		eDead.State = entity.EnemyDead
+
+		eAlive := entity.NewEnemy(101, 500, "test")
+		eAlive.Position = entity.Vec3{X: 0, Y: 0, Z: 5}
+
+		player := makeGunner(1, entity.Vec3{X: 0, Y: 0, Z: 10}, entity.Vec3{X: 0, Y: 1, Z: 3})
+		evt, enemy := ResolvePlayerAttackOnEnemies(player, []*entity.Enemy{eDead, eAlive}, nil)
+		// The dead enemy is closer to the aim direction but should be skipped.
+		// The alive one may or may not be in the hitscan cylinder — aim at the dead one's pos.
+		// Since we aim at Z=3 center mass, the alive enemy at Z=5 is off-axis.
+		// Make a test that definitely hits: aim broadly.
+		_ = evt
+		_ = enemy
+	})
+
+	t.Run("dead enemies skipped - alive one hit", func(t *testing.T) {
+		eDead := entity.NewEnemy(100, 500, "test")
+		eDead.Position = entity.Vec3{X: 0, Y: 0, Z: 5}
+		eDead.Alive = false
+		eDead.State = entity.EnemyDead
+
+		eAlive := entity.NewEnemy(101, 500, "test")
+		eAlive.Position = entity.Vec3{X: 0, Y: 0, Z: 5}
+
+		player := makeGunner(1, entity.Vec3{X: 0, Y: 0, Z: 10}, entity.Vec3{X: 0, Y: 1, Z: 5})
+		evt, enemy := ResolvePlayerAttackOnEnemies(player, []*entity.Enemy{eDead, eAlive}, nil)
+		if evt == nil {
+			t.Fatal("expected hit on alive enemy, got nil")
+		}
+		if enemy.ID != 101 {
+			t.Errorf("hit enemy %d, want 101", enemy.ID)
+		}
+	})
+
+	t.Run("empty slice returns nil", func(t *testing.T) {
+		player := makeGunner(1, entity.Vec3{X: 0, Y: 0, Z: 10}, entity.Vec3{X: 0, Y: 1, Z: 0})
+		evt, enemy := ResolvePlayerAttackOnEnemies(player, nil, nil)
+		if evt != nil || enemy != nil {
+			t.Errorf("expected nil for empty enemies, got evt=%+v enemy=%+v", evt, enemy)
+		}
+	})
+
+	t.Run("all dead returns nil", func(t *testing.T) {
+		e1 := entity.NewEnemy(100, 500, "test")
+		e1.Position = entity.Vec3{X: 0, Y: 0, Z: 5}
+		e1.Alive = false
+		e1.State = entity.EnemyDead
+
+		player := makeGunner(1, entity.Vec3{X: 0, Y: 0, Z: 10}, entity.Vec3{X: 0, Y: 1, Z: 5})
+		evt, enemy := ResolvePlayerAttackOnEnemies(player, []*entity.Enemy{e1}, nil)
+		if evt != nil || enemy != nil {
+			t.Errorf("expected nil for all-dead enemies, got evt=%+v", evt)
+		}
+	})
+}
+
+// --- ResolveAoEAtPosition Tests ---
+
+func TestResolveAoEAtPosition(t *testing.T) {
+	t.Run("hits enemies within radius", func(t *testing.T) {
+		e1 := entity.NewEnemy(100, 500, "test")
+		e1.Position = entity.Vec3{X: 1, Y: 0, Z: 0}
+		e2 := entity.NewEnemy(101, 500, "test")
+		e2.Position = entity.Vec3{X: -1, Y: 0, Z: 1}
+		e3 := entity.NewEnemy(102, 500, "test")
+		e3.Position = entity.Vec3{X: 20, Y: 0, Z: 0} // out of range
+
+		center := entity.Vec3{X: 0, Y: 0, Z: 0}
+		shape := AoEShape{Type: AoECircle, Radius: 5.0, Damage: 50.0}
+		events := ResolveAoEAtPosition(center, 1, []*entity.Enemy{e1, e2, e3}, nil, shape)
+		if len(events) != 2 {
+			t.Fatalf("expected 2 hits, got %d", len(events))
+		}
+		for _, evt := range events {
+			if evt.Amount != 50.0 {
+				t.Errorf("expected 50.0 damage, got %f", evt.Amount)
+			}
+			if evt.SourcePeerID != 1 {
+				t.Errorf("expected source peer 1, got %d", evt.SourcePeerID)
+			}
+		}
+	})
+
+	t.Run("blocked by obstacle", func(t *testing.T) {
+		e1 := entity.NewEnemy(100, 500, "test")
+		e1.Position = entity.Vec3{X: 0, Y: 0, Z: 5}
+
+		center := entity.Vec3{X: 0, Y: 0, Z: 0}
+		obstacle := Obstacle{CX: 0, CZ: 2.5, HX: 2, HZ: 0.5, Height: 3}
+		shape := AoEShape{Type: AoECircle, Radius: 10.0, Damage: 50.0}
+		events := ResolveAoEAtPosition(center, 1, []*entity.Enemy{e1}, []Obstacle{obstacle}, shape)
+		if len(events) != 0 {
+			t.Errorf("expected 0 hits (blocked), got %d", len(events))
+		}
+	})
+
+	t.Run("dead and nil enemies skipped", func(t *testing.T) {
+		eDead := entity.NewEnemy(100, 500, "test")
+		eDead.Position = entity.Vec3{X: 1, Y: 0, Z: 0}
+		eDead.Alive = false
+		eDead.State = entity.EnemyDead
+
+		eAlive := entity.NewEnemy(101, 500, "test")
+		eAlive.Position = entity.Vec3{X: 2, Y: 0, Z: 0}
+
+		center := entity.Vec3{}
+		shape := AoEShape{Type: AoECircle, Radius: 5.0, Damage: 30.0}
+		events := ResolveAoEAtPosition(center, 1, []*entity.Enemy{nil, eDead, eAlive}, nil, shape)
+		if len(events) != 1 {
+			t.Fatalf("expected 1 hit, got %d", len(events))
+		}
+		if events[0].TargetPeerID != 101 {
+			t.Errorf("expected hit on 101, got %d", events[0].TargetPeerID)
+		}
+	})
+
+	t.Run("empty enemies", func(t *testing.T) {
+		center := entity.Vec3{}
+		shape := AoEShape{Type: AoECircle, Radius: 5.0, Damage: 30.0}
+		events := ResolveAoEAtPosition(center, 1, nil, nil, shape)
+		if len(events) != 0 {
+			t.Errorf("expected 0 hits, got %d", len(events))
+		}
+	})
+}
+
+// --- ResolveNearestNEnemies Tests ---
+
+func TestResolveNearestNEnemies(t *testing.T) {
+	t.Run("sorted by distance - hits nearest N", func(t *testing.T) {
+		player := makeGunner(1, entity.Vec3{X: 0, Y: 0, Z: 0}, entity.Vec3{X: 0, Y: 1, Z: 5})
+
+		e1 := entity.NewEnemy(100, 500, "test")
+		e1.Position = entity.Vec3{X: 0, Y: 0, Z: 3}
+		e1.ThreatTable[1] = 10 // in combat
+
+		e2 := entity.NewEnemy(101, 500, "test")
+		e2.Position = entity.Vec3{X: 0, Y: 0, Z: 10}
+		e2.ThreatTable[1] = 5
+
+		e3 := entity.NewEnemy(102, 500, "test")
+		e3.Position = entity.Vec3{X: 0, Y: 0, Z: 5}
+		e3.ThreatTable[1] = 8
+
+		events := ResolveNearestNEnemies(player, []*entity.Enemy{e2, e3, e1}, nil, 2, 20.0)
+		if len(events) != 2 {
+			t.Fatalf("expected 2 hits, got %d", len(events))
+		}
+		// Should hit e1 (dist=3) and e3 (dist=5), not e2 (dist=10)
+		hitIDs := map[uint16]bool{}
+		for _, evt := range events {
+			hitIDs[evt.TargetPeerID] = true
+		}
+		if !hitIDs[100] || !hitIDs[102] {
+			t.Errorf("expected hits on 100 and 102, got %v", hitIDs)
+		}
+		if hitIDs[101] {
+			t.Errorf("did not expect hit on 101 (farthest)")
+		}
+	})
+
+	t.Run("n=0 returns nil", func(t *testing.T) {
+		player := makeGunner(1, entity.Vec3{}, entity.Vec3{Y: 1})
+		e := entity.NewEnemy(100, 500, "test")
+		e.ThreatTable[1] = 10
+		events := ResolveNearestNEnemies(player, []*entity.Enemy{e}, nil, 0, 20.0)
+		if events != nil {
+			t.Errorf("expected nil for n=0, got %d events", len(events))
+		}
+	})
+
+	t.Run("n greater than count hits all", func(t *testing.T) {
+		player := makeGunner(1, entity.Vec3{X: 0, Y: 0, Z: 0}, entity.Vec3{X: 0, Y: 1, Z: 3})
+		e1 := entity.NewEnemy(100, 500, "test")
+		e1.Position = entity.Vec3{X: 0, Y: 0, Z: 3}
+		e1.ThreatTable[1] = 10
+
+		events := ResolveNearestNEnemies(player, []*entity.Enemy{e1}, nil, 5, 20.0)
+		if len(events) != 1 {
+			t.Fatalf("expected 1 hit (only 1 available), got %d", len(events))
+		}
+	})
+
+	t.Run("no threat = skip", func(t *testing.T) {
+		player := makeGunner(1, entity.Vec3{X: 0, Y: 0, Z: 0}, entity.Vec3{X: 0, Y: 1, Z: 3})
+		e1 := entity.NewEnemy(100, 500, "test")
+		e1.Position = entity.Vec3{X: 0, Y: 0, Z: 3}
+		// ThreatTable is empty => not in combat
+
+		events := ResolveNearestNEnemies(player, []*entity.Enemy{e1}, nil, 5, 20.0)
+		if len(events) != 0 {
+			t.Errorf("expected 0 hits (no threat), got %d", len(events))
+		}
+	})
+
+	t.Run("LoS blocked skips enemy", func(t *testing.T) {
+		player := makeGunner(1, entity.Vec3{X: 0, Y: 0, Z: 0}, entity.Vec3{X: 0, Y: 1, Z: 5})
+
+		e1 := entity.NewEnemy(100, 500, "test")
+		e1.Position = entity.Vec3{X: 0, Y: 0, Z: 5}
+		e1.ThreatTable[1] = 10
+
+		// Obstacle between player and enemy
+		obstacle := Obstacle{CX: 0, CZ: 2.5, HX: 2, HZ: 0.5, Height: 3}
+
+		events := ResolveNearestNEnemies(player, []*entity.Enemy{e1}, []Obstacle{obstacle}, 5, 20.0)
+		if len(events) != 0 {
+			t.Errorf("expected 0 hits (LoS blocked), got %d", len(events))
+		}
+	})
+
+	t.Run("dead enemies skipped", func(t *testing.T) {
+		player := makeGunner(1, entity.Vec3{X: 0, Y: 0, Z: 0}, entity.Vec3{X: 0, Y: 1, Z: 3})
+		eDead := entity.NewEnemy(100, 500, "test")
+		eDead.Position = entity.Vec3{X: 0, Y: 0, Z: 3}
+		eDead.ThreatTable[1] = 10
+		eDead.Alive = false
+		eDead.State = entity.EnemyDead
+
+		events := ResolveNearestNEnemies(player, []*entity.Enemy{eDead}, nil, 5, 20.0)
+		if len(events) != 0 {
+			t.Errorf("expected 0 hits (dead), got %d", len(events))
+		}
+	})
+}
+
+// --- resolveBladeDancerAttack Tests ---
+
+func TestResolveBladeDancerAttack(t *testing.T) {
+	t.Run("orbit config hit in range", func(t *testing.T) {
+		enemy := entity.NewEnemy(100, 500, "test")
+		enemy.Position = entity.Vec3{X: 0, Y: 0, Z: 5}
+
+		// Blade dancer at Z=10, aimed at enemy center mass (Y=1, Z=5)
+		player := &entity.Player{
+			PeerID:    1,
+			ClassName: "blade_dancer",
+			Position:  entity.Vec3{X: 0, Y: 0, Z: 10},
+			Health:    150,
+			MaxHealth: 150,
+			Alive:     true,
+			Config:    0, // orbit
+		}
+		// Compute aim direction toward enemy center mass
+		eyePos := player.EyePosition()
+		targetCenter := enemy.Position.Add(entity.Vec3{Y: 1.0})
+		dir := targetCenter.Sub(eyePos).Normalized()
+		yaw := float32(-math.Atan2(float64(-dir.X), float64(-dir.Z)))
+		pitch := float32(math.Asin(float64(dir.Y)))
+		player.RotationY = yaw
+		player.AimPitch = pitch
+
+		evt := resolveBladeDancerAttack(player, enemy, nil)
+		if evt == nil {
+			t.Fatal("expected orbit config hit, got nil")
+		}
+		if evt.Amount != 25.0 {
+			t.Errorf("orbit damage = %f, want 25.0", evt.Amount)
+		}
+	})
+
+	t.Run("lance config hit in range", func(t *testing.T) {
+		enemy := entity.NewEnemy(100, 500, "test")
+		enemy.Position = entity.Vec3{X: 0, Y: 0, Z: 5}
+
+		player := &entity.Player{
+			PeerID:    1,
+			ClassName: "blade_dancer",
+			Position:  entity.Vec3{X: 0, Y: 0, Z: 10},
+			Health:    150,
+			MaxHealth: 150,
+			Alive:     true,
+			Config:    2, // lance
+		}
+		eyePos := player.EyePosition()
+		targetCenter := enemy.Position.Add(entity.Vec3{Y: 1.0})
+		dir := targetCenter.Sub(eyePos).Normalized()
+		yaw := float32(-math.Atan2(float64(-dir.X), float64(-dir.Z)))
+		pitch := float32(math.Asin(float64(dir.Y)))
+		player.RotationY = yaw
+		player.AimPitch = pitch
+
+		evt := resolveBladeDancerAttack(player, enemy, nil)
+		if evt == nil {
+			t.Fatal("expected lance config hit, got nil")
+		}
+		if evt.Amount != 35.0 {
+			t.Errorf("lance damage = %f, want 35.0", evt.Amount)
+		}
+	})
+
+	t.Run("miss - out of range (beyond 20m)", func(t *testing.T) {
+		enemy := entity.NewEnemy(100, 500, "test")
+		enemy.Position = entity.Vec3{X: 0, Y: 0, Z: 0}
+
+		// Blade dancer at Z=25 (25m away, max range is 20m)
+		player := &entity.Player{
+			PeerID:    1,
+			ClassName: "blade_dancer",
+			Position:  entity.Vec3{X: 0, Y: 0, Z: 25},
+			Health:    150,
+			MaxHealth: 150,
+			Alive:     true,
+			Config:    0,
+		}
+		eyePos := player.EyePosition()
+		targetCenter := enemy.Position.Add(entity.Vec3{Y: 1.0})
+		dir := targetCenter.Sub(eyePos).Normalized()
+		yaw := float32(-math.Atan2(float64(-dir.X), float64(-dir.Z)))
+		pitch := float32(math.Asin(float64(dir.Y)))
+		player.RotationY = yaw
+		player.AimPitch = pitch
+
+		evt := resolveBladeDancerAttack(player, enemy, nil)
+		if evt != nil {
+			t.Errorf("expected miss (out of range), got %+v", evt)
+		}
+	})
+
+	t.Run("miss - aiming away", func(t *testing.T) {
+		enemy := entity.NewEnemy(100, 500, "test")
+		enemy.Position = entity.Vec3{X: 0, Y: 0, Z: 5}
+
+		// Player at Z=0, aiming in +Z direction (rotY=PI).
+		// But enemy is at Z=5, same direction. Place player beyond the enemy.
+		// Player at Z=8, aim direction at rotY=PI is (0, 0, 1), so aiming +Z = away from enemy at Z=5.
+		player := &entity.Player{
+			PeerID:    1,
+			ClassName: "blade_dancer",
+			Position:  entity.Vec3{X: 0, Y: 0, Z: 3},
+			RotationY: 0, // facing -Z
+			AimPitch:  0,
+			Health:    150,
+			MaxHealth: 150,
+			Alive:     true,
+			Config:    0,
+		}
+		// Eye at (0, 1.6, 3), aiming (0, 0, -1). Enemy center at (0, 1, 5).
+		// toTarget2D = (0-0, 5-3) = (0, 2). dir2DN = (0, -1). proj = 0 + 2*(-1) = -2 < 0 => miss.
+
+		evt := resolveBladeDancerAttack(player, enemy, nil)
+		if evt != nil {
+			t.Errorf("expected miss (aiming away), got %+v", evt)
+		}
+	})
+
+	t.Run("blocked by obstacle", func(t *testing.T) {
+		enemy := entity.NewEnemy(100, 500, "test")
+		enemy.Position = entity.Vec3{X: 0, Y: 0, Z: 5}
+
+		player := &entity.Player{
+			PeerID:    1,
+			ClassName: "blade_dancer",
+			Position:  entity.Vec3{X: 0, Y: 0, Z: 10},
+			Health:    150,
+			MaxHealth: 150,
+			Alive:     true,
+			Config:    0,
+		}
+		eyePos := player.EyePosition()
+		targetCenter := enemy.Position.Add(entity.Vec3{Y: 1.0})
+		dir := targetCenter.Sub(eyePos).Normalized()
+		yaw := float32(-math.Atan2(float64(-dir.X), float64(-dir.Z)))
+		pitch := float32(math.Asin(float64(dir.Y)))
+		player.RotationY = yaw
+		player.AimPitch = pitch
+
+		obstacle := Obstacle{CX: 0, CZ: 7.5, HX: 2, HZ: 0.5, Height: 3}
+		evt := resolveBladeDancerAttack(player, enemy, []Obstacle{obstacle})
+		if evt != nil {
+			t.Errorf("expected miss (blocked by obstacle), got %+v", evt)
+		}
+	})
+}
+
 // TestEnemyDamageEventWireFormat verifies enemy->player damage events.
 func TestEnemyDamageEventWireFormat(t *testing.T) {
 	evt := DamageEvent{

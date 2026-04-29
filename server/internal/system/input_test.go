@@ -6,6 +6,7 @@ import (
 	"codex-online/server/internal/codec"
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/level"
+	"codex-online/server/internal/message"
 )
 
 func makeHubWorld(players map[uint16]*entity.Player) *World {
@@ -213,5 +214,607 @@ func TestHeavy_ConsumesStamina_InFight(t *testing.T) {
 
 	if p.Stamina != before-20.0 {
 		t.Errorf("stamina = %f, want %f (heavy costs 20)", p.Stamina, before-20.0)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// handlePlayerInput
+// ---------------------------------------------------------------------------
+
+func TestHandlePlayerInput_AcceptsNearbyPosition(t *testing.T) {
+	lvl := level.NewArenaLevel()
+	p := entity.NewPlayer(1, "gunner")
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 48}
+	p.SpawnTick = 0 // no spawn grace
+
+	w := &World{
+		ZoneType: 1,
+		TickNum:  100,
+		State:    StateFight,
+		Players:  map[uint16]*entity.Player{1: p},
+		Level:    lvl,
+	}
+
+	// Move 2 units in Z (well within 10-unit teleport threshold)
+	payload := codec.EncodePlayerInput(0, 0.1, 46, 1.5, 100, "run", 1.0, 0.1)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if p.Position.Z > 46.1 || p.Position.Z < 45.9 {
+		t.Errorf("position Z = %f, want ~46.0 (accepted)", p.Position.Z)
+	}
+	if p.RotationY != 1.5 {
+		t.Errorf("rotation = %f, want 1.5", p.RotationY)
+	}
+	if p.AnimName != "run" {
+		t.Errorf("anim = %q, want 'run'", p.AnimName)
+	}
+}
+
+func TestHandlePlayerInput_RejectsTeleport(t *testing.T) {
+	lvl := level.NewArenaLevel()
+	p := entity.NewPlayer(1, "gunner")
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 48}
+	p.SpawnTick = 0
+
+	w := &World{
+		ZoneType: 1,
+		TickNum:  100,
+		State:    StateFight,
+		Players:  map[uint16]*entity.Player{1: p},
+		Level:    lvl,
+	}
+
+	// Teleport 15 units away (> 10 unit threshold, dist^2 = 225 > 100)
+	payload := codec.EncodePlayerInput(15, 0.1, 48, 0, 100, "run", 1.0, 0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// Position should be unchanged
+	if p.Position.X != 0 {
+		t.Errorf("position X = %f, want 0 (teleport rejected)", p.Position.X)
+	}
+}
+
+func TestHandlePlayerInput_SpawnGraceRejectsPosition(t *testing.T) {
+	lvl := level.NewArenaLevel()
+	p := entity.NewPlayer(1, "gunner")
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 48}
+	p.SpawnTick = 95 // spawned 5 ticks ago (< 10 grace ticks)
+
+	w := &World{
+		ZoneType: 1,
+		TickNum:  100,
+		State:    StateFight,
+		Players:  map[uint16]*entity.Player{1: p},
+		Level:    lvl,
+	}
+
+	payload := codec.EncodePlayerInput(1, 0.1, 47, 0, 100, "run", 1.0, 0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// During spawn grace, position should be unchanged
+	if p.Position.X != 0 || p.Position.Z != 48 {
+		t.Errorf("position = (%f, %f), want (0, 48) (spawn grace rejects)", p.Position.X, p.Position.Z)
+	}
+}
+
+func TestHandlePlayerInput_AfterSpawnGraceAccepts(t *testing.T) {
+	lvl := level.NewArenaLevel()
+	p := entity.NewPlayer(1, "gunner")
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 48}
+	p.SpawnTick = 80 // spawned 20 ticks ago (>= 10 grace ticks)
+
+	w := &World{
+		ZoneType: 1,
+		TickNum:  100,
+		State:    StateFight,
+		Players:  map[uint16]*entity.Player{1: p},
+		Level:    lvl,
+	}
+
+	payload := codec.EncodePlayerInput(1, 0.1, 47, 0, 100, "run", 1.0, 0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if p.Position.X < 0.9 || p.Position.X > 1.1 {
+		t.Errorf("position X = %f, want ~1 (grace expired, should accept)", p.Position.X)
+	}
+}
+
+func TestHandlePlayerInput_YBoundsRejection(t *testing.T) {
+	lvl := level.NewArenaLevel()
+	p := entity.NewPlayer(1, "gunner")
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 48}
+	p.SpawnTick = 0
+
+	w := &World{
+		ZoneType: 1,
+		TickNum:  100,
+		State:    StateFight,
+		Players:  map[uint16]*entity.Player{1: p},
+		Level:    lvl,
+	}
+
+	// Try to go above Y bounds (arena max Y is 6.0)
+	payload := codec.EncodePlayerInput(0, 100.0, 48, 0, 100, "run", 1.0, 0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// Position should remain unchanged (Y out of bounds rejects entire update)
+	if p.Position.Y != 0.1 {
+		t.Errorf("position Y = %f, want 0.1 (Y bounds rejection)", p.Position.Y)
+	}
+}
+
+func TestHandlePlayerInput_YBelowBoundsRejection(t *testing.T) {
+	lvl := level.NewArenaLevel()
+	p := entity.NewPlayer(1, "gunner")
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 48}
+	p.SpawnTick = 0
+
+	w := &World{
+		ZoneType: 1,
+		TickNum:  100,
+		State:    StateFight,
+		Players:  map[uint16]*entity.Player{1: p},
+		Level:    lvl,
+	}
+
+	// Try to go below Y bounds (arena min Y is -1.0)
+	payload := codec.EncodePlayerInput(0, -50.0, 48, 0, 100, "run", 1.0, 0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if p.Position.Y != 0.1 {
+		t.Errorf("position Y = %f, want 0.1 (below Y bounds rejection)", p.Position.Y)
+	}
+}
+
+func TestHandlePlayerInput_UnknownPeerIgnored(t *testing.T) {
+	lvl := level.NewArenaLevel()
+	w := &World{
+		ZoneType: 1,
+		TickNum:  100,
+		Players:  map[uint16]*entity.Player{},
+		Level:    lvl,
+	}
+
+	payload := codec.EncodePlayerInput(0, 0.1, 48, 0, 100, "run", 1.0, 0)
+	w.InputQueue = []InputMsg{{PeerID: 99, Opcode: message.OpPlayerInput, Payload: payload}}
+
+	is := &InputSystem{}
+	// Should not panic
+	is.Tick(w, 0.05)
+}
+
+func TestHandlePlayerInput_NilPayloadIgnored(t *testing.T) {
+	p := entity.NewPlayer(1, "gunner")
+	p.Position = entity.Vec3{X: 5, Y: 0.1, Z: 5}
+	lvl := level.NewArenaLevel()
+
+	w := &World{
+		ZoneType: 1,
+		TickNum:  100,
+		Players:  map[uint16]*entity.Player{1: p},
+		Level:    lvl,
+	}
+
+	// Payload too short for DecodePlayerInput (needs 16 bytes minimum)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: []byte{1, 2}}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// Position unchanged
+	if p.Position.X != 5 {
+		t.Errorf("position X = %f, want 5 (nil payload ignored)", p.Position.X)
+	}
+}
+
+func TestHandlePlayerInput_ClampsToLevelBounds(t *testing.T) {
+	lvl := level.NewArenaLevel()
+	p := entity.NewPlayer(1, "gunner")
+	// Start near the boundary so the move is close enough to not be rejected
+	p.Position = entity.Vec3{X: 18, Y: 0.1, Z: 48}
+	p.SpawnTick = 0
+
+	w := &World{
+		ZoneType: 1,
+		TickNum:  100,
+		Players:  map[uint16]*entity.Player{1: p},
+		Level:    lvl,
+	}
+
+	// Try to move slightly beyond X boundary (arena max X is 19.5)
+	payload := codec.EncodePlayerInput(25, 0.1, 48, 0, 100, "run", 1.0, 0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// Position should be clamped, not rejected (dist = 7 units, 49 < 100)
+	if p.Position.X > lvl.PlayerBoundsMaxX+0.01 {
+		t.Errorf("position X = %f, should be clamped to %f", p.Position.X, lvl.PlayerBoundsMaxX)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// handleInteractInput
+// ---------------------------------------------------------------------------
+
+func TestHandleInteractInput_ClassSelect(t *testing.T) {
+	tests := []struct {
+		name      string
+		className string
+		wantClass string
+	}{
+		{"select gunner", "gunner", "gunner"},
+		{"select vanguard", "vanguard", "vanguard"},
+		{"select blade_dancer", "blade_dancer", "blade_dancer"},
+		{"invalid class ignored", "invalid_class", "gunner"}, // stays original
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			p := entity.NewPlayer(1, "gunner")
+			w := makeHubWorld(map[uint16]*entity.Player{1: p})
+
+			payload := codec.EncodeInteractInput(message.InteractClassSelect, tc.className)
+			w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpInteractInput, Payload: payload}}
+
+			is := &InputSystem{}
+			is.Tick(w, 0.05)
+
+			if p.ClassName != tc.wantClass {
+				t.Errorf("class = %q, want %q", p.ClassName, tc.wantClass)
+			}
+		})
+	}
+}
+
+func TestHandleInteractInput_ClassSelect_ResetsStats(t *testing.T) {
+	p := entity.NewPlayer(1, "gunner")
+	// Gunner default maxHP = 150
+	if p.MaxHealth != 150 {
+		t.Fatalf("gunner MaxHealth = %f, want 150", p.MaxHealth)
+	}
+
+	w := makeHubWorld(map[uint16]*entity.Player{1: p})
+
+	payload := codec.EncodeInteractInput(message.InteractClassSelect, "vanguard")
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpInteractInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if p.ClassName != "vanguard" {
+		t.Errorf("class = %q, want 'vanguard'", p.ClassName)
+	}
+	if p.MaxHealth != 200 {
+		t.Errorf("MaxHealth = %f, want 200 (vanguard)", p.MaxHealth)
+	}
+	if p.MaxStamina != 100 {
+		t.Errorf("MaxStamina = %f, want 100 (vanguard)", p.MaxStamina)
+	}
+}
+
+func TestHandleInteractInput_ReadyToggle(t *testing.T) {
+	p := entity.NewPlayer(1, "gunner")
+	p.Ready = false
+
+	w := makeHubWorld(map[uint16]*entity.Player{1: p})
+
+	payload := codec.EncodeInteractInput(message.InteractReadyToggle, "")
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpInteractInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if !p.Ready {
+		t.Error("ready should be true after toggle")
+	}
+
+	// Toggle again
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpInteractInput, Payload: payload}}
+	is.Tick(w, 0.05)
+
+	if p.Ready {
+		t.Error("ready should be false after second toggle")
+	}
+}
+
+func TestHandleInteractInput_ExitPortal(t *testing.T) {
+	p := entity.NewPlayer(1, "gunner")
+	hubRespawnCalled := false
+
+	lvl := level.NewArenaLevel()
+	w := &World{
+		ZoneType: 1,
+		TickNum:  100,
+		State:    StateFightOver,
+		Players:  map[uint16]*entity.Player{1: p},
+		Level:    lvl,
+		OnPlayerRespawnHub: func(peerID uint16) {
+			hubRespawnCalled = true
+			if peerID != 1 {
+				t.Errorf("respawn peerID = %d, want 1", peerID)
+			}
+		},
+	}
+	w.BossDefeated = true
+
+	payload := codec.EncodeInteractInput(message.InteractExitPortal, "")
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpInteractInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if !hubRespawnCalled {
+		t.Error("OnPlayerRespawnHub should be called for exit portal after boss defeated")
+	}
+}
+
+func TestHandleInteractInput_ExitPortal_NotFightOver(t *testing.T) {
+	p := entity.NewPlayer(1, "gunner")
+	hubRespawnCalled := false
+
+	lvl := level.NewArenaLevel()
+	w := &World{
+		ZoneType: 1,
+		TickNum:  100,
+		State:    StateFight, // not FightOver
+		Players:  map[uint16]*entity.Player{1: p},
+		Level:    lvl,
+		OnPlayerRespawnHub: func(peerID uint16) {
+			hubRespawnCalled = true
+		},
+	}
+	w.BossDefeated = true
+
+	payload := codec.EncodeInteractInput(message.InteractExitPortal, "")
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpInteractInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if hubRespawnCalled {
+		t.Error("exit portal should only work in StateFightOver")
+	}
+}
+
+func TestHandleInteractInput_ExitPortal_BossNotDefeated(t *testing.T) {
+	p := entity.NewPlayer(1, "gunner")
+	hubRespawnCalled := false
+
+	lvl := level.NewArenaLevel()
+	w := &World{
+		ZoneType: 1,
+		TickNum:  100,
+		State:    StateFightOver,
+		Players:  map[uint16]*entity.Player{1: p},
+		Level:    lvl,
+		OnPlayerRespawnHub: func(peerID uint16) {
+			hubRespawnCalled = true
+		},
+	}
+	w.BossDefeated = false
+
+	payload := codec.EncodeInteractInput(message.InteractExitPortal, "")
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpInteractInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if hubRespawnCalled {
+		t.Error("exit portal should only work after boss defeated")
+	}
+}
+
+func TestHandleInteractInput_UnknownPeerIgnored(t *testing.T) {
+	w := makeHubWorld(map[uint16]*entity.Player{})
+
+	payload := codec.EncodeInteractInput(message.InteractReadyToggle, "")
+	w.InputQueue = []InputMsg{{PeerID: 99, Opcode: message.OpInteractInput, Payload: payload}}
+
+	is := &InputSystem{}
+	// Should not panic
+	is.Tick(w, 0.05)
+}
+
+func TestHandleInteractInput_NilPayload(t *testing.T) {
+	p := entity.NewPlayer(1, "gunner")
+	w := makeHubWorld(map[uint16]*entity.Player{1: p})
+
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpInteractInput, Payload: nil}}
+
+	is := &InputSystem{}
+	// Should not panic
+	is.Tick(w, 0.05)
+}
+
+// ---------------------------------------------------------------------------
+// handleRespawnRequest
+// ---------------------------------------------------------------------------
+
+func TestHandleRespawnRequest_HubRespawn(t *testing.T) {
+	p := entity.NewPlayer(1, "gunner")
+	p.Alive = false
+	p.Health = 0
+	hubRespawnCalled := false
+
+	lvl := level.NewArenaLevel()
+	w := &World{
+		ZoneType: 1,
+		TickNum:  100,
+		State:    StateFight,
+		Players:  map[uint16]*entity.Player{1: p},
+		Level:    lvl,
+		OnPlayerRespawnHub: func(peerID uint16) {
+			hubRespawnCalled = true
+			if peerID != 1 {
+				t.Errorf("hub respawn peerID = %d, want 1", peerID)
+			}
+		},
+	}
+
+	payload := codec.EncodeRespawnRequest(1) // 1 = hub
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpRespawnRequest, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if !hubRespawnCalled {
+		t.Error("hub respawn callback should be called")
+	}
+}
+
+func TestHandleRespawnRequest_ArenaRespawn(t *testing.T) {
+	tests := []struct {
+		name      string
+		state     GameFlowState
+		wantAlive bool
+	}{
+		{"in StateFightOver", StateFightOver, true},
+		{"in StateLobby", StateLobby, true},
+		{"in StateSpawned", StateSpawned, true},
+		{"in StateFight blocked", StateFight, false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			p := entity.NewPlayer(1, "gunner")
+			p.Alive = false
+			p.Health = 0
+
+			lvl := level.NewArenaLevel()
+			w := &World{
+				ZoneType: 1,
+				TickNum:  100,
+				State:    tc.state,
+				Players:  map[uint16]*entity.Player{1: p},
+				Level:    lvl,
+			}
+
+			payload := codec.EncodeRespawnRequest(0) // 0 = arena
+			w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpRespawnRequest, Payload: payload}}
+
+			is := &InputSystem{}
+			is.Tick(w, 0.05)
+
+			if p.Alive != tc.wantAlive {
+				t.Errorf("alive = %v, want %v", p.Alive, tc.wantAlive)
+			}
+			if tc.wantAlive {
+				if p.Health != p.MaxHealth {
+					t.Errorf("health = %f, want %f", p.Health, p.MaxHealth)
+				}
+				if p.Position.Z != 48 {
+					t.Errorf("position Z = %f, want 48 (warmup)", p.Position.Z)
+				}
+			}
+		})
+	}
+}
+
+func TestHandleRespawnRequest_AlivePlayerIgnored(t *testing.T) {
+	p := entity.NewPlayer(1, "gunner")
+	// Player is alive
+	origHealth := p.Health
+
+	lvl := level.NewArenaLevel()
+	w := &World{
+		ZoneType: 1,
+		TickNum:  100,
+		State:    StateFightOver,
+		Players:  map[uint16]*entity.Player{1: p},
+		Level:    lvl,
+	}
+
+	payload := codec.EncodeRespawnRequest(0) // arena
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpRespawnRequest, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// Alive player should not be affected
+	if p.Health != origHealth {
+		t.Errorf("health changed for alive player: %f -> %f", origHealth, p.Health)
+	}
+}
+
+func TestHandleRespawnRequest_NilPayload(t *testing.T) {
+	p := entity.NewPlayer(1, "gunner")
+	p.Alive = false
+
+	lvl := level.NewArenaLevel()
+	w := &World{
+		ZoneType: 1,
+		TickNum:  100,
+		State:    StateFightOver,
+		Players:  map[uint16]*entity.Player{1: p},
+		Level:    lvl,
+	}
+
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpRespawnRequest, Payload: nil}}
+
+	is := &InputSystem{}
+	// Should not panic
+	is.Tick(w, 0.05)
+
+	if p.Alive {
+		t.Error("player should remain dead with nil payload")
+	}
+}
+
+func TestHandleRespawnRequest_UnknownPeerIgnored(t *testing.T) {
+	lvl := level.NewArenaLevel()
+	w := &World{
+		ZoneType: 1,
+		TickNum:  100,
+		State:    StateFightOver,
+		Players:  map[uint16]*entity.Player{},
+		Level:    lvl,
+	}
+
+	payload := codec.EncodeRespawnRequest(0)
+	w.InputQueue = []InputMsg{{PeerID: 99, Opcode: message.OpRespawnRequest, Payload: payload}}
+
+	is := &InputSystem{}
+	// Should not panic
+	is.Tick(w, 0.05)
+}
+
+// ---------------------------------------------------------------------------
+// InputSystem.Tick — dispatching
+// ---------------------------------------------------------------------------
+
+func TestInputSystem_ClearsQueueAfterProcessing(t *testing.T) {
+	p := entity.NewPlayer(1, "gunner")
+	w := makeHubWorld(map[uint16]*entity.Player{1: p})
+
+	w.InputQueue = []InputMsg{
+		{PeerID: 1, Opcode: message.OpAbilityInput, Payload: abilityPayload(entity.ActionShoot)},
+		{PeerID: 1, Opcode: message.OpAbilityInput, Payload: abilityPayload(entity.ActionShoot)},
+	}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if len(w.InputQueue) != 0 {
+		t.Errorf("input queue = %d, want 0 (should be cleared after tick)", len(w.InputQueue))
 	}
 }

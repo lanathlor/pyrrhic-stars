@@ -452,3 +452,257 @@ func TestProjectileHitsObstacle(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckProjectileHit(t *testing.T) {
+	tests := []struct {
+		name      string
+		projPos   entity.Vec3
+		targetPos entity.Vec3
+		hitRadius float32
+		want      bool
+	}{
+		{
+			name:      "direct hit - same XZ, center mass Y",
+			projPos:   entity.Vec3{X: 5, Y: 1.0, Z: 5},
+			targetPos: entity.Vec3{X: 5, Y: 0, Z: 5},
+			hitRadius: 1.0,
+			want:      true,
+		},
+		{
+			name:      "hit within radius on XZ plane",
+			projPos:   entity.Vec3{X: 5.5, Y: 1.0, Z: 5},
+			targetPos: entity.Vec3{X: 5, Y: 0, Z: 5},
+			hitRadius: 1.0,
+			want:      true,
+		},
+		{
+			name:      "miss - too far on XZ plane",
+			projPos:   entity.Vec3{X: 7, Y: 1.0, Z: 5},
+			targetPos: entity.Vec3{X: 5, Y: 0, Z: 5},
+			hitRadius: 1.0,
+			want:      false,
+		},
+		{
+			name:      "Y tolerance - projectile at +2 above center mass",
+			projPos:   entity.Vec3{X: 5, Y: 3.0, Z: 5},
+			targetPos: entity.Vec3{X: 5, Y: 0, Z: 5},
+			// center mass = targetPos.Y + 1.0 = 1.0; dy = 3.0 - 1.0 = 2.0; within tolerance
+			hitRadius: 1.0,
+			want:      true,
+		},
+		{
+			name:      "Y tolerance exceeded - too high",
+			projPos:   entity.Vec3{X: 5, Y: 3.5, Z: 5},
+			targetPos: entity.Vec3{X: 5, Y: 0, Z: 5},
+			// center mass = 1.0; dy = 3.5 - 1.0 = 2.5 > 2.0
+			hitRadius: 1.0,
+			want:      false,
+		},
+		{
+			name:      "Y tolerance exceeded - too low",
+			projPos:   entity.Vec3{X: 5, Y: -1.5, Z: 5},
+			targetPos: entity.Vec3{X: 5, Y: 0, Z: 5},
+			// center mass = 1.0; dy = -1.5 - 1.0 = -2.5 < -2.0
+			hitRadius: 1.0,
+			want:      false,
+		},
+		{
+			name:      "edge of radius - exactly at boundary",
+			projPos:   entity.Vec3{X: 6, Y: 1.0, Z: 5},
+			targetPos: entity.Vec3{X: 5, Y: 0, Z: 5},
+			hitRadius: 1.0,
+			// flatDistSq = 1.0, hitRadius^2 = 1.0, 1.0 <= 1.0 => hit
+			want: true,
+		},
+		{
+			name:      "diagonal XZ just within radius",
+			projPos:   entity.Vec3{X: 5.5, Y: 1.0, Z: 5.5},
+			targetPos: entity.Vec3{X: 5, Y: 0, Z: 5},
+			hitRadius: 1.0,
+			// flatDistSq = 0.25+0.25 = 0.5 <= 1.0
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := CheckProjectileHit(tt.projPos, tt.targetPos, tt.hitRadius)
+			if got != tt.want {
+				t.Errorf("CheckProjectileHit = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSegmentHitsExpandedObstacle(t *testing.T) {
+	obstacle := Obstacle{CX: 5, CZ: 5, HX: 1.0, HZ: 1.0}
+	// Actual box: (4,4) to (6,6). With radius 0.5 expansion: (3.5,3.5) to (6.5,6.5)
+
+	tests := []struct {
+		name      string
+		a, b      entity.Vec3
+		obstacles []Obstacle
+		radius    float32
+		want      bool
+	}{
+		{
+			name:      "hits expanded obstacle",
+			a:         entity.Vec3{X: 3.6, Z: 0},
+			b:         entity.Vec3{X: 3.6, Z: 10},
+			obstacles: []Obstacle{obstacle},
+			radius:    0.5,
+			// 3.6 is within expanded X range [3.5, 6.5] => hit
+			want: true,
+		},
+		{
+			name:      "misses original but hits expanded",
+			a:         entity.Vec3{X: 3.8, Z: 0},
+			b:         entity.Vec3{X: 3.8, Z: 10},
+			obstacles: []Obstacle{obstacle},
+			radius:    0.5,
+			// 3.8 within [3.5, 6.5] => hit
+			want: true,
+		},
+		{
+			name:      "misses even expanded obstacle",
+			a:         entity.Vec3{X: 3.0, Z: 0},
+			b:         entity.Vec3{X: 3.0, Z: 10},
+			obstacles: []Obstacle{obstacle},
+			radius:    0.5,
+			// 3.0 outside [3.5, 6.5] => miss
+			want: false,
+		},
+		{
+			name:      "zero-length segment - no hit",
+			a:         entity.Vec3{X: 5, Z: 5},
+			b:         entity.Vec3{X: 5, Z: 5},
+			obstacles: []Obstacle{obstacle},
+			radius:    0.5,
+			want:      false,
+		},
+		{
+			name:      "does not skip obstacles containing origin",
+			a:         entity.Vec3{X: 5, Z: 5},
+			b:         entity.Vec3{X: 5, Z: 10},
+			obstacles: []Obstacle{obstacle},
+			radius:    0.5,
+			// Unlike SegmentHitsObstacle, expanded version does NOT skip origin-containing obstacles.
+			// But t range is [0,1], and origin is inside so tMin stays 0.
+			want: true,
+		},
+		{
+			name:      "segment before obstacle",
+			a:         entity.Vec3{X: 5, Z: 0},
+			b:         entity.Vec3{X: 5, Z: 3},
+			obstacles: []Obstacle{obstacle},
+			radius:    0.5,
+			// segment ends at Z=3, expanded starts at Z=3.5 => miss
+			want: false,
+		},
+		{
+			name:      "no obstacles",
+			a:         entity.Vec3{X: 0, Z: 0},
+			b:         entity.Vec3{X: 10, Z: 10},
+			obstacles: nil,
+			radius:    0.5,
+			want:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := SegmentHitsExpandedObstacle(tt.a, tt.b, tt.obstacles, tt.radius)
+			if got != tt.want {
+				t.Errorf("SegmentHitsExpandedObstacle = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNearestObstacleOnSegment(t *testing.T) {
+	obs1 := Obstacle{CX: 5, CZ: 5, HX: 1.0, HZ: 1.0}
+	obs2 := Obstacle{CX: 5, CZ: 15, HX: 1.0, HZ: 1.0}
+
+	tests := []struct {
+		name      string
+		a, b      entity.Vec3
+		obstacles []Obstacle
+		radius    float32
+		wantFound bool
+		wantCX    float32
+		wantCZ    float32
+	}{
+		{
+			name:      "finds single obstacle",
+			a:         entity.Vec3{X: 5, Z: 0},
+			b:         entity.Vec3{X: 5, Z: 20},
+			obstacles: []Obstacle{obs1},
+			radius:    0.5,
+			wantFound: true,
+			wantCX:    5,
+			wantCZ:    5,
+		},
+		{
+			name:      "finds nearest of two obstacles",
+			a:         entity.Vec3{X: 5, Z: 0},
+			b:         entity.Vec3{X: 5, Z: 20},
+			obstacles: []Obstacle{obs2, obs1}, // obs2 is farther but listed first
+			radius:    0.5,
+			wantFound: true,
+			wantCX:    5,
+			wantCZ:    5, // obs1 is closer (Z=5 vs Z=15)
+		},
+		{
+			name:      "no hit - segment misses",
+			a:         entity.Vec3{X: 0, Z: 0},
+			b:         entity.Vec3{X: 0, Z: 20},
+			obstacles: []Obstacle{obs1},
+			radius:    0.5,
+			wantFound: false,
+		},
+		{
+			name:      "zero-length segment",
+			a:         entity.Vec3{X: 5, Z: 5},
+			b:         entity.Vec3{X: 5, Z: 5},
+			obstacles: []Obstacle{obs1},
+			radius:    0.5,
+			wantFound: false,
+		},
+		{
+			name:      "no obstacles",
+			a:         entity.Vec3{X: 0, Z: 0},
+			b:         entity.Vec3{X: 10, Z: 10},
+			obstacles: nil,
+			radius:    0.5,
+			wantFound: false,
+		},
+		{
+			name:      "hits second obstacle only",
+			a:         entity.Vec3{X: 5, Z: 10},
+			b:         entity.Vec3{X: 5, Z: 20},
+			obstacles: []Obstacle{obs1, obs2},
+			radius:    0.5,
+			// obs1 at Z=5 is before segment start Z=10 (but segment goes 10->20)
+			// expanded obs1 Z range: [3.5, 6.5], tMin for Z: (3.5-10)/(20-10)=-0.65 => clamped to 0
+			// tMax for Z: (6.5-10)/(20-10)=-0.35 => tMax < tMin(0) => skip
+			// obs2 at Z=15 expanded: [13.5, 16.5] => in segment range => hit
+			wantFound: true,
+			wantCX:    5,
+			wantCZ:    15,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			obs, found := NearestObstacleOnSegment(tt.a, tt.b, tt.obstacles, tt.radius)
+			if found != tt.wantFound {
+				t.Fatalf("found = %v, want %v", found, tt.wantFound)
+			}
+			if found {
+				if obs.CX != tt.wantCX || obs.CZ != tt.wantCZ {
+					t.Errorf("obstacle center = (%f, %f), want (%f, %f)", obs.CX, obs.CZ, tt.wantCX, tt.wantCZ)
+				}
+			}
+		})
+	}
+}
