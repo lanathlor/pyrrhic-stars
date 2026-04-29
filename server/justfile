@@ -1,4 +1,5 @@
 set dotenv-load := false
+set shell := ["bash", "-euo", "pipefail", "-c"]
 
 gopath := `pwd` + "/.go"
 export GOPATH := gopath
@@ -38,6 +39,335 @@ test-integration:
 # Run all tests with race detector
 test-race:
     go test ./... -race -count=1
+
+# Run benchmarks (all packages)
+bench:
+    CODEX_LEVELS_DIR=`pwd`/../shared/levels go test ./... -bench=. -benchmem -run='^$' -count=1 2>&1 | grep -E '(ns/op|^ok |^FAIL)'
+
+# Run benchmarks with 3 iterations for stable results
+bench-stable:
+    CODEX_LEVELS_DIR=`pwd`/../shared/levels go test ./... -bench=. -benchmem -run='^$' -count=3 2>&1 | grep -E '(ns/op|^ok |^FAIL)'
+
+# Run all benchmarks in system/ with time + allocations per benchmark
+bench-all:
+    CODEX_LEVELS_DIR=`pwd`/../shared/levels go test -bench=. -benchmem -run='^$' -count=1 ./internal/system/ 2>/dev/null | grep -E '(Benchmark|ns/op|B/op|allocs/op)'
+
+# Show available benchmarks in system/
+bench-list:
+    CODEX_LEVELS_DIR=`pwd`/../shared/levels go test -bench=. -run='^$' -list='.' ./internal/system/ 2>/dev/null | grep '^Benchmark'
+
+# ---- Profiling helpers ----
+
+[private]
+_pprof_run BENCH:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export CODEX_LEVELS_DIR=`pwd`/../shared/levels
+    PROF_FILE="/tmp/bench_mem.prof"
+    go test -bench={{BENCH}} -benchmem -run='^$' -memprofile=$PROF_FILE -memprofilerate=1 ./internal/system/ > /dev/null 2>&1
+    echo "$PROF_FILE"
+
+[private]
+_cpu_run BENCH:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export CODEX_LEVELS_DIR=`pwd`/../shared/levels
+    PROF_FILE="/tmp/bench_cpu.prof"
+    go test -bench={{BENCH}} -run='^$' -cpuprofile=$PROF_FILE ./internal/system/ > /dev/null 2>&1
+    echo "$PROF_FILE"
+
+[private]
+_trace_run BENCH:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export CODEX_LEVELS_DIR=`pwd`/../shared/levels
+    PROF_FILE="/tmp/bench_trace.prof"
+    go test -bench={{BENCH}} -run='^$' -trace=$PROF_FILE ./internal/system/ > /dev/null 2>&1
+    echo "$PROF_FILE"
+
+# ---- Memory profiling ----
+
+# Profile memory allocations of a benchmark (default: BenchmarkMultiInstance100)
+bench-pprof BENCH="BenchmarkMultiInstance100":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    PROF_FILE=$(just _pprof_run {{BENCH}})
+    echo "Profile saved to $PROF_FILE"
+    echo ""
+    echo "=== ALLOC SPACE (cumulative bytes allocated, cum) ==="
+    go tool pprof -top -alloc_space $PROF_FILE 2>/dev/null | grep -E '^\s+[0-9]' | head -20
+    echo ""
+    echo "=== INUSE SPACE (live heap at snapshot, cum) ==="
+    go tool pprof -top -inuse_space $PROF_FILE 2>/dev/null | grep -E '^\s+[0-9]' | head -20
+    echo ""
+    echo "=== ALLOC SPACE (flat, self only) ==="
+    go tool pprof -top -flat -alloc_space $PROF_FILE 2>/dev/null | grep -E '^\s+[0-9]' | head -20
+    echo ""
+    echo "=== LINE-LEVEL drill into top cum (try: broadcastWorldState, NetworkSystem, tickInstance) ==="
+    for FN in broadcastWorldState 'NetworkSystem\.Tick' tickInstance; do
+        echo "--- $FN ---"
+        go tool pprof -list "$FN" $PROF_FILE 2>/dev/null | grep -E '^\s+[0-9]' | head -10
+    done
+    echo ""
+    echo "Run 'go tool pprof $PROF_FILE' for interactive exploration (list <fn>, web, peek <fn>)"
+
+# Drill into allocations for a specific function across all benchmarks.
+# Searches all benchmarks and shows which lines allocate.
+# Usage: just bench-alloc "EncodeWorldState"
+bench-alloc FUNC="EncodeWorldState":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export CODEX_LEVELS_DIR=`pwd`/../shared/levels
+    echo "Searching for allocations involving: {{FUNC}}"
+    echo ""
+
+    # Get bench list; use : as delimiter to avoid line-noise
+    BENCHES=$(go test -bench=. -run='^$' -list='.' ./internal/system/ 2>/dev/null | grep '^Benchmark')
+    TOTAL=0
+    FOUND=0
+
+    for BENCH in $BENCHES; do
+        PROF_FILE="/tmp/bench_${BENCH}.prof"
+        # Run benchmark; continue on failure (some benchmarks may be skipped)
+        go test -bench=$BENCH -benchmem -run='^$' -memprofile=$PROF_FILE -memprofilerate=1 ./internal/system/ > /dev/null 2>&1 || continue
+        TOTAL=$((TOTAL + 1))
+
+        # Query pprof; grep returns 1 if no match, that's fine
+        MATCH=$(go tool pprof -list '{{FUNC}}' $PROF_FILE 2>/dev/null | grep -E '^\s+[0-9]' || true)
+        if [ -n "$MATCH" ]; then
+            FOUND=$((FOUND + 1))
+            echo "--- $BENCH (flat / cum / line) ---"
+            echo "$MATCH" | head -5
+            echo ""
+        fi
+    done
+
+    echo "Scanned $TOTAL benchmarks, found allocations in $FOUND."
+
+# ---- CPU profiling ----
+
+# Profile CPU of a benchmark
+bench-cpu-pprof BENCH="BenchmarkMultiInstance100":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    PROF_FILE=$(just _cpu_run {{BENCH}})
+    echo "Profile saved to $PROF_FILE"
+    echo ""
+    echo "=== CPU (flat, self time) ==="
+    go tool pprof -top -flat $PROF_FILE 2>/dev/null | grep -E '^\s+[0-9]' | head -20
+    echo ""
+    echo "=== CPU (cum incl. children) ==="
+    go tool pprof -top -cum $PROF_FILE 2>/dev/null | grep -E '^\s+[0-9]' | head -20
+    echo ""
+    echo "=== LINE-LEVEL drill (flat) ==="
+    for FN in tickInstance broadcastWorldState 'NetworkSystem\.Tick'; do
+        echo "--- $FN ---"
+        go tool pprof -list "$FN" $PROF_FILE 2>/dev/null | grep -E '^\s+[0-9]' | head -5
+    done
+    echo ""
+    echo "Run 'go tool pprof $PROF_FILE' for interactive exploration"
+
+# ---- Mutex profiling ----
+
+# Profile mutex contention (helps find lock contention across zones)
+bench-mutex BENCH="BenchmarkMultiInstance100":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export CODEX_LEVELS_DIR=`pwd`/../shared/levels
+    PROF_FILE="/tmp/bench_mutex.prof"
+    echo "Running {{BENCH}} with mutex profiling..."
+    go test -bench={{BENCH}} -run='^$' -mutexprofilefraction=10 ./internal/system/ > /dev/null 2>&1
+    mv mutex0 $PROF_FILE 2>/dev/null || true
+    if [ -f "$PROF_FILE" ]; then
+        echo "=== MUTEX HOLDERS (where locks are held longest) ==="
+        go tool pprof -top -cum $PROF_FILE 2>/dev/null | grep -E '^\s+[0-9]' | head -20
+        echo ""
+        echo "Run 'go tool pprof -svg $PROF_FILE > mutex.svg' to view flame graph"
+    else
+        echo "No mutex contention detected (not all benchmarks have locking)"
+    fi
+
+# ---- GC profiling ----
+
+# Show GC pressure and pause times during a benchmark
+bench-gc BENCH="BenchmarkMultiInstance100":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export CODEX_LEVELS_DIR=`pwd`/../shared/levels
+    echo "Running {{BENCH}} and monitoring GC..."
+    go test -bench={{BENCH}} -run='^$' -gcprofile=1 ./internal/system/ 2>&1 | tail -30
+
+# ---- Execution trace ----
+
+# Record an execution trace (scheduler, syscalls, GC, goroutines)
+# Opens in browser automatically
+bench-trace BENCH="BenchmarkMultiInstance10":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    PROF_FILE=$(just _trace_run {{BENCH}})
+    echo "Trace saved to $PROF_FILE ($(du -sh $PROF_FILE | cut -f1))"
+    echo ""
+    echo "Opening in browser (go tool trace)..."
+    go tool trace $PROF_FILE &
+    echo "Or serve it: python3 -m http.server 8080 --directory /tmp"
+    echo "Then open: http://localhost:8080/bench_trace.prof"
+
+# Generate flame graph SVG from a CPU profile
+# Requires graphviz (dot) or go-torch installed. Falls back to call tree text if unavailable.
+bench-flame BENCH="BenchmarkMultiInstance100":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    PROF_FILE=$(just _cpu_run {{BENCH}})
+    SVG_FILE="/tmp/flamegraph.svg"
+
+    echo "Profile: $PROF_FILE ($(du -sh $PROF_FILE | cut -f1))"
+
+    # Try dot (graphviz) first
+    if command -v dot >/dev/null 2>&1; then
+        go tool pprof -svg $PROF_FILE > $SVG_FILE 2>/dev/null
+        if [ -s "$SVG_FILE" ] && grep -q '<svg' "$SVG_FILE"; then
+            echo "Flame graph (graphviz): $SVG_FILE"
+            echo "Open: file://$SVG_FILE"
+            exit 0
+        fi
+    fi
+
+    # Try go-torch
+    if command -v go-torch >/dev/null 2>&1; then
+        go-torch $PROF_FILE -f $SVG_FILE 2>/dev/null && [ -s "$SVG_FILE" ] && echo "Flame graph (go-torch): $SVG_FILE" && exit 0
+    fi
+
+    # Try go-stacks-to-svg
+    if command -v go-stacks-to-svg >/dev/null 2>&1; then
+        go tool pprof -raw $PROF_FILE 2>/dev/null | go-stacks-to-svg > $SVG_FILE 2>/dev/null
+        if [ -s "$SVG_FILE" ]; then
+            echo "Flame graph (go-stacks-to-svg): $SVG_FILE"
+            echo "Open: file://$SVG_FILE"
+            exit 0
+        fi
+    fi
+
+    # Fallback: top-level call tree as text
+    echo ""
+    echo "No flame graph tool found. Install graphviz for SVG:"
+    echo "  nix-env -iA nixpkgs.graphviz  # nix"
+    echo "  sudo apt install graphviz       # debian/ubuntu"
+    echo "  sudo dnf install graphviz       # fedora"
+    echo ""
+    echo "Top-level call tree instead:"
+    echo ""
+    go tool pprof -top -cum $PROF_FILE 2>/dev/null | grep -E '^\s+[0-9]' | head -30
+
+# ---- Compare ----
+
+# Compare two benchmark profiles (pass bench names or profile files)
+# Usage: just bench-compare "BenchmarkMultiInstance100" "BenchmarkMultiInstance50"
+#        just bench-compare "/tmp/p1.prof" "/tmp/p2.prof"
+bench-compare B1="BenchmarkMultiInstance100" B2="BenchmarkMultiInstance50":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    P1="/tmp/compare_1.prof"
+    P2="/tmp/compare_2.prof"
+
+    # Resolve profile files
+    if [[ "{{B1}}" == *.prof ]]; then
+        cp {{B1}} $P1
+    else
+        echo "Generating profile for {{B1}}..."
+        export CODEX_LEVELS_DIR=`pwd`/../shared/levels
+        go test -bench={{B1}} -benchmem -run='^$' -memprofile=$P1 -memprofilerate=1 ./internal/system/ > /dev/null 2>&1
+    fi
+
+    if [[ "{{B2}}" == *.prof ]]; then
+        cp {{B2}} $P2
+    else
+        echo "Generating profile for {{B2}}..."
+        export CODEX_LEVELS_DIR=`pwd`/../shared/levels
+        go test -bench={{B2}} -benchmem -run='^$' -memprofile=$P2 -memprofilerate=1 ./internal/system/ > /dev/null 2>&1
+    fi
+
+    echo "=== {{B1}} vs {{B2}} (alloc_space, cum) ==="
+    go tool pprof -top -alloc_space -diff_base=$P2 $P1 2>/dev/null | grep -E '^\s+[-+0-9]' | head -20
+    echo ""
+    echo "=== {{B1}} vs {{B2}} (CPU flat, self time) ==="
+    go tool pprof -top -flat -diff_base=$P2 $P1 2>/dev/null | grep -E '^\s+[-+0-9]' | head -20
+
+# ---- Comprehensive report ----
+
+# Run all profiling types and produce a full report
+bench-report BENCH="BenchmarkMultiInstance100":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export CODEX_LEVELS_DIR=`pwd`/../shared/levels
+
+    echo "=============================================="
+    echo "BENCHMARK REPORT: {{BENCH}}"
+    echo "=============================================="
+    echo ""
+
+    # Baseline timing
+    echo ">>> Baseline timing"
+    go test -bench={{BENCH}} -benchmem -run='^$' -count=3 ./internal/system/ 2>/dev/null | grep -E '(ns/op|B/op|allocs/op)'
+    echo ""
+
+    # Memory profile
+    MEM_PROF="/tmp/report_mem.prof"
+    echo ">>> Memory profile"
+    go test -bench={{BENCH}} -benchmem -run='^$' -memprofile=$MEM_PROF -memprofilerate=1 ./internal/system/ > /dev/null 2>&1
+    go tool pprof -top -alloc_space $MEM_PROF 2>/dev/null | grep -E '^\s+[0-9]' | head -15
+    echo ""
+
+    # CPU profile
+    CPU_PROF="/tmp/report_cpu.prof"
+    echo ">>> CPU profile"
+    go test -bench={{BENCH}} -run='^$' -cpuprofile=$CPU_PROF ./internal/system/ > /dev/null 2>&1
+    go tool pprof -top -flat $CPU_PROF 2>/dev/null | grep -E '^\s+[0-9]' | head -15
+    echo ""
+
+    # GC stats
+    echo ">>> GC pressure (GOGC, pause times)"
+    GODEBUG=gctrace=1 go test -bench={{BENCH}} -run='^$' ./internal/system/ 2>&1 | grep -E '(gc [0-9]|pause)' | head -10
+    echo ""
+
+    echo "Profile files:"
+    echo "  Memory: $MEM_PROF"
+    echo "  CPU:    $CPU_PROF"
+    echo ""
+    echo "Interactive: go tool pprof $MEM_PROF  (or $CPU_PROF)"
+
+# --- Coverage ---
+
+# helper: run tests and produce coverage.out (suppresses test output)
+[private]
+cover-run:
+    go test ./... -count=1 -coverprofile=coverage.out > /dev/null 2>&1 || true
+
+# Run tests with coverage summary
+cover: cover-run
+    go tool cover -func=coverage.out | tail -1
+    @rm coverage.out
+
+# Show coverage per package
+cover-pkg: cover-run
+    go tool cover -func=coverage.out | grep -v "^total:" | \
+        awk -F'\t' '{ split($1,a,":"); file=a[1]; gsub(/codex-online\/server\//,"",file); dir=file; sub(/\/[^/]*$$/,"",dir); gsub(/%/,"",$NF); sum[dir]+=$NF; cnt[dir]++ } END { for(d in sum) printf "%-55s %.1f%%\n", d, sum[d]/cnt[d] }' | sort
+    @rm coverage.out
+
+# Show coverage per file
+cover-file: cover-run
+    go tool cover -func=coverage.out | grep -v "^total:" | \
+        awk -F'\t' '{ split($1,a,":"); file=a[1]; gsub(/codex-online\/server\//,"",file); gsub(/%/,"",$NF); sum[file]+=$NF; cnt[file]++ } END { for(f in sum) printf "%-70s %.1f%%\n", f, sum[f]/cnt[f] }' | sort
+    @rm coverage.out
+
+# Show coverage per function
+cover-func: cover-run
+    go tool cover -func=coverage.out
+    @rm coverage.out
+
+# Open HTML coverage report in browser
+cover-html: cover-run
+    go tool cover -html=coverage.out
+    @rm coverage.out
 
 # --- Build ---
 
