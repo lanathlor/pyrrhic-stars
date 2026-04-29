@@ -20,13 +20,13 @@
 
           # Assets
           blender
-          uv            # uvx for blender-mcp
+          uv # uvx for blender-mcp
 
           # Server
           go
-          gopls         # Go LSP
-          gotools       # goimports, etc.
-          delve         # Go debugger
+          gopls # Go LSP
+          gotools # goimports, etc.
+          delve # Go debugger
 
           # Data stores (local dev)
           redis
@@ -36,14 +36,10 @@
           ffmpeg
 
           # Tools
-          git-lfs       # large file storage for GLB assets
-          jq            # used in hooks
-          just          # task runner
+          git-lfs # large file storage for GLB assets
+          jq # used in hooks
+          just # task runner
         ];
-
-        env = {
-          GOPATH = "$PWD/.go";
-        };
 
         shellHook = ''
           echo "Codex Online dev shell"
