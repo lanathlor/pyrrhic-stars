@@ -53,7 +53,7 @@ var _class_button_group: ButtonGroup = ButtonGroup.new()
 var _players_node: Node3D
 var _projectiles_node: Node3D
 var _username: String = ""
-const SERVER_ADDRESS := "109.222.207.243"
+const SERVER_ADDRESS := "90.29.175.30"
 const USERNAME_SAVE_PATH := "user://username.txt"
 
 # Scene management
