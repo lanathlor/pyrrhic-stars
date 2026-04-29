@@ -143,4 +143,5 @@ func _process(delta: float) -> void:
 			v["t"] -= 1.0  # loop seamlessly
 
 		node.position = a.lerp(b, v["t"])
-		node.look_at(b)
+		if node.position.distance_squared_to(b) > 0.001:
+			node.look_at(b)
