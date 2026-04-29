@@ -28,6 +28,11 @@ const CONFIG_COLORS: Array[Color] = [
 ]
 
 const ABILITY_KEYBINDS: Array[String] = ["LMB", "R", "RMB", "E"]
+const PANEL_BG := Color(0.02, 0.025, 0.035, 0.82)
+const PANEL_FILL := Color(0.04, 0.05, 0.07, 0.45)
+const PANEL_INSET := Color(0.11, 0.12, 0.15, 0.3)
+const PANEL_BORDER := Color(0.28, 0.3, 0.36, 0.85)
+const TEXT_MUTED := Color(0.66, 0.7, 0.77, 0.9)
 
 
 func _ready() -> void:
@@ -82,15 +87,9 @@ func _draw() -> void:
 		var bar_w := 120.0
 		var bar_h := 8.0
 		var bar_x := center.x - bar_w / 2.0
-		var bar_y := size.y - 145.0  # above config display
+		var bar_y := size.y - 136.0
 		var fill := clampf(_shield_hp / SHIELD_MAX, 0.0, 1.0)
-		# Background
-		draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), Color(0.15, 0.15, 0.2, 0.7))
-		# Fill — white/cyan
-		draw_rect(Rect2(bar_x, bar_y, bar_w * fill, bar_h), Color(0.7, 0.9, 1.0, 0.85))
-		# Border
-		draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), Color(0.5, 0.7, 0.8, 0.6), false, 1.0)
-		# Label
+		_draw_status_bar(Rect2(bar_x, bar_y, bar_w, bar_h), fill, Color(0.7, 0.9, 1.0, 0.85))
 		var shield_text := "%.0f" % _shield_hp
 		draw_string(ThemeDB.fallback_font, Vector2(bar_x + bar_w + 6.0, bar_y + 7.0), shield_text,
 			HORIZONTAL_ALIGNMENT_LEFT, 40.0, 10, Color(0.7, 0.9, 1.0, 0.9))
@@ -176,13 +175,10 @@ func _draw_config() -> void:
 	var color := _get_current_color()
 
 	var font := ThemeDB.fallback_font
-
-	# Config name -- large centered text
-	display.draw_string(font, Vector2(center_x - 50.0, 32.0), config_name,
+	display.draw_string(font, Vector2(center_x - 50.0, 24.0), config_name,
 		HORIZONTAL_ALIGNMENT_CENTER, 100, 24, color)
 
-	# Small colored pip for each config, current one is larger
-	var pip_y := 44.0
+	var pip_y := 36.0
 	var pip_spacing := 16.0
 	var total_w := pip_spacing * 4.0
 	var pip_start_x := center_x - total_w / 2.0
@@ -209,5 +205,17 @@ func _draw_custom_tooltip(bar: Control, spell: Dictionary, tip_rect: Rect2) -> v
 	bar.draw_string(font, Vector2(tip_rect.position.x + 8.0, tip_rect.position.y + 32.0), transition_text,
 		HORIZONTAL_ALIGNMENT_LEFT, tip_rect.size.x - 16.0, 10, dest_color)
 
-	# Destination config pip
 	bar.draw_circle(Vector2(tip_rect.position.x + tip_rect.size.x - 14.0, tip_rect.position.y + 28.0), 4.0, dest_color)
+
+
+func _draw_panel(canvas: CanvasItem, rect: Rect2, accent: Color) -> void:
+	canvas.draw_rect(rect, PANEL_FILL)
+	canvas.draw_rect(rect, PANEL_BORDER, false, 1.0)
+	canvas.draw_rect(Rect2(rect.position + Vector2(1.0, 1.0), rect.size - Vector2(2.0, 2.0)), accent, false, 1.0)
+
+
+func _draw_status_bar(rect: Rect2, ratio: float, fill_color: Color) -> void:
+	draw_rect(rect, PANEL_BG)
+	if ratio > 0.0:
+		draw_rect(Rect2(rect.position, Vector2(rect.size.x * ratio, rect.size.y)), fill_color)
+	draw_rect(rect, PANEL_BORDER, false, 1.0)

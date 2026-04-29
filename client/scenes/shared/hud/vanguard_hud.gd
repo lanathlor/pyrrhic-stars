@@ -13,7 +13,7 @@ var _hit_marker_timer: float = 0.0
 const DAMAGE_FLASH_DURATION: float = 0.3
 const PARRY_FLASH_DURATION: float = 0.25
 const HIT_MARKER_DURATION: float = 0.15
-const VANGUARD_COLOR := Color(0.9, 0.6, 0.3)
+const VANGUARD_COLOR := Color(0.82, 0.44, 0.24)
 
 
 func _ready() -> void:

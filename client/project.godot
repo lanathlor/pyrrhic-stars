@@ -35,6 +35,10 @@ window/size/viewport_height=1080
 window/stretch/mode="viewport"
 display_server/driver.linuxbsd="wayland"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/gdUnit4/plugin.cfg")
+
 [input]
 
 move_forward={
@@ -113,7 +117,3 @@ ability_2={
 3d_physics/layer_1="World"
 3d_physics/layer_2="Player"
 3d_physics/layer_3="Enemy"
-
-[editor_plugins]
-
-enabled=PackedStringArray("res://addons/gdUnit4/plugin.cfg")

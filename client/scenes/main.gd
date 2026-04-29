@@ -1374,6 +1374,62 @@ func _open_boss_gate() -> void:
 # UI builders
 # =============================================================================
 
+const UI_SURFACE := Color(0.035, 0.045, 0.065, 0.88)
+const UI_SURFACE_ALT := Color(0.05, 0.06, 0.085, 0.92)
+const UI_SURFACE_ACTIVE := Color(0.08, 0.1, 0.15, 0.96)
+const UI_BORDER := Color(0.28, 0.31, 0.37, 0.9)
+const UI_BORDER_ACTIVE := Color(0.32, 0.58, 0.92, 0.95)
+const UI_TEXT := Color(0.9, 0.93, 0.98, 0.96)
+const UI_TEXT_MUTED := Color(0.6, 0.66, 0.75, 0.95)
+const UI_TEXT_DIM := Color(0.48, 0.53, 0.6, 0.95)
+const UI_DANGER := Color(0.86, 0.28, 0.28, 0.96)
+
+
+func _ui_style_box(fill: Color, border: Color, border_width: int = 1, padding: int = 10) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.border_color = border
+	style.set_border_width_all(border_width)
+	style.set_corner_radius_all(0)
+	style.set_content_margin_all(padding)
+	return style
+
+
+func _ui_apply_button_style(btn: Button, accent: Color = UI_BORDER_ACTIVE) -> void:
+	btn.add_theme_stylebox_override("normal", _ui_style_box(UI_SURFACE, UI_BORDER, 1, 10))
+	btn.add_theme_stylebox_override("hover", _ui_style_box(UI_SURFACE_ALT, accent, 1, 10))
+	btn.add_theme_stylebox_override("pressed", _ui_style_box(UI_SURFACE_ACTIVE, accent, 1, 10))
+	btn.add_theme_stylebox_override("focus", _ui_style_box(UI_SURFACE_ACTIVE, accent, 1, 10))
+	btn.add_theme_stylebox_override("disabled", _ui_style_box(Color(UI_SURFACE, 0.45), Color(UI_BORDER, 0.4), 1, 10))
+	btn.add_theme_color_override("font_color", UI_TEXT)
+	btn.add_theme_color_override("font_hover_color", UI_TEXT)
+	btn.add_theme_color_override("font_pressed_color", UI_TEXT)
+	btn.add_theme_color_override("font_focus_color", UI_TEXT)
+	btn.add_theme_color_override("font_disabled_color", UI_TEXT_DIM)
+	btn.add_theme_constant_override("h_separation", 8)
+
+
+func _ui_apply_line_edit_style(input: LineEdit) -> void:
+	input.add_theme_stylebox_override("normal", _ui_style_box(UI_SURFACE, UI_BORDER, 1, 10))
+	input.add_theme_stylebox_override("focus", _ui_style_box(UI_SURFACE_ALT, UI_BORDER_ACTIVE, 1, 10))
+	input.add_theme_stylebox_override("read_only", _ui_style_box(UI_SURFACE, UI_BORDER, 1, 10))
+	input.add_theme_color_override("font_color", UI_TEXT)
+	input.add_theme_color_override("font_placeholder_color", UI_TEXT_DIM)
+	input.add_theme_color_override("caret_color", UI_TEXT)
+	input.add_theme_color_override("selection_color", Color(UI_BORDER_ACTIVE, 0.35))
+
+
+func _ui_apply_panel_style(panel: PanelContainer, active: bool = false, padding: int = 10) -> void:
+	var fill := UI_SURFACE_ACTIVE if active else UI_SURFACE
+	var border := UI_BORDER_ACTIVE if active else UI_BORDER
+	panel.add_theme_stylebox_override("panel", _ui_style_box(fill, border, 1, padding))
+
+
+func _ui_apply_overlay_label(label: Label, font_size: int, color: Color = UI_TEXT) -> void:
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", color)
+
+
 func _create_pause_menu() -> void:
 	_pause_layer = CanvasLayer.new()
 	_pause_layer.layer = 20
@@ -1382,35 +1438,43 @@ func _create_pause_menu() -> void:
 	add_child(_pause_layer)
 
 	var bg := ColorRect.new()
-	bg.color = Color(0.0, 0.0, 0.0, 0.6)
+	bg.color = Color(0.0, 0.0, 0.0, 0.72)
 	bg.anchor_right = 1.0
 	bg.anchor_bottom = 1.0
 	bg.mouse_filter = Control.MOUSE_FILTER_STOP
 	_pause_layer.add_child(bg)
 
+	var panel := PanelContainer.new()
+	panel.anchor_left = 0.5
+	panel.anchor_right = 0.5
+	panel.anchor_top = 0.35
+	panel.anchor_bottom = 0.65
+	panel.offset_left = -140.0
+	panel.offset_right = 140.0
+	_ui_apply_panel_style(panel, false, 12)
+	_pause_layer.add_child(panel)
+
 	var vbox := VBoxContainer.new()
-	vbox.anchor_left = 0.5
-	vbox.anchor_right = 0.5
-	vbox.anchor_top = 0.35
-	vbox.anchor_bottom = 0.65
-	vbox.offset_left = -120.0
-	vbox.offset_right = 120.0
-	vbox.add_theme_constant_override("separation", 16)
-	_pause_layer.add_child(vbox)
+	vbox.add_theme_constant_override("separation", 10)
+	panel.add_child(vbox)
 
 	var title := Label.new()
-	title.text = "PAUSED"
+	title.text = "Paused"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 36)
+	_ui_apply_overlay_label(title, 22, UI_TEXT)
 	vbox.add_child(title)
 
 	var resume_btn := Button.new()
 	resume_btn.text = "Resume"
+	resume_btn.custom_minimum_size.y = 38.0
+	_ui_apply_button_style(resume_btn)
 	resume_btn.pressed.connect(_toggle_pause)
 	vbox.add_child(resume_btn)
 
 	var menu_btn := Button.new()
 	menu_btn.text = "Back to Menu"
+	menu_btn.custom_minimum_size.y = 38.0
+	_ui_apply_button_style(menu_btn)
 	menu_btn.pressed.connect(func():
 		get_tree().paused = false
 		paused = false
@@ -1421,6 +1485,8 @@ func _create_pause_menu() -> void:
 
 	var quit_btn := Button.new()
 	quit_btn.text = "Quit"
+	quit_btn.custom_minimum_size.y = 38.0
+	_ui_apply_button_style(quit_btn, UI_DANGER)
 	quit_btn.pressed.connect(func(): get_tree().quit())
 	vbox.add_child(quit_btn)
 
@@ -1432,34 +1498,36 @@ func _create_menu_ui() -> void:
 	add_child(_menu_layer)
 
 	var bg := ColorRect.new()
-	bg.color = Color(0.05, 0.05, 0.1, 0.95)
+	bg.color = Color(0.02, 0.025, 0.04, 0.96)
 	bg.anchor_right = 1.0
 	bg.anchor_bottom = 1.0
 	bg.mouse_filter = Control.MOUSE_FILTER_STOP
 	_menu_layer.add_child(bg)
 
+	var panel := PanelContainer.new()
+	panel.anchor_left = 0.5
+	panel.anchor_right = 0.5
+	panel.anchor_top = 0.25
+	panel.anchor_bottom = 0.75
+	panel.offset_left = -170.0
+	panel.offset_right = 170.0
+	_ui_apply_panel_style(panel, false, 14)
+	_menu_layer.add_child(panel)
+
 	var vbox := VBoxContainer.new()
-	vbox.anchor_left = 0.5
-	vbox.anchor_right = 0.5
-	vbox.anchor_top = 0.25
-	vbox.anchor_bottom = 0.75
-	vbox.offset_left = -150.0
-	vbox.offset_right = 150.0
-	vbox.add_theme_constant_override("separation", 20)
-	_menu_layer.add_child(vbox)
+	vbox.add_theme_constant_override("separation", 12)
+	panel.add_child(vbox)
 
 	var title := Label.new()
 	title.text = "CODEX ONLINE"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 48)
-	title.add_theme_color_override("font_color", Color(0.8, 0.85, 1.0))
+	_ui_apply_overlay_label(title, 34, UI_TEXT)
 	vbox.add_child(title)
 
 	var subtitle := Label.new()
 	subtitle.text = "Phase 0 -- Server Authoritative"
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_size_override("font_size", 18)
-	subtitle.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
+	_ui_apply_overlay_label(subtitle, 14, UI_TEXT_DIM)
 	vbox.add_child(subtitle)
 
 	var spacer := Control.new()
@@ -1469,17 +1537,17 @@ func _create_menu_ui() -> void:
 	# Welcome label — shown for returning players.
 	_menu_welcome_label = Label.new()
 	_menu_welcome_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_menu_welcome_label.add_theme_font_size_override("font_size", 22)
-	_menu_welcome_label.add_theme_color_override("font_color", Color(0.7, 0.75, 0.9))
+	_ui_apply_overlay_label(_menu_welcome_label, 18, UI_TEXT_MUTED)
 	_menu_welcome_label.visible = false
 	vbox.add_child(_menu_welcome_label)
 
 	# Username input — only shown for new players (no saved username).
 	_username_input = LineEdit.new()
 	_username_input.placeholder_text = "Choose a username..."
-	_username_input.custom_minimum_size.y = 50.0
+	_username_input.custom_minimum_size.y = 42.0
 	_username_input.max_length = 20
 	_username_input.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_ui_apply_line_edit_style(_username_input)
 	vbox.add_child(_username_input)
 
 	# Load saved username — if exists, show welcome instead of input.
@@ -1492,7 +1560,8 @@ func _create_menu_ui() -> void:
 
 	var play_btn := Button.new()
 	play_btn.text = "Play"
-	play_btn.custom_minimum_size = Vector2(200.0, 55.0)
+	play_btn.custom_minimum_size = Vector2(200.0, 42.0)
+	_ui_apply_button_style(play_btn)
 	play_btn.pressed.connect(_on_connect_pressed)
 	vbox.add_child(play_btn)
 
@@ -1504,41 +1573,43 @@ func _create_char_select_ui() -> void:
 	add_child(_char_select_layer)
 
 	var bg := ColorRect.new()
-	bg.color = Color(0.05, 0.05, 0.1, 0.95)
+	bg.color = Color(0.02, 0.025, 0.04, 0.96)
 	bg.anchor_right = 1.0
 	bg.anchor_bottom = 1.0
 	bg.mouse_filter = Control.MOUSE_FILTER_STOP
 	_char_select_layer.add_child(bg)
 
+	var panel := PanelContainer.new()
+	panel.anchor_left = 0.5
+	panel.anchor_right = 0.5
+	panel.anchor_top = 0.1
+	panel.anchor_bottom = 0.9
+	panel.offset_left = -320.0
+	panel.offset_right = 320.0
+	_ui_apply_panel_style(panel, false, 14)
+	_char_select_layer.add_child(panel)
+
 	var outer := VBoxContainer.new()
-	outer.anchor_left = 0.5
-	outer.anchor_right = 0.5
-	outer.anchor_top = 0.1
-	outer.anchor_bottom = 0.9
-	outer.offset_left = -300.0
-	outer.offset_right = 300.0
-	outer.add_theme_constant_override("separation", 20)
-	_char_select_layer.add_child(outer)
+	outer.add_theme_constant_override("separation", 12)
+	panel.add_child(outer)
 
 	# Title
 	var title := Label.new()
-	title.text = "SELECT CHARACTER"
+	title.text = "Select Character"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 36)
-	title.add_theme_color_override("font_color", Color(0.8, 0.85, 1.0))
+	_ui_apply_overlay_label(title, 26, UI_TEXT)
 	outer.add_child(title)
 
 	# Welcome label
 	_char_select_welcome = Label.new()
 	_char_select_welcome.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_char_select_welcome.add_theme_font_size_override("font_size", 16)
-	_char_select_welcome.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
+	_ui_apply_overlay_label(_char_select_welcome, 14, UI_TEXT_DIM)
 	outer.add_child(_char_select_welcome)
 
 	# Scrollable character list
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.custom_minimum_size.y = 200.0
+	scroll.custom_minimum_size.y = 220.0
 	outer.add_child(scroll)
 
 	_char_list_container = VBoxContainer.new()
@@ -1554,7 +1625,8 @@ func _create_char_select_ui() -> void:
 
 	var back_btn := Button.new()
 	back_btn.text = "Back"
-	back_btn.custom_minimum_size = Vector2(100.0, 45.0)
+	back_btn.custom_minimum_size = Vector2(100.0, 38.0)
+	_ui_apply_button_style(back_btn)
 	back_btn.pressed.connect(func():
 		NetworkManager.disconnect_game()
 		_enter_menu()
@@ -1563,13 +1635,15 @@ func _create_char_select_ui() -> void:
 
 	var create_btn := Button.new()
 	create_btn.text = "Create New Character"
-	create_btn.custom_minimum_size = Vector2(200.0, 45.0)
+	create_btn.custom_minimum_size = Vector2(200.0, 38.0)
+	_ui_apply_button_style(create_btn)
 	create_btn.pressed.connect(_enter_create_character)
 	btn_hbox.add_child(create_btn)
 
 	_enter_world_btn = Button.new()
 	_enter_world_btn.text = "Enter World"
-	_enter_world_btn.custom_minimum_size = Vector2(160.0, 45.0)
+	_enter_world_btn.custom_minimum_size = Vector2(160.0, 38.0)
+	_ui_apply_button_style(_enter_world_btn)
 	_enter_world_btn.pressed.connect(_on_enter_world_pressed)
 	btn_hbox.add_child(_enter_world_btn)
 
@@ -1581,54 +1655,57 @@ func _create_char_create_ui() -> void:
 	add_child(_char_create_layer)
 
 	var bg := ColorRect.new()
-	bg.color = Color(0.05, 0.05, 0.1, 0.95)
+	bg.color = Color(0.02, 0.025, 0.04, 0.96)
 	bg.anchor_right = 1.0
 	bg.anchor_bottom = 1.0
 	bg.mouse_filter = Control.MOUSE_FILTER_STOP
 	_char_create_layer.add_child(bg)
 
+	var panel := PanelContainer.new()
+	panel.anchor_left = 0.5
+	panel.anchor_right = 0.5
+	panel.anchor_top = 0.08
+	panel.anchor_bottom = 0.92
+	panel.offset_left = -360.0
+	panel.offset_right = 360.0
+	_ui_apply_panel_style(panel, false, 14)
+	_char_create_layer.add_child(panel)
+
 	var outer := VBoxContainer.new()
-	outer.anchor_left = 0.5
-	outer.anchor_right = 0.5
-	outer.anchor_top = 0.1
-	outer.anchor_bottom = 0.9
-	outer.offset_left = -350.0
-	outer.offset_right = 350.0
-	outer.add_theme_constant_override("separation", 20)
-	_char_create_layer.add_child(outer)
+	outer.add_theme_constant_override("separation", 14)
+	panel.add_child(outer)
 
 	var title := Label.new()
-	title.text = "CREATE CHARACTER"
+	title.text = "Create Character"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 36)
-	title.add_theme_color_override("font_color", Color(0.8, 0.85, 1.0))
+	_ui_apply_overlay_label(title, 26, UI_TEXT)
 	outer.add_child(title)
 
 	# Class cards
 	var cards_hbox := HBoxContainer.new()
-	cards_hbox.add_theme_constant_override("separation", 20)
+	cards_hbox.add_theme_constant_override("separation", 12)
 	cards_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	cards_hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	outer.add_child(cards_hbox)
 
 	var normal_style := StyleBoxFlat.new()
-	normal_style.bg_color = Color(0.12, 0.12, 0.18, 0.9)
-	normal_style.border_color = Color(0.3, 0.3, 0.4, 0.6)
-	normal_style.set_border_width_all(2)
-	normal_style.set_corner_radius_all(6)
-	normal_style.set_content_margin_all(16)
+	normal_style.bg_color = UI_SURFACE
+	normal_style.border_color = UI_BORDER
+	normal_style.set_border_width_all(1)
+	normal_style.set_corner_radius_all(0)
+	normal_style.set_content_margin_all(12)
 
 	var selected_style := StyleBoxFlat.new()
-	selected_style.bg_color = Color(0.1, 0.12, 0.22, 0.95)
-	selected_style.border_color = Color(0.3, 0.6, 1.0, 0.9)
-	selected_style.set_border_width_all(3)
-	selected_style.set_corner_radius_all(6)
-	selected_style.set_content_margin_all(16)
+	selected_style.bg_color = UI_SURFACE_ACTIVE
+	selected_style.border_color = UI_BORDER_ACTIVE
+	selected_style.set_border_width_all(1)
+	selected_style.set_corner_radius_all(0)
+	selected_style.set_content_margin_all(12)
 
 	for cls in CLASS_INFO:
 		var info: Dictionary = CLASS_INFO[cls]
 		var card := PanelContainer.new()
-		card.custom_minimum_size = Vector2(200.0, 250.0)
+		card.custom_minimum_size = Vector2(190.0, 220.0)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		card.add_theme_stylebox_override("panel", normal_style)
 		card.set_meta("normal_style", normal_style)
@@ -1637,32 +1714,29 @@ func _create_char_create_ui() -> void:
 		_char_create_cards[cls] = card
 
 		var vbox := VBoxContainer.new()
-		vbox.add_theme_constant_override("separation", 10)
+		vbox.add_theme_constant_override("separation", 8)
 		card.add_child(vbox)
 
 		var name_label := Label.new()
 		name_label.text = info.name
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		name_label.add_theme_font_size_override("font_size", 24)
-		name_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95))
+		_ui_apply_overlay_label(name_label, 21, UI_TEXT)
 		vbox.add_child(name_label)
 
 		var genre_label := Label.new()
 		genre_label.text = info.genre
 		genre_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		genre_label.add_theme_font_size_override("font_size", 14)
-		genre_label.add_theme_color_override("font_color", Color(0.4, 0.65, 1.0))
+		_ui_apply_overlay_label(genre_label, 13, UI_BORDER_ACTIVE)
 		vbox.add_child(genre_label)
 
 		var sep := HSeparator.new()
-		sep.add_theme_color_override("separator", Color(0.3, 0.3, 0.4, 0.4))
+		sep.add_theme_color_override("separator", Color(UI_BORDER, 0.75))
 		vbox.add_child(sep)
 
 		var desc_label := Label.new()
 		desc_label.text = info.desc
 		desc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		desc_label.add_theme_font_size_override("font_size", 14)
-		desc_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65))
+		_ui_apply_overlay_label(desc_label, 13, UI_TEXT_DIM)
 		desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		vbox.add_child(desc_label)
 
@@ -1680,22 +1754,21 @@ func _create_char_create_ui() -> void:
 	var name_label := Label.new()
 	name_label.text = "Character Name"
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_label.add_theme_font_size_override("font_size", 18)
-	name_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
+	_ui_apply_overlay_label(name_label, 16, UI_TEXT_MUTED)
 	outer.add_child(name_label)
 
 	_char_name_input = LineEdit.new()
 	_char_name_input.placeholder_text = "Enter a name (2-20 characters)..."
-	_char_name_input.custom_minimum_size.y = 45.0
+	_char_name_input.custom_minimum_size.y = 40.0
 	_char_name_input.max_length = 20
 	_char_name_input.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_ui_apply_line_edit_style(_char_name_input)
 	outer.add_child(_char_name_input)
 
 	# Error label
 	_char_create_error_label = Label.new()
 	_char_create_error_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_char_create_error_label.add_theme_font_size_override("font_size", 14)
-	_char_create_error_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+	_ui_apply_overlay_label(_char_create_error_label, 13, UI_DANGER)
 	_char_create_error_label.visible = false
 	outer.add_child(_char_create_error_label)
 
@@ -1707,7 +1780,8 @@ func _create_char_create_ui() -> void:
 
 	var back_btn := Button.new()
 	back_btn.text = "Back"
-	back_btn.custom_minimum_size = Vector2(100.0, 45.0)
+	back_btn.custom_minimum_size = Vector2(100.0, 38.0)
+	_ui_apply_button_style(back_btn)
 	back_btn.pressed.connect(func():
 		_char_create_layer.visible = false
 		_enter_character_select()
@@ -1716,7 +1790,8 @@ func _create_char_create_ui() -> void:
 
 	_char_create_btn = Button.new()
 	_char_create_btn.text = "Create"
-	_char_create_btn.custom_minimum_size = Vector2(160.0, 45.0)
+	_char_create_btn.custom_minimum_size = Vector2(160.0, 38.0)
+	_ui_apply_button_style(_char_create_btn)
 	_char_create_btn.pressed.connect(_on_create_character_pressed)
 	btn_hbox.add_child(_char_create_btn)
 
@@ -1750,25 +1825,24 @@ func _populate_char_select() -> void:
 	var last_id: int = _char_list_data.get("last_char_id", 0)
 
 	var normal_style := StyleBoxFlat.new()
-	normal_style.bg_color = Color(0.12, 0.12, 0.18, 0.8)
-	normal_style.border_color = Color(0.3, 0.3, 0.4, 0.4)
+	normal_style.bg_color = UI_SURFACE
+	normal_style.border_color = UI_BORDER
 	normal_style.set_border_width_all(1)
-	normal_style.set_corner_radius_all(4)
-	normal_style.set_content_margin_all(12)
+	normal_style.set_corner_radius_all(0)
+	normal_style.set_content_margin_all(10)
 
 	var selected_style := StyleBoxFlat.new()
-	selected_style.bg_color = Color(0.1, 0.12, 0.22, 0.95)
-	selected_style.border_color = Color(0.3, 0.6, 1.0, 0.9)
-	selected_style.set_border_width_all(2)
-	selected_style.set_corner_radius_all(4)
-	selected_style.set_content_margin_all(12)
+	selected_style.bg_color = UI_SURFACE_ACTIVE
+	selected_style.border_color = UI_BORDER_ACTIVE
+	selected_style.set_border_width_all(1)
+	selected_style.set_corner_radius_all(0)
+	selected_style.set_content_margin_all(10)
 
 	if characters.is_empty():
 		var empty_label := Label.new()
 		empty_label.text = "No characters yet. Create one to get started!"
 		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		empty_label.add_theme_font_size_override("font_size", 16)
-		empty_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
+		_ui_apply_overlay_label(empty_label, 14, UI_TEXT_DIM)
 		_char_list_container.add_child(empty_label)
 		_enter_world_btn.disabled = true
 		return
@@ -1780,7 +1854,7 @@ func _populate_char_select() -> void:
 		var class_display: String = CLASS_INFO.get(ch.class_name, {}).get("name", ch.class_name)
 
 		var row := PanelContainer.new()
-		row.custom_minimum_size.y = 50.0
+		row.custom_minimum_size.y = 44.0
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.set_meta("char_id", char_id)
 		row.set_meta("normal_style", normal_style)
@@ -1792,20 +1866,18 @@ func _populate_char_select() -> void:
 		_char_list_container.add_child(row)
 
 		var hbox := HBoxContainer.new()
-		hbox.add_theme_constant_override("separation", 20)
+		hbox.add_theme_constant_override("separation", 14)
 		row.add_child(hbox)
 
 		var name_lbl := Label.new()
 		name_lbl.text = ch.char_name
-		name_lbl.add_theme_font_size_override("font_size", 18)
-		name_lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95))
+		_ui_apply_overlay_label(name_lbl, 16, UI_TEXT)
 		name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		hbox.add_child(name_lbl)
 
 		var class_lbl := Label.new()
 		class_lbl.text = class_display
-		class_lbl.add_theme_font_size_override("font_size", 16)
-		class_lbl.add_theme_color_override("font_color", Color(0.4, 0.65, 1.0))
+		_ui_apply_overlay_label(class_lbl, 14, UI_BORDER_ACTIVE)
 		hbox.add_child(class_lbl)
 
 		# Click detection
@@ -1896,8 +1968,7 @@ func _create_hub_ui() -> void:
 	_hub_class_label.anchor_bottom = 0.0
 	_hub_class_label.offset_top = 10.0
 	_hub_class_label.offset_bottom = 60.0
-	_hub_class_label.add_theme_font_size_override("font_size", 18)
-	_hub_class_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.9))
+	_ui_apply_overlay_label(_hub_class_label, 15, UI_TEXT_MUTED)
 	_hub_layer.add_child(_hub_class_label)
 
 	# Status (top-left)
@@ -1910,8 +1981,7 @@ func _create_hub_ui() -> void:
 	_hub_status_label.offset_top = 65.0
 	_hub_status_label.offset_bottom = 90.0
 	_hub_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_hub_status_label.add_theme_font_size_override("font_size", 14)
-	_hub_status_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
+	_ui_apply_overlay_label(_hub_status_label, 13, UI_TEXT_DIM)
 	_hub_layer.add_child(_hub_status_label)
 
 	# Portal prompt (center-bottom)
@@ -1922,8 +1992,7 @@ func _create_hub_ui() -> void:
 	_portal_prompt.anchor_right = 1.0
 	_portal_prompt.anchor_top = 0.7
 	_portal_prompt.anchor_bottom = 0.75
-	_portal_prompt.add_theme_font_size_override("font_size", 28)
-	_portal_prompt.add_theme_color_override("font_color", Color(0.3, 0.6, 1.0))
+	_ui_apply_overlay_label(_portal_prompt, 24, UI_BORDER_ACTIVE)
 	_portal_prompt.visible = false
 	_hub_layer.add_child(_portal_prompt)
 
@@ -1935,8 +2004,7 @@ func _create_hub_ui() -> void:
 	_lift_prompt.anchor_right = 1.0
 	_lift_prompt.anchor_top = 0.65
 	_lift_prompt.anchor_bottom = 0.7
-	_lift_prompt.add_theme_font_size_override("font_size", 24)
-	_lift_prompt.add_theme_color_override("font_color", Color(0.5, 0.7, 1.0))
+	_ui_apply_overlay_label(_lift_prompt, 20, UI_TEXT_MUTED)
 	_lift_prompt.visible = false
 	_hub_layer.add_child(_lift_prompt)
 
@@ -1949,23 +2017,25 @@ func _create_group_panel() -> void:
 	_group_panel.anchor_bottom = 0.0
 	_group_panel.offset_left = 10.0
 	_group_panel.offset_top = 80.0
-	_group_panel.offset_right = 220.0
-	_group_panel.offset_bottom = 250.0
+	_group_panel.offset_right = 228.0
+	_group_panel.offset_bottom = 220.0
 	_group_panel.visible = false
+	_ui_apply_panel_style(_group_panel, false, 10)
 	_hub_layer.add_child(_group_panel)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 8)
+	vbox.add_theme_constant_override("separation", 6)
 	_group_panel.add_child(vbox)
 
 	_group_label = Label.new()
 	_group_label.text = "No group\n[G] Create group"
-	_group_label.add_theme_font_size_override("font_size", 14)
-	_group_label.add_theme_color_override("font_color", Color(0.8, 0.9, 0.8))
+	_ui_apply_overlay_label(_group_label, 13, UI_TEXT)
 	vbox.add_child(_group_label)
 
 	_group_leave_btn = Button.new()
 	_group_leave_btn.text = "Leave Group [G]"
+	_group_leave_btn.custom_minimum_size.y = 34.0
+	_ui_apply_button_style(_group_leave_btn, UI_DANGER)
 	_group_leave_btn.visible = false
 	_group_leave_btn.pressed.connect(func(): NetworkManager.send_group_leave())
 	vbox.add_child(_group_leave_btn)
@@ -1978,7 +2048,7 @@ func _create_invite_popup() -> void:
 	add_child(_invite_popup)
 
 	var bg := ColorRect.new()
-	bg.color = Color(0.0, 0.0, 0.0, 0.6)
+	bg.color = Color(0.0, 0.0, 0.0, 0.7)
 	bg.anchor_right = 1.0
 	bg.anchor_bottom = 1.0
 	bg.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -1989,18 +2059,19 @@ func _create_invite_popup() -> void:
 	panel.anchor_right = 0.5
 	panel.anchor_top = 0.35
 	panel.anchor_bottom = 0.5
-	panel.offset_left = -180.0
-	panel.offset_right = 180.0
+	panel.offset_left = -170.0
+	panel.offset_right = 170.0
+	_ui_apply_panel_style(panel, false, 12)
 	_invite_popup.add_child(panel)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 16)
+	vbox.add_theme_constant_override("separation", 10)
 	panel.add_child(vbox)
 
 	_invite_label = Label.new()
 	_invite_label.text = "Group invitation"
 	_invite_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_invite_label.add_theme_font_size_override("font_size", 20)
+	_ui_apply_overlay_label(_invite_label, 16, UI_TEXT)
 	vbox.add_child(_invite_label)
 
 	var hbox := HBoxContainer.new()
@@ -2010,13 +2081,15 @@ func _create_invite_popup() -> void:
 
 	var accept_btn := Button.new()
 	accept_btn.text = "Accept"
-	accept_btn.custom_minimum_size = Vector2(100, 40)
+	accept_btn.custom_minimum_size = Vector2(100, 36)
+	_ui_apply_button_style(accept_btn)
 	accept_btn.pressed.connect(_accept_invite)
 	hbox.add_child(accept_btn)
 
 	var decline_btn := Button.new()
 	decline_btn.text = "Decline"
-	decline_btn.custom_minimum_size = Vector2(100, 40)
+	decline_btn.custom_minimum_size = Vector2(100, 36)
+	_ui_apply_button_style(decline_btn, UI_DANGER)
 	decline_btn.pressed.connect(_decline_invite)
 	hbox.add_child(decline_btn)
 
@@ -2055,7 +2128,7 @@ func _create_death_overlay() -> void:
 	add_child(_death_overlay_layer)
 
 	_death_overlay_bg = ColorRect.new()
-	_death_overlay_bg.color = Color(0.0, 0.0, 0.0, 0.5)
+	_death_overlay_bg.color = Color(0.0, 0.0, 0.0, 0.7)
 	_death_overlay_bg.anchor_right = 1.0
 	_death_overlay_bg.anchor_bottom = 1.0
 	_death_overlay_bg.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -2069,8 +2142,7 @@ func _create_death_overlay() -> void:
 	_death_label.anchor_right = 1.0
 	_death_label.anchor_top = 0.3
 	_death_label.anchor_bottom = 0.45
-	_death_label.add_theme_font_size_override("font_size", 64)
-	_death_label.add_theme_color_override("font_color", Color(0.8, 0.1, 0.1))
+	_ui_apply_overlay_label(_death_label, 56, UI_DANGER)
 	_death_overlay_layer.add_child(_death_label)
 
 	var btn_container := VBoxContainer.new()
@@ -2085,14 +2157,16 @@ func _create_death_overlay() -> void:
 
 	_respawn_btn = Button.new()
 	_respawn_btn.text = "Respawn"
-	_respawn_btn.custom_minimum_size.y = 45.0
+	_respawn_btn.custom_minimum_size.y = 38.0
+	_ui_apply_button_style(_respawn_btn)
 	_respawn_btn.disabled = true
 	_respawn_btn.pressed.connect(_on_respawn)
 	btn_container.add_child(_respawn_btn)
 
 	_respawn_hub_btn = Button.new()
 	_respawn_hub_btn.text = "Return to Hub"
-	_respawn_hub_btn.custom_minimum_size.y = 45.0
+	_respawn_hub_btn.custom_minimum_size.y = 38.0
+	_ui_apply_button_style(_respawn_hub_btn)
 	_respawn_hub_btn.pressed.connect(_on_respawn_hub)
 	btn_container.add_child(_respawn_hub_btn)
 
@@ -2152,7 +2226,7 @@ func _spawn_exit_portal() -> void:
 	_exit_portal_prompt.anchor_right = 0.7
 	_exit_portal_prompt.anchor_top = 0.6
 	_exit_portal_prompt.anchor_bottom = 0.65
-	_exit_portal_prompt.add_theme_font_size_override("font_size", 20)
+	_ui_apply_overlay_label(_exit_portal_prompt, 18, UI_BORDER_ACTIVE)
 	_exit_portal_prompt.visible = false
 	if _shared_hud_layer:
 		_shared_hud_layer.add_child(_exit_portal_prompt)

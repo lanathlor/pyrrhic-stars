@@ -64,6 +64,20 @@ const MINIMAP_WORLD_RADIUS := 25.0  # world units shown in minimap
 const MINIMAP_CIRCLE_POINTS := 48   # vertices for circle clipping polygon
 var _minimap_circle_poly: PackedVector2Array  # circle polygon centered at origin
 
+const HUD_BG := Color(0.02, 0.025, 0.035, 0.82)
+const HUD_PANEL := Color(0.04, 0.05, 0.07, 0.45)
+const HUD_INSET := Color(0.11, 0.12, 0.15, 0.4)
+const HUD_BORDER := Color(0.28, 0.3, 0.36, 0.85)
+const HUD_ACCENT := Color(0.7, 0.74, 0.82, 0.55)
+const TEXT_PRIMARY := Color(0.9, 0.92, 0.96, 0.95)
+const TEXT_MUTED := Color(0.63, 0.67, 0.74, 0.92)
+const HEALTH_GOOD := Color(0.28, 0.78, 0.4, 1.0)
+const HEALTH_BAD := Color(0.82, 0.24, 0.24, 1.0)
+const POWER_COLOR := Color(0.82, 0.68, 0.24, 1.0)
+const BOSS_PHASE_ONE := Color(0.56, 0.22, 0.22, 1.0)
+const BOSS_PHASE_TWO := Color(0.74, 0.44, 0.18, 1.0)
+const BOSS_PHASE_THREE := Color(0.78, 0.18, 0.18, 1.0)
+
 
 func _process(delta: float) -> void:
 	# Read local player state each frame for responsive bars
@@ -234,45 +248,27 @@ func _draw_player_status() -> void:
 
 	var font := ThemeDB.fallback_font
 	var center_x := size.x / 2.0
-	var bar_w := 220.0
-	var bar_h := 14.0
-	var bar_x := center_x - bar_w / 2.0
-	var bar_y := size.y - 145.0
+	var panel_w := 248.0
+	var panel_h := 30.0 if _player_max_resource > 0.0 else 14.0
+	var panel_rect := Rect2(center_x - panel_w / 2.0, size.y - 126.0, panel_w, panel_h)
+	var health_rect := Rect2(panel_rect.position.x, panel_rect.position.y, panel_rect.size.x, 14.0)
 
-	# HP bar background
-	var bg_rect := Rect2(bar_x, bar_y, bar_w, bar_h)
-	draw_rect(bg_rect, Color(0.1, 0.1, 0.1, 0.7))
-
-	# HP bar fill (green)
 	var hp_ratio := clampf(_player_health / maxf(_player_max_health, 1.0), 0.0, 1.0)
-	var hp_color := Color(0.2, 0.8, 0.2) if hp_ratio > 0.3 else Color(0.8, 0.2, 0.2)
-	if hp_ratio > 0.0:
-		draw_rect(Rect2(bar_x, bar_y, bar_w * hp_ratio, bar_h), hp_color)
-
-	# HP bar border
-	draw_rect(bg_rect, Color(0.3, 0.3, 0.3, 0.8), false, 1.0)
-
-	# HP numbers
+	var hp_color := HEALTH_GOOD if hp_ratio > 0.3 else HEALTH_BAD
+	_draw_status_bar(health_rect, hp_ratio, hp_color)
 	var hp_text := "%d / %d" % [int(_player_health), int(_player_max_health)]
-	draw_string(font, Vector2(center_x - 30.0, bar_y + 11.0), hp_text,
-		HORIZONTAL_ALIGNMENT_CENTER, 60, 11, Color(1.0, 1.0, 1.0, 0.9))
+	draw_string(font, Vector2(health_rect.position.x + 8.0, health_rect.position.y + 13.0), "HEALTH",
+		HORIZONTAL_ALIGNMENT_LEFT, 60.0, 9, TEXT_MUTED)
+	draw_string(font, Vector2(health_rect.position.x + health_rect.size.x - 94.0, health_rect.position.y + 13.0), hp_text,
+		HORIZONTAL_ALIGNMENT_RIGHT, 88.0, 10, TEXT_PRIMARY)
 
-	# Resource bar (only if player has a resource)
 	if _player_max_resource > 0.0:
-		var res_h := 8.0
-		var res_y := bar_y + bar_h + 3.0
-		var res_rect := Rect2(bar_x, res_y, bar_w, res_h)
-		draw_rect(res_rect, Color(0.1, 0.1, 0.1, 0.6))
-
+		var res_rect := Rect2(panel_rect.position.x, panel_rect.position.y + 18.0, panel_rect.size.x, 8.0)
 		var res_ratio := clampf(_player_resource / maxf(_player_max_resource, 1.0), 0.0, 1.0)
-		var res_color := Color(0.85, 0.75, 0.2)  # gold for stamina
-		if res_ratio > 0.0:
-			draw_rect(Rect2(bar_x, res_y, bar_w * res_ratio, res_h), res_color)
-		draw_rect(res_rect, Color(0.3, 0.3, 0.3, 0.6), false, 1.0)
-
+		_draw_status_bar(res_rect, res_ratio, POWER_COLOR)
 		var res_text := "%d / %d" % [int(_player_resource), int(_player_max_resource)]
-		draw_string(font, Vector2(center_x - 25.0, res_y + 7.0), res_text,
-			HORIZONTAL_ALIGNMENT_CENTER, 50, 9, Color(1.0, 1.0, 1.0, 0.7))
+		draw_string(font, Vector2(res_rect.position.x + res_rect.size.x - 86.0, res_rect.position.y + 8.0), res_text,
+			HORIZONTAL_ALIGNMENT_RIGHT, 80.0, 9, TEXT_PRIMARY)
 
 
 # =============================================================================
@@ -300,11 +296,11 @@ func _draw_group_frames() -> void:
 		return
 
 	var font := ThemeDB.fallback_font
-	var frame_x := 10.0
-	var frame_y := 200.0
-	var frame_w := 170.0
-	var frame_h := 40.0
-	var frame_gap := 4.0
+	var frame_x := 18.0
+	var frame_y := size.y * 0.5 - 120.0
+	var frame_w := 198.0
+	var frame_h := 48.0
+	var frame_gap := 6.0
 
 	var drawn := 0
 	for pid in pids_to_show:
@@ -312,48 +308,39 @@ func _draw_group_frames() -> void:
 			break
 
 		var y := frame_y + drawn * (frame_h + frame_gap)
+		var frame_rect := Rect2(frame_x, y, frame_w, frame_h)
+		draw_rect(frame_rect, Color(HUD_PANEL, 0.15), false, 1.0)
 
-		# Frame background
-		draw_rect(Rect2(frame_x, y, frame_w, frame_h), Color(0.05, 0.05, 0.1, 0.7))
-
-		# Player name
 		var uname: String = _group_member_names.get(pid, _player_names.get(pid, "Player_%d" % pid))
 		if uname.length() > 14:
 			uname = uname.substr(0, 14)
-		draw_string(font, Vector2(frame_x + 6.0, y + 14.0), uname,
-			HORIZONTAL_ALIGNMENT_LEFT, frame_w - 12.0, 12, Color(0.9, 0.9, 0.9, 0.9))
+		draw_string(font, Vector2(frame_x + 2.0, y + 10.0), uname,
+			HORIZONTAL_ALIGNMENT_LEFT, frame_w - 70.0, 10, TEXT_PRIMARY)
 
-		# HP bar
 		var hp_bar_x := frame_x + 6.0
-		var hp_bar_y := y + 20.0
+		var hp_bar_y := y + 24.0
 		var hp_bar_w := frame_w - 12.0
-		var hp_bar_h := 10.0
-		draw_rect(Rect2(hp_bar_x, hp_bar_y, hp_bar_w, hp_bar_h), Color(0.15, 0.15, 0.15, 0.8))
+		var hp_bar_h := 14.0
 
-		# Get max HP from class
 		var max_health: float = 150.0
+		var cls: String = "gunner"
 		if NetworkManager.player_info.has(pid):
-			var cls: String = NetworkManager.player_info[pid].get("class_name", "gunner")
+			cls = NetworkManager.player_info[pid].get("class_name", "gunner")
 			max_health = CLASS_MAX_HP.get(cls, 150.0)
 
-		# Health: from WorldState if available, otherwise assume full
 		var health: float = max_health
 		if _world_players.has(pid):
 			health = _world_players[pid]["health"]
 
 		var ratio := clampf(health / maxf(max_health, 1.0), 0.0, 1.0)
-		var bar_color := Color(0.2, 0.8, 0.2) if ratio > 0.3 else Color(0.8, 0.2, 0.2)
-		if ratio > 0.0:
-			draw_rect(Rect2(hp_bar_x, hp_bar_y, hp_bar_w * ratio, hp_bar_h), bar_color)
-		draw_rect(Rect2(hp_bar_x, hp_bar_y, hp_bar_w, hp_bar_h), Color(0.3, 0.3, 0.3, 0.5), false, 1.0)
+		var bar_color := HEALTH_GOOD if ratio > 0.3 else HEALTH_BAD
+		_draw_status_bar(Rect2(hp_bar_x, hp_bar_y, hp_bar_w, hp_bar_h), ratio, bar_color)
 
-		# HP numbers (small)
-		var hp_text := "%d" % int(health)
-		draw_string(font, Vector2(hp_bar_x + 4.0, hp_bar_y + 8.0), hp_text,
-			HORIZONTAL_ALIGNMENT_LEFT, hp_bar_w, 9, Color(1.0, 1.0, 1.0, 0.7))
-
-		# Frame border
-		draw_rect(Rect2(frame_x, y, frame_w, frame_h), Color(0.25, 0.25, 0.3, 0.6), false, 1.0)
+		draw_string(font, Vector2(hp_bar_x + 6.0, hp_bar_y + 11.0), cls.replace("_", " ").to_upper(),
+			HORIZONTAL_ALIGNMENT_LEFT, 76.0, 8, TEXT_MUTED)
+		var hp_text := "%d / %d" % [int(health), int(max_health)]
+		draw_string(font, Vector2(hp_bar_x + hp_bar_w - 84.0, hp_bar_y + 11.0), hp_text,
+			HORIZONTAL_ALIGNMENT_RIGHT, 78.0, 9, TEXT_PRIMARY)
 
 		drawn += 1
 
@@ -365,49 +352,34 @@ func _draw_group_frames() -> void:
 func _draw_boss_frame() -> void:
 	var font := ThemeDB.fallback_font
 	var center_x := size.x / 2.0
-	var bar_w := 400.0
-	var bar_h := 18.0
-	var bar_x := center_x - bar_w / 2.0
-	var name_y := 18.0
-	var bar_y := 28.0
+	var panel_rect := Rect2(center_x - 216.0, 14.0, 432.0, 28.0)
+	var bar_rect := Rect2(panel_rect.position.x, panel_rect.position.y + 14.0, panel_rect.size.x, 12.0)
 
-	# Boss name
-	draw_string(font, Vector2(center_x - 80.0, name_y), _boss_name,
-		HORIZONTAL_ALIGNMENT_CENTER, 160, 16, Color(0.9, 0.85, 0.7, 0.95))
+	draw_string(font, Vector2(panel_rect.position.x, panel_rect.position.y + 9.0), _boss_name,
+		HORIZONTAL_ALIGNMENT_LEFT, 240.0, 12, Color(0.93, 0.9, 0.8, 0.97))
 
-	# Phase indicator
 	var phase_text := "P%d" % _boss_phase
 	var phase_color: Color
 	match _boss_phase:
-		1: phase_color = Color(0.3, 0.8, 0.3)
-		2: phase_color = Color(0.9, 0.7, 0.2)
-		3: phase_color = Color(0.9, 0.2, 0.2)
+		1: phase_color = Color(0.56, 0.74, 0.28)
+		2: phase_color = Color(0.93, 0.7, 0.25)
+		3: phase_color = Color(0.93, 0.34, 0.34)
 		_: phase_color = Color(0.5, 0.5, 0.5)
-	draw_string(font, Vector2(bar_x + bar_w + 8.0, bar_y + 13.0), phase_text,
-		HORIZONTAL_ALIGNMENT_LEFT, 30, 12, phase_color)
+	draw_string(font, Vector2(panel_rect.position.x + panel_rect.size.x - 36.0, panel_rect.position.y + 9.0), phase_text,
+		HORIZONTAL_ALIGNMENT_RIGHT, 32.0, 11, phase_color)
 
-	# Bar background
-	var bg_rect := Rect2(bar_x, bar_y, bar_w, bar_h)
-	draw_rect(bg_rect, Color(0.1, 0.05, 0.05, 0.75))
-
-	# Bar fill — color shifts by phase
 	var hp_ratio := clampf(_boss_health / maxf(_boss_max_health, 1.0), 0.0, 1.0)
 	var bar_color: Color
 	match _boss_phase:
-		1: bar_color = Color(0.2, 0.75, 0.2)
-		2: bar_color = Color(0.9, 0.65, 0.15)
-		3: bar_color = Color(0.85, 0.15, 0.15)
+		1: bar_color = BOSS_PHASE_ONE
+		2: bar_color = BOSS_PHASE_TWO
+		3: bar_color = BOSS_PHASE_THREE
 		_: bar_color = Color(0.5, 0.5, 0.5)
-	if hp_ratio > 0.0:
-		draw_rect(Rect2(bar_x, bar_y, bar_w * hp_ratio, bar_h), bar_color)
+	_draw_status_bar(bar_rect, hp_ratio, bar_color)
 
-	# Border
-	draw_rect(bg_rect, Color(0.4, 0.35, 0.3, 0.8), false, 1.5)
-
-	# HP numbers
 	var hp_text := "%d / %d" % [int(_boss_health), int(_boss_max_health)]
-	draw_string(font, Vector2(center_x - 50.0, bar_y + 14.0), hp_text,
-		HORIZONTAL_ALIGNMENT_CENTER, 100, 12, Color(1.0, 1.0, 1.0, 0.9))
+	draw_string(font, Vector2(bar_rect.position.x + bar_rect.size.x - 118.0, bar_rect.position.y + 12.0), hp_text,
+		HORIZONTAL_ALIGNMENT_RIGHT, 110.0, 10, TEXT_PRIMARY)
 
 
 # =============================================================================
@@ -419,10 +391,10 @@ func _draw_damage_meter() -> void:
 		return
 
 	var font := ThemeDB.fallback_font
-	var meter_w := 180.0
-	var meter_x := size.x - meter_w - 10.0
-	var entry_h := 20.0
-	var title_y := size.y - 160.0
+	var meter_w := 188.0
+	var meter_x := size.x - meter_w - 18.0
+	var entry_h := 18.0
+	var title_y := size.y - 154.0
 
 	# Sort players by damage (descending)
 	var sorted_pids: Array = _damage_totals.keys()
@@ -431,13 +403,7 @@ func _draw_damage_meter() -> void:
 	if max_damage <= 0.0:
 		max_damage = 1.0
 
-	# Background
 	var entry_count := mini(sorted_pids.size(), 5)
-	var bg_h := 20.0 + entry_count * entry_h + 8.0
-	draw_rect(Rect2(meter_x - 4.0, title_y - 4.0, meter_w + 8.0, bg_h),
-		Color(0.03, 0.03, 0.06, 0.6))
-
-	# Title
 	var title := "Damage"
 	if _fight_duration > 0.0:
 		var total_dmg: float = 0.0
@@ -445,14 +411,13 @@ func _draw_damage_meter() -> void:
 			total_dmg += _damage_totals[pid]
 		var dps := total_dmg / maxf(_fight_duration, 1.0)
 		title = "Damage (%.0f DPS)" % dps
-	draw_string(font, Vector2(meter_x, title_y + 12.0), title,
-		HORIZONTAL_ALIGNMENT_LEFT, meter_w, 11, Color(0.7, 0.7, 0.7, 0.8))
+	draw_string(font, Vector2(meter_x, title_y + 8.0), title,
+		HORIZONTAL_ALIGNMENT_LEFT, meter_w, 10, TEXT_MUTED)
 
-	# Entries
 	var class_colors := {
-		"gunner": Color(0.3, 0.7, 1.0),
-		"vanguard": Color(0.9, 0.4, 0.3),
-		"blade_dancer": Color(0.4, 0.9, 0.7),
+		"gunner": Color(0.24, 0.62, 0.95),
+		"vanguard": Color(0.82, 0.44, 0.24),
+		"blade_dancer": Color(0.36, 0.82, 0.66),
 	}
 
 	for i in entry_count:
@@ -466,28 +431,21 @@ func _draw_damage_meter() -> void:
 		if NetworkManager.player_info.has(pid):
 			cls = NetworkManager.player_info[pid].get("class_name", "gunner")
 		var bar_color: Color = class_colors.get(cls, Color(0.5, 0.5, 0.5))
-		bar_color.a = 0.5
-		draw_rect(Rect2(meter_x, y + 2.0, meter_w * ratio, entry_h - 4.0), bar_color)
+		_draw_status_bar(Rect2(meter_x, y + 2.0, meter_w, entry_h - 6.0), ratio, Color(bar_color, 0.92))
 
-		# Name
 		var uname: String = _player_names.get(pid, "Player_%d" % pid)
 		if uname.length() > 10:
 			uname = uname.substr(0, 10)
 		draw_string(font, Vector2(meter_x + 4.0, y + 14.0), uname,
-			HORIZONTAL_ALIGNMENT_LEFT, meter_w * 0.55, 10, Color(0.9, 0.9, 0.9, 0.9))
+			HORIZONTAL_ALIGNMENT_LEFT, meter_w * 0.55, 10, TEXT_PRIMARY)
 
-		# Damage number
 		var dmg_text: String
 		if dmg >= 1000.0:
 			dmg_text = "%.1fk" % (dmg / 1000.0)
 		else:
 			dmg_text = "%d" % int(dmg)
 		draw_string(font, Vector2(meter_x + meter_w - 50.0, y + 14.0), dmg_text,
-			HORIZONTAL_ALIGNMENT_RIGHT, 46, 10, Color(1.0, 1.0, 1.0, 0.8))
-
-	# Border
-	draw_rect(Rect2(meter_x - 4.0, title_y - 4.0, meter_w + 8.0, bg_h),
-		Color(0.25, 0.25, 0.3, 0.5), false, 1.0)
+			HORIZONTAL_ALIGNMENT_RIGHT, 46, 10, TEXT_PRIMARY)
 
 
 # =============================================================================
@@ -497,7 +455,6 @@ func _draw_damage_meter() -> void:
 func _draw_minimap() -> void:
 	var map_center := Vector2(size.x - MINIMAP_RADIUS - 16.0, MINIMAP_RADIUS + 16.0)
 	var scale_factor := MINIMAP_RADIUS / MINIMAP_WORLD_RADIUS
-
 	# Build circle clipping polygon (centered at map_center)
 	if _minimap_circle_poly.is_empty():
 		_minimap_circle_poly = PackedVector2Array()
@@ -510,7 +467,7 @@ func _draw_minimap() -> void:
 		circle_at_center.append(pt + map_center)
 
 	# Background circle — fully opaque dark
-	draw_colored_polygon(circle_at_center, Color(0.08, 0.08, 0.10, 1.0))
+	draw_colored_polygon(circle_at_center, HUD_BG)
 
 	# Get local player position for centering
 	var local_pos := Vector3.ZERO
@@ -537,13 +494,13 @@ func _draw_minimap() -> void:
 					scale_factor, color, circle_at_center)
 
 	# Border on top of geometry
-	draw_arc(map_center, MINIMAP_RADIUS + 2.0, 0.0, TAU, 64, Color(0.5, 0.5, 0.55, 1.0), 2.0)
+	draw_arc(map_center, MINIMAP_RADIUS + 2.0, 0.0, TAU, 64, HUD_BORDER, 2.0)
 
 	# NPCs (yellow dots)
 	for npc_pos in _npc_positions:
 		var npc_map := _world_to_minimap(npc_pos, local_pos, map_center, scale_factor)
 		if npc_map.distance_to(map_center) <= MINIMAP_RADIUS:
-			draw_circle(npc_map, 2.5, Color(0.9, 0.75, 0.2, 0.8))
+			draw_circle(npc_map, 2.5, POWER_COLOR)
 
 	# Other players (green dots)
 	for pid in _world_players:
@@ -552,13 +509,13 @@ func _draw_minimap() -> void:
 		var world_pos: Vector3 = _world_players[pid]["pos"]
 		var map_pos := _world_to_minimap(world_pos, local_pos, map_center, scale_factor)
 		if map_pos.distance_to(map_center) <= MINIMAP_RADIUS:
-			draw_circle(map_pos, 3.0, Color(0.3, 0.9, 0.3, 0.9))
+			draw_circle(map_pos, 3.0, HEALTH_GOOD)
 
 	# Enemies (red dots)
 	for epos in _enemy_positions:
 		var enemy_map := _world_to_minimap(epos, local_pos, map_center, scale_factor)
 		if enemy_map.distance_to(map_center) <= MINIMAP_RADIUS:
-			draw_circle(enemy_map, 4.0, Color(0.9, 0.2, 0.2, 0.9))
+			draw_circle(enemy_map, 4.0, HEALTH_BAD)
 
 	# Self arrow (center of minimap, rotated)
 	_draw_minimap_arrow(map_center, _player_rot_y, Color(1.0, 1.0, 1.0, 0.9), 6.0)
@@ -573,6 +530,20 @@ func _draw_minimap() -> void:
 	var marker_color := Color(0.5, 0.5, 0.5, 0.5)
 	draw_string(font, map_center + Vector2(-3.0, -MINIMAP_RADIUS - 4.0), "N",
 		HORIZONTAL_ALIGNMENT_CENTER, 10, 9, marker_color)
+
+
+func _draw_panel(rect: Rect2, accent: Color = HUD_ACCENT) -> void:
+	draw_rect(rect, HUD_PANEL)
+	draw_rect(rect, HUD_BORDER, false, 1.0)
+	draw_rect(Rect2(rect.position + Vector2(1.0, 1.0), rect.size - Vector2(2.0, 2.0)), Color(accent, 0.08), false, 1.0)
+
+
+func _draw_status_bar(rect: Rect2, ratio: float, fill_color: Color) -> void:
+	draw_rect(rect, HUD_BG)
+	if ratio > 0.0:
+		var fill_width := maxf(rect.size.x * ratio, 0.0)
+		draw_rect(Rect2(rect.position, Vector2(fill_width, rect.size.y)), fill_color)
+	draw_rect(rect, HUD_BORDER, false, 1.0)
 
 
 func _world_to_minimap(world_pos: Vector3, center_pos: Vector3, map_center: Vector2, scale: float) -> Vector2:

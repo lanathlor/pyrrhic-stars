@@ -13,7 +13,7 @@ var _recoil_timer: float = 0.0
 const HIT_MARKER_DURATION: float = 0.15
 const DAMAGE_FLASH_DURATION: float = 0.3
 const RECOIL_DURATION: float = 0.06
-const GUNNER_COLOR := Color(0.3, 0.9, 1.0)
+const GUNNER_COLOR := Color(0.24, 0.62, 0.95)
 
 
 func _ready() -> void:
