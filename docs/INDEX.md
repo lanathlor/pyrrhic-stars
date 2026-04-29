@@ -38,6 +38,10 @@ TTRPG source material: https://github.com/lanathlor/rpg
 - [Stack & Server](architecture/overview.md) — Go server, Redis/PostgreSQL, k3s, scaling targets
 - [Client Architecture](architecture/client.md) — per-class Godot controllers, shared character node
 - [Networking Model](architecture/networking.md) — client-predicted, server-authoritative
+- [AI & Encounter System](architecture/ai.md) — BT executor, entity context, threat awareness, encounter definitions
+- [AI Testing & Balance](architecture/testing.md) — three test modes, encounter specs, fuzz simulation
+- [AI Long-term Vision](architecture/ai-vision.md) — full entity context API, ML training, OSS extraction
+- [Combat Logging & Observer](architecture/combat_logs.md) — event logging, replay, spectator, fight export
 
 ## Pipeline
 
