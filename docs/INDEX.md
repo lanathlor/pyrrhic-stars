@@ -7,6 +7,8 @@ TTRPG source material: https://github.com/lanathlor/rpg
 
 - [Vision & Setting](design/vision.md) — core pitch, sci-fi universe, Flux as physical energy
 - [Combat Principles](design/combat.md) — no threat table, all damage avoidable, protect the caster
+- [HUD Graphical Language](design/ui-language.md) — minimalist MMO HUD rules, ElvUI-inspired but not cloned
+- [UI Screens & Menus](design/ui-screens.md) — pause, menu, character, group, and prompt design rules
 
 ### Core Systems
 
