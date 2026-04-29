@@ -1,11 +1,37 @@
 package codec
 
-import "codex-online/server/internal/entity"
+import (
+	"encoding/binary"
+
+	"codex-online/server/internal/entity"
+)
 
 // EncodeWorldState serializes the tick snapshot (players, enemies, projectiles, npcs).
-func EncodeWorldState(tick uint32, players []*entity.Player, enemies []*entity.Enemy, projectiles []*entity.Projectile, npcs ...[]*entity.NPC) []byte {
-	buf := make([]byte, 0, 512)
+func EncodeWorldState(tick uint32, players map[uint16]*entity.Player, enemies []*entity.Enemy, projectiles []*entity.Projectile, npcs ...[]*entity.NPC) []byte {
+	var npcList []*entity.NPC
+	if len(npcs) > 0 {
+		npcList = npcs[0]
+	}
+	return AppendEncodeWorldState(nil, tick, players, enemies, projectiles, npcList)
+}
 
+// AppendEncodeWorldState serializes the tick snapshot into buf, growing it if necessary.
+// Pass a pooled buffer to avoid per-call allocations in hot paths.
+func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.Player, enemies []*entity.Enemy, projectiles []*entity.Projectile, npcs []*entity.NPC) []byte {
+	// Estimate needed capacity and grow if needed.
+	// Per player: ~50 bytes. Per enemy: ~60 bytes. Per projectile: ~28 bytes.
+	estCap := 512 + len(players)*50 + len(enemies)*60 + len(projectiles)*28
+	if cap(buf) < estCap {
+		newCap := cap(buf) * 2
+		if newCap < estCap {
+			newCap = estCap
+		}
+		newBuf := make([]byte, len(buf), newCap)
+		copy(newBuf, buf)
+		buf = newBuf
+	}
+
+	// Tick number
 	buf = appendU32(buf, tick)
 
 	buf = append(buf, byte(len(players)))
@@ -22,12 +48,6 @@ func EncodeWorldState(tick uint32, players []*entity.Player, enemies []*entity.E
 		buf = appendStr8(buf, p.AnimName)
 		buf = appendF32(buf, p.AnimSpeed)
 		buf = appendF32(buf, p.AimPitch)
-		// Buff bitflags (1 byte):
-		//   bit 0: OverclockActive
-		//   bit 1: RechamberBuff
-		//   bit 2-3: RechamberPhase (2 bits, 0-3)
-		//   bit 4: BladeSwirl
-		//   bit 5: GuardActive
 		var flags uint8
 		if p.OverclockActive {
 			flags |= 0x01
@@ -48,7 +68,6 @@ func EncodeWorldState(tick uint32, players []*entity.Player, enemies []*entity.E
 		buf = appendF32(buf, p.BDShieldHP)
 	}
 
-	// Enemies: [count:u8] then per enemy
 	buf = append(buf, byte(len(enemies)))
 	for _, e := range enemies {
 		if e.Alive {
@@ -87,11 +106,7 @@ func EncodeWorldState(tick uint32, players []*entity.Player, enemies []*entity.E
 		buf = appendF32(buf, proj.Direction.Z)
 	}
 
-	// NPCs (optional, appended after projectiles for backwards compat)
-	var npcList []*entity.NPC
-	if len(npcs) > 0 {
-		npcList = npcs[0]
-	}
+	npcList := npcs
 	buf = append(buf, byte(len(npcList)))
 	for _, n := range npcList {
 		buf = appendU16(buf, n.ID)
@@ -172,4 +187,155 @@ func EncodeAbilityInput(action uint8, aimPitch float32, rotY ...float32) []byte 
 		buf = appendF32(buf, 0)
 	}
 	return buf
+}
+
+// EncodeInteractInput serializes a client→server interact packet.
+// Used by test clients to build OpInteractInput payloads.
+func EncodeInteractInput(action uint8, className string) []byte {
+	buf := []byte{action}
+	nameBytes := []byte(className)
+	buf = append(buf, byte(len(nameBytes)))
+	buf = append(buf, nameBytes...)
+	return buf
+}
+
+// EncodeRespawnRequest serializes a client→server respawn request.
+// Used by test clients to build OpRespawnRequest payloads.
+func EncodeRespawnRequest(respawnType uint8) []byte {
+	return []byte{respawnType}
+}
+
+// EncodePeerID serializes a peer ID as 2 bytes big-endian.
+func EncodePeerID(id uint16) []byte {
+	b := make([]byte, 2)
+	binary.BigEndian.PutUint16(b, id)
+	return b
+}
+
+// EncodeCharacterState builds the payload for OpCharacterState.
+// Format: [charID:u32 LE][classLen:u8][class:...][nameLen:u8][name:...]
+//
+//	[posX:f32 LE][posY:f32 LE][posZ:f32 LE][rotY:f32 LE]
+func EncodeCharacterState(c CharacterInfo) []byte {
+	classBytes := []byte(c.ClassName)
+	nameBytes := []byte(c.Name)
+	buf := make([]byte, 0, 4+1+len(classBytes)+1+len(nameBytes)+16)
+
+	b4 := make([]byte, 4)
+	binary.LittleEndian.PutUint32(b4, c.ID)
+	buf = append(buf, b4...)
+
+	buf = append(buf, byte(len(classBytes)))
+	buf = append(buf, classBytes...)
+	buf = append(buf, byte(len(nameBytes)))
+	buf = append(buf, nameBytes...)
+
+	for _, f := range [4]float32{c.PosX, c.PosY, c.PosZ, c.RotY} {
+		buf = appendF32(buf, f)
+	}
+
+	return buf
+}
+
+// EncodeCharacterList builds the payload for OpCharacterList.
+// Format: [usernameLen:u8][username:...]
+//
+//	[count:u8] per char: [charID:u32 LE][classLen:u8][class:...][nameLen:u8][name:...]
+//	                     [posX:f32 LE][posY:f32 LE][posZ:f32 LE][rotY:f32 LE]
+//	[lastCharID:u32 LE]
+func EncodeCharacterList(username string, chars []CharacterInfo, lastCharID uint32) []byte {
+	buf := make([]byte, 0, 256)
+
+	usernameBytes := []byte(username)
+	buf = append(buf, byte(len(usernameBytes)))
+	buf = append(buf, usernameBytes...)
+
+	buf = append(buf, byte(len(chars)))
+	for _, c := range chars {
+		b4 := make([]byte, 4)
+		binary.LittleEndian.PutUint32(b4, c.ID)
+		buf = append(buf, b4...)
+
+		classBytes := []byte(c.ClassName)
+		buf = append(buf, byte(len(classBytes)))
+		buf = append(buf, classBytes...)
+
+		nameBytes := []byte(c.Name)
+		buf = append(buf, byte(len(nameBytes)))
+		buf = append(buf, nameBytes...)
+
+		for _, f := range [4]float32{c.PosX, c.PosY, c.PosZ, c.RotY} {
+			buf = appendF32(buf, f)
+		}
+	}
+
+	lastID := make([]byte, 4)
+	binary.LittleEndian.PutUint32(lastID, lastCharID)
+	buf = append(buf, lastID...)
+
+	return buf
+}
+
+// EncodeCharacterError builds the payload for OpCharacterError.
+// Format: [code:u8][msgLen:u8][msg:...]
+func EncodeCharacterError(code uint8, msg string) []byte {
+	msgBytes := []byte(msg)
+	buf := make([]byte, 0, 2+len(msgBytes))
+	buf = append(buf, code)
+	buf = append(buf, byte(len(msgBytes)))
+	buf = append(buf, msgBytes...)
+	return buf
+}
+
+// EncodeGroupState builds the payload for OpGroupState.
+// Format: [groupID:u32 LE][leaderPeerID:u16 LE][count:u8]
+//
+//	per member: [peerID:u16 LE][nameLen:u8][name:...]
+func EncodeGroupState(groupID uint32, leaderPeerID uint16, members []GroupMemberInfo) []byte {
+	buf := make([]byte, 0, 128)
+	b4 := make([]byte, 4)
+	binary.LittleEndian.PutUint32(b4, groupID)
+	buf = append(buf, b4...)
+
+	b2 := make([]byte, 2)
+	binary.LittleEndian.PutUint16(b2, leaderPeerID)
+	buf = append(buf, b2...)
+
+	buf = append(buf, byte(len(members)))
+	for _, m := range members {
+		b2 := make([]byte, 2)
+		binary.LittleEndian.PutUint16(b2, m.PeerID)
+		buf = append(buf, b2...)
+		nameBytes := []byte(m.Username)
+		buf = append(buf, byte(len(nameBytes)))
+		buf = append(buf, nameBytes...)
+	}
+	return buf
+}
+
+// EncodeGroupError builds the payload for OpGroupError.
+// Format: [code:u8(1)][msgLen:u8][msg:...]
+func EncodeGroupError(errMsg string) []byte {
+	buf := []byte{1} // error code 1 = generic
+	msgBytes := []byte(errMsg)
+	buf = append(buf, byte(len(msgBytes)))
+	buf = append(buf, msgBytes...)
+	return buf
+}
+
+// EncodeGroupInviteRecv builds the payload for OpGroupInviteRecv.
+// Format: [groupID:u32 LE][nameLen:u8][leaderName:...]
+func EncodeGroupInviteRecv(groupID uint32, leaderName string) []byte {
+	buf := make([]byte, 4)
+	binary.LittleEndian.PutUint32(buf, groupID)
+	nameBytes := []byte(leaderName)
+	buf = append(buf, byte(len(nameBytes)))
+	buf = append(buf, nameBytes...)
+	return buf
+}
+
+// EncodeEmptyGroupState builds the payload for an empty OpGroupState (not in a group).
+// Format: [groupID:u32(0)][leaderPeerID:u16(0)][count:u8(0)]
+func EncodeEmptyGroupState() []byte {
+	return make([]byte, 7) // 4 bytes group_id(0) + 2 bytes leader(0) + 1 byte count(0)
 }

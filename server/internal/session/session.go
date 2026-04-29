@@ -1,0 +1,23 @@
+package session
+
+import "codex-online/server/internal/network"
+
+// Session represents a connected player across zone transfers.
+type Session struct {
+	ID         uint32          // permanent global ID (assigned once at connect)
+	PlayerUUID string          // persistent identity from client
+	Username   string
+	Conn       *network.Client
+	ZoneID     string // current zone
+	PeerID     uint16 // current zone peer ID
+	Class      string // selected class
+	CharID     uint   // selected character ID (persistence primary key)
+	CharName   string // character display name (shown overhead)
+}
+
+// HubFlushTarget holds the fields needed to save a hub player's position.
+type HubFlushTarget struct {
+	PlayerUUID string
+	CharID     uint
+	PeerID     uint16
+}

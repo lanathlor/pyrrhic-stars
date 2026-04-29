@@ -38,6 +38,20 @@ type LobbyPlayerInfo struct {
 	Ready     bool
 }
 
+// CharacterInfo carries character data for encoding (decoupled from persistence).
+type CharacterInfo struct {
+	ID                     uint32
+	ClassName              string
+	Name                   string
+	PosX, PosY, PosZ, RotY float32
+}
+
+// GroupMemberInfo carries per-member data for group state encoding.
+type GroupMemberInfo struct {
+	PeerID   uint16
+	Username string
+}
+
 // --- Private wire helpers ---
 
 func appendF32(buf []byte, v float32) []byte {

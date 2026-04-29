@@ -91,6 +91,32 @@ func Encode(opcode, senderID uint16, payload []byte) []byte {
 	return msg
 }
 
+// AppendEncode writes a wire message into buf, growing it if necessary.
+// Pass a pooled buffer to avoid per-call allocations in hot paths.
+func AppendEncode(buf []byte, opcode, senderID uint16, payload []byte) []byte {
+	// Build header inline
+	header := [HeaderSize]byte{
+		byte(opcode >> 8), byte(opcode),
+		byte(senderID >> 8), byte(senderID),
+	}
+	// Ensure capacity: current len + header + payload
+	needed := len(buf) + HeaderSize + len(payload)
+	if cap(buf) < needed {
+		// Grow: at least double, or exact if large
+		newCap := cap(buf) * 2
+		if newCap < needed {
+			newCap = needed
+		}
+		newBuf := make([]byte, len(buf), newCap)
+		copy(newBuf, buf)
+		buf = newBuf
+	}
+	// Extend with header then payload
+	buf = append(buf, header[:]...)
+	buf = append(buf, payload...)
+	return buf
+}
+
 // Decode splits a wire message into opcode, sender ID, and payload.
 func Decode(data []byte) (opcode, senderID uint16, payload []byte, err error) {
 	if len(data) < HeaderSize {
@@ -116,7 +142,12 @@ func BroadcastExcludeSender(opcode uint16) bool {
 // IsServerHandled returns true for opcodes that the server processes directly
 // and does not relay to other clients.
 func IsServerHandled(opcode uint16) bool {
-	return opcode >= 0xFF00 || (opcode >= 0x0050 && opcode <= 0x005F)
+	return opcode >= 0xFF00 || IsGroupRelated(opcode)
+}
+
+// IsGroupRelated returns true for group/social opcodes (0x0050–0x005F).
+func IsGroupRelated(opcode uint16) bool {
+	return opcode >= 0x0050 && opcode <= 0x005F
 }
 
 // IsClientInput returns true for opcodes that are client-to-server input messages.
