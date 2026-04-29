@@ -53,26 +53,31 @@ type GroupMemberInfo struct {
 }
 
 // --- Private wire helpers ---
+// These helpers write primitives directly into buf without allocating.
+// Each calls append to ensure capacity (which may trigger a growth), then
+// writes the bytes in-place. After the first growth, subsequent calls reuse
+// the extra capacity — no per-call heap allocation.
 
 func appendF32(buf []byte, v float32) []byte {
-	b := make([]byte, 4)
-	binary.LittleEndian.PutUint32(b, math.Float32bits(v))
-	return append(buf, b...)
+	buf = append(buf, 0, 0, 0, 0)
+	binary.LittleEndian.PutUint32(buf[len(buf)-4:], math.Float32bits(v))
+	return buf
 }
 
 func appendU16(buf []byte, v uint16) []byte {
-	b := make([]byte, 2)
-	binary.LittleEndian.PutUint16(b, v)
-	return append(buf, b...)
+	buf = append(buf, 0, 0)
+	binary.LittleEndian.PutUint16(buf[len(buf)-2:], v)
+	return buf
 }
 
 func appendU32(buf []byte, v uint32) []byte {
-	b := make([]byte, 4)
-	binary.LittleEndian.PutUint32(b, v)
-	return append(buf, b...)
+	buf = append(buf, 0, 0, 0, 0)
+	binary.LittleEndian.PutUint32(buf[len(buf)-4:], v)
+	return buf
 }
 
 func appendStr8(buf []byte, s string) []byte {
+	// string→[]byte conversion is unavoidable; we only do one allocation here.
 	b := []byte(s)
 	buf = append(buf, byte(len(b)))
 	return append(buf, b...)
