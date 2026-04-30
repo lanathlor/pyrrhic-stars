@@ -3,6 +3,8 @@ package persistence
 import (
 	"testing"
 	"time"
+
+	"codex-online/server/internal/entity"
 )
 
 func newTestRepo(t *testing.T) Repository {
@@ -64,7 +66,7 @@ func TestCreateCharacter(t *testing.T) {
 		t.Fatalf("UpsertPlayer: %v", err)
 	}
 
-	c := &Character{PlayerID: playerID, ClassName: "gunner", Name: "BobGunner", PosX: 1.0, PosY: 2.0, PosZ: 3.0, RotY: 0.5}
+	c := &Character{PlayerID: playerID, ClassName: entity.ClassGunner, Name: "BobGunner", PosX: 1.0, PosY: 2.0, PosZ: 3.0, RotY: 0.5}
 	if err := repo.CreateCharacter(c); err != nil {
 		t.Fatalf("CreateCharacter: %v", err)
 	}
@@ -87,7 +89,7 @@ func TestCreateCharacter(t *testing.T) {
 	}
 
 	// Duplicate name must fail.
-	dup := &Character{PlayerID: playerID, ClassName: "vanguard", Name: "BobGunner", PosX: 5.0}
+	dup := &Character{PlayerID: playerID, ClassName: entity.ClassVanguard, Name: "BobGunner", PosX: 5.0}
 	if err := repo.CreateCharacter(dup); err == nil {
 		t.Fatal("expected error for duplicate name, got nil")
 	}
@@ -102,7 +104,7 @@ func TestCreateCharacter_MultiplePerClass(t *testing.T) {
 
 	names := []string{"Gunner1", "Gunner2", "Gunner3"}
 	for _, name := range names {
-		c := &Character{PlayerID: playerID, ClassName: "gunner", Name: name}
+		c := &Character{PlayerID: playerID, ClassName: entity.ClassGunner, Name: name}
 		if err := repo.CreateCharacter(c); err != nil {
 			t.Fatalf("CreateCharacter(%s): %v", name, err)
 		}
@@ -124,7 +126,7 @@ func TestUpdateCharacterPosition(t *testing.T) {
 		t.Fatalf("UpsertPlayer: %v", err)
 	}
 
-	c := &Character{PlayerID: playerID, ClassName: "vanguard", Name: "MoverChar", PosX: 0, PosY: 0, PosZ: 0, RotY: 0}
+	c := &Character{PlayerID: playerID, ClassName: entity.ClassVanguard, Name: "MoverChar", PosX: 0, PosY: 0, PosZ: 0, RotY: 0}
 	if err := repo.CreateCharacter(c); err != nil {
 		t.Fatalf("CreateCharacter: %v", err)
 	}
@@ -181,7 +183,7 @@ func TestGetCharacters(t *testing.T) {
 
 	names := []string{"First", "Second", "Third"}
 	for _, name := range names {
-		c := &Character{PlayerID: playerID, ClassName: "gunner", Name: name}
+		c := &Character{PlayerID: playerID, ClassName: entity.ClassGunner, Name: name}
 		if err := repo.CreateCharacter(c); err != nil {
 			t.Fatalf("CreateCharacter(%s): %v", name, err)
 		}
@@ -216,7 +218,7 @@ func TestIsCharacterNameTaken(t *testing.T) {
 		t.Error("expected false for unused name, got true")
 	}
 
-	c := &Character{PlayerID: playerID, ClassName: "gunner", Name: "UniqueName"}
+	c := &Character{PlayerID: playerID, ClassName: entity.ClassGunner, Name: "UniqueName"}
 	if err := repo.CreateCharacter(c); err != nil {
 		t.Fatalf("CreateCharacter: %v", err)
 	}
@@ -246,7 +248,7 @@ func TestCountCharacters(t *testing.T) {
 	}
 
 	for i, name := range []string{"Char1", "Char2"} {
-		c := &Character{PlayerID: playerID, ClassName: "vanguard", Name: name}
+		c := &Character{PlayerID: playerID, ClassName: entity.ClassVanguard, Name: name}
 		if err := repo.CreateCharacter(c); err != nil {
 			t.Fatalf("CreateCharacter #%d: %v", i, err)
 		}

@@ -125,7 +125,7 @@ func DialWithUUID(t *testing.T, addr, playerUUID, username string) *Client {
 
 // Close shuts down the connection.
 func (c *Client) Close() {
-	c.conn.Close(websocket.StatusNormalClosure, "test done")
+	_ = c.conn.Close(websocket.StatusNormalClosure, "test done")
 	c.cancel()
 }
 

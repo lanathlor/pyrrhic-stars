@@ -25,7 +25,7 @@ func NewGormRepo(driver, dsn string) (*GormRepo, error) {
 	switch driver {
 	case "postgres":
 		if dsn == "" {
-			return nil, fmt.Errorf("persistence: postgres requires POSTGRES_DSN")
+			return nil, errors.New("persistence: postgres requires POSTGRES_DSN")
 		}
 		dialector = postgres.Open(dsn)
 	default:

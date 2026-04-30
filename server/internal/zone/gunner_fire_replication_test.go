@@ -46,7 +46,7 @@ func setupTwoPlayerFight(t *testing.T) (*Zone, uint16, uint16, *mockSendCollecto
 		Send:     func([]byte) {}, // discard
 	})
 	shooter := z.world.Players[shooterID]
-	shooter.ClassName = "gunner"
+	shooter.ClassName = entity.ClassGunner
 	shooter.Position = entity.Vec3{X: 0, Y: 0, Z: 10}
 	shooter.RotationY = 0
 	shooter.AimPitch = -0.06
@@ -62,7 +62,7 @@ func setupTwoPlayerFight(t *testing.T) (*Zone, uint16, uint16, *mockSendCollecto
 		Send:     col.collect,
 	})
 	obs := z.world.Players[observerID]
-	obs.ClassName = "vanguard"
+	obs.ClassName = entity.ClassVanguard
 	obs.Position = entity.Vec3{X: 5, Y: 0, Z: 10}
 
 	return z, shooterID, observerID, col
@@ -149,7 +149,7 @@ func TestGunnerFire_RemoteClientTracerDetection(t *testing.T) {
 	}
 
 	// Simulate client-side _net_state (starts at 0, updated each tick)
-	var clientNetState uint8 = 0
+	var clientNetState uint8
 	tracersFired := 0
 
 	// Process baseline ticks: update clientNetState from observer's received data
@@ -259,7 +259,7 @@ func TestGunnerSustainedFire_RemoteTracerCount(t *testing.T) {
 		z.processTick()
 	}
 
-	var clientNetState uint8 = 0
+	var clientNetState uint8
 	// Process baseline
 	for _, msg := range observerCol.msgs {
 		opcode, _, payload, err := message.Decode(msg)
@@ -299,14 +299,15 @@ func TestGunnerSustainedFire_RemoteTracerCount(t *testing.T) {
 
 	// At 0.18s cooldown / 0.05s tick, expect ~5.5 shots in 2s -> ~5-6 tracers
 	// (each shot = ~4 ticks Attack + 1 tick Move before next shot)
-	if tracersFired == 0 {
+	switch tracersFired {
+	case 0:
 		t.Errorf("BUG: 0 tracers detected during 2s sustained fire -- remote client "+
 			"would see NO bullets at all")
-	} else if tracersFired == 1 {
+	case 1:
 		t.Errorf("BUG: only 1 tracer detected during 2s sustained fire -- state "+
 			"never returned to Move between shots, remote client sees ONE bullet "+
 			"for the entire burst")
-	} else {
+	default:
 		t.Logf("OK: %d tracers detected during 2s sustained fire", tracersFired)
 	}
 
@@ -401,7 +402,7 @@ func TestGunnerFire_WorksInAllZoneStates(t *testing.T) {
 			z.world.State = tc.zoneState
 
 			p := z.world.Players[peerID]
-			p.ClassName = "gunner"
+			p.ClassName = entity.ClassGunner
 			p.Position = entity.Vec3{X: 0, Y: 0, Z: 10}
 			p.AnimName = "rifle_idle"
 			p.AnimSpeed = 1.0

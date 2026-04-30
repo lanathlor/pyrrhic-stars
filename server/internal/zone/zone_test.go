@@ -63,7 +63,7 @@ func setupFightZone(t *testing.T) (*Zone, uint16) {
 	yaw := float32(-math.Atan2(float64(-dir.X), float64(-dir.Z)))
 	pitch := float32(math.Asin(float64(dir.Y)))
 
-	player := entity.NewPlayer(peerID, "gunner")
+	player := entity.NewPlayer(peerID, entity.ClassGunner)
 	player.Position = entity.Vec3{X: 0, Y: 0, Z: 10}
 	player.RotationY = yaw
 	player.AimPitch = pitch
@@ -211,7 +211,7 @@ func setupMultiPlayerFightZone(t *testing.T, n int) (*Zone, []uint16) {
 	var ids []uint16
 	for i := 0; i < n; i++ {
 		pid := uint16(i + 1)
-		p := entity.NewPlayer(pid, "gunner")
+		p := entity.NewPlayer(pid, entity.ClassGunner)
 		p.Position = entity.Vec3{X: float32(i) * 2, Y: 0.1, Z: 10}
 		p.Alive = true
 		z.world.Players[pid] = p
@@ -561,7 +561,7 @@ func TestInteractExitPortal(t *testing.T) {
 			z.world.BossDefeated = tc.bossDefeated
 
 			var callbackCalled bool
-			z.OnPlayerRespawnHub = func(pid uint16) {
+			z.OnPlayerRespawnHub = func(_ uint16) {
 				callbackCalled = true
 			}
 
@@ -591,7 +591,7 @@ func TestLobbyToSpawnedToFight(t *testing.T) {
 	z := New("test_arena", ZoneTypeArena)
 	peerID := uint16(1)
 
-	p := entity.NewPlayer(peerID, "gunner")
+	p := entity.NewPlayer(peerID, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 48}
 	p.Alive = true
 	z.world.Players[peerID] = p
@@ -710,8 +710,8 @@ func extractPlayerState(msg []byte, wantPeer uint16) int {
 		off += animLen // anim bytes
 		off += 4       // anim_speed
 		off += 4       // aim_pitch
-		off += 1       // flags
-		off += 1       // config
+		off++          // flags
+		off++          // config
 		off += 4       // stamina
 		off += 4       // bdShieldHP
 		if peerID == wantPeer {
@@ -860,7 +860,7 @@ func TestHubZoneTick(t *testing.T) {
 	z := New("test_hub", ZoneTypeHub)
 	peerID := uint16(1)
 
-	p := entity.NewPlayer(peerID, "gunner")
+	p := entity.NewPlayer(peerID, entity.ClassGunner)
 	p.Alive = true
 	z.world.Players[peerID] = p
 

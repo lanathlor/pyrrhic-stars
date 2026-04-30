@@ -142,14 +142,6 @@ func (d *EnemyDef) CurrentPhase(phase int) *PhaseDef {
 	if phase <= 1 {
 		return nil
 	}
-	// Find the matching phase def
-	for i := range d.Phases {
-		idx := len(d.Phases) - 1 - i // search from most restrictive
-		if phase >= len(d.Phases)-idx+1 {
-			// Match phase number to index: phase 2 = index 0, phase 3 = index 1, etc.
-		}
-		_ = idx
-	}
 	// Simple mapping: phase 2 → index 0, phase 3 → index 1
 	idx := phase - 2
 	if idx >= 0 && idx < len(d.Phases) {

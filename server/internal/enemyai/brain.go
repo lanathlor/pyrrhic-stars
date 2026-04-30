@@ -204,7 +204,7 @@ func (b *Brain) tickChase(dt float32, players map[uint16]*entity.Player, obstacl
 	}
 }
 
-func (b *Brain) tickMeleeTelegraph(players map[uint16]*entity.Player) {
+func (b *Brain) tickMeleeTelegraph(_ map[uint16]*entity.Player) {
 	e := b.enemy
 	e.Velocity = entity.Vec3{}
 	// No rotation during telegraph — player can reposition to dodge
@@ -419,7 +419,7 @@ func (b *Brain) tickPhaseTransition() {
 
 // --- Helpers ---
 
-func (b *Brain) selectAbility(distance float32, players map[uint16]*entity.Player) *AbilityDef {
+func (b *Brain) selectAbility(distance float32, _ map[uint16]*entity.Player) *AbilityDef {
 	e := b.enemy
 	def := b.Def
 	phase := def.CurrentPhase(e.Phase)
@@ -478,7 +478,7 @@ func (b *Brain) selectAbility(distance float32, players map[uint16]*entity.Playe
 	return candidates[0].ability
 }
 
-func (b *Brain) startAbility(ability *AbilityDef, e *entity.Enemy, players map[uint16]*entity.Player, obstacles []combat.Obstacle) {
+func (b *Brain) startAbility(ability *AbilityDef, e *entity.Enemy, players map[uint16]*entity.Player, _ []combat.Obstacle) {
 	resolved := b.Def.ResolveAbility(ability, e.Phase)
 	e.ActiveAbility = b.abilityIndex(ability)
 	e.LastAttack = ability.Name
@@ -592,7 +592,7 @@ func (b *Brain) isChargeHit(peerID uint16) bool {
 }
 
 // tickPatrol walks between PatrolA/PatrolB at half speed, checking for player aggro.
-func (b *Brain) tickPatrol(dt float32, players map[uint16]*entity.Player) {
+func (b *Brain) tickPatrol(_ float32, players map[uint16]*entity.Player) {
 	e := b.enemy
 
 	// Check aggro: if any alive player within AggroRadius, switch to Chase

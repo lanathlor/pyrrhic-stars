@@ -75,7 +75,7 @@ func TestPhysicsProjectileObstacleCollision(t *testing.T) {
 
 func TestPhysicsEnemyProjectileHitsPlayer(t *testing.T) {
 	w := makePhysicsWorld()
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 25}
 	w.Players[1] = p
 
@@ -111,7 +111,7 @@ func TestPhysicsEnemyProjectileHitsPlayer(t *testing.T) {
 
 func TestPhysicsEnemyProjectileSkipsDeadPlayer(t *testing.T) {
 	w := makePhysicsWorld()
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 25}
 	p.Alive = false
 	w.Players[1] = p
@@ -175,9 +175,9 @@ func TestPhysicsMultipleProjectiles(t *testing.T) {
 // --- AISystem helpers ---
 
 func TestPlayersOnSameSide(t *testing.T) {
-	p1 := entity.NewPlayer(1, "gunner")
+	p1 := entity.NewPlayer(1, entity.ClassGunner)
 	p1.Position = entity.Vec3{Z: 5} // Z < 12 → boss room
-	p2 := entity.NewPlayer(2, "vanguard")
+	p2 := entity.NewPlayer(2, entity.ClassVanguard)
 	p2.Position = entity.Vec3{Z: 20} // Z > 12 → hallway
 
 	players := map[uint16]*entity.Player{1: p1, 2: p2}

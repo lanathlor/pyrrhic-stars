@@ -208,9 +208,10 @@ func TestAggroEnemy(t *testing.T) {
 					if other.TargetPlayerID != tc.targetPeerID {
 						t.Errorf("group member target = %d, want %d", other.TargetPlayerID, tc.targetPeerID)
 					}
-				} else {
-					if other.State == entity.EnemyChase && other.GroupID != e.GroupID {
-						// Different group should stay patrol
+				} else if other.GroupID != e.GroupID {
+					// Different group should stay in patrol, not chase.
+					if other.State == entity.EnemyChase {
+						t.Error("different-group enemy state = EnemyChase, want patrol")
 					}
 				}
 			}
@@ -378,7 +379,7 @@ func TestDestSlotToConfig(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestAISystem_SkipsNonFightState(t *testing.T) {
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	e := entity.NewEnemy(0, 200, "test")
 	e.State = entity.EnemyChase
 
@@ -399,7 +400,7 @@ func TestAISystem_SkipsNonFightState(t *testing.T) {
 	}
 }
 
-func TestAISystem_SkipsDeadEnemies(t *testing.T) {
+func TestAISystem_SkipsDeadEnemies(_ *testing.T) {
 	e := entity.NewEnemy(0, 200, "test")
 	e.Alive = false
 	e.State = entity.EnemyDead
@@ -407,7 +408,7 @@ func TestAISystem_SkipsDeadEnemies(t *testing.T) {
 	w := &World{
 		ZoneType: 1,
 		State:    StateFight,
-		Players:  map[uint16]*entity.Player{1: entity.NewPlayer(1, "gunner")},
+		Players:  map[uint16]*entity.Player{1: entity.NewPlayer(1, entity.ClassGunner)},
 		Enemies:  []*entity.Enemy{e},
 		Level:    level.NewArenaLevel(),
 	}
@@ -417,11 +418,11 @@ func TestAISystem_SkipsDeadEnemies(t *testing.T) {
 	sys.Tick(w, 0.05)
 }
 
-func TestAISystem_SkipsNilEnemies(t *testing.T) {
+func TestAISystem_SkipsNilEnemies(_ *testing.T) {
 	w := &World{
 		ZoneType: 1,
 		State:    StateFight,
-		Players:  map[uint16]*entity.Player{1: entity.NewPlayer(1, "gunner")},
+		Players:  map[uint16]*entity.Player{1: entity.NewPlayer(1, entity.ClassGunner)},
 		Enemies:  []*entity.Enemy{nil},
 		Brains:   []*enemyai.Brain{}, // brains shorter than enemies
 		Level:    level.NewArenaLevel(),

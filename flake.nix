@@ -26,6 +26,7 @@
           go
           gopls # Go LSP
           gotools # goimports, etc.
+          golangci-lint # linter
           delve # Go debugger
 
           # Data stores (local dev)

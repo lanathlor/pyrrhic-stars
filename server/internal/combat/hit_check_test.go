@@ -268,7 +268,7 @@ func TestCheckHitscanRealisticGunner(t *testing.T) {
 
 			got := CheckHitscan(eye, dir, targetCenter, 2.0, 100.0, nil)
 			if !got {
-				t.Errorf("MISSED — direct aim at enemy should hit")
+				t.Error("MISSED — direct aim at enemy should hit")
 			}
 		})
 	}

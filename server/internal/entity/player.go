@@ -2,6 +2,13 @@ package entity
 
 import "math"
 
+// Class name constants.
+const (
+	ClassGunner      = "gunner"
+	ClassVanguard    = "vanguard"
+	ClassBladeDancer = "blade_dancer"
+)
+
 // PlayerState represents the state of a player character.
 type PlayerState uint8
 
@@ -141,16 +148,12 @@ func NewPlayer(peerID uint16, className string) *Player {
 		AnimSpeed: 1.0,
 	}
 	switch className {
-	case "gunner":
-		p.MaxHealth = 150.0
-	case "vanguard":
+	case ClassVanguard:
 		p.MaxHealth = 200.0
 		p.Stamina = 100.0
 		p.MaxStamina = 100.0
 		p.StaminaRegen = 30.0
 		p.StaminaDelay = 0.6
-	case "blade_dancer":
-		p.MaxHealth = 150.0
 	default:
 		p.MaxHealth = 150.0
 	}
@@ -158,7 +161,7 @@ func NewPlayer(peerID uint16, className string) *Player {
 	return p
 }
 
-// NewPlayer creates a player with class defaults.
+// NewPlayerNoPTR creates a player with class defaults (value type).
 func NewPlayerNoPTR(peerID uint16, className string) Player {
 	p := Player{
 		PeerID:    peerID,
@@ -169,16 +172,12 @@ func NewPlayerNoPTR(peerID uint16, className string) Player {
 		AnimSpeed: 1.0,
 	}
 	switch className {
-	case "gunner":
-		p.MaxHealth = 150.0
-	case "vanguard":
+	case ClassVanguard:
 		p.MaxHealth = 200.0
 		p.Stamina = 100.0
 		p.MaxStamina = 100.0
 		p.StaminaRegen = 30.0
 		p.StaminaDelay = 0.6
-	case "blade_dancer":
-		p.MaxHealth = 150.0
 	default:
 		p.MaxHealth = 150.0
 	}
@@ -201,17 +200,17 @@ type classStats struct {
 }
 
 var classStatsTable = map[string]classStats{
-	"gunner": {
+	ClassGunner: {
 		WalkSpeed: 5.5, SprintSpeed: 7.7, JumpVel: 4.0,
 		GroundAccel: 25.0, GroundDecel: 18.0, AirAccel: 2.5, AirDecel: 1.0,
 		RollSpeed: 14.0, RollDur: 0.3, RollCD: 2.5,
 	},
-	"vanguard": {
+	ClassVanguard: {
 		WalkSpeed: 5.0, SprintSpeed: 7.0, JumpVel: 3.5,
 		GroundAccel: 20.0, GroundDecel: 15.0, AirAccel: 2.5, AirDecel: 1.0,
 		RollSpeed: 12.0, RollDur: 0.4, RollCD: 1.0,
 	},
-	"blade_dancer": {
+	ClassBladeDancer: {
 		WalkSpeed: 6.0, SprintSpeed: 9.0, JumpVel: 3.5,
 		GroundAccel: 20.0, GroundDecel: 15.0, AirAccel: 2.5, AirDecel: 1.0,
 		RollSpeed: 15.0, RollDur: 0.2, RollCD: 0.5,
@@ -221,7 +220,7 @@ var classStatsTable = map[string]classStats{
 func (p *Player) stats() classStats {
 	s, ok := classStatsTable[p.ClassName]
 	if !ok {
-		return classStatsTable["gunner"]
+		return classStatsTable[ClassGunner]
 	}
 	return s
 }
@@ -238,19 +237,19 @@ func (p *Player) ApplyDamage(amount float32) float32 {
 		return 0
 	}
 	// Vanguard parry
-	if p.ClassName == "vanguard" && p.IsBlocking && p.ParryTimer > 0 {
+	if p.ClassName == ClassVanguard && p.IsBlocking && p.ParryTimer > 0 {
 		return 0
 	}
 	// Vanguard block
-	if p.ClassName == "vanguard" && p.IsBlocking {
+	if p.ClassName == ClassVanguard && p.IsBlocking {
 		amount *= 0.3
 	}
 	// Vanguard blade swirl — 20% DR while spinning
-	if p.ClassName == "vanguard" && p.BladeSwirl {
+	if p.ClassName == ClassVanguard && p.BladeSwirl {
 		amount *= 0.8
 	}
 	// Blade dancer guard
-	if p.ClassName == "blade_dancer" && p.GuardActive {
+	if p.ClassName == ClassBladeDancer && p.GuardActive {
 		amount *= 0.5
 	}
 	// Blade dancer DR buff (from transition spells)

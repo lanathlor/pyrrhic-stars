@@ -28,7 +28,7 @@ func makeArenaWorld(players map[uint16]*entity.Player, enemies []*entity.Enemy) 
 // ---------------------------------------------------------------------------
 
 func TestGameFlowSystem_SkipsInHub(t *testing.T) {
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Ready = true
 	w := &World{
 		ZoneType: 0, // Hub
@@ -68,9 +68,9 @@ func TestTickLobby(t *testing.T) {
 		{
 			name: "not all ready stays in lobby",
 			players: func() map[uint16]*entity.Player {
-				p1 := entity.NewPlayer(1, "gunner")
+				p1 := entity.NewPlayer(1, entity.ClassGunner)
 				p1.Ready = true
-				p2 := entity.NewPlayer(2, "vanguard")
+				p2 := entity.NewPlayer(2, entity.ClassVanguard)
 				p2.Ready = false
 				return map[uint16]*entity.Player{1: p1, 2: p2}
 			}(),
@@ -80,9 +80,9 @@ func TestTickLobby(t *testing.T) {
 		{
 			name: "all ready transitions to StateSpawned",
 			players: func() map[uint16]*entity.Player {
-				p1 := entity.NewPlayer(1, "gunner")
+				p1 := entity.NewPlayer(1, entity.ClassGunner)
 				p1.Ready = true
-				p2 := entity.NewPlayer(2, "vanguard")
+				p2 := entity.NewPlayer(2, entity.ClassVanguard)
 				p2.Ready = true
 				return map[uint16]*entity.Player{1: p1, 2: p2}
 			}(),
@@ -92,7 +92,7 @@ func TestTickLobby(t *testing.T) {
 		{
 			name: "single player ready transitions",
 			players: func() map[uint16]*entity.Player {
-				p := entity.NewPlayer(1, "gunner")
+				p := entity.NewPlayer(1, entity.ClassGunner)
 				p.Ready = true
 				return map[uint16]*entity.Player{1: p}
 			}(),
@@ -146,7 +146,7 @@ func TestTickSpawned(t *testing.T) {
 		{
 			name: "with players transitions to StateFight",
 			players: func() map[uint16]*entity.Player {
-				p := entity.NewPlayer(1, "gunner")
+				p := entity.NewPlayer(1, entity.ClassGunner)
 				return map[uint16]*entity.Player{1: p}
 			}(),
 			wantState: StateFight,
@@ -203,7 +203,7 @@ func TestCheckFightEnd(t *testing.T) {
 				return []*entity.Enemy{e}
 			},
 			setupPlayers: func() map[uint16]*entity.Player {
-				p := entity.NewPlayer(1, "gunner")
+				p := entity.NewPlayer(1, entity.ClassGunner)
 				p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5} // in boss room
 				return map[uint16]*entity.Player{1: p}
 			},
@@ -223,7 +223,7 @@ func TestCheckFightEnd(t *testing.T) {
 				return []*entity.Enemy{e}
 			},
 			setupPlayers: func() map[uint16]*entity.Player {
-				p := entity.NewPlayer(1, "gunner")
+				p := entity.NewPlayer(1, entity.ClassGunner)
 				p.Alive = false
 				p.Health = 0
 				p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5} // in boss room
@@ -245,9 +245,9 @@ func TestCheckFightEnd(t *testing.T) {
 				return []*entity.Enemy{e}
 			},
 			setupPlayers: func() map[uint16]*entity.Player {
-				p1 := entity.NewPlayer(1, "gunner")
+				p1 := entity.NewPlayer(1, entity.ClassGunner)
 				p1.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5} // in boss room
-				p2 := entity.NewPlayer(2, "vanguard")
+				p2 := entity.NewPlayer(2, entity.ClassVanguard)
 				p2.Alive = false
 				p2.Health = 0
 				p2.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5} // in boss room
@@ -268,7 +268,7 @@ func TestCheckFightEnd(t *testing.T) {
 				return []*entity.Enemy{e}
 			},
 			setupPlayers: func() map[uint16]*entity.Player {
-				p := entity.NewPlayer(1, "gunner")
+				p := entity.NewPlayer(1, entity.ClassGunner)
 				p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5} // in boss room
 				return map[uint16]*entity.Player{1: p}
 			},
@@ -329,11 +329,11 @@ func TestCheckFightEnd(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestTickFightOver_WipeAllRespawnReturnsToLobby(t *testing.T) {
-	p1 := entity.NewPlayer(1, "gunner")
+	p1 := entity.NewPlayer(1, entity.ClassGunner)
 	p1.Alive = true
 	p1.Health = p1.MaxHealth
 
-	p2 := entity.NewPlayer(2, "vanguard")
+	p2 := entity.NewPlayer(2, entity.ClassVanguard)
 	p2.Alive = true
 	p2.Health = p2.MaxHealth
 
@@ -360,7 +360,7 @@ func TestTickFightOver_WipeAllRespawnReturnsToLobby(t *testing.T) {
 }
 
 func TestTickFightOver_BossDefeatedNoReturn(t *testing.T) {
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Alive = true
 
 	w := makeArenaWorld(map[uint16]*entity.Player{1: p}, nil)
@@ -377,10 +377,10 @@ func TestTickFightOver_BossDefeatedNoReturn(t *testing.T) {
 }
 
 func TestTickFightOver_WipeSomeDeadNoReturn(t *testing.T) {
-	p1 := entity.NewPlayer(1, "gunner")
+	p1 := entity.NewPlayer(1, entity.ClassGunner)
 	p1.Alive = true
 
-	p2 := entity.NewPlayer(2, "vanguard")
+	p2 := entity.NewPlayer(2, entity.ClassVanguard)
 	p2.Alive = false
 	p2.Health = 0
 
@@ -398,7 +398,7 @@ func TestTickFightOver_WipeSomeDeadNoReturn(t *testing.T) {
 }
 
 func TestTickFightOver_CooldownsTick(t *testing.T) {
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Alive = true
 	p.FireCooldown = 1.0
 
@@ -517,12 +517,12 @@ func TestResetAliveEnemies(t *testing.T) {
 
 func TestSpawnPlayers(t *testing.T) {
 	lvl := level.NewArenaLevel()
-	p1 := entity.NewPlayer(1, "gunner")
+	p1 := entity.NewPlayer(1, entity.ClassGunner)
 	p1.Position = entity.Vec3{X: 0, Y: 0, Z: 0}
 	p1.Health = 50
 	p1.Alive = false
 
-	p2 := entity.NewPlayer(2, "vanguard")
+	p2 := entity.NewPlayer(2, entity.ClassVanguard)
 	p2.Position = entity.Vec3{X: 0, Y: 0, Z: 0}
 	p2.Health = 50
 	p2.IsRolling = true
@@ -570,7 +570,7 @@ func TestSpawnPlayers(t *testing.T) {
 
 func TestSpawnPlayer(t *testing.T) {
 	lvl := level.NewArenaLevel()
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Health = 10
 	p.Alive = false
 	p.Position = entity.Vec3{X: 99, Y: 99, Z: 99}
@@ -597,7 +597,7 @@ func TestSpawnPlayer(t *testing.T) {
 	}
 }
 
-func TestSpawnPlayer_UnknownPeer(t *testing.T) {
+func TestSpawnPlayer_UnknownPeer(_ *testing.T) {
 	lvl := level.NewArenaLevel()
 	w := &World{
 		Players: map[uint16]*entity.Player{},
@@ -617,7 +617,7 @@ func TestCheckBossGate_AggroClosesGate(t *testing.T) {
 	boss.State = entity.EnemyChase // not patrol = in combat
 	boss.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5} // in boss room (Z < BossRoomEntryZ=12)
 
 	w := makeArenaWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{boss})
@@ -649,7 +649,7 @@ func TestCheckBossGate_NoPlayersInBossRoomResetsBoss(t *testing.T) {
 	boss.Health = 1000 // damaged
 	boss.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	// Player is outside boss room (Z > BossRoomEntryZ=12)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 20}
 
@@ -698,7 +698,7 @@ func TestCheckBossGate_PushesPlayersNearGate(t *testing.T) {
 	boss.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 
 	// Player right at the gate threshold
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: lvl.BossRoomEntryZ - 1.0}
 
 	w := makeArenaWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{boss})
@@ -723,11 +723,11 @@ func TestCheckBossGate_RemovesThreatForOutsidePlayers(t *testing.T) {
 	boss.AddThreat(2, 50)
 
 	// Player 1 in boss room
-	p1 := entity.NewPlayer(1, "gunner")
+	p1 := entity.NewPlayer(1, entity.ClassGunner)
 	p1.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5}
 
 	// Player 2 outside boss room (Z > BossRoomEntryZ=12)
-	p2 := entity.NewPlayer(2, "vanguard")
+	p2 := entity.NewPlayer(2, entity.ClassVanguard)
 	p2.Position = entity.Vec3{X: 0, Y: 0.1, Z: 20}
 
 	w := makeArenaWorld(map[uint16]*entity.Player{1: p1, 2: p2}, []*entity.Enemy{boss})
@@ -881,7 +881,7 @@ func TestFindBossIndex(t *testing.T) {
 func TestReturnToLobby_ResetsPlayerState(t *testing.T) {
 	lvl := level.NewArenaLevel()
 
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Ready = true
 	p.Health = 50
 	p.Alive = false

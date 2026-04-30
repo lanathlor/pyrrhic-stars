@@ -96,7 +96,7 @@ func (g *gateway) handleGroupMessage(sess *session.Session, opcode uint16, paylo
 		}
 
 	case message.OpEnterPortal:
-		if sess.ZoneID != "hub" {
+		if sess.ZoneID != zone.ZoneHub {
 			sendGroupError(sess.Conn, "can only enter portal from hub")
 			return
 		}

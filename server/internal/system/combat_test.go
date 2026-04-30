@@ -23,7 +23,7 @@ func makeWorld(players map[uint16]*entity.Player, enemies []*entity.Enemy) *Worl
 // --- Unit tests ---
 
 func TestInCombatWhenOnThreatTable(t *testing.T) {
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	e := entity.NewEnemy(0, 2000.0, "guard_captain")
 	e.Alive = true
 	e.AddThreat(1, 10.0)
@@ -38,7 +38,7 @@ func TestInCombatWhenOnThreatTable(t *testing.T) {
 }
 
 func TestNotInCombatWhenNotOnThreatTable(t *testing.T) {
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	e := entity.NewEnemy(0, 2000.0, "guard_captain")
 	e.Alive = true
 	// no threat added
@@ -53,7 +53,7 @@ func TestNotInCombatWhenNotOnThreatTable(t *testing.T) {
 }
 
 func TestRegenOnlyOutOfCombat(t *testing.T) {
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Health = 100.0 // below max (150)
 
 	e := entity.NewEnemy(0, 2000.0, "guard_captain")
@@ -79,9 +79,9 @@ func TestRegenOnlyOutOfCombat(t *testing.T) {
 }
 
 func TestMultiplePlayersAllInCombat(t *testing.T) {
-	p1 := entity.NewPlayer(1, "gunner")
-	p2 := entity.NewPlayer(2, "vanguard")
-	p3 := entity.NewPlayer(3, "blade_dancer")
+	p1 := entity.NewPlayer(1, entity.ClassGunner)
+	p2 := entity.NewPlayer(2, entity.ClassVanguard)
+	p3 := entity.NewPlayer(3, entity.ClassBladeDancer)
 
 	e := entity.NewEnemy(0, 2000.0, "guard_captain")
 	e.Alive = true
@@ -102,7 +102,7 @@ func TestMultiplePlayersAllInCombat(t *testing.T) {
 }
 
 func TestNotInCombatAfterEnemyDies(t *testing.T) {
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	e := entity.NewEnemy(0, 2000.0, "guard_captain")
 	e.Alive = true
 	e.AddThreat(1, 50.0)
@@ -127,7 +127,7 @@ func TestNotInCombatAfterEnemyDies(t *testing.T) {
 // --- Overclock / Rechamber timer tests ---
 
 func TestOverclockTimerExpires(t *testing.T) {
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.OverclockActive = true
 	p.OverclockTimer = 7.0
 	p.OverclockCooldown = 15.0
@@ -152,7 +152,7 @@ func TestOverclockTimerExpires(t *testing.T) {
 }
 
 func TestOverclockCooldownTicksDown(t *testing.T) {
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.OverclockCooldown = 15.0
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
@@ -170,7 +170,7 @@ func TestOverclockCooldownTicksDown(t *testing.T) {
 }
 
 func TestRechamberPhaseTransitions(t *testing.T) {
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.RechamberPhase = 1
 	p.RechamberTimer = 0.6
 
@@ -200,7 +200,7 @@ func TestRechamberPhaseTransitions(t *testing.T) {
 }
 
 func TestRechamberBuffExpires(t *testing.T) {
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.RechamberBuff = true
 	p.RechamberBuffTimer = 4.0
 
@@ -222,7 +222,7 @@ func TestRechamberBuffExpires(t *testing.T) {
 
 func TestThreatGeneratedOnPlayerAttack(t *testing.T) {
 	// Set up a world with a gunner aimed directly at the enemy
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5}
 	p.RotationY = 0 // facing -Z (toward enemy at origin)
 	p.AimPitch = 0
@@ -253,7 +253,7 @@ func TestThreatGeneratedOnPlayerAttack(t *testing.T) {
 }
 
 func TestOverclockInputActivates(t *testing.T) {
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 
 	payload := []byte{entity.ActionOverclock, 0, 0, 0, 0} // action + 4 bytes aim pitch
@@ -273,7 +273,7 @@ func TestOverclockInputActivates(t *testing.T) {
 }
 
 func TestOverclockBlockedDuringCooldown(t *testing.T) {
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.OverclockCooldown = 5.0
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
@@ -288,7 +288,7 @@ func TestOverclockBlockedDuringCooldown(t *testing.T) {
 }
 
 func TestOverclockFireRateBoost(t *testing.T) {
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.OverclockActive = true
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5}
 
@@ -308,7 +308,7 @@ func TestOverclockFireRateBoost(t *testing.T) {
 }
 
 func TestRechamberInputStartsWindup(t *testing.T) {
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 
 	payload := []byte{entity.ActionRechamber, 0, 0, 0, 0}
@@ -328,7 +328,7 @@ func TestRechamberInputStartsWindup(t *testing.T) {
 }
 
 func TestRechamberConfirmDuringWindow(t *testing.T) {
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.RechamberPhase = 2
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 
@@ -349,7 +349,7 @@ func TestRechamberConfirmDuringWindow(t *testing.T) {
 }
 
 func TestRechamberConfirmOutsideWindowIgnored(t *testing.T) {
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.RechamberPhase = 1 // still in windup, not timing window
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 
@@ -367,7 +367,7 @@ func TestRechamberConfirmOutsideWindowIgnored(t *testing.T) {
 }
 
 func TestRechamberBlockedDuringFireCooldown(t *testing.T) {
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.FireCooldown = 0.1
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
@@ -384,7 +384,7 @@ func TestRechamberBlockedDuringFireCooldown(t *testing.T) {
 // --- Vanguard: Blade Swirl tests ---
 
 func TestBladeSwirlMultiTick(t *testing.T) {
-	p := entity.NewPlayer(1, "vanguard")
+	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 	p.BladeSwirl = true
 	p.BladeSwirlTimer = 1.5
@@ -423,7 +423,7 @@ func TestBladeSwirlMultiTick(t *testing.T) {
 }
 
 func TestBladeSwirlCooldownPreventsReuse(t *testing.T) {
-	p := entity.NewPlayer(1, "vanguard")
+	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.Stamina = 100.0
 	p.BladeSwirlCooldown = 5.0
 
@@ -442,7 +442,7 @@ func TestBladeSwirlCooldownPreventsReuse(t *testing.T) {
 }
 
 func TestGroundSlamCooldownPreventsReuse(t *testing.T) {
-	p := entity.NewPlayer(1, "vanguard")
+	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.Stamina = 100.0
 	p.GroundSlamCooldown = 3.0
 
@@ -461,7 +461,7 @@ func TestGroundSlamCooldownPreventsReuse(t *testing.T) {
 }
 
 func TestGroundSlamConsumesStamina(t *testing.T) {
-	p := entity.NewPlayer(1, "vanguard")
+	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.Stamina = 100.0
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 
@@ -483,7 +483,7 @@ func TestGroundSlamConsumesStamina(t *testing.T) {
 }
 
 func TestBladeSwirlCooldownTicksDown(t *testing.T) {
-	p := entity.NewPlayer(1, "vanguard")
+	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.BladeSwirlCooldown = 10.0
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
@@ -501,7 +501,7 @@ func TestBladeSwirlCooldownTicksDown(t *testing.T) {
 }
 
 func TestGroundSlamCooldownTicksDown(t *testing.T) {
-	p := entity.NewPlayer(1, "vanguard")
+	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.GroundSlamCooldown = 8.0
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
@@ -519,7 +519,7 @@ func TestGroundSlamCooldownTicksDown(t *testing.T) {
 }
 
 func TestBladeSwirlBlockedByInsufficientStamina(t *testing.T) {
-	p := entity.NewPlayer(1, "vanguard")
+	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.Stamina = 20.0 // need 25
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
@@ -540,7 +540,7 @@ func TestBladeSwirlBlockedByInsufficientStamina(t *testing.T) {
 // ticking cooldowns between each activation. Verifies damage events are produced
 // and enemy HP decreases across all 3 activations + multi-tick damage.
 func TestBladeSwirl3xIntegration(t *testing.T) {
-	p := entity.NewPlayer(1, "vanguard")
+	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.Stamina = 200.0    // enough for 3 swirls (40 each = 120)
 	p.MaxStamina = 200.0
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
@@ -619,7 +619,7 @@ func TestBladeSwirl3xIntegration(t *testing.T) {
 // TestSwirlSlamSwirlSlamIntegration fires Blade Swirl → Ground Slam → Blade Swirl → Ground Slam,
 // ticking cooldowns between each. Verifies all 4 abilities activate and deal damage.
 func TestSwirlSlamSwirlSlamIntegration(t *testing.T) {
-	p := entity.NewPlayer(1, "vanguard")
+	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.Stamina = 300.0
 	p.MaxStamina = 300.0
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
@@ -723,7 +723,7 @@ func TestSwirlSlamSwirlSlamIntegration(t *testing.T) {
 }
 
 func TestVanguardStaminaRegen(t *testing.T) {
-	p := entity.NewPlayer(1, "vanguard")
+	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.Stamina = 50.0
 	p.StaminaDelay = 0 // no delay, regen should start immediately
 
@@ -758,9 +758,9 @@ func TestVanguardStaminaRegen(t *testing.T) {
 }
 
 func TestCombatEndsOnEnemyDeath(t *testing.T) {
-	p1 := entity.NewPlayer(1, "gunner")
+	p1 := entity.NewPlayer(1, entity.ClassGunner)
 	p1.Health = 100.0 // below max
-	p2 := entity.NewPlayer(2, "vanguard")
+	p2 := entity.NewPlayer(2, entity.ClassVanguard)
 	p2.Health = 150.0 // below max (200)
 
 	e := entity.NewEnemy(0, 2000.0, "guard_captain")
@@ -901,7 +901,7 @@ func TestAllBladeDancerSpells(t *testing.T) {
 
 	for _, sp := range spells {
 		t.Run(sp.name, func(t *testing.T) {
-			p := entity.NewPlayer(1, "blade_dancer")
+			p := entity.NewPlayer(1, entity.ClassBladeDancer)
 			p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 			p.RotationY = float32(math.Pi) // face +Z
 			p.AimPitch = 0

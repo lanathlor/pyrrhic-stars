@@ -128,7 +128,7 @@ func (g *gateway) transferPlayer(sess *session.Session, targetZoneID string, tar
 		Send:     sess.Conn.Send,
 	})
 
-	if sess.Class != "" && sess.Class != "gunner" {
+	if sess.Class != "" && sess.Class != entity.ClassGunner {
 		zi.zone.QueueInput(newPeerID, message.OpInteractInput, codec.EncodeInteractInput(message.InteractClassSelect, sess.Class))
 	}
 
@@ -169,7 +169,7 @@ func (g *gateway) handlePlayerRespawnHub(zoneID string, peerID uint16) {
 		return
 	}
 	slog.Info("player respawning to hub", "player_id", sess.ID, "from_zone", zoneID)
-	g.transferPlayer(sess, "hub", zone.ZoneTypeHub)
+	g.transferPlayer(sess, zone.ZoneHub, zone.ZoneTypeHub)
 
 	grp := g.groups.GetGroup(sess.ID)
 	if grp != nil {

@@ -1,0 +1,199 @@
+version: "2"
+
+linters:
+  enable:
+    - depguard
+    - goconst
+    - misspell
+    - revive
+
+  settings:
+    goconst:
+      min-occurrences: 4
+
+    depguard:
+      rules:
+        # --- Leaf packages: no internal imports ---
+        entity-leaf:
+          files:
+            - "**/internal/entity/*.go"
+            - "!$test"
+          deny:
+            - pkg: "codex-online/server/internal"
+              desc: "entity is a leaf package — must not import other internal packages"
+        message-leaf:
+          files:
+            - "**/internal/message/*.go"
+            - "!$test"
+          deny:
+            - pkg: "codex-online/server/internal"
+              desc: "message is a leaf package — must not import other internal packages"
+        group-leaf:
+          files:
+            - "**/internal/group/*.go"
+            - "!$test"
+          deny:
+            - pkg: "codex-online/server/internal"
+              desc: "group is a leaf package — must not import other internal packages"
+        network-leaf:
+          files:
+            - "**/internal/network/*.go"
+            - "!$test"
+          deny:
+            - pkg: "codex-online/server/internal"
+              desc: "network is a leaf package — must not import other internal packages"
+        validation-leaf:
+          files:
+            - "**/internal/validation/*.go"
+            - "!$test"
+          deny:
+            - pkg: "codex-online/server/internal"
+              desc: "validation is a leaf package — must not import other internal packages"
+        telemetry-leaf:
+          files:
+            - "**/internal/telemetry/*.go"
+            - "!$test"
+          deny:
+            - pkg: "codex-online/server/internal"
+              desc: "telemetry is a leaf package — must not import other internal packages"
+        persistence-leaf:
+          files:
+            - "**/internal/persistence/*.go"
+            - "!$test"
+          deny:
+            - pkg: "codex-online/server/internal"
+              desc: "persistence is a leaf package — must not import other internal packages"
+
+        # --- Mid-level: only import leaves ---
+        combat-layer:
+          files:
+            - "**/internal/combat/*.go"
+            - "!$test"
+          deny:
+            - pkg: "codex-online/server/internal/codec"
+              desc: "combat must not import codec"
+            - pkg: "codex-online/server/internal/enemyai"
+              desc: "combat must not import enemyai"
+            - pkg: "codex-online/server/internal/level"
+              desc: "combat must not import level"
+            - pkg: "codex-online/server/internal/system"
+              desc: "combat must not import system"
+            - pkg: "codex-online/server/internal/zone"
+              desc: "combat must not import zone"
+            - pkg: "codex-online/server/internal/session"
+              desc: "combat must not import session"
+        codec-layer:
+          files:
+            - "**/internal/codec/*.go"
+            - "!$test"
+          deny:
+            - pkg: "codex-online/server/internal/combat"
+              desc: "codec must not import combat"
+            - pkg: "codex-online/server/internal/enemyai"
+              desc: "codec must not import enemyai"
+            - pkg: "codex-online/server/internal/level"
+              desc: "codec must not import level"
+            - pkg: "codex-online/server/internal/system"
+              desc: "codec must not import system"
+            - pkg: "codex-online/server/internal/zone"
+              desc: "codec must not import zone"
+            - pkg: "codex-online/server/internal/session"
+              desc: "codec must not import session"
+
+        # --- Higher-level: no upward imports ---
+        enemyai-layer:
+          files:
+            - "**/internal/enemyai/*.go"
+            - "!$test"
+          deny:
+            - pkg: "codex-online/server/internal/system"
+              desc: "enemyai must not import system"
+            - pkg: "codex-online/server/internal/zone"
+              desc: "enemyai must not import zone"
+            - pkg: "codex-online/server/internal/session"
+              desc: "enemyai must not import session"
+        level-layer:
+          files:
+            - "**/internal/level/*.go"
+            - "!$test"
+          deny:
+            - pkg: "codex-online/server/internal/system"
+              desc: "level must not import system"
+            - pkg: "codex-online/server/internal/zone"
+              desc: "level must not import zone"
+            - pkg: "codex-online/server/internal/session"
+              desc: "level must not import session"
+
+        # --- Top-level: prevent cycles ---
+        system-layer:
+          files:
+            - "**/internal/system/*.go"
+            - "!$test"
+          deny:
+            - pkg: "codex-online/server/internal/zone"
+              desc: "system must not import zone"
+            - pkg: "codex-online/server/internal/session"
+              desc: "system must not import session"
+        zone-layer:
+          files:
+            - "**/internal/zone/*.go"
+            - "!$test"
+          deny:
+            - pkg: "codex-online/server/internal/session"
+              desc: "zone must not import session — would create cycle risk"
+
+    revive:
+      enable-all-rules: true
+      rules:
+        # Documentation — not useful for game server internals
+        - name: exported
+          disabled: true
+        - name: package-comments
+          disabled: true
+        - name: unexported-return
+          disabled: true
+        # Metrics — too strict, handled by code review
+        - name: cognitive-complexity
+          disabled: true
+        - name: cyclomatic
+          disabled: true
+        - name: function-length
+          disabled: true
+        - name: function-result-limit
+          disabled: true
+        - name: argument-limit
+          disabled: true
+        - name: max-public-structs
+          disabled: true
+        - name: file-length-limit
+          disabled: true
+        - name: max-control-nesting
+          disabled: true
+        - name: line-length-limit
+          disabled: true
+        # Style — personal preference
+        - name: add-constant
+          disabled: true
+        - name: bare-return
+          disabled: true
+        - name: confusing-results
+          disabled: true
+        - name: enforce-switch-style
+          disabled: true
+        - name: comment-spacings
+          disabled: true
+        # Often needed for interface compliance
+        - name: unused-receiver
+          disabled: true
+        # Blocklists — not configured
+        - name: imports-blocklist
+          disabled: true
+        - name: banned-characters
+          disabled: true
+        # Handled by errcheck
+        - name: unhandled-error
+          disabled: true
+
+issues:
+  max-issues-per-linter: 50
+  max-same-issues: 5

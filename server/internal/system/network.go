@@ -11,7 +11,7 @@ import (
 // to all connected clients. It runs last in the system pipeline.
 type NetworkSystem struct{}
 
-func (s *NetworkSystem) Tick(w *World, dt float32) {
+func (s *NetworkSystem) Tick(w *World, _ float32) {
 	// Broadcast game flow events (produced by GameFlowSystem during this tick)
 	for _, evt := range w.GameFlowEvents {
 		broadcastGameFlow(w, evt.FlowType, evt.Text)

@@ -18,7 +18,7 @@ func benchWorld() *World {
 
 	players := make(map[uint16]*entity.Player, 5)
 	for i := uint16(1); i <= 5; i++ {
-		p := entity.NewPlayer(i, "gunner")
+		p := entity.NewPlayer(i, entity.ClassGunner)
 		p.Position = entity.Vec3{X: float32(i) * 2, Y: 0.1, Z: 5}
 		p.RotationY = 0
 		p.AimPitch = 0
@@ -130,7 +130,7 @@ func BenchmarkInputSystemTick(b *testing.B) {
 	sys := InputSystem{}
 	// 5 movement inputs
 	inputs := make([]InputMsg, 5)
-	var senderBuffer []byte = make([]byte, 0, 1024)
+	var senderBuffer = make([]byte, 0, 1024)
 
 	for i := uint16(1); i <= 5; i++ {
 		inputs[i-1] = InputMsg{
@@ -173,7 +173,7 @@ func BenchmarkHandleAbilityInput(b *testing.B) {
 
 func BenchmarkHandleInteractInput(b *testing.B) {
 	w := benchWorld()
-	payload := codec.EncodeInteractInput(message.InteractClassSelect, "vanguard")
+	payload := codec.EncodeInteractInput(message.InteractClassSelect, entity.ClassVanguard)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -364,7 +364,7 @@ func benchArenaInstance(instanceID uint16) *World {
 	players := make(map[uint16]*entity.Player, 5)
 	for i := uint16(0); i < 5; i++ {
 		peerID := instanceID*10 + i + 1
-		p := entity.NewPlayer(peerID, "gunner")
+		p := entity.NewPlayer(peerID, entity.ClassGunner)
 		p.Position = entity.Vec3{X: float32(i) * 2, Y: 0.1, Z: 5}
 		p.RotationY = 0
 		p.AimPitch = 0
@@ -593,11 +593,10 @@ func BenchmarkMultiInstance50Parallel(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var wg sync.WaitGroup
 		for j := range instances {
-			wg.Add(1)
-			go func(w *World, inputs []InputMsg) {
+			w, inputs := instances[j], allInputs[j]
+			wg.Go(func() {
 				tickInstance(w, inputs)
-				wg.Done()
-			}(instances[j], allInputs[j])
+			})
 		}
 		wg.Wait()
 	}
@@ -618,11 +617,10 @@ func BenchmarkMultiInstance100Parallel(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var wg sync.WaitGroup
 		for j := range instances {
-			wg.Add(1)
-			go func(w *World, inputs []InputMsg) {
+			w, inputs := instances[j], allInputs[j]
+			wg.Go(func() {
 				tickInstance(w, inputs)
-				wg.Done()
-			}(instances[j], allInputs[j])
+			})
 		}
 		wg.Wait()
 	}
@@ -653,7 +651,7 @@ func BenchmarkBrainTickChase(b *testing.B) {
 	brain.BoundsMinZ = -15
 	brain.BoundsMaxZ = 50
 
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 5, Y: 0.1, Z: 5}
 	players := map[uint16]*entity.Player{1: p}
 	obs := level.NewArenaLevel().Obstacles
@@ -664,7 +662,7 @@ func BenchmarkBrainTickChase(b *testing.B) {
 		e.State = entity.EnemyChase
 		e.ChaseTimer = 0
 		e.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
-		brain.Tick(0.05, players, obs, func(pos, dir entity.Vec3, speed, damage, lifetime float32) {})
+		brain.Tick(0.05, players, obs, func(_, _ entity.Vec3, _, _, _ float32) {})
 	}
 }
 
@@ -677,7 +675,7 @@ func BenchmarkBrainTickMeleeAttack(b *testing.B) {
 	brain.BoundsMinZ = -15
 	brain.BoundsMaxZ = 50
 
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: -2}
 	players := map[uint16]*entity.Player{1: p}
 	obs := level.NewArenaLevel().Obstacles
@@ -708,7 +706,7 @@ func BenchmarkBrainTickMeleeAttackMiss(b *testing.B) {
 	brain.BoundsMinZ = -15
 	brain.BoundsMaxZ = 50
 
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: -50} // far away — miss
 	players := map[uint16]*entity.Player{1: p}
 	obs := level.NewArenaLevel().Obstacles

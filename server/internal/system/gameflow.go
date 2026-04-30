@@ -44,7 +44,7 @@ func tickLobby(w *World) {
 		return
 	}
 
-	spawnPlayers(w)
+	SpawnPlayers(w)
 	w.State = StateSpawned
 	slog.Info("all players ready, spawning", "zone_id", w.ZoneID, "players", len(w.Players))
 	w.GameFlowEvents = append(w.GameFlowEvents, GameFlowEvent{
@@ -233,10 +233,6 @@ func returnToLobby(w *World) {
 
 // SpawnPlayers initializes all players at spawn points.
 func SpawnPlayers(w *World) {
-	spawnPlayers(w)
-}
-
-func spawnPlayers(w *World) {
 	idx := 0
 	for _, p := range w.Players {
 		spawnPos := w.Level.PlayerSpawns[idx%len(w.Level.PlayerSpawns)]

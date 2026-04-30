@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"codex-online/server/internal/entity"
+
 	"github.com/google/uuid"
 )
 
@@ -15,7 +17,7 @@ func TestHubPersistence_PositionSavedOnDisconnect(t *testing.T) {
 	// Session 1: create character, walk, disconnect.
 	c1 := DialWithUUID(t, addr, playerUUID, "PersistTest")
 	c1.WaitCharacterList(5 * time.Second)
-	cs1 := c1.CreateCharacter("gunner", charName)
+	cs1 := c1.CreateCharacter(entity.ClassGunner, charName)
 	charID := cs1.CharID
 
 	var me *PlayerState

@@ -94,11 +94,10 @@ func (m *Manager) InvitePlayer(inviterID, inviteeID uint32) (*PendingInvite, err
 	}
 	// Clean expired invite
 	if existing, ok := m.invites[inviteeID]; ok {
-		if time.Now().After(existing.ExpiresAt) {
-			delete(m.invites, inviteeID)
-		} else {
+		if !time.Now().After(existing.ExpiresAt) {
 			return nil, ErrInvitePending
 		}
+		delete(m.invites, inviteeID)
 	}
 	invite := &PendingInvite{
 		GroupID:   groupID,

@@ -3,7 +3,9 @@ package session
 import (
 	"sync"
 
+	"codex-online/server/internal/entity"
 	"codex-online/server/internal/network"
+	"codex-online/server/internal/zone"
 )
 
 // Registry manages active player sessions with thread-safe access.
@@ -32,7 +34,7 @@ func (r *Registry) Register(client *network.Client) *Session {
 	sess := &Session{
 		ID:    id,
 		Conn:  client,
-		Class: "gunner",
+		Class: entity.ClassGunner,
 	}
 	r.sessions[id] = sess
 	r.connMap[client] = id
@@ -91,7 +93,7 @@ func (r *Registry) HubFlushTargets() []HubFlushTarget {
 	defer r.mu.Unlock()
 	var targets []HubFlushTarget
 	for _, sess := range r.sessions {
-		if sess.PlayerUUID != "" && sess.ZoneID == "hub" && sess.CharID != 0 {
+		if sess.PlayerUUID != "" && sess.ZoneID == zone.ZoneHub && sess.CharID != 0 {
 			targets = append(targets, HubFlushTarget{
 				PlayerUUID: sess.PlayerUUID,
 				CharID:     sess.CharID,

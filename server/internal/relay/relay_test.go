@@ -87,11 +87,15 @@ func TestJoinZoneNotifiesPeers(t *testing.T) {
 	c1 := mockClient()
 	c2 := mockClient()
 
-	r.JoinZone(ctx, c1, "arena")
+	if _, _, err := r.JoinZone(ctx, c1, "arena"); err != nil {
+		t.Fatalf("JoinZone c1: %v", err)
+	}
 	// Drain any messages c1 got (none expected since it's first).
 	drainMessages(c1, 10*time.Millisecond)
 
-	r.JoinZone(ctx, c2, "arena")
+	if _, _, err := r.JoinZone(ctx, c2, "arena"); err != nil {
+		t.Fatalf("JoinZone c2: %v", err)
+	}
 
 	// c1 should get PeerConnected(2).
 	msgs := drainMessages(c1, 50*time.Millisecond)
@@ -124,8 +128,12 @@ func TestRemoveClientBroadcastsDisconnect(t *testing.T) {
 	c1 := mockClient()
 	c2 := mockClient()
 
-	r.JoinZone(ctx, c1, "arena")
-	r.JoinZone(ctx, c2, "arena")
+	if _, _, err := r.JoinZone(ctx, c1, "arena"); err != nil {
+		t.Fatalf("JoinZone c1: %v", err)
+	}
+	if _, _, err := r.JoinZone(ctx, c2, "arena"); err != nil {
+		t.Fatalf("JoinZone c2: %v", err)
+	}
 	drainMessages(c1, 10*time.Millisecond)
 	drainMessages(c2, 10*time.Millisecond)
 
@@ -149,7 +157,9 @@ func TestRemoveClientCleansUpEmptyZone(t *testing.T) {
 	r := New()
 	c := mockClient()
 
-	r.JoinZone(ctx, c, "temp-zone")
+	if _, _, err := r.JoinZone(ctx, c, "temp-zone"); err != nil {
+		t.Fatalf("JoinZone: %v", err)
+	}
 	r.RemoveClient(ctx, c)
 
 	r.mu.RLock()
@@ -166,16 +176,24 @@ func TestHandleMessageBroadcastExcludeSender(t *testing.T) {
 	c2 := mockClient()
 	c3 := mockClient()
 
-	r.JoinZone(ctx, c1, "arena")
-	r.JoinZone(ctx, c2, "arena")
-	r.JoinZone(ctx, c3, "arena")
+	if _, _, err := r.JoinZone(ctx, c1, "arena"); err != nil {
+		t.Fatalf("JoinZone c1: %v", err)
+	}
+	if _, _, err := r.JoinZone(ctx, c2, "arena"); err != nil {
+		t.Fatalf("JoinZone c2: %v", err)
+	}
+	if _, _, err := r.JoinZone(ctx, c3, "arena"); err != nil {
+		t.Fatalf("JoinZone c3: %v", err)
+	}
 	drainMessages(c1, 10*time.Millisecond)
 	drainMessages(c2, 10*time.Millisecond)
 	drainMessages(c3, 10*time.Millisecond)
 
 	// PlayerSync should exclude sender.
 	syncMsg := message.Encode(message.OpPlayerSync, 1, []byte("pos-data"))
-	r.HandleMessage(ctx, c1, syncMsg)
+	if err := r.HandleMessage(ctx, c1, syncMsg); err != nil {
+		t.Fatalf("HandleMessage: %v", err)
+	}
 
 	// c1 should NOT receive it.
 	msgs1 := drainMessages(c1, 50*time.Millisecond)
@@ -205,14 +223,20 @@ func TestHandleMessageBroadcastIncludeSender(t *testing.T) {
 	c1 := mockClient()
 	c2 := mockClient()
 
-	r.JoinZone(ctx, c1, "arena")
-	r.JoinZone(ctx, c2, "arena")
+	if _, _, err := r.JoinZone(ctx, c1, "arena"); err != nil {
+		t.Fatalf("JoinZone c1: %v", err)
+	}
+	if _, _, err := r.JoinZone(ctx, c2, "arena"); err != nil {
+		t.Fatalf("JoinZone c2: %v", err)
+	}
 	drainMessages(c1, 10*time.Millisecond)
 	drainMessages(c2, 10*time.Millisecond)
 
 	// Damage should include sender (call_local emulation).
 	dmgMsg := message.Encode(message.OpDamage, 1, []byte("dmg-data"))
-	r.HandleMessage(ctx, c1, dmgMsg)
+	if err := r.HandleMessage(ctx, c1, dmgMsg); err != nil {
+		t.Fatalf("HandleMessage: %v", err)
+	}
 
 	msgs1 := drainMessages(c1, 50*time.Millisecond)
 	msgs2 := drainMessages(c2, 50*time.Millisecond)
@@ -262,8 +286,12 @@ func TestSeparateZonesAreIsolated(t *testing.T) {
 	c1 := mockClient()
 	c2 := mockClient()
 
-	r.JoinZone(ctx, c1, "zone-a")
-	r.JoinZone(ctx, c2, "zone-b")
+	if _, _, err := r.JoinZone(ctx, c1, "zone-a"); err != nil {
+		t.Fatalf("JoinZone c1: %v", err)
+	}
+	if _, _, err := r.JoinZone(ctx, c2, "zone-b"); err != nil {
+		t.Fatalf("JoinZone c2: %v", err)
+	}
 	drainMessages(c1, 10*time.Millisecond)
 	drainMessages(c2, 10*time.Millisecond)
 
@@ -274,7 +302,9 @@ func TestSeparateZonesAreIsolated(t *testing.T) {
 
 	// Message from zone-a should not reach zone-b.
 	syncMsg := message.Encode(message.OpPlayerSync, 1, []byte("data"))
-	r.HandleMessage(ctx, c1, syncMsg)
+	if err := r.HandleMessage(ctx, c1, syncMsg); err != nil {
+		t.Fatalf("HandleMessage: %v", err)
+	}
 
 	msgs := drainMessages(c2, 50*time.Millisecond)
 	if len(msgs) != 0 {

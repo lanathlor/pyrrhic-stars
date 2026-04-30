@@ -15,7 +15,7 @@ import (
 func TestVanguardDodge_StaminaDrains_InHub(t *testing.T) {
 	addr := skipIfNoGateway(t)
 	charName := "Dodge_" + uuid.New().String()[:8]
-	c := connectAndCreate(t, addr, "DodgeTest", "vanguard", charName)
+	c := connectAndCreate(t, addr, "DodgeTest", entity.ClassVanguard, charName)
 
 	// Wait until we appear in the WorldState with full stamina.
 	var me *PlayerState

@@ -172,12 +172,10 @@ func (e *Enemy) ChangeState(s EnemyState) {
 		e.StateTimer = 0.3
 	case EnemyRangedTelegraph:
 		e.StateTimer = e.getRangedTelegraphTime()
-	case EnemyRangedAttack:
+	case EnemyRangedAttack, EnemyAoESlam:
 		e.StateTimer = 0.1
 	case EnemyAoETelegraph:
 		e.StateTimer = e.getAoETelegraphTime()
-	case EnemyAoESlam:
-		e.StateTimer = 0.1
 	case EnemyChargeTelegraph:
 		e.StateTimer = e.getChargeTelegraphTime()
 		e.ChargeDirection = Vec3{}

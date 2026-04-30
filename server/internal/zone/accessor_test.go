@@ -108,7 +108,7 @@ func TestSetPlayerPosition(t *testing.T) {
 	}
 }
 
-func TestSetPlayerPositionNonexistent(t *testing.T) {
+func TestSetPlayerPositionNonexistent(_ *testing.T) {
 	z := New("test_hub", ZoneTypeHub, minimalLevel())
 	// Should not panic for missing player
 	z.SetPlayerPosition(99, entity.Vec3{}, 0)

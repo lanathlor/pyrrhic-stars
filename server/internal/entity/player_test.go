@@ -8,7 +8,7 @@ import (
 // --- NewPlayer ---
 
 func TestNewPlayerGunner(t *testing.T) {
-	p := NewPlayer(1, "gunner")
+	p := NewPlayer(1, ClassGunner)
 	if p.MaxHealth != 150 {
 		t.Errorf("gunner max health = %f, want 150", p.MaxHealth)
 	}
@@ -21,7 +21,7 @@ func TestNewPlayerGunner(t *testing.T) {
 }
 
 func TestNewPlayerVanguard(t *testing.T) {
-	p := NewPlayer(1, "vanguard")
+	p := NewPlayer(1, ClassVanguard)
 	if p.MaxHealth != 200 {
 		t.Errorf("vanguard max health = %f, want 200", p.MaxHealth)
 	}
@@ -31,7 +31,7 @@ func TestNewPlayerVanguard(t *testing.T) {
 }
 
 func TestNewPlayerBladeDancer(t *testing.T) {
-	p := NewPlayer(1, "blade_dancer")
+	p := NewPlayer(1, ClassBladeDancer)
 	if p.MaxHealth != 150 {
 		t.Errorf("blade_dancer max health = %f, want 150", p.MaxHealth)
 	}
@@ -47,7 +47,7 @@ func TestNewPlayerUnknownClass(t *testing.T) {
 // --- ApplyDamage ---
 
 func TestApplyDamageBasic(t *testing.T) {
-	p := NewPlayer(1, "gunner")
+	p := NewPlayer(1, ClassGunner)
 	dealt := p.ApplyDamage(50)
 	if dealt != 50 {
 		t.Errorf("dealt = %f, want 50", dealt)
@@ -58,7 +58,7 @@ func TestApplyDamageBasic(t *testing.T) {
 }
 
 func TestApplyDamageKills(t *testing.T) {
-	p := NewPlayer(1, "gunner")
+	p := NewPlayer(1, ClassGunner)
 	dealt := p.ApplyDamage(200)
 	if dealt != 200 {
 		t.Errorf("dealt = %f, want 200", dealt)
@@ -75,7 +75,7 @@ func TestApplyDamageKills(t *testing.T) {
 }
 
 func TestApplyDamageToDeadPlayer(t *testing.T) {
-	p := NewPlayer(1, "gunner")
+	p := NewPlayer(1, ClassGunner)
 	p.Alive = false
 	p.State = PlayerStateDead
 	dealt := p.ApplyDamage(50)
@@ -85,7 +85,7 @@ func TestApplyDamageToDeadPlayer(t *testing.T) {
 }
 
 func TestApplyDamageInvincible(t *testing.T) {
-	p := NewPlayer(1, "gunner")
+	p := NewPlayer(1, ClassGunner)
 	p.Invincible = true
 	dealt := p.ApplyDamage(100)
 	if dealt != 0 {
@@ -97,7 +97,7 @@ func TestApplyDamageInvincible(t *testing.T) {
 }
 
 func TestApplyDamageVanguardParry(t *testing.T) {
-	p := NewPlayer(1, "vanguard")
+	p := NewPlayer(1, ClassVanguard)
 	p.IsBlocking = true
 	p.ParryTimer = 0.2 // active parry window
 	dealt := p.ApplyDamage(100)
@@ -110,7 +110,7 @@ func TestApplyDamageVanguardParry(t *testing.T) {
 }
 
 func TestApplyDamageVanguardBlock(t *testing.T) {
-	p := NewPlayer(1, "vanguard")
+	p := NewPlayer(1, ClassVanguard)
 	p.IsBlocking = true
 	p.ParryTimer = 0 // not in parry window
 	dealt := p.ApplyDamage(100)
@@ -124,7 +124,7 @@ func TestApplyDamageVanguardBlock(t *testing.T) {
 }
 
 func TestApplyDamageVanguardBladeSwirl(t *testing.T) {
-	p := NewPlayer(1, "vanguard")
+	p := NewPlayer(1, ClassVanguard)
 	p.BladeSwirl = true
 	dealt := p.ApplyDamage(100)
 	expected := float32(80.0) // 100 * 0.8
@@ -134,7 +134,7 @@ func TestApplyDamageVanguardBladeSwirl(t *testing.T) {
 }
 
 func TestApplyDamageBladeDancerGuard(t *testing.T) {
-	p := NewPlayer(1, "blade_dancer")
+	p := NewPlayer(1, ClassBladeDancer)
 	p.GuardActive = true
 	dealt := p.ApplyDamage(100)
 	expected := float32(50.0) // 100 * 0.5
@@ -144,7 +144,7 @@ func TestApplyDamageBladeDancerGuard(t *testing.T) {
 }
 
 func TestApplyDamageBladeDancerDR(t *testing.T) {
-	p := NewPlayer(1, "blade_dancer")
+	p := NewPlayer(1, ClassBladeDancer)
 	p.BDDRFactor = 0.7 // 30% damage reduction
 	p.BDDRTimer = 3.0
 	dealt := p.ApplyDamage(100)
@@ -155,7 +155,7 @@ func TestApplyDamageBladeDancerDR(t *testing.T) {
 }
 
 func TestApplyDamageBladeDancerShieldAbsorb(t *testing.T) {
-	p := NewPlayer(1, "blade_dancer")
+	p := NewPlayer(1, ClassBladeDancer)
 	p.BDShieldHP = 20.0
 	dealt := p.ApplyDamage(50)
 	// ApplyDamage returns the amount parameter after modifications, shield absorbs 20, 30 goes to HP
@@ -179,7 +179,7 @@ func TestApplyDamageBladeDancerShieldAbsorb(t *testing.T) {
 }
 
 func TestApplyDamageBladeDancerShieldFullAbsorb(t *testing.T) {
-	p := NewPlayer(1, "blade_dancer")
+	p := NewPlayer(1, ClassBladeDancer)
 	p.BDShieldHP = 25.0
 	dealt := p.ApplyDamage(20)
 	if dealt != 20 {
@@ -194,7 +194,7 @@ func TestApplyDamageBladeDancerShieldFullAbsorb(t *testing.T) {
 }
 
 func TestApplyDamageVanguardBlockPlusSwirl(t *testing.T) {
-	p := NewPlayer(1, "vanguard")
+	p := NewPlayer(1, ClassVanguard)
 	p.IsBlocking = true
 	p.BladeSwirl = true
 	// Both block (0.3) and swirl (0.8) stack multiplicatively
@@ -208,7 +208,7 @@ func TestApplyDamageVanguardBlockPlusSwirl(t *testing.T) {
 // --- Forward / AimDirection ---
 
 func TestForwardAtZeroYaw(t *testing.T) {
-	p := NewPlayer(1, "gunner")
+	p := NewPlayer(1, ClassGunner)
 	p.RotationY = 0
 	f := p.Forward()
 	// At rotY=0, forward = (0, 0, -1)
@@ -218,7 +218,7 @@ func TestForwardAtZeroYaw(t *testing.T) {
 }
 
 func TestAimDirectionFlat(t *testing.T) {
-	p := NewPlayer(1, "gunner")
+	p := NewPlayer(1, ClassGunner)
 	p.RotationY = 0
 	p.AimPitch = 0
 	d := p.AimDirection()
@@ -228,7 +228,7 @@ func TestAimDirectionFlat(t *testing.T) {
 }
 
 func TestAimDirectionWithPitch(t *testing.T) {
-	p := NewPlayer(1, "gunner")
+	p := NewPlayer(1, ClassGunner)
 	p.RotationY = 0
 	p.AimPitch = float32(math.Pi / 4) // 45° up
 	d := p.AimDirection()
@@ -240,7 +240,7 @@ func TestAimDirectionWithPitch(t *testing.T) {
 // --- EyePosition ---
 
 func TestEyePosition(t *testing.T) {
-	p := NewPlayer(1, "gunner")
+	p := NewPlayer(1, ClassGunner)
 	p.Position = Vec3{X: 1, Y: 0, Z: 2}
 	eye := p.EyePosition()
 	if eye.Y != 1.6 {
@@ -254,7 +254,7 @@ func TestEyePosition(t *testing.T) {
 // --- stats() ---
 
 func TestStatsGunner(t *testing.T) {
-	p := NewPlayer(1, "gunner")
+	p := NewPlayer(1, ClassGunner)
 	s := p.stats()
 	if s.WalkSpeed != 5.5 {
 		t.Errorf("gunner walk speed = %f, want 5.5", s.WalkSpeed)
@@ -262,7 +262,7 @@ func TestStatsGunner(t *testing.T) {
 }
 
 func TestStatsVanguard(t *testing.T) {
-	p := NewPlayer(1, "vanguard")
+	p := NewPlayer(1, ClassVanguard)
 	s := p.stats()
 	if s.WalkSpeed != 5.0 {
 		t.Errorf("vanguard walk speed = %f, want 5.0", s.WalkSpeed)
@@ -270,7 +270,7 @@ func TestStatsVanguard(t *testing.T) {
 }
 
 func TestStatsBladeDancer(t *testing.T) {
-	p := NewPlayer(1, "blade_dancer")
+	p := NewPlayer(1, ClassBladeDancer)
 	s := p.stats()
 	if s.WalkSpeed != 6.0 {
 		t.Errorf("blade_dancer walk speed = %f, want 6.0", s.WalkSpeed)
@@ -280,7 +280,7 @@ func TestStatsBladeDancer(t *testing.T) {
 func TestStatsUnknownFallsBackToGunner(t *testing.T) {
 	p := NewPlayer(1, "unknown")
 	s := p.stats()
-	gunner := classStatsTable["gunner"]
+	gunner := classStatsTable[ClassGunner]
 	if s != gunner {
 		t.Errorf("unknown class stats = %+v, want gunner defaults", s)
 	}

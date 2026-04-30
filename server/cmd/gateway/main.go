@@ -54,7 +54,7 @@ func main() {
 	gw := newGateway(ctr)
 
 	// Create persistent hub zone at startup.
-	gw.getOrCreateZone("hub", zone.ZoneTypeHub)
+	gw.getOrCreateZone(zone.ZoneHub, zone.ZoneTypeHub)
 
 	// Start periodic position flush (every 30s).
 	flushCtx, flushCancel := context.WithCancel(ctx)
@@ -84,7 +84,7 @@ func main() {
 		slog.Info("shutting down...")
 		shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		srv.Shutdown(shutCtx)
+		_ = srv.Shutdown(shutCtx)
 	}()
 
 	slog.Info("gateway listening", "addr", addr)
@@ -155,7 +155,7 @@ func handleConnection(gw *gateway, w http.ResponseWriter, req *http.Request) {
 	client.Send(encodeCharacterListMsg(username, allChars))
 	defer func() {
 		// Save character position before cleanup (hub only).
-		if sess.PlayerUUID != "" && sess.Class != "" && sess.ZoneID == "hub" {
+		if sess.PlayerUUID != "" && sess.Class != "" && sess.ZoneID == zone.ZoneHub {
 			gw.savePlayerPosition(sess)
 		}
 		// Remove from group.
@@ -176,7 +176,7 @@ func handleConnection(gw *gateway, w http.ResponseWriter, req *http.Request) {
 		}
 		gw.sessions.Remove(client)
 		client.Close()
-		conn.CloseNow()
+		_ = conn.CloseNow()
 		connSpan.End()
 	}()
 

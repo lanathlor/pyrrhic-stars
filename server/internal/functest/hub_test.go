@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"codex-online/server/internal/entity"
+
 	"github.com/google/uuid"
 )
 
@@ -50,7 +52,7 @@ func assertNear(t *testing.T, got, want, tolerance float32, label string) {
 func TestHubSpawn_Position(t *testing.T) {
 	addr := skipIfNoGateway(t)
 	name := "Spawn_" + uuid.New().String()[:8]
-	c := connectAndCreate(t, addr, "SpawnTest", "gunner", name)
+	c := connectAndCreate(t, addr, "SpawnTest", entity.ClassGunner, name)
 
 	var me *PlayerState
 	deadline := time.Now().Add(5 * time.Second)
@@ -77,7 +79,7 @@ func TestHubSpawn_Position(t *testing.T) {
 func TestHubSpawn_FacingDirection(t *testing.T) {
 	addr := skipIfNoGateway(t)
 	name := "Yaw_" + uuid.New().String()[:8]
-	c := connectAndCreate(t, addr, "YawTest", "gunner", name)
+	c := connectAndCreate(t, addr, "YawTest", entity.ClassGunner, name)
 
 	var me *PlayerState
 	deadline := time.Now().Add(5 * time.Second)
@@ -96,7 +98,7 @@ func TestHubSpawn_FacingDirection(t *testing.T) {
 func TestHubSpawn_NPCsPresent(t *testing.T) {
 	addr := skipIfNoGateway(t)
 	name := "NPC_" + uuid.New().String()[:8]
-	c := connectAndCreate(t, addr, "NPCTest", "gunner", name)
+	c := connectAndCreate(t, addr, "NPCTest", entity.ClassGunner, name)
 
 	var ws *WorldState
 	deadline := time.Now().Add(5 * time.Second)
@@ -115,7 +117,7 @@ func TestHubSpawn_NPCsPresent(t *testing.T) {
 func TestHubSpawn_CharacterNameOverhead(t *testing.T) {
 	addr := skipIfNoGateway(t)
 	charName := "Hero_" + uuid.New().String()[:8]
-	c := connectAndCreate(t, addr, "NameTest", "gunner", charName)
+	c := connectAndCreate(t, addr, "NameTest", entity.ClassGunner, charName)
 
 	var me *PlayerState
 	deadline := time.Now().Add(5 * time.Second)
@@ -145,13 +147,13 @@ func TestCreateCharacter_Success(t *testing.T) {
 	cl := c.WaitCharacterList(5 * time.Second)
 	t.Logf("initial: %d chars, username=%q", len(cl.Characters), cl.Username)
 
-	cs := c.CreateCharacter("gunner", charName)
+	cs := c.CreateCharacter(entity.ClassGunner, charName)
 	t.Logf("created: id=%d class=%s name=%s", cs.CharID, cs.ClassName, cs.Name)
 
 	if cs.CharID == 0 {
 		t.Error("CharID should be > 0")
 	}
-	if cs.ClassName != "gunner" {
+	if cs.ClassName != entity.ClassGunner {
 		t.Errorf("class = %q, want gunner", cs.ClassName)
 	}
 	if cs.Name != charName {
@@ -164,13 +166,13 @@ func TestCreateCharacter_DuplicateName(t *testing.T) {
 	charName := "Dup_" + uuid.New().String()[:8]
 
 	// Player 1 creates the character.
-	c1 := connectAndCreate(t, addr, "Dup1", "gunner", charName)
+	c1 := connectAndCreate(t, addr, "Dup1", entity.ClassGunner, charName)
 	_ = c1
 
 	// Player 2 tries the same name.
 	c2 := Dial(t, addr, "Dup2")
 	c2.WaitCharacterList(5 * time.Second)
-	c2.SendCreateCharacter("vanguard", charName)
+	c2.SendCreateCharacter(entity.ClassVanguard, charName)
 
 	err := c2.WaitCharacterError(5 * time.Second)
 	t.Logf("error: code=%d msg=%q", err.Code, err.Message)
@@ -187,7 +189,7 @@ func TestCreateCharacter_InvalidName(t *testing.T) {
 	c.WaitCharacterList(5 * time.Second)
 
 	// Too short.
-	c.SendCreateCharacter("gunner", "A")
+	c.SendCreateCharacter(entity.ClassGunner, "A")
 	err := c.WaitCharacterError(5 * time.Second)
 	if err.Code != 3 {
 		t.Errorf("too-short: code=%d, want 3", err.Code)
@@ -203,7 +205,7 @@ func TestCreateCharacter_MultiplePerClass(t *testing.T) {
 		name := "Gun_" + uuid.New().String()[:8]
 		c := DialWithUUID(t, addr, playerUUID, "MultiClass")
 		c.WaitCharacterList(5 * time.Second)
-		cs := c.CreateCharacter("gunner", name)
+		cs := c.CreateCharacter(entity.ClassGunner, name)
 		t.Logf("created gunner #%d: id=%d name=%s", i+1, cs.CharID, cs.Name)
 		c.Close()
 		time.Sleep(200 * time.Millisecond)
@@ -216,7 +218,7 @@ func TestCreateCharacter_MultiplePerClass(t *testing.T) {
 
 	gunnerCount := 0
 	for _, ch := range cl.Characters {
-		if ch.ClassName == "gunner" {
+		if ch.ClassName == entity.ClassGunner {
 			gunnerCount++
 		}
 	}
@@ -237,7 +239,7 @@ func TestSelectCharacter_ByID(t *testing.T) {
 	// Session 1: create character.
 	c1 := DialWithUUID(t, addr, playerUUID, "SelTest")
 	c1.WaitCharacterList(5 * time.Second)
-	cs1 := c1.CreateCharacter("vanguard", charName)
+	cs1 := c1.CreateCharacter(entity.ClassVanguard, charName)
 	t.Logf("created: id=%d", cs1.CharID)
 	c1.Close()
 	time.Sleep(200 * time.Millisecond)
@@ -262,7 +264,7 @@ func TestSelectCharacter_ByID(t *testing.T) {
 	if cs2.CharID != charID {
 		t.Errorf("charID = %d, want %d", cs2.CharID, charID)
 	}
-	if cs2.ClassName != "vanguard" {
+	if cs2.ClassName != entity.ClassVanguard {
 		t.Errorf("class = %q, want vanguard", cs2.ClassName)
 	}
 	if cs2.Name != charName {

@@ -27,11 +27,11 @@ func ResolvePlayerAttackOnEnemy(player *entity.Player, enemy *entity.Enemy, obst
 	}
 
 	switch player.ClassName {
-	case "gunner":
+	case entity.ClassGunner:
 		return resolveGunnerShot(player, enemy, obstacles)
-	case "vanguard":
+	case entity.ClassVanguard:
 		return resolveVanguardMelee(player, enemy, obstacles)
-	case "blade_dancer":
+	case entity.ClassBladeDancer:
 		return resolveBladeDancerAttack(player, enemy, obstacles)
 	}
 	return nil
@@ -244,8 +244,6 @@ func resolveVanguardMelee(player *entity.Player, enemy *entity.Enemy, obstacles 
 	// Damage depends on combo step
 	var damage float32
 	switch player.ComboStep {
-	case 0:
-		damage = 30.0
 	case 1:
 		damage = 35.0
 	case 2:

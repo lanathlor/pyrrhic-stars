@@ -81,7 +81,7 @@ func testBrain(def *EnemyDef) (*Brain, *entity.Enemy) {
 }
 
 func testPlayer(id uint16, pos entity.Vec3) *entity.Player {
-	p := entity.NewPlayer(id, "gunner")
+	p := entity.NewPlayer(id, entity.ClassGunner)
 	p.Position = pos
 	return p
 }
@@ -400,7 +400,7 @@ func TestTickRangedAttackSpawnsProjectile(t *testing.T) {
 	e.RangedTargetPos = entity.Vec3{X: 10, Y: 1.5, Z: 0}
 
 	spawned := 0
-	spawnFn := func(pos, dir entity.Vec3, speed, damage, lifetime float32) {
+	spawnFn := func(_, _ entity.Vec3, speed, damage, _ float32) {
 		spawned++
 		if speed != 20.0 {
 			t.Errorf("projectile speed = %f, want 20.0", speed)

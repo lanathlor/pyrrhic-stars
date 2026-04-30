@@ -41,7 +41,7 @@ func startGateway(t *testing.T) *testGateway {
 		defer func() {
 			r.RemoveClient(req.Context(), client)
 			client.Close()
-			conn.CloseNow()
+			_ = conn.CloseNow()
 		}()
 
 		for {
@@ -59,7 +59,7 @@ func startGateway(t *testing.T) *testGateway {
 	}
 
 	srv := &http.Server{Handler: mux}
-	go srv.Serve(ln)
+	go func() { _ = srv.Serve(ln) }()
 
 	gw := &testGateway{
 		Relay: r,
@@ -71,7 +71,7 @@ func startGateway(t *testing.T) *testGateway {
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		srv.Shutdown(ctx)
+		_ = srv.Shutdown(ctx)
 	})
 
 	return gw

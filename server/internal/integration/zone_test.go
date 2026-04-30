@@ -44,7 +44,7 @@ func startZoneGateway(t *testing.T) *testZoneGateway {
 		if err != nil {
 			return
 		}
-		defer conn.CloseNow()
+		defer func() { _ = conn.CloseNow() }()
 
 		// Buffered send channel
 		sendCh := make(chan []byte, 256)
@@ -58,7 +58,7 @@ func startZoneGateway(t *testing.T) *testZoneGateway {
 					if !ok {
 						return
 					}
-					conn.Write(ctx, websocket.MessageBinary, msg)
+					_ = conn.Write(ctx, websocket.MessageBinary, msg)
 				case <-ctx.Done():
 					return
 				}
@@ -171,7 +171,7 @@ func startZoneGateway(t *testing.T) *testZoneGateway {
 	}
 
 	srv := &http.Server{Handler: mux}
-	go srv.Serve(ln)
+	go func() { _ = srv.Serve(ln) }()
 
 	gw.URL = "ws://" + ln.Addr().String() + "/ws"
 	gw.srv = srv
@@ -179,7 +179,7 @@ func startZoneGateway(t *testing.T) *testZoneGateway {
 	t.Cleanup(func() {
 		shutCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		srv.Shutdown(shutCtx)
+		_ = srv.Shutdown(shutCtx)
 	})
 
 	return gw

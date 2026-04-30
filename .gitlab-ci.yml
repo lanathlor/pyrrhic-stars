@@ -7,6 +7,13 @@ variables:
 
 # --- Test Stage ---
 
+lint-server:
+  stage: test
+  image: golangci/golangci-lint:v2-alpine
+  script:
+    - cd server
+    - golangci-lint run ./...
+
 test-server:
   stage: test
   image: golang:1.25-alpine

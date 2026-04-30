@@ -59,7 +59,7 @@ func connect(t *testing.T, gatewayURL string) *TestClient {
 	go tc.readLoop()
 
 	t.Cleanup(func() {
-		conn.Close(websocket.StatusNormalClosure, "test done")
+		_ = conn.Close(websocket.StatusNormalClosure, "test done")
 		cancel()
 	})
 
@@ -248,7 +248,7 @@ func (tc *TestClient) SendAbilityInput(action uint8, aimPitch float32) {
 	tc.send(message.Encode(message.OpAbilityInput, 0, codec.EncodeAbilityInput(action, aimPitch)))
 }
 
-var senderBuffer []byte = make([]byte, 0, 1024)
+var senderBuffer = make([]byte, 0, 1024)
 
 // SendPlayerInput sends an OpPlayerInput (position + rotation + tick + anim + aim_pitch).
 
@@ -362,6 +362,6 @@ func parsePlayerStateFromWorldState(payload []byte, wantPeer uint16) int {
 
 // Disconnect gracefully closes the WebSocket connection.
 func (tc *TestClient) Disconnect() {
-	tc.conn.Close(websocket.StatusNormalClosure, "disconnect")
+	_ = tc.conn.Close(websocket.StatusNormalClosure, "disconnect")
 	tc.cancel()
 }

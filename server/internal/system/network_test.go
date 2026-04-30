@@ -55,7 +55,7 @@ func newMockClient(peerID uint16) (*Client, *sentMessages) {
 // ---------------------------------------------------------------------------
 
 func TestNetworkSystem_Hub_BroadcastsWorldState(t *testing.T) {
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 5, Y: 0.1, Z: 10}
 
 	c1, sent1 := newMockClient(1)
@@ -95,7 +95,7 @@ func TestNetworkSystem_Hub_BroadcastsWorldState(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestNetworkSystem_ArenaLobby_BroadcastsLobbyState(t *testing.T) {
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Ready = true
 
 	c1, sent1 := newMockClient(1)
@@ -134,7 +134,7 @@ func TestNetworkSystem_ArenaLobby_BroadcastsLobbyState(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestNetworkSystem_ArenaFight_BroadcastsWorldStateAndDamage(t *testing.T) {
-	p := entity.NewPlayer(1, "gunner")
+	p := entity.NewPlayer(1, entity.ClassGunner)
 	e := entity.NewEnemy(0, 2000, "guard_captain")
 
 	c1, sent1 := newMockClient(1)
@@ -192,7 +192,7 @@ func TestNetworkSystem_BroadcastsGameFlowEvents(t *testing.T) {
 		ZoneType: 1,
 		TickNum:  100,
 		State:    StateFight,
-		Players:  map[uint16]*entity.Player{1: entity.NewPlayer(1, "gunner"), 2: entity.NewPlayer(2, "vanguard")},
+		Players:  map[uint16]*entity.Player{1: entity.NewPlayer(1, entity.ClassGunner), 2: entity.NewPlayer(2, entity.ClassVanguard)},
 		Enemies:  []*entity.Enemy{},
 		Level:    level.NewArenaLevel(),
 		Clients:  map[uint16]*Client{1: c1, 2: c2},
@@ -244,9 +244,9 @@ func TestNetworkSystem_MultipleClients(t *testing.T) {
 		TickNum:  10,
 		State:    StateLobby,
 		Players: map[uint16]*entity.Player{
-			1: entity.NewPlayer(1, "gunner"),
-			2: entity.NewPlayer(2, "vanguard"),
-			3: entity.NewPlayer(3, "blade_dancer"),
+			1: entity.NewPlayer(1, entity.ClassGunner),
+			2: entity.NewPlayer(2, entity.ClassVanguard),
+			3: entity.NewPlayer(3, entity.ClassBladeDancer),
 		},
 		Enemies: []*entity.Enemy{},
 		Level:   level.NewHubLevel(),
@@ -281,7 +281,7 @@ func TestNetworkSystem_FightOverBroadcastsWorldState(t *testing.T) {
 		ZoneType: 1,
 		TickNum:  200,
 		State:    StateFightOver,
-		Players:  map[uint16]*entity.Player{1: entity.NewPlayer(1, "gunner")},
+		Players:  map[uint16]*entity.Player{1: entity.NewPlayer(1, entity.ClassGunner)},
 		Enemies:  []*entity.Enemy{},
 		Level:    level.NewArenaLevel(),
 		Clients:  map[uint16]*Client{1: c1},
@@ -311,7 +311,7 @@ func TestNetworkSystem_NoClients(t *testing.T) {
 		ZoneType: 1,
 		TickNum:  100,
 		State:    StateFight,
-		Players:  map[uint16]*entity.Player{1: entity.NewPlayer(1, "gunner")},
+		Players:  map[uint16]*entity.Player{1: entity.NewPlayer(1, entity.ClassGunner)},
 		Enemies:  []*entity.Enemy{},
 		Level:    level.NewArenaLevel(),
 		Clients:  map[uint16]*Client{},

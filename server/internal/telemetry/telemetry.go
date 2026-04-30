@@ -17,7 +17,7 @@ import (
 const scopeName = "codex-online/gateway"
 
 // Init sets up OpenTelemetry with stdout exporters and returns a shutdown function.
-func Init(ctx context.Context) (shutdown func(context.Context) error, err error) {
+func Init(_ context.Context) (shutdown func(context.Context) error, err error) {
 	var shutdowns []func(context.Context) error
 
 	combined := func(ctx context.Context) error {

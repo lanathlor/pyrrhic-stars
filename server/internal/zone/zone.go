@@ -39,6 +39,9 @@ const (
 	ZoneTypeArena ZoneType = 1
 )
 
+// ZoneHub is the well-known zone ID for the persistent hub zone.
+const ZoneHub = "hub"
+
 // Client is a re-export of system.Client for use by the gateway.
 type Client = system.Client
 
@@ -152,7 +155,7 @@ func (z *Zone) AddClient(c *Client) {
 	z.mu.Lock()
 	z.world.Clients[c.PeerID] = c
 	if p, ok := z.world.Players[c.PeerID]; !ok {
-		np := entity.NewPlayer(c.PeerID, "gunner")
+		np := entity.NewPlayer(c.PeerID, entity.ClassGunner)
 		np.Username = c.Username
 		// Set spawn position immediately so the tick loop never sees origin
 		if len(z.world.Level.PlayerSpawns) > 0 {

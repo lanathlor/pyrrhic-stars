@@ -382,3 +382,11 @@ tidy:
 # Run go vet on all packages
 vet:
     go vet ./...
+
+# Run golangci-lint
+lint:
+    golangci-lint run ./...
+
+# Run golangci-lint with auto-fix
+lint-fix:
+    golangci-lint run --fix ./...

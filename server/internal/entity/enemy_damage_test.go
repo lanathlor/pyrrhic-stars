@@ -66,7 +66,7 @@ func TestEnemyPhaseTransitionAt30Percent(t *testing.T) {
 	e.Phase = 2
 	e.PhaseTransitioned = append(e.PhaseTransitioned, 2)
 	e.Health = 400 // 40%
-	e.State = entity_EnemyChase()
+	e.State = entityEnemyChase()
 
 	_, phase := e.ApplyDamage(150) // → 250 HP = 25%
 	if phase != 3 {
@@ -77,7 +77,7 @@ func TestEnemyPhaseTransitionAt30Percent(t *testing.T) {
 	}
 }
 
-func entity_EnemyChase() EnemyState { return EnemyChase }
+func entityEnemyChase() EnemyState { return EnemyChase }
 
 func TestEnemyPhaseTransitionSkipTo3(t *testing.T) {
 	e := NewEnemy(0, 1000, "test")

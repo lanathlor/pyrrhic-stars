@@ -64,7 +64,7 @@ func handleServerMessage(gw *gateway, sess *session.Session, opcode uint16, payl
 	case message.OpJoinZone:
 		zoneID := string(payload)
 		if zoneID == "" {
-			zoneID = "hub"
+			zoneID = zone.ZoneHub
 		}
 
 		zoneType := zone.ZoneTypeHub
@@ -159,7 +159,7 @@ func (g *gateway) handleCreateCharacter(sess *session.Session, payload []byte) {
 		return
 	}
 	for _, r := range charName {
-		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == ' ' || r == '-' || r == '_') {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != ' ' && r != '-' && r != '_' {
 			sess.Conn.Send(message.Encode(message.OpCharacterError, 0, codec.EncodeCharacterError(3, "Name must be alphanumeric (spaces, hyphens, underscores allowed)")))
 			return
 		}
@@ -209,7 +209,7 @@ func (g *gateway) handleCreateCharacter(sess *session.Session, payload []byte) {
 // joinHubAfterCharSelect handles the shared logic for joining the hub zone
 // after a character is selected or created.
 func (g *gateway) joinHubAfterCharSelect(sess *session.Session, char *persistence.Character) {
-	zoneID := "hub"
+	zoneID := zone.ZoneHub
 	zi := g.getOrCreateZone(zoneID, zone.ZoneTypeHub)
 
 	zi.mu.Lock()

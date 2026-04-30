@@ -18,7 +18,7 @@ func makeGunner(peerID uint16, pos entity.Vec3, targetPos entity.Vec3) *entity.P
 	pitch := float32(math.Asin(float64(dir.Y)))
 	return &entity.Player{
 		PeerID:    peerID,
-		ClassName: "gunner",
+		ClassName: entity.ClassGunner,
 		Position:  pos,
 		RotationY: yaw,
 		AimPitch:  pitch,
@@ -66,7 +66,7 @@ func TestGunnerMiss(t *testing.T) {
 	// Gunner aimed away from enemy (looking in +X direction)
 	player := &entity.Player{
 		PeerID:    1,
-		ClassName: "gunner",
+		ClassName: entity.ClassGunner,
 		Position:  entity.Vec3{X: 0, Y: 0, Z: 10},
 		RotationY: float32(math.Pi / 2), // facing +X
 		AimPitch:  0,
@@ -125,7 +125,7 @@ func TestVanguardMelee(t *testing.T) {
 	enemy.Position = entity.Vec3{X: 0, Y: 0, Z: 1.5} // within melee range
 	player := &entity.Player{
 		PeerID:    7,
-		ClassName: "vanguard",
+		ClassName: entity.ClassVanguard,
 		Position:  entity.Vec3{X: 0, Y: 0, Z: 0},
 		RotationY: 0, // facing -Z... wait, Forward() = {-sin(rotY), 0, -cos(rotY)}
 		// rotY=0 => forward = {0, 0, -1}, but enemy is at Z=+1.5
@@ -209,7 +209,7 @@ func TestDamageEventWireFormat(t *testing.T) {
 func makeVanguard(peerID uint16, pos entity.Vec3, rotY float32) *entity.Player {
 	return &entity.Player{
 		PeerID:    peerID,
-		ClassName: "vanguard",
+		ClassName: entity.ClassVanguard,
 		Position:  pos,
 		RotationY: rotY,
 		Health:    200,
@@ -357,7 +357,7 @@ func TestResolvePlayerAttackOnEnemies(t *testing.T) {
 		}
 	})
 
-	t.Run("dead enemies are skipped", func(t *testing.T) {
+	t.Run("dead enemies are skipped", func(_ *testing.T) {
 		eDead := entity.NewEnemy(100, 500, "test")
 		eDead.Position = entity.Vec3{X: 0, Y: 0, Z: 3}
 		eDead.Alive = false
@@ -518,7 +518,7 @@ func TestResolveNearestNEnemies(t *testing.T) {
 			t.Errorf("expected hits on 100 and 102, got %v", hitIDs)
 		}
 		if hitIDs[101] {
-			t.Errorf("did not expect hit on 101 (farthest)")
+			t.Error("did not expect hit on 101 (farthest)")
 		}
 	})
 
@@ -597,7 +597,7 @@ func TestResolveBladeDancerAttack(t *testing.T) {
 		// Blade dancer at Z=10, aimed at enemy center mass (Y=1, Z=5)
 		player := &entity.Player{
 			PeerID:    1,
-			ClassName: "blade_dancer",
+			ClassName: entity.ClassBladeDancer,
 			Position:  entity.Vec3{X: 0, Y: 0, Z: 10},
 			Health:    150,
 			MaxHealth: 150,
@@ -628,7 +628,7 @@ func TestResolveBladeDancerAttack(t *testing.T) {
 
 		player := &entity.Player{
 			PeerID:    1,
-			ClassName: "blade_dancer",
+			ClassName: entity.ClassBladeDancer,
 			Position:  entity.Vec3{X: 0, Y: 0, Z: 10},
 			Health:    150,
 			MaxHealth: 150,
@@ -659,7 +659,7 @@ func TestResolveBladeDancerAttack(t *testing.T) {
 		// Blade dancer at Z=25 (25m away, max range is 20m)
 		player := &entity.Player{
 			PeerID:    1,
-			ClassName: "blade_dancer",
+			ClassName: entity.ClassBladeDancer,
 			Position:  entity.Vec3{X: 0, Y: 0, Z: 25},
 			Health:    150,
 			MaxHealth: 150,
@@ -689,7 +689,7 @@ func TestResolveBladeDancerAttack(t *testing.T) {
 		// Player at Z=8, aim direction at rotY=PI is (0, 0, 1), so aiming +Z = away from enemy at Z=5.
 		player := &entity.Player{
 			PeerID:    1,
-			ClassName: "blade_dancer",
+			ClassName: entity.ClassBladeDancer,
 			Position:  entity.Vec3{X: 0, Y: 0, Z: 3},
 			RotationY: 0, // facing -Z
 			AimPitch:  0,
@@ -713,7 +713,7 @@ func TestResolveBladeDancerAttack(t *testing.T) {
 
 		player := &entity.Player{
 			PeerID:    1,
-			ClassName: "blade_dancer",
+			ClassName: entity.ClassBladeDancer,
 			Position:  entity.Vec3{X: 0, Y: 0, Z: 10},
 			Health:    150,
 			MaxHealth: 150,
@@ -758,7 +758,6 @@ func TestEnemyDamageEventWireFormat(t *testing.T) {
 	gotSource := binary.LittleEndian.Uint16(buf[off : off+2])
 	off += 2
 	gotAmount := math.Float32frombits(binary.LittleEndian.Uint32(buf[off : off+4]))
-	off += 4
 
 	if gotTarget != 7 {
 		t.Errorf("target = %d, want 7", gotTarget)

@@ -8,6 +8,8 @@ import (
 	"codex-online/server/internal/entity"
 )
 
+const testName = "Alice"
+
 // =============================================================================
 // Roundtrip: EncodePlayerInput → DecodePlayerInput
 // =============================================================================
@@ -120,7 +122,7 @@ func TestAbilityInputTooShort(t *testing.T) {
 func TestInteractInputClassSelect(t *testing.T) {
 	// [action:0][nameLen:6][gunner]
 	payload := []byte{0, 6}
-	payload = append(payload, []byte("gunner")...)
+	payload = append(payload, []byte(entity.ClassGunner)...)
 	msg, ok := DecodeInteractInput(payload)
 	if !ok {
 		t.Fatal("DecodeInteractInput returned !ok")
@@ -128,8 +130,8 @@ func TestInteractInputClassSelect(t *testing.T) {
 	if msg.Action != 0 {
 		t.Errorf("Action = %d, want 0", msg.Action)
 	}
-	if msg.ClassName != "gunner" {
-		t.Errorf("ClassName = %q, want %q", msg.ClassName, "gunner")
+	if msg.ClassName != entity.ClassGunner {
+		t.Errorf("ClassName = %q, want %q", msg.ClassName, entity.ClassGunner)
 	}
 }
 
@@ -187,8 +189,8 @@ func TestEncodeWorldStateWireFormat(t *testing.T) {
 		RotationY: 0.5,
 		Health:    100.0,
 		State:     entity.PlayerStateAttack,
-		ClassName: "gunner",
-		Username:  "Alice",
+		ClassName: entity.ClassGunner,
+		Username:  testName,
 		AnimName:  "idle",
 		AnimSpeed: 1.0,
 		AimPitch:  -0.1,
@@ -241,16 +243,16 @@ func TestEncodeWorldStateWireFormat(t *testing.T) {
 	off++
 	className := string(buf[off : off+classLen])
 	off += classLen
-	if className != "gunner" {
-		t.Errorf("class = %q, want %q", className, "gunner")
+	if className != entity.ClassGunner {
+		t.Errorf("class = %q, want %q", className, entity.ClassGunner)
 	}
 	// name:str8
 	nameLen := int(buf[off])
 	off++
 	name := string(buf[off : off+nameLen])
 	off += nameLen
-	if name != "Alice" {
-		t.Errorf("name = %q, want %q", name, "Alice")
+	if name != testName {
+		t.Errorf("name = %q, want %q", name, testName)
 	}
 	// anim
 	animLen := int(buf[off])
@@ -370,8 +372,8 @@ func TestEncodeWorldStateNoEnemies(t *testing.T) {
 
 func TestEncodeLobbyStateWireFormat(t *testing.T) {
 	infos := []LobbyPlayerInfo{
-		{PeerID: 1, ClassName: "gunner", Username: "Alice", Ready: true},
-		{PeerID: 2, ClassName: "vanguard", Username: "Bob", Ready: false},
+		{PeerID: 1, ClassName: entity.ClassGunner, Username: testName, Ready: true},
+		{PeerID: 2, ClassName: entity.ClassVanguard, Username: "Bob", Ready: false},
 	}
 	buf := EncodeLobbyState(infos)
 
@@ -389,15 +391,15 @@ func TestEncodeLobbyStateWireFormat(t *testing.T) {
 	off++
 	class := string(buf[off : off+classLen])
 	off += classLen
-	if class != "gunner" {
-		t.Errorf("p1 class = %q, want %q", class, "gunner")
+	if class != entity.ClassGunner {
+		t.Errorf("p1 class = %q, want %q", class, entity.ClassGunner)
 	}
 	nameLen := int(buf[off])
 	off++
 	name := string(buf[off : off+nameLen])
 	off += nameLen
-	if name != "Alice" {
-		t.Errorf("p1 username = %q, want %q", name, "Alice")
+	if name != testName {
+		t.Errorf("p1 username = %q, want %q", name, testName)
 	}
 	if buf[off] != 1 {
 		t.Errorf("p1 ready = %d, want 1", buf[off])
@@ -413,8 +415,8 @@ func TestEncodeLobbyStateWireFormat(t *testing.T) {
 	off++
 	class = string(buf[off : off+classLen])
 	off += classLen
-	if class != "vanguard" {
-		t.Errorf("p2 class = %q, want %q", class, "vanguard")
+	if class != entity.ClassVanguard {
+		t.Errorf("p2 class = %q, want %q", class, entity.ClassVanguard)
 	}
 	nameLen = int(buf[off])
 	off++
@@ -539,8 +541,8 @@ func TestEncodePeerID(t *testing.T) {
 func TestEncodeCharacterState(t *testing.T) {
 	c := CharacterInfo{
 		ID:        42,
-		ClassName: "gunner",
-		Name:      "Alice",
+		ClassName: entity.ClassGunner,
+		Name:      testName,
 		PosX:      1.5,
 		PosY:      2.0,
 		PosZ:      -3.5,
@@ -560,16 +562,16 @@ func TestEncodeCharacterState(t *testing.T) {
 	off++
 	className := string(buf[off : off+classLen])
 	off += classLen
-	if className != "gunner" {
-		t.Errorf("class = %q, want %q", className, "gunner")
+	if className != entity.ClassGunner {
+		t.Errorf("class = %q, want %q", className, entity.ClassGunner)
 	}
 	// name
 	nameLen := int(buf[off])
 	off++
 	name := string(buf[off : off+nameLen])
 	off += nameLen
-	if name != "Alice" {
-		t.Errorf("name = %q, want %q", name, "Alice")
+	if name != testName {
+		t.Errorf("name = %q, want %q", name, testName)
 	}
 	// position
 	posX := math.Float32frombits(binary.LittleEndian.Uint32(buf[off:]))
@@ -612,8 +614,8 @@ func TestEncodeCharacterStateEmpty(t *testing.T) {
 
 func TestEncodeCharacterList(t *testing.T) {
 	chars := []CharacterInfo{
-		{ID: 10, ClassName: "gunner", Name: "Alice", PosX: 1, PosY: 2, PosZ: 3, RotY: 0.5},
-		{ID: 20, ClassName: "vanguard", Name: "Bob"},
+		{ID: 10, ClassName: entity.ClassGunner, Name: testName, PosX: 1, PosY: 2, PosZ: 3, RotY: 0.5},
+		{ID: 20, ClassName: entity.ClassVanguard, Name: "Bob"},
 	}
 	buf := EncodeCharacterList("TestUser", chars, 10)
 
@@ -642,15 +644,15 @@ func TestEncodeCharacterList(t *testing.T) {
 	off++
 	c1Class := string(buf[off : off+c1ClassLen])
 	off += c1ClassLen
-	if c1Class != "gunner" {
-		t.Errorf("char1 class = %q, want %q", c1Class, "gunner")
+	if c1Class != entity.ClassGunner {
+		t.Errorf("char1 class = %q, want %q", c1Class, entity.ClassGunner)
 	}
 	c1NameLen := int(buf[off])
 	off++
 	c1Name := string(buf[off : off+c1NameLen])
 	off += c1NameLen
-	if c1Name != "Alice" {
-		t.Errorf("char1 name = %q, want %q", c1Name, "Alice")
+	if c1Name != testName {
+		t.Errorf("char1 name = %q, want %q", c1Name, testName)
 	}
 	off += 16 // skip 4 floats
 	// char 2
@@ -727,7 +729,7 @@ func TestEncodeCharacterError(t *testing.T) {
 
 func TestEncodeGroupState(t *testing.T) {
 	members := []GroupMemberInfo{
-		{PeerID: 1, Username: "Alice"},
+		{PeerID: 1, Username: testName},
 		{PeerID: 2, Username: "Bob"},
 	}
 	buf := EncodeGroupState(99, 1, members)
@@ -758,8 +760,8 @@ func TestEncodeGroupState(t *testing.T) {
 	off++
 	m1Name := string(buf[off : off+m1NameLen])
 	off += m1NameLen
-	if m1Name != "Alice" {
-		t.Errorf("m1 name = %q, want %q", m1Name, "Alice")
+	if m1Name != testName {
+		t.Errorf("m1 name = %q, want %q", m1Name, testName)
 	}
 	// member 2
 	m2Peer := binary.LittleEndian.Uint16(buf[off:])
@@ -818,7 +820,7 @@ func TestEncodeGroupErrorEmpty(t *testing.T) {
 // =============================================================================
 
 func TestEncodeGroupInviteRecv(t *testing.T) {
-	buf := EncodeGroupInviteRecv(42, "Alice")
+	buf := EncodeGroupInviteRecv(42, testName)
 	off := 0
 	groupID := binary.LittleEndian.Uint32(buf[off:])
 	off += 4
@@ -828,8 +830,8 @@ func TestEncodeGroupInviteRecv(t *testing.T) {
 	nameLen := int(buf[off])
 	off++
 	name := string(buf[off : off+nameLen])
-	if name != "Alice" {
-		t.Errorf("name = %q, want %q", name, "Alice")
+	if name != testName {
+		t.Errorf("name = %q, want %q", name, testName)
 	}
 }
 
@@ -854,7 +856,7 @@ func TestEncodeEmptyGroupState(t *testing.T) {
 // =============================================================================
 
 func TestEncodeInteractInputRoundtrip(t *testing.T) {
-	buf := EncodeInteractInput(0, "vanguard")
+	buf := EncodeInteractInput(0, entity.ClassVanguard)
 	msg, ok := DecodeInteractInput(buf)
 	if !ok {
 		t.Fatal("DecodeInteractInput returned !ok")
@@ -862,8 +864,8 @@ func TestEncodeInteractInputRoundtrip(t *testing.T) {
 	if msg.Action != 0 {
 		t.Errorf("Action = %d, want 0", msg.Action)
 	}
-	if msg.ClassName != "vanguard" {
-		t.Errorf("ClassName = %q, want %q", msg.ClassName, "vanguard")
+	if msg.ClassName != entity.ClassVanguard {
+		t.Errorf("ClassName = %q, want %q", msg.ClassName, entity.ClassVanguard)
 	}
 }
 

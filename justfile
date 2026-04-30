@@ -99,6 +99,12 @@ blender:
 blender-open file:
     blender --python-use-system-env "{{file}}"
 
+# --- Setup ---
+
+# Configure git hooks and local tooling
+setup:
+    git config core.hooksPath .githooks
+
 # --- Utilities ---
 
 fmt:

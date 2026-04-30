@@ -67,5 +67,5 @@ func (c *Client) Close() {
 
 // CloseNow immediately closes the underlying WebSocket connection.
 func (c *Client) CloseNow() {
-	c.conn.CloseNow()
+	_ = c.conn.CloseNow()
 }

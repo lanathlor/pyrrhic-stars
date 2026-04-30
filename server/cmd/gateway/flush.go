@@ -6,11 +6,12 @@ import (
 	"time"
 
 	"codex-online/server/internal/session"
+	"codex-online/server/internal/zone"
 )
 
 // savePlayerPosition snapshots a player's hub position to the database.
 func (g *gateway) savePlayerPosition(sess *session.Session) {
-	zi := g.getZone("hub")
+	zi := g.getZone(zone.ZoneHub)
 	if zi == nil {
 		return
 	}
@@ -52,7 +53,7 @@ func (g *gateway) flushAllPositions() {
 		return
 	}
 
-	hubZI := g.getZone("hub")
+	hubZI := g.getZone(zone.ZoneHub)
 	if hubZI == nil {
 		return
 	}
