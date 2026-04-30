@@ -92,18 +92,20 @@ func broadcastWorldState(w *World) {
 }
 
 func broadcastDamageEvents(w *World) {
+	const headerSize = 4 // [opcode:2][senderID:2]
 	for _, evt := range w.DamageEvents {
-		payload := codec.EncodeDamageEvent(
+		// Encode directly into pooled DamageBuf: header + damage payload.
+		if cap(w.DamageBuf) < headerSize+21 {
+			w.DamageBuf = make([]byte, 0, 256)
+		}
+		w.DamageBuf = w.DamageBuf[:headerSize]
+		w.DamageBuf = codec.AppendEncodeDamageEvent(w.DamageBuf,
 			evt.TargetPeerID, evt.SourcePeerID, evt.Amount,
 			evt.HitPos.X, evt.HitPos.Y, evt.HitPos.Z,
 			evt.SourceType,
 		)
-		// Pooled DamageBuf: encode the full message.
-		if cap(w.DamageBuf) < 4+len(payload) {
-			w.DamageBuf = make([]byte, 0, 256)
-		}
-		w.DamageBuf = w.DamageBuf[:0]
-		w.DamageBuf = message.AppendEncode(w.DamageBuf, message.OpDamageEvent, 0, payload)
+		binary.BigEndian.PutUint16(w.DamageBuf[0:2], message.OpDamageEvent)
+		binary.BigEndian.PutUint16(w.DamageBuf[2:4], 0)
 		for _, c := range w.Clients {
 			if w.TestMode {
 				msg := make([]byte, len(w.DamageBuf))

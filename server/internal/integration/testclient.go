@@ -248,11 +248,15 @@ func (tc *TestClient) SendAbilityInput(action uint8, aimPitch float32) {
 	tc.send(message.Encode(message.OpAbilityInput, 0, codec.EncodeAbilityInput(action, aimPitch)))
 }
 
+var senderBuffer []byte = make([]byte, 0, 1024)
+
 // SendPlayerInput sends an OpPlayerInput (position + rotation + tick + anim + aim_pitch).
+
 func (tc *TestClient) SendPlayerInput(posX, posY, posZ, rotY float32, tick uint32, aimPitch float32) {
 	tc.t.Helper()
-	buf := codec.EncodePlayerInput(posX, posY, posZ, rotY, tick, "idle", 1.0, aimPitch)
+	buf := codec.EncodePlayerInput(senderBuffer, posX, posY, posZ, rotY, tick, "idle", 1.0, aimPitch)
 	tc.send(message.Encode(message.OpPlayerInput, 0, buf))
+	clear(senderBuffer)
 }
 
 // WaitForWorldStateWithPlayerState waits for an OpWorldState that contains

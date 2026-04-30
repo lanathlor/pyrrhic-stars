@@ -27,8 +27,8 @@ func (s *InputSystem) Tick(w *World, dt float32) {
 }
 
 func handlePlayerInput(w *World, peerID uint16, payload []byte) {
-	inp := codec.DecodePlayerInput(payload)
-	if inp == nil {
+	inp, ok := codec.DecodePlayerInput(payload)
+	if !ok {
 		return
 	}
 	p, ok := w.Players[peerID]
@@ -93,7 +93,7 @@ func handlePlayerInput(w *World, peerID uint16, payload []byte) {
 	p.Position = newPos
 	w.Level.ClampPlayer(&p.Position)
 	p.RotationY = inp.RotY
-	p.LastInput = &entity.PlayerInput{PosX: inp.PosX, PosY: inp.PosY, PosZ: inp.PosZ, RotY: inp.RotY, Tick: inp.Tick}
+	p.LastInput = entity.PlayerInput{PosX: inp.PosX, PosY: inp.PosY, PosZ: inp.PosZ, RotY: inp.RotY, Tick: inp.Tick}
 	p.AnimName = inp.AnimName
 	p.AnimSpeed = inp.AnimSpeed
 	p.AimPitch = inp.AimPitch
@@ -121,7 +121,7 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 	switch inp.Action {
 	case entity.ActionShoot:
 		// Gunner: hitscan, gated by fire cooldown
-if p.ClassName == "gunner" && p.FireCooldown <= 0 {
+		if p.ClassName == "gunner" && p.FireCooldown <= 0 {
 			fireCooldown := float32(0.18)
 			if p.OverclockActive {
 				fireCooldown = 0.10
@@ -138,7 +138,7 @@ if p.ClassName == "gunner" && p.FireCooldown <= 0 {
 		}
 	case entity.ActionMelee:
 		// Vanguard/blade_dancer: melee, gated by cooldown + stamina
-if p.FireCooldown <= 0 {
+		if p.FireCooldown <= 0 {
 			if p.ClassName == "vanguard" {
 				if p.Stamina < 10.0 {
 					break
@@ -170,7 +170,7 @@ if p.FireCooldown <= 0 {
 			p.GuardTimer = 1.5
 		}
 	case entity.ActionHeavy:
-if (p.ClassName == "vanguard" || p.ClassName == "blade_dancer") && p.FireCooldown <= 0 {
+		if (p.ClassName == "vanguard" || p.ClassName == "blade_dancer") && p.FireCooldown <= 0 {
 			if p.ClassName == "vanguard" {
 				if p.Stamina < 20.0 {
 					break
@@ -191,25 +191,25 @@ if (p.ClassName == "vanguard" || p.ClassName == "blade_dancer") && p.FireCooldow
 			}
 		}
 	case entity.ActionOverclock:
-if p.ClassName == "gunner" && !p.OverclockActive && p.OverclockCooldown <= 0 {
+		if p.ClassName == "gunner" && !p.OverclockActive && p.OverclockCooldown <= 0 {
 			p.OverclockActive = true
 			p.OverclockTimer = 7.0
 			p.OverclockCooldown = 15.0
 		}
 	case entity.ActionRechamber:
-if p.ClassName == "gunner" && p.RechamberPhase == 0 && p.FireCooldown <= 0 {
+		if p.ClassName == "gunner" && p.RechamberPhase == 0 && p.FireCooldown <= 0 {
 			p.RechamberPhase = 1
 			p.RechamberTimer = 0.6
 			p.FireCooldown = 0.6 // lock out shooting during windup
 		}
 	case entity.ActionRechamberConfirm:
-if p.ClassName == "gunner" && p.RechamberPhase == 2 {
+		if p.ClassName == "gunner" && p.RechamberPhase == 2 {
 			p.RechamberBuff = true
 			p.RechamberBuffTimer = 4.0
 			p.RechamberPhase = 0
 		}
 	case entity.ActionBladeSwirl:
-if p.ClassName == "vanguard" && p.Stamina >= 25.0 && p.BladeSwirlCooldown <= 0 && !p.BladeSwirl && p.FireCooldown <= 0 {
+		if p.ClassName == "vanguard" && p.Stamina >= 25.0 && p.BladeSwirlCooldown <= 0 && !p.BladeSwirl && p.FireCooldown <= 0 {
 			p.Stamina -= 25.0
 			p.StaminaDelay = 0.6
 			p.BladeSwirl = true
@@ -234,7 +234,7 @@ if p.ClassName == "vanguard" && p.Stamina >= 25.0 && p.BladeSwirlCooldown <= 0 &
 			}
 		}
 	case entity.ActionGroundSlam:
-if p.ClassName == "vanguard" && p.Stamina >= 20.0 && p.GroundSlamCooldown <= 0 && p.FireCooldown <= 0 {
+		if p.ClassName == "vanguard" && p.Stamina >= 20.0 && p.GroundSlamCooldown <= 0 && p.FireCooldown <= 0 {
 			p.Stamina -= 20.0
 			p.StaminaDelay = 0.6
 			p.GroundSlamCooldown = 8.0
@@ -256,7 +256,7 @@ if p.ClassName == "vanguard" && p.Stamina >= 20.0 && p.GroundSlamCooldown <= 0 &
 		}
 	default:
 		// Blade Dancer spells: action IDs 30-49
-if inp.Action >= entity.ActionBDSpellBase && inp.Action < entity.ActionBDSpellBase+20 {
+		if inp.Action >= entity.ActionBDSpellBase && inp.Action < entity.ActionBDSpellBase+20 {
 			if p.ClassName == "blade_dancer" && p.GCDTimer <= 0 {
 				idx := int(inp.Action - entity.ActionBDSpellBase)
 				originCfg := idx / 4
@@ -269,8 +269,8 @@ if inp.Action >= entity.ActionBDSpellBase && inp.Action < entity.ActionBDSpellBa
 }
 
 func handleInteractInput(w *World, peerID uint16, payload []byte) {
-	inp := codec.DecodeInteractInput(payload)
-	if inp == nil {
+	inp, valid := codec.DecodeInteractInput(payload)
+	if !valid {
 		return
 	}
 	p, ok := w.Players[peerID]
@@ -284,7 +284,7 @@ func handleInteractInput(w *World, peerID uint16, payload []byte) {
 		if className == "gunner" || className == "vanguard" || className == "blade_dancer" {
 			p.ClassName = className
 			// Re-init class stats
-			np := entity.NewPlayer(peerID, className)
+			np := entity.NewPlayerNoPTR(peerID, className)
 			p.Health = np.Health
 			p.MaxHealth = np.MaxHealth
 			p.Stamina = np.Stamina

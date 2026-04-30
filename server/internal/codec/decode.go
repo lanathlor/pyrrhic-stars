@@ -1,16 +1,15 @@
 package codec
 
-// DecodePlayerInput parses a client movement packet. Returns nil if too short.
-func DecodePlayerInput(payload []byte) *PlayerInputMsg {
+// DecodePlayerInput parses a client movement packet.
+// Returns ok=false if the payload is too short.
+func DecodePlayerInput(payload []byte) (msg PlayerInputMsg, ok bool) {
 	if len(payload) < 16 {
-		return nil
+		return msg, false
 	}
-	msg := &PlayerInputMsg{
-		PosX: getF32(payload[0:4]),
-		PosY: getF32(payload[4:8]),
-		PosZ: getF32(payload[8:12]),
-		RotY: getF32(payload[12:16]),
-	}
+	msg.PosX = getF32(payload[0:4])
+	msg.PosY = getF32(payload[4:8])
+	msg.PosZ = getF32(payload[8:12])
+	msg.RotY = getF32(payload[12:16])
 	if len(payload) >= 20 {
 		msg.Tick = getU32(payload[16:20])
 	}
@@ -19,7 +18,7 @@ func DecodePlayerInput(payload []byte) *PlayerInputMsg {
 		animLen := int(payload[off])
 		off++
 		if off+animLen <= len(payload) {
-			msg.AnimName = string(payload[off : off+animLen])
+			msg.AnimName = unsafeString(payload[off : off+animLen])
 			off += animLen
 		}
 		if off+4 <= len(payload) {
@@ -30,7 +29,7 @@ func DecodePlayerInput(payload []byte) *PlayerInputMsg {
 			msg.AimPitch = getF32(payload[off : off+4])
 		}
 	}
-	return msg
+	return msg, true
 }
 
 // DecodeAbilityInput parses an ability activation packet. Returns nil if too short.
@@ -51,20 +50,18 @@ func DecodeAbilityInput(payload []byte) *AbilityInputMsg {
 }
 
 // DecodeInteractInput parses a lobby/interact packet. Returns nil if too short.
-func DecodeInteractInput(payload []byte) *InteractInputMsg {
+func DecodeInteractInput(payload []byte) (msg InteractInputMsg, ok bool) {
 	if len(payload) < 1 {
-		return nil
+		return msg, false
 	}
-	msg := &InteractInputMsg{
-		Action: payload[0],
-	}
+	msg.Action = payload[0]
 	if len(payload) >= 3 {
 		nameLen := int(payload[1])
 		if len(payload) >= 2+nameLen {
-			msg.ClassName = string(payload[2 : 2+nameLen])
+			msg.ClassName = unsafeString(payload[2 : 2+nameLen])
 		}
 	}
-	return msg
+	return msg, true
 }
 
 // DecodeRespawnRequest parses a respawn request. Returns the respawn type and ok=true,

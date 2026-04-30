@@ -13,10 +13,10 @@ import (
 // =============================================================================
 
 func TestPlayerInputRoundtrip(t *testing.T) {
-	buf := EncodePlayerInput(1.5, 2.0, -3.5, 0.7, 42, "run", 1.5, -0.3)
-	msg := DecodePlayerInput(buf)
-	if msg == nil {
-		t.Fatal("DecodePlayerInput returned nil")
+	buf := EncodePlayerInput(nil, 1.5, 2.0, -3.5, 0.7, 42, "run", 1.5, -0.3)
+	msg, ok := DecodePlayerInput(buf)
+	if !ok {
+		t.Fatal("DecodePlayerInput returned !ok")
 	}
 	if msg.PosX != 1.5 {
 		t.Errorf("PosX = %f, want 1.5", msg.PosX)
@@ -52,9 +52,9 @@ func TestPlayerInputMinimal(t *testing.T) {
 	binary.LittleEndian.PutUint32(buf[8:], math.Float32bits(3.0))
 	binary.LittleEndian.PutUint32(buf[12:], math.Float32bits(0.5))
 
-	msg := DecodePlayerInput(buf)
-	if msg == nil {
-		t.Fatal("DecodePlayerInput returned nil for 16-byte payload")
+	msg, ok := DecodePlayerInput(buf)
+	if !ok {
+		t.Fatal("DecodePlayerInput returned !ok for 16-byte payload")
 	}
 	if msg.PosX != 1.0 || msg.PosY != 2.0 || msg.PosZ != 3.0 {
 		t.Errorf("position = (%f,%f,%f), want (1,2,3)", msg.PosX, msg.PosY, msg.PosZ)
@@ -68,11 +68,11 @@ func TestPlayerInputMinimal(t *testing.T) {
 }
 
 func TestPlayerInputTooShort(t *testing.T) {
-	if DecodePlayerInput(nil) != nil {
-		t.Error("nil payload should return nil")
+	if _, ok := DecodePlayerInput(nil); ok {
+		t.Error("nil payload should return !ok")
 	}
-	if DecodePlayerInput([]byte{1, 2, 3}) != nil {
-		t.Error("3-byte payload should return nil")
+	if _, ok := DecodePlayerInput([]byte{1, 2, 3}); ok {
+		t.Error("3-byte payload should return !ok")
 	}
 }
 
@@ -121,9 +121,9 @@ func TestInteractInputClassSelect(t *testing.T) {
 	// [action:0][nameLen:6][gunner]
 	payload := []byte{0, 6}
 	payload = append(payload, []byte("gunner")...)
-	msg := DecodeInteractInput(payload)
-	if msg == nil {
-		t.Fatal("DecodeInteractInput returned nil")
+	msg, ok := DecodeInteractInput(payload)
+	if !ok {
+		t.Fatal("DecodeInteractInput returned !ok")
 	}
 	if msg.Action != 0 {
 		t.Errorf("Action = %d, want 0", msg.Action)
@@ -134,9 +134,9 @@ func TestInteractInputClassSelect(t *testing.T) {
 }
 
 func TestInteractInputReadyToggle(t *testing.T) {
-	msg := DecodeInteractInput([]byte{1})
-	if msg == nil {
-		t.Fatal("DecodeInteractInput returned nil")
+	msg, ok := DecodeInteractInput([]byte{1})
+	if !ok {
+		t.Fatal("DecodeInteractInput returned !ok")
 	}
 	if msg.Action != 1 {
 		t.Errorf("Action = %d, want 1", msg.Action)
@@ -147,8 +147,8 @@ func TestInteractInputReadyToggle(t *testing.T) {
 }
 
 func TestInteractInputTooShort(t *testing.T) {
-	if DecodeInteractInput(nil) != nil {
-		t.Error("nil payload should return nil")
+	if _, ok := DecodeInteractInput(nil); ok {
+		t.Error("nil payload should return !ok")
 	}
 }
 
@@ -855,9 +855,9 @@ func TestEncodeEmptyGroupState(t *testing.T) {
 
 func TestEncodeInteractInputRoundtrip(t *testing.T) {
 	buf := EncodeInteractInput(0, "vanguard")
-	msg := DecodeInteractInput(buf)
-	if msg == nil {
-		t.Fatal("DecodeInteractInput returned nil")
+	msg, ok := DecodeInteractInput(buf)
+	if !ok {
+		t.Fatal("DecodeInteractInput returned !ok")
 	}
 	if msg.Action != 0 {
 		t.Errorf("Action = %d, want 0", msg.Action)
@@ -869,9 +869,9 @@ func TestEncodeInteractInputRoundtrip(t *testing.T) {
 
 func TestEncodeInteractInputEmpty(t *testing.T) {
 	buf := EncodeInteractInput(1, "")
-	msg := DecodeInteractInput(buf)
-	if msg == nil {
-		t.Fatal("DecodeInteractInput returned nil")
+	msg, ok := DecodeInteractInput(buf)
+	if !ok {
+		t.Fatal("DecodeInteractInput returned !ok")
 	}
 	if msg.Action != 1 {
 		t.Errorf("Action = %d, want 1", msg.Action)

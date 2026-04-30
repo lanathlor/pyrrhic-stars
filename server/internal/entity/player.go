@@ -6,7 +6,7 @@ import "math"
 type PlayerState uint8
 
 const (
-	PlayerStateMove    PlayerState = iota
+	PlayerStateMove PlayerState = iota
 	PlayerStateDodge
 	PlayerStateAttack
 	PlayerStateBlock
@@ -83,7 +83,7 @@ type Player struct {
 	RollDirection Vec3
 
 	// Invincibility (dodge i-frames)
-	Invincible    bool
+	Invincible      bool
 	InvincibleTimer float32
 
 	// Gunner
@@ -124,7 +124,7 @@ type Player struct {
 	AnimSpeed float32
 
 	// Input
-	LastInput *PlayerInput
+	LastInput PlayerInput
 
 	// Lobby
 	Ready bool
@@ -133,6 +133,34 @@ type Player struct {
 // NewPlayer creates a player with class defaults.
 func NewPlayer(peerID uint16, className string) *Player {
 	p := &Player{
+		PeerID:    peerID,
+		ClassName: className,
+		Alive:     true,
+		OnGround:  true,
+		AnimName:  "idle",
+		AnimSpeed: 1.0,
+	}
+	switch className {
+	case "gunner":
+		p.MaxHealth = 150.0
+	case "vanguard":
+		p.MaxHealth = 200.0
+		p.Stamina = 100.0
+		p.MaxStamina = 100.0
+		p.StaminaRegen = 30.0
+		p.StaminaDelay = 0.6
+	case "blade_dancer":
+		p.MaxHealth = 150.0
+	default:
+		p.MaxHealth = 150.0
+	}
+	p.Health = p.MaxHealth // spawn at full HP
+	return p
+}
+
+// NewPlayer creates a player with class defaults.
+func NewPlayerNoPTR(peerID uint16, className string) Player {
+	p := Player{
 		PeerID:    peerID,
 		ClassName: className,
 		Alive:     true,

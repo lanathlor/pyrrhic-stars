@@ -3,6 +3,7 @@ package codec
 import (
 	"encoding/binary"
 	"math"
+	"unsafe"
 )
 
 // --- Decode output types (zone input handlers consume these) ---
@@ -93,4 +94,10 @@ func getU16(b []byte) uint16 {
 
 func getU32(b []byte) uint32 {
 	return binary.LittleEndian.Uint32(b)
+}
+
+// unsafeString returns a string that shares the underlying bytes of b.
+// The caller must ensure b is not modified while the string is in use.
+func unsafeString(b []byte) string {
+	return unsafe.String(unsafe.SliceData(b), len(b))
 }

@@ -9,6 +9,7 @@ import (
 	"codex-online/server/internal/enemyai"
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/level"
+	"codex-online/server/internal/message"
 )
 
 // benchWorld creates a realistic fight scenario: 5 players, 9 enemies, 10 projectiles.
@@ -129,11 +130,13 @@ func BenchmarkInputSystemTick(b *testing.B) {
 	sys := InputSystem{}
 	// 5 movement inputs
 	inputs := make([]InputMsg, 5)
+	var senderBuffer []byte = make([]byte, 0, 1024)
+
 	for i := uint16(1); i <= 5; i++ {
 		inputs[i-1] = InputMsg{
 			PeerID:  i,
 			Opcode:  0x0030,
-			Payload: codec.EncodePlayerInput(float32(i)*2, 0.1, 5, 0, 100, "run", 1.0, 0),
+			Payload: codec.EncodePlayerInput(senderBuffer, float32(i)*2, 0.1, 5, 0, 100, "run", 1.0, 0),
 		}
 	}
 	b.ReportAllocs()
@@ -141,6 +144,52 @@ func BenchmarkInputSystemTick(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		w.InputQueue = inputs
 		sys.Tick(w, 0.05)
+	}
+}
+
+func BenchmarkHandlePlayerInput(b *testing.B) {
+	w := benchWorld()
+	payload := codec.EncodePlayerInput(nil, 3.0, 0.1, 6.0, 0.5, 101, "run", 1.0, 0.1)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		// Reset player position so teleport check doesn't reject
+		w.Players[1].Position = entity.Vec3{X: 2, Y: 0.1, Z: 5}
+		handlePlayerInput(w, 1, payload)
+	}
+}
+
+func BenchmarkHandleAbilityInput(b *testing.B) {
+	w := benchWorld()
+	payload := codec.EncodeAbilityInput(entity.ActionShoot, 0.1, 0.5)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		w.Players[1].FireCooldown = 0
+		w.DamageEvents = w.DamageEvents[:0]
+		handleAbilityInput(w, 1, payload)
+	}
+}
+
+func BenchmarkHandleInteractInput(b *testing.B) {
+	w := benchWorld()
+	payload := codec.EncodeInteractInput(message.InteractClassSelect, "vanguard")
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		handleInteractInput(w, 1, payload)
+	}
+}
+
+func BenchmarkHandleRespawnRequest(b *testing.B) {
+	w := benchWorld()
+	w.State = StateFightOver
+	payload := codec.EncodeRespawnRequest(0) // arena respawn
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		w.Players[1].Alive = false
+		handleRespawnRequest(w, 1, payload)
 	}
 }
 
@@ -156,7 +205,7 @@ func BenchmarkFullTickPipeline(b *testing.B) {
 		inputs[i-1] = InputMsg{
 			PeerID:  i,
 			Opcode:  0x0030,
-			Payload: codec.EncodePlayerInput(float32(i)*2, 0.1, 5, 0, 100, "run", 1.0, 0),
+			Payload: codec.EncodePlayerInput(nil, float32(i)*2, 0.1, 5, 0, 100, "run", 1.0, 0),
 		}
 	}
 
@@ -185,12 +234,25 @@ func BenchmarkEncodeWorldState(b *testing.B) {
 	}
 }
 
-func BenchmarkDecodePlayerInput(b *testing.B) {
-	payload := codec.EncodePlayerInput(5.0, 0.1, 10.0, 1.5, 500, "run", 1.0, 0.2)
+// Narrowing: AppendEncodeWorldState with a pre-sized buffer (the production path).
+// If this is 0 allocs, the allocs in EncodeWorldState come from the wrapper's buffer management.
+func BenchmarkAppendEncodeWorldState(b *testing.B) {
+	w := benchWorld()
+	buf := make([]byte, 0, 4096)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = codec.DecodePlayerInput(payload)
+		buf = buf[:0]
+		buf = codec.AppendEncodeWorldState(buf, w.TickNum, w.Players, w.Enemies, w.Projectiles, nil)
+	}
+}
+
+func BenchmarkDecodePlayerInput(b *testing.B) {
+	payload := codec.EncodePlayerInput(nil, 5.0, 0.1, 10.0, 1.5, 500, "run", 1.0, 0.2)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = codec.DecodePlayerInput(payload)
 	}
 }
 
@@ -208,6 +270,24 @@ func BenchmarkEncodeDamageEvent(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = codec.EncodeDamageEvent(1, 0, 25.0, 5.0, 1.5, 3.0, 1)
+	}
+}
+
+// Narrowing: broadcastDamageEvents allocates the payload via EncodeDamageEvent (make([]byte,0,21))
+// then copies into the pooled DamageBuf. This bench isolates that per-event cost.
+func BenchmarkBroadcastDamageEventPooled(b *testing.B) {
+	w := benchWorld()
+	w.DamageEvents = []combat.DamageEvent{
+		{TargetPeerID: 100, SourcePeerID: 1, Amount: 25, HitPos: entity.Vec3{X: 1, Y: 0, Z: 2}, SourceType: 0},
+	}
+	// Add test clients so broadcast actually runs
+	for i := uint16(1); i <= 5; i++ {
+		w.Clients[i] = &Client{PeerID: i, Send: func([]byte) {}}
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		broadcastDamageEvents(w)
 	}
 }
 
@@ -376,7 +456,7 @@ func buildInputs(instanceID uint16) []InputMsg {
 		inputs[i] = InputMsg{
 			PeerID:  peerID,
 			Opcode:  0x0030,
-			Payload: codec.EncodePlayerInput(float32(i)*2, 0.1, 5, 0, 100, "run", 1.0, 0),
+			Payload: codec.EncodePlayerInput(nil, float32(i)*2, 0.1, 5, 0, 100, "run", 1.0, 0),
 		}
 	}
 	return inputs
@@ -613,6 +693,34 @@ func BenchmarkBrainTickMeleeAttack(b *testing.B) {
 		p.Health = p.MaxHealth
 		p.Alive = true
 		p.State = entity.PlayerStateMove
+		brain.Tick(0.05, players, obs, nil)
+	}
+}
+
+// Narrowing: melee attack that misses (player out of range). If 0 allocs,
+// the alloc in BrainTickMeleeAttack is the []DamageEvent append on hit.
+func BenchmarkBrainTickMeleeAttackMiss(b *testing.B) {
+	def := &enemyai.GuardCaptain
+	e := entity.NewEnemy(0, def.MaxHealth, def.Name)
+	brain := enemyai.NewBrain(def, e)
+	brain.BoundsMinX = -20
+	brain.BoundsMaxX = 20
+	brain.BoundsMinZ = -15
+	brain.BoundsMaxZ = 50
+
+	p := entity.NewPlayer(1, "gunner")
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: -50} // far away — miss
+	players := map[uint16]*entity.Player{1: p}
+	obs := level.NewArenaLevel().Obstacles
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		e.State = entity.EnemyMeleeAttack
+		e.StateTimer = 0
+		e.ActiveAbility = 0
+		e.RotationY = 0
+		e.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 		brain.Tick(0.05, players, obs, nil)
 	}
 }

@@ -6,13 +6,16 @@ import (
 	"codex-online/server/internal/entity"
 )
 
+var encodeByte = make([]byte, 0, 65536)
+
 // EncodeWorldState serializes the tick snapshot (players, enemies, projectiles, npcs).
 func EncodeWorldState(tick uint32, players map[uint16]*entity.Player, enemies []*entity.Enemy, projectiles []*entity.Projectile, npcs ...[]*entity.NPC) []byte {
 	var npcList []*entity.NPC
 	if len(npcs) > 0 {
 		npcList = npcs[0]
 	}
-	return AppendEncodeWorldState(nil, tick, players, enemies, projectiles, npcList)
+	encodeByte = encodeByte[:0]
+	return AppendEncodeWorldState(encodeByte, tick, players, enemies, projectiles, npcList)
 }
 
 // AppendEncodeWorldState serializes the tick snapshot into buf, growing it if necessary.
@@ -142,6 +145,12 @@ func EncodeLobbyState(players []LobbyPlayerInfo) []byte {
 // Takes primitive fields to avoid a codec→combat import cycle.
 func EncodeDamageEvent(targetPeerID, sourcePeerID uint16, amount, hitX, hitY, hitZ float32, sourceType uint8) []byte {
 	buf := make([]byte, 0, 21)
+	return AppendEncodeDamageEvent(buf, targetPeerID, sourcePeerID, amount, hitX, hitY, hitZ, sourceType)
+}
+
+// AppendEncodeDamageEvent appends a damage event to buf.
+// Pass a pooled buffer to avoid per-call allocations.
+func AppendEncodeDamageEvent(buf []byte, targetPeerID, sourcePeerID uint16, amount, hitX, hitY, hitZ float32, sourceType uint8) []byte {
 	buf = appendU16(buf, targetPeerID)
 	buf = appendU16(buf, sourcePeerID)
 	buf = appendF32(buf, amount)
@@ -163,17 +172,16 @@ func EncodeGameFlow(flowType uint8, text string) []byte {
 
 // EncodePlayerInput serializes a client→server movement packet.
 // Used by test clients to build OpPlayerInput payloads.
-func EncodePlayerInput(posX, posY, posZ, rotY float32, tick uint32, animName string, animSpeed, aimPitch float32) []byte {
-	buf := make([]byte, 0, 30)
-	buf = appendF32(buf, posX)
-	buf = appendF32(buf, posY)
-	buf = appendF32(buf, posZ)
-	buf = appendF32(buf, rotY)
-	buf = appendU32(buf, tick)
-	buf = appendStr8(buf, animName)
-	buf = appendF32(buf, animSpeed)
-	buf = appendF32(buf, aimPitch)
-	return buf
+func EncodePlayerInput(senderBuffer []byte, posX, posY, posZ, rotY float32, tick uint32, animName string, animSpeed, aimPitch float32) []byte {
+	senderBuffer = appendF32(senderBuffer, posX)
+	senderBuffer = appendF32(senderBuffer, posY)
+	senderBuffer = appendF32(senderBuffer, posZ)
+	senderBuffer = appendF32(senderBuffer, rotY)
+	senderBuffer = appendU32(senderBuffer, tick)
+	senderBuffer = appendStr8(senderBuffer, animName)
+	senderBuffer = appendF32(senderBuffer, animSpeed)
+	senderBuffer = appendF32(senderBuffer, aimPitch)
+	return senderBuffer
 }
 
 // EncodeAbilityInput serializes a client→server ability activation packet.

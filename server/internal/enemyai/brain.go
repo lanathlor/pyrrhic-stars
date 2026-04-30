@@ -16,6 +16,9 @@ type Brain struct {
 	// Bounds for charge wall-stop detection. Set by zone at init.
 	BoundsMinX, BoundsMaxX float32
 	BoundsMinZ, BoundsMaxZ float32
+
+	// Pooled damage events slice, reused across ticks to avoid per-hit allocations.
+	events []combat.DamageEvent
 }
 
 // NewBrain creates a brain for the given enemy.
@@ -32,7 +35,7 @@ func (b *Brain) Tick(dt float32, players map[uint16]*entity.Player, obstacles []
 
 	e.StateTimer -= dt
 
-	var events []combat.DamageEvent
+	b.events = b.events[:0]
 
 	switch e.State {
 	case entity.EnemyChase:
@@ -40,7 +43,7 @@ func (b *Brain) Tick(dt float32, players map[uint16]*entity.Player, obstacles []
 	case entity.EnemyMeleeTelegraph:
 		b.tickMeleeTelegraph(players)
 	case entity.EnemyMeleeAttack:
-		events = b.tickMeleeAttack(players, obstacles)
+		b.tickMeleeAttack(players, obstacles)
 	case entity.EnemyRangedTelegraph:
 		b.tickRangedTelegraph(players)
 	case entity.EnemyRangedAttack:
@@ -48,11 +51,11 @@ func (b *Brain) Tick(dt float32, players map[uint16]*entity.Player, obstacles []
 	case entity.EnemyAoETelegraph:
 		b.tickAoETelegraph()
 	case entity.EnemyAoESlam:
-		events = b.tickAoESlam(players, obstacles)
+		b.tickAoESlam(players, obstacles)
 	case entity.EnemyChargeTelegraph:
 		b.tickChargeTelegraph(players)
 	case entity.EnemyCharge:
-		events = b.tickCharge(dt, players, obstacles)
+		b.tickCharge(dt, players, obstacles)
 	case entity.EnemyCooldown:
 		b.tickCooldown()
 	case entity.EnemyPhaseTransition:
@@ -66,7 +69,7 @@ func (b *Brain) Tick(dt float32, players map[uint16]*entity.Player, obstacles []
 	// Apply velocity
 	e.Position = e.Position.Add(e.Velocity.Scale(dt))
 
-	return events
+	return b.events
 }
 
 // --- State handlers ---
@@ -211,11 +214,11 @@ func (b *Brain) tickMeleeTelegraph(players map[uint16]*entity.Player) {
 	}
 }
 
-func (b *Brain) tickMeleeAttack(players map[uint16]*entity.Player, obstacles []combat.Obstacle) []combat.DamageEvent {
+func (b *Brain) tickMeleeAttack(players map[uint16]*entity.Player, obstacles []combat.Obstacle) {
 	e := b.enemy
 	e.Velocity = entity.Vec3{}
 	if e.StateTimer > 0 {
-		return nil
+		return
 	}
 
 	ability := b.activeAbilityResolved()
@@ -231,7 +234,6 @@ func (b *Brain) tickMeleeAttack(players map[uint16]*entity.Player, obstacles []c
 	forwardX := -math.Sin(float64(e.RotationY))
 	forwardZ := -math.Cos(float64(e.RotationY))
 
-	var events []combat.DamageEvent
 	for _, p := range players {
 		if !p.Alive {
 			continue
@@ -254,7 +256,7 @@ func (b *Brain) tickMeleeAttack(players map[uint16]*entity.Player, obstacles []c
 		dealt := p.ApplyDamage(ability.MeleeDamage)
 		if dealt > 0 {
 			hitDir := toPlayer.Normalized()
-			events = append(events, combat.DamageEvent{
+			b.events = append(b.events, combat.DamageEvent{
 				TargetPeerID: p.PeerID,
 				Amount:       dealt,
 				HitPos:       e.Position.Add(hitDir),
@@ -263,7 +265,6 @@ func (b *Brain) tickMeleeAttack(players map[uint16]*entity.Player, obstacles []c
 		}
 	}
 	b.enterCooldown()
-	return events
 }
 
 func (b *Brain) tickRangedTelegraph(players map[uint16]*entity.Player) {
@@ -311,15 +312,14 @@ func (b *Brain) tickAoETelegraph() {
 	}
 }
 
-func (b *Brain) tickAoESlam(players map[uint16]*entity.Player, obstacles []combat.Obstacle) []combat.DamageEvent {
+func (b *Brain) tickAoESlam(players map[uint16]*entity.Player, obstacles []combat.Obstacle) {
 	e := b.enemy
 	e.Velocity = entity.Vec3{}
 	if e.StateTimer > 0 {
-		return nil
+		return
 	}
 
 	ability := b.activeAbilityResolved()
-	var events []combat.DamageEvent
 	for _, p := range players {
 		if !p.Alive {
 			continue
@@ -327,7 +327,7 @@ func (b *Brain) tickAoESlam(players map[uint16]*entity.Player, obstacles []comba
 		if combat.CheckAoERadius(e.Position, p.Position, ability.AoERadius, obstacles) {
 			dealt := p.ApplyDamage(ability.AoEDamage)
 			if dealt > 0 {
-				events = append(events, combat.DamageEvent{
+				b.events = append(b.events, combat.DamageEvent{
 					TargetPeerID: p.PeerID,
 					Amount:       dealt,
 					HitPos:       e.Position,
@@ -337,7 +337,6 @@ func (b *Brain) tickAoESlam(players map[uint16]*entity.Player, obstacles []comba
 		}
 	}
 	b.enterCooldown()
-	return events
 }
 
 func (b *Brain) tickChargeTelegraph(players map[uint16]*entity.Player) {
@@ -360,14 +359,13 @@ func (b *Brain) tickChargeTelegraph(players map[uint16]*entity.Player) {
 	}
 }
 
-func (b *Brain) tickCharge(dt float32, players map[uint16]*entity.Player, obstacles []combat.Obstacle) []combat.DamageEvent {
+func (b *Brain) tickCharge(dt float32, players map[uint16]*entity.Player, obstacles []combat.Obstacle) {
 	e := b.enemy
 	ability := b.activeAbilityResolved()
 	spd := ability.ChargeSpeed
 	e.Velocity = entity.Vec3{X: e.ChargeDirection.X * spd, Z: e.ChargeDirection.Z * spd}
 	e.ChargeDistance += spd * dt
 
-	var events []combat.DamageEvent
 	for _, p := range players {
 		if !p.Alive || b.isChargeHit(p.PeerID) {
 			continue
@@ -375,7 +373,7 @@ func (b *Brain) tickCharge(dt float32, players map[uint16]*entity.Player, obstac
 		if e.Position.DistanceTo(p.Position) <= ability.ChargeHitRadius {
 			dealt := p.ApplyDamage(ability.ChargeDamage)
 			if dealt > 0 {
-				events = append(events, combat.DamageEvent{
+				b.events = append(b.events, combat.DamageEvent{
 					TargetPeerID: p.PeerID,
 					Amount:       dealt,
 					HitPos:       e.Position,
@@ -400,7 +398,6 @@ func (b *Brain) tickCharge(dt float32, players map[uint16]*entity.Player, obstac
 		e.Velocity = entity.Vec3{}
 		b.enterCooldown()
 	}
-	return events
 }
 
 func (b *Brain) tickCooldown() {
