@@ -710,6 +710,10 @@ func extractPlayerState(msg []byte, wantPeer uint16) int {
 		off += animLen // anim bytes
 		off += 4       // anim_speed
 		off += 4       // aim_pitch
+		off += 1       // flags
+		off += 1       // config
+		off += 4       // stamina
+		off += 4       // bdShieldHP
 		if peerID == wantPeer {
 			return state
 		}
