@@ -95,10 +95,10 @@ func main() {
 
 func handleConnection(gw *gateway, w http.ResponseWriter, req *http.Request) {
 	// Authenticate at HTTP handshake via query params.
-	playerUUID := req.URL.Query().Get("uuid")
+	userUUID := req.URL.Query().Get("uuid")
 	username := req.URL.Query().Get("username")
 
-	if !validation.IsValidUUID(playerUUID) {
+	if !validation.IsValidUUID(userUUID) {
 		http.Error(w, "invalid or missing uuid", http.StatusUnauthorized)
 		return
 	}
@@ -110,24 +110,24 @@ func handleConnection(gw *gateway, w http.ResponseWriter, req *http.Request) {
 		username = username[:20]
 	}
 
-	// Upsert player in DB (only sets username on first creation).
-	if err := gw.container.Repo.UpsertPlayer(playerUUID, username); err != nil {
-		slog.Error("upsert player", "uuid", playerUUID, "error", err)
+	// Upsert user in DB (only sets username on first creation).
+	if err := gw.container.Repo.UpsertUser(userUUID, username); err != nil {
+		slog.Error("upsert user", "uuid", userUUID, "error", err)
 		http.Error(w, "auth failed", http.StatusInternalServerError)
 		return
 	}
 
 	// Use the stored username as authoritative (query param only used for creation).
-	player, err := gw.container.Repo.GetPlayer(playerUUID)
-	if err != nil || player == nil {
-		slog.Error("get player after upsert", "uuid", playerUUID, "error", err)
+	u, err := gw.container.Repo.GetUser(userUUID)
+	if err != nil || u == nil {
+		slog.Error("get user after upsert", "uuid", userUUID, "error", err)
 		http.Error(w, "auth failed", http.StatusInternalServerError)
 		return
 	}
-	username = player.Username
+	username = u.Username
 
 	// Load all characters for the selection screen.
-	allChars, _ := gw.container.Repo.GetCharacters(playerUUID)
+	allChars, _ := gw.container.Repo.GetCharacters(userUUID)
 
 	conn, err := websocket.Accept(w, req, &websocket.AcceptOptions{
 		InsecureSkipVerify: true, // Allow any origin for dev.
@@ -143,7 +143,7 @@ func handleConnection(gw *gateway, w http.ResponseWriter, req *http.Request) {
 
 	client := network.NewClient(conn)
 	sess := gw.sessions.Register(client)
-	sess.PlayerUUID = playerUUID
+	sess.UserUUID = userUUID
 	sess.Username = username
 	sess.Class = "gunner"
 	if len(allChars) > 0 {
@@ -154,7 +154,7 @@ func handleConnection(gw *gateway, w http.ResponseWriter, req *http.Request) {
 	client.Send(encodeCharacterListMsg(username, allChars))
 	defer func() {
 		// Save character position before cleanup (hub only).
-		if sess.PlayerUUID != "" && sess.Class != "" && sess.ZoneID == zone.ZoneHub {
+		if sess.UserUUID != "" && sess.Class != "" && sess.ZoneID == zone.ZoneHub {
 			gw.savePlayerPosition(sess)
 		}
 		// Remove from group.

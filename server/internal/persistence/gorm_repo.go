@@ -45,7 +45,7 @@ func NewGormRepo(driver, dsn string) (*GormRepo, error) {
 		return nil, fmt.Errorf("persistence open: %w", err)
 	}
 
-	if err := db.AutoMigrate(&Player{}, &Character{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &Character{}); err != nil {
 		return nil, fmt.Errorf("persistence migrate: %w", err)
 	}
 
@@ -55,8 +55,8 @@ func NewGormRepo(driver, dsn string) (*GormRepo, error) {
 		_ = migrator.DropIndex(&Character{}, "idx_player_class")
 	}
 	// Drop legacy unique index on player username if it exists.
-	if migrator.HasIndex(&Player{}, "idx_players_username") {
-		_ = migrator.DropIndex(&Player{}, "idx_players_username")
+	if migrator.HasIndex(&User{}, "idx_players_username") {
+		_ = migrator.DropIndex(&User{}, "idx_players_username")
 	}
 
 	// Backfill empty character names for pre-existing records.
@@ -65,22 +65,22 @@ func NewGormRepo(driver, dsn string) (*GormRepo, error) {
 	return &GormRepo{db: db}, nil
 }
 
-func (r *GormRepo) UpsertPlayer(id, username string) error {
-	player := Player{ID: id, Username: username}
+func (r *GormRepo) UpsertUser(id, username string) error {
+	u := User{ID: id, Username: username}
 	result := r.db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "id"}},
 		DoNothing: true,
-	}).Create(&player)
+	}).Create(&u)
 	return result.Error
 }
 
-func (r *GormRepo) GetPlayer(id string) (*Player, error) {
-	var player Player
-	result := r.db.First(&player, "id = ?", id)
+func (r *GormRepo) GetUser(id string) (*User, error) {
+	var u User
+	result := r.db.First(&u, "id = ?", id)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
-	return &player, result.Error
+	return &u, result.Error
 }
 
 func (r *GormRepo) CreateCharacter(c *Character) error {
@@ -102,9 +102,9 @@ func (r *GormRepo) GetCharacterByID(id uint) (*Character, error) {
 	return &c, result.Error
 }
 
-func (r *GormRepo) GetCharacters(playerID string) ([]*Character, error) {
+func (r *GormRepo) GetCharacters(userID string) ([]*Character, error) {
 	var chars []*Character
-	result := r.db.Where("player_id = ?", playerID).Order("updated_at DESC").Find(&chars)
+	result := r.db.Where("user_id = ?", userID).Order("updated_at DESC").Find(&chars)
 	return chars, result.Error
 }
 
@@ -114,8 +114,8 @@ func (r *GormRepo) IsCharacterNameTaken(name string) (bool, error) {
 	return count > 0, result.Error
 }
 
-func (r *GormRepo) CountCharacters(playerID string) (int64, error) {
+func (r *GormRepo) CountCharacters(userID string) (int64, error) {
 	var count int64
-	result := r.db.Model(&Character{}).Where("player_id = ?", playerID).Count(&count)
+	result := r.db.Model(&Character{}).Where("user_id = ?", userID).Count(&count)
 	return count, result.Error
 }

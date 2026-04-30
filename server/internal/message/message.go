@@ -150,6 +150,20 @@ func IsGroupRelated(opcode uint16) bool {
 	return opcode >= 0x0050 && opcode <= 0x005F
 }
 
+// IsUserRelated returns true for user/account opcodes.
+func IsUserRelated(opcode uint16) bool {
+	return opcode == OpSetUsername
+}
+
+// IsCharacterRelated returns true for character CRUD opcodes.
+func IsCharacterRelated(opcode uint16) bool {
+	switch opcode {
+	case OpSelectCharacter, OpCreateCharacter:
+		return true
+	}
+	return false
+}
+
 // IsClientInput returns true for opcodes that are client-to-server input messages.
 // These are routed to the zone simulation, not relayed.
 func IsClientInput(opcode uint16) bool {

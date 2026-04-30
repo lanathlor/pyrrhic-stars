@@ -16,43 +16,43 @@ func newTestRepo(t *testing.T) Repository {
 	return repo
 }
 
-func TestUpsertPlayer(t *testing.T) {
+func TestUpsertUser(t *testing.T) {
 	repo := newTestRepo(t)
 	id := "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
 
-	// First call creates the player.
-	if err := repo.UpsertPlayer(id, "Alice"); err != nil {
-		t.Fatalf("UpsertPlayer (create): %v", err)
+	// First call creates the user.
+	if err := repo.UpsertUser(id, "Alice"); err != nil {
+		t.Fatalf("UpsertUser (create): %v", err)
 	}
-	p, err := repo.GetPlayer(id)
+	p, err := repo.GetUser(id)
 	if err != nil {
-		t.Fatalf("GetPlayer: %v", err)
+		t.Fatalf("GetUser: %v", err)
 	}
 	if p == nil {
-		t.Fatal("expected player, got nil")
+		t.Fatal("expected user, got nil")
 	}
 	if p.Username != "Alice" {
 		t.Errorf("username = %q, want %q", p.Username, "Alice")
 	}
 
 	// Second call with a different username must NOT overwrite.
-	if err := repo.UpsertPlayer(id, "AliceRenamed"); err != nil {
-		t.Fatalf("UpsertPlayer (noop): %v", err)
+	if err := repo.UpsertUser(id, "AliceRenamed"); err != nil {
+		t.Fatalf("UpsertUser (noop): %v", err)
 	}
-	p, err = repo.GetPlayer(id)
+	p, err = repo.GetUser(id)
 	if err != nil {
-		t.Fatalf("GetPlayer: %v", err)
+		t.Fatalf("GetUser: %v", err)
 	}
 	if p.Username != "Alice" {
 		t.Errorf("username = %q after re-upsert, want %q (should not overwrite)", p.Username, "Alice")
 	}
 }
 
-func TestGetPlayerNotFound(t *testing.T) {
+func TestGetUserNotFound(t *testing.T) {
 	repo := newTestRepo(t)
-	p, err := repo.GetPlayer("nonexistent-uuid")
+	p, err := repo.GetUser("nonexistent-uuid")
 	if err != nil {
-		t.Fatalf("GetPlayer: %v", err)
+		t.Fatalf("GetUser: %v", err)
 	}
 	if p != nil {
 		t.Errorf("expected nil, got %+v", p)
@@ -61,12 +61,12 @@ func TestGetPlayerNotFound(t *testing.T) {
 
 func TestCreateCharacter(t *testing.T) {
 	repo := newTestRepo(t)
-	playerID := "11111111-2222-4333-8444-555555555555"
-	if err := repo.UpsertPlayer(playerID, "Bob"); err != nil {
-		t.Fatalf("UpsertPlayer: %v", err)
+	userID := "11111111-2222-4333-8444-555555555555"
+	if err := repo.UpsertUser(userID, "Bob"); err != nil {
+		t.Fatalf("UpsertUser: %v", err)
 	}
 
-	c := &Character{PlayerID: playerID, ClassName: entity.ClassGunner, Name: "BobGunner", PosX: 1.0, PosY: 2.0, PosZ: 3.0, RotY: 0.5}
+	c := &Character{UserID: userID, ClassName: entity.ClassGunner, Name: "BobGunner", PosX: 1.0, PosY: 2.0, PosZ: 3.0, RotY: 0.5}
 	if err := repo.CreateCharacter(c); err != nil {
 		t.Fatalf("CreateCharacter: %v", err)
 	}
@@ -89,7 +89,7 @@ func TestCreateCharacter(t *testing.T) {
 	}
 
 	// Duplicate name must fail.
-	dup := &Character{PlayerID: playerID, ClassName: entity.ClassVanguard, Name: "BobGunner", PosX: 5.0}
+	dup := &Character{UserID: userID, ClassName: entity.ClassVanguard, Name: "BobGunner", PosX: 5.0}
 	if err := repo.CreateCharacter(dup); err == nil {
 		t.Fatal("expected error for duplicate name, got nil")
 	}
@@ -97,20 +97,20 @@ func TestCreateCharacter(t *testing.T) {
 
 func TestCreateCharacter_MultiplePerClass(t *testing.T) {
 	repo := newTestRepo(t)
-	playerID := "22222222-3333-4444-8555-666666666666"
-	if err := repo.UpsertPlayer(playerID, "Multi"); err != nil {
-		t.Fatalf("UpsertPlayer: %v", err)
+	userID := "22222222-3333-4444-8555-666666666666"
+	if err := repo.UpsertUser(userID, "Multi"); err != nil {
+		t.Fatalf("UpsertUser: %v", err)
 	}
 
 	names := []string{"Gunner1", "Gunner2", "Gunner3"}
 	for _, name := range names {
-		c := &Character{PlayerID: playerID, ClassName: entity.ClassGunner, Name: name}
+		c := &Character{UserID: userID, ClassName: entity.ClassGunner, Name: name}
 		if err := repo.CreateCharacter(c); err != nil {
 			t.Fatalf("CreateCharacter(%s): %v", name, err)
 		}
 	}
 
-	count, err := repo.CountCharacters(playerID)
+	count, err := repo.CountCharacters(userID)
 	if err != nil {
 		t.Fatalf("CountCharacters: %v", err)
 	}
@@ -121,12 +121,12 @@ func TestCreateCharacter_MultiplePerClass(t *testing.T) {
 
 func TestUpdateCharacterPosition(t *testing.T) {
 	repo := newTestRepo(t)
-	playerID := "33333333-4444-4555-8666-777777777777"
-	if err := repo.UpsertPlayer(playerID, "Mover"); err != nil {
-		t.Fatalf("UpsertPlayer: %v", err)
+	userID := "33333333-4444-4555-8666-777777777777"
+	if err := repo.UpsertUser(userID, "Mover"); err != nil {
+		t.Fatalf("UpsertUser: %v", err)
 	}
 
-	c := &Character{PlayerID: playerID, ClassName: entity.ClassVanguard, Name: "MoverChar", PosX: 0, PosY: 0, PosZ: 0, RotY: 0}
+	c := &Character{UserID: userID, ClassName: entity.ClassVanguard, Name: "MoverChar", PosX: 0, PosY: 0, PosZ: 0, RotY: 0}
 	if err := repo.CreateCharacter(c); err != nil {
 		t.Fatalf("CreateCharacter: %v", err)
 	}
@@ -146,12 +146,12 @@ func TestUpdateCharacterPosition(t *testing.T) {
 
 func TestGetCharacterByID(t *testing.T) {
 	repo := newTestRepo(t)
-	playerID := "44444444-5555-4666-8777-888888888888"
-	if err := repo.UpsertPlayer(playerID, "Finder"); err != nil {
-		t.Fatalf("UpsertPlayer: %v", err)
+	userID := "44444444-5555-4666-8777-888888888888"
+	if err := repo.UpsertUser(userID, "Finder"); err != nil {
+		t.Fatalf("UpsertUser: %v", err)
 	}
 
-	c := &Character{PlayerID: playerID, ClassName: "arcanist", Name: "FindMe"}
+	c := &Character{UserID: userID, ClassName: "arcanist", Name: "FindMe"}
 	if err := repo.CreateCharacter(c); err != nil {
 		t.Fatalf("CreateCharacter: %v", err)
 	}
@@ -176,21 +176,21 @@ func TestGetCharacterByID(t *testing.T) {
 
 func TestGetCharacters(t *testing.T) {
 	repo := newTestRepo(t)
-	playerID := "55555555-6666-4777-8888-999999999999"
-	if err := repo.UpsertPlayer(playerID, "Lister"); err != nil {
-		t.Fatalf("UpsertPlayer: %v", err)
+	userID := "55555555-6666-4777-8888-999999999999"
+	if err := repo.UpsertUser(userID, "Lister"); err != nil {
+		t.Fatalf("UpsertUser: %v", err)
 	}
 
 	names := []string{"First", "Second", "Third"}
 	for _, name := range names {
-		c := &Character{PlayerID: playerID, ClassName: entity.ClassGunner, Name: name}
+		c := &Character{UserID: userID, ClassName: entity.ClassGunner, Name: name}
 		if err := repo.CreateCharacter(c); err != nil {
 			t.Fatalf("CreateCharacter(%s): %v", name, err)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	chars, err := repo.GetCharacters(playerID)
+	chars, err := repo.GetCharacters(userID)
 	if err != nil {
 		t.Fatalf("GetCharacters: %v", err)
 	}
@@ -205,9 +205,9 @@ func TestGetCharacters(t *testing.T) {
 
 func TestIsCharacterNameTaken(t *testing.T) {
 	repo := newTestRepo(t)
-	playerID := "66666666-7777-4888-8999-aaaaaaaaaaaa"
-	if err := repo.UpsertPlayer(playerID, "Namer"); err != nil {
-		t.Fatalf("UpsertPlayer: %v", err)
+	userID := "66666666-7777-4888-8999-aaaaaaaaaaaa"
+	if err := repo.UpsertUser(userID, "Namer"); err != nil {
+		t.Fatalf("UpsertUser: %v", err)
 	}
 
 	taken, err := repo.IsCharacterNameTaken("UniqueName")
@@ -218,7 +218,7 @@ func TestIsCharacterNameTaken(t *testing.T) {
 		t.Error("expected false for unused name, got true")
 	}
 
-	c := &Character{PlayerID: playerID, ClassName: entity.ClassGunner, Name: "UniqueName"}
+	c := &Character{UserID: userID, ClassName: entity.ClassGunner, Name: "UniqueName"}
 	if err := repo.CreateCharacter(c); err != nil {
 		t.Fatalf("CreateCharacter: %v", err)
 	}
@@ -234,27 +234,27 @@ func TestIsCharacterNameTaken(t *testing.T) {
 
 func TestCountCharacters(t *testing.T) {
 	repo := newTestRepo(t)
-	playerID := "77777777-8888-4999-8aaa-bbbbbbbbbbbb"
-	if err := repo.UpsertPlayer(playerID, "Counter"); err != nil {
-		t.Fatalf("UpsertPlayer: %v", err)
+	userID := "77777777-8888-4999-8aaa-bbbbbbbbbbbb"
+	if err := repo.UpsertUser(userID, "Counter"); err != nil {
+		t.Fatalf("UpsertUser: %v", err)
 	}
 
-	count, err := repo.CountCharacters(playerID)
+	count, err := repo.CountCharacters(userID)
 	if err != nil {
 		t.Fatalf("CountCharacters: %v", err)
 	}
 	if count != 0 {
-		t.Errorf("count = %d for new player, want 0", count)
+		t.Errorf("count = %d for new user, want 0", count)
 	}
 
 	for i, name := range []string{"Char1", "Char2"} {
-		c := &Character{PlayerID: playerID, ClassName: entity.ClassVanguard, Name: name}
+		c := &Character{UserID: userID, ClassName: entity.ClassVanguard, Name: name}
 		if err := repo.CreateCharacter(c); err != nil {
 			t.Fatalf("CreateCharacter #%d: %v", i, err)
 		}
 	}
 
-	count, err = repo.CountCharacters(playerID)
+	count, err = repo.CountCharacters(userID)
 	if err != nil {
 		t.Fatalf("CountCharacters: %v", err)
 	}

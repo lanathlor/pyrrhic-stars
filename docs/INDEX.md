@@ -35,6 +35,7 @@ TTRPG source material: https://github.com/lanathlor/rpg
 
 ## Technical Architecture
 
+- [Domain Model](architecture/domain-model.md) — User vs Character vs Player distinction
 - [Stack & Server](architecture/overview.md) — Go server, Redis/PostgreSQL, k3s, scaling targets
 - [Client Architecture](architecture/client.md) — per-class Godot controllers, shared character node
 - [Networking Model](architecture/networking.md) — client-predicted, server-authoritative

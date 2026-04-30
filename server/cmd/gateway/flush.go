@@ -29,7 +29,7 @@ func (g *gateway) savePlayerPosition(sess *session.Session) {
 		float64(p.Position.Z),
 		float64(p.RotationY),
 	); err != nil {
-		slog.Error("save player position", "uuid", sess.PlayerUUID, "error", err)
+		slog.Error("save player position", "uuid", sess.UserUUID, "error", err)
 	}
 }
 
@@ -71,7 +71,7 @@ func (g *gateway) flushAllPositions() {
 			float64(p.Position.Z),
 			float64(p.RotationY),
 		); err != nil {
-			slog.Error("periodic flush", "uuid", t.PlayerUUID, "error", err)
+			slog.Error("periodic flush", "uuid", t.UserUUID, "error", err)
 		} else {
 			saved++
 		}

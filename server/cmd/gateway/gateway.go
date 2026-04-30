@@ -8,21 +8,25 @@ import (
 	"sync"
 
 	"codex-online/server/internal/codec"
+	"codex-online/server/internal/character"
 	"codex-online/server/internal/container"
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/group"
 	"codex-online/server/internal/message"
 	"codex-online/server/internal/session"
+	"codex-online/server/internal/user"
 	"codex-online/server/internal/zone"
 )
 
 // gateway manages zones, player sessions, and groups.
 type gateway struct {
-	container *container.Container
-	zones     map[string]*zoneInstance
-	sessions  *session.Registry
-	groups    *group.Manager
-	mu        sync.Mutex // protects zones
+	container  *container.Container
+	zones      map[string]*zoneInstance
+	sessions   *session.Registry
+	groups     *group.Manager
+	users      *user.Service
+	characters *character.Service
+	mu         sync.Mutex // protects zones
 }
 
 type zoneInstance struct {
@@ -35,10 +39,12 @@ type zoneInstance struct {
 
 func newGateway(ctr *container.Container) *gateway {
 	return &gateway{
-		container: ctr,
-		zones:     make(map[string]*zoneInstance),
-		sessions:  session.NewRegistry(),
-		groups:    group.NewManager(),
+		container:  ctr,
+		zones:      make(map[string]*zoneInstance),
+		sessions:   session.NewRegistry(),
+		groups:     group.NewManager(),
+		users:      user.NewService(ctr.Repo),
+		characters: character.NewService(ctr.Repo),
 	}
 }
 
