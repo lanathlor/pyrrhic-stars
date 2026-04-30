@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"codex-online/server/internal/codec"
 	"codex-online/server/internal/container"
 	"codex-online/server/internal/message"
 	"codex-online/server/internal/network"
@@ -162,18 +161,7 @@ func handleConnection(gw *gateway, w http.ResponseWriter, req *http.Request) {
 		if g, disbanded := gw.groups.LeaveGroup(sess.ID); !disbanded && g != nil {
 			gw.broadcastGroupState(g)
 		}
-		// Remove from current zone.
-		if sess.ZoneID != "" {
-			zi := gw.getZone(sess.ZoneID)
-			if zi != nil {
-				zi.zone.RemoveClient(sess.PeerID)
-				disconnMsg := message.Encode(message.OpPeerDisconnected, 0, codec.EncodePeerID(sess.PeerID))
-				zi.zone.Broadcast(disconnMsg, sess.PeerID)
-				if zi.zoneType == zone.ZoneTypeArena && zi.zone.ClientCount() == 0 {
-					gw.removeZone(sess.ZoneID)
-				}
-			}
-		}
+		gw.leaveZone(sess)
 		gw.sessions.Remove(client)
 		client.Close()
 		_ = conn.CloseNow()

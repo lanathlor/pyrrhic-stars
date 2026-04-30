@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"codex-online/server/internal/codec"
-	"codex-online/server/internal/entity"
 	"codex-online/server/internal/message"
 	"codex-online/server/internal/persistence"
 	"codex-online/server/internal/session"
@@ -56,7 +55,7 @@ func handleServerMessage(gw *gateway, sess *session.Session, opcode uint16, payl
 		sess.CharName = char.Name
 		sess.Conn.Send(message.Encode(message.OpCharacterState, 0, codec.EncodeCharacterState(charToCodec(char))))
 
-		gw.joinHubAfterCharSelect(sess, char)
+		gw.joinHubAfterCharSelect(sess)
 
 	case message.OpCreateCharacter:
 		gw.handleCreateCharacter(sess, payload)
@@ -66,63 +65,12 @@ func handleServerMessage(gw *gateway, sess *session.Session, opcode uint16, payl
 		if zoneID == "" {
 			zoneID = zone.ZoneHub
 		}
-
 		zoneType := zone.ZoneTypeHub
 		if strings.HasPrefix(zoneID, "arena") {
 			zoneType = zone.ZoneTypeArena
 		}
-
 		zi := gw.getOrCreateZone(zoneID, zoneType)
-
-		zi.mu.Lock()
-		peerID := zi.nextID
-		zi.nextID++
-		zi.mu.Unlock()
-
-		sess.PeerID = peerID
-		sess.ZoneID = zoneID
-
-		displayName := sess.CharName
-		if displayName == "" {
-			displayName = sess.Username
-		}
-		if displayName == "" {
-			displayName = fmt.Sprintf("Player_%d", sess.ID)
-			sess.Username = displayName
-		}
-
-		zi.zone.AddClient(&zone.Client{
-			PeerID:   peerID,
-			Username: displayName,
-			Send:     sess.Conn.Send,
-		})
-
-		// Restore saved position for hub zone.
-		if zoneType == zone.ZoneTypeHub && sess.CharID != 0 {
-			if ch, _ := gw.container.Repo.GetCharacterByID(sess.CharID); ch != nil && (ch.PosX != 0 || ch.PosY != 0 || ch.PosZ != 0) {
-				zi.zone.SetPlayerPosition(peerID, entity.Vec3{
-					X: float32(ch.PosX),
-					Y: float32(ch.PosY),
-					Z: float32(ch.PosZ),
-				}, float32(ch.RotY))
-			}
-		}
-
-		for _, existingID := range zi.zone.GetPeerIDs() {
-			if existingID == peerID {
-				continue
-			}
-			sess.Conn.Send(message.Encode(message.OpPeerConnected, 0, codec.EncodePeerID(existingID)))
-		}
-
-		resp := make([]byte, 3)
-		binary.BigEndian.PutUint16(resp[0:2], peerID)
-		resp[2] = 0
-		sess.Conn.Send(message.Encode(message.OpZoneJoined, 0, resp))
-		slog.Info("peer joined zone", "zone_id", zoneID, "peer_id", peerID, "username", displayName)
-
-		peerMsg := message.Encode(message.OpPeerConnected, 0, codec.EncodePeerID(peerID))
-		zi.zone.Broadcast(peerMsg, peerID)
+		gw.joinZone(sess, zi, joinResponseZoneJoined)
 
 	default:
 		slog.Warn("unknown server opcode", "opcode", opcode)
@@ -203,64 +151,14 @@ func (g *gateway) handleCreateCharacter(sess *session.Session, payload []byte) {
 	sess.CharName = char.Name
 	sess.Conn.Send(message.Encode(message.OpCharacterState, 0, codec.EncodeCharacterState(charToCodec(char))))
 
-	g.joinHubAfterCharSelect(sess, char)
+	g.joinHubAfterCharSelect(sess)
 }
 
 // joinHubAfterCharSelect handles the shared logic for joining the hub zone
 // after a character is selected or created.
-func (g *gateway) joinHubAfterCharSelect(sess *session.Session, char *persistence.Character) {
-	zoneID := zone.ZoneHub
-	zi := g.getOrCreateZone(zoneID, zone.ZoneTypeHub)
-
-	zi.mu.Lock()
-	peerID := zi.nextID
-	zi.nextID++
-	zi.mu.Unlock()
-
-	sess.PeerID = peerID
-	sess.ZoneID = zoneID
-
-	displayName := sess.CharName
-	if displayName == "" {
-		displayName = sess.Username
-	}
-	if displayName == "" {
-		displayName = fmt.Sprintf("Player_%d", sess.ID)
-	}
-
-	zi.zone.AddClient(&zone.Client{
-		PeerID:   peerID,
-		Username: displayName,
-		Send:     sess.Conn.Send,
-	})
-
-	if char != nil && (char.PosX != 0 || char.PosY != 0 || char.PosZ != 0) {
-		zi.zone.SetPlayerPosition(peerID, entity.Vec3{
-			X: float32(char.PosX),
-			Y: float32(char.PosY),
-			Z: float32(char.PosZ),
-		}, float32(char.RotY))
-	}
-
-	if sess.Class != "" && sess.Class != "gunner" {
-		zi.zone.QueueInput(peerID, message.OpInteractInput, codec.EncodeInteractInput(message.InteractClassSelect, sess.Class))
-	}
-
-	for _, existingID := range zi.zone.GetPeerIDs() {
-		if existingID == peerID {
-			continue
-		}
-		sess.Conn.Send(message.Encode(message.OpPeerConnected, 0, codec.EncodePeerID(existingID)))
-	}
-
-	resp := make([]byte, 3)
-	binary.BigEndian.PutUint16(resp[0:2], peerID)
-	resp[2] = 0
-	sess.Conn.Send(message.Encode(message.OpZoneJoined, 0, resp))
-	slog.Info("character selected, joined hub", "player_id", sess.ID, "char_id", sess.CharID, "class", sess.Class, "peer_id", peerID)
-
-	peerMsg := message.Encode(message.OpPeerConnected, 0, codec.EncodePeerID(peerID))
-	zi.zone.Broadcast(peerMsg, peerID)
+func (g *gateway) joinHubAfterCharSelect(sess *session.Session) {
+	zi := g.getOrCreateZone(zone.ZoneHub, zone.ZoneTypeHub)
+	g.joinZone(sess, zi, joinResponseZoneJoined)
 }
 
 // charToCodec converts a persistence.Character to a codec.CharacterInfo.

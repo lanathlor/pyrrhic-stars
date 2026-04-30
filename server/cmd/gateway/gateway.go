@@ -75,67 +75,71 @@ func (g *gateway) removeZone(zoneID string) {
 	}
 }
 
-// transferPlayer moves a player from their current zone to a new zone.
-func (g *gateway) transferPlayer(sess *session.Session, targetZoneID string, targetType zone.ZoneType) {
-	// Remove from old zone.
-	if sess.ZoneID != "" {
-		oldZI := g.getZone(sess.ZoneID)
-		if oldZI != nil {
-			oldZI.zone.RemoveClient(sess.PeerID)
-			disconnMsg := message.Encode(message.OpPeerDisconnected, 0, codec.EncodePeerID(sess.PeerID))
-			oldZI.zone.Broadcast(disconnMsg, sess.PeerID)
-			if oldZI.zoneType == zone.ZoneTypeArena && oldZI.zone.ClientCount() == 0 {
-				g.removeZone(sess.ZoneID)
-			}
-		}
+// joinResponse controls the message sent to the player after joining a zone.
+type joinResponse uint8
+
+const (
+	joinResponseZoneJoined  joinResponse = iota // OpZoneJoined  [peerID:2][0:1]
+	joinResponseZoneTransfer                     // OpZoneTransfer [type:1][peerID:2]
+)
+
+// leaveZone removes a player from their current zone, broadcasts their
+// departure, and cleans up empty arena zones.
+func (g *gateway) leaveZone(sess *session.Session) {
+	if sess.ZoneID == "" {
+		return
 	}
-
-	// Create/get target zone.
-	zi := g.getOrCreateZone(targetZoneID, targetType)
-
-	if targetType == zone.ZoneTypeArena {
-		zi.zone.OnPlayerRespawnHub = func(peerID uint16) {
-			g.handlePlayerRespawnHub(targetZoneID, peerID)
-		}
+	zi := g.getZone(sess.ZoneID)
+	if zi == nil {
+		return
 	}
+	zi.zone.RemoveClient(sess.PeerID)
+	disconnMsg := message.Encode(message.OpPeerDisconnected, 0, codec.EncodePeerID(sess.PeerID))
+	zi.zone.Broadcast(disconnMsg, sess.PeerID)
+	if zi.zoneType == zone.ZoneTypeArena && zi.zone.ClientCount() == 0 {
+		g.removeZone(sess.ZoneID)
+	}
+}
 
-	// Allocate new peer ID.
+// joinZone adds a player to a zone, notifies peers, and sends the appropriate
+// response. It handles peer ID allocation, display name resolution, position
+// restore (hub zones), and class selection queuing.
+func (g *gateway) joinZone(sess *session.Session, zi *zoneInstance, resp joinResponse) {
+	// Allocate peer ID.
 	zi.mu.Lock()
-	newPeerID := zi.nextID
+	peerID := zi.nextID
 	zi.nextID++
 	zi.mu.Unlock()
 
-	sess.ZoneID = targetZoneID
-	sess.PeerID = newPeerID
+	sess.PeerID = peerID
+	sess.ZoneID = zi.zone.ID
 
-	// Send zone transfer to client.
-	transferPayload := make([]byte, 3)
-	transferPayload[0] = byte(targetType)
-	binary.BigEndian.PutUint16(transferPayload[1:3], newPeerID)
-	sess.Conn.Send(message.Encode(message.OpZoneTransfer, 0, transferPayload))
-
-	// Register in new zone.
+	// Resolve display name.
 	displayName := sess.CharName
 	if displayName == "" {
 		displayName = sess.Username
 	}
 	if displayName == "" {
 		displayName = fmt.Sprintf("Player_%d", sess.ID)
+		sess.Username = displayName
 	}
+
 	zi.zone.AddClient(&zone.Client{
-		PeerID:   newPeerID,
+		PeerID:   peerID,
 		Username: displayName,
 		Send:     sess.Conn.Send,
 	})
 
+	// Queue class selection for non-gunner characters.
 	if sess.Class != "" && sess.Class != entity.ClassGunner {
-		zi.zone.QueueInput(newPeerID, message.OpInteractInput, codec.EncodeInteractInput(message.InteractClassSelect, sess.Class))
+		zi.zone.QueueInput(peerID, message.OpInteractInput,
+			codec.EncodeInteractInput(message.InteractClassSelect, sess.Class))
 	}
 
-	// Restore saved position when transferring back to hub.
-	if targetType == zone.ZoneTypeHub && sess.CharID != 0 {
+	// Restore saved position for hub zones.
+	if zi.zoneType == zone.ZoneTypeHub && sess.CharID != 0 {
 		if ch, _ := g.container.Repo.GetCharacterByID(sess.CharID); ch != nil && (ch.PosX != 0 || ch.PosY != 0 || ch.PosZ != 0) {
-			zi.zone.SetPlayerPosition(newPeerID, entity.Vec3{
+			zi.zone.SetPlayerPosition(peerID, entity.Vec3{
 				X: float32(ch.PosX),
 				Y: float32(ch.PosY),
 				Z: float32(ch.PosZ),
@@ -143,19 +147,47 @@ func (g *gateway) transferPlayer(sess *session.Session, targetZoneID string, tar
 		}
 	}
 
-	// Notify existing clients about new peer.
-	peerMsg := message.Encode(message.OpPeerConnected, 0, codec.EncodePeerID(newPeerID))
-	zi.zone.Broadcast(peerMsg, newPeerID)
-
-	// Notify new client about existing peers.
+	// Notify new peer about existing peers.
 	for _, existingID := range zi.zone.GetPeerIDs() {
-		if existingID == newPeerID {
+		if existingID == peerID {
 			continue
 		}
 		sess.Conn.Send(message.Encode(message.OpPeerConnected, 0, codec.EncodePeerID(existingID)))
 	}
 
-	slog.Info("player transferred", "player_id", sess.ID, "to_zone", targetZoneID, "new_peer", newPeerID)
+	// Send response to the joining client.
+	switch resp {
+	case joinResponseZoneJoined:
+		buf := make([]byte, 3)
+		binary.BigEndian.PutUint16(buf[0:2], peerID)
+		buf[2] = 0
+		sess.Conn.Send(message.Encode(message.OpZoneJoined, 0, buf))
+	case joinResponseZoneTransfer:
+		buf := make([]byte, 3)
+		buf[0] = byte(zi.zoneType)
+		binary.BigEndian.PutUint16(buf[1:3], peerID)
+		sess.Conn.Send(message.Encode(message.OpZoneTransfer, 0, buf))
+	}
+
+	// Broadcast new peer to existing peers.
+	peerMsg := message.Encode(message.OpPeerConnected, 0, codec.EncodePeerID(peerID))
+	zi.zone.Broadcast(peerMsg, peerID)
+
+	slog.Info("peer joined zone", "zone_id", zi.zone.ID, "peer_id", peerID, "username", displayName)
+}
+
+// transferPlayer moves a player from their current zone to a new zone.
+func (g *gateway) transferPlayer(sess *session.Session, targetZoneID string, targetType zone.ZoneType) {
+	g.leaveZone(sess)
+
+	zi := g.getOrCreateZone(targetZoneID, targetType)
+	if targetType == zone.ZoneTypeArena {
+		zi.zone.OnPlayerRespawnHub = func(peerID uint16) {
+			g.handlePlayerRespawnHub(targetZoneID, peerID)
+		}
+	}
+
+	g.joinZone(sess, zi, joinResponseZoneTransfer)
 }
 
 // handlePlayerRespawnHub transfers a single dead player back to the hub.
