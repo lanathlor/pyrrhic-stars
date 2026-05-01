@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"os"
 	"runtime"
 	"testing"
 	"time"
@@ -22,7 +21,7 @@ import (
 
 func TestMain(m *testing.M) {
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
-	os.Exit(m.Run())
+	m.Run()
 }
 
 // --- test helpers ---
@@ -447,7 +446,7 @@ func TestLeaveZone_BroadcastsDisconnect(t *testing.T) {
 	}
 }
 
-func TestLeaveZone_NoopWhenZoneIDEmpty(t *testing.T) {
+func TestLeaveZone_NoopWhenZoneIDEmpty(_ *testing.T) {
 	gw := newTestGateway(stubRepo{})
 	sess, _ := newTestSession(1)
 	sess.ZoneID = ""
@@ -457,7 +456,7 @@ func TestLeaveZone_NoopWhenZoneIDEmpty(t *testing.T) {
 	gw.leaveZone(sess)
 }
 
-func TestLeaveZone_NoopWhenZoneNotFound(t *testing.T) {
+func TestLeaveZone_NoopWhenZoneNotFound(_ *testing.T) {
 	gw := newTestGateway(stubRepo{})
 	sess, _ := newTestSession(1)
 	sess.ZoneID = "nonexistent"

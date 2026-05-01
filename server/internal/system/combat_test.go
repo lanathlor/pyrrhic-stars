@@ -385,7 +385,10 @@ func TestBladeSwirlMultiTick(t *testing.T) {
 
 	// After 0.55s: (1.5-0.95)/0.5 = 1.1 -> expectedTicks=1, should deliver 1 tick
 	sys.Tick(w, 0.55)
-	state := p.AbilityState["blade_swirl"].(*ability.BladeSwirlState)
+	state, ok := p.AbilityState["blade_swirl"].(*ability.BladeSwirlState)
+	if !ok {
+		t.Fatal("blade_swirl state not set")
+	}
 	if state.Ticks != 1 {
 		t.Errorf("after 0.55s: BladeSwirlTicks = %d, want 1", state.Ticks)
 	}

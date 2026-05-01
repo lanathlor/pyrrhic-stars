@@ -90,7 +90,7 @@ func TestCast_Validation(t *testing.T) {
 	}{
 		{
 			name: "unknown ability",
-			setup: func(eng *Engine) (*entity.Player, []*entity.Enemy) {
+			setup: func(_ *Engine) (*entity.Player, []*entity.Enemy) {
 				return newGunner(), nil
 			},
 			ability: "nonexistent",
@@ -98,7 +98,7 @@ func TestCast_Validation(t *testing.T) {
 		},
 		{
 			name: "dead player",
-			setup: func(eng *Engine) (*entity.Player, []*entity.Enemy) {
+			setup: func(_ *Engine) (*entity.Player, []*entity.Enemy) {
 				p := newGunner()
 				p.Alive = false
 				return p, nil
@@ -108,7 +108,7 @@ func TestCast_Validation(t *testing.T) {
 		},
 		{
 			name: "GCD active",
-			setup: func(eng *Engine) (*entity.Player, []*entity.Enemy) {
+			setup: func(_ *Engine) (*entity.Player, []*entity.Enemy) {
 				p := newGunner()
 				p.GCDTimer = 0.5
 				return p, nil
@@ -118,7 +118,7 @@ func TestCast_Validation(t *testing.T) {
 		},
 		{
 			name: "per-ability cooldown",
-			setup: func(eng *Engine) (*entity.Player, []*entity.Enemy) {
+			setup: func(_ *Engine) (*entity.Player, []*entity.Enemy) {
 				p := newGunner()
 				p.Cooldowns["fire_shot"] = 0.1
 				return p, nil
@@ -128,7 +128,7 @@ func TestCast_Validation(t *testing.T) {
 		},
 		{
 			name: "wrong BD config",
-			setup: func(eng *Engine) (*entity.Player, []*entity.Enemy) {
+			setup: func(_ *Engine) (*entity.Player, []*entity.Enemy) {
 				p := newBladeDancer()
 				p.Config = entity.ConfigFan // origin is fan, spell needs orbit
 				return p, nil
@@ -138,13 +138,13 @@ func TestCast_Validation(t *testing.T) {
 		},
 		{
 			name: "insufficient resource",
-			setup: func(eng *Engine) (*entity.Player, []*entity.Enemy) {
+			setup: func(_ *Engine) (*entity.Player, []*entity.Enemy) {
 				p := newVanguard()
 				p.Resources["stamina"].Current = 0
 				return p, nil
 			},
 			ability: "ground_slam", // costs 20 stamina
-			reason:  "insufficient stamina",
+			reason:  ReasonInsufficientStamina,
 		},
 	}
 
@@ -403,7 +403,10 @@ func TestRechamber_StartAndConfirm(t *testing.T) {
 	if !r.OK {
 		t.Fatalf("rechamber start failed: %s", r.Reason)
 	}
-	state := p.AbilityState["rechamber"].(*RechamberState)
+	state, ok := p.AbilityState["rechamber"].(*RechamberState)
+	if !ok {
+		t.Fatal("rechamber state not set")
+	}
 	if state.Phase != 1 {
 		t.Errorf("phase = %d, want 1", state.Phase)
 	}
@@ -438,7 +441,10 @@ func TestRechamber_MissedWindow(t *testing.T) {
 	p := newGunner()
 
 	eng.Cast("rechamber", castCtx(p))
-	state := p.AbilityState["rechamber"].(*RechamberState)
+	state, ok := p.AbilityState["rechamber"].(*RechamberState)
+	if !ok {
+		t.Fatal("rechamber state not set")
+	}
 
 	// Tick through windup (0.6s) → phase 2
 	eng.TickPlayer(p, 0.6, tickCtx())
@@ -524,7 +530,7 @@ func TestMeleeLightVG_Combo(t *testing.T) {
 	e := enemyInFront(100, 1000)
 
 	damages := make([]float32, 3)
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		hpBefore := e.Health
 		p.Cooldowns = make(map[string]float32) // reset cooldown
 		r := eng.Cast("melee_light", castCtx(p, e))
@@ -684,7 +690,7 @@ func TestTickPlayer_ResourceRegenDelay(t *testing.T) {
 	// First tick within delay — no regen
 	eng.TickPlayer(p, 0.3, tickCtx())
 	if p.GetResource("stamina") != staminaAfterSpend {
-		t.Errorf("stamina changed during regen delay")
+		t.Error("stamina changed during regen delay")
 	}
 
 	// Tick past delay (0.6s total) — regen starts with leftover time

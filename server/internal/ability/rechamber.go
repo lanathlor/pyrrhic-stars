@@ -21,7 +21,7 @@ type RechamberState struct {
 // GetPhase implements the phaser interface for network encoding.
 func (s *RechamberState) GetPhase() uint8 { return s.Phase }
 
-func rechamberHandler(eng *Engine, ctx *CastContext) CastResult {
+func rechamberHandler(_ *Engine, ctx *CastContext) CastResult {
 	p := ctx.Player
 	state := getRechamberState(p)
 	if state.Phase != 0 {
@@ -36,7 +36,7 @@ func rechamberHandler(eng *Engine, ctx *CastContext) CastResult {
 	return CastResult{OK: true}
 }
 
-func rechamberConfirmHandler(eng *Engine, ctx *CastContext) CastResult {
+func rechamberConfirmHandler(_ *Engine, ctx *CastContext) CastResult {
 	p := ctx.Player
 	state := getRechamberState(p)
 	if state.Phase != 2 {
@@ -53,7 +53,7 @@ func rechamberConfirmHandler(eng *Engine, ctx *CastContext) CastResult {
 	return CastResult{OK: true}
 }
 
-func rechamberTick(eng *Engine, p *entity.Player, dt float32, ctx *TickContext) []DamageResult {
+func rechamberTick(_ *Engine, p *entity.Player, dt float32, _ *TickContext) []DamageResult {
 	state := getRechamberState(p)
 	if state.Phase == 0 {
 		return nil

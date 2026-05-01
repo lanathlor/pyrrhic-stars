@@ -7,7 +7,7 @@ var vgBlockDef = AbilityDef{
 	Handler: "vg_block",
 }
 
-func vgBlockHandler(eng *Engine, ctx *CastContext) CastResult {
+func vgBlockHandler(_ *Engine, ctx *CastContext) CastResult {
 	p := ctx.Player
 	if p.HasBuff("vg_block") || p.HasBuff("vg_parry") {
 		return CastResult{Reason: "already blocking"}

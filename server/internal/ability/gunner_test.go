@@ -215,7 +215,10 @@ func TestGunner_Rechamber_StartsPhase1(t *testing.T) {
 	if !r.OK {
 		t.Fatalf("rechamber failed: %s", r.Reason)
 	}
-	state := p.AbilityState["rechamber"].(*RechamberState)
+	state, ok := p.AbilityState["rechamber"].(*RechamberState)
+	if !ok {
+		t.Fatal("rechamber state not set")
+	}
 	if state.Phase != 1 {
 		t.Errorf("phase = %d, want 1", state.Phase)
 	}
@@ -283,7 +286,10 @@ func TestGunner_Rechamber_PhaseProgression(t *testing.T) {
 	p := newGunner()
 
 	eng.Cast("rechamber", castCtx(p))
-	state := p.AbilityState["rechamber"].(*RechamberState)
+	state, ok := p.AbilityState["rechamber"].(*RechamberState)
+	if !ok {
+		t.Fatal("rechamber state not set")
+	}
 
 	// Phase 1 → 2 after 0.6s
 	eng.TickPlayer(p, 0.6, tickCtx())

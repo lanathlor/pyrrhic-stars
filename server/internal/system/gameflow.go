@@ -187,8 +187,7 @@ func checkFightEnd(w *World) {
 	}
 }
 
-func tickFightOver(w *World, dt float32) {
-
+func tickFightOver(w *World, _ float32) {
 	// After a wipe, transition back to lobby once all players have respawned
 	if !w.BossDefeated {
 		allAlive := true
