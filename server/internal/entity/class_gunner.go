@@ -1,9 +1,9 @@
-package class
+package entity
 
-var gunnerDef = Def{
-	ID:        Gunner,
+var gunnerDef = ClassDef{
+	ID:        ClassGunner,
 	MaxHealth: 150,
-	Movement: Movement{
+	Movement: ClassMovement{
 		WalkSpeed: 5.5, SprintSpeed: 7.7, JumpVel: 4.0,
 		GroundAccel: 25.0, GroundDecel: 18.0, AirAccel: 2.5, AirDecel: 1.0,
 		RollSpeed: 14.0, RollDur: 0.3, RollCD: 2.5,

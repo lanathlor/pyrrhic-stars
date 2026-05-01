@@ -1,9 +1,9 @@
-package class
+package entity
 
-var vanguardDef = Def{
-	ID:        Vanguard,
+var vanguardDef = ClassDef{
+	ID:        ClassVanguard,
 	MaxHealth: 200,
-	Movement: Movement{
+	Movement: ClassMovement{
 		WalkSpeed: 5.0, SprintSpeed: 7.0, JumpVel: 3.5,
 		GroundAccel: 20.0, GroundDecel: 15.0, AirAccel: 2.5, AirDecel: 1.0,
 		RollSpeed: 12.0, RollDur: 0.4, RollCD: 1.0,

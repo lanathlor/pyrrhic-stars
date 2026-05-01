@@ -1,9 +1,9 @@
-package class
+package entity
 
-var bladeDancerDef = Def{
-	ID:        BladeDancer,
+var bladeDancerDef = ClassDef{
+	ID:        ClassBladeDancer,
 	MaxHealth: 150,
-	Movement: Movement{
+	Movement: ClassMovement{
 		WalkSpeed: 6.0, SprintSpeed: 9.0, JumpVel: 3.5,
 		GroundAccel: 20.0, GroundDecel: 15.0, AirAccel: 2.5, AirDecel: 1.0,
 		RollSpeed: 15.0, RollDur: 0.2, RollCD: 0.5,
