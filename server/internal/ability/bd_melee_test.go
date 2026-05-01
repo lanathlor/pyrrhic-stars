@@ -7,7 +7,7 @@ import (
 )
 
 func TestBDMelee_BasicHit(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 	e := enemyInFront(100, 500)
 
@@ -24,7 +24,7 @@ func TestBDMelee_BasicHit(t *testing.T) {
 }
 
 func TestBDMelee_SetsCooldown(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 	e := enemyInFront(100, 500)
 
@@ -35,7 +35,7 @@ func TestBDMelee_SetsCooldown(t *testing.T) {
 }
 
 func TestBDMelee_BlockedByCooldown(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 	e := enemyInFront(100, 500)
 
@@ -47,7 +47,7 @@ func TestBDMelee_BlockedByCooldown(t *testing.T) {
 }
 
 func TestBDMelee_MissesBehind(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 	e := enemyBehind(100, 500)
 
@@ -61,7 +61,7 @@ func TestBDMelee_MissesBehind(t *testing.T) {
 }
 
 func TestBDMelee_DamageMultApplied(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 	e := enemyInFront(100, 1000)
 
@@ -79,7 +79,7 @@ func TestBDMelee_DamageMultApplied(t *testing.T) {
 }
 
 func TestBDMelee_SetsAttackState(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 	e := enemyInFront(100, 500)
 

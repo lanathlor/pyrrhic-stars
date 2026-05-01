@@ -1,6 +1,9 @@
 package ability
 
 import (
+	"io"
+	"log/slog"
+
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
 )
@@ -36,6 +39,7 @@ type Engine struct {
 	abilities    map[string]*AbilityDef
 	handlers     map[string]HandlerFunc
 	tickHandlers map[string]TickHandlerFunc
+	logger       *slog.Logger
 
 	// hitBuf is a reusable scratch buffer for hit resolution results.
 	// Valid only until the next Cast or TickPlayer call.
@@ -43,11 +47,16 @@ type Engine struct {
 }
 
 // NewEngine creates an engine and registers all abilities and handlers.
-func NewEngine() *Engine {
+// Pass nil for logger to discard all log output.
+func NewEngine(logger *slog.Logger) *Engine {
+	if logger == nil {
+		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	}
 	eng := &Engine{
 		abilities:    make(map[string]*AbilityDef),
 		handlers:     make(map[string]HandlerFunc),
 		tickHandlers: make(map[string]TickHandlerFunc),
+		logger:       logger,
 	}
 	registerAbilities(eng)
 	registerHandlers(eng)
@@ -82,34 +91,51 @@ func (eng *Engine) Cast(abilityID string, ctx *CastContext) CastResult {
 
 	def := eng.abilities[abilityID]
 	if def == nil {
+		eng.logger.Warn("ability.cast.rejected",
+			"ability", abilityID,
+			"reason", "unknown ability",
+		)
 		return CastResult{Reason: "unknown ability"}
 	}
 
 	p := ctx.Player
+	log := eng.logger.With("ability", abilityID, "peer", p.PeerID)
 
 	if !p.Alive {
+		log.Debug("ability.cast.rejected", "reason", "dead")
 		return CastResult{Reason: "dead"}
 	}
 
 	// Check GCD
 	if p.GCDTimer > 0 {
+		log.Debug("ability.cast.rejected", "reason", "gcd", "gcd_remaining", p.GCDTimer)
 		return CastResult{Reason: "gcd"}
 	}
 
 	// Check per-ability cooldown
 	if cd, ok := p.Cooldowns[abilityID]; ok && cd > 0 {
+		log.Debug("ability.cast.rejected", "reason", "cooldown", "cd_remaining", cd)
 		return CastResult{Reason: "cooldown"}
 	}
 
 	// Check BD spell config requirement
 	if def.OriginConfig >= 0 && def.OriginConfig != p.Config {
+		log.Debug("ability.cast.rejected", "reason", "wrong config",
+			"need", def.OriginConfig, "have", p.Config)
 		return CastResult{Reason: "wrong config"}
 	}
 
 	// Check resource costs (don't spend yet)
 	for _, cost := range def.Costs {
 		r, ok := p.Resources[cost.Resource]
-		if !ok || r.Current < cost.Amount {
+		if !ok {
+			log.Debug("ability.cast.rejected", "reason", "insufficient "+cost.Resource,
+				"need", cost.Amount, "have", 0)
+			return CastResult{Reason: "insufficient " + cost.Resource}
+		}
+		if r.Current < cost.Amount {
+			log.Debug("ability.cast.rejected", "reason", "insufficient "+cost.Resource,
+				"need", cost.Amount, "have", r.Current)
 			return CastResult{Reason: "insufficient " + cost.Resource}
 		}
 	}
@@ -118,9 +144,20 @@ func (eng *Engine) Cast(abilityID string, ctx *CastContext) CastResult {
 	if def.Handler != "" {
 		fn, ok := eng.handlers[def.Handler]
 		if !ok {
+			log.Warn("ability.cast.rejected", "reason", "handler not found", "handler", def.Handler)
 			return CastResult{Reason: "handler not found: " + def.Handler}
 		}
-		return fn(eng, ctx)
+		result := fn(eng, ctx)
+		if result.OK {
+			var totalDmg float32
+			for _, ev := range result.Events {
+				totalDmg += ev.Amount
+			}
+			log.Info("ability.cast", "handler", def.Handler, "hits", len(result.Events), "damage", totalDmg)
+		} else {
+			log.Debug("ability.cast.rejected", "handler", def.Handler, "reason", result.Reason)
+		}
+		return result
 	}
 
 	// Spend resources
@@ -199,6 +236,23 @@ func (eng *Engine) Cast(abilityID string, ctx *CastContext) CastResult {
 		p.State = entity.PlayerStateAttack
 	}
 
+	// Log successful cast
+	var totalDmg float32
+	for _, ev := range events {
+		totalDmg += ev.Amount
+	}
+	attrs := []any{"hits", len(events), "damage", totalDmg}
+	if def.DestConfig >= 0 {
+		attrs = append(attrs, "config", p.Config)
+	}
+	if len(def.SelfBuffs) > 0 {
+		attrs = append(attrs, "buffs_applied", len(def.SelfBuffs))
+	}
+	if def.ShieldGrant > 0 {
+		attrs = append(attrs, "shield", p.GetResource("shield"))
+	}
+	log.Info("ability.cast", attrs...)
+
 	return CastResult{OK: true, Events: events}
 }
 
@@ -256,11 +310,16 @@ func (eng *Engine) TickPlayer(p *entity.Player, dt float32, ctx *TickContext) []
 	}
 
 	// Tick buffs
+	log := eng.logger.With("peer", p.PeerID)
 	alive := p.Buffs[:0]
 	for i := range p.Buffs {
 		if p.Buffs[i].Duration > 0 {
 			p.Buffs[i].Duration -= dt
 			if p.Buffs[i].Duration <= 0 {
+				log.Debug("ability.buff.expired",
+					"buff", p.Buffs[i].ID,
+					"type", p.Buffs[i].Type,
+				)
 				continue
 			}
 		}
@@ -319,6 +378,11 @@ func (eng *Engine) TickPlayer(p *entity.Player, dt float32, ctx *TickContext) []
 								Enemy:      e,
 							})
 							e.AddThreat(dot.SourcePeer, dealt)
+							log.Debug("ability.dot.tick",
+								"target", e.ID,
+								"damage", dealt,
+								"remaining", dot.Remaining,
+							)
 						}
 						break
 					}

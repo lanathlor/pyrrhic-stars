@@ -21,7 +21,7 @@ func makeArenaWorld(players map[uint16]*entity.Player, enemies []*entity.Enemy) 
 		Enemies:       enemies,
 		Level:         lvl,
 		Clients:       make(map[uint16]*Client),
-		AbilityEngine: ability.NewEngine(),
+		AbilityEngine: ability.NewEngine(nil),
 	}
 }
 

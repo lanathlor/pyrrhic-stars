@@ -18,7 +18,7 @@ func makeWorld(players map[uint16]*entity.Player, enemies []*entity.Enemy) *Worl
 		Players:       players,
 		Enemies:       enemies,
 		Level:         level.NewArenaLevel(),
-		AbilityEngine: ability.NewEngine(),
+		AbilityEngine: ability.NewEngine(nil),
 	}
 }
 

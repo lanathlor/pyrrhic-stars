@@ -7,7 +7,7 @@ import (
 )
 
 func TestVGBlock_ParryExpires(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 
 	eng.Cast("vg_block", castCtx(p))
@@ -26,7 +26,7 @@ func TestVGBlock_ParryExpires(t *testing.T) {
 }
 
 func TestVGBlock_BlockExpires(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 
 	eng.Cast("vg_block", castCtx(p))
@@ -38,7 +38,7 @@ func TestVGBlock_BlockExpires(t *testing.T) {
 }
 
 func TestVGBlock_DamageWhileBlocking(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 
 	eng.Cast("vg_block", castCtx(p))
@@ -54,7 +54,7 @@ func TestVGBlock_DamageWhileBlocking(t *testing.T) {
 }
 
 func TestVGBlock_DamageWhileParrying(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 
 	eng.Cast("vg_block", castCtx(p))
@@ -68,7 +68,7 @@ func TestVGBlock_DamageWhileParrying(t *testing.T) {
 }
 
 func TestVGBlock_SetsBlockState(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 
 	eng.Cast("vg_block", castCtx(p))
@@ -78,7 +78,7 @@ func TestVGBlock_SetsBlockState(t *testing.T) {
 }
 
 func TestVGBlock_CanReblockAfterExpiry(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 
 	eng.Cast("vg_block", castCtx(p))

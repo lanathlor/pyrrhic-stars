@@ -7,7 +7,7 @@ import (
 )
 
 func TestMeleeHeavy_BlockedByCooldown(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 500)
 
@@ -19,7 +19,7 @@ func TestMeleeHeavy_BlockedByCooldown(t *testing.T) {
 }
 
 func TestMeleeHeavy_InsufficientStamina(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	p.Resources["stamina"].Current = 10
 
@@ -33,7 +33,7 @@ func TestMeleeHeavy_InsufficientStamina(t *testing.T) {
 }
 
 func TestMeleeHeavy_MissesBehind(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyBehind(100, 500)
 
@@ -47,7 +47,7 @@ func TestMeleeHeavy_MissesBehind(t *testing.T) {
 }
 
 func TestMeleeHeavy_SetsAttackState(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 500)
 
@@ -58,7 +58,7 @@ func TestMeleeHeavy_SetsAttackState(t *testing.T) {
 }
 
 func TestMeleeHeavy_DamageMultApplied(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 1000)
 
@@ -76,7 +76,7 @@ func TestMeleeHeavy_DamageMultApplied(t *testing.T) {
 }
 
 func TestMeleeHeavy_SetsCooldown(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 500)
 

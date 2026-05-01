@@ -90,7 +90,7 @@ func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
 		Players:       make(map[uint16]*entity.Player),
 		Clients:       make(map[uint16]*system.Client),
 		Level:         l,
-		AbilityEngine: ability.NewEngine(),
+		AbilityEngine: ability.NewEngine(slog.Default().With("zone_id", id)),
 	}
 
 	if zoneType == ZoneTypeArena {

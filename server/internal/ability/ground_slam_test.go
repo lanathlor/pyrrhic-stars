@@ -7,7 +7,7 @@ import (
 )
 
 func TestGroundSlam_InsufficientStamina(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	p.Resources["stamina"].Current = 10
 
@@ -18,7 +18,7 @@ func TestGroundSlam_InsufficientStamina(t *testing.T) {
 }
 
 func TestGroundSlam_BlockedByCooldown(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 1e6)
 
@@ -33,7 +33,7 @@ func TestGroundSlam_BlockedByCooldown(t *testing.T) {
 }
 
 func TestGroundSlam_DamageMultApplied(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 1000)
 
@@ -53,7 +53,7 @@ func TestGroundSlam_DamageMultApplied(t *testing.T) {
 }
 
 func TestGroundSlam_SetsAttackState(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 500)
 
@@ -64,7 +64,7 @@ func TestGroundSlam_SetsAttackState(t *testing.T) {
 }
 
 func TestGroundSlam_HitsMultipleInCone(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e1 := enemyInFront(100, 500)
 	e2 := enemyInFront(101, 500)
@@ -87,7 +87,7 @@ func TestGroundSlam_HitsMultipleInCone(t *testing.T) {
 }
 
 func TestGroundSlam_SetsCooldown(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 
 	eng.Cast("ground_slam", castCtx(p))

@@ -75,7 +75,7 @@ func benchWorld() *World {
 		Projectiles:   projs,
 		Level:         lvl,
 		Clients:       make(map[uint16]*Client),
-		AbilityEngine: ability.NewEngine(),
+		AbilityEngine: ability.NewEngine(nil),
 		// Pre-allocate pooled buffers so broadcast doesn't allocate in the tick loop.
 		SendBuf:     make([]byte, 0, 4096),
 		DamageBuf:   make([]byte, 0, 256),
@@ -440,7 +440,7 @@ func benchArenaInstance(instanceID uint16) *World {
 		Projectiles:    projs,
 		Level:          lvl,
 		Clients:        clients,
-		AbilityEngine:  ability.NewEngine(),
+		AbilityEngine:  ability.NewEngine(nil),
 		// Pre-allocate pooled buffers so broadcast doesn't allocate in the tick loop.
 		SendBuf:     make([]byte, 0, 4096),
 		DamageBuf:   make([]byte, 0, 256),

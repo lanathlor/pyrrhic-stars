@@ -8,7 +8,7 @@ import (
 )
 
 func TestBDSpells_AllRegistered(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 
 	spellIDs := []string{
 		"shielded_sweep", "guarded_thrust", "protected_scatter", "fortified_command",
@@ -25,7 +25,7 @@ func TestBDSpells_AllRegistered(t *testing.T) {
 }
 
 func TestBDSpells_WrongConfigBlocked(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 
 	tests := []struct {
 		spell     string
@@ -54,7 +54,7 @@ func TestBDSpells_WrongConfigBlocked(t *testing.T) {
 }
 
 func TestBDSpells_AllSetGCD(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 
 	// Test one spell from each origin config
 	tests := []struct {
@@ -81,7 +81,7 @@ func TestBDSpells_AllSetGCD(t *testing.T) {
 }
 
 func TestBDSpells_ShieldCapped(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 	p.Config = entity.ConfigScatter
 	e := enemyInFront(100, 500)
@@ -107,7 +107,7 @@ func TestBDSpells_ShieldCapped(t *testing.T) {
 }
 
 func TestBDSpells_ConfigTransitionPerOrigin(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 
 	tests := []struct {
 		spell  string
@@ -138,7 +138,7 @@ func TestBDSpells_ConfigTransitionPerOrigin(t *testing.T) {
 }
 
 func TestBDSpells_HitscanMissesBehind(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 	p.Config = entity.ConfigFan
 	e := enemyBehind(100, 500)
@@ -154,7 +154,7 @@ func TestBDSpells_HitscanMissesBehind(t *testing.T) {
 }
 
 func TestBDSpells_AoECircleHitsNearby(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 	p.Config = entity.ConfigOrbit
 
@@ -182,7 +182,7 @@ func TestBDSpells_AoECircleHitsNearby(t *testing.T) {
 }
 
 func TestBDSpells_DRBuffApplied(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 	p.Config = entity.ConfigOrbit
 	e := enemyInFront(100, 500)
@@ -199,7 +199,7 @@ func TestBDSpells_DRBuffApplied(t *testing.T) {
 }
 
 func TestBDSpells_DoTAppliedAndTicks(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 	p.Config = entity.ConfigLance
 	e := enemyInFront(100, 500)
@@ -221,7 +221,7 @@ func TestBDSpells_DoTAppliedAndTicks(t *testing.T) {
 }
 
 func TestBDSpells_NearestNTargeting(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 	p.Config = entity.ConfigScatter
 

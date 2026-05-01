@@ -57,7 +57,7 @@ func tickCtx(enemies ...*entity.Enemy) *TickContext {
 // --- Engine setup ---
 
 func TestNewEngine_RegistersAllAbilities(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 
 	// Spot-check a few from each class
 	for _, id := range []string{
@@ -73,7 +73,7 @@ func TestNewEngine_RegistersAllAbilities(t *testing.T) {
 }
 
 func TestGetAbility_Unknown(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	if eng.GetAbility("nonexistent") != nil {
 		t.Error("expected nil for unknown ability")
 	}
@@ -150,7 +150,7 @@ func TestCast_Validation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			eng := NewEngine()
+			eng := NewEngine(nil)
 			p, enemies := tt.setup(eng)
 			result := eng.Cast(tt.ability, &CastContext{Player: p, Enemies: enemies})
 			if result.OK {
@@ -166,7 +166,7 @@ func TestCast_Validation(t *testing.T) {
 // --- Cast data-driven abilities ---
 
 func TestCast_FireShot_HitsEnemy(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 200)
 
@@ -189,7 +189,7 @@ func TestCast_FireShot_HitsEnemy(t *testing.T) {
 }
 
 func TestCast_FireShot_MissesBehind(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyBehind(100, 200)
 
@@ -203,7 +203,7 @@ func TestCast_FireShot_MissesBehind(t *testing.T) {
 }
 
 func TestCast_FireShot_ObstacleBlocksLOS(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 200)
 	obs := combat.Obstacle{CX: 0, CZ: -2.5, HX: 2, HZ: 0.5, Height: 3}
@@ -222,7 +222,7 @@ func TestCast_FireShot_ObstacleBlocksLOS(t *testing.T) {
 }
 
 func TestCast_GroundSlam_AoECone(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	// Two enemies in front, one behind
 	e1 := enemyInFront(100, 200)
@@ -257,7 +257,7 @@ func TestCast_GroundSlam_AoECone(t *testing.T) {
 }
 
 func TestCast_BDGuard_SelfBuff(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 
 	result := eng.Cast("bd_guard", castCtx(p))
@@ -275,7 +275,7 @@ func TestCast_BDGuard_SelfBuff(t *testing.T) {
 }
 
 func TestCast_DamageMult_Applied(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
@@ -298,7 +298,7 @@ func TestCast_DamageMult_Applied(t *testing.T) {
 }
 
 func TestCast_SetsAttackState(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 200)
 
@@ -311,7 +311,7 @@ func TestCast_SetsAttackState(t *testing.T) {
 // --- BD spell mechanics ---
 
 func TestCast_BDSpell_ConfigTransition(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 	p.Config = entity.ConfigOrbit // origin = orbit
 	e := enemyInFront(100, 500)
@@ -327,7 +327,7 @@ func TestCast_BDSpell_ConfigTransition(t *testing.T) {
 }
 
 func TestCast_BDSpell_ShieldGrant(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 	p.Config = entity.ConfigOrbit
 	e := enemyInFront(100, 500) // guarded_thrust is hitscan, needs a target
@@ -344,7 +344,7 @@ func TestCast_BDSpell_ShieldGrant(t *testing.T) {
 }
 
 func TestCast_BDSpell_DoTApplied(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 	p.Config = entity.ConfigLance // targeted_spread: lance→scatter
 	e := enemyInFront(100, 500)
@@ -366,7 +366,7 @@ func TestCast_BDSpell_DoTApplied(t *testing.T) {
 }
 
 func TestCast_BDSpell_DRBuff(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 	p.Config = entity.ConfigOrbit
 	e := enemyInFront(100, 500)
@@ -382,7 +382,7 @@ func TestCast_BDSpell_DRBuff(t *testing.T) {
 }
 
 func TestCast_BDSpell_GCD(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 	p.Config = entity.ConfigOrbit
 
@@ -395,7 +395,7 @@ func TestCast_BDSpell_GCD(t *testing.T) {
 // --- Handler tests ---
 
 func TestRechamber_StartAndConfirm(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	// Start rechamber
@@ -434,7 +434,7 @@ func TestRechamber_StartAndConfirm(t *testing.T) {
 }
 
 func TestRechamber_MissedWindow(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	eng.Cast("rechamber", castCtx(p))
@@ -466,7 +466,7 @@ func TestRechamber_MissedWindow(t *testing.T) {
 }
 
 func TestOverclock_AppliesBuff(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	r := eng.Cast("overclock", castCtx(p))
@@ -488,7 +488,7 @@ func TestOverclock_AppliesBuff(t *testing.T) {
 }
 
 func TestVGBlock_ParryAndBlock(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 
 	r := eng.Cast("vg_block", castCtx(p))
@@ -519,7 +519,7 @@ func TestVGBlock_ParryAndBlock(t *testing.T) {
 }
 
 func TestMeleeLightVG_Combo(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 1000)
 
@@ -548,7 +548,7 @@ func TestMeleeLightVG_Combo(t *testing.T) {
 }
 
 func TestMeleeHeavyVG(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 500)
 
@@ -568,7 +568,7 @@ func TestMeleeHeavyVG(t *testing.T) {
 }
 
 func TestBladeSwirl_Handler(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 1000)
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -3} // within 6 radius
@@ -593,7 +593,7 @@ func TestBladeSwirl_Handler(t *testing.T) {
 }
 
 func TestBladeSwirl_TickDamage(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 1000)
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -3}
@@ -614,7 +614,7 @@ func TestBladeSwirl_TickDamage(t *testing.T) {
 // --- TickPlayer tests ---
 
 func TestTickPlayer_CooldownDecrement(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	p.Cooldowns["fire_shot"] = 1.0
 
@@ -631,7 +631,7 @@ func TestTickPlayer_CooldownDecrement(t *testing.T) {
 }
 
 func TestTickPlayer_GCDDecrement(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	p.GCDTimer = 0.5
 
@@ -647,7 +647,7 @@ func TestTickPlayer_GCDDecrement(t *testing.T) {
 }
 
 func TestTickPlayer_BuffExpiry(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	p.AddBuff(entity.ActiveBuff{ID: "test", Type: entity.BuffDamageMult, Value: 2.0, Duration: 1.0})
 
@@ -663,7 +663,7 @@ func TestTickPlayer_BuffExpiry(t *testing.T) {
 }
 
 func TestTickPlayer_ResourceRegen(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	p.Resources["stamina"].Current = 50
 
@@ -676,7 +676,7 @@ func TestTickPlayer_ResourceRegen(t *testing.T) {
 }
 
 func TestTickPlayer_ResourceRegenDelay(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	p.SpendResource("stamina", 50) // sets delay timer
 	staminaAfterSpend := p.GetResource("stamina")
@@ -695,7 +695,7 @@ func TestTickPlayer_ResourceRegenDelay(t *testing.T) {
 }
 
 func TestTickPlayer_ResourceDecay(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 	p.Resources["shield"].Current = 20
 
@@ -708,7 +708,7 @@ func TestTickPlayer_ResourceDecay(t *testing.T) {
 }
 
 func TestTickPlayer_ResourceClampsAtZero(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 	p.Resources["shield"].Current = 2
 
@@ -720,7 +720,7 @@ func TestTickPlayer_ResourceClampsAtZero(t *testing.T) {
 }
 
 func TestTickPlayer_ResourceClampsAtMax(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	p.Resources["stamina"].Current = 99
 
@@ -732,7 +732,7 @@ func TestTickPlayer_ResourceClampsAtMax(t *testing.T) {
 }
 
 func TestTickPlayer_DoTDealsDamage(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
@@ -755,7 +755,7 @@ func TestTickPlayer_DoTDealsDamage(t *testing.T) {
 }
 
 func TestTickPlayer_DoTExpires(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	p.DoTs = append(p.DoTs, entity.ActiveDoT{
@@ -774,7 +774,7 @@ func TestTickPlayer_DoTExpires(t *testing.T) {
 }
 
 func TestTickPlayer_AttackStateReset(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
@@ -791,7 +791,7 @@ func TestTickPlayer_AttackStateReset(t *testing.T) {
 }
 
 func TestTickPlayer_AttackStatePersistsDuringLockout(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 500)
 
@@ -808,7 +808,7 @@ func TestTickPlayer_AttackStatePersistsDuringLockout(t *testing.T) {
 }
 
 func TestTickPlayer_DeadPlayerSkipped(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	p.Alive = false
 	p.Cooldowns["fire_shot"] = 1.0
@@ -823,7 +823,7 @@ func TestTickPlayer_DeadPlayerSkipped(t *testing.T) {
 // --- Resolve hit type tests ---
 
 func TestResolveHit_None(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	def := eng.GetAbility("bd_guard") // HitNone
 	results := resolveHit(nil, def, p, nil, nil)
@@ -833,7 +833,7 @@ func TestResolveHit_None(t *testing.T) {
 }
 
 func TestResolveHit_AoECircle(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	_ = eng // engine not needed for resolveHit directly
 	p := newVanguard()
 
@@ -908,7 +908,7 @@ func TestResolveHit_NearestN_SkipsNonCombat(t *testing.T) {
 // --- CooldownMult buff ---
 
 func TestCast_CooldownMultBuff(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
@@ -942,12 +942,12 @@ func TestApplyThreat(t *testing.T) {
 
 func BenchmarkNewEngine(b *testing.B) {
 	for b.Loop() {
-		NewEngine()
+		NewEngine(nil)
 	}
 }
 
 func BenchmarkCast_FireShot(b *testing.B) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 1e9) // huge HP so it never dies
 	ctx := castCtx(p, e)
@@ -961,7 +961,7 @@ func BenchmarkCast_FireShot(b *testing.B) {
 }
 
 func BenchmarkCast_GroundSlam(b *testing.B) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	enemies := make([]*entity.Enemy, 5)
 	for i := range enemies {
@@ -980,7 +980,7 @@ func BenchmarkCast_GroundSlam(b *testing.B) {
 }
 
 func BenchmarkCast_BDSpell(b *testing.B) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 	e := enemyInFront(100, 1e9)
 	ctx := castCtx(p, e)
@@ -995,7 +995,7 @@ func BenchmarkCast_BDSpell(b *testing.B) {
 }
 
 func BenchmarkCast_Overclock(b *testing.B) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	ctx := castCtx(p)
 
@@ -1008,7 +1008,7 @@ func BenchmarkCast_Overclock(b *testing.B) {
 }
 
 func BenchmarkTickPlayer_Full(b *testing.B) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 1e9)
 	tctx := tickCtx(e)
@@ -1038,7 +1038,7 @@ func BenchmarkTickPlayer_Full(b *testing.B) {
 }
 
 func BenchmarkTickPlayer_Minimal(b *testing.B) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	tctx := tickCtx()
 

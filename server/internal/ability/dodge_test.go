@@ -3,7 +3,7 @@ package ability
 import "testing"
 
 func TestDodge_CastsSuccessfully(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard() // has stamina
 
 	r := eng.Cast("dodge", castCtx(p))
@@ -13,7 +13,7 @@ func TestDodge_CastsSuccessfully(t *testing.T) {
 }
 
 func TestDodge_CostsStamina(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 
 	eng.Cast("dodge", castCtx(p))
@@ -23,7 +23,7 @@ func TestDodge_CostsStamina(t *testing.T) {
 }
 
 func TestDodge_InsufficientStamina(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	p.Resources["stamina"].Current = 10
 
@@ -37,7 +37,7 @@ func TestDodge_InsufficientStamina(t *testing.T) {
 }
 
 func TestDodge_NoDamageEvents(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 500)
 
@@ -51,7 +51,7 @@ func TestDodge_NoDamageEvents(t *testing.T) {
 }
 
 func TestDodge_NoStaminaResource(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner() // gunner has no stamina
 
 	r := eng.Cast("dodge", castCtx(p))

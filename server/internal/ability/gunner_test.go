@@ -8,7 +8,7 @@ import (
 // --- Fire Shot ---
 
 func TestGunner_FireShot_BasicHit(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
@@ -25,7 +25,7 @@ func TestGunner_FireShot_BasicHit(t *testing.T) {
 }
 
 func TestGunner_FireShot_SetsCooldown(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
@@ -37,7 +37,7 @@ func TestGunner_FireShot_SetsCooldown(t *testing.T) {
 }
 
 func TestGunner_FireShot_BlockedByCooldown(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
@@ -52,7 +52,7 @@ func TestGunner_FireShot_BlockedByCooldown(t *testing.T) {
 }
 
 func TestGunner_FireShot_AfterCooldownExpires(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
@@ -65,7 +65,7 @@ func TestGunner_FireShot_AfterCooldownExpires(t *testing.T) {
 }
 
 func TestGunner_FireShot_RapidFire(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 1e6)
 
@@ -82,7 +82,7 @@ func TestGunner_FireShot_RapidFire(t *testing.T) {
 // --- Overclock ---
 
 func TestGunner_Overclock_AppliesBuff(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	r := eng.Cast("overclock", castCtx(p))
@@ -95,7 +95,7 @@ func TestGunner_Overclock_AppliesBuff(t *testing.T) {
 }
 
 func TestGunner_Overclock_SetsCooldown(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	eng.Cast("overclock", castCtx(p))
@@ -105,7 +105,7 @@ func TestGunner_Overclock_SetsCooldown(t *testing.T) {
 }
 
 func TestGunner_Overclock_ReducesFireCooldown(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
@@ -120,7 +120,7 @@ func TestGunner_Overclock_ReducesFireCooldown(t *testing.T) {
 }
 
 func TestGunner_Overclock_CanFireDuring(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 1e6)
 
@@ -137,7 +137,7 @@ func TestGunner_Overclock_CanFireDuring(t *testing.T) {
 }
 
 func TestGunner_Overclock_BlocksWhileActive(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	eng.Cast("overclock", castCtx(p))
@@ -148,7 +148,7 @@ func TestGunner_Overclock_BlocksWhileActive(t *testing.T) {
 }
 
 func TestGunner_Overclock_BlocksDuringCooldown(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	eng.Cast("overclock", castCtx(p))
@@ -166,7 +166,7 @@ func TestGunner_Overclock_BlocksDuringCooldown(t *testing.T) {
 }
 
 func TestGunner_Overclock_ReusableAfterFullCooldown(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	eng.Cast("overclock", castCtx(p))
@@ -187,7 +187,7 @@ func TestGunner_Overclock_ReusableAfterFullCooldown(t *testing.T) {
 }
 
 func TestGunner_Overclock_BuffDuration(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	eng.Cast("overclock", castCtx(p))
@@ -208,7 +208,7 @@ func TestGunner_Overclock_BuffDuration(t *testing.T) {
 // --- Rechamber ---
 
 func TestGunner_Rechamber_StartsPhase1(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	r := eng.Cast("rechamber", castCtx(p))
@@ -225,7 +225,7 @@ func TestGunner_Rechamber_StartsPhase1(t *testing.T) {
 }
 
 func TestGunner_Rechamber_BlockedDuringFireCooldown(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
@@ -240,7 +240,7 @@ func TestGunner_Rechamber_BlockedDuringFireCooldown(t *testing.T) {
 }
 
 func TestGunner_Rechamber_AllowedAfterFireCooldown(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
@@ -253,7 +253,7 @@ func TestGunner_Rechamber_AllowedAfterFireCooldown(t *testing.T) {
 }
 
 func TestGunner_Rechamber_BlocksFiringDuringWindup(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
@@ -265,7 +265,7 @@ func TestGunner_Rechamber_BlocksFiringDuringWindup(t *testing.T) {
 }
 
 func TestGunner_Rechamber_BlocksDoubleStart(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	eng.Cast("rechamber", castCtx(p))
@@ -279,7 +279,7 @@ func TestGunner_Rechamber_BlocksDoubleStart(t *testing.T) {
 }
 
 func TestGunner_Rechamber_PhaseProgression(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	eng.Cast("rechamber", castCtx(p))
@@ -305,7 +305,7 @@ func TestGunner_Rechamber_PhaseProgression(t *testing.T) {
 }
 
 func TestGunner_Rechamber_ConfirmInWindow(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	eng.Cast("rechamber", castCtx(p))
@@ -321,7 +321,7 @@ func TestGunner_Rechamber_ConfirmInWindow(t *testing.T) {
 }
 
 func TestGunner_Rechamber_ConfirmDuringWindup(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	eng.Cast("rechamber", castCtx(p))
@@ -333,7 +333,7 @@ func TestGunner_Rechamber_ConfirmDuringWindup(t *testing.T) {
 }
 
 func TestGunner_Rechamber_ConfirmDuringLockout(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	eng.Cast("rechamber", castCtx(p))
@@ -347,7 +347,7 @@ func TestGunner_Rechamber_ConfirmDuringLockout(t *testing.T) {
 }
 
 func TestGunner_Rechamber_BuffIncreasesDamage(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 1000)
 
@@ -374,7 +374,7 @@ func TestGunner_Rechamber_BuffIncreasesDamage(t *testing.T) {
 }
 
 func TestGunner_Rechamber_CanFireAfterConfirm(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
@@ -390,7 +390,7 @@ func TestGunner_Rechamber_CanFireAfterConfirm(t *testing.T) {
 }
 
 func TestGunner_Rechamber_CanFireAfterLockout(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
@@ -406,7 +406,7 @@ func TestGunner_Rechamber_CanFireAfterLockout(t *testing.T) {
 }
 
 func TestGunner_Rechamber_CanRestartAfterLockout(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	eng.Cast("rechamber", castCtx(p))
@@ -421,7 +421,7 @@ func TestGunner_Rechamber_CanRestartAfterLockout(t *testing.T) {
 }
 
 func TestGunner_Rechamber_CanRestartAfterConfirm(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	eng.Cast("rechamber", castCtx(p))
@@ -438,7 +438,7 @@ func TestGunner_Rechamber_CanRestartAfterConfirm(t *testing.T) {
 // --- Overclock + Rechamber interaction ---
 
 func TestGunner_Overclock_Then_Rechamber(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	eng.Cast("overclock", castCtx(p))
@@ -449,7 +449,7 @@ func TestGunner_Overclock_Then_Rechamber(t *testing.T) {
 }
 
 func TestGunner_Rechamber_Then_Overclock(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	eng.Cast("rechamber", castCtx(p))
@@ -460,7 +460,7 @@ func TestGunner_Rechamber_Then_Overclock(t *testing.T) {
 }
 
 func TestGunner_RechamberBuff_Plus_Overclock_Damage(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 1000)
 
@@ -481,7 +481,7 @@ func TestGunner_RechamberBuff_Plus_Overclock_Damage(t *testing.T) {
 }
 
 func TestGunner_Overclock_RechamberCooldown(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	// Overclock reduces cooldowns via cooldown_mult buff
@@ -499,7 +499,7 @@ func TestGunner_Overclock_RechamberCooldown(t *testing.T) {
 // --- Full rotation ---
 
 func TestGunner_FullRotation_Fire_Rechamber_Fire(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 1e6)
 
@@ -541,7 +541,7 @@ func TestGunner_FullRotation_Fire_Rechamber_Fire(t *testing.T) {
 }
 
 func TestGunner_FullRotation_Overclock_Fire(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 1e6)
 
@@ -563,7 +563,7 @@ func TestGunner_FullRotation_Overclock_Fire(t *testing.T) {
 }
 
 func TestGunner_FullRotation_Overclock_Rechamber_Fire(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 1e6)
 
@@ -606,7 +606,7 @@ func TestGunner_FullRotation_Overclock_Rechamber_Fire(t *testing.T) {
 // --- Edge cases ---
 
 func TestGunner_Rechamber_GetPhase_ForCodec(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	// Before rechamber, phase should be 0
@@ -631,7 +631,7 @@ func TestGunner_Rechamber_GetPhase_ForCodec(t *testing.T) {
 }
 
 func TestGunner_Rechamber_BuffExpires(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 1e6)
 
@@ -657,7 +657,7 @@ func TestGunner_Rechamber_BuffExpires(t *testing.T) {
 }
 
 func TestGunner_NoGCD_BetweenAbilities(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	// Gunner abilities should not set GCD (they use per-ability CDs)
@@ -673,7 +673,7 @@ func TestGunner_NoGCD_BetweenAbilities(t *testing.T) {
 }
 
 func TestGunner_OriginConfig_DoesNotBlock(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newGunner()
 
 	// Gunner abilities have OriginConfig=0 (default) and Config=0 (default).

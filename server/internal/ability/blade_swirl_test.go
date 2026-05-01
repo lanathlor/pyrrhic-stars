@@ -7,7 +7,7 @@ import (
 )
 
 func TestBladeSwirl_InsufficientStamina(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	p.Resources["stamina"].Current = 10
 
@@ -21,7 +21,7 @@ func TestBladeSwirl_InsufficientStamina(t *testing.T) {
 }
 
 func TestBladeSwirl_BlockedByGCD(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	p.GCDTimer = 0.5
 
@@ -32,7 +32,7 @@ func TestBladeSwirl_BlockedByGCD(t *testing.T) {
 }
 
 func TestBladeSwirl_BlockedByCooldown(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 1e6)
 
@@ -49,7 +49,7 @@ func TestBladeSwirl_BlockedByCooldown(t *testing.T) {
 }
 
 func TestBladeSwirl_OutOfRange(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 500)
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -20} // far outside 6 radius
@@ -64,7 +64,7 @@ func TestBladeSwirl_OutOfRange(t *testing.T) {
 }
 
 func TestBladeSwirl_FullTickSequence(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 1e6)
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -3}
@@ -96,7 +96,7 @@ func TestBladeSwirl_FullTickSequence(t *testing.T) {
 }
 
 func TestBladeSwirl_ThreatGenerated(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 1e6)
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -3}
@@ -108,7 +108,7 @@ func TestBladeSwirl_ThreatGenerated(t *testing.T) {
 }
 
 func TestBladeSwirl_SetsCooldown(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 
 	eng.Cast("blade_swirl", castCtx(p))

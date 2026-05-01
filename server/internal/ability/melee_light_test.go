@@ -7,7 +7,7 @@ import (
 )
 
 func TestMeleeLight_CostsStamina(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 500)
 
@@ -18,7 +18,7 @@ func TestMeleeLight_CostsStamina(t *testing.T) {
 }
 
 func TestMeleeLight_InsufficientStamina(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	p.Resources["stamina"].Current = 5
 
@@ -32,7 +32,7 @@ func TestMeleeLight_InsufficientStamina(t *testing.T) {
 }
 
 func TestMeleeLight_SetsCooldown(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 500)
 
@@ -43,7 +43,7 @@ func TestMeleeLight_SetsCooldown(t *testing.T) {
 }
 
 func TestMeleeLight_BlockedByCooldown(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 500)
 
@@ -55,7 +55,7 @@ func TestMeleeLight_BlockedByCooldown(t *testing.T) {
 }
 
 func TestMeleeLight_MissesBehind(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyBehind(100, 500)
 
@@ -69,7 +69,7 @@ func TestMeleeLight_MissesBehind(t *testing.T) {
 }
 
 func TestMeleeLight_SetsAttackState(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 500)
 
@@ -80,7 +80,7 @@ func TestMeleeLight_SetsAttackState(t *testing.T) {
 }
 
 func TestMeleeLight_DamageMultApplied(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 1000)
 
@@ -98,7 +98,7 @@ func TestMeleeLight_DamageMultApplied(t *testing.T) {
 }
 
 func TestMeleeLight_ComboWrapsAround(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 1e6)
 

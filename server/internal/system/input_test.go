@@ -17,7 +17,7 @@ func makeHubWorld(players map[uint16]*entity.Player) *World {
 		State:         StateLobby, // hub never enters StateFight
 		Players:       players,
 		Level:         level.NewHubLevel(),
-		AbilityEngine: ability.NewEngine(),
+		AbilityEngine: ability.NewEngine(nil),
 	}
 }
 

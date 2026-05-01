@@ -6,7 +6,7 @@ import (
 )
 
 func TestBDGuard_BuffExpires(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 
 	eng.Cast("bd_guard", castCtx(p))
@@ -21,7 +21,7 @@ func TestBDGuard_BuffExpires(t *testing.T) {
 }
 
 func TestBDGuard_NoDamageEvents(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 	e := enemyInFront(100, 500)
 
@@ -35,7 +35,7 @@ func TestBDGuard_NoDamageEvents(t *testing.T) {
 }
 
 func TestBDGuard_ReducesDamage(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 
 	eng.Cast("bd_guard", castCtx(p))
@@ -48,7 +48,7 @@ func TestBDGuard_ReducesDamage(t *testing.T) {
 }
 
 func TestBDGuard_CanRecast(t *testing.T) {
-	eng := NewEngine()
+	eng := NewEngine(nil)
 	p := newBladeDancer()
 
 	r1 := eng.Cast("bd_guard", castCtx(p))
