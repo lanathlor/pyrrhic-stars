@@ -15,7 +15,7 @@ func meleeHeavyVGHandler(eng *Engine, ctx *CastContext) CastResult {
 		return CastResult{Reason: "cooldown"}
 	}
 	if !p.SpendResource("stamina", 20) {
-		return CastResult{Reason: "insufficient stamina"}
+		return CastResult{Reason: ReasonInsufficientStamina}
 	}
 
 	def := eng.abilities["melee_heavy"]

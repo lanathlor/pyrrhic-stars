@@ -19,7 +19,7 @@ func bladeSwirlHandler(eng *Engine, ctx *CastContext) CastResult {
 		return CastResult{Reason: "cooldown"}
 	}
 	if !p.SpendResource("stamina", 25) {
-		return CastResult{Reason: "insufficient stamina"}
+		return CastResult{Reason: ReasonInsufficientStamina}
 	}
 
 	state := getBladeSwirlState(p)

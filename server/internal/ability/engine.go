@@ -27,6 +27,9 @@ type TickContext struct {
 	Obstacles []combat.Obstacle
 }
 
+// Common cast failure reasons.
+const ReasonInsufficientStamina = "insufficient stamina"
+
 // CastResult is returned by the engine after attempting to cast an ability.
 type CastResult struct {
 	OK     bool

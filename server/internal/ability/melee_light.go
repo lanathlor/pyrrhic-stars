@@ -19,7 +19,7 @@ func meleeLightVGHandler(eng *Engine, ctx *CastContext) CastResult {
 		return CastResult{Reason: "cooldown"}
 	}
 	if !p.SpendResource("stamina", 10) {
-		return CastResult{Reason: "insufficient stamina"}
+		return CastResult{Reason: ReasonInsufficientStamina}
 	}
 
 	combo := getComboState(p)

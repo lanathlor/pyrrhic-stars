@@ -15,8 +15,8 @@ func TestBladeSwirl_InsufficientStamina(t *testing.T) {
 	if r.OK {
 		t.Error("should fail with insufficient stamina")
 	}
-	if r.Reason != "insufficient stamina" {
-		t.Errorf("reason = %q, want %q", r.Reason, "insufficient stamina")
+	if r.Reason != ReasonInsufficientStamina {
+		t.Errorf("reason = %q, want %q", r.Reason, ReasonInsufficientStamina)
 	}
 }
 
