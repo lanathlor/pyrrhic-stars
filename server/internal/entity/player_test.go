@@ -25,8 +25,8 @@ func TestNewPlayerVanguard(t *testing.T) {
 	if p.MaxHealth != 200 {
 		t.Errorf("vanguard max health = %f, want 200", p.MaxHealth)
 	}
-	if p.Stamina != 100 {
-		t.Errorf("stamina = %f, want 100", p.Stamina)
+	if p.GetResource("stamina") != 100 {
+		t.Errorf("stamina = %f, want 100", p.GetResource("stamina"))
 	}
 }
 
@@ -98,8 +98,8 @@ func TestApplyDamageInvincible(t *testing.T) {
 
 func TestApplyDamageVanguardParry(t *testing.T) {
 	p := NewPlayer(1, ClassVanguard)
-	p.IsBlocking = true
-	p.ParryTimer = 0.2 // active parry window
+	// Parry: full damage reduction (Value=0.0 means 100% reduction)
+	p.AddBuff(ActiveBuff{ID: "vg_parry", Type: BuffDamageReduction, Value: 0.0, Duration: 0.15})
 	dealt := p.ApplyDamage(100)
 	if dealt != 0 {
 		t.Errorf("dealt = %f, want 0 (parry)", dealt)
@@ -111,10 +111,10 @@ func TestApplyDamageVanguardParry(t *testing.T) {
 
 func TestApplyDamageVanguardBlock(t *testing.T) {
 	p := NewPlayer(1, ClassVanguard)
-	p.IsBlocking = true
-	p.ParryTimer = 0 // not in parry window
+	// Block: 70% damage reduction (Value=0.3 means 30% damage passes through)
+	p.AddBuff(ActiveBuff{ID: "vg_block", Type: BuffDamageReduction, Value: 0.3, Duration: 1.5})
 	dealt := p.ApplyDamage(100)
-	// 100 * 0.3 = 30 (70% block)
+	// 100 * 0.3 = 30
 	if dealt < 29.9 || dealt > 30.1 {
 		t.Errorf("dealt = %f, want ~30.0 (70%% block)", dealt)
 	}
@@ -125,7 +125,8 @@ func TestApplyDamageVanguardBlock(t *testing.T) {
 
 func TestApplyDamageVanguardBladeSwirl(t *testing.T) {
 	p := NewPlayer(1, ClassVanguard)
-	p.BladeSwirl = true
+	// Blade swirl: 20% damage reduction (Value=0.8 means 80% damage passes through)
+	p.AddBuff(ActiveBuff{ID: "blade_swirl", Type: BuffDamageReduction, Value: 0.8, Duration: 1.5})
 	dealt := p.ApplyDamage(100)
 	expected := float32(80.0) // 100 * 0.8
 	if dealt != expected {
@@ -135,7 +136,8 @@ func TestApplyDamageVanguardBladeSwirl(t *testing.T) {
 
 func TestApplyDamageBladeDancerGuard(t *testing.T) {
 	p := NewPlayer(1, ClassBladeDancer)
-	p.GuardActive = true
+	// Guard: 50% damage reduction (Value=0.5)
+	p.AddBuff(ActiveBuff{ID: "guard", Type: BuffDamageReduction, Value: 0.5, Duration: 1.5})
 	dealt := p.ApplyDamage(100)
 	expected := float32(50.0) // 100 * 0.5
 	if dealt != expected {
@@ -145,8 +147,8 @@ func TestApplyDamageBladeDancerGuard(t *testing.T) {
 
 func TestApplyDamageBladeDancerDR(t *testing.T) {
 	p := NewPlayer(1, ClassBladeDancer)
-	p.BDDRFactor = 0.7 // 30% damage reduction
-	p.BDDRTimer = 3.0
+	// BD DR buff: 30% damage reduction (Value=0.7 means 70% damage passes through)
+	p.AddBuff(ActiveBuff{ID: "bd_dr", Type: BuffDamageReduction, Value: 0.7, Duration: 3.0})
 	dealt := p.ApplyDamage(100)
 	expected := float32(70.0)
 	if dealt != expected {
@@ -156,22 +158,14 @@ func TestApplyDamageBladeDancerDR(t *testing.T) {
 
 func TestApplyDamageBladeDancerShieldAbsorb(t *testing.T) {
 	p := NewPlayer(1, ClassBladeDancer)
-	p.BDShieldHP = 20.0
+	p.Resources["shield"].Current = 20.0
 	dealt := p.ApplyDamage(50)
-	// ApplyDamage returns the amount parameter after modifications, shield absorbs 20, 30 goes to HP
-	// The function returns `amount` which is the post-shield remainder = 30, plus the absorbed part is returned via the earlier shield branch
-	// Actually: shield absorbs 20 → amount becomes 30 → health -= 30 → return 30
-	// Wait, let me re-read the code...
-	// When amount > shield: amount -= shield, shield = 0, then health -= amount, return amount
-	// So dealt = 30 (only the health damage portion)
-	// No: the function has TWO return paths for shield:
-	//   1. amount <= shield → return amount (full absorbed)
-	//   2. amount > shield → amount -= shield, shield = 0 → fall through to health -= amount → return amount (the remainder)
+	// Shield absorbs 20, remaining 30 goes to health
 	if dealt != 30 {
 		t.Errorf("dealt = %f, want 30 (50 - 20 shield)", dealt)
 	}
-	if p.BDShieldHP != 0 {
-		t.Errorf("shield = %f, want 0", p.BDShieldHP)
+	if p.Resources["shield"].Current != 0 {
+		t.Errorf("shield = %f, want 0", p.Resources["shield"].Current)
 	}
 	if p.Health != p.MaxHealth-30 {
 		t.Errorf("health = %f, want %f", p.Health, p.MaxHealth-30)
@@ -180,13 +174,13 @@ func TestApplyDamageBladeDancerShieldAbsorb(t *testing.T) {
 
 func TestApplyDamageBladeDancerShieldFullAbsorb(t *testing.T) {
 	p := NewPlayer(1, ClassBladeDancer)
-	p.BDShieldHP = 25.0
+	p.Resources["shield"].Current = 25.0
 	dealt := p.ApplyDamage(20)
 	if dealt != 20 {
 		t.Errorf("dealt = %f, want 20", dealt)
 	}
-	if p.BDShieldHP != 5 {
-		t.Errorf("shield = %f, want 5 (25-20)", p.BDShieldHP)
+	if p.Resources["shield"].Current != 5 {
+		t.Errorf("shield = %f, want 5 (25-20)", p.Resources["shield"].Current)
 	}
 	if p.Health != p.MaxHealth {
 		t.Errorf("health = %f, should be untouched", p.Health)
@@ -195,9 +189,9 @@ func TestApplyDamageBladeDancerShieldFullAbsorb(t *testing.T) {
 
 func TestApplyDamageVanguardBlockPlusSwirl(t *testing.T) {
 	p := NewPlayer(1, ClassVanguard)
-	p.IsBlocking = true
-	p.BladeSwirl = true
 	// Both block (0.3) and swirl (0.8) stack multiplicatively
+	p.AddBuff(ActiveBuff{ID: "vg_block", Type: BuffDamageReduction, Value: 0.3, Duration: 1.5})
+	p.AddBuff(ActiveBuff{ID: "blade_swirl", Type: BuffDamageReduction, Value: 0.8, Duration: 1.5})
 	dealt := p.ApplyDamage(100)
 	expected := float32(100 * 0.3 * 0.8) // 24
 	if dealt < expected-0.1 || dealt > expected+0.1 {
@@ -230,7 +224,7 @@ func TestAimDirectionFlat(t *testing.T) {
 func TestAimDirectionWithPitch(t *testing.T) {
 	p := NewPlayer(1, ClassGunner)
 	p.RotationY = 0
-	p.AimPitch = float32(math.Pi / 4) // 45° up
+	p.AimPitch = float32(math.Pi / 4) // 45 degrees up
 	d := p.AimDirection()
 	if d.Y < 0.5 {
 		t.Errorf("aim Y = %f, should be positive with upward pitch", d.Y)
@@ -251,51 +245,37 @@ func TestEyePosition(t *testing.T) {
 	}
 }
 
-// --- stats() ---
+// --- Movement() ---
 
-func TestStatsGunner(t *testing.T) {
+func TestMovementGunner(t *testing.T) {
 	p := NewPlayer(1, ClassGunner)
-	s := p.stats()
-	if s.WalkSpeed != 5.5 {
-		t.Errorf("gunner walk speed = %f, want 5.5", s.WalkSpeed)
+	m := p.Movement()
+	if m.WalkSpeed != 5.5 {
+		t.Errorf("gunner walk speed = %f, want 5.5", m.WalkSpeed)
 	}
 }
 
-func TestStatsVanguard(t *testing.T) {
+func TestMovementVanguard(t *testing.T) {
 	p := NewPlayer(1, ClassVanguard)
-	s := p.stats()
-	if s.WalkSpeed != 5.0 {
-		t.Errorf("vanguard walk speed = %f, want 5.0", s.WalkSpeed)
+	m := p.Movement()
+	if m.WalkSpeed != 5.0 {
+		t.Errorf("vanguard walk speed = %f, want 5.0", m.WalkSpeed)
 	}
 }
 
-func TestStatsBladeDancer(t *testing.T) {
+func TestMovementBladeDancer(t *testing.T) {
 	p := NewPlayer(1, ClassBladeDancer)
-	s := p.stats()
-	if s.WalkSpeed != 6.0 {
-		t.Errorf("blade_dancer walk speed = %f, want 6.0", s.WalkSpeed)
+	m := p.Movement()
+	if m.WalkSpeed != 6.0 {
+		t.Errorf("blade_dancer walk speed = %f, want 6.0", m.WalkSpeed)
 	}
 }
 
-func TestStatsUnknownFallsBackToGunner(t *testing.T) {
+func TestMovementUnknownFallsBackToGunner(t *testing.T) {
 	p := NewPlayer(1, "unknown")
-	s := p.stats()
-	gunner := classStatsTable[ClassGunner]
-	if s != gunner {
-		t.Errorf("unknown class stats = %+v, want gunner defaults", s)
-	}
-}
-
-// --- max32 ---
-
-func TestMax32(t *testing.T) {
-	if got := max32(3, 5); got != 5 {
-		t.Errorf("max32(3,5) = %f, want 5", got)
-	}
-	if got := max32(7, 2); got != 7 {
-		t.Errorf("max32(7,2) = %f, want 7", got)
-	}
-	if got := max32(4, 4); got != 4 {
-		t.Errorf("max32(4,4) = %f, want 4", got)
+	m := p.Movement()
+	gunner := Classes[ClassGunner].Movement
+	if m != gunner {
+		t.Errorf("unknown class movement = %+v, want gunner defaults", m)
 	}
 }

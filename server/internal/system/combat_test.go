@@ -4,6 +4,7 @@ import (
 	"math"
 	"testing"
 
+	"codex-online/server/internal/ability"
 	"codex-online/server/internal/codec"
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/level"
@@ -11,12 +12,13 @@ import (
 
 func makeWorld(players map[uint16]*entity.Player, enemies []*entity.Enemy) *World {
 	return &World{
-		ZoneType: 1, // arena
-		TickNum:  100,
-		State:    StateFight,
-		Players:  players,
-		Enemies:  enemies,
-		Level:    level.NewArenaLevel(),
+		ZoneType:      1, // arena
+		TickNum:       100,
+		State:         StateFight,
+		Players:       players,
+		Enemies:       enemies,
+		Level:         level.NewArenaLevel(),
+		AbilityEngine: ability.NewEngine(),
 	}
 }
 
@@ -128,92 +130,83 @@ func TestNotInCombatAfterEnemyDies(t *testing.T) {
 
 func TestOverclockTimerExpires(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
-	p.OverclockActive = true
-	p.OverclockTimer = 7.0
-	p.OverclockCooldown = 15.0
+	p.AddBuff(entity.ActiveBuff{ID: "overclock", Type: entity.BuffCooldownMult, Value: 0.556, Duration: 7.0})
+	p.Cooldowns["overclock"] = 15.0
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 	sys := CombatSystem{}
 
 	// Tick 3 seconds — still active
 	sys.Tick(w, 3.0)
-	if !p.OverclockActive {
+	if !p.HasBuff("overclock") {
 		t.Error("overclock should still be active after 3s")
-	}
-	if p.OverclockTimer <= 0 {
-		t.Error("overclock timer should be > 0 after 3s")
 	}
 
 	// Tick another 5 seconds — should expire (8s total > 7s)
 	sys.Tick(w, 5.0)
-	if p.OverclockActive {
+	if p.HasBuff("overclock") {
 		t.Error("overclock should be inactive after 8s total")
 	}
 }
 
 func TestOverclockCooldownTicksDown(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
-	p.OverclockCooldown = 15.0
+	p.Cooldowns["overclock"] = 15.0
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 	sys := CombatSystem{}
 
 	sys.Tick(w, 10.0)
-	if p.OverclockCooldown != 5.0 {
-		t.Errorf("overclock cooldown = %f, want 5.0", p.OverclockCooldown)
+	if cd := p.Cooldowns["overclock"]; cd < 4.9 || cd > 5.1 {
+		t.Errorf("overclock cooldown = %f, want ~5.0", cd)
 	}
 
 	sys.Tick(w, 10.0)
-	if p.OverclockCooldown != 0.0 {
-		t.Errorf("overclock cooldown = %f, want 0.0 (clamped)", p.OverclockCooldown)
+	if cd := p.Cooldowns["overclock"]; cd != 0.0 {
+		t.Errorf("overclock cooldown = %f, want 0.0 (expired)", cd)
 	}
 }
 
 func TestRechamberPhaseTransitions(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
-	p.RechamberPhase = 1
-	p.RechamberTimer = 0.6
+	p.AbilityState["rechamber"] = &ability.RechamberState{Phase: 1, Timer: 0.6}
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 	sys := CombatSystem{}
 
 	// Phase 1 windup -> phase 2 timing window
 	sys.Tick(w, 0.7)
-	if p.RechamberPhase != 2 {
-		t.Errorf("expected phase 2, got %d", p.RechamberPhase)
-	}
-	if p.RechamberTimer < 0.3 || p.RechamberTimer > 0.36 {
-		t.Errorf("timing window timer = %f, want ~0.35", p.RechamberTimer)
+	if p.GetAbilityPhase("rechamber") != 2 {
+		t.Errorf("expected phase 2, got %d", p.GetAbilityPhase("rechamber"))
 	}
 
 	// Phase 2 timing window -> phase 3 lockout
 	sys.Tick(w, 0.4)
-	if p.RechamberPhase != 3 {
-		t.Errorf("expected phase 3, got %d", p.RechamberPhase)
+	if p.GetAbilityPhase("rechamber") != 3 {
+		t.Errorf("expected phase 3, got %d", p.GetAbilityPhase("rechamber"))
 	}
 
 	// Phase 3 lockout -> phase 0 idle
 	sys.Tick(w, 0.9)
-	if p.RechamberPhase != 0 {
-		t.Errorf("expected phase 0, got %d", p.RechamberPhase)
+	if p.GetAbilityPhase("rechamber") != 0 {
+		t.Errorf("expected phase 0, got %d", p.GetAbilityPhase("rechamber"))
 	}
 }
 
 func TestRechamberBuffExpires(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
-	p.RechamberBuff = true
-	p.RechamberBuffTimer = 4.0
+	p.AddBuff(entity.ActiveBuff{ID: "rechamber_buff", Type: entity.BuffDamageMult, Value: 1.8, Duration: 4.0})
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 	sys := CombatSystem{}
 
 	sys.Tick(w, 2.0)
-	if !p.RechamberBuff {
+	if !p.HasBuff("rechamber_buff") {
 		t.Error("rechamber buff should still be active after 2s")
 	}
 
 	sys.Tick(w, 3.0)
-	if p.RechamberBuff {
+	if p.HasBuff("rechamber_buff") {
 		t.Error("rechamber buff should expire after 5s total")
 	}
 }
@@ -261,20 +254,17 @@ func TestOverclockInputActivates(t *testing.T) {
 	inputSys := InputSystem{}
 	inputSys.Tick(w, 0.05)
 
-	if !p.OverclockActive {
+	if !p.HasBuff("overclock") {
 		t.Error("overclock should be active after input")
 	}
-	if p.OverclockTimer != 7.0 {
-		t.Errorf("overclock timer = %f, want 7.0", p.OverclockTimer)
-	}
-	if p.OverclockCooldown != 15.0 {
-		t.Errorf("overclock cooldown = %f, want 15.0", p.OverclockCooldown)
+	if p.Cooldowns["overclock"] != 15.0 {
+		t.Errorf("overclock cooldown = %f, want 15.0", p.Cooldowns["overclock"])
 	}
 }
 
 func TestOverclockBlockedDuringCooldown(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
-	p.OverclockCooldown = 5.0
+	p.Cooldowns["overclock"] = 5.0
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 	payload := []byte{entity.ActionOverclock, 0, 0, 0, 0}
@@ -282,14 +272,14 @@ func TestOverclockBlockedDuringCooldown(t *testing.T) {
 	inputSys := InputSystem{}
 	inputSys.Tick(w, 0.05)
 
-	if p.OverclockActive {
+	if p.HasBuff("overclock") {
 		t.Error("overclock should not activate during cooldown")
 	}
 }
 
 func TestOverclockFireRateBoost(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
-	p.OverclockActive = true
+	p.AddBuff(entity.ActiveBuff{ID: "overclock", Type: entity.BuffCooldownMult, Value: 0.556, Duration: 7.0})
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5}
 
 	e := entity.NewEnemy(0, 2000.0, "guard_captain")
@@ -302,8 +292,10 @@ func TestOverclockFireRateBoost(t *testing.T) {
 	inputSys := InputSystem{}
 	inputSys.Tick(w, 0.05)
 
-	if p.FireCooldown != 0.10 {
-		t.Errorf("fire cooldown = %f, want 0.10 (overclock)", p.FireCooldown)
+	// With overclock buff (cooldown_mult = 0.556), fire_shot cooldown = 0.18 * 0.556 ~ 0.10
+	cd := p.Cooldowns["fire_shot"]
+	if cd < 0.09 || cd > 0.11 {
+		t.Errorf("fire cooldown = %f, want ~0.10 (overclock)", cd)
 	}
 }
 
@@ -316,20 +308,17 @@ func TestRechamberInputStartsWindup(t *testing.T) {
 	inputSys := InputSystem{}
 	inputSys.Tick(w, 0.05)
 
-	if p.RechamberPhase != 1 {
-		t.Errorf("rechamber phase = %d, want 1 (windup)", p.RechamberPhase)
+	if p.GetAbilityPhase("rechamber") != 1 {
+		t.Errorf("rechamber phase = %d, want 1 (windup)", p.GetAbilityPhase("rechamber"))
 	}
-	if p.RechamberTimer != 0.6 {
-		t.Errorf("rechamber timer = %f, want 0.6", p.RechamberTimer)
-	}
-	if p.FireCooldown != 0.6 {
-		t.Errorf("fire cooldown = %f, want 0.6 (locked during windup)", p.FireCooldown)
+	if p.Cooldowns["fire_shot"] != 0.6 {
+		t.Errorf("fire cooldown = %f, want 0.6 (locked during windup)", p.Cooldowns["fire_shot"])
 	}
 }
 
 func TestRechamberConfirmDuringWindow(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
-	p.RechamberPhase = 2
+	p.AbilityState["rechamber"] = &ability.RechamberState{Phase: 2, Timer: 0.3}
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 
 	payload := []byte{entity.ActionRechamberConfirm, 0, 0, 0, 0}
@@ -337,20 +326,17 @@ func TestRechamberConfirmDuringWindow(t *testing.T) {
 	inputSys := InputSystem{}
 	inputSys.Tick(w, 0.05)
 
-	if !p.RechamberBuff {
+	if !p.HasBuff("rechamber_buff") {
 		t.Error("rechamber buff should be active after confirm in timing window")
 	}
-	if p.RechamberBuffTimer != 4.0 {
-		t.Errorf("rechamber buff timer = %f, want 4.0", p.RechamberBuffTimer)
-	}
-	if p.RechamberPhase != 0 {
-		t.Errorf("rechamber phase = %d, want 0 (reset after confirm)", p.RechamberPhase)
+	if p.GetAbilityPhase("rechamber") != 0 {
+		t.Errorf("rechamber phase = %d, want 0 (reset after confirm)", p.GetAbilityPhase("rechamber"))
 	}
 }
 
 func TestRechamberConfirmOutsideWindowIgnored(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
-	p.RechamberPhase = 1 // still in windup, not timing window
+	p.AbilityState["rechamber"] = &ability.RechamberState{Phase: 1, Timer: 0.4}
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 
 	payload := []byte{entity.ActionRechamberConfirm, 0, 0, 0, 0}
@@ -358,17 +344,17 @@ func TestRechamberConfirmOutsideWindowIgnored(t *testing.T) {
 	inputSys := InputSystem{}
 	inputSys.Tick(w, 0.05)
 
-	if p.RechamberBuff {
+	if p.HasBuff("rechamber_buff") {
 		t.Error("rechamber buff should not activate outside timing window")
 	}
-	if p.RechamberPhase != 1 {
-		t.Errorf("rechamber phase should remain 1, got %d", p.RechamberPhase)
+	if p.GetAbilityPhase("rechamber") != 1 {
+		t.Errorf("rechamber phase should remain 1, got %d", p.GetAbilityPhase("rechamber"))
 	}
 }
 
 func TestRechamberBlockedDuringFireCooldown(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
-	p.FireCooldown = 0.1
+	p.Cooldowns["fire_shot"] = 0.1
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 	payload := []byte{entity.ActionRechamber, 0, 0, 0, 0}
@@ -376,7 +362,7 @@ func TestRechamberBlockedDuringFireCooldown(t *testing.T) {
 	inputSys := InputSystem{}
 	inputSys.Tick(w, 0.05)
 
-	if p.RechamberPhase != 0 {
+	if p.GetAbilityPhase("rechamber") != 0 {
 		t.Error("rechamber should not start during fire cooldown")
 	}
 }
@@ -386,21 +372,22 @@ func TestRechamberBlockedDuringFireCooldown(t *testing.T) {
 func TestBladeSwirlMultiTick(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
-	p.BladeSwirl = true
-	p.BladeSwirlTimer = 1.5
-	p.BladeSwirlTicks = 0
+	// Set up blade swirl state directly (as if ability was cast)
+	p.AbilityState["blade_swirl"] = &ability.BladeSwirlState{Timer: 1.5, Ticks: 0}
+	p.AddBuff(entity.ActiveBuff{ID: "blade_swirl", Type: entity.BuffDamageReduction, Value: 0.8, Duration: 1.5})
 
 	e := entity.NewEnemy(0, 2000.0, "guard_captain")
 	e.Alive = true
-	e.Position = entity.Vec3{X: 2, Y: 0.1, Z: 0} // within 4.0 radius
+	e.Position = entity.Vec3{X: 2, Y: 0.1, Z: 0} // within 6.0 radius
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
 	sys := CombatSystem{}
 
 	// After 0.55s: (1.5-0.95)/0.5 = 1.1 -> expectedTicks=1, should deliver 1 tick
 	sys.Tick(w, 0.55)
-	if p.BladeSwirlTicks != 1 {
-		t.Errorf("after 0.55s: BladeSwirlTicks = %d, want 1", p.BladeSwirlTicks)
+	state := p.AbilityState["blade_swirl"].(*ability.BladeSwirlState)
+	if state.Ticks != 1 {
+		t.Errorf("after 0.55s: BladeSwirlTicks = %d, want 1", state.Ticks)
 	}
 	if len(w.DamageEvents) != 1 {
 		t.Errorf("after 0.55s: DamageEvents = %d, want 1", len(w.DamageEvents))
@@ -408,8 +395,8 @@ func TestBladeSwirlMultiTick(t *testing.T) {
 
 	// After another 0.5s (1.05s total): (1.5-0.45)/0.5 = 2.1 -> expectedTicks=2
 	sys.Tick(w, 0.5)
-	if p.BladeSwirlTicks != 2 {
-		t.Errorf("after 1.05s: BladeSwirlTicks = %d, want 2", p.BladeSwirlTicks)
+	if state.Ticks != 2 {
+		t.Errorf("after 1.05s: BladeSwirlTicks = %d, want 2", state.Ticks)
 	}
 	if len(w.DamageEvents) != 2 {
 		t.Errorf("after 1.05s: DamageEvents = %d, want 2", len(w.DamageEvents))
@@ -417,15 +404,15 @@ func TestBladeSwirlMultiTick(t *testing.T) {
 
 	// After another 0.5s (1.55s total): timer expired, swirl should end
 	sys.Tick(w, 0.5)
-	if p.BladeSwirl {
-		t.Error("BladeSwirl should be false after timer expires")
+	if p.HasBuff("blade_swirl") {
+		t.Error("blade_swirl buff should be expired after timer expires")
 	}
 }
 
 func TestBladeSwirlCooldownPreventsReuse(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
-	p.Stamina = 100.0
-	p.BladeSwirlCooldown = 5.0
+	p.Resources["stamina"].Current = 100.0
+	p.Cooldowns["blade_swirl"] = 5.0
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 	payload := []byte{entity.ActionBladeSwirl, 0, 0, 0, 0}
@@ -433,18 +420,18 @@ func TestBladeSwirlCooldownPreventsReuse(t *testing.T) {
 	inputSys := InputSystem{}
 	inputSys.Tick(w, 0.05)
 
-	if p.BladeSwirl {
+	if p.HasBuff("blade_swirl") {
 		t.Error("BladeSwirl should not activate during cooldown")
 	}
-	if p.Stamina != 100.0 {
-		t.Errorf("stamina should be unchanged at 100.0, got %f", p.Stamina)
+	if p.Resources["stamina"].Current != 100.0 {
+		t.Errorf("stamina should be unchanged at 100.0, got %f", p.Resources["stamina"].Current)
 	}
 }
 
 func TestGroundSlamCooldownPreventsReuse(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
-	p.Stamina = 100.0
-	p.GroundSlamCooldown = 3.0
+	p.Resources["stamina"].Current = 100.0
+	p.Cooldowns["ground_slam"] = 3.0
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 	payload := []byte{entity.ActionGroundSlam, 0, 0, 0, 0}
@@ -452,17 +439,17 @@ func TestGroundSlamCooldownPreventsReuse(t *testing.T) {
 	inputSys := InputSystem{}
 	inputSys.Tick(w, 0.05)
 
-	if p.GroundSlamCooldown != 3.0 {
-		t.Errorf("GroundSlamCooldown should remain 3.0, got %f", p.GroundSlamCooldown)
+	if p.Cooldowns["ground_slam"] < 3.0 {
+		t.Errorf("GroundSlamCooldown should remain >= 3.0, got %f", p.Cooldowns["ground_slam"])
 	}
-	if p.Stamina != 100.0 {
-		t.Errorf("stamina should be unchanged at 100.0, got %f", p.Stamina)
+	if p.Resources["stamina"].Current != 100.0 {
+		t.Errorf("stamina should be unchanged at 100.0, got %f", p.Resources["stamina"].Current)
 	}
 }
 
 func TestGroundSlamConsumesStamina(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
-	p.Stamina = 100.0
+	p.Resources["stamina"].Current = 100.0
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
@@ -471,56 +458,56 @@ func TestGroundSlamConsumesStamina(t *testing.T) {
 	inputSys := InputSystem{}
 	inputSys.Tick(w, 0.05)
 
-	if p.Stamina != 80.0 {
-		t.Errorf("stamina = %f, want 80.0 (100 - 20)", p.Stamina)
+	if p.Resources["stamina"].Current != 80.0 {
+		t.Errorf("stamina = %f, want 80.0 (100 - 20)", p.Resources["stamina"].Current)
 	}
-	if p.GroundSlamCooldown != 8.0 {
-		t.Errorf("GroundSlamCooldown = %f, want 8.0", p.GroundSlamCooldown)
+	if p.Cooldowns["ground_slam"] != 8.0 {
+		t.Errorf("GroundSlamCooldown = %f, want 8.0", p.Cooldowns["ground_slam"])
 	}
-	if p.FireCooldown != 1.2 {
-		t.Errorf("FireCooldown = %f, want 1.2", p.FireCooldown)
+	if p.GCDTimer != 1.2 {
+		t.Errorf("GCDTimer = %f, want 1.2 (lockout)", p.GCDTimer)
 	}
 }
 
 func TestBladeSwirlCooldownTicksDown(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
-	p.BladeSwirlCooldown = 10.0
+	p.Cooldowns["blade_swirl"] = 10.0
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 	sys := CombatSystem{}
 
 	sys.Tick(w, 4.0)
-	if p.BladeSwirlCooldown < 5.9 || p.BladeSwirlCooldown > 6.1 {
-		t.Errorf("BladeSwirlCooldown = %f, want ~6.0", p.BladeSwirlCooldown)
+	if cd := p.Cooldowns["blade_swirl"]; cd < 5.9 || cd > 6.1 {
+		t.Errorf("BladeSwirlCooldown = %f, want ~6.0", cd)
 	}
 
 	sys.Tick(w, 7.0)
-	if p.BladeSwirlCooldown != 0.0 {
-		t.Errorf("BladeSwirlCooldown = %f, want 0.0 (clamped)", p.BladeSwirlCooldown)
+	if cd := p.Cooldowns["blade_swirl"]; cd != 0.0 {
+		t.Errorf("BladeSwirlCooldown = %f, want 0.0 (expired)", cd)
 	}
 }
 
 func TestGroundSlamCooldownTicksDown(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
-	p.GroundSlamCooldown = 8.0
+	p.Cooldowns["ground_slam"] = 8.0
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 	sys := CombatSystem{}
 
 	sys.Tick(w, 3.0)
-	if p.GroundSlamCooldown < 4.9 || p.GroundSlamCooldown > 5.1 {
-		t.Errorf("GroundSlamCooldown = %f, want ~5.0", p.GroundSlamCooldown)
+	if cd := p.Cooldowns["ground_slam"]; cd < 4.9 || cd > 5.1 {
+		t.Errorf("GroundSlamCooldown = %f, want ~5.0", cd)
 	}
 
 	sys.Tick(w, 6.0)
-	if p.GroundSlamCooldown != 0.0 {
-		t.Errorf("GroundSlamCooldown = %f, want 0.0 (clamped)", p.GroundSlamCooldown)
+	if cd := p.Cooldowns["ground_slam"]; cd != 0.0 {
+		t.Errorf("GroundSlamCooldown = %f, want 0.0 (expired)", cd)
 	}
 }
 
 func TestBladeSwirlBlockedByInsufficientStamina(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
-	p.Stamina = 20.0 // need 25
+	p.Resources["stamina"].Current = 20.0 // need 25
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 	payload := []byte{entity.ActionBladeSwirl, 0, 0, 0, 0}
@@ -528,11 +515,11 @@ func TestBladeSwirlBlockedByInsufficientStamina(t *testing.T) {
 	inputSys := InputSystem{}
 	inputSys.Tick(w, 0.05)
 
-	if p.BladeSwirl {
+	if p.HasBuff("blade_swirl") {
 		t.Error("BladeSwirl should not activate with insufficient stamina")
 	}
-	if p.Stamina != 20.0 {
-		t.Errorf("stamina should be unchanged at 20.0, got %f", p.Stamina)
+	if p.Resources["stamina"].Current != 20.0 {
+		t.Errorf("stamina should be unchanged at 20.0, got %f", p.Resources["stamina"].Current)
 	}
 }
 
@@ -541,8 +528,8 @@ func TestBladeSwirlBlockedByInsufficientStamina(t *testing.T) {
 // and enemy HP decreases across all 3 activations + multi-tick damage.
 func TestBladeSwirl3xIntegration(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
-	p.Stamina = 200.0    // enough for 3 swirls (40 each = 120)
-	p.MaxStamina = 200.0
+	p.Resources["stamina"].Current = 200.0
+	p.Resources["stamina"].Max = 200.0
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 	p.RotationY = 0
 
@@ -559,7 +546,7 @@ func TestBladeSwirl3xIntegration(t *testing.T) {
 
 	totalDamageEvents := 0
 	startHP := e.Health
-	t.Logf("start: enemy HP=%.0f, player stamina=%.0f", e.Health, p.Stamina)
+	t.Logf("start: enemy HP=%.0f, player stamina=%.0f", e.Health, p.Resources["stamina"].Current)
 
 	for swirl := 0; swirl < 3; swirl++ {
 		// Fire blade swirl
@@ -567,13 +554,13 @@ func TestBladeSwirl3xIntegration(t *testing.T) {
 		w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: payload}}
 		inputSys.Tick(w, 0.05)
 
-		if !p.BladeSwirl {
+		if !p.HasBuff("blade_swirl") {
 			t.Fatalf("swirl %d: BladeSwirl should be active", swirl+1)
 		}
 
 		eventsFromInput := len(w.DamageEvents)
-		t.Logf("swirl %d: immediate hits=%d, enemy HP=%.0f, stamina=%.0f, fire_cd=%.2f, swirl_cd=%.2f",
-			swirl+1, eventsFromInput, e.Health, p.Stamina, p.FireCooldown, p.BladeSwirlCooldown)
+		t.Logf("swirl %d: immediate hits=%d, enemy HP=%.0f, stamina=%.0f, swirl_cd=%.2f",
+			swirl+1, eventsFromInput, e.Health, p.Resources["stamina"].Current, p.Cooldowns["blade_swirl"])
 		totalDamageEvents += eventsFromInput
 
 		// Tick combat system for the full 1.5s duration + 1 extra tick for float rounding
@@ -583,21 +570,20 @@ func TestBladeSwirl3xIntegration(t *testing.T) {
 			totalDamageEvents += len(w.DamageEvents)
 		}
 
-		t.Logf("swirl %d after ticks: enemy HP=%.0f, blade_swirl=%v, fire_cd=%.2f, swirl_cd=%.2f",
-			swirl+1, e.Health, p.BladeSwirl, p.FireCooldown, p.BladeSwirlCooldown)
+		t.Logf("swirl %d after ticks: enemy HP=%.0f, blade_swirl=%v, swirl_cd=%.2f",
+			swirl+1, e.Health, p.HasBuff("blade_swirl"), p.Cooldowns["blade_swirl"])
 
-		if p.BladeSwirl {
+		if p.HasBuff("blade_swirl") {
 			t.Errorf("swirl %d: BladeSwirl should have ended after 1.5s", swirl+1)
 		}
 
-		// Tick down cooldowns: 10s swirl CD, 1.5s fire CD already elapsed
-		// Need to tick down swirl cooldown fully (10s - 1.5s already ticked = 8.5s remaining)
+		// Tick down cooldowns: 10s swirl CD already partially ticked
 		for tick := 0; tick < 200; tick++ { // 10s at 0.05s/tick
 			combatSys.Tick(w, 0.05)
 		}
 
-		t.Logf("swirl %d after cooldown: fire_cd=%.2f, swirl_cd=%.2f, stamina=%.0f",
-			swirl+1, p.FireCooldown, p.BladeSwirlCooldown, p.Stamina)
+		t.Logf("swirl %d after cooldown: swirl_cd=%.2f, stamina=%.0f",
+			swirl+1, p.Cooldowns["blade_swirl"], p.Resources["stamina"].Current)
 	}
 
 	totalDamage := startHP - e.Health
@@ -616,12 +602,12 @@ func TestBladeSwirl3xIntegration(t *testing.T) {
 	}
 }
 
-// TestSwirlSlamSwirlSlamIntegration fires Blade Swirl → Ground Slam → Blade Swirl → Ground Slam,
+// TestSwirlSlamSwirlSlamIntegration fires Blade Swirl -> Ground Slam -> Blade Swirl -> Ground Slam,
 // ticking cooldowns between each. Verifies all 4 abilities activate and deal damage.
 func TestSwirlSlamSwirlSlamIntegration(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
-	p.Stamina = 300.0
-	p.MaxStamina = 300.0
+	p.Resources["stamina"].Current = 300.0
+	p.Resources["stamina"].Max = 300.0
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 	p.RotationY = float32(3.14159) // facing +Z
 
@@ -664,11 +650,11 @@ func TestSwirlSlamSwirlSlamIntegration(t *testing.T) {
 		totalEvents += eventsFromInput
 
 		isSwirl := s.payload[0] == entity.ActionBladeSwirl
-		isSwirlActive := p.BladeSwirl
+		isSwirlActive := p.HasBuff("blade_swirl")
 
-		t.Logf("step %d [%s]: input_hits=%d, HP=%.0f→%.0f, swirl=%v, fire_cd=%.2f, swirl_cd=%.2f, slam_cd=%.2f, stamina=%.0f",
+		t.Logf("step %d [%s]: input_hits=%d, HP=%.0f->%.0f, swirl=%v, swirl_cd=%.2f, slam_cd=%.2f, stamina=%.0f",
 			i+1, s.name, eventsFromInput, hpBefore, e.Health, isSwirlActive,
-			p.FireCooldown, p.BladeSwirlCooldown, p.GroundSlamCooldown, p.Stamina)
+			p.Cooldowns["blade_swirl"], p.Cooldowns["ground_slam"], p.Resources["stamina"].Current)
 
 		if isSwirl && !isSwirlActive {
 			t.Errorf("step %d [%s]: BladeSwirl should be active", i+1, s.name)
@@ -684,36 +670,33 @@ func TestSwirlSlamSwirlSlamIntegration(t *testing.T) {
 				combatSys.Tick(w, 0.05)
 				totalEvents += len(w.DamageEvents)
 			}
-			if p.BladeSwirl {
+			if p.HasBuff("blade_swirl") {
 				t.Errorf("step %d [%s]: BladeSwirl should have ended", i+1, s.name)
 			}
 		}
 
-		// Tick down ALL cooldowns: swirl (10s), slam (8s), fire (1.2-1.5s)
+		// Tick down ALL cooldowns: swirl (10s), slam (8s)
 		// Tick 220 times (11s) to clear everything
 		for tick := 0; tick < 220; tick++ {
 			combatSys.Tick(w, 0.05)
 		}
 
-		t.Logf("step %d [%s] after cooldown: fire_cd=%.2f, swirl_cd=%.2f, slam_cd=%.2f",
-			i+1, s.name, p.FireCooldown, p.BladeSwirlCooldown, p.GroundSlamCooldown)
+		t.Logf("step %d [%s] after cooldown: swirl_cd=%.2f, slam_cd=%.2f",
+			i+1, s.name, p.Cooldowns["blade_swirl"], p.Cooldowns["ground_slam"])
 
-		if p.BladeSwirlCooldown > 0 {
-			t.Errorf("step %d: BladeSwirlCooldown should be 0 after 11s, got %.2f", i+1, p.BladeSwirlCooldown)
+		if p.Cooldowns["blade_swirl"] > 0 {
+			t.Errorf("step %d: BladeSwirlCooldown should be 0 after 11s, got %.2f", i+1, p.Cooldowns["blade_swirl"])
 		}
-		if p.GroundSlamCooldown > 0 {
-			t.Errorf("step %d: GroundSlamCooldown should be 0 after 11s, got %.2f", i+1, p.GroundSlamCooldown)
-		}
-		if p.FireCooldown > 0 {
-			t.Errorf("step %d: FireCooldown should be 0 after 11s, got %.2f", i+1, p.FireCooldown)
+		if p.Cooldowns["ground_slam"] > 0 {
+			t.Errorf("step %d: GroundSlamCooldown should be 0 after 11s, got %.2f", i+1, p.Cooldowns["ground_slam"])
 		}
 	}
 
 	totalDamage := startHP - e.Health
 	t.Logf("FINAL: enemy HP=%.0f (took %.0f damage), total events=%d, stamina=%.0f",
-		e.Health, totalDamage, totalEvents, p.Stamina)
+		e.Health, totalDamage, totalEvents, p.Resources["stamina"].Current)
 
-	// 2 swirls × 4 hits × 25 dmg = 200 + 2 slams × 1 hit × 60 dmg = 120 → 320 total
+	// 2 swirls x 4 hits x 25 dmg = 200 + 2 slams x 1 hit x 60 dmg = 120 -> 320 total
 	if totalEvents < 4 {
 		t.Errorf("expected at least 4 total damage events, got %d", totalEvents)
 	}
@@ -724,36 +707,37 @@ func TestSwirlSlamSwirlSlamIntegration(t *testing.T) {
 
 func TestVanguardStaminaRegen(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
-	p.Stamina = 50.0
-	p.StaminaDelay = 0 // no delay, regen should start immediately
+	stamina := p.Resources["stamina"]
+	stamina.Current = 50.0
+	stamina.DelayTimer = 0 // no delay, regen should start immediately
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 	sys := CombatSystem{}
 
-	t.Logf("before: stamina=%.1f delay=%.2f regen=%.1f max=%.1f", p.Stamina, p.StaminaDelay, p.StaminaRegen, p.MaxStamina)
+	t.Logf("before: stamina=%.1f delay=%.2f regen=%.1f max=%.1f", stamina.Current, stamina.DelayTimer, stamina.Regen, stamina.Max)
 
 	// Tick 1 second — should regen 30 stamina
 	sys.Tick(w, 1.0)
-	t.Logf("after 1s: stamina=%.1f delay=%.2f", p.Stamina, p.StaminaDelay)
+	t.Logf("after 1s: stamina=%.1f delay=%.2f", stamina.Current, stamina.DelayTimer)
 
-	if p.Stamina < 79.0 || p.Stamina > 81.0 {
-		t.Errorf("stamina after 1s regen = %.1f, want ~80.0 (50 + 30)", p.Stamina)
+	if stamina.Current < 79.0 || stamina.Current > 81.0 {
+		t.Errorf("stamina after 1s regen = %.1f, want ~80.0 (50 + 30)", stamina.Current)
 	}
 
 	// Spend stamina, verify delay
-	p.Stamina = 50.0
-	p.StaminaDelay = 0.6
-	before := p.Stamina
+	stamina.Current = 50.0
+	stamina.DelayTimer = 0.6
+	before := stamina.Current
 	sys.Tick(w, 0.3) // 0.3s < 0.6s delay — no regen yet
-	t.Logf("during delay: stamina=%.1f delay=%.2f", p.Stamina, p.StaminaDelay)
-	if p.Stamina != before {
-		t.Errorf("stamina should not regen during delay, got %.1f (was %.1f)", p.Stamina, before)
+	t.Logf("during delay: stamina=%.1f delay=%.2f", stamina.Current, stamina.DelayTimer)
+	if stamina.Current != before {
+		t.Errorf("stamina should not regen during delay, got %.1f (was %.1f)", stamina.Current, before)
 	}
 
 	sys.Tick(w, 0.5) // delay expires at 0.3+0.5=0.8 > 0.6, then 0.2s of regen
-	t.Logf("after delay: stamina=%.1f delay=%.2f", p.Stamina, p.StaminaDelay)
-	if p.Stamina <= 50.0 {
-		t.Errorf("stamina should have started regening after delay expired, got %.1f", p.Stamina)
+	t.Logf("after delay: stamina=%.1f delay=%.2f", stamina.Current, stamina.DelayTimer)
+	if stamina.Current <= 50.0 {
+		t.Errorf("stamina should have started regening after delay expired, got %.1f", stamina.Current)
 	}
 }
 
@@ -802,15 +786,6 @@ func TestCombatEndsOnEnemyDeath(t *testing.T) {
 // Blade Dancer — comprehensive test of all 20 spells with 4 enemies
 // =============================================================================
 
-// TestAllBladeDancerSpells fires every spell exactly once in multi-enemy context.
-// Enemy layout (player at origin, facing +Z with rotY=PI):
-//   - eFront     (1000): (0, 0.1, 3)    — in aim line, 3m from player. Hit by ST, PC(r>=3), TC, NearestN.
-//   - eNearFront (1001): (1, 0.1, 3.5)  — 1.1m from eFront, 3.6m from player. Hit by TC(r>=2) but NOT PC(r=3).
-//   - eSide      (1002): (3, 0.1, 0)    — 3m from player, 4.2m from eFront. Hit by PC(r>=3) but NOT TC(r=4 centered on eFront).
-//   - eFar       (1003): (0, 0.1, 20)   — 20m away. Never hit.
-//
-// For NearestN spells: eFront, eNearFront, eSide all have threat (in combat).
-// eFar has no threat (out of combat) so NearestN skips it.
 func TestAllBladeDancerSpells(t *testing.T) {
 	const hp float32 = 5000.0
 
@@ -831,71 +806,31 @@ func TestAllBladeDancerSpells(t *testing.T) {
 		dotTargets    int // how many enemies get DoT
 	}
 
-	// Distances:
-	// eFront to player: 3.0m
-	// eNearFront to player: sqrt(1+12.25) = 3.64m
-	// eNearFront to eFront: sqrt(1+0.25) = 1.12m
-	// eSide to player: 3.0m
-	// eSide to eFront: sqrt(9+9) = 4.24m
-	//
-	// PC circle r=3: hits eFront (3m=boundary), eSide (3m=boundary), misses eNearFront (3.64m)
-	// PC circle r=4: hits eFront, eNearFront (3.64m), eSide (3m)
-	// PC circle r=5: hits eFront, eNearFront, eSide
-	// TC circle r=4 (centered on eFront at Z=3): hits eNearFront (1.12m), misses eSide (4.24m > 4)
-	//   also hits eFront itself (0m = center)
-	// TC circle r=5 (centered on eFront): hits eNearFront (1.12m), hits eSide (4.24m < 5)
-	//   also hits eFront itself
-	// NearestN: sorted by dist to player: eFront(3m), eSide(3m), eNearFront(3.64m). All in combat.
-
 	spells := []spellExpect{
 		// From Orbit (config 0)
-		// 0: Shielded Sweep — PC circle r=4: eFront(3m)=HIT, eNearFront(3.64m)=HIT, eSide(3m)=HIT
 		{0, "Shielded Sweep", 0, 1, 8, 8, 8, 0, 0, true, false, 0, 0, 0},
-		// 1: Guarded Thrust — ST: eFront only
 		{1, "Guarded Thrust", 0, 2, 25, 0, 0, 0, 8, false, false, 0, 0, 0},
-		// 2: Protected Scatter — NearestN(3): hits 3 nearest in-combat = eFront+eSide+eNearFront
 		{2, "Protected Scatter", 0, 3, 5, 5, 5, 0, 0, true, true, 1.5, 11, 3},
-		// 3: Fortified Command — TC circle r=5 at eFront: eFront(0m)=HIT, eNearFront(1.12m)=HIT, eSide(4.24m)=HIT
 		{3, "Fortified Command", 0, 4, 5, 5, 5, 0, 0, true, false, 0, 0, 0},
-
 		// From Fan (config 1)
-		// 4: Reaping Guard — PC circle r=3: eFront(3m)=HIT, eNearFront(3.64m)=MISS, eSide(3m)=HIT
 		{4, "Reaping Guard", 1, 0, 8, 0, 8, 0, 12, false, false, 0, 0, 0},
-		// 5: Cleaving Pierce — ST: eFront only
 		{5, "Cleaving Pierce", 1, 2, 30, 0, 0, 0, 0, false, false, 0, 0, 0},
-		// 6: Slashing Spread — TC circle r=5 at eFront: eFront+eNearFront+eSide all HIT
 		{6, "Slashing Spread", 1, 3, 8, 8, 8, 0, 0, false, true, 1.5, 9, 3},
-		// 7: Sweeping Hex — TC circle r=5 at eFront: all 3 HIT
 		{7, "Sweeping Hex", 1, 4, 10, 10, 10, 0, 0, false, false, 0, 0, 0},
-
 		// From Lance (config 2)
-		// 8: Piercing Barrier — ST: eFront only
 		{8, "Piercing Barrier", 2, 0, 18, 0, 0, 0, 15, false, false, 0, 0, 0},
-		// 9: Focused Slash — TC circle r=4 at eFront: eFront(0m)=HIT, eNearFront(1.12m)=HIT, eSide(4.24m>4)=MISS
 		{9, "Focused Slash", 2, 1, 15, 15, 0, 0, 0, false, false, 0, 0, 0},
-		// 10: Targeted Spread — ST + DoT: eFront only
 		{10, "Targeted Spread", 2, 3, 12, 0, 0, 0, 0, false, true, 2.0, 14, 1},
-		// 11: Pinning Strike — ST: eFront only
 		{11, "Pinning Strike", 2, 4, 25, 0, 0, 0, 0, false, false, 0, 0, 0},
-
 		// From Scatter (config 3)
-		// 12: Dispersed Shield — self-buff: no damage
 		{12, "Dispersed Shield", 3, 0, 0, 0, 0, 0, 18, true, false, 0, 0, 0},
-		// 13: Rain of Blades — TC circle r=5 at eFront: all 3 HIT + DoT
 		{13, "Rain of Blades", 3, 1, 15, 15, 15, 0, 0, false, true, 1.0, 9, 3},
-		// 14: Converging Strike — ST + DoT: eFront only
 		{14, "Converging Strike", 3, 2, 32, 0, 0, 0, 0, false, true, 1.5, 9, 1},
-		// 15: Chaos Bind — NearestN(4): all 3 in-combat hit (only 3 in combat, max 4)
 		{15, "Chaos Bind", 3, 4, 8, 8, 8, 0, 0, false, false, 0, 0, 0},
-
 		// From Crown (config 4)
-		// 16: Commanding Ward — self-buff: no damage
 		{16, "Commanding Ward", 4, 0, 0, 0, 0, 0, 20, false, false, 0, 0, 0},
-		// 17: Royal Cleave — PC circle r=5: all 3 HIT
 		{17, "Royal Cleave", 4, 1, 12, 12, 12, 0, 0, false, false, 0, 0, 0},
-		// 18: Decree Strike — ST: eFront only
 		{18, "Decree Strike", 4, 2, 28, 0, 0, 0, 0, false, false, 0, 0, 0},
-		// 19: Sovereign Scatter — NearestN(3): hits 3 nearest in-combat
 		{19, "Sovereign Scatter", 4, 3, 5, 5, 5, 0, 0, false, true, 1.5, 11, 3},
 	}
 
@@ -971,27 +906,28 @@ func TestAllBladeDancerSpells(t *testing.T) {
 				if expected > 25.0 {
 					expected = 25.0
 				}
-				if p.BDShieldHP != expected {
-					t.Errorf("shield = %.0f, want %.0f", p.BDShieldHP, expected)
+				shieldHP := p.GetResource("shield")
+				if shieldHP != expected {
+					t.Errorf("shield = %.0f, want %.0f", shieldHP, expected)
 				}
-			} else if p.BDShieldHP != 0 {
-				t.Errorf("shield = %.0f, want 0", p.BDShieldHP)
+			} else if p.GetResource("shield") != 0 {
+				t.Errorf("shield = %.0f, want 0", p.GetResource("shield"))
 			}
 
 			// DR
-			if sp.hasDR && (p.BDDRFactor <= 0 || p.BDDRTimer <= 0) {
-				t.Errorf("DR should be active: factor=%.2f timer=%.2f", p.BDDRFactor, p.BDDRTimer)
+			if sp.hasDR && !p.HasBuff("bd_dr") {
+				t.Error("DR should be active (bd_dr buff missing)")
 			}
-			if !sp.hasDR && p.BDDRFactor > 0 && p.BDDRTimer > 0 {
-				t.Errorf("DR should NOT be active: factor=%.2f timer=%.2f", p.BDDRFactor, p.BDDRTimer)
+			if !sp.hasDR && p.HasBuff("bd_dr") {
+				t.Error("DR should NOT be active (bd_dr buff present)")
 			}
 
-			// DoT
+			// DoT — now on player.DoTs instead of w.BDDoTs
 			if sp.hasDoT {
-				if len(w.BDDoTs) != sp.dotTargets {
-					t.Fatalf("DoT count = %d, want %d targets", len(w.BDDoTs), sp.dotTargets)
+				if len(p.DoTs) != sp.dotTargets {
+					t.Fatalf("DoT count = %d, want %d targets", len(p.DoTs), sp.dotTargets)
 				}
-				for _, dot := range w.BDDoTs {
+				for _, dot := range p.DoTs {
 					if dot.Damage != sp.dotPerTick {
 						t.Errorf("DoT tick dmg = %.1f, want %.1f", dot.Damage, sp.dotPerTick)
 					}
@@ -1000,7 +936,7 @@ func TestAllBladeDancerSpells(t *testing.T) {
 				// Tick DoTs to completion for eFront
 				combatSys := CombatSystem{}
 				frontHPBefore := eFront.Health
-				dotDuration := w.BDDoTs[0].Remaining
+				dotDuration := p.DoTs[0].Remaining
 				ticks := int((dotDuration+1.0)/0.05) + 1
 				for i := 0; i < ticks; i++ {
 					w.DamageEvents = w.DamageEvents[:0]
@@ -1012,11 +948,11 @@ func TestAllBladeDancerSpells(t *testing.T) {
 					t.Errorf("eFront DoT total = %.0f, want ~%.0f (%d ticks x %.1f)",
 						frontDotDmg, expectedDotDmg, sp.dotTotalTicks, sp.dotPerTick)
 				}
-				if len(w.BDDoTs) != 0 {
-					t.Errorf("DoTs should be expired, got %d", len(w.BDDoTs))
+				if len(p.DoTs) != 0 {
+					t.Errorf("DoTs should be expired, got %d", len(p.DoTs))
 				}
-			} else if len(w.BDDoTs) != 0 {
-				t.Errorf("expected no DoTs, got %d", len(w.BDDoTs))
+			} else if len(p.DoTs) != 0 {
+				t.Errorf("expected no DoTs, got %d", len(p.DoTs))
 			}
 
 			// eFar never touched

@@ -1,6 +1,7 @@
 package system
 
 import (
+	"codex-online/server/internal/ability"
 	"codex-online/server/internal/codec"
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
@@ -62,7 +63,6 @@ func handlePlayerInput(w *World, peerID uint16, payload []byte) {
 	}
 
 	// Y validation: limit upward movement speed
-	// dt = 1/20 = 0.05 (constant 20Hz tick rate)
 	const tickDt = 1.0 / 20.0
 	deltaY := newPos.Y - p.Position.Y
 	if deltaY > 0 {
@@ -72,7 +72,6 @@ func handlePlayerInput(w *World, peerID uint16, payload []byte) {
 			if newPos.X > ev.CenterX-ev.HalfX && newPos.X < ev.CenterX+ev.HalfX &&
 				newPos.Z > ev.CenterZ-ev.HalfZ && newPos.Z < ev.CenterZ+ev.HalfZ &&
 				newPos.Y >= ev.BottomY-1.0 && newPos.Y <= ev.TopY+1.0 {
-				// Elevator: allow speed * dt * 1.5 (smoothstep peaks at ~1.5x average)
 				allowed := ev.Speed * tickDt * 1.5
 				if allowed > maxUp {
 					maxUp = allowed
@@ -81,11 +80,10 @@ func handlePlayerInput(w *World, peerID uint16, payload []byte) {
 			}
 		}
 		if !inElevator {
-			// Normal: allow jump velocity (~5 m/s upward, generous for frame jitter)
 			maxUp = 5.0 * tickDt * 2.0
 		}
 		if deltaY > maxUp+0.1 {
-			newPos.Y = p.Position.Y // reject Y component, keep XZ
+			newPos.Y = p.Position.Y
 		}
 	}
 
@@ -109,161 +107,49 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 		return
 	}
 
-	// All abilities work in any zone/state (hub, lobby, fight).
-	// Damage resolution naturally no-ops when no enemies are present.
-
 	// Update rotation from ability packet so hitscan uses the exact aim at time of shot
 	if inp.RotY != 0 {
 		p.RotationY = inp.RotY
 	}
 	p.AimPitch = inp.AimPitch
 
-	switch inp.Action {
-	case entity.ActionShoot:
-		// Gunner: hitscan, gated by fire cooldown
-		if p.ClassName == entity.ClassGunner && p.FireCooldown <= 0 {
-			fireCooldown := float32(0.18)
-			if p.OverclockActive {
-				fireCooldown = 0.10
-			}
-			p.FireCooldown = fireCooldown
-			p.State = entity.PlayerStateAttack
-			evt, hitEnemy := combat.ResolvePlayerAttackOnEnemies(p, w.Enemies, w.Level.Obstacles)
-			if evt != nil {
-				evt.SourcePeerID = peerID
-				w.DamageEvents = append(w.DamageEvents, *evt)
-				hitEnemy.AddThreat(peerID, evt.Amount)
-				w.AggroEnemy(hitEnemy, peerID)
-			}
-		}
-	case entity.ActionMelee:
-		// Vanguard/blade_dancer: melee, gated by cooldown + stamina
-		if p.FireCooldown <= 0 {
-			if p.ClassName == entity.ClassVanguard {
-				if p.Stamina < 10.0 {
-					break
-				}
-				p.Stamina -= 10.0
-				p.StaminaDelay = 0.6
-				p.FireCooldown = 0.55
-			} else {
-				p.FireCooldown = 0.3
-			}
-			p.State = entity.PlayerStateAttack
-			evt, hitEnemy := combat.ResolvePlayerAttackOnEnemies(p, w.Enemies, w.Level.Obstacles)
-			if evt != nil {
-				evt.SourcePeerID = peerID
-				w.DamageEvents = append(w.DamageEvents, *evt)
-				hitEnemy.AddThreat(peerID, evt.Amount)
-				w.AggroEnemy(hitEnemy, peerID)
-			}
-		}
-	case entity.ActionDodge:
-		// Vanguard: dodge costs stamina
-		if p.ClassName == entity.ClassVanguard && p.Stamina >= 20.0 {
-			p.Stamina -= 20.0
-			p.StaminaDelay = 0.6
-		}
-	case entity.ActionGuard:
-		if p.ClassName == entity.ClassBladeDancer && !p.GuardActive {
-			p.GuardActive = true
-			p.GuardTimer = 1.5
-		}
-	case entity.ActionHeavy:
-		if (p.ClassName == entity.ClassVanguard || p.ClassName == entity.ClassBladeDancer) && p.FireCooldown <= 0 {
-			if p.ClassName == entity.ClassVanguard {
-				if p.Stamina < 20.0 {
-					break
-				}
-				p.Stamina -= 20.0
-				p.StaminaDelay = 0.6
-				p.FireCooldown = 0.8
-			} else {
-				p.FireCooldown = 0.5
-			}
-			p.State = entity.PlayerStateAttack
-			evt, hitEnemy := combat.ResolvePlayerAttackOnEnemies(p, w.Enemies, w.Level.Obstacles)
-			if evt != nil {
-				evt.SourcePeerID = peerID
-				w.DamageEvents = append(w.DamageEvents, *evt)
-				hitEnemy.AddThreat(peerID, evt.Amount)
-				w.AggroEnemy(hitEnemy, peerID)
-			}
-		}
-	case entity.ActionOverclock:
-		if p.ClassName == entity.ClassGunner && !p.OverclockActive && p.OverclockCooldown <= 0 {
-			p.OverclockActive = true
-			p.OverclockTimer = 7.0
-			p.OverclockCooldown = 15.0
-		}
-	case entity.ActionRechamber:
-		if p.ClassName == entity.ClassGunner && p.RechamberPhase == 0 && p.FireCooldown <= 0 {
-			p.RechamberPhase = 1
-			p.RechamberTimer = 0.6
-			p.FireCooldown = 0.6 // lock out shooting during windup
-		}
-	case entity.ActionRechamberConfirm:
-		if p.ClassName == entity.ClassGunner && p.RechamberPhase == 2 {
-			p.RechamberBuff = true
-			p.RechamberBuffTimer = 4.0
-			p.RechamberPhase = 0
-		}
-	case entity.ActionBladeSwirl:
-		if p.ClassName == entity.ClassVanguard && p.Stamina >= 25.0 && p.BladeSwirlCooldown <= 0 && !p.BladeSwirl && p.FireCooldown <= 0 {
-			p.Stamina -= 25.0
-			p.StaminaDelay = 0.6
-			p.BladeSwirl = true
-			p.BladeSwirlTimer = 1.5
-			p.BladeSwirlTicks = 0
-			p.BladeSwirlCooldown = 10.0
-			p.FireCooldown = 1.5 // can't do other attacks while spinning
-			p.State = entity.PlayerStateAttack
-			// Immediate first AoE tick
-			shape := combat.AoEShape{Type: combat.AoECircle, Radius: 6.0, Damage: 25.0}
-			events := combat.ResolvePlayerAoEOnEnemies(p, w.Enemies, w.Level.Obstacles, shape)
-			for _, evt := range events {
-				evt.SourcePeerID = peerID
-				w.DamageEvents = append(w.DamageEvents, evt)
-				for _, e := range w.Enemies {
-					if e != nil && e.ID == evt.TargetPeerID {
-						e.AddThreat(peerID, evt.Amount)
-						w.AggroEnemy(e, peerID)
-						break
-					}
-				}
-			}
-		}
-	case entity.ActionGroundSlam:
-		if p.ClassName == entity.ClassVanguard && p.Stamina >= 20.0 && p.GroundSlamCooldown <= 0 && p.FireCooldown <= 0 {
-			p.Stamina -= 20.0
-			p.StaminaDelay = 0.6
-			p.GroundSlamCooldown = 8.0
-			p.FireCooldown = 1.2
-			p.State = entity.PlayerStateAttack
-			shape := combat.AoEShape{Type: combat.AoECone, Radius: 7.0, ArcDegrees: 90.0, Damage: 60.0}
-			events := combat.ResolvePlayerAoEOnEnemies(p, w.Enemies, w.Level.Obstacles, shape)
-			for _, evt := range events {
-				evt.SourcePeerID = peerID
-				w.DamageEvents = append(w.DamageEvents, evt)
-				for _, e := range w.Enemies {
-					if e != nil && e.ID == evt.TargetPeerID {
-						e.AddThreat(peerID, evt.Amount)
-						w.AggroEnemy(e, peerID)
-						break
-					}
-				}
-			}
-		}
-	default:
-		// Blade Dancer spells: action IDs 30-49
-		if inp.Action >= entity.ActionBDSpellBase && inp.Action < entity.ActionBDSpellBase+20 {
-			if p.ClassName == entity.ClassBladeDancer && p.GCDTimer <= 0 {
-				idx := int(inp.Action - entity.ActionBDSpellBase)
-				originCfg := idx / 4
-				if originCfg == p.Config {
-					resolveBladeDancerSpell(w, p, peerID, idx)
-				}
-			}
+	// Dodge is special: it doesn't go through the engine (client-authoritative movement)
+	// but we still need to check/spend stamina for vanguard
+	if inp.Action == entity.ActionDodge {
+		// Spend stamina if the class has it (vanguard)
+		p.SpendResource("stamina", 20)
+		return
+	}
+
+	// Look up ability from action map
+	abilityID, ok := p.ActionMap[inp.Action]
+	if !ok {
+		return
+	}
+
+	// Cast through the ability engine
+	ctx := &ability.CastContext{
+		Player:    p,
+		Enemies:   w.Enemies,
+		Obstacles: w.Level.Obstacles,
+	}
+	result := w.AbilityEngine.Cast(abilityID, ctx)
+	if !result.OK {
+		return
+	}
+
+	// Convert ability results to combat damage events and apply threat
+	for _, r := range result.Events {
+		w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
+			TargetPeerID: r.TargetID,
+			SourcePeerID: r.SourceID,
+			Amount:       r.Amount,
+			HitPos:       r.HitPos,
+			SourceType:   r.SourceType,
+		})
+		if r.Enemy != nil {
+			r.Enemy.AddThreat(peerID, r.Amount)
+			w.AggroEnemy(r.Enemy, peerID)
 		}
 	}
 }
@@ -281,16 +167,16 @@ func handleInteractInput(w *World, peerID uint16, payload []byte) {
 	switch inp.Action {
 	case message.InteractClassSelect:
 		className := inp.ClassName
-		if className == entity.ClassGunner || className == entity.ClassVanguard || className == entity.ClassBladeDancer {
-			p.ClassName = className
-			// Re-init class stats
-			np := entity.NewPlayerNoPTR(peerID, className)
-			p.Health = np.Health
-			p.MaxHealth = np.MaxHealth
-			p.Stamina = np.Stamina
-			p.MaxStamina = np.MaxStamina
-			p.StaminaRegen = np.StaminaRegen
-			p.StaminaDelay = np.StaminaDelay
+		if _, ok := entity.Classes[className]; ok {
+			// Re-create player with new class
+			np := entity.NewPlayer(peerID, className)
+			np.Username = p.Username
+			np.Position = p.Position
+			np.RotationY = p.RotationY
+			np.AnimName = p.AnimName
+			np.AnimSpeed = p.AnimSpeed
+			np.SpawnTick = p.SpawnTick
+			*p = *np
 		}
 	case message.InteractReadyToggle:
 		p.Ready = !p.Ready

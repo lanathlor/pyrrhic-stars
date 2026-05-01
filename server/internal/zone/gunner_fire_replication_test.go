@@ -46,7 +46,7 @@ func setupTwoPlayerFight(t *testing.T) (*Zone, uint16, uint16, *mockSendCollecto
 		Send:     func([]byte) {}, // discard
 	})
 	shooter := z.world.Players[shooterID]
-	shooter.ClassName = entity.ClassGunner
+	shooter.ClassID = entity.ClassGunner
 	shooter.Position = entity.Vec3{X: 0, Y: 0, Z: 10}
 	shooter.RotationY = 0
 	shooter.AimPitch = -0.06
@@ -62,7 +62,7 @@ func setupTwoPlayerFight(t *testing.T) (*Zone, uint16, uint16, *mockSendCollecto
 		Send:     col.collect,
 	})
 	obs := z.world.Players[observerID]
-	obs.ClassName = entity.ClassVanguard
+	obs.ClassID = entity.ClassVanguard
 	obs.Position = entity.Vec3{X: 5, Y: 0, Z: 10}
 
 	return z, shooterID, observerID, col
@@ -343,7 +343,7 @@ func TestGunnerFire_TickByTickStateSequence(t *testing.T) {
 
 	for tick := 1; tick <= 8; tick++ {
 		z.processTick()
-		seq = append(seq, snapshot{tick, p.State, p.FireCooldown})
+		seq = append(seq, snapshot{tick, p.State, p.Cooldowns["fire_shot"]})
 	}
 
 	for _, s := range seq {
@@ -402,7 +402,7 @@ func TestGunnerFire_WorksInAllZoneStates(t *testing.T) {
 			z.world.State = tc.zoneState
 
 			p := z.world.Players[peerID]
-			p.ClassName = entity.ClassGunner
+			p.ClassID = entity.ClassGunner
 			p.Position = entity.Vec3{X: 0, Y: 0, Z: 10}
 			p.AnimName = "rifle_idle"
 			p.AnimSpeed = 1.0

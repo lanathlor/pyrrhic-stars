@@ -46,29 +46,29 @@ func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.
 		buf = appendF32(buf, p.RotationY)
 		buf = appendF32(buf, p.Health)
 		buf = append(buf, byte(p.State))
-		buf = appendStr8(buf, p.ClassName)
+		buf = appendStr8(buf, p.ClassName())
 		buf = appendStr8(buf, p.Username)
 		buf = appendStr8(buf, p.AnimName)
 		buf = appendF32(buf, p.AnimSpeed)
 		buf = appendF32(buf, p.AimPitch)
 		var flags uint8
-		if p.OverclockActive {
+		if p.HasBuff("overclock") {
 			flags |= 0x01
 		}
-		if p.RechamberBuff {
+		if p.HasBuff("rechamber_buff") {
 			flags |= 0x02
 		}
-		flags |= (p.RechamberPhase & 0x03) << 2
-		if p.BladeSwirl {
+		flags |= (p.GetAbilityPhase("rechamber") & 0x03) << 2
+		if p.HasBuff("blade_swirl") {
 			flags |= 0x10
 		}
-		if p.GuardActive {
+		if p.HasBuff("guard") || p.HasBuff("vg_parry") || p.HasBuff("vg_block") {
 			flags |= 0x20
 		}
 		buf = append(buf, flags)
 		buf = append(buf, byte(p.Config))
-		buf = appendF32(buf, p.Stamina)
-		buf = appendF32(buf, p.BDShieldHP)
+		buf = appendF32(buf, p.GetResource("stamina"))
+		buf = appendF32(buf, p.GetResource("shield"))
 	}
 
 	buf = append(buf, byte(len(enemies)))

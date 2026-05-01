@@ -188,11 +188,6 @@ func checkFightEnd(w *World) {
 }
 
 func tickFightOver(w *World, dt float32) {
-	for _, p := range w.Players {
-		if p.Alive {
-			p.FireCooldown -= dt
-		}
-	}
 
 	// After a wipe, transition back to lobby once all players have respawned
 	if !w.BossDefeated {

@@ -4,6 +4,7 @@ import (
 	"sync"
 	"testing"
 
+	"codex-online/server/internal/ability"
 	"codex-online/server/internal/codec"
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/enemyai"
@@ -23,10 +24,9 @@ func benchWorld() *World {
 		p.RotationY = 0
 		p.AimPitch = 0
 		p.Health = p.MaxHealth * 0.8
-		p.FireCooldown = 0.1
-		p.OverclockActive = true
-		p.OverclockTimer = 3.0
-		p.OverclockCooldown = 5.0
+		p.Cooldowns["fire_shot"] = 0.1
+		p.AddBuff(entity.ActiveBuff{ID: "overclock", Type: entity.BuffCooldownMult, Value: 0.556, Duration: 3.0})
+		p.Cooldowns["overclock"] = 5.0
 		players[i] = p
 	}
 
@@ -66,15 +66,16 @@ func benchWorld() *World {
 	}
 
 	return &World{
-		ZoneType:    1,
-		TickNum:     100,
-		State:       StateFight,
-		Players:     players,
-		Enemies:     enemies,
-		Brains:      brains,
-		Projectiles: projs,
-		Level:       lvl,
-		Clients:     make(map[uint16]*Client),
+		ZoneType:      1,
+		TickNum:       100,
+		State:         StateFight,
+		Players:       players,
+		Enemies:       enemies,
+		Brains:        brains,
+		Projectiles:   projs,
+		Level:         lvl,
+		Clients:       make(map[uint16]*Client),
+		AbilityEngine: ability.NewEngine(),
 		// Pre-allocate pooled buffers so broadcast doesn't allocate in the tick loop.
 		SendBuf:     make([]byte, 0, 4096),
 		DamageBuf:   make([]byte, 0, 256),
@@ -165,7 +166,7 @@ func BenchmarkHandleAbilityInput(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		w.Players[1].FireCooldown = 0
+		delete(w.Players[1].Cooldowns, "fire_shot")
 		w.DamageEvents = w.DamageEvents[:0]
 		handleAbilityInput(w, 1, payload)
 	}
@@ -369,9 +370,8 @@ func benchArenaInstance(instanceID uint16) *World {
 		p.RotationY = 0
 		p.AimPitch = 0
 		p.Health = p.MaxHealth * 0.8
-		p.FireCooldown = 0.05
-		p.OverclockActive = true
-		p.OverclockTimer = 3.0
+		p.Cooldowns["fire_shot"] = 0.05
+		p.AddBuff(entity.ActiveBuff{ID: "overclock", Type: entity.BuffCooldownMult, Value: 0.556, Duration: 3.0})
 		players[peerID] = p
 	}
 
@@ -440,6 +440,7 @@ func benchArenaInstance(instanceID uint16) *World {
 		Projectiles:    projs,
 		Level:          lvl,
 		Clients:        clients,
+		AbilityEngine:  ability.NewEngine(),
 		// Pre-allocate pooled buffers so broadcast doesn't allocate in the tick loop.
 		SendBuf:     make([]byte, 0, 4096),
 		DamageBuf:   make([]byte, 0, 256),

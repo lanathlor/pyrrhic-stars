@@ -3,6 +3,7 @@ package system
 import (
 	"testing"
 
+	"codex-online/server/internal/ability"
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/level"
 	"codex-online/server/internal/message"
@@ -12,14 +13,15 @@ import (
 func makeArenaWorld(players map[uint16]*entity.Player, enemies []*entity.Enemy) *World {
 	lvl := level.NewArenaLevel()
 	return &World{
-		ZoneID:   "test-arena",
-		ZoneType: 1,
-		TickNum:  100,
-		State:    StateLobby,
-		Players:  players,
-		Enemies:  enemies,
-		Level:    lvl,
-		Clients:  make(map[uint16]*Client),
+		ZoneID:        "test-arena",
+		ZoneType:      1,
+		TickNum:       100,
+		State:         StateLobby,
+		Players:       players,
+		Enemies:       enemies,
+		Level:         lvl,
+		Clients:       make(map[uint16]*Client),
+		AbilityEngine: ability.NewEngine(),
 	}
 }
 
@@ -400,17 +402,20 @@ func TestTickFightOver_WipeSomeDeadNoReturn(t *testing.T) {
 func TestTickFightOver_CooldownsTick(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Alive = true
-	p.FireCooldown = 1.0
+	p.Cooldowns["fire_shot"] = 1.0
 
 	w := makeArenaWorld(map[uint16]*entity.Player{1: p}, nil)
 	w.State = StateFightOver
 	w.BossDefeated = true
 
-	sys := &GameFlowSystem{}
+	// Cooldowns are now ticked by CombatSystem (via AbilityEngine.TickPlayer),
+	// not by GameFlowSystem. Verify they still tick during fight-over state.
+	sys := &CombatSystem{}
 	sys.Tick(w, 0.5)
 
-	if p.FireCooldown > 0.6 || p.FireCooldown < 0.4 {
-		t.Errorf("FireCooldown = %f, want ~0.5", p.FireCooldown)
+	cd := p.Cooldowns["fire_shot"]
+	if cd > 0.6 || cd < 0.4 {
+		t.Errorf("fire_shot cooldown = %f, want ~0.5", cd)
 	}
 }
 

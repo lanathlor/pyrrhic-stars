@@ -1,6 +1,7 @@
 package system
 
 import (
+	"codex-online/server/internal/ability"
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/enemyai"
 	"codex-online/server/internal/entity"
@@ -70,10 +71,12 @@ type World struct {
 	// Level geometry
 	Level *level.Level
 
+	// Ability engine
+	AbilityEngine *ability.Engine
+
 	// Networking
 	Clients      map[uint16]*Client
 	DamageEvents []combat.DamageEvent
-	BDDoTs       []BDDoT // active Blade Dancer DoT effects
 
 	// Input queue (consumed by InputSystem)
 	InputQueue []InputMsg

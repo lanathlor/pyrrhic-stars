@@ -3,6 +3,7 @@ package system
 import (
 	"testing"
 
+	"codex-online/server/internal/ability"
 	"codex-online/server/internal/codec"
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/level"
@@ -11,11 +12,12 @@ import (
 
 func makeHubWorld(players map[uint16]*entity.Player) *World {
 	return &World{
-		ZoneType: 0, // hub
-		TickNum:  100,
-		State:    StateLobby, // hub never enters StateFight
-		Players:  players,
-		Level:    level.NewHubLevel(),
+		ZoneType:      0, // hub
+		TickNum:       100,
+		State:         StateLobby, // hub never enters StateFight
+		Players:       players,
+		Level:         level.NewHubLevel(),
+		AbilityEngine: ability.NewEngine(),
 	}
 }
 
@@ -31,30 +33,30 @@ func TestDodge_ConsumesStamina_InHub(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
 	w := makeHubWorld(map[uint16]*entity.Player{1: p})
 
-	before := p.Stamina
+	before := p.Resources["stamina"].Current
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionDodge)}}
 	is := &InputSystem{}
 	is.Tick(w, 0.05)
 
-	if p.Stamina != before-20.0 {
-		t.Errorf("stamina = %f, want %f (dodge costs 20)", p.Stamina, before-20.0)
+	if p.Resources["stamina"].Current != before-20.0 {
+		t.Errorf("stamina = %f, want %f (dodge costs 20)", p.Resources["stamina"].Current, before-20.0)
 	}
-	if p.StaminaDelay != 0.6 {
-		t.Errorf("stamina delay = %f, want 0.6", p.StaminaDelay)
+	if p.Resources["stamina"].DelayTimer != 0.6 {
+		t.Errorf("stamina delay = %f, want 0.6", p.Resources["stamina"].DelayTimer)
 	}
 }
 
 func TestDodge_BlockedWhenInsufficientStamina(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
-	p.Stamina = 10.0
+	p.Resources["stamina"].Current = 10.0
 	w := makeHubWorld(map[uint16]*entity.Player{1: p})
 
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionDodge)}}
 	is := &InputSystem{}
 	is.Tick(w, 0.05)
 
-	if p.Stamina != 10.0 {
-		t.Errorf("stamina = %f, want 10.0 (insufficient stamina)", p.Stamina)
+	if p.Resources["stamina"].Current != 10.0 {
+		t.Errorf("stamina = %f, want 10.0 (insufficient stamina)", p.Resources["stamina"].Current)
 	}
 }
 
@@ -68,16 +70,16 @@ func TestDodge_RepeatedDrainsStamina(t *testing.T) {
 		is.Tick(w, 0.05)
 	}
 
-	if p.Stamina != 0.0 {
-		t.Errorf("stamina = %f after 5 dodges, want 0.0", p.Stamina)
+	if p.Resources["stamina"].Current != 0.0 {
+		t.Errorf("stamina = %f after 5 dodges, want 0.0", p.Resources["stamina"].Current)
 	}
 
 	// 6th should be blocked
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionDodge)}}
 	is.Tick(w, 0.05)
 
-	if p.Stamina != 0.0 {
-		t.Errorf("stamina = %f after 6th dodge, want 0.0", p.Stamina)
+	if p.Resources["stamina"].Current != 0.0 {
+		t.Errorf("stamina = %f after 6th dodge, want 0.0", p.Resources["stamina"].Current)
 	}
 }
 
@@ -89,16 +91,16 @@ func TestMelee_ConsumesStamina_InHub(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
 	w := makeHubWorld(map[uint16]*entity.Player{1: p})
 
-	before := p.Stamina
+	before := p.Resources["stamina"].Current
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionMelee)}}
 	is := &InputSystem{}
 	is.Tick(w, 0.05)
 
-	if p.Stamina != before-10.0 {
-		t.Errorf("stamina = %f, want %f (melee costs 10 in hub)", p.Stamina, before-10.0)
+	if p.Resources["stamina"].Current != before-10.0 {
+		t.Errorf("stamina = %f, want %f (melee costs 10 in hub)", p.Resources["stamina"].Current, before-10.0)
 	}
-	if p.FireCooldown <= 0 {
-		t.Error("fire cooldown should be set after melee in hub")
+	if p.Cooldowns["melee_light"] <= 0 {
+		t.Error("melee cooldown should be set after melee in hub")
 	}
 }
 
@@ -106,13 +108,13 @@ func TestHeavy_ConsumesStamina_InHub(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
 	w := makeHubWorld(map[uint16]*entity.Player{1: p})
 
-	before := p.Stamina
+	before := p.Resources["stamina"].Current
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionHeavy)}}
 	is := &InputSystem{}
 	is.Tick(w, 0.05)
 
-	if p.Stamina != before-20.0 {
-		t.Errorf("stamina = %f, want %f (heavy costs 20 in hub)", p.Stamina, before-20.0)
+	if p.Resources["stamina"].Current != before-20.0 {
+		t.Errorf("stamina = %f, want %f (heavy costs 20 in hub)", p.Resources["stamina"].Current, before-20.0)
 	}
 }
 
@@ -124,7 +126,7 @@ func TestShoot_WorksInHub(t *testing.T) {
 	is := &InputSystem{}
 	is.Tick(w, 0.05)
 
-	if p.FireCooldown <= 0 {
+	if p.Cooldowns["fire_shot"] <= 0 {
 		t.Error("shoot should set fire cooldown in hub")
 	}
 }
@@ -140,8 +142,8 @@ func TestDodge_FullPipeline_Hub(t *testing.T) {
 	inputSys := &InputSystem{}
 	combatSys := &CombatSystem{}
 
-	if p.Stamina != 100.0 {
-		t.Fatalf("initial stamina = %f, want 100.0", p.Stamina)
+	if p.Resources["stamina"].Current != 100.0 {
+		t.Fatalf("initial stamina = %f, want 100.0", p.Resources["stamina"].Current)
 	}
 
 	// Tick 1: dodge
@@ -149,8 +151,8 @@ func TestDodge_FullPipeline_Hub(t *testing.T) {
 	inputSys.Tick(w, 0.05)
 	combatSys.Tick(w, 0.05)
 
-	if p.Stamina != 80.0 {
-		t.Errorf("tick 1: stamina = %f, want 80.0", p.Stamina)
+	if p.Resources["stamina"].Current != 80.0 {
+		t.Errorf("tick 1: stamina = %f, want 80.0", p.Resources["stamina"].Current)
 	}
 
 	// Ticks 2-5: regen blocked by delay
@@ -159,8 +161,8 @@ func TestDodge_FullPipeline_Hub(t *testing.T) {
 		combatSys.Tick(w, 0.05)
 	}
 
-	if p.Stamina != 80.0 {
-		t.Errorf("tick 5: stamina = %f, want 80.0 (delay still active)", p.Stamina)
+	if p.Resources["stamina"].Current != 80.0 {
+		t.Errorf("tick 5: stamina = %f, want 80.0 (delay still active)", p.Resources["stamina"].Current)
 	}
 
 	// Ticks 6-13: delay expires, regen starts
@@ -169,11 +171,11 @@ func TestDodge_FullPipeline_Hub(t *testing.T) {
 		combatSys.Tick(w, 0.05)
 	}
 
-	if p.Stamina <= 80.0 {
-		t.Errorf("tick 13: stamina = %f, want > 80.0 (regen should have started)", p.Stamina)
+	if p.Resources["stamina"].Current <= 80.0 {
+		t.Errorf("tick 13: stamina = %f, want > 80.0 (regen should have started)", p.Resources["stamina"].Current)
 	}
-	if p.Stamina >= 100.0 {
-		t.Errorf("tick 13: stamina = %f, want < 100.0", p.Stamina)
+	if p.Resources["stamina"].Current >= 100.0 {
+		t.Errorf("tick 13: stamina = %f, want < 100.0", p.Resources["stamina"].Current)
 	}
 }
 
@@ -189,13 +191,13 @@ func TestMelee_ConsumesStamina_InFight(t *testing.T) {
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
 
-	before := p.Stamina
+	before := p.Resources["stamina"].Current
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionMelee)}}
 	is := &InputSystem{}
 	is.Tick(w, 0.05)
 
-	if p.Stamina != before-10.0 {
-		t.Errorf("stamina = %f, want %f (melee costs 10)", p.Stamina, before-10.0)
+	if p.Resources["stamina"].Current != before-10.0 {
+		t.Errorf("stamina = %f, want %f (melee costs 10)", p.Resources["stamina"].Current, before-10.0)
 	}
 }
 
@@ -207,13 +209,13 @@ func TestHeavy_ConsumesStamina_InFight(t *testing.T) {
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
 
-	before := p.Stamina
+	before := p.Resources["stamina"].Current
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionHeavy)}}
 	is := &InputSystem{}
 	is.Tick(w, 0.05)
 
-	if p.Stamina != before-20.0 {
-		t.Errorf("stamina = %f, want %f (heavy costs 20)", p.Stamina, before-20.0)
+	if p.Resources["stamina"].Current != before-20.0 {
+		t.Errorf("stamina = %f, want %f (heavy costs 20)", p.Resources["stamina"].Current, before-20.0)
 	}
 }
 
@@ -479,8 +481,8 @@ func TestHandleInteractInput_ClassSelect(t *testing.T) {
 			is := &InputSystem{}
 			is.Tick(w, 0.05)
 
-			if p.ClassName != tc.wantClass {
-				t.Errorf("class = %q, want %q", p.ClassName, tc.wantClass)
+			if p.ClassID != tc.wantClass {
+				t.Errorf("class = %q, want %q", p.ClassID, tc.wantClass)
 			}
 		})
 	}
@@ -501,14 +503,14 @@ func TestHandleInteractInput_ClassSelect_ResetsStats(t *testing.T) {
 	is := &InputSystem{}
 	is.Tick(w, 0.05)
 
-	if p.ClassName != entity.ClassVanguard {
-		t.Errorf("class = %q, want 'vanguard'", p.ClassName)
+	if p.ClassID != entity.ClassVanguard {
+		t.Errorf("class = %q, want 'vanguard'", p.ClassID)
 	}
 	if p.MaxHealth != 200 {
 		t.Errorf("MaxHealth = %f, want 200 (vanguard)", p.MaxHealth)
 	}
-	if p.MaxStamina != 100 {
-		t.Errorf("MaxStamina = %f, want 100 (vanguard)", p.MaxStamina)
+	if p.Resources["stamina"].Max != 100 {
+		t.Errorf("MaxStamina = %f, want 100 (vanguard)", p.Resources["stamina"].Max)
 	}
 }
 

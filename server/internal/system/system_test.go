@@ -320,61 +320,6 @@ func TestSpawnPlayerProjectile(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// destSlotToConfig
-// ---------------------------------------------------------------------------
-
-func TestDestSlotToConfig(t *testing.T) {
-	// The function maps slot 0-3 to the 4 configs that are NOT the origin.
-	// With 5 configs (0-4), skipping origin gives 4 destination slots.
-	tests := []struct {
-		name      string
-		originCfg int
-		slot      int
-		want      int
-	}{
-		// Origin 0: skip 0, destinations are [1,2,3,4]
-		{"origin0_slot0", 0, 0, 1},
-		{"origin0_slot1", 0, 1, 2},
-		{"origin0_slot2", 0, 2, 3},
-		{"origin0_slot3", 0, 3, 4},
-
-		// Origin 1: skip 1, destinations are [0,2,3,4]
-		{"origin1_slot0", 1, 0, 0},
-		{"origin1_slot1", 1, 1, 2},
-		{"origin1_slot2", 1, 2, 3},
-		{"origin1_slot3", 1, 3, 4},
-
-		// Origin 2: skip 2, destinations are [0,1,3,4]
-		{"origin2_slot0", 2, 0, 0},
-		{"origin2_slot1", 2, 1, 1},
-		{"origin2_slot2", 2, 2, 3},
-		{"origin2_slot3", 2, 3, 4},
-
-		// Origin 3: skip 3, destinations are [0,1,2,4]
-		{"origin3_slot0", 3, 0, 0},
-		{"origin3_slot1", 3, 1, 1},
-		{"origin3_slot2", 3, 2, 2},
-		{"origin3_slot3", 3, 3, 4},
-
-		// Origin 4: skip 4, destinations are [0,1,2,3]
-		{"origin4_slot0", 4, 0, 0},
-		{"origin4_slot1", 4, 1, 1},
-		{"origin4_slot2", 4, 2, 2},
-		{"origin4_slot3", 4, 3, 3},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got := destSlotToConfig(tc.originCfg, tc.slot)
-			if got != tc.want {
-				t.Errorf("destSlotToConfig(%d, %d) = %d, want %d",
-					tc.originCfg, tc.slot, got, tc.want)
-			}
-		})
-	}
-}
-
-// ---------------------------------------------------------------------------
 // AISystem.Tick — basic coverage
 // ---------------------------------------------------------------------------
 

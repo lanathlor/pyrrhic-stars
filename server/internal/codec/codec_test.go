@@ -184,16 +184,18 @@ func TestDecodeRespawnRequest(t *testing.T) {
 
 func TestEncodeWorldStateWireFormat(t *testing.T) {
 	p := &entity.Player{
-		PeerID:    7,
-		Position:  entity.Vec3{X: 1.0, Y: 2.0, Z: 3.0},
-		RotationY: 0.5,
-		Health:    100.0,
-		State:     entity.PlayerStateAttack,
-		ClassName: entity.ClassGunner,
-		Username:  testName,
-		AnimName:  "idle",
-		AnimSpeed: 1.0,
-		AimPitch:  -0.1,
+		PeerID:       7,
+		Position:     entity.Vec3{X: 1.0, Y: 2.0, Z: 3.0},
+		RotationY:    0.5,
+		Health:       100.0,
+		State:        entity.PlayerStateAttack,
+		ClassID:      entity.ClassGunner,
+		Username:     testName,
+		AnimName:     "idle",
+		AnimSpeed:    1.0,
+		AimPitch:     -0.1,
+		Resources:    make(map[string]*entity.Resource),
+		AbilityState: make(map[string]any),
 	}
 	e := entity.NewEnemy(0, 2000.0, "guard_captain")
 	e.Position = entity.Vec3{X: 5.0, Y: 0.0, Z: -3.0}

@@ -2,13 +2,6 @@ package entity
 
 import "math"
 
-// Class name constants.
-const (
-	ClassGunner      = "gunner"
-	ClassVanguard    = "vanguard"
-	ClassBladeDancer = "blade_dancer"
-)
-
 // PlayerState represents the state of a player character.
 type PlayerState uint8
 
@@ -63,9 +56,9 @@ const (
 
 // Player represents a player entity on the server.
 type Player struct {
-	PeerID    uint16
-	Username  string // display name
-	ClassName string // "gunner", "vanguard", "blade_dancer"
+	PeerID   uint16
+	Username string  // display name
+	ClassID  string  // "gunner", "vanguard", "blade_dancer"
 
 	// Spatial
 	Position  Vec3
@@ -93,38 +86,23 @@ type Player struct {
 	Invincible      bool
 	InvincibleTimer float32
 
-	// Gunner
-	FireCooldown       float32
-	OverclockActive    bool
-	OverclockTimer     float32 // remaining buff duration (7s)
-	OverclockCooldown  float32 // remaining cooldown (15s)
-	RechamberPhase     uint8   // 0=idle, 1=windup, 2=timing_window, 3=lockout
-	RechamberTimer     float32
-	RechamberBuff      bool
-	RechamberBuffTimer float32 // remaining damage buff duration (4s)
+	// Generic resources (stamina, shield, etc.)
+	Resources map[string]*Resource
 
-	// Vanguard
-	Stamina            float32
-	MaxStamina         float32
-	StaminaRegen       float32
-	StaminaDelay       float32
-	ComboStep          int
-	IsBlocking         bool
-	ParryTimer         float32
-	BladeSwirl         bool
-	BladeSwirlTimer    float32 // remaining spin duration (1.5s)
-	BladeSwirlTicks    int     // damage ticks delivered so far
-	BladeSwirlCooldown float32 // remaining cooldown (10s)
-	GroundSlamCooldown float32 // remaining cooldown (8s)
+	// Ability state
+	Cooldowns    map[string]float32 // ability_id → remaining cooldown
+	GCDTimer     float32            // global cooldown timer
+	ActionMap    map[uint8]string   // wire action_id → ability_id
+	AbilityState map[string]any     // ability_id → custom handler state
 
-	// Blade dancer
-	Config      int // 0=orbit, 1=fan, 2=lance, 3=scatter, 4=crown
-	GCDTimer    float32
-	GuardActive bool
-	GuardTimer  float32
-	BDShieldHP  float32 // temporary shield from Orbit-destination spells
-	BDDRFactor  float32 // active damage reduction multiplier (0 = none)
-	BDDRTimer   float32 // remaining DR buff duration
+	// Active buffs
+	Buffs []ActiveBuff
+
+	// Active DoTs (sourced from this player onto enemies)
+	DoTs []ActiveDoT
+
+	// Blade Dancer config (visual state for client)
+	Config int // 0=orbit, 1=fan, 2=lance, 3=scatter, 4=crown
 
 	// Animation (forwarded to clients)
 	AnimName  string
@@ -139,96 +117,144 @@ type Player struct {
 
 // NewPlayer creates a player with class defaults.
 func NewPlayer(peerID uint16, className string) *Player {
+	classDef, ok := Classes[className]
+	if !ok {
+		classDef = Classes[ClassGunner]
+		className = ClassGunner
+	}
+
 	p := &Player{
-		PeerID:    peerID,
-		ClassName: className,
-		Alive:     true,
-		OnGround:  true,
-		AnimName:  "idle",
-		AnimSpeed: 1.0,
+		PeerID:       peerID,
+		ClassID:      className,
+		Alive:        true,
+		OnGround:     true,
+		AnimName:     "idle",
+		AnimSpeed:    1.0,
+		MaxHealth:    classDef.MaxHealth,
+		Resources:    make(map[string]*Resource, len(classDef.Resources)),
+		Cooldowns:    make(map[string]float32),
+		ActionMap:    classDef.ActionMap,
+		AbilityState: make(map[string]any),
 	}
-	switch className {
-	case ClassVanguard:
-		p.MaxHealth = 200.0
-		p.Stamina = 100.0
-		p.MaxStamina = 100.0
-		p.StaminaRegen = 30.0
-		p.StaminaDelay = 0.6
-	default:
-		p.MaxHealth = 150.0
+	p.Health = p.MaxHealth
+
+	for name, tmpl := range classDef.Resources {
+		p.Resources[name] = &Resource{
+			Current:    tmpl.Initial,
+			Max:        tmpl.Max,
+			Regen:      tmpl.Regen,
+			RegenDelay: tmpl.RegenDelay,
+		}
 	}
-	p.Health = p.MaxHealth // spawn at full HP
+
 	return p
 }
 
 // NewPlayerNoPTR creates a player with class defaults (value type).
 func NewPlayerNoPTR(peerID uint16, className string) Player {
-	p := Player{
-		PeerID:    peerID,
-		ClassName: className,
-		Alive:     true,
-		OnGround:  true,
-		AnimName:  "idle",
-		AnimSpeed: 1.0,
+	p := NewPlayer(peerID, className)
+	return *p
+}
+
+// ClassName returns the class identifier.
+func (p *Player) ClassName() string { return p.ClassID }
+
+// Movement returns the class movement stats.
+func (p *Player) Movement() ClassMovement {
+	if cd, ok := Classes[p.ClassID]; ok {
+		return cd.Movement
 	}
-	switch className {
-	case ClassVanguard:
-		p.MaxHealth = 200.0
-		p.Stamina = 100.0
-		p.MaxStamina = 100.0
-		p.StaminaRegen = 30.0
-		p.StaminaDelay = 0.6
-	default:
-		p.MaxHealth = 150.0
+	return Classes[ClassGunner].Movement
+}
+
+// HasBuff returns true if the player has an active buff with the given ID.
+func (p *Player) HasBuff(id string) bool {
+	for i := range p.Buffs {
+		if p.Buffs[i].ID == id {
+			return true
+		}
 	}
-	p.Health = p.MaxHealth // spawn at full HP
-	return p
+	return false
 }
 
-// classStats holds per-class movement tuning.
-type classStats struct {
-	WalkSpeed   float32
-	SprintSpeed float32
-	JumpVel     float32
-	GroundAccel float32
-	GroundDecel float32
-	AirAccel    float32
-	AirDecel    float32
-	RollSpeed   float32
-	RollDur     float32
-	RollCD      float32
+// GetBuffValue returns the value of the first buff matching the given type,
+// or 1.0 if no buff of that type is active.
+func (p *Player) GetBuffValue(buffType string) float32 {
+	for i := range p.Buffs {
+		if p.Buffs[i].Type == buffType {
+			return p.Buffs[i].Value
+		}
+	}
+	return 1.0
 }
 
-var classStatsTable = map[string]classStats{
-	ClassGunner: {
-		WalkSpeed: 5.5, SprintSpeed: 7.7, JumpVel: 4.0,
-		GroundAccel: 25.0, GroundDecel: 18.0, AirAccel: 2.5, AirDecel: 1.0,
-		RollSpeed: 14.0, RollDur: 0.3, RollCD: 2.5,
-	},
-	ClassVanguard: {
-		WalkSpeed: 5.0, SprintSpeed: 7.0, JumpVel: 3.5,
-		GroundAccel: 20.0, GroundDecel: 15.0, AirAccel: 2.5, AirDecel: 1.0,
-		RollSpeed: 12.0, RollDur: 0.4, RollCD: 1.0,
-	},
-	ClassBladeDancer: {
-		WalkSpeed: 6.0, SprintSpeed: 9.0, JumpVel: 3.5,
-		GroundAccel: 20.0, GroundDecel: 15.0, AirAccel: 2.5, AirDecel: 1.0,
-		RollSpeed: 15.0, RollDur: 0.2, RollCD: 0.5,
-	},
+// DamageReduction returns the product of all active damage_reduction buff values.
+func (p *Player) DamageReduction() float32 {
+	mult := float32(1.0)
+	for i := range p.Buffs {
+		if p.Buffs[i].Type == BuffDamageReduction {
+			mult *= p.Buffs[i].Value
+		}
+	}
+	return mult
 }
 
-func (p *Player) stats() classStats {
-	s, ok := classStatsTable[p.ClassName]
+// DamageMult returns the product of all active damage_mult buff values.
+func (p *Player) DamageMult() float32 {
+	mult := float32(1.0)
+	for i := range p.Buffs {
+		if p.Buffs[i].Type == BuffDamageMult {
+			mult *= p.Buffs[i].Value
+		}
+	}
+	return mult
+}
+
+// GetResource returns the current value of a resource, or 0 if not present.
+func (p *Player) GetResource(name string) float32 {
+	if r, ok := p.Resources[name]; ok {
+		return r.Current
+	}
+	return 0
+}
+
+// SpendResource deducts amount from a resource. Returns false if insufficient.
+func (p *Player) SpendResource(name string, amount float32) bool {
+	r, ok := p.Resources[name]
 	if !ok {
-		return classStatsTable[ClassGunner]
+		return amount <= 0
 	}
-	return s
+	if r.Current < amount {
+		return false
+	}
+	r.Current -= amount
+	r.DelayTimer = r.RegenDelay
+	return true
 }
 
-// Note: Player movement is client-authoritative. The server stores positions
-// received from the client. ProcessMovement/startRoll/updateAnimation are removed.
+// AddBuff adds a buff to the player. If a buff with the same ID exists, it replaces it.
+func (p *Player) AddBuff(b ActiveBuff) {
+	for i := range p.Buffs {
+		if p.Buffs[i].ID == b.ID {
+			p.Buffs[i] = b
+			return
+		}
+	}
+	p.Buffs = append(p.Buffs, b)
+}
 
-// ApplyDamage reduces health considering class-specific defenses.
+// RemoveBuff removes a buff by ID.
+func (p *Player) RemoveBuff(id string) {
+	for i := range p.Buffs {
+		if p.Buffs[i].ID == id {
+			p.Buffs[i] = p.Buffs[len(p.Buffs)-1]
+			p.Buffs = p.Buffs[:len(p.Buffs)-1]
+			return
+		}
+	}
+}
+
+// ApplyDamage reduces health considering active buffs and shields.
 func (p *Player) ApplyDamage(amount float32) float32 {
 	if p.State == PlayerStateDead || !p.Alive {
 		return 0
@@ -236,35 +262,23 @@ func (p *Player) ApplyDamage(amount float32) float32 {
 	if p.Invincible {
 		return 0
 	}
-	// Vanguard parry
-	if p.ClassName == ClassVanguard && p.IsBlocking && p.ParryTimer > 0 {
+
+	// Apply all damage_reduction buffs
+	amount *= p.DamageReduction()
+	if amount <= 0 {
 		return 0
 	}
-	// Vanguard block
-	if p.ClassName == ClassVanguard && p.IsBlocking {
-		amount *= 0.3
-	}
-	// Vanguard blade swirl — 20% DR while spinning
-	if p.ClassName == ClassVanguard && p.BladeSwirl {
-		amount *= 0.8
-	}
-	// Blade dancer guard
-	if p.ClassName == ClassBladeDancer && p.GuardActive {
-		amount *= 0.5
-	}
-	// Blade dancer DR buff (from transition spells)
-	if p.BDDRFactor > 0 && p.BDDRTimer > 0 {
-		amount *= p.BDDRFactor
-	}
-	// Blade dancer shield absorb
-	if p.BDShieldHP > 0 {
-		if amount <= p.BDShieldHP {
-			p.BDShieldHP -= amount
-			return amount // damage absorbed, health unchanged
+
+	// Shield absorb
+	if shield, ok := p.Resources["shield"]; ok && shield.Current > 0 {
+		if amount <= shield.Current {
+			shield.Current -= amount
+			return amount // fully absorbed
 		}
-		amount -= p.BDShieldHP
-		p.BDShieldHP = 0
+		amount -= shield.Current
+		shield.Current = 0
 	}
+
 	p.Health -= amount
 	if p.Health <= 0 {
 		p.Health = 0
@@ -274,11 +288,16 @@ func (p *Player) ApplyDamage(amount float32) float32 {
 	return amount
 }
 
-func max32(a, b float32) float32 {
-	if a > b {
-		return a
+// GetAbilityPhase returns a uint8 phase from an ability state that implements
+// the phaser interface { GetPhase() uint8 }. Returns 0 if not found.
+func (p *Player) GetAbilityPhase(id string) uint8 {
+	if s, ok := p.AbilityState[id]; ok {
+		type phaser interface{ GetPhase() uint8 }
+		if ph, ok := s.(phaser); ok {
+			return ph.GetPhase()
+		}
 	}
-	return b
+	return 0
 }
 
 // Forward returns the unit vector in the direction the player is facing (Godot convention: -Z is forward).
@@ -296,7 +315,6 @@ func (p *Player) EyePosition() Vec3 {
 // AimDirection returns the direction the player is aiming (yaw + pitch).
 // For FPS (gunner), pitch is sent. For 3rd person, pitch is 0 (aim forward).
 func (p *Player) AimDirection() Vec3 {
-	// Use RotationY for yaw, AimPitch for pitch
 	pitch := p.AimPitch
 	yaw := p.RotationY
 	cp := float32(math.Cos(float64(pitch)))
