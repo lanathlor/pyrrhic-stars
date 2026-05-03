@@ -8,7 +8,10 @@ var overclockDef = AbilityDef{
 }
 
 func overclockHandler(_ *Engine, ctx *CastContext) CastResult {
-	p := ctx.Caster.(*entity.Player)
+	p, ok := ctx.Caster.(*entity.Player)
+	if !ok {
+		return CastResult{Reason: "invalid caster"}
+	}
 	if p.HasBuff("overclock") {
 		return CastResult{Reason: "already active"}
 	}

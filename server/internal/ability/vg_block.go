@@ -8,7 +8,10 @@ var vgBlockDef = AbilityDef{
 }
 
 func vgBlockHandler(_ *Engine, ctx *CastContext) CastResult {
-	p := ctx.Caster.(*entity.Player)
+	p, ok := ctx.Caster.(*entity.Player)
+	if !ok {
+		return CastResult{Reason: "invalid caster"}
+	}
 	if p.HasBuff("vg_block") || p.HasBuff("vg_parry") {
 		return CastResult{Reason: "already blocking"}
 	}

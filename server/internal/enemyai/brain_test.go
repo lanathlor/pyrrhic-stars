@@ -91,7 +91,7 @@ func testPlayer(id uint16, pos entity.Vec3) *entity.Player {
 func testPlayers(players ...*entity.Player) map[uint16]*entity.Player {
 	m := make(map[uint16]*entity.Player, len(players))
 	for _, p := range players {
-		m[p.PeerID] = p
+		m[p.ID] = p
 	}
 	return m
 }
@@ -105,7 +105,7 @@ func TestNearestAlivePlayer(t *testing.T) {
 	p3.Alive = false
 
 	result := NearestAlivePlayer(entity.Vec3{}, testPlayers(p1, p2, p3))
-	if result == nil || result.PeerID != 2 {
+	if result == nil || result.ID != 2 {
 		t.Errorf("expected player 2 (nearest), got %v", result)
 	}
 }
@@ -114,7 +114,7 @@ func TestNearestAlivePlayerNoneAlive(t *testing.T) {
 	p1 := testPlayer(1, entity.Vec3{X: 1})
 	p1.Alive = false
 	if got := NearestAlivePlayer(entity.Vec3{}, testPlayers(p1)); got != nil {
-		t.Errorf("expected nil, got peer %d", got.PeerID)
+		t.Errorf("expected nil, got peer %d", got.ID)
 	}
 }
 
@@ -131,7 +131,7 @@ func TestFarthestAlivePlayer(t *testing.T) {
 	p3.Alive = false
 
 	result := FarthestAlivePlayer(entity.Vec3{}, testPlayers(p1, p2, p3))
-	if result == nil || result.PeerID != 2 {
+	if result == nil || result.ID != 2 {
 		t.Errorf("expected player 2 (farthest alive), got %v", result)
 	}
 }
@@ -214,7 +214,7 @@ func TestLongestMeleeRange(t *testing.T) {
 
 func TestAbilityByIndex(t *testing.T) {
 	def := testDef()
-	if got := def.AbilityByIndex(0); got == nil || got.Name != "melee" {
+	if got := def.AbilityByIndex(0); got == nil || got.Name != "melee" { //nolint:goconst // test data
 		t.Error("index 0 should be melee")
 	}
 	if got := def.AbilityByIndex(-1); got != nil {
@@ -734,14 +734,14 @@ func TestSelectAbilityRespectsRange(t *testing.T) {
 	_ = e
 
 	p := testPlayer(1, entity.Vec3{X: 2, Y: 0.1, Z: 0}) // 2m = within melee range, below ranged MinRange
-	ability := b.selectAbility(2.0, testPlayers(p))
+	chosen := b.selectAbility(2.0, testPlayers(p))
 
-	if ability == nil {
+	if chosen == nil {
 		t.Fatal("expected an ability")
 	}
 	// At 2m: melee (max 3) ok, ranged (min 3) excluded, aoe (max 7) ok, charge (min 6) excluded
-	if ability.Type == AbilityRanged || ability.Type == AbilityCharge {
-		t.Errorf("ability %s should not be selectable at 2m range", ability.Name)
+	if chosen.Type == AbilityRanged || chosen.Type == AbilityCharge {
+		t.Errorf("ability %s should not be selectable at 2m range", chosen.Name)
 	}
 }
 
@@ -762,8 +762,8 @@ func TestSelectAbilityAntiRepeat(t *testing.T) {
 	e.LastAttack = "a"
 	bCount := 0
 	for i := 0; i < 100; i++ {
-		ability := b.selectAbility(3.0, testPlayers())
-		if ability != nil && ability.Name == "b" {
+		chosen := b.selectAbility(3.0, testPlayers())
+		if chosen != nil && chosen.Name == "b" {
 			bCount++
 		}
 	}
@@ -785,9 +785,9 @@ func TestSelectAbilityReturnsNilWhenNoCandidates(t *testing.T) {
 	b, _ := testBrain(def)
 
 	// Target at 10m, melee max 3m → no candidates
-	ability := b.selectAbility(10.0, testPlayers())
-	if ability != nil {
-		t.Errorf("expected nil at 10m, got %s", ability.Name)
+	chosen := b.selectAbility(10.0, testPlayers())
+	if chosen != nil {
+		t.Errorf("expected nil at 10m, got %s", chosen.Name)
 	}
 }
 
@@ -1192,7 +1192,7 @@ func TestPlayersToTargets_MultiPlayers(t *testing.T) {
 		if !ok {
 			t.Fatal("target is not *entity.Player")
 		}
-		seen[p.PeerID] = true
+		seen[p.ID] = true
 	}
 	for _, id := range []uint16{1, 2, 3} {
 		if !seen[id] {

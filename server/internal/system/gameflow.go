@@ -87,7 +87,7 @@ func checkBossGate(w *World) {
 		// Remove threat for players stuck outside the boss room
 		for _, p := range w.Players {
 			if p.Position.Z >= w.Level.BossRoomEntryZ {
-				delete(boss.ThreatTable, p.PeerID)
+				delete(boss.ThreatTable, p.ID)
 			}
 		}
 		w.GameFlowEvents = append(w.GameFlowEvents, GameFlowEvent{

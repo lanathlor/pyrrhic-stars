@@ -56,22 +56,16 @@ const (
 
 // Player represents a player entity on the server.
 type Player struct {
-	PeerID   uint16
-	Username string  // display name
-	ClassID  string  // "gunner", "vanguard", "blade_dancer"
+	Combatant
+	Username string // display name
+	ClassID  string // "gunner", "vanguard", "blade_dancer"
 
-	// Spatial
-	Position  Vec3
-	RotationY float32
-	AimPitch  float32 // for gunner hitscan
-	Velocity  Vec3
-	OnGround  bool
+	// Spatial (player-specific)
+	AimPitch float32 // for gunner hitscan
+	OnGround bool
 
 	// State
-	Health         float32
-	MaxHealth      float32
 	State          PlayerState
-	Alive          bool
 	InCombat       bool   // true when targeted by an enemy or recently damaged
 	LastDamageTick uint32 // tick when last took damage (for combat exit timer)
 	SpawnTick      uint32 // tick when player was spawned (reject stale positions)
@@ -124,13 +118,15 @@ func NewPlayer(peerID uint16, className string) *Player {
 	}
 
 	p := &Player{
-		PeerID:       peerID,
+		Combatant: Combatant{
+			ID:        peerID,
+			MaxHealth: classDef.MaxHealth,
+			Alive:     true,
+		},
 		ClassID:      className,
-		Alive:        true,
 		OnGround:     true,
 		AnimName:     "idle",
 		AnimSpeed:    1.0,
-		MaxHealth:    classDef.MaxHealth,
 		Resources:    make(map[string]*Resource, len(classDef.Resources)),
 		Cooldowns:    make(map[string]float32),
 		ActionMap:    classDef.ActionMap,
@@ -300,16 +296,9 @@ func (p *Player) GetAbilityPhase(id string) uint8 {
 	return 0
 }
 
-// Forward returns the unit vector in the direction the player is facing (Godot convention: -Z is forward).
-func (p *Player) Forward() Vec3 {
-	s := float32(math.Sin(float64(p.RotationY)))
-	c := float32(math.Cos(float64(p.RotationY)))
-	return Vec3{-s, 0, -c}
-}
-
 // EyePosition returns the position of the player's eyes (for hitscan).
 func (p *Player) EyePosition() Vec3 {
-	return p.Position.Add(Vec3{0, 1.6, 0})
+	return p.EyePos(1.6)
 }
 
 // AimDirection returns the direction the player is aiming (yaw + pitch).
@@ -324,19 +313,12 @@ func (p *Player) AimDirection() Vec3 {
 	return Vec3{-sy * cp, sp, -cy * cp}
 }
 
-// --- Caster interface ---
+// --- Caster interface (overrides for player-specific behavior) ---
 
-func (p *Player) CasterID() uint16            { return p.PeerID }
-func (p *Player) CasterPos() Vec3             { return p.Position }
-func (p *Player) CasterForward() Vec3         { return p.Forward() }
 func (p *Player) CasterEyePos() Vec3          { return p.EyePosition() }
 func (p *Player) CasterAimDir() Vec3          { return p.AimDirection() }
-func (p *Player) CasterAlive() bool           { return p.Alive }
 func (p *Player) CasterDamageMult() float32   { return p.DamageMult() }
 
-// --- Target interface ---
+// --- Target interface (overrides for player-specific behavior) ---
 
-func (p *Player) TargetID() uint16            { return p.PeerID }
-func (p *Player) TargetPos() Vec3             { return p.Position }
-func (p *Player) TargetAlive() bool           { return p.Alive }
 func (p *Player) TargetApplyDamage(a float32) float32 { return p.ApplyDamage(a) }

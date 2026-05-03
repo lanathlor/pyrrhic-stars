@@ -64,7 +64,7 @@ func ResolvePlayerAoEOnEnemies(player *entity.Player, enemies []*entity.Enemy, o
 		}
 		events = append(events, DamageEvent{
 			TargetPeerID: e.ID,
-			SourcePeerID: player.PeerID,
+			SourcePeerID: player.ID,
 			Amount:       dealt,
 			HitPos:       player.Position.Add(hitDir),
 			SourceType:   SourcePlayerAttack,

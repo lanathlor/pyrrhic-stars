@@ -98,7 +98,7 @@ func (b *Brain) tickChase(dt float32, players map[uint16]*entity.Player, obstacl
 		return
 	}
 
-	e.TargetPlayerID = target.PeerID
+	e.TargetPlayerID = target.ID
 	toTarget := target.Position.Sub(e.Position).Flat()
 	distance := toTarget.Length()
 
@@ -113,20 +113,20 @@ func (b *Brain) tickChase(dt float32, players map[uint16]*entity.Player, obstacl
 
 	// In melee range → attack (only if LoS)
 	if distance <= meleeRange && hasLoS {
-		ability := b.selectAbility(distance, players)
-		if ability != nil {
+		chosen := b.selectAbility(distance, players)
+		if chosen != nil {
 			// Don't use ranged or charge at melee range — substitute
-			if ability.Type == AbilityRanged {
-				ability = b.findAbilityByType(AbilityMelee)
+			if chosen.Type == AbilityRanged {
+				chosen = b.findAbilityByType(AbilityMelee)
 			}
-			if ability.Type == AbilityCharge {
-				ability = b.findAbilityByType(AbilityAoE)
-				if ability == nil {
-					ability = b.findAbilityByType(AbilityMelee)
+			if chosen.Type == AbilityCharge {
+				chosen = b.findAbilityByType(AbilityAoE)
+				if chosen == nil {
+					chosen = b.findAbilityByType(AbilityMelee)
 				}
 			}
-			if ability != nil {
-				b.startAbility(ability, e, players, obstacles)
+			if chosen != nil {
+				b.startAbility(chosen, e, players, obstacles)
 			}
 		}
 		return
@@ -149,25 +149,25 @@ func (b *Brain) tickChase(dt float32, players map[uint16]*entity.Player, obstacl
 		chaseThreshold = chaseThresholdFar
 	}
 	if e.ChaseTimer >= chaseThreshold && hasLoS {
-		ability := b.selectAbility(distance, players)
-		if ability != nil {
+		chosen := b.selectAbility(distance, players)
+		if chosen != nil {
 			// Can't melee from far — try substitutes
-			if ability.Type == AbilityMelee && distance > meleeRange {
+			if chosen.Type == AbilityMelee && distance > meleeRange {
 				if distance > meleeRange*2.0 {
-					ability = b.findAbilityByType(AbilityCharge)
+					chosen = b.findAbilityByType(AbilityCharge)
 				} else {
-					ability = b.findAbilityByType(AbilityRanged)
+					chosen = b.findAbilityByType(AbilityRanged)
 				}
 			}
 			// AoE useless at long range
-			if ability != nil {
-				resolved := b.Def.ResolveAbility(ability, e.Phase)
-				if ability.Type == AbilityAoE && distance > resolved.AoERadius*1.5 {
-					ability = b.findAbilityByType(AbilityCharge)
+			if chosen != nil {
+				resolved := b.Def.ResolveAbility(chosen, e.Phase)
+				if chosen.Type == AbilityAoE && distance > resolved.AoERadius*1.5 {
+					chosen = b.findAbilityByType(AbilityCharge)
 				}
 			}
-			if ability != nil {
-				b.startAbility(ability, e, players, obstacles)
+			if chosen != nil {
+				b.startAbility(chosen, e, players, obstacles)
 				return
 			}
 		}
@@ -195,9 +195,9 @@ func (b *Brain) tickChase(dt float32, players map[uint16]*entity.Player, obstacl
 			e.Velocity = entity.Vec3{X: dir.X * bspd, Z: dir.Z * bspd}
 			// Fire while backpedaling if chase timer expired
 			if e.ChaseTimer >= chaseThreshold && hasLoS {
-				ability := b.selectAbility(distance, players)
-				if ability != nil {
-					b.startAbility(ability, e, players, obstacles)
+				chosen := b.selectAbility(distance, players)
+				if chosen != nil {
+					b.startAbility(chosen, e, players, obstacles)
 				}
 			}
 		} else if distance > preferred+margin {
@@ -268,19 +268,19 @@ func (b *Brain) tickRangedAttack(spawnProjectile func(pos, dir entity.Vec3, spee
 		return
 	}
 
-	ability := b.activeAbilityResolved()
-	baseDir := e.RangedTargetPos.Sub(e.Position.Add(entity.Vec3{Y: ability.ProjectileOriginY})).Normalized()
+	abil := b.activeAbilityResolved()
+	baseDir := e.RangedTargetPos.Sub(e.Position.Add(entity.Vec3{Y: abil.ProjectileOriginY})).Normalized()
 
-	count := ability.ProjectileCount
+	count := abil.ProjectileCount
 	for i := 0; i < count; i++ {
-		offset := (float32(i) - float32(count-1)/2.0) * ability.ProjectileSpread
+		offset := (float32(i) - float32(count-1)/2.0) * abil.ProjectileSpread
 		dir := combat.RotateVecY(baseDir, offset)
 		spawnProjectile(
-			e.Position.Add(entity.Vec3{Y: ability.ProjectileOriginY}),
+			e.Position.Add(entity.Vec3{Y: abil.ProjectileOriginY}),
 			dir,
-			ability.ProjectileSpeed,
-			ability.ProjectileDamage,
-			ability.ProjectileLifetime,
+			abil.ProjectileSpeed,
+			abil.ProjectileDamage,
+			abil.ProjectileLifetime,
 		)
 	}
 	b.enterCooldown()
@@ -346,37 +346,37 @@ func (b *Brain) tickChargeTelegraph(players map[uint16]*entity.Player) {
 
 func (b *Brain) tickCharge(dt float32, players map[uint16]*entity.Player, obstacles []combat.Obstacle) {
 	e := b.enemy
-	ability := b.activeAbilityResolved()
-	spd := ability.ChargeSpeed
+	abil := b.activeAbilityResolved()
+	spd := abil.ChargeSpeed
 	e.Velocity = entity.Vec3{X: e.ChargeDirection.X * spd, Z: e.ChargeDirection.Z * spd}
 	e.ChargeDistance += spd * dt
 
 	for _, p := range players {
-		if !p.Alive || b.isChargeHit(p.PeerID) {
+		if !p.Alive || b.isChargeHit(p.ID) {
 			continue
 		}
-		if e.Position.DistanceTo(p.Position) <= ability.ChargeHitRadius {
-			dealt := p.ApplyDamage(ability.ChargeDamage)
+		if e.Position.DistanceTo(p.Position) <= abil.ChargeHitRadius {
+			dealt := p.ApplyDamage(abil.ChargeDamage)
 			if dealt > 0 {
 				b.events = append(b.events, combat.DamageEvent{
-					TargetPeerID: p.PeerID,
+					TargetPeerID: p.ID,
 					Amount:       dealt,
 					HitPos:       e.Position,
-					SourceType:   ability.DamageSourceType,
+					SourceType:   abil.DamageSourceType,
 				})
 			}
-			e.ChargeHitPlayers = append(e.ChargeHitPlayers, p.PeerID)
+			e.ChargeHitPlayers = append(e.ChargeHitPlayers, p.ID)
 		}
 	}
 
 	// Stop conditions
-	stop := e.ChargeDistance >= ability.ChargeMaxDistance
-	if ability.ChargeStopOnWall {
+	stop := e.ChargeDistance >= abil.ChargeMaxDistance
+	if abil.ChargeStopOnWall {
 		stop = stop || combat.IsAtWall(e.Position,
 			b.BoundsMinX, b.BoundsMaxX,
 			b.BoundsMinZ, b.BoundsMaxZ)
 	}
-	if ability.ChargeStopOnObstacle {
+	if abil.ChargeStopOnObstacle {
 		stop = stop || combat.IsAtObstacle(e.Position, obstacles, b.Def.Radius)
 	}
 	if stop {
@@ -464,13 +464,13 @@ func (b *Brain) selectAbility(distance float32, _ map[uint16]*entity.Player) *Ab
 	return candidates[0].ability
 }
 
-func (b *Brain) startAbility(ability *AbilityDef, e *entity.Enemy, players map[uint16]*entity.Player, _ []combat.Obstacle) {
-	resolved := b.Def.ResolveAbility(ability, e.Phase)
-	e.ActiveAbility = b.abilityIndex(ability)
-	e.LastAttack = ability.Name
+func (b *Brain) startAbility(abil *AbilityDef, e *entity.Enemy, players map[uint16]*entity.Player, _ []combat.Obstacle) {
+	resolved := b.Def.ResolveAbility(abil, e.Phase)
+	e.ActiveAbility = b.abilityIndex(abil)
+	e.LastAttack = abil.Name
 	e.Velocity = entity.Vec3{}
 
-	switch ability.Type {
+	switch abil.Type {
 	case AbilityMelee:
 		e.State = entity.EnemyMeleeTelegraph
 		e.StateTimer = resolved.TelegraphTime
@@ -486,7 +486,7 @@ func (b *Brain) startAbility(ability *AbilityDef, e *entity.Enemy, players map[u
 		// Set ranged target
 		target := FarthestAlivePlayer(e.Position, players)
 		if target != nil {
-			e.TargetPlayerID = target.PeerID
+			e.TargetPlayerID = target.ID
 			e.RangedTargetPos = target.Position.Add(entity.Vec3{Y: 1.0})
 		}
 	case AbilityAoE:
@@ -501,19 +501,19 @@ func (b *Brain) startAbility(ability *AbilityDef, e *entity.Enemy, players map[u
 
 func (b *Brain) enterCooldown() {
 	e := b.enemy
-	ability := b.Def.AbilityByIndex(e.ActiveAbility)
-	cooldown := b.Def.CurrentCooldownTime(ability, e.Phase)
+	abil := b.Def.AbilityByIndex(e.ActiveAbility)
+	cooldown := b.Def.CurrentCooldownTime(abil, e.Phase)
 	e.State = entity.EnemyCooldown
 	e.StateTimer = cooldown
 	e.Velocity = entity.Vec3{}
 }
 
 func (b *Brain) activeAbilityResolved() AbilityDef {
-	ability := b.Def.AbilityByIndex(b.enemy.ActiveAbility)
-	if ability == nil {
+	abil := b.Def.AbilityByIndex(b.enemy.ActiveAbility)
+	if abil == nil {
 		return AbilityDef{}
 	}
-	return b.Def.ResolveAbility(ability, b.enemy.Phase)
+	return b.Def.ResolveAbility(abil, b.enemy.Phase)
 }
 
 func (b *Brain) abilityIndex(a *AbilityDef) int {
@@ -588,7 +588,7 @@ func (b *Brain) tickPatrol(_ float32, players map[uint16]*entity.Player) {
 		}
 		distSq := e.Position.Flat().DistanceToSq(p.Position.Flat())
 		if distSq <= e.AggroRadius*e.AggroRadius {
-			e.TargetPlayerID = p.PeerID
+			e.TargetPlayerID = p.ID
 			e.State = entity.EnemyChase
 			e.ChaseTimer = 0
 			return

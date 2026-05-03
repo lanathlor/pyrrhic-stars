@@ -84,8 +84,8 @@ func TestGetPlayer(t *testing.T) {
 	if p == nil {
 		t.Fatal("GetPlayer(1) returned nil")
 	}
-	if p.PeerID != 1 {
-		t.Errorf("player peer ID = %d, want 1", p.PeerID)
+	if p.ID != 1 {
+		t.Errorf("player peer ID = %d, want 1", p.ID)
 	}
 	if z.GetPlayer(99) != nil {
 		t.Error("GetPlayer(99) should return nil")

@@ -41,11 +41,11 @@ func registerHandlers(eng *Engine) {
 	eng.RegisterTickHandler("blade_swirl", bladeSwirlTick)
 }
 
-// ApplyThreat adds threat for all damage results to the relevant enemies.
+// ApplyThreat adds threat for all damage results to any Threateable target.
 func ApplyThreat(results []DamageResult, peerID uint16) {
 	for _, r := range results {
-		if enemy, ok := r.Target.(*entity.Enemy); ok {
-			enemy.AddThreat(peerID, r.Amount)
+		if th, ok := r.Target.(entity.Threateable); ok {
+			th.AddThreat(peerID, r.Amount)
 		}
 	}
 }

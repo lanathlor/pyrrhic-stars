@@ -57,7 +57,7 @@ func (s *CombatSystem) Tick(w *World, dt float32) {
 		// and on the same side of the boss gate
 		playerInBossRoom := w.Level != nil && p.Position.Z < w.Level.BossRoomEntryZ
 		for _, e := range w.Enemies {
-			if e != nil && e.Alive && e.HasThreat(p.PeerID) {
+			if e != nil && e.Alive && e.HasThreat(p.ID) {
 				if w.BossGateActive {
 					enemyInBossRoom := e.Position.Z < w.Level.BossRoomEntryZ
 					if playerInBossRoom != enemyInBossRoom {

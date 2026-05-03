@@ -38,11 +38,11 @@ func (s *PhysicsSystem) Tick(w *World, dt float32) {
 						// Add player to threat table of the specific enemy that fired
 					if proj.EnemyIdx >= 0 && proj.EnemyIdx < len(w.Enemies) {
 						if e := w.Enemies[proj.EnemyIdx]; e != nil && e.Alive {
-							e.AddThreat(p.PeerID, dealt)
+							e.AddThreat(p.ID, dealt)
 						}
 					}
 						w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
-							TargetPeerID: p.PeerID,
+							TargetPeerID: p.ID,
 							Amount:       dealt,
 							HitPos:       proj.Position,
 							SourceType:   combat.SourceEnemyRanged,

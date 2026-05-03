@@ -230,7 +230,7 @@ func TestBDSpells_NearestNTargeting(t *testing.T) {
 	for i := range enemies {
 		enemies[i] = entity.NewEnemy(uint16(i+1), 500, "mob")
 		enemies[i].Position = entity.Vec3{Z: float32(-(i + 1) * 3)}
-		enemies[i].ThreatTable[p.PeerID] = 10 // must be in combat
+		enemies[i].ThreatTable[p.ID] = 10 // must be in combat
 	}
 
 	r := eng.Cast("chaos_bind", castCtx(p, enemies...))

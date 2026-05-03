@@ -17,7 +17,10 @@ type BladeSwirlState struct {
 }
 
 func bladeSwirlHandler(eng *Engine, ctx *CastContext) CastResult {
-	p := ctx.Caster.(*entity.Player)
+	p, ok := ctx.Caster.(*entity.Player)
+	if !ok {
+		return CastResult{Reason: "invalid caster"}
+	}
 	if p.Cooldowns["blade_swirl"] > 0 || p.GCDTimer > 0 {
 		return CastResult{Reason: "cooldown"}
 	}
@@ -40,10 +43,10 @@ func bladeSwirlHandler(eng *Engine, ctx *CastContext) CastResult {
 		Duration: 1.5,
 	})
 
-	eng.hitBuf = resolveAoECircle(eng.hitBuf, p.Position, p.PeerID, ctx.Targets, ctx.Obstacles, 6.0, 25.0, combat.SourcePlayerAttack)
+	eng.hitBuf = resolveAoECircle(eng.hitBuf, p.Position, p.ID, ctx.Targets, ctx.Obstacles, 6.0, 25.0, combat.SourcePlayerAttack)
 	for i := range eng.hitBuf {
-		if enemy, ok := eng.hitBuf[i].Target.(*entity.Enemy); ok {
-			enemy.AddThreat(p.PeerID, eng.hitBuf[i].Amount)
+		if th, ok := eng.hitBuf[i].Target.(entity.Threateable); ok {
+			th.AddThreat(p.ID, eng.hitBuf[i].Amount)
 		}
 	}
 
@@ -60,10 +63,10 @@ func bladeSwirlTick(eng *Engine, p *entity.Player, dt float32, ctx *TickContext)
 	var events []DamageResult
 	expectedTicks := int((1.5 - state.Timer) / 0.5)
 	if expectedTicks > state.Ticks && ctx != nil {
-		eng.hitBuf = resolveAoECircle(eng.hitBuf[:0], p.Position, p.PeerID, ctx.Targets, ctx.Obstacles, 6.0, 25.0, combat.SourcePlayerAttack)
+		eng.hitBuf = resolveAoECircle(eng.hitBuf[:0], p.Position, p.ID, ctx.Targets, ctx.Obstacles, 6.0, 25.0, combat.SourcePlayerAttack)
 		for i := range eng.hitBuf {
-			if enemy, ok := eng.hitBuf[i].Target.(*entity.Enemy); ok {
-				enemy.AddThreat(p.PeerID, eng.hitBuf[i].Amount)
+			if th, ok := eng.hitBuf[i].Target.(entity.Threateable); ok {
+				th.AddThreat(p.ID, eng.hitBuf[i].Amount)
 			}
 		}
 		events = append(events, eng.hitBuf...)

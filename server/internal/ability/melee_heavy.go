@@ -13,7 +13,10 @@ var meleeHeavyDef = AbilityDef{
 }
 
 func meleeHeavyVGHandler(eng *Engine, ctx *CastContext) CastResult {
-	p := ctx.Caster.(*entity.Player)
+	p, ok := ctx.Caster.(*entity.Player)
+	if !ok {
+		return CastResult{Reason: "invalid caster"}
+	}
 	if p.Cooldowns["melee_heavy"] > 0 {
 		return CastResult{Reason: "cooldown"}
 	}

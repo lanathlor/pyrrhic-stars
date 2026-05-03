@@ -1,6 +1,6 @@
 package entity
 
-import "math"
+import "slices"
 
 // EnemyState represents the enemy FSM state.
 type EnemyState uint8
@@ -24,21 +24,16 @@ const (
 
 // Enemy represents a server-side enemy entity (the arena boss).
 type Enemy struct {
-	ID        uint16
-	Position  Vec3
-	RotationY float32
-	Velocity  Vec3
+	Combatant
 
-	Health    float32
-	MaxHealth float32
-	Phase     int
+	Phase             int
 	PhaseTransitioned []int
 
-	State          EnemyState
-	StateTimer     float32
-	ChaseTimer     float32
-	LastAttack     string
-	ActiveAbility  int // index into EnemyDef.Abilities
+	State         EnemyState
+	StateTimer    float32
+	ChaseTimer    float32
+	LastAttack    string
+	ActiveAbility int // index into EnemyDef.Abilities
 
 	// Target
 	TargetPlayerID uint16
@@ -58,9 +53,6 @@ type Enemy struct {
 	// Threat table — tracks which players are engaged (peerID → threat)
 	ThreatTable map[uint16]float32
 
-	// Alive
-	Alive bool
-
 	// Patrol — trash mobs patrol between two waypoints
 	PatrolA      Vec3
 	PatrolB      Vec3
@@ -78,14 +70,16 @@ type Enemy struct {
 // NewEnemy creates a fresh enemy with the given max health.
 func NewEnemy(id uint16, maxHealth float32, defName string) *Enemy {
 	return &Enemy{
-		ID:                id,
-		MaxHealth:         maxHealth,
-		Health:            maxHealth,
+		Combatant: Combatant{
+			ID:        id,
+			MaxHealth: maxHealth,
+			Health:    maxHealth,
+			Alive:     true,
+		},
 		DefName:           defName,
 		Phase:             1,
 		PhaseTransitioned: []int{},
 		State:             EnemyIdle,
-		Alive:             true,
 		ChargeHitPlayers:  []uint16{},
 		ThreatTable:       make(map[uint16]float32),
 	}
@@ -146,12 +140,7 @@ func (e *Enemy) ApplyDamage(amount float32) (dealt float32, phaseTrigger int) {
 }
 
 func (e *Enemy) hasPhase(p int) bool {
-	for _, pp := range e.PhaseTransitioned {
-		if pp == p {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(e.PhaseTransitioned, p)
 }
 
 func (e *Enemy) enterPhase(p int) {
@@ -223,34 +212,16 @@ func (e *Enemy) ClearThreat() {
 // MeleeRange is the melee hit check distance.
 const MeleeRange float32 = 3.0
 
-// --- Caster interface ---
+// --- Caster interface (overrides for enemy-specific behavior) ---
 
-func (e *Enemy) CasterID() uint16          { return e.ID }
-func (e *Enemy) CasterPos() Vec3           { return e.Position }
-func (e *Enemy) CasterAlive() bool         { return e.Alive && e.State != EnemyDead }
-func (e *Enemy) CasterDamageMult() float32 { return 1.0 }
+func (e *Enemy) CasterEyePos() Vec3          { return e.EyePos(1.5) }
+func (e *Enemy) CasterAimDir() Vec3          { return e.Forward() }
+func (e *Enemy) CasterAlive() bool           { return e.Alive && e.State != EnemyDead }
+func (e *Enemy) CasterDamageMult() float32   { return 1.0 }
 
-func (e *Enemy) CasterForward() Vec3 {
-	s := float32(math.Sin(float64(e.RotationY)))
-	c := float32(math.Cos(float64(e.RotationY)))
-	return Vec3{-s, 0, -c}
-}
+// --- Target interface (overrides for enemy-specific behavior) ---
 
-func (e *Enemy) CasterEyePos() Vec3 {
-	return e.Position.Add(Vec3{Y: 1.5})
-}
-
-func (e *Enemy) CasterAimDir() Vec3 {
-	return e.CasterForward()
-}
-
-// --- Target interface ---
-
-func (e *Enemy) TargetID() uint16 { return e.ID }
-func (e *Enemy) TargetPos() Vec3  { return e.Position }
-func (e *Enemy) TargetAlive() bool {
-	return e.Alive && e.State != EnemyDead
-}
+func (e *Enemy) TargetAlive() bool { return e.Alive && e.State != EnemyDead }
 func (e *Enemy) TargetApplyDamage(a float32) float32 {
 	dealt, _ := e.ApplyDamage(a)
 	return dealt

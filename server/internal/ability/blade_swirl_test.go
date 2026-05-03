@@ -102,7 +102,7 @@ func TestBladeSwirl_ThreatGenerated(t *testing.T) {
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -3}
 
 	eng.Cast("blade_swirl", castCtx(p, e))
-	if e.ThreatTable[p.PeerID] <= 0 {
+	if e.ThreatTable[p.ID] <= 0 {
 		t.Error("expected threat on enemy from blade_swirl")
 	}
 }

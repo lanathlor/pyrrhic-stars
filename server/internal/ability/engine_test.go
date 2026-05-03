@@ -752,7 +752,7 @@ func TestTickPlayer_DoTDealsDamage(t *testing.T) {
 
 	p.DoTs = append(p.DoTs, entity.ActiveDoT{
 		EnemyID:    100,
-		SourcePeer: p.PeerID,
+		SourcePeer: p.ID,
 		Damage:     10,
 		Remaining:  3.0,
 		Interval:   1.0,
@@ -774,7 +774,7 @@ func TestTickPlayer_DoTExpires(t *testing.T) {
 
 	p.DoTs = append(p.DoTs, entity.ActiveDoT{
 		EnemyID:    100,
-		SourcePeer: p.PeerID,
+		SourcePeer: p.ID,
 		Damage:     10,
 		Remaining:  1.0,
 		Interval:   0.5,
@@ -878,7 +878,7 @@ func TestResolveHit_NearestN(t *testing.T) {
 	for i := range targets {
 		e := entity.NewEnemy(uint16(i+1), 200, "mob")
 		e.Position = entity.Vec3{Z: float32(-(i + 1) * 3)}
-		e.ThreatTable[p.PeerID] = 10 // in combat
+		e.ThreatTable[p.ID] = 10 // in combat
 		targets[i] = e
 	}
 
@@ -903,7 +903,7 @@ func TestResolveHit_NearestN_SkipsNonCombat(t *testing.T) {
 
 	e1 := entity.NewEnemy(1, 200, "mob")
 	e1.Position = entity.Vec3{Z: -3}
-	e1.ThreatTable[p.PeerID] = 10
+	e1.ThreatTable[p.ID] = 10
 
 	e2 := entity.NewEnemy(2, 200, "mob")
 	e2.Position = entity.Vec3{Z: -4}
@@ -1048,7 +1048,7 @@ func BenchmarkTickPlayer_Full(b *testing.B) {
 		p.Buffs = append(p.Buffs, entity.ActiveBuff{ID: "test_buff", Type: entity.BuffDamageMult, Value: 1.5, Duration: 5.0})
 		p.DoTs = p.DoTs[:0]
 		p.DoTs = append(p.DoTs, entity.ActiveDoT{
-			EnemyID: 100, SourcePeer: p.PeerID, Damage: 10,
+			EnemyID: 100, SourcePeer: p.ID, Damage: 10,
 			Remaining: 3.0, Interval: 1.0, TickTimer: 0.05,
 		})
 		e.Health = 1e9

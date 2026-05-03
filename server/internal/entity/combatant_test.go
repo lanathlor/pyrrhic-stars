@@ -7,10 +7,11 @@ import (
 
 // Compile-time interface compliance checks.
 var (
-	_ Caster = (*Player)(nil)
-	_ Target = (*Player)(nil)
-	_ Caster = (*Enemy)(nil)
-	_ Target = (*Enemy)(nil)
+	_ Caster      = (*Player)(nil)
+	_ Target      = (*Player)(nil)
+	_ Caster      = (*Enemy)(nil)
+	_ Target      = (*Enemy)(nil)
+	_ Threateable = (*Enemy)(nil)
 )
 
 // --- Enemy Caster interface ---
@@ -63,7 +64,7 @@ func TestEnemyCasterForward(t *testing.T) {
 
 func TestEnemyCasterForwardIsUnitVector(t *testing.T) {
 	for _, rotY := range []float32{0, 0.5, 1.0, 2.0, float32(math.Pi), -1.5} {
-		fwd := (&Enemy{RotationY: rotY}).CasterForward()
+		fwd := (&Enemy{Combatant: Combatant{RotationY: rotY}}).CasterForward()
 		length := fwd.Length()
 		if math.Abs(float64(length-1.0)) > 0.001 {
 			t.Errorf("rotY=%f: forward length = %f, want 1.0", rotY, length)

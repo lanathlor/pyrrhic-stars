@@ -39,7 +39,7 @@ func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.
 
 	buf = append(buf, byte(len(players)))
 	for _, p := range players {
-		buf = appendU16(buf, p.PeerID)
+		buf = appendU16(buf, p.ID)
 		buf = appendF32(buf, p.Position.X)
 		buf = appendF32(buf, p.Position.Y)
 		buf = appendF32(buf, p.Position.Z)

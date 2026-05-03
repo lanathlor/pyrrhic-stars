@@ -115,16 +115,16 @@ func (eng *Engine) Cast(abilityID string, ctx *CastContext) CastResult {
 		)
 		return CastResult{Reason: "unknown ability"}
 	}
-	return eng.castDef(abilityID, def, ctx)
+	return eng.doCast(abilityID, def, ctx)
 }
 
 // CastDef executes an ability from a provided definition (not looked up by ID).
 // Use this when the caller has a modified/resolved copy (e.g. enemy phase overrides).
 func (eng *Engine) CastDef(def *AbilityDef, ctx *CastContext) CastResult {
-	return eng.castDef(def.ID, def, ctx)
+	return eng.doCast(def.ID, def, ctx)
 }
 
-func (eng *Engine) castDef(abilityID string, def *AbilityDef, ctx *CastContext) CastResult {
+func (eng *Engine) doCast(abilityID string, def *AbilityDef, ctx *CastContext) CastResult {
 	eng.hitBuf = eng.hitBuf[:0]
 
 	caster := ctx.Caster
@@ -253,7 +253,7 @@ func (eng *Engine) castDef(abilityID string, def *AbilityDef, ctx *CastContext) 
 			for _, evt := range events {
 				p.DoTs = append(p.DoTs, entity.ActiveDoT{
 					EnemyID:    evt.TargetID,
-					SourcePeer: p.PeerID,
+					SourcePeer: p.ID,
 					Damage:     dot.Damage,
 					Remaining:  dot.Duration,
 					Interval:   dot.Interval,
@@ -363,7 +363,7 @@ func (eng *Engine) TickPlayer(p *entity.Player, dt float32, ctx *TickContext) []
 			if p.Buffs[i].Duration <= 0 {
 				if eng.logDebug {
 					eng.logger.Debug("ability.buff.expired",
-						"peer", p.PeerID,
+						"peer", p.ID,
 						"buff", p.Buffs[i].ID,
 						"type", p.Buffs[i].Type,
 					)
@@ -425,12 +425,12 @@ func (eng *Engine) TickPlayer(p *entity.Player, dt float32, ctx *TickContext) []
 								SourceType: combat.SourcePlayerAttack,
 								Target:     t,
 							})
-							if enemy, ok := t.(*entity.Enemy); ok {
-								enemy.AddThreat(dot.SourcePeer, dealt)
+							if th, ok := t.(entity.Threateable); ok {
+								th.AddThreat(dot.SourcePeer, dealt)
 							}
 							if eng.logDebug {
 								eng.logger.Debug("ability.dot.tick",
-									"peer", p.PeerID,
+									"peer", p.ID,
 									"target", t.TargetID(),
 									"damage", dealt,
 									"remaining", dot.Remaining,

@@ -337,8 +337,8 @@ func TestCastDef_DamageResult_HasTarget(t *testing.T) {
 	if !ok {
 		t.Fatal("Target should be *entity.Player")
 	}
-	if hitPlayer.PeerID != 1 {
-		t.Errorf("hit player ID = %d, want 1", hitPlayer.PeerID)
+	if hitPlayer.ID != 1 {
+		t.Errorf("hit player ID = %d, want 1", hitPlayer.ID)
 	}
 }
 
@@ -459,7 +459,7 @@ func TestCastDef_EnemyMelee_ObstacleBlocksLOS(t *testing.T) {
 func TestCastDef_PlayerTargetsPlayer(t *testing.T) {
 	eng := NewEngine(nil)
 	attacker := newGunner()
-	attacker.PeerID = 10
+	attacker.ID = 10
 	victim := playerTarget(20, entity.Vec3{X: 0, Y: 0.1, Z: -5})
 
 	def := &AbilityDef{

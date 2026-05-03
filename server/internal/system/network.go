@@ -39,7 +39,7 @@ func broadcastLobbyState(w *World) {
 	infos := make([]codec.LobbyPlayerInfo, 0, len(w.Players))
 	for _, p := range w.Players {
 		infos = append(infos, codec.LobbyPlayerInfo{
-			PeerID:    p.PeerID,
+			PeerID:    p.ID,
 			ClassName: p.ClassName(),
 			Username:  p.Username,
 			Ready:     p.Ready,

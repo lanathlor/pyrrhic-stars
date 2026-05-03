@@ -543,28 +543,28 @@ func TestSpawnPlayers(t *testing.T) {
 
 	for _, p := range w.Players {
 		if !p.Alive {
-			t.Errorf("player %d should be alive after spawn", p.PeerID)
+			t.Errorf("player %d should be alive after spawn", p.ID)
 		}
 		if p.Health != p.MaxHealth {
-			t.Errorf("player %d health = %f, want %f", p.PeerID, p.Health, p.MaxHealth)
+			t.Errorf("player %d health = %f, want %f", p.ID, p.Health, p.MaxHealth)
 		}
 		if p.State != entity.PlayerStateMove {
-			t.Errorf("player %d state = %d, want PlayerStateMove", p.PeerID, p.State)
+			t.Errorf("player %d state = %d, want PlayerStateMove", p.ID, p.State)
 		}
 		if p.IsRolling {
-			t.Errorf("player %d should not be rolling after spawn", p.PeerID)
+			t.Errorf("player %d should not be rolling after spawn", p.ID)
 		}
 		if p.RollCooldown != 0 {
-			t.Errorf("player %d roll cooldown = %f, want 0", p.PeerID, p.RollCooldown)
+			t.Errorf("player %d roll cooldown = %f, want 0", p.ID, p.RollCooldown)
 		}
 		if p.SpawnTick != w.TickNum {
-			t.Errorf("player %d SpawnTick = %d, want %d", p.PeerID, p.SpawnTick, w.TickNum)
+			t.Errorf("player %d SpawnTick = %d, want %d", p.ID, p.SpawnTick, w.TickNum)
 		}
 		if p.RotationY != lvl.SpawnYaw {
-			t.Errorf("player %d RotationY = %f, want %f", p.PeerID, p.RotationY, lvl.SpawnYaw)
+			t.Errorf("player %d RotationY = %f, want %f", p.ID, p.RotationY, lvl.SpawnYaw)
 		}
 		if p.Velocity != (entity.Vec3{}) {
-			t.Errorf("player %d velocity should be zero", p.PeerID)
+			t.Errorf("player %d velocity should be zero", p.ID)
 		}
 	}
 }
