@@ -12,7 +12,7 @@ import (
 type GameFlowSystem struct{}
 
 func (s *GameFlowSystem) Tick(w *World, dt float32) {
-	if w.ZoneType == 0 { // Hub
+	if w.ZoneType == 0 { // OpenWorld zones have no game flow
 		return
 	}
 

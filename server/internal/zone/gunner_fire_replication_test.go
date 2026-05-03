@@ -35,7 +35,7 @@ func (c *mockSendCollector) collect(msg []byte) {
 // observer's message collector.
 func setupTwoPlayerFight(t *testing.T) (*Zone, uint16, uint16, *mockSendCollector) {
 	t.Helper()
-	z := New("test-arena", ZoneTypeArena)
+	z := New("test-arena", ZoneTypeInstanced)
 	z.world.State = StateFight
 
 	// Gunner (shooter)
@@ -382,11 +382,11 @@ func TestGunnerFire_WorksInAllZoneStates(t *testing.T) {
 		zoneType  ZoneType
 		zoneState GameFlowState
 	}{
-		{name: "Hub zone", zoneType: ZoneTypeHub, zoneState: StateLobby},
+		{name: "Hub zone", zoneType: ZoneTypeOpenWorld, zoneState: StateLobby},
 		// Arena lobby broadcasts LobbyState (not WorldState), so observer
 		// tracer detection doesn't apply — players aren't in-world yet.
-		{name: "Arena spawned/warmup", zoneType: ZoneTypeArena, zoneState: StateSpawned},
-		{name: "Arena fight", zoneType: ZoneTypeArena, zoneState: StateFight},
+		{name: "Arena spawned/warmup", zoneType: ZoneTypeInstanced, zoneState: StateSpawned},
+		{name: "Arena fight", zoneType: ZoneTypeInstanced, zoneState: StateFight},
 	}
 
 	for _, tc := range tests {

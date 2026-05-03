@@ -19,7 +19,7 @@ func (s *NetworkSystem) Tick(w *World, _ float32) {
 	w.GameFlowEvents = w.GameFlowEvents[:0]
 
 	// Dispatch state broadcast based on zone type and game state
-	if w.ZoneType == 0 { // Hub
+	if w.ZoneType == 0 { // OpenWorld
 		broadcastWorldState(w)
 	} else {
 		switch w.State {

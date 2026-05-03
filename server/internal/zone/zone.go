@@ -32,12 +32,12 @@ const (
 	StateFightOver = system.StateFightOver
 )
 
-// ZoneType distinguishes hub (social) zones from arena (combat) zones.
+// ZoneType distinguishes open-world (persistent) zones from instanced (combat) zones.
 type ZoneType uint8
 
 const (
-	ZoneTypeHub   ZoneType = 0
-	ZoneTypeArena ZoneType = 1
+	ZoneTypeOpenWorld ZoneType = 0
+	ZoneTypeInstanced ZoneType = 1
 )
 
 // ZoneHub is the well-known zone ID for the persistent hub zone.
@@ -46,7 +46,7 @@ const ZoneHub = "hub"
 // Client is a re-export of system.Client for use by the gateway.
 type Client = system.Client
 
-// Zone simulates one game instance (hub or arena).
+// Zone simulates one game instance (open-world or instanced).
 // It is a pure container: all game logic lives in system packages.
 // The tick loop drains inputs, increments the tick counter, and runs
 // the system pipeline in order.
@@ -77,7 +77,7 @@ func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
 	var l *level.Level
 	if len(lvl) > 0 && lvl[0] != nil {
 		l = lvl[0]
-	} else if zoneType == ZoneTypeArena {
+	} else if zoneType == ZoneTypeInstanced {
 		l = level.NewArenaLevel()
 	} else {
 		l = level.NewHubLevel()
@@ -93,7 +93,7 @@ func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
 		AbilityEngine: ability.NewEngine(slog.Default().With("zone_id", id)),
 	}
 
-	if zoneType == ZoneTypeArena {
+	if zoneType == ZoneTypeInstanced {
 		for i, sp := range l.EnemySpawns {
 			def := enemyai.DefRegistry[sp.DefName]
 			if def == nil {
@@ -122,8 +122,8 @@ func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
 		system.InitInstance(&z.world)
 	}
 
-	// Spawn hub NPCs from level data
-	if zoneType == ZoneTypeHub {
+	// Spawn NPCs from level data (open-world zones only)
+	if zoneType == ZoneTypeOpenWorld {
 		for i, sp := range l.NPCSpawns {
 			npc := entity.NewNPC(uint16(2000+i), sp.DefName, sp.Speed, sp.IdleDuration, sp.Waypoints)
 			z.world.NPCs = append(z.world.NPCs, npc)
@@ -131,7 +131,7 @@ func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
 	}
 
 	// Build system pipeline based on zone type.
-	if zoneType == ZoneTypeHub {
+	if zoneType == ZoneTypeOpenWorld {
 		z.systems = []system.System{
 			&system.InputSystem{},
 			&system.NPCSystem{},
@@ -172,7 +172,7 @@ func (z *Zone) AddClient(c *Client) {
 
 	// Arena: initialize player fully and send catch-up state
 	var catchUpFlow uint8
-	if z.Type == ZoneTypeArena {
+	if z.Type == ZoneTypeInstanced {
 		system.SpawnPlayer(&z.world, c.PeerID)
 		switch z.world.State {
 		case system.StateLobby:

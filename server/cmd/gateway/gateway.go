@@ -102,7 +102,7 @@ func (g *gateway) leaveZone(sess *session.Session) {
 	zi.zone.RemoveClient(sess.PeerID)
 	disconnMsg := message.Encode(message.OpPeerDisconnected, 0, codec.EncodePeerID(sess.PeerID))
 	zi.zone.Broadcast(disconnMsg, sess.PeerID)
-	if zi.zoneType == zone.ZoneTypeArena && zi.zone.ClientCount() == 0 {
+	if zi.zoneType == zone.ZoneTypeInstanced && zi.zone.ClientCount() == 0 {
 		g.removeZone(sess.ZoneID)
 	}
 }
@@ -143,7 +143,7 @@ func (g *gateway) joinZone(sess *session.Session, zi *zoneInstance, resp joinRes
 	}
 
 	// Restore saved position for hub zones.
-	if zi.zoneType == zone.ZoneTypeHub && sess.CharID != 0 {
+	if zi.zoneType == zone.ZoneTypeOpenWorld && sess.CharID != 0 {
 		if ch, _ := g.container.Repo.GetCharacterByID(sess.CharID); ch != nil && (ch.PosX != 0 || ch.PosY != 0 || ch.PosZ != 0) {
 			zi.zone.SetPlayerPosition(peerID, entity.Vec3{
 				X: float32(ch.PosX),
@@ -187,7 +187,7 @@ func (g *gateway) transferPlayer(sess *session.Session, targetZoneID string, tar
 	g.leaveZone(sess)
 
 	zi := g.getOrCreateZone(targetZoneID, targetType)
-	if targetType == zone.ZoneTypeArena {
+	if targetType == zone.ZoneTypeInstanced {
 		zi.zone.OnPlayerRespawnHub = func(peerID uint16) {
 			g.handlePlayerRespawnHub(targetZoneID, peerID)
 		}
@@ -207,7 +207,7 @@ func (g *gateway) handlePlayerRespawnHub(zoneID string, peerID uint16) {
 		return
 	}
 	slog.Info("player respawning to hub", "player_id", sess.ID, "from_zone", zoneID)
-	g.transferPlayer(sess, zone.ZoneHub, zone.ZoneTypeHub)
+	g.transferPlayer(sess, zone.ZoneHub, zone.ZoneTypeOpenWorld)
 
 	grp := g.groups.GetGroup(sess.ID)
 	if grp != nil {

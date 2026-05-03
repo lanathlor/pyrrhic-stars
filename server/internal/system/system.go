@@ -48,7 +48,7 @@ type GameFlowEvent struct {
 type World struct {
 	// Identity
 	ZoneID   string
-	ZoneType uint8 // 0=Hub, 1=Arena
+	ZoneType uint8 // 0=OpenWorld, 1=Instanced
 
 	// Tick counter
 	TickNum uint32

@@ -110,9 +110,9 @@ func startZoneGateway(t *testing.T) *testZoneGateway {
 
 			case opcode == message.OpJoinZone:
 				zoneID = string(payload)
-				zoneType := zone.ZoneTypeHub
+				zoneType := zone.ZoneTypeOpenWorld
 				if strings.HasPrefix(zoneID, "arena") {
-					zoneType = zone.ZoneTypeArena
+					zoneType = zone.ZoneTypeInstanced
 				}
 
 				gw.mu.Lock()

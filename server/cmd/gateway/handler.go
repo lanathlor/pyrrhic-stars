@@ -29,9 +29,9 @@ func handleServerMessage(gw *gateway, sess *session.Session, opcode uint16, payl
 		if zoneID == "" {
 			zoneID = zone.ZoneHub
 		}
-		zoneType := zone.ZoneTypeHub
+		zoneType := zone.ZoneTypeOpenWorld
 		if strings.HasPrefix(zoneID, "arena") {
-			zoneType = zone.ZoneTypeArena
+			zoneType = zone.ZoneTypeInstanced
 		}
 		zi := gw.getOrCreateZone(zoneID, zoneType)
 		gw.joinZone(sess, zi, joinResponseZoneJoined)
@@ -44,6 +44,6 @@ func handleServerMessage(gw *gateway, sess *session.Session, opcode uint16, payl
 // joinHubAfterCharSelect handles the shared logic for joining the hub zone
 // after a character is selected or created.
 func (g *gateway) joinHubAfterCharSelect(sess *session.Session) {
-	zi := g.getOrCreateZone(zone.ZoneHub, zone.ZoneTypeHub)
+	zi := g.getOrCreateZone(zone.ZoneHub, zone.ZoneTypeOpenWorld)
 	g.joinZone(sess, zi, joinResponseZoneJoined)
 }

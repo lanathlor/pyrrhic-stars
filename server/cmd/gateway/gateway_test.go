@@ -97,7 +97,7 @@ func countMessages(msgs [][]byte, opcode uint16) int {
 
 func TestJoinZone_AllocatesPeerID(t *testing.T) {
 	gw := newTestGateway(stubRepo{})
-	zi := newTestZoneInstance("test", zone.ZoneTypeHub)
+	zi := newTestZoneInstance("test", zone.ZoneTypeOpenWorld)
 
 	sess1, _ := newTestSession(1)
 	sess2, _ := newTestSession(2)
@@ -117,7 +117,7 @@ func TestJoinZone_AllocatesPeerID(t *testing.T) {
 
 func TestJoinZone_SetsSessionState(t *testing.T) {
 	gw := newTestGateway(stubRepo{})
-	zi := newTestZoneInstance("my-zone", zone.ZoneTypeArena)
+	zi := newTestZoneInstance("my-zone", zone.ZoneTypeInstanced)
 
 	sess, _ := newTestSession(1)
 	defer sess.Conn.Close()
@@ -134,7 +134,7 @@ func TestJoinZone_SetsSessionState(t *testing.T) {
 
 func TestJoinZone_AddsClientToZone(t *testing.T) {
 	gw := newTestGateway(stubRepo{})
-	zi := newTestZoneInstance("test", zone.ZoneTypeHub)
+	zi := newTestZoneInstance("test", zone.ZoneTypeOpenWorld)
 
 	sess, _ := newTestSession(1)
 	defer sess.Conn.Close()
@@ -164,7 +164,7 @@ func TestJoinZone_DisplayNameResolution(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gw := newTestGateway(stubRepo{})
-			zi := newTestZoneInstance("test", zone.ZoneTypeHub)
+			zi := newTestZoneInstance("test", zone.ZoneTypeOpenWorld)
 
 			sess, _ := newTestSession(42)
 			sess.CharName = tt.charName
@@ -186,7 +186,7 @@ func TestJoinZone_DisplayNameResolution(t *testing.T) {
 
 func TestJoinZone_DisplayNameFallbackSetsUsername(t *testing.T) {
 	gw := newTestGateway(stubRepo{})
-	zi := newTestZoneInstance("test", zone.ZoneTypeHub)
+	zi := newTestZoneInstance("test", zone.ZoneTypeOpenWorld)
 
 	sess, _ := newTestSession(7)
 	sess.CharName = ""
@@ -202,7 +202,7 @@ func TestJoinZone_DisplayNameFallbackSetsUsername(t *testing.T) {
 
 func TestJoinZone_SendsZoneJoinedResponse(t *testing.T) {
 	gw := newTestGateway(stubRepo{})
-	zi := newTestZoneInstance("test", zone.ZoneTypeHub)
+	zi := newTestZoneInstance("test", zone.ZoneTypeOpenWorld)
 
 	sess, spy := newTestSession(1)
 	defer sess.Conn.Close()
@@ -226,7 +226,7 @@ func TestJoinZone_SendsZoneJoinedResponse(t *testing.T) {
 
 func TestJoinZone_SendsZoneTransferResponse(t *testing.T) {
 	gw := newTestGateway(stubRepo{})
-	zi := newTestZoneInstance("arena_1", zone.ZoneTypeArena)
+	zi := newTestZoneInstance("arena_1", zone.ZoneTypeInstanced)
 
 	sess, spy := newTestSession(1)
 	defer sess.Conn.Close()
@@ -242,8 +242,8 @@ func TestJoinZone_SendsZoneTransferResponse(t *testing.T) {
 	if len(payload) < 3 {
 		t.Fatalf("payload too short: %d", len(payload))
 	}
-	if payload[0] != byte(zone.ZoneTypeArena) {
-		t.Errorf("zone type = %d, want %d", payload[0], zone.ZoneTypeArena)
+	if payload[0] != byte(zone.ZoneTypeInstanced) {
+		t.Errorf("zone type = %d, want %d", payload[0], zone.ZoneTypeInstanced)
 	}
 	gotPeer := binary.BigEndian.Uint16(payload[1:3])
 	if gotPeer != 1 {
@@ -253,7 +253,7 @@ func TestJoinZone_SendsZoneTransferResponse(t *testing.T) {
 
 func TestJoinZone_NotifiesExistingPeers(t *testing.T) {
 	gw := newTestGateway(stubRepo{})
-	zi := newTestZoneInstance("test", zone.ZoneTypeHub)
+	zi := newTestZoneInstance("test", zone.ZoneTypeOpenWorld)
 
 	// Add an existing peer.
 	existing, existingSpy := newTestSession(1)
@@ -276,7 +276,7 @@ func TestJoinZone_NotifiesExistingPeers(t *testing.T) {
 
 func TestJoinZone_NotifiesNewPeerAboutExisting(t *testing.T) {
 	gw := newTestGateway(stubRepo{})
-	zi := newTestZoneInstance("test", zone.ZoneTypeHub)
+	zi := newTestZoneInstance("test", zone.ZoneTypeOpenWorld)
 
 	// Add an existing peer.
 	existing, _ := newTestSession(1)
@@ -298,7 +298,7 @@ func TestJoinZone_NotifiesNewPeerAboutExisting(t *testing.T) {
 
 func TestJoinZone_QueuesClassSelectForNonGunner(t *testing.T) {
 	gw := newTestGateway(stubRepo{})
-	zi := newTestZoneInstance("test", zone.ZoneTypeHub)
+	zi := newTestZoneInstance("test", zone.ZoneTypeOpenWorld)
 
 	sess, _ := newTestSession(1)
 	sess.Class = entity.ClassVanguard
@@ -317,7 +317,7 @@ func TestJoinZone_QueuesClassSelectForNonGunner(t *testing.T) {
 
 func TestJoinZone_DoesNotQueueClassSelectForGunner(t *testing.T) {
 	gw := newTestGateway(stubRepo{})
-	zi := newTestZoneInstance("test", zone.ZoneTypeHub)
+	zi := newTestZoneInstance("test", zone.ZoneTypeOpenWorld)
 
 	sess, _ := newTestSession(1)
 	sess.Class = entity.ClassGunner
@@ -334,7 +334,7 @@ func TestJoinZone_DoesNotQueueClassSelectForGunner(t *testing.T) {
 
 func TestJoinZone_RestoresPositionForHub(t *testing.T) {
 	gw := newTestGateway(posRepo{})
-	zi := newTestZoneInstance(zone.ZoneHub, zone.ZoneTypeHub)
+	zi := newTestZoneInstance(zone.ZoneHub, zone.ZoneTypeOpenWorld)
 
 	sess, _ := newTestSession(1)
 	sess.CharID = 42
@@ -356,7 +356,7 @@ func TestJoinZone_RestoresPositionForHub(t *testing.T) {
 
 func TestJoinZone_NoPositionRestoreForArena(t *testing.T) {
 	gw := newTestGateway(posRepo{})
-	zi := newTestZoneInstance("arena_1", zone.ZoneTypeArena)
+	zi := newTestZoneInstance("arena_1", zone.ZoneTypeInstanced)
 
 	sess, _ := newTestSession(1)
 	sess.CharID = 42
@@ -376,7 +376,7 @@ func TestJoinZone_NoPositionRestoreForArena(t *testing.T) {
 
 func TestJoinZone_NoPositionRestoreWithoutCharID(t *testing.T) {
 	gw := newTestGateway(posRepo{})
-	zi := newTestZoneInstance(zone.ZoneHub, zone.ZoneTypeHub)
+	zi := newTestZoneInstance(zone.ZoneHub, zone.ZoneTypeOpenWorld)
 
 	sess, _ := newTestSession(1)
 	sess.CharID = 0 // no character
@@ -398,7 +398,7 @@ func TestJoinZone_NoPositionRestoreWithoutCharID(t *testing.T) {
 
 func TestLeaveZone_RemovesClientFromZone(t *testing.T) {
 	gw := newTestGateway(stubRepo{})
-	zi := newTestZoneInstance("test", zone.ZoneTypeHub)
+	zi := newTestZoneInstance("test", zone.ZoneTypeOpenWorld)
 
 	sess, _ := newTestSession(1)
 	defer sess.Conn.Close()
@@ -422,7 +422,7 @@ func TestLeaveZone_RemovesClientFromZone(t *testing.T) {
 
 func TestLeaveZone_BroadcastsDisconnect(t *testing.T) {
 	gw := newTestGateway(stubRepo{})
-	zi := newTestZoneInstance("test", zone.ZoneTypeHub)
+	zi := newTestZoneInstance("test", zone.ZoneTypeOpenWorld)
 
 	// Two players in zone.
 	sess1, _ := newTestSession(1)
@@ -468,7 +468,7 @@ func TestLeaveZone_NoopWhenZoneNotFound(_ *testing.T) {
 
 func TestLeaveZone_RemovesEmptyArena(t *testing.T) {
 	gw := newTestGateway(stubRepo{})
-	zi := newTestZoneInstance("arena_1", zone.ZoneTypeArena)
+	zi := newTestZoneInstance("arena_1", zone.ZoneTypeInstanced)
 
 	sess, _ := newTestSession(1)
 	defer sess.Conn.Close()
@@ -487,7 +487,7 @@ func TestLeaveZone_RemovesEmptyArena(t *testing.T) {
 
 func TestLeaveZone_DoesNotRemoveEmptyHub(t *testing.T) {
 	gw := newTestGateway(stubRepo{})
-	zi := newTestZoneInstance(zone.ZoneHub, zone.ZoneTypeHub)
+	zi := newTestZoneInstance(zone.ZoneHub, zone.ZoneTypeOpenWorld)
 
 	sess, _ := newTestSession(1)
 	defer sess.Conn.Close()
@@ -506,7 +506,7 @@ func TestLeaveZone_DoesNotRemoveEmptyHub(t *testing.T) {
 
 func TestLeaveZone_DoesNotRemoveNonEmptyArena(t *testing.T) {
 	gw := newTestGateway(stubRepo{})
-	zi := newTestZoneInstance("arena_1", zone.ZoneTypeArena)
+	zi := newTestZoneInstance("arena_1", zone.ZoneTypeInstanced)
 
 	sess1, _ := newTestSession(1)
 	sess2, _ := newTestSession(2)
@@ -532,7 +532,7 @@ func TestLeaveZone_DoesNotRemoveNonEmptyArena(t *testing.T) {
 func TestTransferPlayer_MovesPlayerBetweenZones(t *testing.T) {
 	gw := newTestGateway(stubRepo{})
 
-	hubZI := newTestZoneInstance(zone.ZoneHub, zone.ZoneTypeHub)
+	hubZI := newTestZoneInstance(zone.ZoneHub, zone.ZoneTypeOpenWorld)
 	gw.mu.Lock()
 	gw.zones[zone.ZoneHub] = hubZI
 	gw.mu.Unlock()
@@ -546,7 +546,7 @@ func TestTransferPlayer_MovesPlayerBetweenZones(t *testing.T) {
 	}
 
 	// Transfer to arena (getOrCreateZone will create it).
-	gw.transferPlayer(sess, "arena_test", zone.ZoneTypeArena)
+	gw.transferPlayer(sess, "arena_test", zone.ZoneTypeInstanced)
 
 	if hubZI.zone.ClientCount() != 0 {
 		t.Errorf("hub ClientCount after transfer = %d, want 0", hubZI.zone.ClientCount())
@@ -567,7 +567,7 @@ func TestTransferPlayer_MovesPlayerBetweenZones(t *testing.T) {
 
 func BenchmarkJoinZone(b *testing.B) {
 	gw := newTestGateway(stubRepo{})
-	zi := newTestZoneInstance("bench", zone.ZoneTypeHub)
+	zi := newTestZoneInstance("bench", zone.ZoneTypeOpenWorld)
 
 	conn, _ := network.NewTestClient()
 	defer conn.Close()
@@ -590,7 +590,7 @@ func BenchmarkJoinZoneWithPeers(b *testing.B) {
 	for _, peerCount := range []int{1, 5, 20} {
 		b.Run(fmt.Sprintf("%d_peers", peerCount), func(b *testing.B) {
 			gw := newTestGateway(stubRepo{})
-			zi := newTestZoneInstance("bench", zone.ZoneTypeHub)
+			zi := newTestZoneInstance("bench", zone.ZoneTypeOpenWorld)
 
 			// Pre-populate peers.
 			conns := make([]*network.Client, peerCount)
@@ -631,7 +631,7 @@ func BenchmarkJoinZoneWithPeers(b *testing.B) {
 
 func BenchmarkLeaveZone(b *testing.B) {
 	gw := newTestGateway(stubRepo{})
-	zi := newTestZoneInstance("bench", zone.ZoneTypeHub)
+	zi := newTestZoneInstance("bench", zone.ZoneTypeOpenWorld)
 
 	gw.mu.Lock()
 	gw.zones["bench"] = zi
@@ -658,8 +658,8 @@ func BenchmarkLeaveZone(b *testing.B) {
 func BenchmarkTransferPlayer(b *testing.B) {
 	gw := newTestGateway(stubRepo{})
 
-	hubZI := newTestZoneInstance(zone.ZoneHub, zone.ZoneTypeHub)
-	arenaZI := newTestZoneInstance("arena_bench", zone.ZoneTypeArena)
+	hubZI := newTestZoneInstance(zone.ZoneHub, zone.ZoneTypeOpenWorld)
+	arenaZI := newTestZoneInstance("arena_bench", zone.ZoneTypeInstanced)
 
 	gw.mu.Lock()
 	gw.zones[zone.ZoneHub] = hubZI
@@ -679,7 +679,7 @@ func BenchmarkTransferPlayer(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		gw.joinZone(sess, hubZI, joinResponseZoneJoined)
-		gw.transferPlayer(sess, "arena_bench", zone.ZoneTypeArena)
+		gw.transferPlayer(sess, "arena_bench", zone.ZoneTypeInstanced)
 		arenaZI.zone.RemoveClient(sess.PeerID)
 	}
 }

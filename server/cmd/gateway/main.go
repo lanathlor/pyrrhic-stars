@@ -53,7 +53,7 @@ func main() {
 	gw := newGateway(ctr)
 
 	// Create persistent hub zone at startup.
-	gw.getOrCreateZone(zone.ZoneHub, zone.ZoneTypeHub)
+	gw.getOrCreateZone(zone.ZoneHub, zone.ZoneTypeOpenWorld)
 
 	// Start periodic position flush (every 30s).
 	flushCtx, flushCancel := context.WithCancel(ctx)
