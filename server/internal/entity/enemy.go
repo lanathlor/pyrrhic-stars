@@ -1,5 +1,7 @@
 package entity
 
+import "math"
+
 // EnemyState represents the enemy FSM state.
 type EnemyState uint8
 
@@ -220,3 +222,36 @@ func (e *Enemy) ClearThreat() {
 
 // MeleeRange is the melee hit check distance.
 const MeleeRange float32 = 3.0
+
+// --- Caster interface ---
+
+func (e *Enemy) CasterID() uint16          { return e.ID }
+func (e *Enemy) CasterPos() Vec3           { return e.Position }
+func (e *Enemy) CasterAlive() bool         { return e.Alive && e.State != EnemyDead }
+func (e *Enemy) CasterDamageMult() float32 { return 1.0 }
+
+func (e *Enemy) CasterForward() Vec3 {
+	s := float32(math.Sin(float64(e.RotationY)))
+	c := float32(math.Cos(float64(e.RotationY)))
+	return Vec3{-s, 0, -c}
+}
+
+func (e *Enemy) CasterEyePos() Vec3 {
+	return e.Position.Add(Vec3{Y: 1.5})
+}
+
+func (e *Enemy) CasterAimDir() Vec3 {
+	return e.CasterForward()
+}
+
+// --- Target interface ---
+
+func (e *Enemy) TargetID() uint16 { return e.ID }
+func (e *Enemy) TargetPos() Vec3  { return e.Position }
+func (e *Enemy) TargetAlive() bool {
+	return e.Alive && e.State != EnemyDead
+}
+func (e *Enemy) TargetApplyDamage(a float32) float32 {
+	dealt, _ := e.ApplyDamage(a)
+	return dealt
+}

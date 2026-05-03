@@ -129,8 +129,8 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 
 	// Cast through the ability engine
 	ctx := &ability.CastContext{
-		Player:    p,
-		Enemies:   w.Enemies,
+		Caster:    p,
+		Targets:   enemiesToTargets(w.Enemies),
 		Obstacles: w.Level.Obstacles,
 	}
 	result := w.AbilityEngine.Cast(abilityID, ctx)
@@ -147,9 +147,9 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 			HitPos:       r.HitPos,
 			SourceType:   r.SourceType,
 		})
-		if r.Enemy != nil {
-			r.Enemy.AddThreat(peerID, r.Amount)
-			w.AggroEnemy(r.Enemy, peerID)
+		if enemy, ok := r.Target.(*entity.Enemy); ok {
+			enemy.AddThreat(peerID, r.Amount)
+			w.AggroEnemy(enemy, peerID)
 		}
 	}
 }

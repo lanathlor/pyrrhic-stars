@@ -47,11 +47,19 @@ func enemyBehind(id uint16, hp float32) *entity.Enemy {
 }
 
 func castCtx(p *entity.Player, enemies ...*entity.Enemy) *CastContext {
-	return &CastContext{Player: p, Enemies: enemies}
+	targets := make([]entity.Target, len(enemies))
+	for i, e := range enemies {
+		targets[i] = e
+	}
+	return &CastContext{Caster: p, Targets: targets}
 }
 
 func tickCtx(enemies ...*entity.Enemy) *TickContext {
-	return &TickContext{Enemies: enemies}
+	targets := make([]entity.Target, len(enemies))
+	for i, e := range enemies {
+		targets[i] = e
+	}
+	return &TickContext{Targets: targets}
 }
 
 // --- Engine setup ---
@@ -152,7 +160,7 @@ func TestCast_Validation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			eng := NewEngine(nil)
 			p, enemies := tt.setup(eng)
-			result := eng.Cast(tt.ability, &CastContext{Player: p, Enemies: enemies})
+			result := eng.Cast(tt.ability, castCtx(p, enemies...))
 			if result.OK {
 				t.Error("expected cast to fail")
 			}
@@ -209,8 +217,8 @@ func TestCast_FireShot_ObstacleBlocksLOS(t *testing.T) {
 	obs := combat.Obstacle{CX: 0, CZ: -2.5, HX: 2, HZ: 0.5, Height: 3}
 
 	result := eng.Cast("fire_shot", &CastContext{
-		Player:    p,
-		Enemies:   []*entity.Enemy{e},
+		Caster:    p,
+		Targets:   []entity.Target{e},
 		Obstacles: []combat.Obstacle{obs},
 	})
 	if !result.OK {
@@ -832,15 +840,13 @@ func TestResolveHit_None(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 	def := eng.GetAbility("bd_guard") // HitNone
-	results := resolveHit(nil, def, p, nil, nil)
+	results := resolveHit(nil, def, p, nil, nil, 0)
 	if len(results) != 0 {
 		t.Error("HitNone should return empty")
 	}
 }
 
 func TestResolveHit_AoECircle(t *testing.T) {
-	eng := NewEngine(nil)
-	_ = eng // engine not needed for resolveHit directly
 	p := newVanguard()
 
 	// 3 enemies within radius, 1 outside
@@ -857,7 +863,8 @@ func TestResolveHit_AoECircle(t *testing.T) {
 		Hit:        HitDef{Type: HitAoECircle, Radius: 6},
 		BaseDamage: 10,
 	}
-	results := resolveHit(nil, def, p, []*entity.Enemy{e1, e2, e3, eFar}, nil)
+	targets := []entity.Target{e1, e2, e3, eFar}
+	results := resolveHit(nil, def, p, targets, nil, 0)
 	if len(results) != 3 {
 		t.Errorf("hits = %d, want 3 (within radius)", len(results))
 	}
@@ -867,18 +874,19 @@ func TestResolveHit_NearestN(t *testing.T) {
 	p := newBladeDancer()
 
 	// 4 enemies with threat, ask for 2 nearest
-	enemies := make([]*entity.Enemy, 4)
-	for i := range enemies {
-		enemies[i] = entity.NewEnemy(uint16(i+1), 200, "mob")
-		enemies[i].Position = entity.Vec3{Z: float32(-(i + 1) * 3)}
-		enemies[i].ThreatTable[p.PeerID] = 10 // in combat
+	targets := make([]entity.Target, 4)
+	for i := range targets {
+		e := entity.NewEnemy(uint16(i+1), 200, "mob")
+		e.Position = entity.Vec3{Z: float32(-(i + 1) * 3)}
+		e.ThreatTable[p.PeerID] = 10 // in combat
+		targets[i] = e
 	}
 
 	def := &AbilityDef{
 		Hit:        HitDef{Type: HitNearestN, TargetCount: 2},
 		BaseDamage: 10,
 	}
-	results := resolveHit(nil, def, p, enemies, nil)
+	results := resolveHit(nil, def, p, targets, nil, 0)
 	if len(results) != 2 {
 		t.Errorf("hits = %d, want 2", len(results))
 	}
@@ -905,7 +913,8 @@ func TestResolveHit_NearestN_SkipsNonCombat(t *testing.T) {
 		Hit:        HitDef{Type: HitNearestN, TargetCount: 5},
 		BaseDamage: 10,
 	}
-	results := resolveHit(nil, def, p, []*entity.Enemy{e1, e2}, nil)
+	targets := []entity.Target{e1, e2}
+	results := resolveHit(nil, def, p, targets, nil, 0)
 	if len(results) != 1 {
 		t.Errorf("hits = %d, want 1 (only in-combat enemies)", len(results))
 	}
@@ -935,8 +944,8 @@ func TestCast_CooldownMultBuff(t *testing.T) {
 func TestApplyThreat(t *testing.T) {
 	e := enemyInFront(100, 500)
 	results := []DamageResult{
-		{TargetID: 100, SourceID: 1, Amount: 25, Enemy: e},
-		{TargetID: 100, SourceID: 1, Amount: 15, Enemy: e},
+		{TargetID: 100, SourceID: 1, Amount: 25, Target: e},
+		{TargetID: 100, SourceID: 1, Amount: 15, Target: e},
 	}
 	ApplyThreat(results, 1)
 	if e.ThreatTable[1] != 40 {
@@ -1026,19 +1035,24 @@ func BenchmarkTickPlayer_Full(b *testing.B) {
 	p.AddBuff(entity.ActiveBuff{ID: "test_buff", Type: entity.BuffDamageMult, Value: 1.5, Duration: 5.0})
 	p.Resources["stamina"].Current = 60
 
+	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		// Reset state each iteration to avoid drift
+		// Reset state each iteration to avoid drift — reuse existing slice backing arrays
 		p.Alive = true
 		p.Cooldowns["melee_light"] = 0.55
 		p.Cooldowns["blade_swirl"] = 10.0
 		p.GCDTimer = 0.3
 		p.Resources["stamina"].Current = 60
-		p.Buffs = []entity.ActiveBuff{{ID: "test_buff", Type: entity.BuffDamageMult, Value: 1.5, Duration: 5.0}}
-		p.DoTs = []entity.ActiveDoT{{
+		p.Buffs = p.Buffs[:0]
+		p.Buffs = append(p.Buffs, entity.ActiveBuff{ID: "test_buff", Type: entity.BuffDamageMult, Value: 1.5, Duration: 5.0})
+		p.DoTs = p.DoTs[:0]
+		p.DoTs = append(p.DoTs, entity.ActiveDoT{
 			EnemyID: 100, SourcePeer: p.PeerID, Damage: 10,
 			Remaining: 3.0, Interval: 1.0, TickTimer: 0.05,
-		}}
+		})
+		e.Health = 1e9
+		e.Alive = true
 		eng.TickPlayer(p, 0.05, tctx)
 	}
 }
@@ -1057,30 +1071,32 @@ func BenchmarkTickPlayer_Minimal(b *testing.B) {
 
 func BenchmarkResolveHitscan(b *testing.B) {
 	p := newGunner()
-	enemies := make([]*entity.Enemy, 10)
-	for i := range enemies {
-		enemies[i] = entity.NewEnemy(uint16(i+1), 1e9, "mob")
-		enemies[i].Position = entity.Vec3{X: float32(i-5) * 3, Z: -float32(i+1) * 5}
+	targets := make([]entity.Target, 10)
+	for i := range targets {
+		e := entity.NewEnemy(uint16(i+1), 1e9, "mob")
+		e.Position = entity.Vec3{X: float32(i-5) * 3, Z: -float32(i+1) * 5}
+		targets[i] = e
 	}
 	var buf []DamageResult
 
 	b.ResetTimer()
 	for b.Loop() {
-		buf = resolveHitscan(buf[:0], p, enemies, nil, 10)
+		buf = resolveHitscan(buf[:0], p, targets, nil, 10, 0)
 	}
 }
 
 func BenchmarkResolveAoECircle(b *testing.B) {
-	enemies := make([]*entity.Enemy, 20)
-	for i := range enemies {
-		enemies[i] = entity.NewEnemy(uint16(i+1), 1e9, "mob")
-		enemies[i].Position = entity.Vec3{X: float32(i%5) * 2, Z: float32(i/5) * 2}
+	targets := make([]entity.Target, 20)
+	for i := range targets {
+		e := entity.NewEnemy(uint16(i+1), 1e9, "mob")
+		e.Position = entity.Vec3{X: float32(i%5) * 2, Z: float32(i/5) * 2}
+		targets[i] = e
 	}
 	center := entity.Vec3{X: 4, Z: 2}
 	var buf []DamageResult
 
 	b.ResetTimer()
 	for b.Loop() {
-		buf = resolveAoECircle(buf[:0], center, 1, enemies, nil, 8, 10)
+		buf = resolveAoECircle(buf[:0], center, 1, targets, nil, 8, 10, 0)
 	}
 }

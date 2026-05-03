@@ -1,12 +1,20 @@
 package ability
 
 import (
-	"io"
+	"context"
 	"log/slog"
 
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
 )
+
+// nopHandler is a slog.Handler that discards all output with zero allocations.
+type nopHandler struct{}
+
+func (nopHandler) Enabled(context.Context, slog.Level) bool { return false }
+func (nopHandler) Handle(context.Context, slog.Record) error { return nil }
+func (nopHandler) WithAttrs([]slog.Attr) slog.Handler        { return nopHandler{} }
+func (nopHandler) WithGroup(string) slog.Handler              { return nopHandler{} }
 
 // HandlerFunc is a Go function that handles complex ability execution.
 type HandlerFunc func(eng *Engine, ctx *CastContext) CastResult
@@ -16,14 +24,15 @@ type TickHandlerFunc func(eng *Engine, p *entity.Player, dt float32, ctx *TickCo
 
 // CastContext carries the state needed to resolve an ability.
 type CastContext struct {
-	Player    *entity.Player
-	Enemies   []*entity.Enemy
-	Obstacles []combat.Obstacle
+	Caster     entity.Caster
+	Targets    []entity.Target
+	Obstacles  []combat.Obstacle
+	SourceType uint8 // combat.SourcePlayerAttack, SourceEnemyMelee, etc.
 }
 
 // TickContext carries the state needed for per-tick ability updates.
 type TickContext struct {
-	Enemies   []*entity.Enemy
+	Targets   []entity.Target
 	Obstacles []combat.Obstacle
 }
 
@@ -43,23 +52,31 @@ type Engine struct {
 	handlers     map[string]HandlerFunc
 	tickHandlers map[string]TickHandlerFunc
 	logger       *slog.Logger
+	logDebug     bool // cached: handler enables Debug level
+	logInfo      bool // cached: handler enables Info level
 
 	// hitBuf is a reusable scratch buffer for hit resolution results.
 	// Valid only until the next Cast or TickPlayer call.
 	hitBuf []DamageResult
+	// tickBuf is a reusable scratch buffer for TickPlayer DoT events.
+	// Valid only until the next TickPlayer call.
+	tickBuf []DamageResult
 }
 
 // NewEngine creates an engine and registers all abilities and handlers.
 // Pass nil for logger to discard all log output.
 func NewEngine(logger *slog.Logger) *Engine {
 	if logger == nil {
-		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+		logger = slog.New(nopHandler{})
 	}
+	ctx := context.Background()
 	eng := &Engine{
 		abilities:    make(map[string]*AbilityDef),
 		handlers:     make(map[string]HandlerFunc),
 		tickHandlers: make(map[string]TickHandlerFunc),
 		logger:       logger,
+		logDebug:     logger.Handler().Enabled(ctx, slog.LevelDebug),
+		logInfo:      logger.Handler().Enabled(ctx, slog.LevelInfo),
 	}
 	registerAbilities(eng)
 	registerHandlers(eng)
@@ -86,12 +103,10 @@ func (eng *Engine) GetAbility(id string) *AbilityDef {
 	return eng.abilities[id]
 }
 
-// Cast validates and executes an ability for a player.
+// Cast looks up an ability by ID and executes it.
 // The returned CastResult.Events slice is backed by an internal buffer and is
 // only valid until the next Cast or TickPlayer call.
 func (eng *Engine) Cast(abilityID string, ctx *CastContext) CastResult {
-	eng.hitBuf = eng.hitBuf[:0]
-
 	def := eng.abilities[abilityID]
 	if def == nil {
 		eng.logger.Warn("ability.cast.rejected",
@@ -100,46 +115,76 @@ func (eng *Engine) Cast(abilityID string, ctx *CastContext) CastResult {
 		)
 		return CastResult{Reason: "unknown ability"}
 	}
+	return eng.castDef(abilityID, def, ctx)
+}
 
-	p := ctx.Player
-	log := eng.logger.With("ability", abilityID, "peer", p.PeerID)
+// CastDef executes an ability from a provided definition (not looked up by ID).
+// Use this when the caller has a modified/resolved copy (e.g. enemy phase overrides).
+func (eng *Engine) CastDef(def *AbilityDef, ctx *CastContext) CastResult {
+	return eng.castDef(def.ID, def, ctx)
+}
 
-	if !p.Alive {
-		log.Debug("ability.cast.rejected", "reason", "dead")
+func (eng *Engine) castDef(abilityID string, def *AbilityDef, ctx *CastContext) CastResult {
+	eng.hitBuf = eng.hitBuf[:0]
+
+	caster := ctx.Caster
+
+	if !caster.CasterAlive() {
+		if eng.logDebug {
+			eng.logger.Debug("ability.cast.rejected",
+				"ability", abilityID, "id", caster.CasterID(), "reason", "dead")
+		}
 		return CastResult{Reason: "dead"}
 	}
 
-	// Check GCD
-	if p.GCDTimer > 0 {
-		log.Debug("ability.cast.rejected", "reason", "gcd", "gcd_remaining", p.GCDTimer)
-		return CastResult{Reason: "gcd"}
-	}
-
-	// Check per-ability cooldown
-	if cd, ok := p.Cooldowns[abilityID]; ok && cd > 0 {
-		log.Debug("ability.cast.rejected", "reason", "cooldown", "cd_remaining", cd)
-		return CastResult{Reason: "cooldown"}
-	}
-
-	// Check BD spell config requirement
-	if def.OriginConfig >= 0 && def.OriginConfig != p.Config {
-		log.Debug("ability.cast.rejected", "reason", "wrong config",
-			"need", def.OriginConfig, "have", p.Config)
-		return CastResult{Reason: "wrong config"}
-	}
-
-	// Check resource costs (don't spend yet)
-	for _, cost := range def.Costs {
-		r, ok := p.Resources[cost.Resource]
-		if !ok {
-			log.Debug("ability.cast.rejected", "reason", "insufficient "+cost.Resource,
-				"need", cost.Amount, "have", 0)
-			return CastResult{Reason: "insufficient " + cost.Resource}
+	// Player-specific validation
+	p, isPlayer := caster.(*entity.Player)
+	if isPlayer {
+		if p.GCDTimer > 0 {
+			if eng.logDebug {
+				eng.logger.Debug("ability.cast.rejected",
+					"ability", abilityID, "id", caster.CasterID(),
+					"reason", "gcd", "gcd_remaining", p.GCDTimer)
+			}
+			return CastResult{Reason: "gcd"}
 		}
-		if r.Current < cost.Amount {
-			log.Debug("ability.cast.rejected", "reason", "insufficient "+cost.Resource,
-				"need", cost.Amount, "have", r.Current)
-			return CastResult{Reason: "insufficient " + cost.Resource}
+
+		if cd, ok := p.Cooldowns[abilityID]; ok && cd > 0 {
+			if eng.logDebug {
+				eng.logger.Debug("ability.cast.rejected",
+					"ability", abilityID, "id", caster.CasterID(),
+					"reason", "cooldown", "cd_remaining", cd)
+			}
+			return CastResult{Reason: "cooldown"}
+		}
+
+		if def.OriginConfig >= 0 && def.OriginConfig != p.Config {
+			if eng.logDebug {
+				eng.logger.Debug("ability.cast.rejected",
+					"ability", abilityID, "id", caster.CasterID(),
+					"reason", "wrong config", "need", def.OriginConfig, "have", p.Config)
+			}
+			return CastResult{Reason: "wrong config"}
+		}
+
+		for _, cost := range def.Costs {
+			r, ok := p.Resources[cost.Resource]
+			if !ok {
+				if eng.logDebug {
+					eng.logger.Debug("ability.cast.rejected",
+						"ability", abilityID, "id", caster.CasterID(),
+						"reason", "insufficient "+cost.Resource, "need", cost.Amount, "have", 0)
+				}
+				return CastResult{Reason: "insufficient " + cost.Resource}
+			}
+			if r.Current < cost.Amount {
+				if eng.logDebug {
+					eng.logger.Debug("ability.cast.rejected",
+						"ability", abilityID, "id", caster.CasterID(),
+						"reason", "insufficient "+cost.Resource, "need", cost.Amount, "have", r.Current)
+				}
+				return CastResult{Reason: "insufficient " + cost.Resource}
+			}
 		}
 	}
 
@@ -147,114 +192,112 @@ func (eng *Engine) Cast(abilityID string, ctx *CastContext) CastResult {
 	if def.Handler != "" {
 		fn, ok := eng.handlers[def.Handler]
 		if !ok {
-			log.Warn("ability.cast.rejected", "reason", "handler not found", "handler", def.Handler)
+			eng.logger.Warn("ability.cast.rejected",
+				"ability", abilityID, "id", caster.CasterID(),
+				"reason", "handler not found", "handler", def.Handler)
 			return CastResult{Reason: "handler not found: " + def.Handler}
 		}
 		result := fn(eng, ctx)
-		if result.OK {
-			var totalDmg float32
-			for _, ev := range result.Events {
-				totalDmg += ev.Amount
+		if eng.logInfo {
+			if result.OK {
+				var totalDmg float32
+				for _, ev := range result.Events {
+					totalDmg += ev.Amount
+				}
+				eng.logger.Info("ability.cast",
+					"ability", abilityID, "id", caster.CasterID(),
+					"handler", def.Handler, "hits", len(result.Events), "damage", totalDmg)
+			} else if eng.logDebug {
+				eng.logger.Debug("ability.cast.rejected",
+					"ability", abilityID, "id", caster.CasterID(),
+					"handler", def.Handler, "reason", result.Reason)
 			}
-			log.Info("ability.cast", "handler", def.Handler, "hits", len(result.Events), "damage", totalDmg)
-		} else {
-			log.Debug("ability.cast.rejected", "handler", def.Handler, "reason", result.Reason)
 		}
 		return result
 	}
 
-	// Spend resources
-	for _, cost := range def.Costs {
-		p.SpendResource(cost.Resource, cost.Amount)
+	// Spend resources (player only)
+	if isPlayer {
+		for _, cost := range def.Costs {
+			p.SpendResource(cost.Resource, cost.Amount)
+		}
 	}
 
 	// Resolve hit
-	eng.hitBuf = resolveHit(eng.hitBuf, def, p, ctx.Enemies, ctx.Obstacles)
+	eng.hitBuf = resolveHit(eng.hitBuf, def, caster, ctx.Targets, ctx.Obstacles, ctx.SourceType)
 	events := eng.hitBuf
 
-	// Apply self buffs
-	for _, buff := range def.SelfBuffs {
-		p.AddBuff(entity.ActiveBuff{
-			ID:       buff.ID,
-			Type:     buff.Type,
-			Value:    buff.Value,
-			Duration: buff.Duration,
-		})
-	}
-
-	// Grant shield
-	if def.ShieldGrant > 0 {
-		if shield, ok := p.Resources["shield"]; ok {
-			shield.Current += def.ShieldGrant
-			if def.ShieldCap > 0 && shield.Current > def.ShieldCap {
-				shield.Current = def.ShieldCap
-			} else if shield.Current > shield.Max {
-				shield.Current = shield.Max
-			}
-		}
-	}
-
-	// Apply DoTs to hit targets
-	for _, dot := range def.TargetDoTs {
-		for _, evt := range events {
-			p.DoTs = append(p.DoTs, entity.ActiveDoT{
-				EnemyID:    evt.TargetID,
-				SourcePeer: p.PeerID,
-				Damage:     dot.Damage,
-				Remaining:  dot.Duration,
-				Interval:   dot.Interval,
-				TickTimer:  dot.Interval,
+	// Player-specific post-cast effects
+	if isPlayer {
+		for _, buff := range def.SelfBuffs {
+			p.AddBuff(entity.ActiveBuff{
+				ID:       buff.ID,
+				Type:     buff.Type,
+				Value:    buff.Value,
+				Duration: buff.Duration,
 			})
 		}
-	}
 
-	// BD config transition
-	if def.DestConfig >= 0 {
-		p.Config = def.DestConfig
-	}
-
-	// Set cooldown
-	if def.Cooldown > 0 {
-		cd := def.Cooldown
-		for i := range p.Buffs {
-			if p.Buffs[i].Type == entity.BuffCooldownMult {
-				cd *= p.Buffs[i].Value
+		if def.ShieldGrant > 0 {
+			if shield, ok := p.Resources["shield"]; ok {
+				shield.Current += def.ShieldGrant
+				if def.ShieldCap > 0 && shield.Current > def.ShieldCap {
+					shield.Current = def.ShieldCap
+				} else if shield.Current > shield.Max {
+					shield.Current = shield.Max
+				}
 			}
 		}
-		p.Cooldowns[abilityID] = cd
+
+		for _, dot := range def.TargetDoTs {
+			for _, evt := range events {
+				p.DoTs = append(p.DoTs, entity.ActiveDoT{
+					EnemyID:    evt.TargetID,
+					SourcePeer: p.PeerID,
+					Damage:     dot.Damage,
+					Remaining:  dot.Duration,
+					Interval:   dot.Interval,
+					TickTimer:  dot.Interval,
+				})
+			}
+		}
+
+		if def.DestConfig >= 0 {
+			p.Config = def.DestConfig
+		}
+
+		if def.Cooldown > 0 {
+			cd := def.Cooldown
+			for i := range p.Buffs {
+				if p.Buffs[i].Type == entity.BuffCooldownMult {
+					cd *= p.Buffs[i].Value
+				}
+			}
+			p.Cooldowns[abilityID] = cd
+		}
+
+		if def.GCD > 0 {
+			p.GCDTimer = def.GCD
+		}
+
+		if def.LockoutDuration > 0 {
+			p.GCDTimer = def.LockoutDuration
+		}
+
+		if def.Hit.Type != HitNone || def.LockoutDuration > 0 {
+			p.State = entity.PlayerStateAttack
+		}
 	}
 
-	// Set GCD
-	if def.GCD > 0 {
-		p.GCDTimer = def.GCD
+	if eng.logInfo {
+		var totalDmg float32
+		for _, ev := range events {
+			totalDmg += ev.Amount
+		}
+		eng.logger.Info("ability.cast",
+			"ability", abilityID, "id", caster.CasterID(),
+			"hits", len(events), "damage", totalDmg)
 	}
-
-	// Set lockout
-	if def.LockoutDuration > 0 {
-		p.GCDTimer = def.LockoutDuration
-	}
-
-	// Set attack state
-	if def.Hit.Type != HitNone || def.LockoutDuration > 0 {
-		p.State = entity.PlayerStateAttack
-	}
-
-	// Log successful cast
-	var totalDmg float32
-	for _, ev := range events {
-		totalDmg += ev.Amount
-	}
-	attrs := []any{"hits", len(events), "damage", totalDmg}
-	if def.DestConfig >= 0 {
-		attrs = append(attrs, "config", p.Config)
-	}
-	if len(def.SelfBuffs) > 0 {
-		attrs = append(attrs, "buffs_applied", len(def.SelfBuffs))
-	}
-	if def.ShieldGrant > 0 {
-		attrs = append(attrs, "shield", p.GetResource("shield"))
-	}
-	log.Info("ability.cast", attrs...)
 
 	return CastResult{OK: true, Events: events}
 }
@@ -266,7 +309,7 @@ func (eng *Engine) TickPlayer(p *entity.Player, dt float32, ctx *TickContext) []
 		return nil
 	}
 
-	var events []DamageResult
+	eng.tickBuf = eng.tickBuf[:0]
 
 	// Tick cooldowns
 	for id, cd := range p.Cooldowns {
@@ -308,21 +351,23 @@ func (eng *Engine) TickPlayer(p *entity.Player, dt float32, ctx *TickContext) []
 	for name, fn := range eng.tickHandlers {
 		if _, ok := p.AbilityState[name]; ok {
 			results := fn(eng, p, dt, ctx)
-			events = append(events, results...)
+			eng.tickBuf = append(eng.tickBuf, results...)
 		}
 	}
 
 	// Tick buffs
-	log := eng.logger.With("peer", p.PeerID)
 	alive := p.Buffs[:0]
 	for i := range p.Buffs {
 		if p.Buffs[i].Duration > 0 {
 			p.Buffs[i].Duration -= dt
 			if p.Buffs[i].Duration <= 0 {
-				log.Debug("ability.buff.expired",
-					"buff", p.Buffs[i].ID,
-					"type", p.Buffs[i].Type,
-				)
+				if eng.logDebug {
+					eng.logger.Debug("ability.buff.expired",
+						"peer", p.PeerID,
+						"buff", p.Buffs[i].ID,
+						"type", p.Buffs[i].Type,
+					)
+				}
 				continue
 			}
 		}
@@ -368,24 +413,29 @@ func (eng *Engine) TickPlayer(p *entity.Player, dt float32, ctx *TickContext) []
 		if dot.TickTimer <= 0 {
 			dot.TickTimer += dot.Interval
 			if ctx != nil {
-				for _, e := range ctx.Enemies {
-					if e != nil && e.ID == dot.EnemyID && e.Alive {
-						dealt, _ := e.ApplyDamage(dot.Damage)
+				for _, t := range ctx.Targets {
+					if t != nil && t.TargetID() == dot.EnemyID && t.TargetAlive() {
+						dealt := t.TargetApplyDamage(dot.Damage)
 						if dealt > 0 {
-							events = append(events, DamageResult{
-								TargetID:   e.ID,
+							eng.tickBuf = append(eng.tickBuf, DamageResult{
+								TargetID:   t.TargetID(),
 								SourceID:   dot.SourcePeer,
 								Amount:     dealt,
-								HitPos:     e.Position.Add(entity.Vec3{Y: 1.0}),
+								HitPos:     t.TargetPos().Add(entity.Vec3{Y: 1.0}),
 								SourceType: combat.SourcePlayerAttack,
-								Enemy:      e,
+								Target:     t,
 							})
-							e.AddThreat(dot.SourcePeer, dealt)
-							log.Debug("ability.dot.tick",
-								"target", e.ID,
-								"damage", dealt,
-								"remaining", dot.Remaining,
-							)
+							if enemy, ok := t.(*entity.Enemy); ok {
+								enemy.AddThreat(dot.SourcePeer, dealt)
+							}
+							if eng.logDebug {
+								eng.logger.Debug("ability.dot.tick",
+									"peer", p.PeerID,
+									"target", t.TargetID(),
+									"damage", dealt,
+									"remaining", dot.Remaining,
+								)
+							}
 						}
 						break
 					}
@@ -396,5 +446,5 @@ func (eng *Engine) TickPlayer(p *entity.Player, dt float32, ctx *TickContext) []
 	}
 	p.DoTs = aliveDoTs
 
-	return events
+	return eng.tickBuf
 }

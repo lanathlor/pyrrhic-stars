@@ -1,6 +1,9 @@
 package ability
 
-import "codex-online/server/internal/entity"
+import (
+	"codex-online/server/internal/combat"
+	"codex-online/server/internal/entity"
+)
 
 var meleeLightDef = AbilityDef{
 	ID:      "melee_light", Name: "Light Attack",
@@ -14,7 +17,7 @@ type ComboState struct {
 }
 
 func meleeLightVGHandler(eng *Engine, ctx *CastContext) CastResult {
-	p := ctx.Player
+	p := ctx.Caster.(*entity.Player)
 	if p.Cooldowns["melee_light"] > 0 {
 		return CastResult{Reason: "cooldown"}
 	}
@@ -35,7 +38,7 @@ func meleeLightVGHandler(eng *Engine, ctx *CastContext) CastResult {
 	damage *= p.DamageMult()
 
 	def := eng.abilities["melee_light"]
-	eng.hitBuf = resolveMeleeArc(eng.hitBuf, p, ctx.Enemies, ctx.Obstacles, def.Hit, damage)
+	eng.hitBuf = resolveMeleeArc(eng.hitBuf, p, ctx.Targets, ctx.Obstacles, def.Hit, damage, combat.SourcePlayerAttack)
 
 	combo.Step = (combo.Step + 1) % 3
 	p.Cooldowns["melee_light"] = 0.55

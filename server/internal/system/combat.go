@@ -3,6 +3,7 @@ package system
 import (
 	"codex-online/server/internal/ability"
 	"codex-online/server/internal/combat"
+	"codex-online/server/internal/entity"
 )
 
 const (
@@ -24,7 +25,7 @@ func (s *CombatSystem) Tick(w *World, dt float32) {
 		}
 
 		ctx := &ability.TickContext{
-			Enemies:   w.Enemies,
+			Targets:   enemiesToTargets(w.Enemies),
 			Obstacles: w.Level.Obstacles,
 		}
 		results := w.AbilityEngine.TickPlayer(p, dt, ctx)
@@ -38,8 +39,8 @@ func (s *CombatSystem) Tick(w *World, dt float32) {
 				HitPos:       r.HitPos,
 				SourceType:   r.SourceType,
 			})
-			if r.Enemy != nil {
-				w.AggroEnemy(r.Enemy, r.SourceID)
+			if enemy, ok := r.Target.(*entity.Enemy); ok {
+				w.AggroEnemy(enemy, r.SourceID)
 			}
 		}
 	}

@@ -158,3 +158,12 @@ func (w *World) SpawnPlayerProjectile(ownerID uint16, pos, dir entity.Vec3, spee
 	p := entity.NewProjectile(w.NextProjID, ownerID, -1, pos, dir, speed, damage, lifetime)
 	w.Projectiles = append(w.Projectiles, p)
 }
+
+// enemiesToTargets converts an enemy slice to a Target interface slice.
+func enemiesToTargets(enemies []*entity.Enemy) []entity.Target {
+	targets := make([]entity.Target, len(enemies))
+	for i, e := range enemies {
+		targets[i] = e
+	}
+	return targets
+}

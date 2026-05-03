@@ -22,7 +22,7 @@ type RechamberState struct {
 func (s *RechamberState) GetPhase() uint8 { return s.Phase }
 
 func rechamberHandler(_ *Engine, ctx *CastContext) CastResult {
-	p := ctx.Player
+	p := ctx.Caster.(*entity.Player)
 	state := getRechamberState(p)
 	if state.Phase != 0 {
 		return CastResult{Reason: "rechamber in progress"}
@@ -37,7 +37,7 @@ func rechamberHandler(_ *Engine, ctx *CastContext) CastResult {
 }
 
 func rechamberConfirmHandler(_ *Engine, ctx *CastContext) CastResult {
-	p := ctx.Player
+	p := ctx.Caster.(*entity.Player)
 	state := getRechamberState(p)
 	if state.Phase != 2 {
 		return CastResult{Reason: "not in timing window"}

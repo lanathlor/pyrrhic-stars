@@ -1,5 +1,7 @@
 package ability
 
+import "codex-online/server/internal/entity"
+
 func registerAbilities(eng *Engine) {
 	// Shared
 	eng.Register(&dodgeDef)
@@ -42,8 +44,8 @@ func registerHandlers(eng *Engine) {
 // ApplyThreat adds threat for all damage results to the relevant enemies.
 func ApplyThreat(results []DamageResult, peerID uint16) {
 	for _, r := range results {
-		if r.Enemy != nil {
-			r.Enemy.AddThreat(peerID, r.Amount)
+		if enemy, ok := r.Target.(*entity.Enemy); ok {
+			enemy.AddThreat(peerID, r.Amount)
 		}
 	}
 }

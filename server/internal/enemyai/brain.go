@@ -4,14 +4,16 @@ import (
 	"math"
 	"math/rand"
 
+	"codex-online/server/internal/ability"
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
 )
 
 // Brain drives one enemy instance using its EnemyDef.
 type Brain struct {
-	Def   *EnemyDef
-	enemy *entity.Enemy
+	Def    *EnemyDef
+	enemy  *entity.Enemy
+	engine *ability.Engine
 
 	// Bounds for charge wall-stop detection. Set by zone at init.
 	BoundsMinX, BoundsMaxX float32
@@ -19,11 +21,16 @@ type Brain struct {
 
 	// Pooled damage events slice, reused across ticks to avoid per-hit allocations.
 	events []combat.DamageEvent
+
+	// Reusable buffers to avoid per-tick allocations on the cast path.
+	targetBuf []entity.Target
+	defBuf    ability.AbilityDef
+	castCtx   ability.CastContext
 }
 
 // NewBrain creates a brain for the given enemy.
-func NewBrain(def *EnemyDef, enemy *entity.Enemy) *Brain {
-	return &Brain{Def: def, enemy: enemy}
+func NewBrain(def *EnemyDef, enemy *entity.Enemy, engine *ability.Engine) *Brain {
+	return &Brain{Def: def, enemy: enemy, engine: engine}
 }
 
 // Enemy returns the brain's enemy.
@@ -221,48 +228,24 @@ func (b *Brain) tickMeleeAttack(players map[uint16]*entity.Player, obstacles []c
 		return
 	}
 
-	ability := b.activeAbilityResolved()
+	resolved := b.activeAbilityResolved()
+	b.resolveEngineDef(resolved)
+	b.fillTargets(players)
 
-	// Frontal cone: enemy's facing direction from RotationY (locked during telegraph).
-	// Default cone = 180° (π rad) if not specified.
-	coneAngle := ability.MeleeConeAngle
-	if coneAngle <= 0 {
-		coneAngle = math.Pi // 180° default
-	}
-	halfAngle := float64(coneAngle) / 2.0
-	// Forward direction from RotationY: atan2(-x, -z) → forward = (-sinR, 0, -cosR)
-	forwardX := -math.Sin(float64(e.RotationY))
-	forwardZ := -math.Cos(float64(e.RotationY))
+	b.castCtx.Caster = e
+	b.castCtx.Targets = b.targetBuf
+	b.castCtx.Obstacles = obstacles
+	b.castCtx.SourceType = resolved.DamageSourceType
 
-	for _, p := range players {
-		if !p.Alive {
-			continue
-		}
-		toPlayer := p.Position.Sub(e.Position).Flat()
-		dist := toPlayer.Length()
-		if dist > ability.MeleeRange || dist < 0.01 {
-			continue
-		}
-		// Cone check: angle between forward and direction to player
-		dx := float64(toPlayer.X) / float64(dist)
-		dz := float64(toPlayer.Z) / float64(dist)
-		dot := forwardX*dx + forwardZ*dz
-		if dot < math.Cos(halfAngle) {
-			continue
-		}
-		if combat.SegmentHitsObstacle(e.Position, p.Position, obstacles) {
-			continue
-		}
-		dealt := p.ApplyDamage(ability.MeleeDamage)
-		if dealt > 0 {
-			hitDir := toPlayer.Normalized()
-			b.events = append(b.events, combat.DamageEvent{
-				TargetPeerID: p.PeerID,
-				Amount:       dealt,
-				HitPos:       e.Position.Add(hitDir),
-				SourceType:   ability.DamageSourceType,
-			})
-		}
+	result := b.engine.CastDef(&b.defBuf, &b.castCtx)
+
+	for _, r := range result.Events {
+		b.events = append(b.events, combat.DamageEvent{
+			TargetPeerID: r.TargetID,
+			Amount:       r.Amount,
+			HitPos:       r.HitPos,
+			SourceType:   r.SourceType,
+		})
 	}
 	b.enterCooldown()
 }
@@ -319,22 +302,24 @@ func (b *Brain) tickAoESlam(players map[uint16]*entity.Player, obstacles []comba
 		return
 	}
 
-	ability := b.activeAbilityResolved()
-	for _, p := range players {
-		if !p.Alive {
-			continue
-		}
-		if combat.CheckAoERadius(e.Position, p.Position, ability.AoERadius, obstacles) {
-			dealt := p.ApplyDamage(ability.AoEDamage)
-			if dealt > 0 {
-				b.events = append(b.events, combat.DamageEvent{
-					TargetPeerID: p.PeerID,
-					Amount:       dealt,
-					HitPos:       e.Position,
-					SourceType:   ability.DamageSourceType,
-				})
-			}
-		}
+	resolved := b.activeAbilityResolved()
+	b.resolveEngineDef(resolved)
+	b.fillTargets(players)
+
+	b.castCtx.Caster = e
+	b.castCtx.Targets = b.targetBuf
+	b.castCtx.Obstacles = obstacles
+	b.castCtx.SourceType = resolved.DamageSourceType
+
+	result := b.engine.CastDef(&b.defBuf, &b.castCtx)
+
+	for _, r := range result.Events {
+		b.events = append(b.events, combat.DamageEvent{
+			TargetPeerID: r.TargetID,
+			Amount:       r.Amount,
+			HitPos:       r.HitPos,
+			SourceType:   r.SourceType,
+		})
 	}
 	b.enterCooldown()
 }
@@ -429,7 +414,8 @@ func (b *Brain) selectAbility(distance float32, _ map[uint16]*entity.Player) *Ab
 		weight  int
 	}
 
-	var candidates []candidate
+	var buf [8]candidate
+	candidates := buf[:0]
 	for i := range def.Abilities {
 		a := &def.Abilities[i]
 		if a.MinRange > 0 && distance < a.MinRange {
@@ -628,6 +614,55 @@ func (b *Brain) tickPatrol(_ float32, players map[uint16]*entity.Player) {
 	spd := b.Def.MoveSpeed * 0.5 // patrol at half speed
 	e.Velocity = entity.Vec3{X: dir.X * spd, Z: dir.Z * spd}
 	e.RotationY = float32(math.Atan2(float64(-dir.X), float64(-dir.Z)))
+}
+
+// resolveEngineDef populates b.defBuf with the ability.AbilityDef converted from
+// the resolved enemyai AbilityDef. Callers use &b.defBuf to avoid heap allocation.
+func (b *Brain) resolveEngineDef(resolved AbilityDef) {
+	switch resolved.Type {
+	case AbilityMelee:
+		coneAngle := resolved.MeleeConeAngle
+		if coneAngle <= 0 {
+			coneAngle = math.Pi // default 180°
+		}
+		b.defBuf = ability.AbilityDef{
+			ID:         resolved.Name,
+			BaseDamage: resolved.MeleeDamage,
+			Hit: ability.HitDef{
+				Type:       ability.HitAoECone,
+				Range:      resolved.MeleeRange,
+				ArcDegrees: float32(float64(coneAngle) * 180.0 / math.Pi),
+			},
+		}
+	case AbilityAoE:
+		b.defBuf = ability.AbilityDef{
+			ID:         resolved.Name,
+			BaseDamage: resolved.AoEDamage,
+			Hit: ability.HitDef{
+				Type:   ability.HitAoECircle,
+				Radius: resolved.AoERadius,
+			},
+		}
+	default:
+		b.defBuf = ability.AbilityDef{ID: resolved.Name}
+	}
+}
+
+// fillTargets populates b.targetBuf from the player map, avoiding allocation.
+func (b *Brain) fillTargets(players map[uint16]*entity.Player) {
+	b.targetBuf = b.targetBuf[:0]
+	for _, p := range players {
+		b.targetBuf = append(b.targetBuf, p)
+	}
+}
+
+// playersToTargets converts a player map to a Target interface slice.
+func playersToTargets(players map[uint16]*entity.Player) []entity.Target {
+	targets := make([]entity.Target, 0, len(players))
+	for _, p := range players {
+		targets = append(targets, p)
+	}
+	return targets
 }
 
 // checkLeash resets the enemy to patrol if too far from spawn. Returns true if leashed.

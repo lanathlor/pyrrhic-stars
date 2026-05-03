@@ -323,3 +323,20 @@ func (p *Player) AimDirection() Vec3 {
 	cy := float32(math.Cos(float64(yaw)))
 	return Vec3{-sy * cp, sp, -cy * cp}
 }
+
+// --- Caster interface ---
+
+func (p *Player) CasterID() uint16            { return p.PeerID }
+func (p *Player) CasterPos() Vec3             { return p.Position }
+func (p *Player) CasterForward() Vec3         { return p.Forward() }
+func (p *Player) CasterEyePos() Vec3          { return p.EyePosition() }
+func (p *Player) CasterAimDir() Vec3          { return p.AimDirection() }
+func (p *Player) CasterAlive() bool           { return p.Alive }
+func (p *Player) CasterDamageMult() float32   { return p.DamageMult() }
+
+// --- Target interface ---
+
+func (p *Player) TargetID() uint16            { return p.PeerID }
+func (p *Player) TargetPos() Vec3             { return p.Position }
+func (p *Player) TargetAlive() bool           { return p.Alive }
+func (p *Player) TargetApplyDamage(a float32) float32 { return p.ApplyDamage(a) }

@@ -4,6 +4,7 @@ import (
 	"math"
 	"testing"
 
+	"codex-online/server/internal/ability"
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
 )
@@ -72,7 +73,8 @@ func testBrain(def *EnemyDef) (*Brain, *entity.Enemy) {
 	e := entity.NewEnemy(0, def.MaxHealth, def.Name)
 	e.State = entity.EnemyChase
 	e.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
-	b := NewBrain(def, e)
+	eng := ability.NewEngine(nil)
+	b := NewBrain(def, e, eng)
 	b.BoundsMinX = -20
 	b.BoundsMaxX = 20
 	b.BoundsMinZ = -15
@@ -1021,5 +1023,293 @@ func TestFaceTowardSamePosition(t *testing.T) {
 	yaw := FaceToward(pos, pos)
 	if yaw != 0 {
 		t.Errorf("FaceToward(same) = %f, want 0", yaw)
+	}
+}
+
+// --- resolveEngineDef tests ---
+
+func TestResolveEngineDef_Melee(t *testing.T) {
+	def := testDef()
+	b, e := testBrain(def)
+	e.ActiveAbility = 0
+
+	resolved := b.activeAbilityResolved()
+	b.resolveEngineDef(resolved)
+
+	if b.defBuf.ID != "melee" {
+		t.Errorf("ID = %q, want %q", b.defBuf.ID, "melee")
+	}
+	if b.defBuf.BaseDamage != 30.0 {
+		t.Errorf("BaseDamage = %f, want 30.0", b.defBuf.BaseDamage)
+	}
+	if b.defBuf.Hit.Type != ability.HitAoECone {
+		t.Errorf("Hit.Type = %d, want HitAoECone (%d)", b.defBuf.Hit.Type, ability.HitAoECone)
+	}
+	if b.defBuf.Hit.Range != 3.0 {
+		t.Errorf("Hit.Range = %f, want 3.0", b.defBuf.Hit.Range)
+	}
+	// π radians → 180 degrees
+	if math.Abs(float64(b.defBuf.Hit.ArcDegrees-180)) > 0.01 {
+		t.Errorf("Hit.ArcDegrees = %f, want 180", b.defBuf.Hit.ArcDegrees)
+	}
+}
+
+func TestResolveEngineDef_MeleeConeAngleConversion(t *testing.T) {
+	tests := []struct {
+		name        string
+		coneAngle   float32
+		wantDegrees float32
+	}{
+		{"90 degrees", float32(math.Pi / 2), 90},
+		{"180 degrees (π)", float32(math.Pi), 180},
+		{"360 degrees (2π)", float32(2 * math.Pi), 360},
+		{"60 degrees", float32(math.Pi / 3), 60},
+		{"custom 1.0 rad", 1.0, float32(1.0 * 180.0 / math.Pi)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			def := &EnemyDef{
+				Name:      "cone_test",
+				MaxHealth: 100,
+				MoveSpeed: 4,
+				Abilities: []AbilityDef{
+					{
+						Name: "melee", Type: AbilityMelee,
+						MeleeRange: 3, MeleeDamage: 10,
+						MeleeConeAngle: tt.coneAngle,
+					},
+				},
+			}
+			b, e := testBrain(def)
+			e.ActiveAbility = 0
+			resolved := b.activeAbilityResolved()
+			b.resolveEngineDef(resolved)
+			if math.Abs(float64(b.defBuf.Hit.ArcDegrees-tt.wantDegrees)) > 0.1 {
+				t.Errorf("ArcDegrees = %f, want %f", b.defBuf.Hit.ArcDegrees, tt.wantDegrees)
+			}
+		})
+	}
+}
+
+func TestResolveEngineDef_MeleeDefaultConeAngle(t *testing.T) {
+	def := &EnemyDef{
+		Name:      "default_cone",
+		MaxHealth: 100,
+		MoveSpeed: 4,
+		Abilities: []AbilityDef{
+			{
+				Name: "melee", Type: AbilityMelee,
+				MeleeRange: 3, MeleeDamage: 10,
+				MeleeConeAngle: 0, // zero → should default to π (180°)
+			},
+		},
+	}
+	b, e := testBrain(def)
+	e.ActiveAbility = 0
+	resolved := b.activeAbilityResolved()
+	b.resolveEngineDef(resolved)
+	if math.Abs(float64(b.defBuf.Hit.ArcDegrees-180)) > 0.1 {
+		t.Errorf("ArcDegrees = %f, want 180 (default)", b.defBuf.Hit.ArcDegrees)
+	}
+}
+
+func TestResolveEngineDef_AoE(t *testing.T) {
+	def := testDef()
+	b, e := testBrain(def)
+	e.ActiveAbility = 2 // aoe ability
+
+	resolved := b.activeAbilityResolved()
+	b.resolveEngineDef(resolved)
+
+	if b.defBuf.ID != "aoe" {
+		t.Errorf("ID = %q, want %q", b.defBuf.ID, "aoe")
+	}
+	if b.defBuf.BaseDamage != 40.0 {
+		t.Errorf("BaseDamage = %f, want 40.0", b.defBuf.BaseDamage)
+	}
+	if b.defBuf.Hit.Type != ability.HitAoECircle {
+		t.Errorf("Hit.Type = %d, want HitAoECircle (%d)", b.defBuf.Hit.Type, ability.HitAoECircle)
+	}
+	if b.defBuf.Hit.Radius != 5.0 {
+		t.Errorf("Hit.Radius = %f, want 5.0", b.defBuf.Hit.Radius)
+	}
+}
+
+func TestResolveEngineDef_Ranged_ReturnsMinimal(t *testing.T) {
+	def := testDef()
+	b, e := testBrain(def)
+	e.ActiveAbility = 1 // ranged ability
+
+	resolved := b.activeAbilityResolved()
+	b.resolveEngineDef(resolved)
+
+	if b.defBuf.ID != "ranged" {
+		t.Errorf("ID = %q, want %q", b.defBuf.ID, "ranged")
+	}
+	// Ranged is handled by brain (projectile spawning), engine def is minimal
+	if b.defBuf.BaseDamage != 0 {
+		t.Errorf("BaseDamage = %f, want 0 (ranged uses projectile system)", b.defBuf.BaseDamage)
+	}
+}
+
+func TestResolveEngineDef_PhaseOverride(t *testing.T) {
+	def := testDef()
+	b, e := testBrain(def)
+	e.ActiveAbility = 0
+	e.Phase = 2 // phase 2: melee damage overridden to 35
+
+	resolved := b.activeAbilityResolved()
+	b.resolveEngineDef(resolved)
+
+	if b.defBuf.BaseDamage != 35.0 {
+		t.Errorf("BaseDamage = %f, want 35.0 (phase 2 override)", b.defBuf.BaseDamage)
+	}
+}
+
+// --- playersToTargets tests ---
+
+func TestPlayersToTargets_Empty(t *testing.T) {
+	targets := playersToTargets(map[uint16]*entity.Player{})
+	if len(targets) != 0 {
+		t.Errorf("len = %d, want 0", len(targets))
+	}
+}
+
+func TestPlayersToTargets_MultiPlayers(t *testing.T) {
+	players := testPlayers(
+		testPlayer(1, entity.Vec3{X: 1}),
+		testPlayer(2, entity.Vec3{X: 2}),
+		testPlayer(3, entity.Vec3{X: 3}),
+	)
+	targets := playersToTargets(players)
+	if len(targets) != 3 {
+		t.Fatalf("len = %d, want 3", len(targets))
+	}
+	// Verify all are valid entity.Target and map back to correct players
+	seen := map[uint16]bool{}
+	for _, tgt := range targets {
+		p, ok := tgt.(*entity.Player)
+		if !ok {
+			t.Fatal("target is not *entity.Player")
+		}
+		seen[p.PeerID] = true
+	}
+	for _, id := range []uint16{1, 2, 3} {
+		if !seen[id] {
+			t.Errorf("player %d not in targets", id)
+		}
+	}
+}
+
+func TestPlayersToTargets_ImplementsTargetInterface(t *testing.T) {
+	p := testPlayer(1, entity.Vec3{X: 5, Y: 1, Z: 3})
+	targets := playersToTargets(testPlayers(p))
+	if len(targets) != 1 {
+		t.Fatal("expected 1 target")
+	}
+	tgt := targets[0]
+	if tgt.TargetID() != 1 {
+		t.Errorf("TargetID() = %d, want 1", tgt.TargetID())
+	}
+	if !tgt.TargetAlive() {
+		t.Error("TargetAlive() should be true")
+	}
+	if tgt.TargetPos() != p.Position {
+		t.Errorf("TargetPos() = %v, want %v", tgt.TargetPos(), p.Position)
+	}
+}
+
+// --- Benchmarks ---
+
+func BenchmarkResolveEngineDef_Melee(b *testing.B) {
+	def := testDef()
+	br, e := testBrain(def)
+	e.ActiveAbility = 0
+	resolved := br.activeAbilityResolved()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		br.resolveEngineDef(resolved)
+	}
+}
+
+func BenchmarkResolveEngineDef_AoE(b *testing.B) {
+	def := testDef()
+	br, e := testBrain(def)
+	e.ActiveAbility = 2
+	resolved := br.activeAbilityResolved()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		br.resolveEngineDef(resolved)
+	}
+}
+
+func BenchmarkFillTargets_5(b *testing.B) {
+	players := make(map[uint16]*entity.Player, 5)
+	for i := range 5 {
+		players[uint16(i+1)] = testPlayer(uint16(i+1), entity.Vec3{X: float32(i)})
+	}
+	br, _ := testBrain(testDef())
+	// Pre-allocate to warm the buffer
+	br.fillTargets(players)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		br.fillTargets(players)
+	}
+}
+
+func BenchmarkTickMeleeAttack_Hit(b *testing.B) {
+	def := testDef()
+	br, e := testBrain(def)
+	p := testPlayer(1, entity.Vec3{X: 0, Y: 0.1, Z: -2})
+	p.Health = 1e9
+	players := testPlayers(p)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		e.State = entity.EnemyMeleeAttack
+		e.StateTimer = 0
+		e.ActiveAbility = 0
+		e.RotationY = 0
+		p.Health = 1e9
+		p.Alive = true
+		br.Tick(0.05, players, nil, nil)
+	}
+}
+
+func BenchmarkTickAoESlam_Hit(b *testing.B) {
+	def := testDef()
+	br, e := testBrain(def)
+	p := testPlayer(1, entity.Vec3{X: 3, Y: 0.1, Z: 0})
+	p.Health = 1e9
+	players := testPlayers(p)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		e.State = entity.EnemyAoESlam
+		e.StateTimer = 0
+		e.ActiveAbility = 2
+		p.Health = 1e9
+		p.Alive = true
+		br.Tick(0.05, players, nil, nil)
+	}
+}
+
+func BenchmarkSelectAbility(b *testing.B) {
+	def := testDef()
+	br, _ := testBrain(def)
+	players := testPlayers()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		br.selectAbility(2.5, players)
 	}
 }

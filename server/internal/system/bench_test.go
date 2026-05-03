@@ -49,7 +49,7 @@ func benchWorld() *World {
 		e.AddThreat(2, 30)
 		enemies[i] = e
 
-		b := enemyai.NewBrain(def, e)
+		b := enemyai.NewBrain(def, e, ability.NewEngine(nil))
 		b.BoundsMinX = lvl.EnemyBoundsMinX
 		b.BoundsMaxX = lvl.EnemyBoundsMaxX
 		b.BoundsMinZ = lvl.EnemyBoundsMinZ
@@ -400,7 +400,7 @@ func benchArenaInstance(instanceID uint16) *World {
 		e.AddThreat(instanceID*10+2, 30)
 		enemies[i] = e
 
-		b := enemyai.NewBrain(def, e)
+		b := enemyai.NewBrain(def, e, ability.NewEngine(nil))
 		b.BoundsMinX = lvl.EnemyBoundsMinX
 		b.BoundsMaxX = lvl.EnemyBoundsMaxX
 		b.BoundsMinZ = lvl.EnemyBoundsMinZ
@@ -646,7 +646,7 @@ func BenchmarkBrainTickChase(b *testing.B) {
 	e.State = entity.EnemyChase
 	e.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 
-	brain := enemyai.NewBrain(def, e)
+	brain := enemyai.NewBrain(def, e, ability.NewEngine(nil))
 	brain.BoundsMinX = -20
 	brain.BoundsMaxX = 20
 	brain.BoundsMinZ = -15
@@ -670,7 +670,7 @@ func BenchmarkBrainTickChase(b *testing.B) {
 func BenchmarkBrainTickMeleeAttack(b *testing.B) {
 	def := &enemyai.GuardCaptain
 	e := entity.NewEnemy(0, def.MaxHealth, def.Name)
-	brain := enemyai.NewBrain(def, e)
+	brain := enemyai.NewBrain(def, e, ability.NewEngine(nil))
 	brain.BoundsMinX = -20
 	brain.BoundsMaxX = 20
 	brain.BoundsMinZ = -15
@@ -701,7 +701,7 @@ func BenchmarkBrainTickMeleeAttack(b *testing.B) {
 func BenchmarkBrainTickMeleeAttackMiss(b *testing.B) {
 	def := &enemyai.GuardCaptain
 	e := entity.NewEnemy(0, def.MaxHealth, def.Name)
-	brain := enemyai.NewBrain(def, e)
+	brain := enemyai.NewBrain(def, e, ability.NewEngine(nil))
 	brain.BoundsMinX = -20
 	brain.BoundsMaxX = 20
 	brain.BoundsMinZ = -15

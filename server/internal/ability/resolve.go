@@ -12,105 +12,105 @@ type DamageResult struct {
 	Amount     float32
 	HitPos     entity.Vec3
 	SourceType uint8
-	Enemy      *entity.Enemy // for threat tracking
+	Target     entity.Target // the hit entity (caller type-asserts for threat/aggro)
 }
 
 // resolveHit executes the hit portion of an ability and appends damage results to dst.
-func resolveHit(dst []DamageResult, def *AbilityDef, p *entity.Player, enemies []*entity.Enemy, obstacles []combat.Obstacle) []DamageResult {
-	damage := def.BaseDamage * p.DamageMult()
+func resolveHit(dst []DamageResult, def *AbilityDef, caster entity.Caster, targets []entity.Target, obstacles []combat.Obstacle, sourceType uint8) []DamageResult {
+	damage := def.BaseDamage * caster.CasterDamageMult()
 
 	switch def.Hit.Type {
 	case HitNone:
 		return dst
 
 	case HitHitscan:
-		return resolveHitscan(dst, p, enemies, obstacles, damage)
+		return resolveHitscan(dst, caster, targets, obstacles, damage, sourceType)
 
 	case HitMeleeArc:
-		return resolveMeleeArc(dst, p, enemies, obstacles, def.Hit, damage)
+		return resolveMeleeArc(dst, caster, targets, obstacles, def.Hit, damage, sourceType)
 
 	case HitAoECircle:
-		return resolveAoECircle(dst, p.Position, p.PeerID, enemies, obstacles, def.Hit.Radius, damage)
+		return resolveAoECircle(dst, caster.CasterPos(), caster.CasterID(), targets, obstacles, def.Hit.Radius, damage, sourceType)
 
 	case HitAoECone:
-		return resolveAoECone(dst, p, enemies, obstacles, def.Hit, damage)
+		return resolveAoECone(dst, caster, targets, obstacles, def.Hit, damage, sourceType)
 
 	case HitAoECircleTarget:
-		return resolveAoECircleTarget(dst, p, enemies, obstacles, def.Hit.Radius, damage)
+		return resolveAoECircleTarget(dst, caster, targets, obstacles, def.Hit.Radius, damage, sourceType)
 
 	case HitNearestN:
-		return resolveNearestN(dst, p, enemies, obstacles, def.Hit.TargetCount, damage)
+		return resolveNearestN(dst, caster, targets, obstacles, def.Hit.TargetCount, damage, sourceType)
 	}
 	return dst
 }
 
-func resolveHitscan(dst []DamageResult, p *entity.Player, enemies []*entity.Enemy, obstacles []combat.Obstacle, damage float32) []DamageResult {
-	origin := p.EyePosition()
-	direction := p.AimDirection()
+func resolveHitscan(dst []DamageResult, caster entity.Caster, targets []entity.Target, obstacles []combat.Obstacle, damage float32, sourceType uint8) []DamageResult {
+	origin := caster.CasterEyePos()
+	direction := caster.CasterAimDir()
 
-	var best *entity.Enemy
+	var best entity.Target
 	bestDistSq := float32(1e18)
 
-	for _, e := range enemies {
-		if e == nil || !e.Alive || e.State == entity.EnemyDead {
+	for _, t := range targets {
+		if t == nil || !t.TargetAlive() {
 			continue
 		}
-		targetCenter := e.Position.Add(entity.Vec3{Y: 1.0})
+		targetCenter := t.TargetPos().Add(entity.Vec3{Y: 1.0})
 		if !combat.CheckHitscan(origin, direction, targetCenter, 1.2, 100.0, obstacles) {
 			continue
 		}
-		distSq := e.Position.DistanceToSq(p.Position)
+		distSq := t.TargetPos().DistanceToSq(caster.CasterPos())
 		if distSq < bestDistSq {
 			bestDistSq = distSq
-			best = e
+			best = t
 		}
 	}
 	if best == nil {
 		return dst
 	}
 
-	dealt, _ := best.ApplyDamage(damage)
+	dealt := best.TargetApplyDamage(damage)
 	if dealt == 0 {
 		return dst
 	}
 	return append(dst, DamageResult{
-		TargetID:   best.ID,
-		SourceID:   p.PeerID,
+		TargetID:   best.TargetID(),
+		SourceID:   caster.CasterID(),
 		Amount:     dealt,
-		HitPos:     best.Position.Add(entity.Vec3{Y: 1.0}),
-		SourceType: combat.SourcePlayerAttack,
-		Enemy:      best,
+		HitPos:     best.TargetPos().Add(entity.Vec3{Y: 1.0}),
+		SourceType: sourceType,
+		Target:     best,
 	})
 }
 
-func resolveMeleeArc(dst []DamageResult, p *entity.Player, enemies []*entity.Enemy, obstacles []combat.Obstacle, hit HitDef, damage float32) []DamageResult {
+func resolveMeleeArc(dst []DamageResult, caster entity.Caster, targets []entity.Target, obstacles []combat.Obstacle, hit HitDef, damage float32, sourceType uint8) []DamageResult {
 	var best DamageResult
 	bestDistSq := float32(1e18)
 	found := false
 
-	for _, e := range enemies {
-		if e == nil || !e.Alive || e.State == entity.EnemyDead {
+	for _, t := range targets {
+		if t == nil || !t.TargetAlive() {
 			continue
 		}
-		if !combat.CheckMeleeArc(p.Position, p.Forward(), e.Position, hit.Range, hit.ArcDegrees, obstacles) {
+		if !combat.CheckMeleeArc(caster.CasterPos(), caster.CasterForward(), t.TargetPos(), hit.Range, hit.ArcDegrees, obstacles) {
 			continue
 		}
-		dealt, _ := e.ApplyDamage(damage)
+		dealt := t.TargetApplyDamage(damage)
 		if dealt == 0 {
 			continue
 		}
-		distSq := e.Position.DistanceToSq(p.Position)
-		hitDir := e.Position.Sub(p.Position).Normalized()
+		distSq := t.TargetPos().DistanceToSq(caster.CasterPos())
+		hitDir := t.TargetPos().Sub(caster.CasterPos()).Normalized()
 		if distSq < bestDistSq {
 			bestDistSq = distSq
 			found = true
 			best = DamageResult{
-				TargetID:   e.ID,
-				SourceID:   p.PeerID,
+				TargetID:   t.TargetID(),
+				SourceID:   caster.CasterID(),
 				Amount:     dealt,
-				HitPos:     p.Position.Add(hitDir),
-				SourceType: combat.SourcePlayerAttack,
-				Enemy:      e,
+				HitPos:     caster.CasterPos().Add(hitDir),
+				SourceType: sourceType,
+				Target:     t,
 			}
 		}
 	}
@@ -120,90 +120,92 @@ func resolveMeleeArc(dst []DamageResult, p *entity.Player, enemies []*entity.Ene
 	return append(dst, best)
 }
 
-func resolveAoECircle(dst []DamageResult, center entity.Vec3, sourceID uint16, enemies []*entity.Enemy, obstacles []combat.Obstacle, radius, damage float32) []DamageResult {
-	for _, e := range enemies {
-		if e == nil || !e.Alive || e.State == entity.EnemyDead {
+func resolveAoECircle(dst []DamageResult, center entity.Vec3, sourceID uint16, targets []entity.Target, obstacles []combat.Obstacle, radius, damage float32, sourceType uint8) []DamageResult {
+	for _, t := range targets {
+		if t == nil || !t.TargetAlive() {
 			continue
 		}
-		if !combat.CheckAoERadius(center, e.Position, radius, obstacles) {
+		if !combat.CheckAoERadius(center, t.TargetPos(), radius, obstacles) {
 			continue
 		}
-		dealt, _ := e.ApplyDamage(damage)
+		dealt := t.TargetApplyDamage(damage)
 		if dealt == 0 {
 			continue
 		}
-		hitDir := e.Position.Sub(center)
+		hitDir := t.TargetPos().Sub(center)
 		if hitDir.LengthSq() > 0.01 {
 			hitDir = hitDir.Normalized()
 		}
 		dst = append(dst, DamageResult{
-			TargetID:   e.ID,
+			TargetID:   t.TargetID(),
 			SourceID:   sourceID,
 			Amount:     dealt,
 			HitPos:     center.Add(hitDir),
-			SourceType: combat.SourcePlayerAttack,
-			Enemy:      e,
+			SourceType: sourceType,
+			Target:     t,
 		})
 	}
 	return dst
 }
 
-func resolveAoECone(dst []DamageResult, p *entity.Player, enemies []*entity.Enemy, obstacles []combat.Obstacle, hit HitDef, damage float32) []DamageResult {
-	for _, e := range enemies {
-		if e == nil || !e.Alive || e.State == entity.EnemyDead {
+func resolveAoECone(dst []DamageResult, caster entity.Caster, targets []entity.Target, obstacles []combat.Obstacle, hit HitDef, damage float32, sourceType uint8) []DamageResult {
+	for _, t := range targets {
+		if t == nil || !t.TargetAlive() {
 			continue
 		}
-		if !combat.CheckMeleeArc(p.Position, p.Forward(), e.Position, hit.Range, hit.ArcDegrees, obstacles) {
+		if !combat.CheckMeleeArc(caster.CasterPos(), caster.CasterForward(), t.TargetPos(), hit.Range, hit.ArcDegrees, obstacles) {
 			continue
 		}
-		dealt, _ := e.ApplyDamage(damage)
+		dealt := t.TargetApplyDamage(damage)
 		if dealt == 0 {
 			continue
 		}
-		hitDir := e.Position.Sub(p.Position)
+		hitDir := t.TargetPos().Sub(caster.CasterPos())
 		if hitDir.LengthSq() > 0.01 {
 			hitDir = hitDir.Normalized()
 		}
 		dst = append(dst, DamageResult{
-			TargetID:   e.ID,
-			SourceID:   p.PeerID,
+			TargetID:   t.TargetID(),
+			SourceID:   caster.CasterID(),
 			Amount:     dealt,
-			HitPos:     p.Position.Add(hitDir),
-			SourceType: combat.SourcePlayerAttack,
-			Enemy:      e,
+			HitPos:     caster.CasterPos().Add(hitDir),
+			SourceType: sourceType,
+			Target:     t,
 		})
 	}
 	return dst
 }
 
-func resolveAoECircleTarget(dst []DamageResult, p *entity.Player, enemies []*entity.Enemy, obstacles []combat.Obstacle, radius, damage float32) []DamageResult {
+func resolveAoECircleTarget(dst []DamageResult, caster entity.Caster, targets []entity.Target, obstacles []combat.Obstacle, radius, damage float32, sourceType uint8) []DamageResult {
 	// Find hitscan target first, then AoE around it
-	target := findHitscanTarget(p, enemies, obstacles)
+	target := findHitscanTarget(caster, targets, obstacles)
 	if target == nil {
 		return dst
 	}
-	return resolveAoECircle(dst, target.Position, p.PeerID, enemies, obstacles, radius, damage)
+	return resolveAoECircle(dst, target.TargetPos(), caster.CasterID(), targets, obstacles, radius, damage, sourceType)
 }
 
-func resolveNearestN(dst []DamageResult, p *entity.Player, enemies []*entity.Enemy, obstacles []combat.Obstacle, n int, damage float32) []DamageResult {
+func resolveNearestN(dst []DamageResult, caster entity.Caster, targets []entity.Target, obstacles []combat.Obstacle, n int, damage float32, sourceType uint8) []DamageResult {
 	if n <= 0 {
 		return dst
 	}
 
 	type candidate struct {
-		enemy  *entity.Enemy
+		target entity.Target
 		distSq float32
 	}
-	var candidates []candidate
-	for _, e := range enemies {
-		if e == nil || !e.Alive || e.State == entity.EnemyDead {
+	var buf [16]candidate
+	candidates := buf[:0]
+	for _, t := range targets {
+		if t == nil || !t.TargetAlive() {
 			continue
 		}
-		if len(e.ThreatTable) == 0 {
+		// For enemy targets, skip those not yet engaged (no threat)
+		if enemy, ok := t.(*entity.Enemy); ok && len(enemy.ThreatTable) == 0 {
 			continue
 		}
-		distSq := e.Position.DistanceToSq(p.Position)
-		candidates = append(candidates, candidate{e, distSq})
+		distSq := t.TargetPos().DistanceToSq(caster.CasterPos())
+		candidates = append(candidates, candidate{t, distSq})
 	}
 
 	// Sort by distance (insertion sort — N is small)
@@ -218,48 +220,48 @@ func resolveNearestN(dst []DamageResult, p *entity.Player, enemies []*entity.Ene
 		if hits >= n {
 			break
 		}
-		if combat.SegmentHitsObstacle(p.Position, c.enemy.Position, obstacles) {
+		if combat.SegmentHitsObstacle(caster.CasterPos(), c.target.TargetPos(), obstacles) {
 			continue
 		}
-		dealt, _ := c.enemy.ApplyDamage(damage)
+		dealt := c.target.TargetApplyDamage(damage)
 		if dealt == 0 {
 			continue
 		}
-		hitDir := c.enemy.Position.Sub(p.Position)
+		hitDir := c.target.TargetPos().Sub(caster.CasterPos())
 		if hitDir.LengthSq() > 0.01 {
 			hitDir = hitDir.Normalized()
 		}
 		dst = append(dst, DamageResult{
-			TargetID:   c.enemy.ID,
-			SourceID:   p.PeerID,
+			TargetID:   c.target.TargetID(),
+			SourceID:   caster.CasterID(),
 			Amount:     dealt,
-			HitPos:     p.Position.Add(hitDir),
-			SourceType: combat.SourcePlayerAttack,
-			Enemy:      c.enemy,
+			HitPos:     caster.CasterPos().Add(hitDir),
+			SourceType: sourceType,
+			Target:     c.target,
 		})
 		hits++
 	}
 	return dst
 }
 
-// findHitscanTarget finds the nearest enemy hit by the player's hitscan aim.
-func findHitscanTarget(p *entity.Player, enemies []*entity.Enemy, obstacles []combat.Obstacle) *entity.Enemy {
-	origin := p.EyePosition()
-	direction := p.AimDirection()
-	var best *entity.Enemy
+// findHitscanTarget finds the nearest target hit by the caster's hitscan aim.
+func findHitscanTarget(caster entity.Caster, targets []entity.Target, obstacles []combat.Obstacle) entity.Target {
+	origin := caster.CasterEyePos()
+	direction := caster.CasterAimDir()
+	var best entity.Target
 	bestDistSq := float32(1e18)
-	for _, e := range enemies {
-		if e == nil || !e.Alive || e.State == entity.EnemyDead {
+	for _, t := range targets {
+		if t == nil || !t.TargetAlive() {
 			continue
 		}
-		targetCenter := e.Position.Add(entity.Vec3{Y: 1.0})
+		targetCenter := t.TargetPos().Add(entity.Vec3{Y: 1.0})
 		if !combat.CheckHitscan(origin, direction, targetCenter, 1.2, 20.0, obstacles) {
 			continue
 		}
-		distSq := e.Position.DistanceToSq(p.Position)
+		distSq := t.TargetPos().DistanceToSq(caster.CasterPos())
 		if distSq < bestDistSq {
 			bestDistSq = distSq
-			best = e
+			best = t
 		}
 	}
 	return best

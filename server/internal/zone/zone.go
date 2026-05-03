@@ -109,7 +109,7 @@ func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
 			enemy.LeashOrigin = sp.Position
 			enemy.LeashRadius = sp.LeashRadius
 			enemy.GroupID = sp.GroupID
-			brain := enemyai.NewBrain(def, enemy)
+			brain := enemyai.NewBrain(def, enemy, z.world.AbilityEngine)
 			// Brain bounds = full instance bounds (leash handles area restriction)
 			brain.BoundsMinX = l.EnemyBoundsMinX
 			brain.BoundsMaxX = l.EnemyBoundsMaxX

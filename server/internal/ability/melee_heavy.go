@@ -1,6 +1,9 @@
 package ability
 
-import "codex-online/server/internal/entity"
+import (
+	"codex-online/server/internal/combat"
+	"codex-online/server/internal/entity"
+)
 
 var meleeHeavyDef = AbilityDef{
 	ID:         "melee_heavy", Name: "Heavy Attack",
@@ -10,7 +13,7 @@ var meleeHeavyDef = AbilityDef{
 }
 
 func meleeHeavyVGHandler(eng *Engine, ctx *CastContext) CastResult {
-	p := ctx.Player
+	p := ctx.Caster.(*entity.Player)
 	if p.Cooldowns["melee_heavy"] > 0 {
 		return CastResult{Reason: "cooldown"}
 	}
@@ -20,7 +23,7 @@ func meleeHeavyVGHandler(eng *Engine, ctx *CastContext) CastResult {
 
 	def := eng.abilities["melee_heavy"]
 	damage := def.BaseDamage * p.DamageMult()
-	eng.hitBuf = resolveMeleeArc(eng.hitBuf, p, ctx.Enemies, ctx.Obstacles, def.Hit, damage)
+	eng.hitBuf = resolveMeleeArc(eng.hitBuf, p, ctx.Targets, ctx.Obstacles, def.Hit, damage, combat.SourcePlayerAttack)
 
 	p.Cooldowns["melee_heavy"] = 0.8
 	p.State = entity.PlayerStateAttack

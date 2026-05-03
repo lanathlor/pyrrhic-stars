@@ -1,6 +1,9 @@
 package ability
 
-import "codex-online/server/internal/entity"
+import (
+	"codex-online/server/internal/combat"
+	"codex-online/server/internal/entity"
+)
 
 var bladeSwirlDef = AbilityDef{
 	ID:      "blade_swirl", Name: "Blade Swirl",
@@ -14,7 +17,7 @@ type BladeSwirlState struct {
 }
 
 func bladeSwirlHandler(eng *Engine, ctx *CastContext) CastResult {
-	p := ctx.Player
+	p := ctx.Caster.(*entity.Player)
 	if p.Cooldowns["blade_swirl"] > 0 || p.GCDTimer > 0 {
 		return CastResult{Reason: "cooldown"}
 	}
@@ -37,10 +40,10 @@ func bladeSwirlHandler(eng *Engine, ctx *CastContext) CastResult {
 		Duration: 1.5,
 	})
 
-	eng.hitBuf = resolveAoECircle(eng.hitBuf, p.Position, p.PeerID, ctx.Enemies, ctx.Obstacles, 6.0, 25.0)
+	eng.hitBuf = resolveAoECircle(eng.hitBuf, p.Position, p.PeerID, ctx.Targets, ctx.Obstacles, 6.0, 25.0, combat.SourcePlayerAttack)
 	for i := range eng.hitBuf {
-		if eng.hitBuf[i].Enemy != nil {
-			eng.hitBuf[i].Enemy.AddThreat(p.PeerID, eng.hitBuf[i].Amount)
+		if enemy, ok := eng.hitBuf[i].Target.(*entity.Enemy); ok {
+			enemy.AddThreat(p.PeerID, eng.hitBuf[i].Amount)
 		}
 	}
 
@@ -57,10 +60,10 @@ func bladeSwirlTick(eng *Engine, p *entity.Player, dt float32, ctx *TickContext)
 	var events []DamageResult
 	expectedTicks := int((1.5 - state.Timer) / 0.5)
 	if expectedTicks > state.Ticks && ctx != nil {
-		eng.hitBuf = resolveAoECircle(eng.hitBuf[:0], p.Position, p.PeerID, ctx.Enemies, ctx.Obstacles, 6.0, 25.0)
+		eng.hitBuf = resolveAoECircle(eng.hitBuf[:0], p.Position, p.PeerID, ctx.Targets, ctx.Obstacles, 6.0, 25.0, combat.SourcePlayerAttack)
 		for i := range eng.hitBuf {
-			if eng.hitBuf[i].Enemy != nil {
-				eng.hitBuf[i].Enemy.AddThreat(p.PeerID, eng.hitBuf[i].Amount)
+			if enemy, ok := eng.hitBuf[i].Target.(*entity.Enemy); ok {
+				enemy.AddThreat(p.PeerID, eng.hitBuf[i].Amount)
 			}
 		}
 		events = append(events, eng.hitBuf...)
