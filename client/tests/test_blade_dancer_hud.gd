@@ -19,6 +19,7 @@ func before_test() -> void:
 
 # --- Damage flash ---
 
+
 func test_damage_flash_sets_timer() -> void:
 	_hud.show_damage_flash()
 	assert_float(_hud._damage_flash_timer).is_greater(0.0)
@@ -55,6 +56,7 @@ func test_damage_flash_reaches_zero() -> void:
 
 # --- Hit marker ---
 
+
 func test_hit_marker_sets_timer() -> void:
 	_hud.show_hit_marker()
 	assert_float(_hud._hit_marker_timer).is_greater(0.0)
@@ -76,6 +78,7 @@ func test_hit_marker_reaches_zero() -> void:
 
 
 # --- Config display ---
+
 
 func test_update_config_stores_orbit() -> void:
 	_hud.update_config(0)
@@ -100,6 +103,7 @@ func test_update_config_updates_accent_color() -> void:
 
 # --- GCD ---
 
+
 func test_update_gcd_stores_ratio() -> void:
 	_hud.update_gcd(0.5)
 	assert_float(_hud._gcd_ratio).is_equal(0.5)
@@ -123,9 +127,10 @@ func test_update_gcd_passes_to_ability_bar() -> void:
 
 # --- Spell bar ---
 
+
 func test_update_spells_enriches_keybinds() -> void:
 	var spells := [
-		{name="Test Spell", desc="A test.", dest=1, dur=0.3},
+		{name = "Test Spell", desc = "A test.", dest = 1, dur = 0.3},
 	]
 	_hud.update_spells(spells)
 	var bar: Control = _hud.get_node("AbilityBar")
@@ -134,10 +139,10 @@ func test_update_spells_enriches_keybinds() -> void:
 
 func test_update_spells_passes_four_slots() -> void:
 	var spells := [
-		{name="A", desc="", dest=1, dur=0.3},
-		{name="B", desc="", dest=2, dur=0.3},
-		{name="C", desc="", dest=3, dur=0.4},
-		{name="D", desc="", dest=4, dur=0.5},
+		{name = "A", desc = "", dest = 1, dur = 0.3},
+		{name = "B", desc = "", dest = 2, dur = 0.3},
+		{name = "C", desc = "", dest = 3, dur = 0.4},
+		{name = "D", desc = "", dest = 4, dur = 0.5},
 	]
 	_hud.update_spells(spells)
 	var bar: Control = _hud.get_node("AbilityBar")
@@ -146,6 +151,7 @@ func test_update_spells_passes_four_slots() -> void:
 
 
 # --- Lock-on reticle ---
+
 
 func test_lock_on_show() -> void:
 	_hud.show_lock_on()
@@ -172,6 +178,7 @@ func test_lock_on_update_stores_meta() -> void:
 
 # --- Duration constants ---
 
+
 func test_damage_flash_duration_constant() -> void:
 	assert_float(_hud.DAMAGE_FLASH_DURATION).is_equal(0.3)
 
@@ -181,6 +188,7 @@ func test_hit_marker_duration_constant() -> void:
 
 
 # --- Config color constants ---
+
 
 func test_config_colors_has_five_entries() -> void:
 	assert_int(_hud.CONFIG_COLORS.size()).is_equal(5)

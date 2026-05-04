@@ -19,10 +19,23 @@ func before_test() -> void:
 
 # --- Spell bar ---
 
+
 func test_update_spells_passes_to_ability_bar() -> void:
 	var spells := [
-		{name="Blade Swirl", keybind="F", desc="AoE spin.", cooldown=5.0, cooldown_max=10.0},
-		{name="Ground Slam", keybind="E", desc="Cone AoE.", cooldown=0.0, cooldown_max=8.0},
+		{
+			name = "Blade Swirl",
+			keybind = "F",
+			desc = "AoE spin.",
+			cooldown = 5.0,
+			cooldown_max = 10.0
+		},
+		{
+			name = "Ground Slam",
+			keybind = "E",
+			desc = "Cone AoE.",
+			cooldown = 0.0,
+			cooldown_max = 8.0
+		},
 	]
 	_hud.update_spells(spells)
 	var bar: Control = _hud.get_node("AbilityBar")
@@ -39,6 +52,7 @@ func test_ability_bar_accent_color_is_orange() -> void:
 
 
 # --- Damage flash ---
+
 
 func test_damage_flash_sets_timer() -> void:
 	_hud.show_damage_flash()
@@ -67,6 +81,7 @@ func test_damage_flash_decays_over_time() -> void:
 
 
 # --- Parry flash ---
+
 
 func test_parry_flash_sets_timer() -> void:
 	_hud.show_parry_flash()
@@ -101,6 +116,7 @@ func test_parry_flash_decays_over_time() -> void:
 
 # --- Hit marker ---
 
+
 func test_hit_marker_sets_timer() -> void:
 	_hud.show_hit_marker()
 	assert_float(_hud._hit_marker_timer).is_greater(0.0)
@@ -122,6 +138,7 @@ func test_hit_marker_reaches_zero() -> void:
 
 
 # --- Lock-on reticle ---
+
 
 func test_lock_on_show() -> void:
 	_hud.show_lock_on()
@@ -147,6 +164,7 @@ func test_lock_on_update_stores_meta() -> void:
 
 
 # --- Duration constants ---
+
 
 func test_damage_flash_duration_constant() -> void:
 	assert_float(_hud.DAMAGE_FLASH_DURATION).is_equal(0.3)

@@ -64,10 +64,14 @@ func _draw_crosshair_lines(canvas: Control, center: Vector2) -> void:
 		gap = 10.0
 
 	# Horizontal lines
-	canvas.draw_rect(Rect2(center.x - gap - length, center.y - thickness / 2.0, length, thickness), color)
+	canvas.draw_rect(
+		Rect2(center.x - gap - length, center.y - thickness / 2.0, length, thickness), color
+	)
 	canvas.draw_rect(Rect2(center.x + gap, center.y - thickness / 2.0, length, thickness), color)
 	# Vertical lines
-	canvas.draw_rect(Rect2(center.x - thickness / 2.0, center.y - gap - length, thickness, length), color)
+	canvas.draw_rect(
+		Rect2(center.x - thickness / 2.0, center.y - gap - length, thickness, length), color
+	)
 	canvas.draw_rect(Rect2(center.x - thickness / 2.0, center.y + gap, thickness, length), color)
 	# Center dot
 	canvas.draw_rect(Rect2(center.x - 1.0, center.y - 1.0, 2.0, 2.0), color)
@@ -80,10 +84,34 @@ func _draw_crosshair_lines(canvas: Control, center: Vector2) -> void:
 		var x_len: float = 10.0
 		var x_thick: float = 2.5
 		# Top-left to center
-		canvas.draw_line(center + Vector2(-x_gap - x_len, -x_gap - x_len), center + Vector2(-x_gap, -x_gap), hit_color, x_thick, true)
+		canvas.draw_line(
+			center + Vector2(-x_gap - x_len, -x_gap - x_len),
+			center + Vector2(-x_gap, -x_gap),
+			hit_color,
+			x_thick,
+			true
+		)
 		# Top-right to center
-		canvas.draw_line(center + Vector2(x_gap + x_len, -x_gap - x_len), center + Vector2(x_gap, -x_gap), hit_color, x_thick, true)
+		canvas.draw_line(
+			center + Vector2(x_gap + x_len, -x_gap - x_len),
+			center + Vector2(x_gap, -x_gap),
+			hit_color,
+			x_thick,
+			true
+		)
 		# Bottom-left to center
-		canvas.draw_line(center + Vector2(-x_gap - x_len, x_gap + x_len), center + Vector2(-x_gap, x_gap), hit_color, x_thick, true)
+		canvas.draw_line(
+			center + Vector2(-x_gap - x_len, x_gap + x_len),
+			center + Vector2(-x_gap, x_gap),
+			hit_color,
+			x_thick,
+			true
+		)
 		# Bottom-right to center
-		canvas.draw_line(center + Vector2(x_gap + x_len, x_gap + x_len), center + Vector2(x_gap, x_gap), hit_color, x_thick, true)
+		canvas.draw_line(
+			center + Vector2(x_gap + x_len, x_gap + x_len),
+			center + Vector2(x_gap, x_gap),
+			hit_color,
+			x_thick,
+			true
+		)

@@ -20,12 +20,22 @@ func before_test() -> void:
 
 func after_test() -> void:
 	# Clean up input state between tests
-	for action in ["move_forward", "move_backward", "move_left", "move_right", "sprint", "shoot", "dodge", "jump"]:
+	for action in [
+		"move_forward",
+		"move_backward",
+		"move_left",
+		"move_right",
+		"sprint",
+		"shoot",
+		"dodge",
+		"jump"
+	]:
 		if Input.is_action_pressed(action):
 			Input.action_release(action)
 
 
 # --- Health & Damage ---
+
 
 func test_initial_health() -> void:
 	assert_float(_gunner.health).is_equal(100.0)
@@ -49,6 +59,7 @@ func test_respawn_restores_health() -> void:
 
 
 # --- Roll mechanics ---
+
 
 func test_roll_sets_cooldown() -> void:
 	_gunner._roll_cooldown_timer = 0.0
@@ -101,6 +112,7 @@ func test_roll_bleeds_velocity_on_exit() -> void:
 
 # --- Sprint / Shooting interaction ---
 
+
 func test_fire_cooldown_decreases() -> void:
 	_gunner._fire_cooldown = 1.0
 	_gunner._handle_shooting(DELTA)
@@ -108,6 +120,7 @@ func test_fire_cooldown_decreases() -> void:
 
 
 # --- Movement tuning ---
+
 
 func test_walk_speed_value() -> void:
 	assert_float(_gunner.walk_speed).is_equal(5.5)
@@ -128,6 +141,7 @@ func test_air_accel_much_lower_than_ground() -> void:
 
 # --- Weapon Attachment ---
 
+
 func test_weapon_scene_path_defined() -> void:
 	assert_that(_gunner.WEAPON_SCENE).is_not_null()
 
@@ -141,6 +155,7 @@ func test_model_hidden_for_fps() -> void:
 
 
 # --- Remote tracer (bullet line) state transition ---
+
 
 func _make_remote_gunner() -> CharacterBody3D:
 	var remote := auto_free(load(GUNNER_SCENE).instantiate())
@@ -166,53 +181,108 @@ func test_remote_attack_state_spawns_tracer() -> void:
 	var remote := await _make_remote_gunner()
 	var before := _count_tracers()
 	# Simulate server sending state=2 (PlayerStateAttack)
-	remote.apply_server_state({
-		"pos": Vector3(5.0, 0.0, 0.0),
-		"rot_y": 0.0,
-		"health": 100.0,
-		"state": 2,  # PlayerStateAttack
-		"anim_name": "rifle_idle",
-		"anim_speed": 1.0,
-		"aim_pitch": 0.0,
-	})
+	(
+		remote
+		. apply_server_state(
+			{
+				"pos": Vector3(5.0, 0.0, 0.0),
+				"rot_y": 0.0,
+				"health": 100.0,
+				"state": 2,  # PlayerStateAttack
+				"anim_name": "rifle_idle",
+				"anim_speed": 1.0,
+				"aim_pitch": 0.0,
+			}
+		)
+	)
 	assert_int(_count_tracers()).is_greater(before)
 
 
 func test_remote_attack_state_no_retrigger_same_state() -> void:
 	var remote := await _make_remote_gunner()
 	# First transition: should spawn tracer
-	remote.apply_server_state({
-		"pos": Vector3(5.0, 0.0, 0.0), "rot_y": 0.0, "health": 100.0,
-		"state": 2, "anim_name": "", "anim_speed": 1.0, "aim_pitch": 0.0,
-	})
+	(
+		remote
+		. apply_server_state(
+			{
+				"pos": Vector3(5.0, 0.0, 0.0),
+				"rot_y": 0.0,
+				"health": 100.0,
+				"state": 2,
+				"anim_name": "",
+				"anim_speed": 1.0,
+				"aim_pitch": 0.0,
+			}
+		)
+	)
 	await get_tree().process_frame
 	var count_after_first := _count_tracers()
 	# Second tick with same state: should NOT spawn another tracer
-	remote.apply_server_state({
-		"pos": Vector3(5.0, 0.0, 0.0), "rot_y": 0.0, "health": 100.0,
-		"state": 2, "anim_name": "", "anim_speed": 1.0, "aim_pitch": 0.0,
-	})
+	(
+		remote
+		. apply_server_state(
+			{
+				"pos": Vector3(5.0, 0.0, 0.0),
+				"rot_y": 0.0,
+				"health": 100.0,
+				"state": 2,
+				"anim_name": "",
+				"anim_speed": 1.0,
+				"aim_pitch": 0.0,
+			}
+		)
+	)
 	assert_int(_count_tracers()).is_equal(count_after_first)
 
 
 func test_remote_tracer_fires_again_after_state_reset() -> void:
 	var remote := await _make_remote_gunner()
 	# Transition to attack
-	remote.apply_server_state({
-		"pos": Vector3(5.0, 0.0, 0.0), "rot_y": 0.0, "health": 100.0,
-		"state": 2, "anim_name": "", "anim_speed": 1.0, "aim_pitch": 0.0,
-	})
+	(
+		remote
+		. apply_server_state(
+			{
+				"pos": Vector3(5.0, 0.0, 0.0),
+				"rot_y": 0.0,
+				"health": 100.0,
+				"state": 2,
+				"anim_name": "",
+				"anim_speed": 1.0,
+				"aim_pitch": 0.0,
+			}
+		)
+	)
 	await get_tree().process_frame
 	# Reset to move
-	remote.apply_server_state({
-		"pos": Vector3(5.0, 0.0, 0.0), "rot_y": 0.0, "health": 100.0,
-		"state": 0, "anim_name": "", "anim_speed": 1.0, "aim_pitch": 0.0,
-	})
+	(
+		remote
+		. apply_server_state(
+			{
+				"pos": Vector3(5.0, 0.0, 0.0),
+				"rot_y": 0.0,
+				"health": 100.0,
+				"state": 0,
+				"anim_name": "",
+				"anim_speed": 1.0,
+				"aim_pitch": 0.0,
+			}
+		)
+	)
 	await get_tree().process_frame
 	var before := _count_tracers()
 	# Second attack: should fire again
-	remote.apply_server_state({
-		"pos": Vector3(5.0, 0.0, 0.0), "rot_y": 0.0, "health": 100.0,
-		"state": 2, "anim_name": "", "anim_speed": 1.0, "aim_pitch": 0.0,
-	})
+	(
+		remote
+		. apply_server_state(
+			{
+				"pos": Vector3(5.0, 0.0, 0.0),
+				"rot_y": 0.0,
+				"health": 100.0,
+				"state": 2,
+				"anim_name": "",
+				"anim_speed": 1.0,
+				"aim_pitch": 0.0,
+			}
+		)
+	)
 	assert_int(_count_tracers()).is_greater(before)

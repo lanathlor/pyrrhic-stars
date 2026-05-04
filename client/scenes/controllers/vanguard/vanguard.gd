@@ -7,7 +7,21 @@ signal died
 
 const PlayerTelegraph := preload("res://scenes/shared/telegraph/player_telegraph.gd")
 
-enum State { MOVE, DODGE, LIGHT_1, LIGHT_2, LIGHT_3, HEAVY_WINDUP, HEAVY, BLOCK, STAGGER, DEAD, BLADE_SWIRL, GROUND_SLAM_WINDUP, GROUND_SLAM }
+enum State {
+	MOVE,
+	DODGE,
+	LIGHT_1,
+	LIGHT_2,
+	LIGHT_3,
+	HEAVY_WINDUP,
+	HEAVY,
+	BLOCK,
+	STAGGER,
+	DEAD,
+	BLADE_SWIRL,
+	GROUND_SLAM_WINDUP,
+	GROUND_SLAM
+}
 
 # Movement
 @export var run_speed: float = 5.0
@@ -136,7 +150,6 @@ func _ready() -> void:
 	_attach_weapon.call_deferred()
 
 
-
 func _attach_weapon() -> void:
 	var offset_pos := Vector3(0.0, 0.08, 0.0)
 	var offset_rot := Vector3(deg_to_rad(20.0), 0.0, deg_to_rad(-90.0))
@@ -261,18 +274,68 @@ func _physics_process(delta: float) -> void:
 	_update_weapon_visual()
 	# Clear lock if target is dead, freed, or hidden — use same path as Q toggle
 	if _lock_on_active and _lock_target:
-		if not is_instance_valid(_lock_target) or not _lock_target.visible or ("_server_alive" in _lock_target and not _lock_target._server_alive):
+		if (
+			not is_instance_valid(_lock_target)
+			or not _lock_target.visible
+			or ("_server_alive" in _lock_target and not _lock_target._server_alive)
+		):
 			_toggle_lock_on()
 	if _lock_on_active and _lock_target:
 		hud.update_lock_on(_lock_target, camera)
-	hud.update_spells([
-		{name="Light Attack", keybind="LMB", desc="3-hit combo. 30/35/55 dmg.", cooldown=0.0, cooldown_max=0.0, stamina_cost=light_stamina_cost},
-		{name="Heavy Attack", keybind="R", desc="75 dmg. 0.5s windup.", cooldown=0.0, cooldown_max=0.0, stamina_cost=heavy_stamina_cost},
-		{name="Block", keybind="RMB", desc="70% DR. 0.15s parry window.", cooldown=0.0, cooldown_max=0.0},
-		{name="Dodge", keybind="Space", desc="I-frame dodge.", cooldown=0.0, cooldown_max=0.0, stamina_cost=dodge_stamina_cost},
-		{name="Blade Swirl", keybind="F", desc="AoE spinning attack. 10s CD.", cooldown=_blade_swirl_cooldown, cooldown_max=BLADE_SWIRL_COOLDOWN, stamina_cost=BLADE_SWIRL_STAMINA},
-		{name="Ground Slam", keybind="T", desc="Cone AoE slam. 8s CD.", cooldown=_ground_slam_cooldown, cooldown_max=GROUND_SLAM_COOLDOWN, stamina_cost=GROUND_SLAM_STAMINA},
-	])
+	(
+		hud
+		. update_spells(
+			[
+				{
+					name = "Light Attack",
+					keybind = "LMB",
+					desc = "3-hit combo. 30/35/55 dmg.",
+					cooldown = 0.0,
+					cooldown_max = 0.0,
+					stamina_cost = light_stamina_cost
+				},
+				{
+					name = "Heavy Attack",
+					keybind = "R",
+					desc = "75 dmg. 0.5s windup.",
+					cooldown = 0.0,
+					cooldown_max = 0.0,
+					stamina_cost = heavy_stamina_cost
+				},
+				{
+					name = "Block",
+					keybind = "RMB",
+					desc = "70% DR. 0.15s parry window.",
+					cooldown = 0.0,
+					cooldown_max = 0.0
+				},
+				{
+					name = "Dodge",
+					keybind = "Space",
+					desc = "I-frame dodge.",
+					cooldown = 0.0,
+					cooldown_max = 0.0,
+					stamina_cost = dodge_stamina_cost
+				},
+				{
+					name = "Blade Swirl",
+					keybind = "F",
+					desc = "AoE spinning attack. 10s CD.",
+					cooldown = _blade_swirl_cooldown,
+					cooldown_max = BLADE_SWIRL_COOLDOWN,
+					stamina_cost = BLADE_SWIRL_STAMINA
+				},
+				{
+					name = "Ground Slam",
+					keybind = "T",
+					desc = "Cone AoE slam. 8s CD.",
+					cooldown = _ground_slam_cooldown,
+					cooldown_max = GROUND_SLAM_COOLDOWN,
+					stamina_cost = GROUND_SLAM_STAMINA
+				},
+			]
+		)
+	)
 
 	# Send position + animation to server
 	if NetworkManager.is_active:
@@ -280,6 +343,7 @@ func _physics_process(delta: float) -> void:
 
 
 # --- Movement ---
+
 
 ## Get world-space wish direction from input + actual camera transform.
 func _get_camera_wish_dir() -> Vector3:
@@ -308,7 +372,11 @@ func _process_move(delta: float) -> void:
 	var cursor_active := Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED
 
 	# Attack inputs (disabled when cursor is visible)
-	if not cursor_active and Input.is_action_just_pressed("light_attack") and stamina >= light_stamina_cost:
+	if (
+		not cursor_active
+		and Input.is_action_just_pressed("light_attack")
+		and stamina >= light_stamina_cost
+	):
 		_start_light_attack(1)
 		return
 	if Input.is_action_just_pressed("heavy_attack") and stamina >= heavy_stamina_cost:
@@ -329,12 +397,22 @@ func _process_move(delta: float) -> void:
 		return
 
 	# Blade Swirl (F)
-	if not cursor_active and Input.is_action_just_pressed("ability_1") and stamina >= BLADE_SWIRL_STAMINA and _blade_swirl_cooldown <= 0.0:
+	if (
+		not cursor_active
+		and Input.is_action_just_pressed("ability_1")
+		and stamina >= BLADE_SWIRL_STAMINA
+		and _blade_swirl_cooldown <= 0.0
+	):
 		_start_blade_swirl()
 		return
 
 	# Ground Slam (E)
-	if not cursor_active and Input.is_action_just_pressed("ability_2") and stamina >= GROUND_SLAM_STAMINA and _ground_slam_cooldown <= 0.0:
+	if (
+		not cursor_active
+		and Input.is_action_just_pressed("ability_2")
+		and stamina >= GROUND_SLAM_STAMINA
+		and _ground_slam_cooldown <= 0.0
+	):
 		_start_ground_slam()
 		return
 
@@ -439,13 +517,18 @@ func _apply_attack_movement(delta: float) -> void:
 
 # --- Dodge ---
 
+
 func _start_dodge() -> void:
 	var wish := _get_camera_wish_dir()
 	if wish.length() > 0.1:
 		if _lock_on_active and _lock_target and is_instance_valid(_lock_target):
 			# Dodge relative to character facing (strafe dodges when locked on)
-			var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
-			_dodge_direction = (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
+			var input_dir := Input.get_vector(
+				"move_left", "move_right", "move_forward", "move_backward"
+			)
+			_dodge_direction = (
+				(transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
+			)
 		else:
 			_dodge_direction = wish
 	else:
@@ -477,6 +560,7 @@ func _process_dodge(delta: float) -> void:
 
 
 # --- Light Attack Combo ---
+
 
 func _start_light_attack(combo_step: int) -> void:
 	_queued_light = false
@@ -526,28 +610,37 @@ func _process_light_attack(delta: float) -> void:
 
 func _get_current_light_damage() -> float:
 	match state:
-		State.LIGHT_1: return light_damage_1
-		State.LIGHT_2: return light_damage_2
-		State.LIGHT_3: return light_damage_3
+		State.LIGHT_1:
+			return light_damage_1
+		State.LIGHT_2:
+			return light_damage_2
+		State.LIGHT_3:
+			return light_damage_3
 	return 0.0
 
 
 func _get_current_light_duration() -> float:
 	match state:
-		State.LIGHT_1: return light_duration_1
-		State.LIGHT_2: return light_duration_2
-		State.LIGHT_3: return light_duration_3
+		State.LIGHT_1:
+			return light_duration_1
+		State.LIGHT_2:
+			return light_duration_2
+		State.LIGHT_3:
+			return light_duration_3
 	return light_duration_1
 
 
 func _get_next_combo_step() -> int:
 	match state:
-		State.LIGHT_1: return 2
-		State.LIGHT_2: return 3
+		State.LIGHT_1:
+			return 2
+		State.LIGHT_2:
+			return 3
 	return 0
 
 
 # --- Heavy Attack ---
+
 
 func _start_heavy_attack() -> void:
 	_has_hit_this_attack = false
@@ -583,6 +676,7 @@ func _process_heavy_attack(delta: float) -> void:
 
 # --- Block ---
 
+
 func _process_block(delta: float) -> void:
 	velocity.x = 0.0
 	velocity.z = 0.0
@@ -599,6 +693,7 @@ func _update_parry(delta: float) -> void:
 
 # --- Stagger ---
 
+
 func _process_stagger() -> void:
 	velocity.x = 0.0
 	velocity.z = 0.0
@@ -607,6 +702,7 @@ func _process_stagger() -> void:
 
 
 # --- Blade Swirl (Q) ---
+
 
 func _start_blade_swirl() -> void:
 	# Stamina deducted server-side; local gate in _process_move prevents spam
@@ -617,7 +713,9 @@ func _start_blade_swirl() -> void:
 	_state_timer = BLADE_SWIRL_DURATION
 	if NetworkManager.is_active:
 		NetworkManager.send_ability(20, 0.0, rotation.y)
-	PlayerTelegraph.spawn_circle(get_tree().current_scene, global_position, 6.0, VANGUARD_TELEGRAPH_COLOR)
+	PlayerTelegraph.spawn_circle(
+		get_tree().current_scene, global_position, 6.0, VANGUARD_TELEGRAPH_COLOR
+	)
 
 
 func _process_blade_swirl(delta: float) -> void:
@@ -638,13 +736,16 @@ func _process_blade_swirl(delta: float) -> void:
 	_blade_swirl_tick_timer += delta
 	if _blade_swirl_tick_timer >= 0.5:
 		_blade_swirl_tick_timer -= 0.5
-		PlayerTelegraph.spawn_circle(get_tree().current_scene, global_position, 6.0, VANGUARD_TELEGRAPH_COLOR)
+		PlayerTelegraph.spawn_circle(
+			get_tree().current_scene, global_position, 6.0, VANGUARD_TELEGRAPH_COLOR
+		)
 
 	if _state_timer <= 0.0:
 		_enter_state(State.MOVE)
 
 
 # --- Ground Slam (E) ---
+
 
 func _start_ground_slam() -> void:
 	# Stamina deducted server-side; local gate in _process_move prevents spam
@@ -662,7 +763,14 @@ func _process_ground_slam_windup(delta: float) -> void:
 		_enter_state(State.GROUND_SLAM)
 		_state_timer = GROUND_SLAM_HIT_TIME
 		_ground_slam_cooldown = GROUND_SLAM_COOLDOWN
-		PlayerTelegraph.spawn_cone(get_tree().current_scene, global_position, rotation.y, 7.0, 45.0, VANGUARD_TELEGRAPH_COLOR)
+		PlayerTelegraph.spawn_cone(
+			get_tree().current_scene,
+			global_position,
+			rotation.y,
+			7.0,
+			45.0,
+			VANGUARD_TELEGRAPH_COLOR
+		)
 
 
 func _process_ground_slam(_delta: float) -> void:
@@ -673,6 +781,7 @@ func _process_ground_slam(_delta: float) -> void:
 
 
 # --- Melee Hit Detection ---
+
 
 func _perform_melee_hit(_damage: float) -> void:
 	# Server resolves hits — client only shows optimistic hit marker
@@ -697,6 +806,7 @@ func _perform_melee_hit(_damage: float) -> void:
 
 # --- Stamina ---
 
+
 func _consume_stamina(amount: float) -> void:
 	stamina -= amount
 	stamina = maxf(stamina, 0.0)
@@ -710,6 +820,7 @@ func _update_stamina(_delta: float) -> void:
 
 
 # --- Lock-on ---
+
 
 func _toggle_lock_on() -> void:
 	if _lock_on_active:
@@ -741,11 +852,13 @@ func _find_lock_target() -> Node3D:
 # --- Damage (server-authoritative) ---
 # Health is updated via apply_server_state(). These are for compat only.
 
+
 func take_damage(_amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
 	pass  # Server handles all damage
 
 
 # --- Visual feedback ---
+
 
 func _show_body_flash() -> void:
 	character_model.flash_damage()
@@ -780,7 +893,9 @@ func _update_animation() -> void:
 		State.HEAVY_WINDUP:
 			_net_anim = "sword_heavy"
 			_net_anim_speed = 1.0
-			character_model.play_anim_timed("sword_heavy", heavy_windup_time + heavy_attack_duration)
+			character_model.play_anim_timed(
+				"sword_heavy", heavy_windup_time + heavy_attack_duration
+			)
 			return
 		State.HEAVY:
 			_net_anim = "sword_heavy"
@@ -805,7 +920,9 @@ func _update_animation() -> void:
 		State.GROUND_SLAM_WINDUP:
 			_net_anim = "sword_heavy"
 			_net_anim_speed = 0.5
-			character_model.play_anim_timed("sword_heavy", GROUND_SLAM_WINDUP_TIME + GROUND_SLAM_HIT_TIME)
+			character_model.play_anim_timed(
+				"sword_heavy", GROUND_SLAM_WINDUP_TIME + GROUND_SLAM_HIT_TIME
+			)
 			return
 		State.GROUND_SLAM:
 			_net_anim = "sword_heavy"
@@ -844,6 +961,7 @@ func _update_weapon_visual() -> void:
 
 # --- Helpers ---
 
+
 func _nearest_enemy_distance() -> float:
 	var best := INF
 	for enemy in GameManager.enemies:
@@ -856,6 +974,7 @@ func _nearest_enemy_distance() -> float:
 
 
 # --- Camera ---
+
 
 func _update_camera() -> void:
 	var player_pos := global_position + Vector3(0.0, camera_height_offset, 0.0)
@@ -908,6 +1027,7 @@ func _apply_camera_collision(from: Vector3, to: Vector3) -> Vector3:
 
 
 # --- State helpers ---
+
 
 func _enter_state(new_state: State) -> void:
 	match state:

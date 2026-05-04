@@ -28,33 +28,36 @@ static func _get_self_script() -> GDScript:
 	return _self_script
 
 
-static func spawn_circle(parent: Node, pos: Vector3, p_radius: float, p_color: Color = Color(0.3, 0.7, 1.0, 0.4)) -> Node3D:
+static func spawn_circle(
+	parent: Node, pos: Vector3, p_radius: float, p_color: Color = Color(0.3, 0.7, 1.0, 0.4)
+) -> Node3D:
 	var t: Node3D = _get_self_script().new()
 	t.shape = Shape.CIRCLE
 	t.radius = p_radius
 	t.telegraph_color = Color(p_color.r, p_color.g, p_color.b, p_color.a)
 	t.edge_color = Color(
-		minf(p_color.r * 1.3, 1.0),
-		minf(p_color.g * 1.3, 1.0),
-		minf(p_color.b * 1.3, 1.0),
-		0.9
+		minf(p_color.r * 1.3, 1.0), minf(p_color.g * 1.3, 1.0), minf(p_color.b * 1.3, 1.0), 0.9
 	)
 	parent.add_child(t)
 	t.global_position = pos + Vector3(0.0, 0.03, 0.0)
 	return t
 
 
-static func spawn_cone(parent: Node, pos: Vector3, rot_y: float, p_radius: float, half_angle_deg: float, p_color: Color = Color(0.3, 0.7, 1.0, 0.4)) -> Node3D:
+static func spawn_cone(
+	parent: Node,
+	pos: Vector3,
+	rot_y: float,
+	p_radius: float,
+	half_angle_deg: float,
+	p_color: Color = Color(0.3, 0.7, 1.0, 0.4)
+) -> Node3D:
 	var t: Node3D = _get_self_script().new()
 	t.shape = Shape.CONE
 	t.radius = p_radius
 	t.half_angle = deg_to_rad(half_angle_deg)
 	t.telegraph_color = Color(p_color.r, p_color.g, p_color.b, p_color.a)
 	t.edge_color = Color(
-		minf(p_color.r * 1.3, 1.0),
-		minf(p_color.g * 1.3, 1.0),
-		minf(p_color.b * 1.3, 1.0),
-		0.9
+		minf(p_color.r * 1.3, 1.0), minf(p_color.g * 1.3, 1.0), minf(p_color.b * 1.3, 1.0), 0.9
 	)
 	parent.add_child(t)
 	t.global_position = pos + Vector3(0.0, 0.03, 0.0)

@@ -28,7 +28,9 @@ func _process(delta: float) -> void:
 	if _parry_flash_timer > 0.0:
 		_parry_flash_timer -= delta
 		# White flash for parry
-		damage_overlay.color = Color(1.0, 1.0, 1.0, 1.0) if _parry_flash_timer > 0.0 else Color(0.8, 0.0, 0.0, 1.0)
+		damage_overlay.color = (
+			Color(1.0, 1.0, 1.0, 1.0) if _parry_flash_timer > 0.0 else Color(0.8, 0.0, 0.0, 1.0)
+		)
 		damage_overlay.modulate.a = _parry_flash_timer / PARRY_FLASH_DURATION * 0.3
 		if _parry_flash_timer <= 0.0:
 			damage_overlay.color = Color(0.8, 0.0, 0.0, 1.0)
@@ -51,10 +53,22 @@ func _draw_hit_marker() -> void:
 	var gap: float = 5.0
 	var x_len: float = 10.0
 	var thick: float = 2.5
-	draw_line(center + Vector2(-gap - x_len, -gap - x_len), center + Vector2(-gap, -gap), color, thick, true)
-	draw_line(center + Vector2(gap + x_len, -gap - x_len), center + Vector2(gap, -gap), color, thick, true)
-	draw_line(center + Vector2(-gap - x_len, gap + x_len), center + Vector2(-gap, gap), color, thick, true)
-	draw_line(center + Vector2(gap + x_len, gap + x_len), center + Vector2(gap, gap), color, thick, true)
+	draw_line(
+		center + Vector2(-gap - x_len, -gap - x_len),
+		center + Vector2(-gap, -gap),
+		color,
+		thick,
+		true
+	)
+	draw_line(
+		center + Vector2(gap + x_len, -gap - x_len), center + Vector2(gap, -gap), color, thick, true
+	)
+	draw_line(
+		center + Vector2(-gap - x_len, gap + x_len), center + Vector2(-gap, gap), color, thick, true
+	)
+	draw_line(
+		center + Vector2(gap + x_len, gap + x_len), center + Vector2(gap, gap), color, thick, true
+	)
 
 
 func update_spells(spells: Array) -> void:

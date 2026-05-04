@@ -85,12 +85,20 @@ func _build_streets() -> void:
 	var street_mat := _mat(Color(0.35, 0.32, 0.28), 0.7)
 
 	# Main north-south boulevard through the lift area
-	_add_street("MainNS", Vector3(LIFT_X, GROUND_Y + 0.02, LIFT_Z),
-		Vector3(MAIN_STREET_W, 0.04, 180), street_mat)
+	_add_street(
+		"MainNS",
+		Vector3(LIFT_X, GROUND_Y + 0.02, LIFT_Z),
+		Vector3(MAIN_STREET_W, 0.04, 180),
+		street_mat
+	)
 
 	# Main east-west boulevard through the lift area
-	_add_street("MainEW", Vector3(LIFT_X, GROUND_Y + 0.02, LIFT_Z),
-		Vector3(180, 0.04, MAIN_STREET_W), street_mat)
+	_add_street(
+		"MainEW",
+		Vector3(LIFT_X, GROUND_Y + 0.02, LIFT_Z),
+		Vector3(180, 0.04, MAIN_STREET_W),
+		street_mat
+	)
 
 	# Side streets (grid every 50m, offset from center)
 	for i in range(-2, 3):
@@ -98,13 +106,19 @@ func _build_streets() -> void:
 			continue  # skip center (main boulevard)
 		var offset := i * 50.0
 		# N-S side streets
-		_add_street("SideNS%d" % i,
+		_add_street(
+			"SideNS%d" % i,
 			Vector3(LIFT_X + offset, GROUND_Y + 0.02, LIFT_Z),
-			Vector3(SIDE_STREET_W, 0.04, 160), street_mat)
+			Vector3(SIDE_STREET_W, 0.04, 160),
+			street_mat
+		)
 		# E-W side streets
-		_add_street("SideEW%d" % i,
+		_add_street(
+			"SideEW%d" % i,
 			Vector3(LIFT_X, GROUND_Y + 0.02, LIFT_Z + offset),
-			Vector3(160, 0.04, SIDE_STREET_W), street_mat)
+			Vector3(160, 0.04, SIDE_STREET_W),
+			street_mat
+		)
 
 
 func _add_street(label: String, pos: Vector3, size: Vector3, mat: Material) -> void:
@@ -135,7 +149,9 @@ func _build_buildings() -> void:
 		for sj in range(street_positions.size() - 1):
 			var block_x: float = LIFT_X + (street_positions[si] + street_positions[si + 1]) * 0.5
 			var block_z: float = LIFT_Z + (street_positions[sj] + street_positions[sj + 1]) * 0.5
-			var block_w: float = absf(street_positions[si + 1] - street_positions[si]) - SIDE_STREET_W - 4.0
+			var block_w: float = (
+				absf(street_positions[si + 1] - street_positions[si]) - SIDE_STREET_W - 4.0
+			)
 
 			if block_w < 10.0:
 				continue
@@ -161,39 +177,42 @@ func _build_buildings() -> void:
 				if absf(bx - LIFT_X) < 25.0 and absf(bz - LIFT_Z) < 25.0:
 					continue
 
-				bldg_xforms.append(Transform3D(
-					Basis.from_scale(Vector3(bw, bh, bd)),
-					Vector3(bx, by, bz)))
+				bldg_xforms.append(
+					Transform3D(Basis.from_scale(Vector3(bw, bh, bd)), Vector3(bx, by, bz))
+				)
 
 				# Window strips on front face
 				if bh > 12.0 and rng.randf() < 0.6:
 					var win_h: float = bh * 0.6
 					var face_dir: float = 1.0 if rng.randf() > 0.5 else -1.0
 					var fx: float = bx + (bw * 0.5 + 0.1) * face_dir
-					window_xforms.append(Transform3D(
-						Basis.from_scale(Vector3(0.15, win_h, bd * 0.4)),
-						Vector3(fx, GROUND_Y + bh * 0.4, bz)))
+					window_xforms.append(
+						Transform3D(
+							Basis.from_scale(Vector3(0.15, win_h, bd * 0.4)),
+							Vector3(fx, GROUND_Y + bh * 0.4, bz)
+						)
+					)
 
 				# Neon sign on some buildings (warm orange)
 				if rng.randf() < 0.35:
 					var sign_face: float = 1.0 if rng.randf() > 0.5 else -1.0
 					var sx: float = bx + (bw * 0.5 + 0.15) * sign_face
 					var sy: float = GROUND_Y + rng.randf_range(3, min(bh - 2, 8))
-					sign_xforms.append(Transform3D(
-						Basis.from_scale(Vector3(0.2, 1.5, rng.randf_range(2, 4))),
-						Vector3(sx, sy, bz)))
+					sign_xforms.append(
+						Transform3D(
+							Basis.from_scale(Vector3(0.2, 1.5, rng.randf_range(2, 4))),
+							Vector3(sx, sy, bz)
+						)
+					)
 
 	# Warm-toned building material (muted orange-brown)
-	_mm("LowerBuildings", bldg_xforms,
-		_mat(Color(0.42, 0.35, 0.28), 0.75))
+	_mm("LowerBuildings", bldg_xforms, _mat(Color(0.42, 0.35, 0.28), 0.75))
 
 	# Window strips (warm amber glow)
-	_mm("LowerWindows", window_xforms,
-		_glow(Color(0.5, 0.4, 0.25), Color(0.8, 0.6, 0.3), 0.8))
+	_mm("LowerWindows", window_xforms, _glow(Color(0.5, 0.4, 0.25), Color(0.8, 0.6, 0.3), 0.8))
 
 	# Neon signs (orange glow)
-	_mm("LowerSigns", sign_xforms,
-		_glow(Color(0.9, 0.5, 0.15), Color(1.0, 0.6, 0.2), 2.0))
+	_mm("LowerSigns", sign_xforms, _glow(Color(0.9, 0.5, 0.15), Color(1.0, 0.6, 0.2), 2.0))
 
 
 func _build_lighting() -> void:

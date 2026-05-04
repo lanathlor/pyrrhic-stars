@@ -40,29 +40,39 @@ func end_fight(result: String) -> void:
 	_write_log()
 
 
-func log_boss_attack(attack_type: String, phase: int, boss_pos: Vector3, target_pos: Vector3) -> void:
+func log_boss_attack(
+	attack_type: String, phase: int, boss_pos: Vector3, target_pos: Vector3
+) -> void:
 	if not _fight_active:
 		return
 	_summary["attacks_used"][attack_type] = _summary["attacks_used"].get(attack_type, 0) + 1
-	_log("boss_attack", {
-		"attack": attack_type,
-		"phase": phase,
-		"boss_pos": _v3(boss_pos),
-		"target_pos": _v3(target_pos),
-	})
+	_log(
+		"boss_attack",
+		{
+			"attack": attack_type,
+			"phase": phase,
+			"boss_pos": _v3(boss_pos),
+			"target_pos": _v3(target_pos),
+		}
+	)
 
 
-func log_boss_hit(attack_type: String, damage: float, player_name: String, player_pos: Vector3) -> void:
+func log_boss_hit(
+	attack_type: String, damage: float, player_name: String, player_pos: Vector3
+) -> void:
 	if not _fight_active:
 		return
 	_summary["total_boss_damage_dealt"] += damage
 	_summary["attacks_hit"][attack_type] = _summary["attacks_hit"].get(attack_type, 0) + 1
-	_log("boss_hit", {
-		"attack": attack_type,
-		"damage": damage,
-		"target": player_name,
-		"target_pos": _v3(player_pos),
-	})
+	_log(
+		"boss_hit",
+		{
+			"attack": attack_type,
+			"damage": damage,
+			"target": player_name,
+			"target_pos": _v3(player_pos),
+		}
+	)
 
 
 func log_boss_miss(attack_type: String) -> void:
@@ -76,11 +86,14 @@ func log_player_damage(amount: float, player_pos: Vector3, boss_state: String) -
 	if not _fight_active:
 		return
 	_summary["total_player_damage_dealt"] += amount
-	_log("player_damage", {
-		"damage": amount,
-		"player_pos": _v3(player_pos),
-		"boss_state": boss_state,
-	})
+	_log(
+		"player_damage",
+		{
+			"damage": amount,
+			"player_pos": _v3(player_pos),
+			"boss_state": boss_state,
+		}
+	)
 
 
 func log_phase_transition(phase: int, boss_hp: float, time: float) -> void:
@@ -93,11 +106,14 @@ func log_phase_transition(phase: int, boss_hp: float, time: float) -> void:
 func log_boss_stuck(boss_pos: Vector3, target_pos: Vector3, stuck_time: float) -> void:
 	if not _fight_active:
 		return
-	_log("boss_stuck", {
-		"boss_pos": _v3(boss_pos),
-		"target_pos": _v3(target_pos),
-		"stuck_time": snappedf(stuck_time, 0.01),
-	})
+	_log(
+		"boss_stuck",
+		{
+			"boss_pos": _v3(boss_pos),
+			"target_pos": _v3(target_pos),
+			"stuck_time": snappedf(stuck_time, 0.01),
+		}
+	)
 
 
 func _log(event_type: String, data: Dictionary) -> void:

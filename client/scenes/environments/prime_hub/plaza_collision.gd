@@ -16,6 +16,7 @@ const GZ_MIN := -115.0
 const GZ_MAX := 157.0
 const GY := -0.2
 
+
 func _ready() -> void:
 	# Ground split into 4 pieces around shaft hole
 	var shaft_x_min := SHAFT_X - SHAFT_HALF
@@ -24,18 +25,30 @@ func _ready() -> void:
 	var shaft_z_max := SHAFT_Z + SHAFT_HALF
 
 	var ground_shapes: Dictionary = {
-		# West strip: full Z, X from -125 to shaft left edge
-		"GroundW": [Vector3((GX_MIN + shaft_x_min) / 2.0, GY, (GZ_MIN + GZ_MAX) / 2.0),
-					Vector3(shaft_x_min - GX_MIN, 0.2, GZ_MAX - GZ_MIN)],
-		# East strip: full Z, X from shaft right edge to 125
-		"GroundE": [Vector3((shaft_x_max + GX_MAX) / 2.0, GY, (GZ_MIN + GZ_MAX) / 2.0),
-					Vector3(GX_MAX - shaft_x_max, 0.2, GZ_MAX - GZ_MIN)],
-		# North fill: shaft X range, Z from -115 to shaft north edge
-		"GroundN": [Vector3(SHAFT_X, GY, (GZ_MIN + shaft_z_min) / 2.0),
-					Vector3(shaft_x_max - shaft_x_min, 0.2, shaft_z_min - GZ_MIN)],
-		# South fill: shaft X range, Z from shaft south edge to 157
-		"GroundS": [Vector3(SHAFT_X, GY, (shaft_z_max + GZ_MAX) / 2.0),
-					Vector3(shaft_x_max - shaft_x_min, 0.2, GZ_MAX - shaft_z_max)],
+		"GroundW":
+		[
+			# West strip: full Z, X from -125 to shaft left edge
+			Vector3((GX_MIN + shaft_x_min) / 2.0, GY, (GZ_MIN + GZ_MAX) / 2.0),
+			Vector3(shaft_x_min - GX_MIN, 0.2, GZ_MAX - GZ_MIN)
+		],
+		"GroundE":
+		[
+			# East strip: full Z, X from shaft right edge to 125
+			Vector3((shaft_x_max + GX_MAX) / 2.0, GY, (GZ_MIN + GZ_MAX) / 2.0),
+			Vector3(GX_MAX - shaft_x_max, 0.2, GZ_MAX - GZ_MIN)
+		],
+		"GroundN":
+		[
+			# North fill: shaft X range, Z from -115 to shaft north edge
+			Vector3(SHAFT_X, GY, (GZ_MIN + shaft_z_min) / 2.0),
+			Vector3(shaft_x_max - shaft_x_min, 0.2, shaft_z_min - GZ_MIN)
+		],
+		"GroundS":
+		[
+			# South fill: shaft X range, Z from shaft south edge to 157
+			Vector3(SHAFT_X, GY, (shaft_z_max + GZ_MAX) / 2.0),
+			Vector3(shaft_x_max - shaft_x_min, 0.2, GZ_MAX - shaft_z_max)
+		],
 	}
 
 	# Create ground pieces dynamically

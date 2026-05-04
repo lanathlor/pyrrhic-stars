@@ -32,7 +32,15 @@ func _draw() -> void:
 		_draw_lock_indicator()
 	elif not _lock_active:
 		var hint_color := Color(0.6, 0.6, 0.7, 0.4)
-		draw_string(ThemeDB.fallback_font, Vector2(size.x / 2.0 - 30.0, 33.0), "[Q] Lock On", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, hint_color)
+		draw_string(
+			ThemeDB.fallback_font,
+			Vector2(size.x / 2.0 - 30.0, 33.0),
+			"[Q] Lock On",
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1,
+			13,
+			hint_color
+		)
 
 	if not target or not cam:
 		return
@@ -54,13 +62,15 @@ func _draw_target_reticle(pos: Vector2) -> void:
 	var color := Color(1.0, 0.75, 0.1, 0.9)
 
 	# Outer diamond
-	var points := PackedVector2Array([
-		pos + Vector2(0.0, -radius),
-		pos + Vector2(radius, 0.0),
-		pos + Vector2(0.0, radius),
-		pos + Vector2(-radius, 0.0),
-		pos + Vector2(0.0, -radius),
-	])
+	var points := PackedVector2Array(
+		[
+			pos + Vector2(0.0, -radius),
+			pos + Vector2(radius, 0.0),
+			pos + Vector2(0.0, radius),
+			pos + Vector2(-radius, 0.0),
+			pos + Vector2(0.0, -radius),
+		]
+	)
 	for i in range(points.size() - 1):
 		draw_line(points[i], points[i + 1], color, thickness, true)
 
@@ -71,11 +81,15 @@ func _draw_target_reticle(pos: Vector2) -> void:
 	var tick_len: float = 6.0
 	var offset: float = radius + 4.0
 	# Top
-	draw_line(pos + Vector2(-tick_len / 2, -offset), pos + Vector2(tick_len / 2, -offset), color, 1.5)
+	draw_line(
+		pos + Vector2(-tick_len / 2, -offset), pos + Vector2(tick_len / 2, -offset), color, 1.5
+	)
 	# Bottom
 	draw_line(pos + Vector2(-tick_len / 2, offset), pos + Vector2(tick_len / 2, offset), color, 1.5)
 	# Left
-	draw_line(pos + Vector2(-offset, -tick_len / 2), pos + Vector2(-offset, tick_len / 2), color, 1.5)
+	draw_line(
+		pos + Vector2(-offset, -tick_len / 2), pos + Vector2(-offset, tick_len / 2), color, 1.5
+	)
 	# Right
 	draw_line(pos + Vector2(offset, -tick_len / 2), pos + Vector2(offset, tick_len / 2), color, 1.5)
 
@@ -86,7 +100,15 @@ func _draw_lock_indicator() -> void:
 
 	draw_circle(Vector2(center_x, 28.0), 5.0, color)
 	draw_circle(Vector2(center_x, 28.0), 3.0, Color(0.0, 0.0, 0.0, 0.5))
-	draw_string(ThemeDB.fallback_font, Vector2(center_x + 10.0, 33.0), "LOCKED [Q]", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, color)
+	draw_string(
+		ThemeDB.fallback_font,
+		Vector2(center_x + 10.0, 33.0),
+		"LOCKED [Q]",
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1,
+		14,
+		color
+	)
 
 
 func _draw_offscreen_arrow() -> void:
@@ -98,4 +120,12 @@ func _draw_offscreen_arrow() -> void:
 
 	draw_line(Vector2(center_x, y + arrow_size), Vector2(center_x - arrow_size, y), color, 2.0)
 	draw_line(Vector2(center_x, y + arrow_size), Vector2(center_x + arrow_size, y), color, 2.0)
-	draw_string(ThemeDB.fallback_font, Vector2(center_x - 25.0, y - 5.0), "BEHIND", HORIZONTAL_ALIGNMENT_CENTER, 50, 12, color)
+	draw_string(
+		ThemeDB.fallback_font,
+		Vector2(center_x - 25.0, y - 5.0),
+		"BEHIND",
+		HORIZONTAL_ALIGNMENT_CENTER,
+		50,
+		12,
+		color
+	)

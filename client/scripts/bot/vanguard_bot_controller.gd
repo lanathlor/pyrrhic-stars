@@ -62,7 +62,11 @@ func _physics_process(delta: float) -> void:
 
 	# --- Priority 1: Dodge AoE slam telegraph ---
 	if _is_enemy_state(target, "AOE_TELEGRAPH") and distance < 8.0:
-		if _player.stamina >= _player.dodge_stamina_cost and _player.is_on_floor() and _player.state == _player.State.MOVE:
+		if (
+			_player.stamina >= _player.dodge_stamina_cost
+			and _player.is_on_floor()
+			and _player.state == _player.State.MOVE
+		):
 			_move_away(dir)
 			_player._start_dodge()
 			return
@@ -73,7 +77,11 @@ func _physics_process(delta: float) -> void:
 
 	# --- Priority 2: Dodge charge telegraph ---
 	if _is_enemy_state(target, "CHARGE_TELEGRAPH"):
-		if _player.stamina >= _player.dodge_stamina_cost and _player.is_on_floor() and _player.state == _player.State.MOVE:
+		if (
+			_player.stamina >= _player.dodge_stamina_cost
+			and _player.is_on_floor()
+			and _player.state == _player.State.MOVE
+		):
 			_move_strafe(dir)
 			_player._start_dodge()
 			return
@@ -83,7 +91,11 @@ func _physics_process(delta: float) -> void:
 
 	# --- Priority 3: Dodge melee telegraph ---
 	if _is_enemy_state(target, "MELEE_TELEGRAPH") and distance < melee_range * 1.8:
-		if _player.stamina >= _player.dodge_stamina_cost and _player.is_on_floor() and _player.state == _player.State.MOVE:
+		if (
+			_player.stamina >= _player.dodge_stamina_cost
+			and _player.is_on_floor()
+			and _player.state == _player.State.MOVE
+		):
 			_move_strafe(dir)
 			_player._start_dodge()
 			return
@@ -99,7 +111,10 @@ func _physics_process(delta: float) -> void:
 		return
 
 	# --- Priority 5: Block active melee swing or charge ---
-	if (_is_enemy_state(target, "MELEE_ATTACK") or _is_enemy_state(target, "CHARGE")) and distance < melee_range * 2.0:
+	if (
+		(_is_enemy_state(target, "MELEE_ATTACK") or _is_enemy_state(target, "CHARGE"))
+		and distance < melee_range * 2.0
+	):
 		if _player.state == _player.State.MOVE:
 			Input.action_press("block")
 		return
@@ -111,11 +126,19 @@ func _physics_process(delta: float) -> void:
 		return
 
 	# --- Priority 7: Attack when in range (during cooldown, chase, or aoe telegraph) ---
-	var is_punish_window := _is_enemy_state(target, "COOLDOWN") or _is_enemy_state(target, "CHASE") or _is_enemy_state(target, "RANGED_TELEGRAPH") or _is_enemy_state(target, "AOE_TELEGRAPH")
+	var is_punish_window := (
+		_is_enemy_state(target, "COOLDOWN")
+		or _is_enemy_state(target, "CHASE")
+		or _is_enemy_state(target, "RANGED_TELEGRAPH")
+		or _is_enemy_state(target, "AOE_TELEGRAPH")
+	)
 	if distance <= melee_range * 0.95 and _player.state == _player.State.MOVE and is_punish_window:
 		if _attack_timer <= 0.0:
 			# Heavy during enemy cooldown (big punish window)
-			if _is_enemy_state(target, "COOLDOWN") and _player.stamina >= _player.heavy_stamina_cost:
+			if (
+				_is_enemy_state(target, "COOLDOWN")
+				and _player.stamina >= _player.heavy_stamina_cost
+			):
 				_player._start_heavy_attack()
 				_attack_timer = 1.0
 			elif _player.stamina >= _player.light_stamina_cost:
@@ -137,6 +160,7 @@ func _physics_process(delta: float) -> void:
 
 # --- Targeting ---
 
+
 func _find_target() -> CharacterBody3D:
 	for enemy in GameManager.enemies:
 		if is_instance_valid(enemy) and enemy.visible:
@@ -154,6 +178,7 @@ func _is_enemy_state(target: Node3D, state_name: String) -> bool:
 
 
 # --- Camera-relative movement ---
+
 
 func _world_to_camera_input(world_dir: Vector3) -> Vector2:
 	var cam: Camera3D = _player.camera
@@ -196,6 +221,7 @@ func _move_strafe(dir: Vector3) -> void:
 
 # --- Strafe timing ---
 
+
 func _update_strafe(delta: float) -> void:
 	_strafe_timer -= delta
 	if _strafe_timer <= 0.0:
@@ -204,6 +230,7 @@ func _update_strafe(delta: float) -> void:
 
 
 # --- Cleanup ---
+
 
 func _release_movement() -> void:
 	for action in ["move_forward", "move_backward", "move_left", "move_right", "sprint", "block"]:

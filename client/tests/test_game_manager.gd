@@ -18,6 +18,7 @@ func after_test() -> void:
 
 # --- Registration ---
 
+
 func test_register_player() -> void:
 	var player := auto_free(CharacterBody3D.new())
 	_manager.register_player(player)
@@ -46,6 +47,7 @@ func test_unregister_enemy() -> void:
 
 
 # --- Nearest / Farthest queries ---
+
 
 func test_nearest_player_single() -> void:
 	var player := auto_free(CharacterBody3D.new())

@@ -2,6 +2,7 @@
 extends StaticBody3D
 ## Wall collision for the lower street district perimeter.
 
+
 func _ready() -> void:
 	var shapes: Dictionary = {
 		"WallNCol": Vector3(200, 44, 0.5),

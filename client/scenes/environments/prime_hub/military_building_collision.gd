@@ -3,6 +3,7 @@ extends StaticBody3D
 ## Generates collision shapes for the Stark Tower building.
 ## Shaft is BEHIND the back wall. Positions match CSG exactly.
 
+
 func _ready() -> void:
 	_generate_wall_shapes()
 

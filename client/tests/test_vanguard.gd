@@ -17,12 +17,24 @@ func before_test() -> void:
 
 
 func after_test() -> void:
-	for action in ["move_forward", "move_backward", "move_left", "move_right", "sprint", "dodge", "light_attack", "heavy_attack", "block", "lock_on"]:
+	for action in [
+		"move_forward",
+		"move_backward",
+		"move_left",
+		"move_right",
+		"sprint",
+		"dodge",
+		"light_attack",
+		"heavy_attack",
+		"block",
+		"lock_on"
+	]:
 		if Input.is_action_pressed(action):
 			Input.action_release(action)
 
 
 # --- Health ---
+
 
 func test_initial_health() -> void:
 	assert_float(_vanguard.health).is_equal(150.0)
@@ -52,6 +64,7 @@ func test_dead_state_on_death() -> void:
 
 
 # --- Stamina ---
+
 
 func test_initial_stamina() -> void:
 	assert_float(_vanguard.stamina).is_equal(100.0)
@@ -92,6 +105,7 @@ func test_stamina_caps_at_max() -> void:
 
 
 # --- Dodge ---
+
 
 func test_dodge_sets_state() -> void:
 	_vanguard._start_dodge()
@@ -145,6 +159,7 @@ func test_dodge_bleeds_velocity() -> void:
 
 # --- Light Attack Combo ---
 
+
 func test_light_attack_1_state() -> void:
 	_vanguard._start_light_attack(1)
 	assert_int(_vanguard.state).is_equal(_vanguard.State.LIGHT_1)
@@ -190,6 +205,7 @@ func test_light_attack_returns_to_move() -> void:
 
 # --- Heavy Attack ---
 
+
 func test_heavy_starts_windup() -> void:
 	_vanguard._start_heavy_attack()
 	assert_int(_vanguard.state).is_equal(_vanguard.State.HEAVY_WINDUP)
@@ -214,6 +230,7 @@ func test_heavy_damage_higher_than_light() -> void:
 
 
 # --- Block & Parry ---
+
 
 func test_block_reduces_damage() -> void:
 	_vanguard.state = _vanguard.State.BLOCK
@@ -241,6 +258,7 @@ func test_block_drains_stamina() -> void:
 
 # --- Stagger ---
 
+
 func test_hit_causes_stagger() -> void:
 	_vanguard.state = _vanguard.State.MOVE
 	_vanguard.take_damage(20.0)
@@ -267,6 +285,7 @@ func test_stagger_returns_to_move() -> void:
 
 # --- Lock-on ---
 
+
 func test_lock_on_initially_off() -> void:
 	assert_bool(_vanguard._lock_on_active).is_false()
 	assert_that(_vanguard._lock_target).is_null()
@@ -287,6 +306,7 @@ func test_lock_on_double_toggle_off() -> void:
 
 # --- Movement values ---
 
+
 func test_run_speed() -> void:
 	assert_float(_vanguard.run_speed).is_equal(5.0)
 
@@ -304,6 +324,7 @@ func test_dodge_iframe_value() -> void:
 
 
 # --- Weapon Attachment ---
+
 
 func test_weapon_scene_path_defined() -> void:
 	assert_that(_vanguard.WEAPON_SCENE).is_not_null()

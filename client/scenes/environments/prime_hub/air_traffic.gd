@@ -60,7 +60,7 @@ func _ready() -> void:
 
 	# Also add a few north-south cross lanes for variety
 	var cross_lanes := [
-		[-300.0, -50.0, 6, 1000.0],   # [x_position, y, count, half_length]
+		[-300.0, -50.0, 6, 1000.0],  # [x_position, y, count, half_length]
 		[300.0, -70.0, 6, 1200.0],
 		[-600.0, -40.0, 5, 1500.0],
 		[600.0, -60.0, 5, 1500.0],
@@ -88,13 +88,18 @@ func _ready() -> void:
 			add_child(mi)
 
 			var going_right: bool = rng.randf() < 0.5
-			_vehicles.append({
-				"node": mi,
-				"a": a if going_right else b,
-				"b": b if going_right else a,
-				"speed": rng.randf_range(SPEED_MIN, SPEED_MAX),
-				"t": rng.randf(),
-			})
+			(
+				_vehicles
+				. append(
+					{
+						"node": mi,
+						"a": a if going_right else b,
+						"b": b if going_right else a,
+						"speed": rng.randf_range(SPEED_MIN, SPEED_MAX),
+						"t": rng.randf(),
+					}
+				)
+			)
 			idx += 1
 
 	# North-south cross lanes
@@ -117,13 +122,18 @@ func _ready() -> void:
 			add_child(mi)
 
 			var going_south: bool = rng.randf() < 0.5
-			_vehicles.append({
-				"node": mi,
-				"a": a if going_south else b,
-				"b": b if going_south else a,
-				"speed": rng.randf_range(SPEED_MIN, SPEED_MAX),
-				"t": rng.randf(),
-			})
+			(
+				_vehicles
+				. append(
+					{
+						"node": mi,
+						"a": a if going_south else b,
+						"b": b if going_south else a,
+						"speed": rng.randf_range(SPEED_MIN, SPEED_MAX),
+						"t": rng.randf(),
+					}
+				)
+			)
 			idx += 1
 
 

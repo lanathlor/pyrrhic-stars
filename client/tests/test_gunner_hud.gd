@@ -19,10 +19,11 @@ func before_test() -> void:
 
 # --- Spell bar ---
 
+
 func test_update_spells_passes_to_ability_bar() -> void:
 	var spells := [
-		{name="Shoot", keybind="LMB", desc="10 dmg.", cooldown=0.0, cooldown_max=0.0},
-		{name="Roll", keybind="C", desc="Dodge.", cooldown=1.0, cooldown_max=2.5},
+		{name = "Shoot", keybind = "LMB", desc = "10 dmg.", cooldown = 0.0, cooldown_max = 0.0},
+		{name = "Roll", keybind = "C", desc = "Dodge.", cooldown = 1.0, cooldown_max = 2.5},
 	]
 	_hud.update_spells(spells)
 	var bar: Control = _hud.get_node("AbilityBar")
@@ -40,6 +41,7 @@ func test_ability_bar_accent_color_is_cyan() -> void:
 
 # --- Hit marker ---
 
+
 func test_hit_marker_sets_timer() -> void:
 	_hud.show_hit_marker()
 	assert_float(_hud._hit_marker_timer).is_greater(0.0)
@@ -54,6 +56,7 @@ func test_hit_marker_decays() -> void:
 
 # --- Damage flash ---
 
+
 func test_damage_flash_sets_timer() -> void:
 	_hud.show_damage_flash()
 	assert_float(_hud._damage_flash_timer).is_greater(0.0)
@@ -67,6 +70,7 @@ func test_damage_flash_modulates_overlay() -> void:
 
 
 # --- Shoot recoil ---
+
 
 func test_recoil_sets_timer() -> void:
 	_hud.on_shoot()

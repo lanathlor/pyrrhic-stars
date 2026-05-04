@@ -42,6 +42,7 @@ func _process(delta: float) -> void:
 # Navigation baking — manual geometry since CSG is invisible to navmesh parser
 # =============================================================================
 
+
 func _bake_navigation() -> void:
 	_nav_map_rid = NavigationServer3D.map_create()
 	NavigationServer3D.map_set_active(_nav_map_rid, true)
@@ -60,8 +61,7 @@ func _bake_navigation() -> void:
 	print("[PortalTrail] Navigation baked for 3 floors")
 
 
-func _bake_floor(floor_y: float, walkable_faces: PackedVector3Array,
-		obstructions: Array) -> void:
+func _bake_floor(floor_y: float, walkable_faces: PackedVector3Array, obstructions: Array) -> void:
 	var nav_mesh := NavigationMesh.new()
 	nav_mesh.agent_radius = 1.0
 	nav_mesh.agent_height = 2.0
@@ -90,8 +90,7 @@ func _bake_floor(floor_y: float, walkable_faces: PackedVector3Array,
 	_region_rids.append(region_rid)
 
 
-func _add_box_faces(sg: NavigationMeshSourceGeometryData3D,
-		center: Vector3, size: Vector3) -> void:
+func _add_box_faces(sg: NavigationMeshSourceGeometryData3D, center: Vector3, size: Vector3) -> void:
 	## Add the 6 faces of a box to the source geometry.
 	var hx := size.x / 2.0
 	var hy := size.y / 2.0
@@ -100,46 +99,123 @@ func _add_box_faces(sg: NavigationMeshSourceGeometryData3D,
 	var cy := center.y
 	var cz := center.z
 	# Bottom
-	sg.add_faces(PackedVector3Array([
-		Vector3(cx-hx, cy-hy, cz-hz), Vector3(cx+hx, cy-hy, cz-hz), Vector3(cx+hx, cy-hy, cz+hz),
-		Vector3(cx-hx, cy-hy, cz-hz), Vector3(cx+hx, cy-hy, cz+hz), Vector3(cx-hx, cy-hy, cz+hz),
-	]), Transform3D.IDENTITY)
+	(
+		sg
+		. add_faces(
+			PackedVector3Array(
+				[
+					Vector3(cx - hx, cy - hy, cz - hz),
+					Vector3(cx + hx, cy - hy, cz - hz),
+					Vector3(cx + hx, cy - hy, cz + hz),
+					Vector3(cx - hx, cy - hy, cz - hz),
+					Vector3(cx + hx, cy - hy, cz + hz),
+					Vector3(cx - hx, cy - hy, cz + hz),
+				]
+			),
+			Transform3D.IDENTITY
+		)
+	)
 	# Top
-	sg.add_faces(PackedVector3Array([
-		Vector3(cx-hx, cy+hy, cz-hz), Vector3(cx+hx, cy+hy, cz+hz), Vector3(cx+hx, cy+hy, cz-hz),
-		Vector3(cx-hx, cy+hy, cz-hz), Vector3(cx-hx, cy+hy, cz+hz), Vector3(cx+hx, cy+hy, cz+hz),
-	]), Transform3D.IDENTITY)
+	(
+		sg
+		. add_faces(
+			PackedVector3Array(
+				[
+					Vector3(cx - hx, cy + hy, cz - hz),
+					Vector3(cx + hx, cy + hy, cz + hz),
+					Vector3(cx + hx, cy + hy, cz - hz),
+					Vector3(cx - hx, cy + hy, cz - hz),
+					Vector3(cx - hx, cy + hy, cz + hz),
+					Vector3(cx + hx, cy + hy, cz + hz),
+				]
+			),
+			Transform3D.IDENTITY
+		)
+	)
 	# Front (Z-)
-	sg.add_faces(PackedVector3Array([
-		Vector3(cx-hx, cy-hy, cz-hz), Vector3(cx+hx, cy+hy, cz-hz), Vector3(cx+hx, cy-hy, cz-hz),
-		Vector3(cx-hx, cy-hy, cz-hz), Vector3(cx-hx, cy+hy, cz-hz), Vector3(cx+hx, cy+hy, cz-hz),
-	]), Transform3D.IDENTITY)
+	(
+		sg
+		. add_faces(
+			PackedVector3Array(
+				[
+					Vector3(cx - hx, cy - hy, cz - hz),
+					Vector3(cx + hx, cy + hy, cz - hz),
+					Vector3(cx + hx, cy - hy, cz - hz),
+					Vector3(cx - hx, cy - hy, cz - hz),
+					Vector3(cx - hx, cy + hy, cz - hz),
+					Vector3(cx + hx, cy + hy, cz - hz),
+				]
+			),
+			Transform3D.IDENTITY
+		)
+	)
 	# Back (Z+)
-	sg.add_faces(PackedVector3Array([
-		Vector3(cx-hx, cy-hy, cz+hz), Vector3(cx+hx, cy-hy, cz+hz), Vector3(cx+hx, cy+hy, cz+hz),
-		Vector3(cx-hx, cy-hy, cz+hz), Vector3(cx+hx, cy+hy, cz+hz), Vector3(cx-hx, cy+hy, cz+hz),
-	]), Transform3D.IDENTITY)
+	(
+		sg
+		. add_faces(
+			PackedVector3Array(
+				[
+					Vector3(cx - hx, cy - hy, cz + hz),
+					Vector3(cx + hx, cy - hy, cz + hz),
+					Vector3(cx + hx, cy + hy, cz + hz),
+					Vector3(cx - hx, cy - hy, cz + hz),
+					Vector3(cx + hx, cy + hy, cz + hz),
+					Vector3(cx - hx, cy + hy, cz + hz),
+				]
+			),
+			Transform3D.IDENTITY
+		)
+	)
 	# Left (X-)
-	sg.add_faces(PackedVector3Array([
-		Vector3(cx-hx, cy-hy, cz-hz), Vector3(cx-hx, cy-hy, cz+hz), Vector3(cx-hx, cy+hy, cz+hz),
-		Vector3(cx-hx, cy-hy, cz-hz), Vector3(cx-hx, cy+hy, cz+hz), Vector3(cx-hx, cy+hy, cz-hz),
-	]), Transform3D.IDENTITY)
+	(
+		sg
+		. add_faces(
+			PackedVector3Array(
+				[
+					Vector3(cx - hx, cy - hy, cz - hz),
+					Vector3(cx - hx, cy - hy, cz + hz),
+					Vector3(cx - hx, cy + hy, cz + hz),
+					Vector3(cx - hx, cy - hy, cz - hz),
+					Vector3(cx - hx, cy + hy, cz + hz),
+					Vector3(cx - hx, cy + hy, cz - hz),
+				]
+			),
+			Transform3D.IDENTITY
+		)
+	)
 	# Right (X+)
-	sg.add_faces(PackedVector3Array([
-		Vector3(cx+hx, cy-hy, cz-hz), Vector3(cx+hx, cy+hy, cz+hz), Vector3(cx+hx, cy-hy, cz+hz),
-		Vector3(cx+hx, cy-hy, cz-hz), Vector3(cx+hx, cy+hy, cz-hz), Vector3(cx+hx, cy+hy, cz+hz),
-	]), Transform3D.IDENTITY)
+	(
+		sg
+		. add_faces(
+			PackedVector3Array(
+				[
+					Vector3(cx + hx, cy - hy, cz - hz),
+					Vector3(cx + hx, cy + hy, cz + hz),
+					Vector3(cx + hx, cy - hy, cz + hz),
+					Vector3(cx + hx, cy - hy, cz - hz),
+					Vector3(cx + hx, cy + hy, cz - hz),
+					Vector3(cx + hx, cy + hy, cz + hz),
+				]
+			),
+			Transform3D.IDENTITY
+		)
+	)
 
 
-func _make_floor_quad(cx: float, cz: float, sx: float, sz: float,
-		y: float) -> PackedVector3Array:
+func _make_floor_quad(cx: float, cz: float, sx: float, sz: float, y: float) -> PackedVector3Array:
 	## Returns two triangles forming a floor quad.
 	var hx := sx / 2.0
 	var hz := sz / 2.0
-	return PackedVector3Array([
-		Vector3(cx - hx, y, cz - hz), Vector3(cx + hx, y, cz - hz), Vector3(cx + hx, y, cz + hz),
-		Vector3(cx - hx, y, cz - hz), Vector3(cx + hx, y, cz + hz), Vector3(cx - hx, y, cz + hz),
-	])
+	return PackedVector3Array(
+		[
+			Vector3(cx - hx, y, cz - hz),
+			Vector3(cx + hx, y, cz - hz),
+			Vector3(cx + hx, y, cz + hz),
+			Vector3(cx - hx, y, cz - hz),
+			Vector3(cx + hx, y, cz + hz),
+			Vector3(cx - hx, y, cz + hz),
+		]
+	)
 
 
 func _bake_lower_district() -> void:
@@ -151,10 +227,15 @@ func _bake_lower_district() -> void:
 
 	var buildings := []
 	for b in geo["buildings"]:
-		buildings.append({
-			"center": Vector3(b["center"].x, 0, b["center"].y),
-			"size": Vector3(b["size"].x, 0, b["size"].y),
-		})
+		(
+			buildings
+			. append(
+				{
+					"center": Vector3(b["center"].x, 0, b["center"].y),
+					"size": Vector3(b["size"].x, 0, b["size"].y),
+				}
+			)
+		)
 	_bake_floor(y, faces, buildings)
 
 
@@ -167,10 +248,15 @@ func _bake_plaza() -> void:
 
 	var obstructions := []
 	for b in geo["buildings"]:
-		obstructions.append({
-			"center": Vector3(b["center"].x, 0, b["center"].y),
-			"size": Vector3(b["size"].x, 0, b["size"].y),
-		})
+		(
+			obstructions
+			. append(
+				{
+					"center": Vector3(b["center"].x, 0, b["center"].y),
+					"size": Vector3(b["size"].x, 0, b["size"].y),
+				}
+			)
+		)
 	_bake_floor(y, faces, obstructions)
 
 
@@ -188,16 +274,22 @@ func _bake_ops() -> void:
 
 	var obstructions := []
 	for b in geo["buildings"]:
-		obstructions.append({
-			"center": Vector3(b["center"].x, 0, b["center"].y),
-			"size": Vector3(b["size"].x, 0, b["size"].y),
-		})
+		(
+			obstructions
+			. append(
+				{
+					"center": Vector3(b["center"].x, 0, b["center"].y),
+					"size": Vector3(b["size"].x, 0, b["size"].y),
+				}
+			)
+		)
 	_bake_floor(y, faces, obstructions)
 
 
 # =============================================================================
 # Trail update
 # =============================================================================
+
 
 func _update_trail() -> void:
 	var player := _get_local_player()
@@ -300,6 +392,7 @@ func _sample_path(path: PackedVector3Array, spacing: float, max_count: int) -> A
 # =============================================================================
 # Particle setup
 # =============================================================================
+
 
 func _setup_particles() -> void:
 	_process_mat = ParticleProcessMaterial.new()

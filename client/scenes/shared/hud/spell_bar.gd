@@ -67,30 +67,72 @@ func _draw() -> void:
 			draw_rect(inner, Color(slot_color, 0.35), false, 1.5)
 
 		var keybind: String = spell.get("keybind", "?")
-		draw_string(font, Vector2(x + 5.0, y + 12.0), keybind,
-			HORIZONTAL_ALIGNMENT_LEFT, 14.0, 9, keybind_color)
+		draw_string(
+			font,
+			Vector2(x + 5.0, y + 12.0),
+			keybind,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			14.0,
+			9,
+			keybind_color
+		)
 
 		var stam_cost: float = spell.get("stamina_cost", 0.0)
 		if stam_cost > 0.0:
 			var stam_text := "%d" % int(stam_cost)
-			draw_string(font, Vector2(x + SLOT_SIZE - 18.0, y + 12.0), stam_text,
-				HORIZONTAL_ALIGNMENT_RIGHT, 16.0, 9, Color(0.85, 0.75, 0.2, 0.8))
+			draw_string(
+				font,
+				Vector2(x + SLOT_SIZE - 18.0, y + 12.0),
+				stam_text,
+				HORIZONTAL_ALIGNMENT_RIGHT,
+				16.0,
+				9,
+				Color(0.85, 0.75, 0.2, 0.8)
+			)
 
 		var spell_name: String = spell.get("name", "???")
 		var status_text: String = spell.get("status_text", "")
 		if status_text != "":
-			draw_string(font, Vector2(x + 3.0, y + SLOT_SIZE / 2.0 + 5.0), status_text,
-				HORIZONTAL_ALIGNMENT_CENTER, SLOT_SIZE - 6.0, 14, slot_color)
+			draw_string(
+				font,
+				Vector2(x + 3.0, y + SLOT_SIZE / 2.0 + 5.0),
+				status_text,
+				HORIZONTAL_ALIGNMENT_CENTER,
+				SLOT_SIZE - 6.0,
+				14,
+				slot_color
+			)
 		else:
 			var parts := spell_name.split(" ", true, 1)
 			if parts.size() == 2:
-				draw_string(font, Vector2(x + 3.0, y + SLOT_SIZE - 16.0), parts[0],
-					HORIZONTAL_ALIGNMENT_LEFT, SLOT_SIZE - 6.0, 9, text_color)
-				draw_string(font, Vector2(x + 3.0, y + SLOT_SIZE - 5.0), parts[1],
-					HORIZONTAL_ALIGNMENT_LEFT, SLOT_SIZE - 6.0, 9, text_color)
+				draw_string(
+					font,
+					Vector2(x + 3.0, y + SLOT_SIZE - 16.0),
+					parts[0],
+					HORIZONTAL_ALIGNMENT_LEFT,
+					SLOT_SIZE - 6.0,
+					9,
+					text_color
+				)
+				draw_string(
+					font,
+					Vector2(x + 3.0, y + SLOT_SIZE - 5.0),
+					parts[1],
+					HORIZONTAL_ALIGNMENT_LEFT,
+					SLOT_SIZE - 6.0,
+					9,
+					text_color
+				)
 			else:
-				draw_string(font, Vector2(x + 3.0, y + SLOT_SIZE - 6.0), spell_name,
-					HORIZONTAL_ALIGNMENT_LEFT, SLOT_SIZE - 6.0, 9, text_color)
+				draw_string(
+					font,
+					Vector2(x + 3.0, y + SLOT_SIZE - 6.0),
+					spell_name,
+					HORIZONTAL_ALIGNMENT_LEFT,
+					SLOT_SIZE - 6.0,
+					9,
+					text_color
+				)
 
 		var cd: float = spell.get("cooldown", 0.0)
 		var cd_max: float = spell.get("cooldown_max", 0.0)
@@ -104,10 +146,21 @@ func _draw() -> void:
 				var ratio := active_rem / active_max
 				var arc_center := Vector2(x + SLOT_SIZE - 10.0, y + 10.0)
 				var arc_radius := 6.0
-				draw_arc(arc_center, arc_radius, 0.0, TAU, 16, Color(0.2, 0.2, 0.25, 0.5), 2.0, true)
+				draw_arc(
+					arc_center, arc_radius, 0.0, TAU, 16, Color(0.2, 0.2, 0.25, 0.5), 2.0, true
+				)
 				var start_angle := -PI / 2.0
 				var end_angle := start_angle + ratio * TAU
-				draw_arc(arc_center, arc_radius, start_angle, end_angle, 16, Color(slot_color, 0.9), 2.0, true)
+				draw_arc(
+					arc_center,
+					arc_radius,
+					start_angle,
+					end_angle,
+					16,
+					Color(slot_color, 0.9),
+					2.0,
+					true
+				)
 
 	if _gcd_ratio > 0.01:
 		for gi in slot_count:
@@ -140,15 +193,24 @@ func _draw_cooldown_overlay(x: float, y: float, cd: float, cd_max: float) -> voi
 	var start_angle := -PI / 2.0
 	var end_angle := start_angle + (1.0 - ratio) * TAU
 	if (1.0 - ratio) > 0.01:
-		draw_arc(center, sweep_radius, start_angle, end_angle, 24, Color(accent_color, 0.4), 2.5, true)
+		draw_arc(
+			center, sweep_radius, start_angle, end_angle, 24, Color(accent_color, 0.4), 2.5, true
+		)
 
 	var cd_text: String
 	if cd >= 10.0:
 		cd_text = "%d" % ceili(cd)
 	else:
 		cd_text = "%.1f" % cd
-	draw_string(font, Vector2(x + 2.0, y + SLOT_SIZE / 2.0 + 6.0), cd_text,
-		HORIZONTAL_ALIGNMENT_CENTER, SLOT_SIZE - 4.0, 16, Color(1.0, 1.0, 1.0, 0.95))
+	draw_string(
+		font,
+		Vector2(x + 2.0, y + SLOT_SIZE / 2.0 + 6.0),
+		cd_text,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		SLOT_SIZE - 4.0,
+		16,
+		Color(1.0, 1.0, 1.0, 0.95)
+	)
 
 
 func _draw_tooltip(start_x: float, slot_y: float) -> void:
@@ -178,12 +240,26 @@ func _draw_tooltip(start_x: float, slot_y: float) -> void:
 	_draw_panel(tip_rect, Color(accent_color, 0.2))
 
 	var name_color: Color = spell.get("color", accent_color)
-	draw_string(font, Vector2(tip_x + 8.0, tip_y + 16.0), spell_name,
-		HORIZONTAL_ALIGNMENT_LEFT, tip_w - 16.0, 14, name_color)
+	draw_string(
+		font,
+		Vector2(tip_x + 8.0, tip_y + 16.0),
+		spell_name,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		tip_w - 16.0,
+		14,
+		name_color
+	)
 
 	if cast_time > 0.01:
-		draw_string(font, Vector2(tip_x + tip_w - 60.0, tip_y + 16.0), "%.1fs" % cast_time,
-			HORIZONTAL_ALIGNMENT_RIGHT, 52.0, 10, Color(0.7, 0.7, 0.7, 0.8))
+		draw_string(
+			font,
+			Vector2(tip_x + tip_w - 60.0, tip_y + 16.0),
+			"%.1fs" % cast_time,
+			HORIZONTAL_ALIGNMENT_RIGHT,
+			52.0,
+			10,
+			Color(0.7, 0.7, 0.7, 0.8)
+		)
 
 	var info_parts: Array[String] = []
 	var stam_cost: float = spell.get("stamina_cost", 0.0)
@@ -193,8 +269,15 @@ func _draw_tooltip(start_x: float, slot_y: float) -> void:
 		info_parts.append("CD: %ds" % ceili(cd_max))
 	if info_parts.size() > 0:
 		var info_text := " | ".join(info_parts)
-		draw_string(font, Vector2(tip_x + 8.0, tip_y + 30.0), info_text,
-			HORIZONTAL_ALIGNMENT_LEFT, tip_w - 16.0, 10, Color(0.85, 0.75, 0.2, 0.8))
+		draw_string(
+			font,
+			Vector2(tip_x + 8.0, tip_y + 30.0),
+			info_text,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			tip_w - 16.0,
+			10,
+			Color(0.85, 0.75, 0.2, 0.8)
+		)
 
 	var desc_y := tip_y + 32.0
 	if has_custom_tooltip:
@@ -206,19 +289,49 @@ func _draw_tooltip(start_x: float, slot_y: float) -> void:
 		if spell_desc.length() > 35:
 			var split_pos := spell_desc.find(" ", 30)
 			if split_pos > 0:
-				draw_string(font, Vector2(tip_x + 8.0, desc_y + 14.0), spell_desc.left(split_pos),
-					HORIZONTAL_ALIGNMENT_LEFT, tip_w - 16.0, 10, desc_color)
-				draw_string(font, Vector2(tip_x + 8.0, desc_y + 26.0), spell_desc.substr(split_pos + 1),
-					HORIZONTAL_ALIGNMENT_LEFT, tip_w - 16.0, 10, desc_color)
+				draw_string(
+					font,
+					Vector2(tip_x + 8.0, desc_y + 14.0),
+					spell_desc.left(split_pos),
+					HORIZONTAL_ALIGNMENT_LEFT,
+					tip_w - 16.0,
+					10,
+					desc_color
+				)
+				draw_string(
+					font,
+					Vector2(tip_x + 8.0, desc_y + 26.0),
+					spell_desc.substr(split_pos + 1),
+					HORIZONTAL_ALIGNMENT_LEFT,
+					tip_w - 16.0,
+					10,
+					desc_color
+				)
 			else:
-				draw_string(font, Vector2(tip_x + 8.0, desc_y + 14.0), spell_desc,
-					HORIZONTAL_ALIGNMENT_LEFT, tip_w - 16.0, 10, desc_color)
+				draw_string(
+					font,
+					Vector2(tip_x + 8.0, desc_y + 14.0),
+					spell_desc,
+					HORIZONTAL_ALIGNMENT_LEFT,
+					tip_w - 16.0,
+					10,
+					desc_color
+				)
 		else:
-			draw_string(font, Vector2(tip_x + 8.0, desc_y + 14.0), spell_desc,
-				HORIZONTAL_ALIGNMENT_LEFT, tip_w - 16.0, 10, desc_color)
+			draw_string(
+				font,
+				Vector2(tip_x + 8.0, desc_y + 14.0),
+				spell_desc,
+				HORIZONTAL_ALIGNMENT_LEFT,
+				tip_w - 16.0,
+				10,
+				desc_color
+			)
 
 
 func _draw_panel(rect: Rect2, accent: Color) -> void:
 	draw_rect(rect, PANEL_FILL)
 	draw_rect(rect, PANEL_BORDER, false, 1.0)
-	draw_rect(Rect2(rect.position + Vector2(1.0, 1.0), rect.size - Vector2(2.0, 2.0)), accent, false, 1.0)
+	draw_rect(
+		Rect2(rect.position + Vector2(1.0, 1.0), rect.size - Vector2(2.0, 2.0)), accent, false, 1.0
+	)

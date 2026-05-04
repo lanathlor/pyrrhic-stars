@@ -73,18 +73,18 @@ const OP_PEER_DISCONNECTED := 0xFF03
 const OP_SET_USERNAME := 0xFF04
 const OP_REQUEST_ZONE_TRANSFER := 0xFF05
 const OP_ZONE_TRANSFER := 0xFF06
-const OP_CHARACTER_STATE := 0xFF07    # server → client: character confirmed
-const OP_CHARACTER_LIST := 0xFF08     # server → client: all characters after auth
-const OP_SELECT_CHARACTER := 0xFF09   # client → server: select character by ID
-const OP_CREATE_CHARACTER := 0xFF0A   # client → server: create new character
-const OP_CHARACTER_ERROR := 0xFF0B    # server → client: character operation error
+const OP_CHARACTER_STATE := 0xFF07  # server → client: character confirmed
+const OP_CHARACTER_LIST := 0xFF08  # server → client: all characters after auth
+const OP_SELECT_CHARACTER := 0xFF09  # client → server: select character by ID
+const OP_CREATE_CHARACTER := 0xFF0A  # client → server: create new character
+const OP_CHARACTER_ERROR := 0xFF0B  # server → client: character operation error
 
 const HEADER_SIZE := 4
-
 
 # =============================================================================
 # Header encode / decode
 # =============================================================================
+
 
 func encode_header(opcode: int, sender_id: int) -> PackedByteArray:
 	var buf := PackedByteArray()
@@ -108,7 +108,10 @@ func decode_header(data: PackedByteArray) -> Dictionary:
 # Player sync
 # =============================================================================
 
-func encode_player_sync(pos: Vector3, rot_y: float, anim: String, anim_speed: float, hp: float) -> PackedByteArray:
+
+func encode_player_sync(
+	pos: Vector3, rot_y: float, anim: String, anim_speed: float, hp: float
+) -> PackedByteArray:
 	var buf := StreamPeerBuffer.new()
 	_put_vec3(buf, pos)
 	buf.put_float(rot_y)
@@ -134,8 +137,16 @@ func decode_player_sync(data: PackedByteArray) -> Dictionary:
 # Enemy sync
 # =============================================================================
 
-func encode_enemy_sync(pos: Vector3, rot_y: float, hp: float, net_state: int,
-		phase: int, ranged_pos: Vector3, charge_dir: Vector3) -> PackedByteArray:
+
+func encode_enemy_sync(
+	pos: Vector3,
+	rot_y: float,
+	hp: float,
+	net_state: int,
+	phase: int,
+	ranged_pos: Vector3,
+	charge_dir: Vector3
+) -> PackedByteArray:
 	var buf := StreamPeerBuffer.new()
 	_put_vec3(buf, pos)
 	buf.put_float(rot_y)
@@ -165,6 +176,7 @@ func decode_enemy_sync(data: PackedByteArray) -> Dictionary:
 # Damage
 # =============================================================================
 
+
 func encode_damage(target_peer: int, amount: float, hit_pos: Vector3) -> PackedByteArray:
 	var buf := StreamPeerBuffer.new()
 	buf.put_u16(target_peer)
@@ -187,6 +199,7 @@ func decode_damage(data: PackedByteArray) -> Dictionary:
 # Net flash (no payload needed, just the peer ID from header)
 # =============================================================================
 
+
 func encode_net_flash() -> PackedByteArray:
 	return PackedByteArray()
 
@@ -194,6 +207,7 @@ func encode_net_flash() -> PackedByteArray:
 # =============================================================================
 # Projectile spawn
 # =============================================================================
+
 
 func encode_projectile_spawn(spawn_pos: Vector3, direction: Vector3, dmg: float) -> PackedByteArray:
 	var buf := StreamPeerBuffer.new()
@@ -216,6 +230,7 @@ func decode_projectile_spawn(data: PackedByteArray) -> Dictionary:
 # =============================================================================
 # Lobby messages
 # =============================================================================
+
 
 func encode_class_select(class_name_str: String) -> PackedByteArray:
 	var buf := StreamPeerBuffer.new()
@@ -259,6 +274,7 @@ func decode_player_info(data: PackedByteArray) -> Dictionary:
 # Game flow
 # =============================================================================
 
+
 func encode_show_result(text: String, color: Color) -> PackedByteArray:
 	var buf := StreamPeerBuffer.new()
 	_put_str8(buf, text)
@@ -281,6 +297,7 @@ func decode_show_result(data: PackedByteArray) -> Dictionary:
 # =============================================================================
 # Zone management
 # =============================================================================
+
 
 func encode_join_zone(zone_id: String) -> PackedByteArray:
 	return zone_id.to_utf8_buffer()
@@ -311,9 +328,17 @@ func decode_peer_id(data: PackedByteArray) -> int:
 # Player input (client -> server, server-authoritative protocol)
 # =============================================================================
 
+
 ## Client-authoritative movement: send position + current animation.
 ## Format: [pos_x:f32][pos_y:f32][pos_z:f32][rot_y:f32][tick:u32][anim_len:u8][anim:...][anim_speed:f32]
-func encode_player_input(pos: Vector3, rot_y: float, tick: int, anim_name: String = "", anim_speed: float = 1.0, aim_pitch: float = 0.0) -> PackedByteArray:
+func encode_player_input(
+	pos: Vector3,
+	rot_y: float,
+	tick: int,
+	anim_name: String = "",
+	anim_speed: float = 1.0,
+	aim_pitch: float = 0.0
+) -> PackedByteArray:
 	var buf := StreamPeerBuffer.new()
 	buf.put_float(pos.x)
 	buf.put_float(pos.y)
@@ -341,6 +366,7 @@ func encode_ability(action_id: int, aim_pitch: float = 0.0, rot_y: float = 0.0) 
 # =============================================================================
 # Interact input (client -> server, server-authoritative protocol)
 # =============================================================================
+
 
 ## Format: [action:u8][data_len:u8][data:...]
 func encode_interact_input(action: int, data: String = "") -> PackedByteArray:
@@ -372,6 +398,7 @@ func decode_interact_input(data: PackedByteArray) -> Dictionary:
 # =============================================================================
 # World state (server -> client, server-authoritative protocol)
 # =============================================================================
+
 
 ## Format: [tick:u32][player_count:u8]
 ##   per player: [peer_id:u16][x:f32][y:f32][z:f32][rot_y:f32][health:f32]
@@ -408,26 +435,31 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 		var config := buf.get_u8() if buf.get_position() < buf.get_size() else 0
 		var server_stamina := buf.get_float() if buf.get_position() + 4 <= buf.get_size() else -1.0
 		var shield_hp := buf.get_float() if buf.get_position() + 4 <= buf.get_size() else 0.0
-		players.append({
-			"peer_id": peer_id,
-			"pos": pos,
-			"rot_y": rot_y,
-			"health": health,
-			"state": state,
-			"class_name": class_name_str,
-			"username": username,
-			"anim_name": anim_name,
-			"anim_speed": anim_speed,
-			"aim_pitch": aim_pitch,
-			"overclock_active": bool(buff_flags & 0x01),
-			"rechamber_buff": bool(buff_flags & 0x02),
-			"rechamber_phase": (buff_flags >> 2) & 0x03,
-			"blade_swirl": bool(buff_flags & 0x10),
-			"guard_active": bool(buff_flags & 0x20),
-			"config": config,
-			"stamina": server_stamina,
-			"shield_hp": shield_hp,
-		})
+		(
+			players
+			. append(
+				{
+					"peer_id": peer_id,
+					"pos": pos,
+					"rot_y": rot_y,
+					"health": health,
+					"state": state,
+					"class_name": class_name_str,
+					"username": username,
+					"anim_name": anim_name,
+					"anim_speed": anim_speed,
+					"aim_pitch": aim_pitch,
+					"overclock_active": bool(buff_flags & 0x01),
+					"rechamber_buff": bool(buff_flags & 0x02),
+					"rechamber_phase": (buff_flags >> 2) & 0x03,
+					"blade_swirl": bool(buff_flags & 0x10),
+					"guard_active": bool(buff_flags & 0x20),
+					"config": config,
+					"stamina": server_stamina,
+					"shield_hp": shield_hp,
+				}
+			)
+		)
 
 	# Enemies — count-prefixed array
 	var enemy_count := buf.get_u8()
@@ -446,21 +478,26 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 		var charge_dir := Vector3(buf.get_float(), buf.get_float(), buf.get_float())
 		var melee_cone_angle := buf.get_float()
 		var e_melee_range := buf.get_float()
-		enemies.append({
-			"alive": enemy_alive,
-			"enemy_id": enemy_id,
-			"pos": epos,
-			"rot_y": erot_y,
-			"health": ehealth,
-			"state": estate,
-			"phase": ephase,
-			"max_health": emax_health,
-			"def_name": edef_name,
-			"ranged_target": ranged_target,
-			"charge_dir": charge_dir,
-			"melee_cone_angle": melee_cone_angle,
-			"melee_range": e_melee_range,
-		})
+		(
+			enemies
+			. append(
+				{
+					"alive": enemy_alive,
+					"enemy_id": enemy_id,
+					"pos": epos,
+					"rot_y": erot_y,
+					"health": ehealth,
+					"state": estate,
+					"phase": ephase,
+					"max_health": emax_health,
+					"def_name": edef_name,
+					"ranged_target": ranged_target,
+					"charge_dir": charge_dir,
+					"melee_cone_angle": melee_cone_angle,
+					"melee_range": e_melee_range,
+				}
+			)
+		)
 
 	# Projectiles
 	var proj_count := buf.get_u8()
@@ -475,14 +512,19 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 		var ptag := ""
 		if ptag_len > 0:
 			ptag = buf.get_data(ptag_len)[1].get_string_from_utf8()
-		projectiles.append({
-			"proj_id": proj_id,
-			"pos": ppos,
-			"direction": pdir,
-			"speed": pspeed,
-			"angular_velocity": pangular_vel,
-			"visual_tag": ptag,
-		})
+		(
+			projectiles
+			. append(
+				{
+					"proj_id": proj_id,
+					"pos": ppos,
+					"direction": pdir,
+					"speed": pspeed,
+					"angular_velocity": pangular_vel,
+					"visual_tag": ptag,
+				}
+			)
+		)
 
 	# NPCs (appended after projectiles)
 	var npc_list: Array[Dictionary] = []
@@ -494,13 +536,18 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 			var npc_rot_y := buf.get_float()
 			var npc_state := buf.get_u8()
 			var npc_def_name := _get_str8(buf)
-			npc_list.append({
-				"npc_id": npc_id,
-				"pos": npc_pos,
-				"rot_y": npc_rot_y,
-				"state": npc_state,
-				"def_name": npc_def_name,
-			})
+			(
+				npc_list
+				. append(
+					{
+						"npc_id": npc_id,
+						"pos": npc_pos,
+						"rot_y": npc_rot_y,
+						"state": npc_state,
+						"def_name": npc_def_name,
+					}
+				)
+			)
 
 	return {
 		"tick": tick,
@@ -515,6 +562,7 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 # Damage event (server -> client, server-authoritative protocol)
 # =============================================================================
 
+
 ## Format: [target_peer_id:u16][source_peer_id:u16][amount:f32][hit_x:f32][hit_y:f32][hit_z:f32][source_type:u8]
 func decode_damage_event(data: PackedByteArray) -> Dictionary:
 	var buf := StreamPeerBuffer.new()
@@ -528,7 +576,9 @@ func decode_damage_event(data: PackedByteArray) -> Dictionary:
 	}
 
 
-func encode_damage_event(target_peer_id: int, source_peer_id: int, amount: float, hit_pos: Vector3, source_type: int) -> PackedByteArray:
+func encode_damage_event(
+	target_peer_id: int, source_peer_id: int, amount: float, hit_pos: Vector3, source_type: int
+) -> PackedByteArray:
 	var buf := StreamPeerBuffer.new()
 	buf.put_u16(target_peer_id)
 	buf.put_u16(source_peer_id)
@@ -541,6 +591,7 @@ func encode_damage_event(target_peer_id: int, source_peer_id: int, amount: float
 # =============================================================================
 # Game flow event (server -> client, server-authoritative protocol)
 # =============================================================================
+
 
 ## Format: [flow_type:u8][text_len:u8][text:...]
 ## flow_type: 1=spawn_players, 2=fight_start, 3=show_result, 4=phase_transition, 5=return_lobby
@@ -566,6 +617,7 @@ func encode_game_flow_event(flow_type: int, text: String = "") -> PackedByteArra
 # Lobby state (server -> client, server-authoritative protocol)
 # =============================================================================
 
+
 ## Format: [player_count:u8] per player: [peer_id:u16][class_len:u8][class:...][ready:u8]
 func decode_lobby_state(data: PackedByteArray) -> Dictionary:
 	var buf := StreamPeerBuffer.new()
@@ -577,12 +629,17 @@ func decode_lobby_state(data: PackedByteArray) -> Dictionary:
 		var class_name_str := _get_str8(buf)
 		var username := _get_str8(buf)
 		var is_ready := buf.get_u8() == 1
-		players.append({
-			"peer_id": peer_id,
-			"class_name": class_name_str,
-			"username": username,
-			"is_ready": is_ready,
-		})
+		(
+			players
+			. append(
+				{
+					"peer_id": peer_id,
+					"class_name": class_name_str,
+					"username": username,
+					"is_ready": is_ready,
+				}
+			)
+		)
 	return {"players": players}
 
 
@@ -601,6 +658,7 @@ func encode_lobby_state(players: Array[Dictionary]) -> PackedByteArray:
 # Username (client -> server)
 # =============================================================================
 
+
 ## Format: [name_len:u8][name:...]
 func encode_username(username: String) -> PackedByteArray:
 	var buf := StreamPeerBuffer.new()
@@ -614,6 +672,7 @@ func encode_username(username: String) -> PackedByteArray:
 # =============================================================================
 # Zone transfer (server -> client)
 # =============================================================================
+
 
 ## Format: [zone_type:u8][new_peer_id:u16 BE]
 func decode_zone_transfer(data: PackedByteArray) -> Dictionary:
@@ -631,10 +690,13 @@ func decode_zone_transfer(data: PackedByteArray) -> Dictionary:
 # Character state (server -> client, confirmation after select/create)
 # =============================================================================
 
+
 ## Format: [charID:u32 LE][class_len:u8][class:...][name_len:u8][name:...]
 ##         [pos_x:f32 LE][pos_y:f32 LE][pos_z:f32 LE][rot_y:f32 LE]
 func decode_character_state(data: PackedByteArray) -> Dictionary:
-	var empty := {"char_id": 0, "class_name": "", "char_name": "", "position": Vector3.ZERO, "rot_y": 0.0}
+	var empty := {
+		"char_id": 0, "class_name": "", "char_name": "", "position": Vector3.ZERO, "rot_y": 0.0
+	}
 	if data.size() < 5:
 		return empty
 	var buf := StreamPeerBuffer.new()
@@ -646,13 +708,19 @@ func decode_character_state(data: PackedByteArray) -> Dictionary:
 	var py := buf.get_float()
 	var pz := buf.get_float()
 	var ry := buf.get_float()
-	return {"char_id": char_id, "class_name": class_name_str, "char_name": char_name,
-		"position": Vector3(px, py, pz), "rot_y": ry}
+	return {
+		"char_id": char_id,
+		"class_name": class_name_str,
+		"char_name": char_name,
+		"position": Vector3(px, py, pz),
+		"rot_y": ry
+	}
 
 
 # =============================================================================
 # Character list (server -> client, sent once after auth)
 # =============================================================================
+
 
 ## Format: [username_len:u8][username:...]
 ##         [count:u8]
@@ -675,13 +743,19 @@ func decode_character_list(data: PackedByteArray) -> Dictionary:
 		var py := buf.get_float()
 		var pz := buf.get_float()
 		var ry := buf.get_float()
-		result.characters.append({
-			"char_id": char_id,
-			"class_name": cls,
-			"char_name": char_name,
-			"position": Vector3(px, py, pz),
-			"rot_y": ry,
-		})
+		(
+			result
+			. characters
+			. append(
+				{
+					"char_id": char_id,
+					"class_name": cls,
+					"char_name": char_name,
+					"position": Vector3(px, py, pz),
+					"rot_y": ry,
+				}
+			)
+		)
 	result.last_char_id = buf.get_u32()
 	return result
 
@@ -715,6 +789,7 @@ func decode_character_error(data: PackedByteArray) -> Dictionary:
 # =============================================================================
 # Group state (server -> client)
 # =============================================================================
+
 
 ## Format: [group_id:u32 LE][leader_peer:u16 LE][count:u8]
 ##   per member: [peer_id:u16 LE][name_len:u8][name:...]
@@ -768,6 +843,7 @@ func encode_group_invite_reply(group_id: int, accept: bool) -> PackedByteArray:
 # =============================================================================
 # Helpers
 # =============================================================================
+
 
 func _put_vec3(buf: StreamPeerBuffer, v: Vector3) -> void:
 	buf.put_float(v.x)

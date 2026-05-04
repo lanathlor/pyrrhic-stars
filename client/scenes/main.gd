@@ -38,9 +38,24 @@ const CLASS_SCENES := {
 }
 
 const CLASS_INFO := {
-	"gunner": {"name": "Gunner", "genre": "FPS", "desc": "Fast movement, high fire rate.\nRelentless aggression."},
-	"vanguard": {"name": "Vanguard", "genre": "Souls-like", "desc": "Big AoE swings, punish windows.\nHeavy and deliberate."},
-	"blade_dancer": {"name": "Blade Dancer", "genre": "State Machine", "desc": "5 configurations, 4 spells each.\nHighest skill ceiling."},
+	"gunner":
+	{
+		"name": "Gunner",
+		"genre": "FPS",
+		"desc": "Fast movement, high fire rate.\nRelentless aggression."
+	},
+	"vanguard":
+	{
+		"name": "Vanguard",
+		"genre": "Souls-like",
+		"desc": "Big AoE swings, punish windows.\nHeavy and deliberate."
+	},
+	"blade_dancer":
+	{
+		"name": "Blade Dancer",
+		"genre": "State Machine",
+		"desc": "5 configurations, 4 spells each.\nHighest skill ceiling."
+	},
 }
 
 var _spawned_players: Dictionary = {}  # peer_id -> CharacterBody3D
@@ -109,7 +124,7 @@ var _player_names: Dictionary = {}  # peer_id -> username
 var _group_data: Dictionary = {}  # current group state
 var _aimed_peer_id: int = 0  # peer id under crosshair for invite
 var _cursor_toggled: bool = false  # backtick toggle state
-var _alt_held: bool = false        # alt hold state
+var _alt_held: bool = false  # alt hold state
 
 # Shared HUD (boss frame, group frames, damage meter, minimap, player status)
 var _shared_hud_layer: CanvasLayer
@@ -179,13 +194,25 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		if state == GameState.FIGHT_OVER:
 			return
-		if state == GameState.MENU or state == GameState.CHARACTER_SELECT or state == GameState.CREATE_CHARACTER:
+		if (
+			state == GameState.MENU
+			or state == GameState.CHARACTER_SELECT
+			or state == GameState.CREATE_CHARACTER
+		):
 			return
 		_toggle_pause()
 		get_viewport().set_input_as_handled()
 
 	# Cursor mode: Alt (hold) + backtick/tilde (toggle)
-	if not paused and (state == GameState.FIGHT or state == GameState.FIGHT_OVER or state == GameState.HUB or state == GameState.ARENA_LOBBY):
+	if (
+		not paused
+		and (
+			state == GameState.FIGHT
+			or state == GameState.FIGHT_OVER
+			or state == GameState.HUB
+			or state == GameState.ARENA_LOBBY
+		)
+	):
 		if event is InputEventKey:
 			# Backtick toggle
 			if event.physical_keycode == KEY_QUOTELEFT and event.pressed and not event.echo:
@@ -213,10 +240,15 @@ func _input(event: InputEvent) -> void:
 						_map_overlay.scan_environment(_current_env)
 						_map_overlay._recompute_scale()
 						if _portal_trail:
-							if my_id in _spawned_players and is_instance_valid(_spawned_players[my_id]):
+							if (
+								my_id in _spawned_players
+								and is_instance_valid(_spawned_players[my_id])
+							):
 								_map_overlay.set_waypoint_path(
 									_portal_trail.get_path_to_target(
-										_spawned_players[my_id].global_position))
+										_spawned_players[my_id].global_position
+									)
+								)
 					get_viewport().set_input_as_handled()
 
 	# Hub interactions
@@ -256,6 +288,7 @@ func _physics_process(_delta: float) -> void:
 # =============================================================================
 # Menu
 # =============================================================================
+
 
 func _enter_menu() -> void:
 	state = GameState.MENU
@@ -328,8 +361,12 @@ func _on_character_state(data: Dictionary) -> void:
 		_saved_hub_position = data.position
 		_saved_hub_rot_y = data.rot_y
 		_has_saved_state = true
-	print("[Main] Character confirmed: id=%d class=%s name=%s pos=%s" % [
-		_selected_char_id, _local_class, data.get("char_name", ""), _saved_hub_position])
+	print(
+		(
+			"[Main] Character confirmed: id=%d class=%s name=%s pos=%s"
+			% [_selected_char_id, _local_class, data.get("char_name", ""), _saved_hub_position]
+		)
+	)
 
 
 func _on_character_list(data: Dictionary) -> void:
@@ -342,7 +379,12 @@ func _on_character_list(data: Dictionary) -> void:
 		if ch.char_id == last_id:
 			_local_class = ch.class_name
 			break
-	print("[Main] Character list: %d characters, username=%s" % [data.characters.size(), _account_username])
+	print(
+		(
+			"[Main] Character list: %d characters, username=%s"
+			% [data.characters.size(), _account_username]
+		)
+	)
 	_enter_character_select()
 
 
@@ -381,6 +423,7 @@ func _on_net_player_disconnected(peer_id: int) -> void:
 # =============================================================================
 # Hub
 # =============================================================================
+
 
 func _enter_hub() -> void:
 	state = GameState.HUB
@@ -602,6 +645,7 @@ func _check_aim_at_player() -> void:
 # Group handlers
 # =============================================================================
 
+
 func _on_group_state(data: Dictionary) -> void:
 	_group_data = data
 	_update_group_panel()
@@ -615,9 +659,10 @@ func _on_group_invite(group_id: int, leader_name: String) -> void:
 	_invite_popup.visible = true
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	# Auto-decline after 30 seconds
-	get_tree().create_timer(30.0).timeout.connect(func():
-		if _invite_popup.visible and _pending_invite_group_id == group_id:
-			_decline_invite()
+	get_tree().create_timer(30.0).timeout.connect(
+		func():
+			if _invite_popup.visible and _pending_invite_group_id == group_id:
+				_decline_invite()
 	)
 
 
@@ -673,6 +718,7 @@ func _update_group_panel() -> void:
 # Arena warmup
 # =============================================================================
 
+
 func _enter_arena_warmup() -> void:
 	state = GameState.ARENA_LOBBY
 	get_tree().paused = false
@@ -705,6 +751,7 @@ func _select_class(class_name_str: String) -> void:
 # =============================================================================
 # Spawning
 # =============================================================================
+
 
 func _spawn_multiplayer_players() -> void:
 	var spawn_idx := 0
@@ -777,7 +824,14 @@ func _despawn_all_projectiles() -> void:
 	_spawned_projectiles.clear()
 
 
-func _spawn_projectile(proj_id: int, pos: Vector3, dir: Vector3, spd: float = 22.0, ang_vel: float = 0.0, tag: String = "") -> void:
+func _spawn_projectile(
+	proj_id: int,
+	pos: Vector3,
+	dir: Vector3,
+	spd: float = 22.0,
+	ang_vel: float = 0.0,
+	tag: String = ""
+) -> void:
 	# TODO: select scene based on visual_tag for different VFX per ability
 	var scene := load("res://scenes/enemies/basic_enemy/enemy_projectile.tscn") as PackedScene
 	if not scene:
@@ -794,6 +848,7 @@ func _spawn_projectile(proj_id: int, pos: Vector3, dir: Vector3, spd: float = 22
 # =============================================================================
 # Fight
 # =============================================================================
+
 
 func _start_fight() -> void:
 	state = GameState.FIGHT
@@ -832,6 +887,7 @@ func _on_all_dead() -> void:
 # Zone transfer
 # =============================================================================
 
+
 func _on_zone_transfer(zone_type: int, new_peer_id: int) -> void:
 	print("[Main] Zone transfer: type=%d, new_peer=%d" % [zone_type, new_peer_id])
 	_hide_death_overlay()
@@ -867,6 +923,7 @@ func _on_zone_transfer(zone_type: int, new_peer_id: int) -> void:
 # =============================================================================
 # Server-authoritative signal handlers
 # =============================================================================
+
 
 func _on_game_flow_event(flow_type: int, text: String) -> void:
 	match flow_type:
@@ -966,9 +1023,14 @@ func _on_world_state(data: Dictionary) -> void:
 		var pid: int = p["proj_id"]
 		active_ids[pid] = true
 		if pid not in _spawned_projectiles:
-			_spawn_projectile(pid, p["pos"], p["direction"],
-				p.get("speed", 22.0), p.get("angular_velocity", 0.0),
-				p.get("visual_tag", ""))
+			_spawn_projectile(
+				pid,
+				p["pos"],
+				p["direction"],
+				p.get("speed", 22.0),
+				p.get("angular_velocity", 0.0),
+				p.get("visual_tag", "")
+			)
 		else:
 			_spawned_projectiles[pid].global_position = p["pos"]
 	var proj_to_remove: Array = []
@@ -992,16 +1054,20 @@ func _on_world_state(data: Dictionary) -> void:
 		if my_id in _spawned_players and is_instance_valid(_spawned_players[my_id]):
 			local_pos = _spawned_players[my_id].global_position
 			local_rot = _spawned_players[my_id].rotation.y
-		_map_overlay.update_state({
-			"player_pos": local_pos,
-			"player_rot_y": local_rot,
-			"players": _shared_hud._world_players,
-			"npcs": _shared_hud._npc_positions,
-			"enemies": _shared_hud._enemy_positions,
-		})
+		(
+			_map_overlay
+			. update_state(
+				{
+					"player_pos": local_pos,
+					"player_rot_y": local_rot,
+					"players": _shared_hud._world_players,
+					"npcs": _shared_hud._npc_positions,
+					"enemies": _shared_hud._enemy_positions,
+				}
+			)
+		)
 		if _portal_trail and local_pos != Vector3.ZERO:
-			_map_overlay.set_waypoint_path(
-				_portal_trail.get_path_to_target(local_pos))
+			_map_overlay.set_waypoint_path(_portal_trail.get_path_to_target(local_pos))
 
 
 func _on_damage_event(data: Dictionary) -> void:
@@ -1050,7 +1116,12 @@ func _spawn_damage_number(amount: float, world_pos: Vector3) -> void:
 
 	var tween := create_tween()
 	tween.set_parallel(true)
-	tween.tween_property(label, "position:y", label.position.y + 1.5, 0.8).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	(
+		tween
+		. tween_property(label, "position:y", label.position.y + 1.5, 0.8)
+		. set_ease(Tween.EASE_OUT)
+		. set_trans(Tween.TRANS_QUAD)
+	)
 	tween.tween_property(label, "modulate:a", 0.0, 0.8).set_delay(0.3)
 	tween.tween_property(label, "outline_modulate:a", 0.0, 0.8).set_delay(0.3)
 	tween.chain().tween_callback(label.queue_free)
@@ -1081,6 +1152,7 @@ func _update_cursor_mode() -> void:
 # =============================================================================
 # Scene management
 # =============================================================================
+
 
 func _load_environment(scene_path: String) -> void:
 	var scene := load(scene_path) as PackedScene
@@ -1190,6 +1262,7 @@ func _update_npcs(npcs_data: Array) -> void:
 
 const NPC_MODEL_SCENE := "res://scenes/shared/character_model/character_model.tscn"
 const NPC_PUPPET_SCRIPT := "res://scenes/shared/npc_puppet/npc_puppet.gd"
+
 
 func _create_npc_node(ndata: Dictionary) -> Node3D:
 	var root := Node3D.new()
@@ -1363,7 +1436,11 @@ func _close_boss_gate() -> void:
 	var my_id := NetworkManager.get_my_id()
 	if my_id in _spawned_players:
 		var player: CharacterBody3D = _spawned_players[my_id]
-		if is_instance_valid(player) and player.global_position.z > BOSS_ROOM_ENTRY_Z - 2.0 and player.global_position.z < BOSS_ROOM_ENTRY_Z + 2.0:
+		if (
+			is_instance_valid(player)
+			and player.global_position.z > BOSS_ROOM_ENTRY_Z - 2.0
+			and player.global_position.z < BOSS_ROOM_ENTRY_Z + 2.0
+		):
 			player.global_position.z = BOSS_ROOM_ENTRY_Z - 3.0
 
 
@@ -1388,7 +1465,9 @@ const UI_TEXT_DIM := Color(0.48, 0.53, 0.6, 0.95)
 const UI_DANGER := Color(0.86, 0.28, 0.28, 0.96)
 
 
-func _ui_style_box(fill: Color, border: Color, border_width: int = 1, padding: int = 10) -> StyleBoxFlat:
+func _ui_style_box(
+	fill: Color, border: Color, border_width: int = 1, padding: int = 10
+) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = fill
 	style.border_color = border
@@ -1403,7 +1482,9 @@ func _ui_apply_button_style(btn: Button, accent: Color = UI_BORDER_ACTIVE) -> vo
 	btn.add_theme_stylebox_override("hover", _ui_style_box(UI_SURFACE_ALT, accent, 1, 10))
 	btn.add_theme_stylebox_override("pressed", _ui_style_box(UI_SURFACE_ACTIVE, accent, 1, 10))
 	btn.add_theme_stylebox_override("focus", _ui_style_box(UI_SURFACE_ACTIVE, accent, 1, 10))
-	btn.add_theme_stylebox_override("disabled", _ui_style_box(Color(UI_SURFACE, 0.45), Color(UI_BORDER, 0.4), 1, 10))
+	btn.add_theme_stylebox_override(
+		"disabled", _ui_style_box(Color(UI_SURFACE, 0.45), Color(UI_BORDER, 0.4), 1, 10)
+	)
 	btn.add_theme_color_override("font_color", UI_TEXT)
 	btn.add_theme_color_override("font_hover_color", UI_TEXT)
 	btn.add_theme_color_override("font_pressed_color", UI_TEXT)
@@ -1414,7 +1495,9 @@ func _ui_apply_button_style(btn: Button, accent: Color = UI_BORDER_ACTIVE) -> vo
 
 func _ui_apply_line_edit_style(input: LineEdit) -> void:
 	input.add_theme_stylebox_override("normal", _ui_style_box(UI_SURFACE, UI_BORDER, 1, 10))
-	input.add_theme_stylebox_override("focus", _ui_style_box(UI_SURFACE_ALT, UI_BORDER_ACTIVE, 1, 10))
+	input.add_theme_stylebox_override(
+		"focus", _ui_style_box(UI_SURFACE_ALT, UI_BORDER_ACTIVE, 1, 10)
+	)
 	input.add_theme_stylebox_override("read_only", _ui_style_box(UI_SURFACE, UI_BORDER, 1, 10))
 	input.add_theme_color_override("font_color", UI_TEXT)
 	input.add_theme_color_override("font_placeholder_color", UI_TEXT_DIM)
@@ -1478,11 +1561,12 @@ func _create_pause_menu() -> void:
 	menu_btn.text = "Back to Menu"
 	menu_btn.custom_minimum_size.y = 38.0
 	_ui_apply_button_style(menu_btn)
-	menu_btn.pressed.connect(func():
-		get_tree().paused = false
-		paused = false
-		_despawn_all_players()
-		_enter_menu()
+	menu_btn.pressed.connect(
+		func():
+			get_tree().paused = false
+			paused = false
+			_despawn_all_players()
+			_enter_menu()
 	)
 	vbox.add_child(menu_btn)
 
@@ -1630,9 +1714,10 @@ func _create_char_select_ui() -> void:
 	back_btn.text = "Back"
 	back_btn.custom_minimum_size = Vector2(100.0, 38.0)
 	_ui_apply_button_style(back_btn)
-	back_btn.pressed.connect(func():
-		NetworkManager.disconnect_game()
-		_enter_menu()
+	back_btn.pressed.connect(
+		func():
+			NetworkManager.disconnect_game()
+			_enter_menu()
 	)
 	btn_hbox.add_child(back_btn)
 
@@ -1785,9 +1870,10 @@ func _create_char_create_ui() -> void:
 	back_btn.text = "Back"
 	back_btn.custom_minimum_size = Vector2(100.0, 38.0)
 	_ui_apply_button_style(back_btn)
-	back_btn.pressed.connect(func():
-		_char_create_layer.visible = false
-		_enter_character_select()
+	back_btn.pressed.connect(
+		func():
+			_char_create_layer.visible = false
+			_enter_character_select()
 	)
 	btn_hbox.add_child(back_btn)
 
@@ -1802,6 +1888,7 @@ func _create_char_create_ui() -> void:
 # =============================================================================
 # Character Select logic
 # =============================================================================
+
 
 func _enter_character_select() -> void:
 	state = GameState.CHARACTER_SELECT
@@ -1921,6 +2008,7 @@ func _on_enter_world_pressed() -> void:
 # =============================================================================
 # Create Character logic
 # =============================================================================
+
 
 func _enter_create_character() -> void:
 	state = GameState.CREATE_CHARACTER
@@ -2123,6 +2211,7 @@ func _create_shared_hud() -> void:
 # Death overlay
 # =============================================================================
 
+
 func _create_death_overlay() -> void:
 	_death_overlay_layer = CanvasLayer.new()
 	_death_overlay_layer.layer = 12
@@ -2202,6 +2291,7 @@ func _hide_death_overlay() -> void:
 # Exit portal
 # =============================================================================
 
+
 func _spawn_exit_portal() -> void:
 	if _exit_portal:
 		return
@@ -2268,6 +2358,7 @@ func _check_exit_portal_proximity() -> void:
 # Navigation
 # =============================================================================
 
+
 func _bake_hub_navigation() -> void:
 	var nav_region := NavigationRegion3D.new()
 	var nav_mesh := NavigationMesh.new()
@@ -2280,10 +2371,22 @@ func _bake_hub_navigation() -> void:
 
 	var source_geo := NavigationMeshSourceGeometryData3D.new()
 	# Hub floor: 30x25 centered at (0, 0, 2.5)
-	source_geo.add_faces(PackedVector3Array([
-		Vector3(-15, 0, -10), Vector3(15, 0, -10), Vector3(15, 0, 15),
-		Vector3(-15, 0, -10), Vector3(15, 0, 15), Vector3(-15, 0, 15),
-	]), Transform3D.IDENTITY)
+	(
+		source_geo
+		. add_faces(
+			PackedVector3Array(
+				[
+					Vector3(-15, 0, -10),
+					Vector3(15, 0, -10),
+					Vector3(15, 0, 15),
+					Vector3(-15, 0, -10),
+					Vector3(15, 0, 15),
+					Vector3(-15, 0, 15),
+				]
+			),
+			Transform3D.IDENTITY
+		)
+	)
 
 	NavigationServer3D.bake_from_source_geometry_data(nav_mesh, source_geo)
 

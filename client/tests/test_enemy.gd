@@ -24,6 +24,7 @@ func after_test() -> void:
 # Health & Damage
 # =============================================================================
 
+
 func test_initial_health() -> void:
 	assert_float(_enemy.health).is_equal(_enemy.max_health)
 
@@ -58,6 +59,7 @@ func test_dead_enemy_ignores_damage() -> void:
 # State machine basics
 # =============================================================================
 
+
 func test_starts_in_chase() -> void:
 	assert_int(_enemy.state).is_equal(_enemy.State.CHASE)
 
@@ -90,6 +92,7 @@ func test_charge_telegraph_sets_timer() -> void:
 # =============================================================================
 # Telegraph visuals
 # =============================================================================
+
 
 func test_melee_telegraph_shows_visual() -> void:
 	_enemy._change_state(_enemy.State.MELEE_TELEGRAPH)
@@ -135,6 +138,7 @@ func test_chase_hides_all_telegraphs() -> void:
 # =============================================================================
 # Phase system
 # =============================================================================
+
 
 func test_starts_in_phase_1() -> void:
 	assert_int(_enemy._current_phase).is_equal(1)
@@ -186,6 +190,7 @@ func test_boss_dies_from_any_phase() -> void:
 # =============================================================================
 # Phase-aware stats
 # =============================================================================
+
 
 func test_phase_1_move_speed() -> void:
 	assert_float(_enemy._get_move_speed()).is_equal(4.0)
@@ -254,6 +259,7 @@ func test_charge_speed_increases_by_phase() -> void:
 # Attack selection
 # =============================================================================
 
+
 func test_select_attack_returns_valid_state() -> void:
 	var result := _enemy._select_attack()
 	var valid := [
@@ -277,6 +283,7 @@ func test_select_attack_works_all_phases() -> void:
 # Charge state
 # =============================================================================
 
+
 func test_charge_resets_distance() -> void:
 	_enemy._charge_distance_traveled = 99.0
 	_enemy._change_state(_enemy.State.CHARGE)
@@ -292,6 +299,7 @@ func test_charge_clears_hit_list() -> void:
 # =============================================================================
 # AoE slam state
 # =============================================================================
+
 
 func test_aoe_particles_created() -> void:
 	assert_that(_enemy._aoe_particles).is_not_null()
@@ -314,6 +322,7 @@ func test_aoe_slam_stops_charge_particles() -> void:
 # Death
 # =============================================================================
 
+
 func test_dead_state_zeroes_velocity() -> void:
 	_enemy.velocity = Vector3(5.0, 0.0, 3.0)
 	_enemy._change_state(_enemy.State.DEAD)
@@ -335,6 +344,7 @@ func test_dead_enemy_loses_collision() -> void:
 # =============================================================================
 # Character model & Weapons
 # =============================================================================
+
 
 func test_character_model_exists() -> void:
 	assert_that(_enemy.character_model).is_not_null()
@@ -417,6 +427,7 @@ func test_gun_persists_during_chase_after_ranged() -> void:
 # =============================================================================
 # Animation correctness
 # =============================================================================
+
 
 func test_core_anims_loaded() -> void:
 	await get_tree().process_frame

@@ -13,8 +13,8 @@ signal died
 @export var mouse_sensitivity: float = 0.002
 @export var ground_accel: float = 25.0  # ~0.22s to full speed
 @export var ground_decel: float = 18.0  # ~0.31s to stop — visible slide
-@export var air_accel: float = 2.5      # nearly committed to jump trajectory
-@export var air_decel: float = 1.0      # almost nothing — momentum carries
+@export var air_accel: float = 2.5  # nearly committed to jump trajectory
+@export var air_decel: float = 1.0  # almost nothing — momentum carries
 
 # Gun
 @export var fire_rate: float = 0.18
@@ -94,7 +94,6 @@ var _viewmodel_weapon: Node3D
 var _recoil_offset: float = 0.0
 var _bob_time: float = 0.0
 
-
 # Remote fire detection
 var _net_aim_pitch: float = 0.0
 var _net_state: int = 0  # track remote state for attack transition detection
@@ -118,10 +117,13 @@ func _ready() -> void:
 		_attach_weapon.call_deferred()
 
 
-
 func _attach_weapon() -> void:
 	var offset_pos := _weapon_offset_pos
-	var offset_rot := Vector3(deg_to_rad(_weapon_offset_rot_deg.x), deg_to_rad(_weapon_offset_rot_deg.y), deg_to_rad(_weapon_offset_rot_deg.z))
+	var offset_rot := Vector3(
+		deg_to_rad(_weapon_offset_rot_deg.x),
+		deg_to_rad(_weapon_offset_rot_deg.y),
+		deg_to_rad(_weapon_offset_rot_deg.z)
+	)
 	character_model.attach_weapon(WEAPON_SCENE, "mixamorig_RightHand", offset_pos, offset_rot)
 
 
@@ -131,9 +133,8 @@ func _setup_viewmodel() -> void:
 	camera.add_child(_viewmodel)
 	_viewmodel.position = _vm_pos
 	_viewmodel.rotation = Vector3(
-		deg_to_rad(_vm_rot_deg.x),
-		deg_to_rad(_vm_rot_deg.y),
-		deg_to_rad(_vm_rot_deg.z))
+		deg_to_rad(_vm_rot_deg.x), deg_to_rad(_vm_rot_deg.y), deg_to_rad(_vm_rot_deg.z)
+	)
 	_viewmodel.scale = _vm_scale
 
 	var weapon_scene := load(WEAPON_SCENE) as PackedScene
@@ -193,14 +194,14 @@ func _process(_delta: float) -> void:
 		character_model.weapon_node.rotation = Vector3(
 			deg_to_rad(_weapon_offset_rot_deg.x),
 			deg_to_rad(_weapon_offset_rot_deg.y),
-			deg_to_rad(_weapon_offset_rot_deg.z))
+			deg_to_rad(_weapon_offset_rot_deg.z)
+		)
 	# Live-update viewmodel from inspector
 	if _viewmodel and _is_local():
 		if _recoil_offset <= 0.001:
 			_viewmodel.rotation = Vector3(
-				deg_to_rad(_vm_rot_deg.x),
-				deg_to_rad(_vm_rot_deg.y),
-				deg_to_rad(_vm_rot_deg.z))
+				deg_to_rad(_vm_rot_deg.x), deg_to_rad(_vm_rot_deg.y), deg_to_rad(_vm_rot_deg.z)
+			)
 		_viewmodel.scale = _vm_scale
 
 
@@ -231,12 +232,13 @@ func _physics_process(delta: float) -> void:
 			character_model.play_anim(_net_anim, _net_anim_speed)
 		return
 
-
 	# Dead: freeze movement and abilities, but keep sending position
 	if not _alive:
 		velocity = Vector3.ZERO
 		if NetworkManager.is_active:
-			NetworkManager.send_player_position(global_position, rotation.y, _net_anim, _net_anim_speed)
+			NetworkManager.send_player_position(
+				global_position, rotation.y, _net_anim, _net_anim_speed
+			)
 		return
 
 	_roll_cooldown_timer = maxf(_roll_cooldown_timer - delta, 0.0)
@@ -259,16 +261,54 @@ func _physics_process(delta: float) -> void:
 	_update_muzzle_flash(delta)
 	_update_viewmodel(delta)
 	_update_animation()
-	hud.update_spells([
-		{name="Shoot", keybind="LMB", desc="10 dmg hitscan. 0.18s fire rate.", cooldown=0.0, cooldown_max=0.0},
-		{name="Roll", keybind="C", desc="Dodge roll with i-frames.", cooldown=_roll_cooldown_timer, cooldown_max=roll_cooldown},
-		{name="Overclock", keybind="Q", desc="7s fire rate + speed boost.", cooldown=_overclock_cooldown if not _overclock_active else 0.0, cooldown_max=OVERCLOCK_COOLDOWN, active=_overclock_active, active_remaining=_overclock_timer, active_max=OVERCLOCK_DURATION},
-		{name="Rechamber", keybind="T", desc="Timed reload. Perfect timing = dmg buff.", cooldown=0.0, cooldown_max=0.0, active=_rechamber_buff, active_remaining=_rechamber_buff_timer, active_max=RECHAMBER_BUFF_DURATION, status_text=_get_rechamber_status()},
-	])
+	(
+		hud
+		. update_spells(
+			[
+				{
+					name = "Shoot",
+					keybind = "LMB",
+					desc = "10 dmg hitscan. 0.18s fire rate.",
+					cooldown = 0.0,
+					cooldown_max = 0.0
+				},
+				{
+					name = "Roll",
+					keybind = "C",
+					desc = "Dodge roll with i-frames.",
+					cooldown = _roll_cooldown_timer,
+					cooldown_max = roll_cooldown
+				},
+				{
+					name = "Overclock",
+					keybind = "Q",
+					desc = "7s fire rate + speed boost.",
+					cooldown = _overclock_cooldown if not _overclock_active else 0.0,
+					cooldown_max = OVERCLOCK_COOLDOWN,
+					active = _overclock_active,
+					active_remaining = _overclock_timer,
+					active_max = OVERCLOCK_DURATION
+				},
+				{
+					name = "Rechamber",
+					keybind = "T",
+					desc = "Timed reload. Perfect timing = dmg buff.",
+					cooldown = 0.0,
+					cooldown_max = 0.0,
+					active = _rechamber_buff,
+					active_remaining = _rechamber_buff_timer,
+					active_max = RECHAMBER_BUFF_DURATION,
+					status_text = _get_rechamber_status()
+				},
+			]
+		)
+	)
 
 	# Send position + animation to server
 	if NetworkManager.is_active:
-		NetworkManager.send_player_position(global_position, rotation.y, _net_anim, _net_anim_speed, head.rotation.x)
+		NetworkManager.send_player_position(
+			global_position, rotation.y, _net_anim, _net_anim_speed, head.rotation.x
+		)
 
 
 func _apply_gravity(delta: float) -> void:
@@ -342,7 +382,10 @@ func _handle_shooting(delta: float) -> void:
 	_fire_cooldown -= delta
 	# During rechamber timing window, shoot button confirms the rechamber instead
 	if _rechamber_phase == 2:
-		if Input.is_action_just_pressed("shoot") and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+		if (
+			Input.is_action_just_pressed("shoot")
+			and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED
+		):
 			_rechamber_phase = 0
 			_rechamber_buff = true
 			_rechamber_buff_timer = RECHAMBER_BUFF_DURATION
@@ -353,7 +396,11 @@ func _handle_shooting(delta: float) -> void:
 	if _rechamber_phase != 0:
 		return
 	var current_fire_rate: float = OVERCLOCK_FIRE_RATE if _overclock_active else fire_rate
-	if Input.is_action_pressed("shoot") and _fire_cooldown <= 0.0 and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+	if (
+		Input.is_action_pressed("shoot")
+		and _fire_cooldown <= 0.0
+		and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED
+	):
 		_shoot()
 		_fire_cooldown = current_fire_rate
 
@@ -389,7 +436,11 @@ func _handle_overclock(delta: float) -> void:
 	if _overclock_cooldown > 0.0:
 		_overclock_cooldown -= delta
 	# Activation
-	if Input.is_action_just_pressed("ability_1") and not _overclock_active and _overclock_cooldown <= 0.0:
+	if (
+		Input.is_action_just_pressed("ability_1")
+		and not _overclock_active
+		and _overclock_cooldown <= 0.0
+	):
 		_overclock_active = true
 		_overclock_timer = OVERCLOCK_DURATION
 		_overclock_cooldown = OVERCLOCK_COOLDOWN
@@ -399,8 +450,10 @@ func _handle_overclock(delta: float) -> void:
 
 func _get_rechamber_status() -> String:
 	match _rechamber_phase:
-		1: return "..."
-		2: return "FIRE!"
+		1:
+			return "..."
+		2:
+			return "FIRE!"
 	return ""
 
 
@@ -428,7 +481,11 @@ func _handle_rechamber(delta: float) -> void:
 			if _rechamber_timer <= 0.0:
 				_rechamber_phase = 0
 	# Activation — only when idle and not shooting
-	if Input.is_action_just_pressed("ability_2") and _rechamber_phase == 0 and _fire_cooldown <= 0.0:
+	if (
+		Input.is_action_just_pressed("ability_2")
+		and _rechamber_phase == 0
+		and _fire_cooldown <= 0.0
+	):
 		_rechamber_phase = 1
 		_rechamber_timer = RECHAMBER_WINDUP
 		_fire_cooldown = RECHAMBER_WINDUP  # lock out shooting during windup

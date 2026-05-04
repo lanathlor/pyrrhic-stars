@@ -10,39 +10,47 @@ const BASE_MODEL := "res://assets/models/characters/Idle.fbx"
 ## Each FBX's mixamo animation is imported and added to the AnimationPlayer.
 const ANIM_SOURCES := {
 	# Base
-	"idle":              "res://assets/models/characters/Idle.fbx",
-	"run":               "res://assets/models/characters/Running.fbx",
-	"jump":              "res://assets/models/characters/Jump.fbx",
-	"roll":              "res://assets/models/characters/Stand To Roll.fbx",
+	"idle": "res://assets/models/characters/Idle.fbx",
+	"run": "res://assets/models/characters/Running.fbx",
+	"jump": "res://assets/models/characters/Jump.fbx",
+	"roll": "res://assets/models/characters/Stand To Roll.fbx",
 	# Rifle (old standalone)
-	"rifle_idle":        "res://assets/models/characters/Rifle Idle.fbx",
-	"rifle_run":         "res://assets/models/characters/Rifle Run.fbx",
-	"rifle_jump":        "res://assets/models/characters/Rifle Jump.fbx",
-	"rifle_shoot":       "res://assets/models/characters/Gunplay.fbx",
+	"rifle_idle": "res://assets/models/characters/Rifle Idle.fbx",
+	"rifle_run": "res://assets/models/characters/Rifle Run.fbx",
+	"rifle_jump": "res://assets/models/characters/Rifle Jump.fbx",
+	"rifle_shoot": "res://assets/models/characters/Gunplay.fbx",
 	# Rifle (aiming set)
-	"rifle_aim_idle":    "res://assets/models/characters/rifle/idle aiming.fbx",
-	"rifle_aim_walk":    "res://assets/models/characters/rifle/walk forward.fbx",
-	"rifle_aim_run":     "res://assets/models/characters/rifle/run forward.fbx",
+	"rifle_aim_idle": "res://assets/models/characters/rifle/idle aiming.fbx",
+	"rifle_aim_walk": "res://assets/models/characters/rifle/walk forward.fbx",
+	"rifle_aim_run": "res://assets/models/characters/rifle/run forward.fbx",
 	# Great sword
-	"slash":             "res://assets/models/characters/Great Sword Slash.fbx",
-	"sword_idle":        "res://assets/models/characters/sword/great sword idle.fbx",
-	"sword_run":         "res://assets/models/characters/sword/great sword run.fbx",
-	"sword_walk":        "res://assets/models/characters/sword/great sword walk.fbx",
-	"sword_slash_1":     "res://assets/models/characters/sword/great sword slash.fbx",
-	"sword_slash_2":     "res://assets/models/characters/sword/great sword slash (2).fbx",
-	"sword_slash_3":     "res://assets/models/characters/sword/great sword slash (3).fbx",
-	"sword_heavy":       "res://assets/models/characters/sword/great sword attack.fbx",
-	"sword_block":       "res://assets/models/characters/sword/great sword blocking.fbx",
-	"sword_impact":      "res://assets/models/characters/sword/great sword impact.fbx",
-	"sword_jump":        "res://assets/models/characters/sword/great sword jump.fbx",
-	"sword_spin":        "res://assets/models/characters/sword/great sword high spin attack.fbx",
+	"slash": "res://assets/models/characters/Great Sword Slash.fbx",
+	"sword_idle": "res://assets/models/characters/sword/great sword idle.fbx",
+	"sword_run": "res://assets/models/characters/sword/great sword run.fbx",
+	"sword_walk": "res://assets/models/characters/sword/great sword walk.fbx",
+	"sword_slash_1": "res://assets/models/characters/sword/great sword slash.fbx",
+	"sword_slash_2": "res://assets/models/characters/sword/great sword slash (2).fbx",
+	"sword_slash_3": "res://assets/models/characters/sword/great sword slash (3).fbx",
+	"sword_heavy": "res://assets/models/characters/sword/great sword attack.fbx",
+	"sword_block": "res://assets/models/characters/sword/great sword blocking.fbx",
+	"sword_impact": "res://assets/models/characters/sword/great sword impact.fbx",
+	"sword_jump": "res://assets/models/characters/sword/great sword jump.fbx",
+	"sword_spin": "res://assets/models/characters/sword/great sword high spin attack.fbx",
 }
 
 ## Which animations should loop (others play once).
 const LOOPING_ANIMS := [
-	"idle", "run",
-	"rifle_idle", "rifle_run", "rifle_aim_idle", "rifle_aim_walk", "rifle_aim_run",
-	"sword_idle", "sword_run", "sword_walk", "sword_block",
+	"idle",
+	"run",
+	"rifle_idle",
+	"rifle_run",
+	"rifle_aim_idle",
+	"rifle_aim_walk",
+	"rifle_aim_run",
+	"sword_idle",
+	"sword_run",
+	"sword_walk",
+	"sword_block",
 ]
 
 var _anim_player: AnimationPlayer = null
@@ -155,8 +163,12 @@ func hide_model() -> void:
 
 ## Attach a weapon model to a skeleton bone (e.g. Mixamo's right hand).
 ## Returns the instanced weapon Node3D, or null on failure.
-func attach_weapon(scene_path: String, bone_name: String = "mixamorig:RightHand",
-		offset_pos: Vector3 = Vector3.ZERO, offset_rot: Vector3 = Vector3.ZERO) -> Node3D:
+func attach_weapon(
+	scene_path: String,
+	bone_name: String = "mixamorig:RightHand",
+	offset_pos: Vector3 = Vector3.ZERO,
+	offset_rot: Vector3 = Vector3.ZERO
+) -> Node3D:
 	if not _skeleton:
 		push_warning("CharacterModel: no skeleton to attach weapon to")
 		return null
@@ -189,6 +201,7 @@ func attach_weapon(scene_path: String, bone_name: String = "mixamorig:RightHand"
 
 ## Flash the mesh white for damage feedback.
 var _flash_tween: Tween = null
+
 
 func flash_damage(color: Color = Color(1.0, 1.0, 1.0), duration: float = 0.12) -> void:
 	if _mesh_instances.is_empty():

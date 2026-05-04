@@ -4,7 +4,7 @@ extends Node
 ## Attach as a child of a Gunner CharacterBody3D.
 
 @export var engage_range: float = 10.0  # ideal combat distance
-@export var too_close: float = 5.0      # back off below this
+@export var too_close: float = 5.0  # back off below this
 @export var strafe_change_interval: float = 1.5  # seconds between strafe direction swaps
 
 var _player: CharacterBody3D
@@ -64,9 +64,11 @@ func _physics_process(delta: float) -> void:
 
 
 func _find_target() -> CharacterBody3D:
-	return GameManager.get_nearest_player(_player.global_position) if GameManager.enemies.is_empty() \
-		else GameManager.enemies[0] if is_instance_valid(GameManager.enemies[0]) \
-		else null
+	return (
+		GameManager.get_nearest_player(_player.global_position)
+		if GameManager.enemies.is_empty()
+		else GameManager.enemies[0] if is_instance_valid(GameManager.enemies[0]) else null
+	)
 
 
 func _aim_at(target: CharacterBody3D) -> void:
@@ -150,5 +152,7 @@ func _set_movement(local_x: float, local_z: float) -> void:
 
 
 func _release_all() -> void:
-	for action in ["move_forward", "move_backward", "move_left", "move_right", "shoot", "sprint", "dodge"]:
+	for action in [
+		"move_forward", "move_backward", "move_left", "move_right", "shoot", "sprint", "dodge"
+	]:
 		Input.action_release(action)

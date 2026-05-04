@@ -21,7 +21,7 @@ const DOOR_OPEN_X := 2.0
 
 var _state: State = State.IDLE_BOTTOM
 var _travel_t: float = 0.0  # 0=bottom, 1=top
-var _door_t: float = 1.0    # 0=closed, 1=open
+var _door_t: float = 1.0  # 0=closed, 1=open
 
 var _door_gf_l: AnimatableBody3D
 var _door_gf_r: AnimatableBody3D

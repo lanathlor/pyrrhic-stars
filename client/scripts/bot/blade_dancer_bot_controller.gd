@@ -52,7 +52,11 @@ func _physics_process(delta: float) -> void:
 
 	# --- Priority 1: Dodge AoE slam telegraph ---
 	if _is_enemy_state(target, "AOE_TELEGRAPH") and distance < 8.0:
-		if _player._gcd_timer <= 0.0 and _player.is_on_floor() and _player.state == _player.State.MOVE:
+		if (
+			_player._gcd_timer <= 0.0
+			and _player.is_on_floor()
+			and _player.state == _player.State.MOVE
+		):
 			_move_away(dir)
 			_player._start_dash()
 			return
@@ -63,7 +67,11 @@ func _physics_process(delta: float) -> void:
 
 	# --- Priority 2: Dodge charge telegraph ---
 	if _is_enemy_state(target, "CHARGE_TELEGRAPH"):
-		if _player._gcd_timer <= 0.0 and _player.is_on_floor() and _player.state == _player.State.MOVE:
+		if (
+			_player._gcd_timer <= 0.0
+			and _player.is_on_floor()
+			and _player.state == _player.State.MOVE
+		):
 			_move_strafe(dir)
 			_player._start_dash()
 			return
@@ -73,7 +81,11 @@ func _physics_process(delta: float) -> void:
 
 	# --- Priority 3: Dodge during melee telegraph ---
 	if _is_enemy_state(target, "MELEE_TELEGRAPH") and distance < 5.0:
-		if _player._gcd_timer <= 0.0 and _player.state == _player.State.MOVE and _player.is_on_floor():
+		if (
+			_player._gcd_timer <= 0.0
+			and _player.state == _player.State.MOVE
+			and _player.is_on_floor()
+		):
 			_player._start_dash()
 			return
 
@@ -85,8 +97,15 @@ func _physics_process(delta: float) -> void:
 		return
 
 	# --- Priority 5: Dodge during active melee/charge ---
-	if (_is_enemy_state(target, "MELEE_ATTACK") or _is_enemy_state(target, "CHARGE")) and distance < 5.0:
-		if _player._gcd_timer <= 0.0 and _player.state == _player.State.MOVE and _player.is_on_floor():
+	if (
+		(_is_enemy_state(target, "MELEE_ATTACK") or _is_enemy_state(target, "CHARGE"))
+		and distance < 5.0
+	):
+		if (
+			_player._gcd_timer <= 0.0
+			and _player.state == _player.State.MOVE
+			and _player.is_on_floor()
+		):
 			_player._start_dash()
 		return
 
@@ -108,6 +127,7 @@ func _physics_process(delta: float) -> void:
 
 # --- DPS rotation ---
 
+
 func _do_dps_rotation() -> void:
 	# Simple: always cast slot 0, cycling through configs.
 	# This creates a rotation: ORBIT->FAN->ORBIT->FAN... via slot 0
@@ -116,6 +136,7 @@ func _do_dps_rotation() -> void:
 
 
 # --- Targeting ---
+
 
 func _find_target() -> CharacterBody3D:
 	for enemy in GameManager.enemies:
@@ -134,6 +155,7 @@ func _is_enemy_state(target: Node3D, state_name: String) -> bool:
 
 
 # --- Camera-relative movement ---
+
 
 func _world_to_camera_input(world_dir: Vector3) -> Vector2:
 	var cam: Camera3D = _player.camera
@@ -176,6 +198,7 @@ func _move_strafe(dir: Vector3) -> void:
 
 # --- Strafe timing ---
 
+
 func _update_strafe(delta: float) -> void:
 	_strafe_timer -= delta
 	if _strafe_timer <= 0.0:
@@ -184,6 +207,7 @@ func _update_strafe(delta: float) -> void:
 
 
 # --- Cleanup ---
+
 
 func _release_movement() -> void:
 	for action in ["move_forward", "move_backward", "move_left", "move_right", "sprint"]:

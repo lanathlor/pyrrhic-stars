@@ -51,6 +51,7 @@ func _init_materials() -> void:
 # Street — East Buildings (X > 8, Z=15 to Z=40) — open air, towering facades
 # =============================================================================
 
+
 func _build_street_east() -> void:
 	var parent := Node3D.new()
 	parent.name = "StreetEast"
@@ -83,6 +84,7 @@ func _build_street_east() -> void:
 # Street — West Buildings (X < -8, Z=15 to Z=40) — asymmetric heights
 # =============================================================================
 
+
 func _build_street_west() -> void:
 	var parent := Node3D.new()
 	parent.name = "StreetWest"
@@ -107,13 +109,16 @@ func _build_street_west() -> void:
 	_add_ledges(parent, "SW3", Vector3(-13.0, 0.0, 37.0), 6.0, 60.0, Vector3.RIGHT)
 
 	# Second-row tower behind SW2
-	var sw2_back := _csg_box("SW2B", Vector3(8.0, 55.0, 10.0), Vector3(-24.0, 27.5, 28.0), mat_facade)
+	var sw2_back := _csg_box(
+		"SW2B", Vector3(8.0, 55.0, 10.0), Vector3(-24.0, 27.5, 28.0), mat_facade
+	)
 	parent.add_child(sw2_back)
 
 
 # =============================================================================
 # Boss Room — East Flanking Buildings (X > 20)
 # =============================================================================
+
 
 func _build_boss_room_east() -> void:
 	var parent := Node3D.new()
@@ -143,6 +148,7 @@ func _build_boss_room_east() -> void:
 # Boss Room — West Flanking Buildings (X < -20)
 # =============================================================================
 
+
 func _build_boss_room_west() -> void:
 	var parent := Node3D.new()
 	parent.name = "BossWest"
@@ -171,6 +177,7 @@ func _build_boss_room_west() -> void:
 # Boss Room — North Backdrop (Z < -15) — massive dead-end wall of towers
 # =============================================================================
 
+
 func _build_boss_room_north() -> void:
 	var parent := Node3D.new()
 	parent.name = "NorthBuildings"
@@ -195,7 +202,9 @@ func _build_boss_room_north() -> void:
 	_add_ledges(parent, "N3", Vector3(13.0, 0.0, -19.25), 12.0, 50.0, Vector3.FORWARD)
 
 	# Mega-tower behind N1 — visible silhouette above everything
-	var n1_back := _csg_box("N1B", Vector3(14.0, 80.0, 10.0), Vector3(-13.0, 40.0, -28.0), mat_facade)
+	var n1_back := _csg_box(
+		"N1B", Vector3(14.0, 80.0, 10.0), Vector3(-13.0, 40.0, -28.0), mat_facade
+	)
 	parent.add_child(n1_back)
 
 
@@ -204,6 +213,7 @@ func _build_boss_room_north() -> void:
 # Sits at the Z=12 boundary where the street narrows into the boss arena.
 # Players walk through the ground floor of a building straddling the street.
 # =============================================================================
+
 
 func _build_transition_building() -> void:
 	var parent := Node3D.new()
@@ -214,20 +224,28 @@ func _build_transition_building() -> void:
 	# boss room (40 wide). The building sits ABOVE the walkable corridor.
 
 	# Ceiling slab over the walkable path (collision to contain players)
-	var ceil := _csg_box("TransCeil", Vector3(16.0, 1.5, 5.0), Vector3(0.0, 5.5, 12.5), mat_ceiling, true)
+	var ceil := _csg_box(
+		"TransCeil", Vector3(16.0, 1.5, 5.0), Vector3(0.0, 5.5, 12.5), mat_ceiling, true
+	)
 	parent.add_child(ceil)
 
 	# Building mass above — the actual building that spans the street
 	# Wide enough to connect to the flanking buildings on both sides
-	var upper := _csg_box("TransUpper", Vector3(40.0, 30.0, 5.0), Vector3(0.0, 21.75, 12.5), mat_facade)
+	var upper := _csg_box(
+		"TransUpper", Vector3(40.0, 30.0, 5.0), Vector3(0.0, 21.75, 12.5), mat_facade
+	)
 	parent.add_child(upper)
 
 	# Structural supports on the sides (like columns where the building meets the ground)
 	# East pillar — between hallway wall (X=8) and boss room wall (X=20)
-	var pillar_e := _csg_box("TransPillarE", Vector3(12.0, 6.25, 5.0), Vector3(14.0, 3.125, 12.5), mat_facade)
+	var pillar_e := _csg_box(
+		"TransPillarE", Vector3(12.0, 6.25, 5.0), Vector3(14.0, 3.125, 12.5), mat_facade
+	)
 	parent.add_child(pillar_e)
 	# West pillar
-	var pillar_w := _csg_box("TransPillarW", Vector3(12.0, 6.25, 5.0), Vector3(-14.0, 3.125, 12.5), mat_facade)
+	var pillar_w := _csg_box(
+		"TransPillarW", Vector3(12.0, 6.25, 5.0), Vector3(-14.0, 3.125, 12.5), mat_facade
+	)
 	parent.add_child(pillar_w)
 
 	# Window strip on the south face (boss-room-facing side)
@@ -245,6 +263,7 @@ func _build_transition_building() -> void:
 # Warmup Lobby Ceiling
 # =============================================================================
 
+
 func _build_lobby_building() -> void:
 	## The warmup lobby is the ground floor of a building. Ceiling with collision,
 	## then the building mass rises above it.
@@ -253,21 +272,28 @@ func _build_lobby_building() -> void:
 	add_child(parent)
 
 	# Ceiling slab (collision — keeps players inside)
-	var ceil := _csg_box("LobbyCeiling", Vector3(16.0, 1.0, 12.0), Vector3(0.0, 5.25, 46.0), mat_ceiling, true)
+	var ceil := _csg_box(
+		"LobbyCeiling", Vector3(16.0, 1.0, 12.0), Vector3(0.0, 5.25, 46.0), mat_ceiling, true
+	)
 	parent.add_child(ceil)
 
 	# Building mass above — lobby X range is -8 to 8, Z is 40 to 52
-	var upper := _csg_box("LobbyUpper", Vector3(20.0, 40.0, 16.0), Vector3(0.0, 25.75, 46.0), mat_facade)
+	var upper := _csg_box(
+		"LobbyUpper", Vector3(20.0, 40.0, 16.0), Vector3(0.0, 25.75, 46.0), mat_facade
+	)
 	parent.add_child(upper)
 
 	# Window strips on the street-facing side (south, Z=40)
-	_add_window_strip(parent, "LobbySouth", Vector3(-10.0, 5.75, 38.0), 20.0, 34.0, Vector3.FORWARD, 7)
+	_add_window_strip(
+		parent, "LobbySouth", Vector3(-10.0, 5.75, 38.0), 20.0, 34.0, Vector3.FORWARD, 7
+	)
 	_add_ledges(parent, "LobbySouth", Vector3(0.0, 5.75, 46.0), 20.0, 34.0, Vector3.FORWARD)
 
 
 # =============================================================================
 # Burning Buildings — fire particles + strong orange lights on select towers
 # =============================================================================
+
 
 func _build_burning_buildings() -> void:
 	var parent := Node3D.new()
@@ -415,7 +441,10 @@ func _add_fire_particles(parent: Node3D, fire_name: String, pos: Vector3, height
 # Helpers
 # =============================================================================
 
-func _csg_box(box_name: String, size: Vector3, pos: Vector3, mat: StandardMaterial3D, collision: bool = false) -> CSGBox3D:
+
+func _csg_box(
+	box_name: String, size: Vector3, pos: Vector3, mat: StandardMaterial3D, collision: bool = false
+) -> CSGBox3D:
 	var box := CSGBox3D.new()
 	box.name = box_name
 	box.size = size
@@ -428,7 +457,9 @@ func _csg_box(box_name: String, size: Vector3, pos: Vector3, mat: StandardMateri
 	return box
 
 
-func _add_ledges(parent: Node3D, prefix: String, center: Vector3, span: float, height: float, face_dir: Vector3) -> void:
+func _add_ledges(
+	parent: Node3D, prefix: String, center: Vector3, span: float, height: float, face_dir: Vector3
+) -> void:
 	## Horizontal ledge strips at floor-division intervals — futuristic floor plates.
 	var ledge_interval := 4.0
 	var y := ledge_interval
@@ -450,7 +481,15 @@ func _add_ledges(parent: Node3D, prefix: String, center: Vector3, span: float, h
 		idx += 1
 
 
-func _add_window_strip(parent: Node3D, prefix: String, corner: Vector3, span: float, height: float, face_dir: Vector3, count_along: int) -> void:
+func _add_window_strip(
+	parent: Node3D,
+	prefix: String,
+	corner: Vector3,
+	span: float,
+	height: float,
+	face_dir: Vector3,
+	count_along: int
+) -> void:
 	## Vertical window strips running up the facade — futuristic glass columns.
 	## Each strip is a tall, narrow dark recess with faint blue glow.
 	var strip_w := 0.8
@@ -465,10 +504,14 @@ func _add_window_strip(parent: Node3D, prefix: String, corner: Vector3, span: fl
 		var pos: Vector3
 		var size: Vector3
 		if face_dir == Vector3.LEFT or face_dir == Vector3.RIGHT:
-			pos = Vector3(corner.x + face_dir.x * 0.05, strip_bottom + strip_height * 0.5, corner.z + along)
+			pos = Vector3(
+				corner.x + face_dir.x * 0.05, strip_bottom + strip_height * 0.5, corner.z + along
+			)
 			size = Vector3(0.15, strip_height, strip_w)
 		elif face_dir == Vector3.FORWARD or face_dir == Vector3.BACK:
-			pos = Vector3(corner.x + along, strip_bottom + strip_height * 0.5, corner.z + face_dir.z * 0.05)
+			pos = Vector3(
+				corner.x + along, strip_bottom + strip_height * 0.5, corner.z + face_dir.z * 0.05
+			)
 			size = Vector3(strip_w, strip_height, 0.15)
 		else:
 			continue

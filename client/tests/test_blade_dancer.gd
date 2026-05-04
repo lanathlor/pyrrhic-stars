@@ -18,13 +18,26 @@ func before_test() -> void:
 
 
 func after_test() -> void:
-	for action in ["move_forward", "move_backward", "move_left", "move_right",
-			"sprint", "dodge", "light_attack", "heavy_attack", "block", "lock_on", "jump", "ability_2"]:
+	for action in [
+		"move_forward",
+		"move_backward",
+		"move_left",
+		"move_right",
+		"sprint",
+		"dodge",
+		"light_attack",
+		"heavy_attack",
+		"block",
+		"lock_on",
+		"jump",
+		"ability_2"
+	]:
 		if Input.is_action_pressed(action):
 			Input.action_release(action)
 
 
 # --- Health ---
+
 
 func test_initial_health() -> void:
 	assert_float(_bd.max_health).is_equal(150.0)
@@ -38,6 +51,7 @@ func test_take_damage_is_noop() -> void:
 
 
 # --- Config ---
+
 
 func test_initial_config_is_orbit() -> void:
 	assert_int(_bd.config).is_equal(_bd.Config.ORBIT)
@@ -87,6 +101,7 @@ func test_all_spells_have_unique_action_ids() -> void:
 
 
 # --- Casting ---
+
 
 func test_spell_enters_casting_state() -> void:
 	_bd._start_spell(0)
@@ -158,11 +173,13 @@ func test_lance_spell_1_goes_to_fan() -> void:
 
 # --- GCD ---
 
+
 func test_initial_gcd_is_zero() -> void:
 	assert_float(_bd._gcd_timer).is_less_equal(0.0)
 
 
 # --- Dash ---
+
 
 func test_dash_enters_dash_state() -> void:
 	_bd._start_dash()
@@ -210,6 +227,7 @@ func test_dash_bleeds_velocity() -> void:
 
 # --- Stagger ---
 
+
 func test_stagger_state_completes_to_move() -> void:
 	_bd.state = _bd.State.STAGGER
 	_bd._state_timer = 0.1
@@ -221,6 +239,7 @@ func test_stagger_state_completes_to_move() -> void:
 
 
 # --- Blade Visuals ---
+
 
 func test_three_blades_spawned() -> void:
 	assert_int(_bd._blade_nodes.size()).is_equal(3)
@@ -293,13 +312,14 @@ func test_blade_visual_no_crash_all_states() -> void:
 		_bd.state = s
 		_bd._state_timer = 0.15
 		if s == _bd.State.CASTING:
-			_bd._casting_spell = {dest=_bd.Config.FAN, dur=0.4}
+			_bd._casting_spell = {dest = _bd.Config.FAN, dur = 0.4}
 			_bd._cast_timer = 0.2
 		_bd._update_blade_visual(DELTA)
 	assert_bool(true).is_true()
 
 
 # --- Tuning values ---
+
 
 func test_cast_range_is_reasonable() -> void:
 	assert_float(_bd.cast_range).is_greater(5.0)

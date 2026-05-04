@@ -35,7 +35,10 @@ func _test_enet_setup() -> void:
 	var host := ENetMultiplayerPeer.new()
 	var err := host.create_server(17777, 4)
 	verify("Server creates OK", err == OK)
-	verify("Server status is CONNECTED", host.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED)
+	verify(
+		"Server status is CONNECTED",
+		host.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED
+	)
 	host.close()
 
 

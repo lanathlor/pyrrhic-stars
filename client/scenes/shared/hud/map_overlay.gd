@@ -8,8 +8,8 @@ const MapData := preload("res://scenes/shared/hud/map_data.gd")
 
 var _current_floor_id: String = ""
 var _floor_name: String = ""
-var _scanned_rects: Array = []       # Array of {rect: Rect2, type: String} — "ground", "wall", "green"
-var _scanned_circles: Array = []     # Array of {center: Vector2, radius: float} for cylinders
+var _scanned_rects: Array = []  # Array of {rect: Rect2, type: String} — "ground", "wall", "green"
+var _scanned_circles: Array = []  # Array of {center: Vector2, radius: float} for cylinders
 var _floor_center: Vector2 = Vector2.ZERO
 var _floor_size: Vector2 = Vector2(100.0, 100.0)
 
@@ -28,13 +28,13 @@ var _map_scale: float = 1.0
 var _map_offset: Vector2 = Vector2.ZERO
 
 const PADDING := 0.15
-const FLOOR_COLOR := Color(0.30, 0.30, 0.34, 1.0)      # plaza, large ground surfaces
-const GARDEN_COLOR := Color(0.12, 0.28, 0.12, 1.0)     # large grass/garden areas
-const GROUND_COLOR := Color(0.38, 0.38, 0.42, 1.0)     # roads, sidewalks, small paths
-const WALL_COLOR := Color(0.18, 0.18, 0.22, 1.0)       # buildings, walls
-const GREEN_COLOR := Color(0.15, 0.38, 0.15, 1.0)      # hedges, trees, planters
-const BG_COLOR := Color(0.06, 0.06, 0.08, 0.9)         # void / unexplored
-const BORDER_COLOR := Color(0.45, 0.45, 0.50, 0.6)     # subtle outlines
+const FLOOR_COLOR := Color(0.30, 0.30, 0.34, 1.0)  # plaza, large ground surfaces
+const GARDEN_COLOR := Color(0.12, 0.28, 0.12, 1.0)  # large grass/garden areas
+const GROUND_COLOR := Color(0.38, 0.38, 0.42, 1.0)  # roads, sidewalks, small paths
+const WALL_COLOR := Color(0.18, 0.18, 0.22, 1.0)  # buildings, walls
+const GREEN_COLOR := Color(0.15, 0.38, 0.15, 1.0)  # hedges, trees, planters
+const BG_COLOR := Color(0.06, 0.06, 0.08, 0.9)  # void / unexplored
+const BORDER_COLOR := Color(0.45, 0.45, 0.50, 0.6)  # subtle outlines
 const WAYPOINT_COLOR := Color(0.3, 0.55, 1.0, 0.8)
 const PLAYER_COLOR := Color(0.3, 0.9, 0.3, 0.9)
 const ENEMY_COLOR := Color(0.9, 0.2, 0.2, 0.9)
@@ -156,6 +156,7 @@ func set_waypoint_path(path: PackedVector3Array) -> void:
 # Scale computation
 # =============================================================================
 
+
 func _recompute_scale() -> void:
 	var vp := size
 	var usable := vp * (1.0 - 2.0 * PADDING)
@@ -172,6 +173,7 @@ func _recompute_scale() -> void:
 # =============================================================================
 # Drawing
 # =============================================================================
+
 
 func _draw() -> void:
 	if not visible:
@@ -263,41 +265,91 @@ func _draw() -> void:
 			if uname != "":
 				if uname.length() > 12:
 					uname = uname.substr(0, 12)
-				draw_string(font, sp + Vector2(-20.0, -8.0), uname,
-					HORIZONTAL_ALIGNMENT_CENTER, 40, 10, PLAYER_COLOR)
+				draw_string(
+					font,
+					sp + Vector2(-20.0, -8.0),
+					uname,
+					HORIZONTAL_ALIGNMENT_CENTER,
+					40,
+					10,
+					PLAYER_COLOR
+				)
 
 	# Self arrow
 	var self_screen := _world_to_screen(_player_pos)
 	_draw_arrow(self_screen, _player_rot_y, SELF_COLOR, 10.0)
 
 	# Floor name at top center
-	draw_string(font, Vector2(size.x / 2.0 - 60.0, 30.0), _floor_name,
-		HORIZONTAL_ALIGNMENT_CENTER, 120, 16, Color(0.8, 0.8, 0.85, 0.9))
+	draw_string(
+		font,
+		Vector2(size.x / 2.0 - 60.0, 30.0),
+		_floor_name,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		120,
+		16,
+		Color(0.8, 0.8, 0.85, 0.9)
+	)
 
 	# Close hint at bottom
-	draw_string(font, Vector2(size.x / 2.0 - 30.0, size.y - 20.0), "[M] Close",
-		HORIZONTAL_ALIGNMENT_CENTER, 60, 12, Color(0.5, 0.5, 0.5, 0.6))
+	draw_string(
+		font,
+		Vector2(size.x / 2.0 - 30.0, size.y - 20.0),
+		"[M] Close",
+		HORIZONTAL_ALIGNMENT_CENTER,
+		60,
+		12,
+		Color(0.5, 0.5, 0.5, 0.6)
+	)
 
 	# Legend at bottom-left
 	var legend_y := size.y - 80.0
 	var legend_x := 20.0
 	draw_circle(Vector2(legend_x, legend_y), 4.0, SELF_COLOR)
-	draw_string(font, Vector2(legend_x + 10.0, legend_y + 4.0), "You",
-		HORIZONTAL_ALIGNMENT_LEFT, 40, 10, Color(0.6, 0.6, 0.6, 0.7))
+	draw_string(
+		font,
+		Vector2(legend_x + 10.0, legend_y + 4.0),
+		"You",
+		HORIZONTAL_ALIGNMENT_LEFT,
+		40,
+		10,
+		Color(0.6, 0.6, 0.6, 0.7)
+	)
 	draw_circle(Vector2(legend_x, legend_y + 16.0), 4.0, PLAYER_COLOR)
-	draw_string(font, Vector2(legend_x + 10.0, legend_y + 20.0), "Player",
-		HORIZONTAL_ALIGNMENT_LEFT, 40, 10, Color(0.6, 0.6, 0.6, 0.7))
+	draw_string(
+		font,
+		Vector2(legend_x + 10.0, legend_y + 20.0),
+		"Player",
+		HORIZONTAL_ALIGNMENT_LEFT,
+		40,
+		10,
+		Color(0.6, 0.6, 0.6, 0.7)
+	)
 	draw_circle(Vector2(legend_x, legend_y + 32.0), 4.0, NPC_COLOR)
-	draw_string(font, Vector2(legend_x + 10.0, legend_y + 36.0), "NPC",
-		HORIZONTAL_ALIGNMENT_LEFT, 40, 10, Color(0.6, 0.6, 0.6, 0.7))
+	draw_string(
+		font,
+		Vector2(legend_x + 10.0, legend_y + 36.0),
+		"NPC",
+		HORIZONTAL_ALIGNMENT_LEFT,
+		40,
+		10,
+		Color(0.6, 0.6, 0.6, 0.7)
+	)
 	_draw_diamond(Vector2(legend_x, legend_y + 48.0), 4.0, WAYPOINT_COLOR)
-	draw_string(font, Vector2(legend_x + 10.0, legend_y + 52.0), "Objective",
-		HORIZONTAL_ALIGNMENT_LEFT, 60, 10, Color(0.6, 0.6, 0.6, 0.7))
+	draw_string(
+		font,
+		Vector2(legend_x + 10.0, legend_y + 52.0),
+		"Objective",
+		HORIZONTAL_ALIGNMENT_LEFT,
+		60,
+		10,
+		Color(0.6, 0.6, 0.6, 0.7)
+	)
 
 
 # =============================================================================
 # Coordinate transforms
 # =============================================================================
+
 
 func _world_to_screen(world_pos: Vector3) -> Vector2:
 	var dx := (world_pos.x - _floor_center.x) * _map_scale
@@ -312,21 +364,28 @@ func _world_rect_to_screen(rect: Rect2) -> Rect2:
 
 
 func _is_on_map(screen_pos: Vector2) -> bool:
-	return screen_pos.x >= 0.0 and screen_pos.x <= size.x \
-		and screen_pos.y >= 0.0 and screen_pos.y <= size.y
+	return (
+		screen_pos.x >= 0.0
+		and screen_pos.x <= size.x
+		and screen_pos.y >= 0.0
+		and screen_pos.y <= size.y
+	)
 
 
 # =============================================================================
 # Shape drawing
 # =============================================================================
 
+
 func _draw_diamond(pos: Vector2, half_size: float, color: Color) -> void:
-	var pts := PackedVector2Array([
-		pos + Vector2(0, -half_size),
-		pos + Vector2(half_size, 0),
-		pos + Vector2(0, half_size),
-		pos + Vector2(-half_size, 0),
-	])
+	var pts := PackedVector2Array(
+		[
+			pos + Vector2(0, -half_size),
+			pos + Vector2(half_size, 0),
+			pos + Vector2(0, half_size),
+			pos + Vector2(-half_size, 0),
+		]
+	)
 	draw_colored_polygon(pts, color)
 
 

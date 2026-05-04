@@ -91,45 +91,198 @@ var _crown_material: StandardMaterial3D
 
 # Input actions mapped to spell slots 0-3
 const SPELL_SLOT_ACTIONS: Array[StringName] = [
-	&"light_attack",   # slot 0 -- LMB
-	&"heavy_attack",   # slot 1 -- R
-	&"block",          # slot 2 -- RMB
-	&"ability_2",      # slot 3 -- T
+	&"light_attack",  # slot 0 -- LMB
+	&"heavy_attack",  # slot 1 -- R
+	&"block",  # slot 2 -- RMB
+	&"ability_2",  # slot 3 -- T
 ]
 
 ## All 20 transition spells. SPELL_TABLE[origin_config][slot] -> spell dict.
 ## Each spell transitions from origin_config to dest config.
 ## action_id = 30 + origin_config * 4 + slot
 const SPELL_TABLE := {
-	Config.ORBIT: [
-		{name="Shielded Sweep", dest=Config.FAN, dur=0.4, action_id=30, telegraph="circle", radius=4.0, desc="8 dmg AoE (4m). 15% DR for 2s."},
-		{name="Guarded Thrust", dest=Config.LANCE, dur=0.3, action_id=31, telegraph="none", desc="25 dmg single. +8 shield."},
-		{name="Protected Scatter", dest=Config.SCATTER, dur=0.4, action_id=32, telegraph="none", desc="5 dmg x3 nearest. 1.5/tick DoT 12s. 10% DR."},
-		{name="Fortified Command", dest=Config.CROWN, dur=0.5, action_id=33, telegraph="circle_target", radius=5.0, desc="5 dmg AoE at target (5m). 20% DR for 2s."},
+	Config.ORBIT:
+	[
+		{
+			name = "Shielded Sweep",
+			dest = Config.FAN,
+			dur = 0.4,
+			action_id = 30,
+			telegraph = "circle",
+			radius = 4.0,
+			desc = "8 dmg AoE (4m). 15% DR for 2s."
+		},
+		{
+			name = "Guarded Thrust",
+			dest = Config.LANCE,
+			dur = 0.3,
+			action_id = 31,
+			telegraph = "none",
+			desc = "25 dmg single. +8 shield."
+		},
+		{
+			name = "Protected Scatter",
+			dest = Config.SCATTER,
+			dur = 0.4,
+			action_id = 32,
+			telegraph = "none",
+			desc = "5 dmg x3 nearest. 1.5/tick DoT 12s. 10% DR."
+		},
+		{
+			name = "Fortified Command",
+			dest = Config.CROWN,
+			dur = 0.5,
+			action_id = 33,
+			telegraph = "circle_target",
+			radius = 5.0,
+			desc = "5 dmg AoE at target (5m). 20% DR for 2s."
+		},
 	],
-	Config.FAN: [
-		{name="Reaping Guard", dest=Config.ORBIT, dur=0.4, action_id=34, telegraph="circle", radius=3.0, desc="8 dmg AoE (3m). +12 shield."},
-		{name="Cleaving Pierce", dest=Config.LANCE, dur=0.3, action_id=35, telegraph="none", desc="30 dmg single target."},
-		{name="Slashing Spread", dest=Config.SCATTER, dur=0.4, action_id=36, telegraph="circle_target", radius=5.0, desc="8 dmg AoE at target (5m). 1.5/tick DoT 10s."},
-		{name="Sweeping Hex", dest=Config.CROWN, dur=0.5, action_id=37, telegraph="circle_target", radius=5.0, desc="10 dmg AoE at target (5m)."},
+	Config.FAN:
+	[
+		{
+			name = "Reaping Guard",
+			dest = Config.ORBIT,
+			dur = 0.4,
+			action_id = 34,
+			telegraph = "circle",
+			radius = 3.0,
+			desc = "8 dmg AoE (3m). +12 shield."
+		},
+		{
+			name = "Cleaving Pierce",
+			dest = Config.LANCE,
+			dur = 0.3,
+			action_id = 35,
+			telegraph = "none",
+			desc = "30 dmg single target."
+		},
+		{
+			name = "Slashing Spread",
+			dest = Config.SCATTER,
+			dur = 0.4,
+			action_id = 36,
+			telegraph = "circle_target",
+			radius = 5.0,
+			desc = "8 dmg AoE at target (5m). 1.5/tick DoT 10s."
+		},
+		{
+			name = "Sweeping Hex",
+			dest = Config.CROWN,
+			dur = 0.5,
+			action_id = 37,
+			telegraph = "circle_target",
+			radius = 5.0,
+			desc = "10 dmg AoE at target (5m)."
+		},
 	],
-	Config.LANCE: [
-		{name="Piercing Barrier", dest=Config.ORBIT, dur=0.4, action_id=38, telegraph="none", desc="18 dmg single. +15 shield."},
-		{name="Focused Slash", dest=Config.FAN, dur=0.3, action_id=39, telegraph="circle_target", radius=4.0, desc="15 dmg AoE at target (4m)."},
-		{name="Targeted Spread", dest=Config.SCATTER, dur=0.4, action_id=40, telegraph="none", desc="12 dmg single. 2.0/tick DoT 15s."},
-		{name="Pinning Strike", dest=Config.CROWN, dur=0.3, action_id=41, telegraph="none", desc="25 dmg single target."},
+	Config.LANCE:
+	[
+		{
+			name = "Piercing Barrier",
+			dest = Config.ORBIT,
+			dur = 0.4,
+			action_id = 38,
+			telegraph = "none",
+			desc = "18 dmg single. +15 shield."
+		},
+		{
+			name = "Focused Slash",
+			dest = Config.FAN,
+			dur = 0.3,
+			action_id = 39,
+			telegraph = "circle_target",
+			radius = 4.0,
+			desc = "15 dmg AoE at target (4m)."
+		},
+		{
+			name = "Targeted Spread",
+			dest = Config.SCATTER,
+			dur = 0.4,
+			action_id = 40,
+			telegraph = "none",
+			desc = "12 dmg single. 2.0/tick DoT 15s."
+		},
+		{
+			name = "Pinning Strike",
+			dest = Config.CROWN,
+			dur = 0.3,
+			action_id = 41,
+			telegraph = "none",
+			desc = "25 dmg single target."
+		},
 	],
-	Config.SCATTER: [
-		{name="Dispersed Shield", dest=Config.ORBIT, dur=0.5, action_id=42, telegraph="none", desc="+18 shield. 15% DR for 2s."},
-		{name="Rain of Blades", dest=Config.FAN, dur=0.4, action_id=43, telegraph="circle_target", radius=5.0, desc="15 dmg AoE at target (5m). 1.0/tick DoT 10s."},
-		{name="Converging Strike", dest=Config.LANCE, dur=0.3, action_id=44, telegraph="none", desc="32 dmg single. 1.5/tick DoT 10s."},
-		{name="Chaos Bind", dest=Config.CROWN, dur=0.5, action_id=45, telegraph="none", desc="8 dmg x4 nearest enemies."},
+	Config.SCATTER:
+	[
+		{
+			name = "Dispersed Shield",
+			dest = Config.ORBIT,
+			dur = 0.5,
+			action_id = 42,
+			telegraph = "none",
+			desc = "+18 shield. 15% DR for 2s."
+		},
+		{
+			name = "Rain of Blades",
+			dest = Config.FAN,
+			dur = 0.4,
+			action_id = 43,
+			telegraph = "circle_target",
+			radius = 5.0,
+			desc = "15 dmg AoE at target (5m). 1.0/tick DoT 10s."
+		},
+		{
+			name = "Converging Strike",
+			dest = Config.LANCE,
+			dur = 0.3,
+			action_id = 44,
+			telegraph = "none",
+			desc = "32 dmg single. 1.5/tick DoT 10s."
+		},
+		{
+			name = "Chaos Bind",
+			dest = Config.CROWN,
+			dur = 0.5,
+			action_id = 45,
+			telegraph = "none",
+			desc = "8 dmg x4 nearest enemies."
+		},
 	],
-	Config.CROWN: [
-		{name="Commanding Ward", dest=Config.ORBIT, dur=0.5, action_id=46, telegraph="none", desc="+20 shield."},
-		{name="Royal Cleave", dest=Config.FAN, dur=0.3, action_id=47, telegraph="circle", radius=5.0, desc="12 dmg AoE (5m)."},
-		{name="Decree Strike", dest=Config.LANCE, dur=0.3, action_id=48, telegraph="none", desc="28 dmg single target."},
-		{name="Sovereign Scatter", dest=Config.SCATTER, dur=0.4, action_id=49, telegraph="none", desc="5 dmg x3 nearest. 1.5/tick DoT 12s."},
+	Config.CROWN:
+	[
+		{
+			name = "Commanding Ward",
+			dest = Config.ORBIT,
+			dur = 0.5,
+			action_id = 46,
+			telegraph = "none",
+			desc = "+20 shield."
+		},
+		{
+			name = "Royal Cleave",
+			dest = Config.FAN,
+			dur = 0.3,
+			action_id = 47,
+			telegraph = "circle",
+			radius = 5.0,
+			desc = "12 dmg AoE (5m)."
+		},
+		{
+			name = "Decree Strike",
+			dest = Config.LANCE,
+			dur = 0.3,
+			action_id = 48,
+			telegraph = "none",
+			desc = "28 dmg single target."
+		},
+		{
+			name = "Sovereign Scatter",
+			dest = Config.SCATTER,
+			dur = 0.4,
+			action_id = 49,
+			telegraph = "none",
+			desc = "5 dmg x3 nearest. 1.5/tick DoT 12s."
+		},
 	],
 }
 
@@ -261,7 +414,11 @@ func _physics_process(delta: float) -> void:
 	_update_blade_visual(delta)
 	# Clear lock if target is dead, freed, or hidden — use same path as Q toggle
 	if _lock_on_active and _lock_target:
-		if not is_instance_valid(_lock_target) or not _lock_target.visible or ("_server_alive" in _lock_target and not _lock_target._server_alive):
+		if (
+			not is_instance_valid(_lock_target)
+			or not _lock_target.visible
+			or ("_server_alive" in _lock_target and not _lock_target._server_alive)
+		):
 			_toggle_lock_on()
 	if _lock_on_active and _lock_target:
 		hud.update_lock_on(_lock_target, camera)
@@ -272,6 +429,7 @@ func _physics_process(delta: float) -> void:
 
 
 # --- Movement ---
+
 
 func _get_camera_wish_dir() -> Vector3:
 	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
@@ -393,6 +551,7 @@ func _face_attack_direction(delta: float) -> void:
 
 # --- Spell Casting ---
 
+
 func _start_spell(slot: int) -> void:
 	var spells: Array = SPELL_TABLE[config]
 	if slot < 0 or slot >= spells.size():
@@ -424,7 +583,9 @@ func _spawn_spell_telegraph(spell: Dictionary) -> void:
 	var spell_radius: float = spell.get("radius", 5.0)
 
 	if telegraph_type == "circle":
-		PlayerTelegraph.spawn_circle(get_tree().root, global_position, spell_radius, TELEGRAPH_COLOR)
+		PlayerTelegraph.spawn_circle(
+			get_tree().root, global_position, spell_radius, TELEGRAPH_COLOR
+		)
 	elif telegraph_type == "circle_target":
 		var target_pos := _get_aim_target_position()
 		if target_pos != Vector3.ZERO:
@@ -477,6 +638,7 @@ func _process_casting(delta: float) -> void:
 
 # --- Dash ---
 
+
 func _start_dash() -> void:
 	_gcd_timer = gcd_duration
 	var wish := _get_camera_wish_dir()
@@ -507,6 +669,7 @@ func _process_dash(_delta: float) -> void:
 
 # --- Stagger ---
 
+
 func _process_stagger() -> void:
 	velocity.x = 0.0
 	velocity.z = 0.0
@@ -515,6 +678,7 @@ func _process_stagger() -> void:
 
 
 # --- Ranged Hit Detection ---
+
 
 func _perform_raycast_hit(max_range: float) -> void:
 	# Server resolves hits -- client only shows optimistic hit marker
@@ -537,6 +701,7 @@ func _perform_raycast_hit(max_range: float) -> void:
 
 
 # --- Lock-on ---
+
 
 func _toggle_lock_on() -> void:
 	if _lock_on_active:
@@ -567,11 +732,13 @@ func _find_lock_target() -> Node3D:
 
 # --- Damage (server-authoritative) ---
 
+
 func take_damage(_amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
 	pass  # Server handles all damage
 
 
 # --- Visual feedback ---
+
 
 func _show_body_flash() -> void:
 	character_model.flash_damage()
@@ -624,6 +791,7 @@ func _update_animation() -> void:
 
 
 # --- Blade Visuals ---
+
 
 func _setup_blade_materials() -> void:
 	_orbit_material = _make_material(Color(0.2, 0.8, 0.9), Color(0.1, 0.6, 0.8))
@@ -728,7 +896,9 @@ func _update_blade_visual(delta: float) -> void:
 		if i >= targets.size():
 			break
 		_blade_nodes[i].position = _blade_nodes[i].position.lerp(targets[i], lerp_speed * delta)
-		_blade_nodes[i].rotation.y = lerp_angle(_blade_nodes[i].rotation.y, target_rots[i], lerp_speed * delta)
+		_blade_nodes[i].rotation.y = lerp_angle(
+			_blade_nodes[i].rotation.y, target_rots[i], lerp_speed * delta
+		)
 		_blade_nodes[i].rotation.x = sin(_blade_spin + i * 2.0) * 0.15
 		_apply_blade_material(_blade_nodes[i], mat)
 
@@ -819,6 +989,7 @@ func _apply_blade_material(node: Node3D, mat: StandardMaterial3D) -> void:
 
 # --- Camera ---
 
+
 func _update_camera() -> void:
 	var player_pos := global_position + Vector3(0.0, camera_height_offset, 0.0)
 	var delta := get_physics_process_delta_time()
@@ -869,6 +1040,7 @@ func _apply_camera_collision(from: Vector3, to: Vector3) -> Vector3:
 
 
 # --- Helpers ---
+
 
 func _enter_state(new_state: State) -> void:
 	match state:

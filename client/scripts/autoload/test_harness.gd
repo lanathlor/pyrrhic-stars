@@ -47,7 +47,12 @@ func _ready() -> void:
 		# Wait one frame for scene tree to be ready, then attach
 		get_tree().process_frame.connect(_on_first_frame, CONNECT_ONE_SHOT)
 
-	print("[TestHarness] bot=%s remote=%s capture=%s e2e=%s" % [bot_mode, remote_mode, capture_mode, e2e_mode])
+	print(
+		(
+			"[TestHarness] bot=%s remote=%s capture=%s e2e=%s"
+			% [bot_mode, remote_mode, capture_mode, e2e_mode]
+		)
+	)
 
 
 func _on_first_frame() -> void:
@@ -74,6 +79,7 @@ func _process(_delta: float) -> void:
 
 # --- Bot ---
 
+
 func _attach_bot() -> void:
 	await get_tree().process_frame
 	# Select the right class via main scene
@@ -82,7 +88,11 @@ func _attach_bot() -> void:
 		if bot_class == "vanguard" and "vanguard" in main and main.has_method("_select_player"):
 			main._select_player(main.vanguard)
 			await get_tree().process_frame
-		elif bot_class == "blade_dancer" and "blade_dancer" in main and main.has_method("_select_player"):
+		elif (
+			bot_class == "blade_dancer"
+			and "blade_dancer" in main
+			and main.has_method("_select_player")
+		):
 			main._select_player(main.blade_dancer)
 			await get_tree().process_frame
 
@@ -112,6 +122,7 @@ func _attach_bot() -> void:
 
 # --- Screenshot ---
 
+
 func capture_screenshot(name: String = "") -> String:
 	var image := get_viewport().get_texture().get_image()
 	if not image:
@@ -124,6 +135,7 @@ func capture_screenshot(name: String = "") -> String:
 
 
 # --- State dump ---
+
 
 func get_state() -> Dictionary:
 	var state := {
@@ -143,7 +155,8 @@ func get_state() -> Dictionary:
 			"health": player.health if "health" in player else -1,
 			"max_health": player.max_health if "max_health" in player else -1,
 			"is_rolling": player._is_rolling if "_is_rolling" in player else false,
-			"roll_cooldown": player._roll_cooldown_timer if "_roll_cooldown_timer" in player else 0.0,
+			"roll_cooldown":
+			player._roll_cooldown_timer if "_roll_cooldown_timer" in player else 0.0,
 		}
 		state["players"].append(p)
 
@@ -177,6 +190,7 @@ func _write_state() -> void:
 
 # --- Remote control ---
 
+
 func _read_commands() -> void:
 	var path := ProjectSettings.globalize_path(output_dir + "commands.json")
 	if not FileAccess.file_exists(path):
@@ -205,7 +219,16 @@ func _apply_commands(cmd: Dictionary) -> void:
 
 	# Movement actions
 	var actions := cmd.get("actions", {}) as Dictionary
-	for action_name in ["move_forward", "move_backward", "move_left", "move_right", "sprint", "shoot", "dodge", "jump"]:
+	for action_name in [
+		"move_forward",
+		"move_backward",
+		"move_left",
+		"move_right",
+		"sprint",
+		"shoot",
+		"dodge",
+		"jump"
+	]:
 		if actions.has(action_name):
 			if actions[action_name]:
 				Input.action_press(action_name)
@@ -230,10 +253,13 @@ func _aim_player_at(player: CharacterBody3D, target: Vector3) -> void:
 	var head: Node3D = player.get_node_or_null("Head")
 	if head:
 		var flat_dist := Vector2(to_target.x, to_target.z).length()
-		head.rotation.x = clampf(atan2(to_target.y - 1.6, flat_dist), deg_to_rad(-89.0), deg_to_rad(89.0))
+		head.rotation.x = clampf(
+			atan2(to_target.y - 1.6, flat_dist), deg_to_rad(-89.0), deg_to_rad(89.0)
+		)
 
 
 # --- E2E finish ---
+
 
 func _finish_e2e() -> void:
 	_write_state()
@@ -245,7 +271,8 @@ func _finish_e2e() -> void:
 		"duration": _e2e_timer,
 		"player_health": state["players"][0]["health"] if state["players"].size() > 0 else 0,
 		"enemies_alive": state["enemies"].size(),
-		"result": "PASS" if state["players"].size() > 0 and state["players"][0]["health"] > 0 else "FAIL",
+		"result":
+		"PASS" if state["players"].size() > 0 and state["players"][0]["health"] > 0 else "FAIL",
 	}
 	var json := JSON.stringify(summary, "  ")
 	var path := ProjectSettings.globalize_path(output_dir + "e2e_result.json")
@@ -257,6 +284,7 @@ func _finish_e2e() -> void:
 
 
 # --- Util ---
+
 
 func _vec3_to_array(v: Vector3) -> Array:
 	return [snappedf(v.x, 0.01), snappedf(v.y, 0.01), snappedf(v.z, 0.01)]

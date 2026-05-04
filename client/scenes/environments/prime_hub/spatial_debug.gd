@@ -3,6 +3,7 @@ extends Node3D
 ## Spatial debug: prints bounding boxes and alignment checks for all key nodes.
 ## Attach to the root MilitaryBuilding node. Runs in editor and at runtime.
 
+
 func _ready() -> void:
 	_audit()
 
@@ -69,11 +70,19 @@ func _report_child(path: String) -> void:
 	if node is CSGBox3D:
 		var box := node as CSGBox3D
 		var half := box.size / 2.0
-		print("    bounds: X[%.1f, %.1f] Y[%.1f, %.1f] Z[%.1f, %.1f]" % [
-			pos.x - half.x, pos.x + half.x,
-			pos.y - half.y, pos.y + half.y,
-			pos.z - half.z, pos.z + half.z,
-		])
+		print(
+			(
+				"    bounds: X[%.1f, %.1f] Y[%.1f, %.1f] Z[%.1f, %.1f]"
+				% [
+					pos.x - half.x,
+					pos.x + half.x,
+					pos.y - half.y,
+					pos.y + half.y,
+					pos.z - half.z,
+					pos.z + half.z,
+				]
+			)
+		)
 
 
 func _check_elevator_shaft_alignment() -> void:
@@ -85,7 +94,7 @@ func _check_elevator_shaft_alignment() -> void:
 
 	var cab_x := cab.global_position.x
 	var cab_z := cab.global_position.z
-	var shaft_center_x := (shaft_w.global_position.x + 1.65)  # shaft is 3m wide
+	var shaft_center_x := shaft_w.global_position.x + 1.65  # shaft is 3m wide
 	var shaft_center_z := shaft_w.global_position.z
 	print("  Cab center: X=%.1f Z=%.1f" % [cab_x, cab_z])
 	print("  Shaft center: X=%.1f Z=%.1f" % [shaft_center_x, shaft_center_z])
@@ -100,8 +109,12 @@ func _check_door_shaft_alignment() -> void:
 	var door_uf := get_node_or_null("DoorUF_L") as Node3D
 	if not door_gf or not door_uf:
 		return
-	print("  GF doors at Z=%.1f, UF doors at Z=%.1f" % [
-		door_gf.global_position.z, door_uf.global_position.z])
+	print(
+		(
+			"  GF doors at Z=%.1f, UF doors at Z=%.1f"
+			% [door_gf.global_position.z, door_uf.global_position.z]
+		)
+	)
 
 	# GF doors should be at shaft front wall Z
 	# UF doors should be at landing front

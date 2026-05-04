@@ -22,7 +22,9 @@ func _run_tests() -> void:
 	print("\n=== Map Scanner — Real Scene Tests ===")
 
 	# Load the REAL hub scene
-	var hub_scene := load("res://scenes/environments/prime_hub/military_building.tscn") as PackedScene
+	var hub_scene := (
+		load("res://scenes/environments/prime_hub/military_building.tscn") as PackedScene
+	)
 	var hub := hub_scene.instantiate()
 	root.add_child(hub)
 	await root.get_tree().process_frame  # let transforms propagate
@@ -38,83 +40,113 @@ func _run_tests() -> void:
 	overlay._player_pos = Vector3(5.0, -200.0, -55.0)
 	overlay.scan_environment(hub)
 
-	_check("lower_district_has_rects",
+	_check(
+		"lower_district_has_rects",
 		overlay._scanned_rects.size() > 0,
-		"Expected scanned rects > 0, got %d" % overlay._scanned_rects.size())
+		"Expected scanned rects > 0, got %d" % overlay._scanned_rects.size()
+	)
 
 	# 15 buildings with use_collision + ground floor + other CSG = many shapes
 	# Lower district has at minimum 15 building blocks (A1-D4 + monument + lift shaft area)
-	_check("lower_district_min_15_rects",
+	_check(
+		"lower_district_min_15_rects",
 		overlay._scanned_rects.size() >= 15,
-		"Expected >= 15 building rects, got %d" % overlay._scanned_rects.size())
+		"Expected >= 15 building rects, got %d" % overlay._scanned_rects.size()
+	)
 
 	# Verify specific building A1 is present: center=(-65,-125) size=(50,45)
 	# Expected rect: Rect2(-90, -147.5, 50, 45)
 	var found_a1 := _find_rect_near(overlay._scanned_rects, -65.0, -125.0, 5.0)
-	_check("lower_district_building_a1_found", found_a1,
-		"Building A1 (center -65,-125) not found in scanned rects")
+	_check(
+		"lower_district_building_a1_found",
+		found_a1,
+		"Building A1 (center -65,-125) not found in scanned rects"
+	)
 
 	# Verify building D3 is present: center=(30,18) size=(35,35)
 	var found_d3 := _find_rect_near(overlay._scanned_rects, 30.0, 18.0, 5.0)
-	_check("lower_district_building_d3_found", found_d3,
-		"Building D3 (center 30,18) not found in scanned rects")
+	_check(
+		"lower_district_building_d3_found",
+		found_d3,
+		"Building D3 (center 30,18) not found in scanned rects"
+	)
 
 	# Verify bounds are reasonable (should cover ~200x200 area)
-	_check("lower_district_bounds_width",
+	_check(
+		"lower_district_bounds_width",
 		overlay._floor_size.x > 100.0,
-		"Floor width %.1f too small, expected > 100" % overlay._floor_size.x)
+		"Floor width %.1f too small, expected > 100" % overlay._floor_size.x
+	)
 
-	_check("lower_district_bounds_height",
+	_check(
+		"lower_district_bounds_height",
 		overlay._floor_size.y > 100.0,
-		"Floor height %.1f too small, expected > 100" % overlay._floor_size.y)
+		"Floor height %.1f too small, expected > 100" % overlay._floor_size.y
+	)
 
 	# --- Plaza level (Y = 0) ---
 	print("\n-- Plaza level (Y=0, outside tower) --")
 	overlay._player_pos = Vector3(50.0, 0.0, -30.0)
 	overlay.scan_environment(hub)
 
-	_check("plaza_has_rects",
+	_check(
+		"plaza_has_rects",
 		overlay._scanned_rects.size() > 0,
-		"Expected scanned rects > 0 at plaza, got %d" % overlay._scanned_rects.size())
+		"Expected scanned rects > 0 at plaza, got %d" % overlay._scanned_rects.size()
+	)
 
 	# Tower walls should be visible at plaza level
 	# FrontWallLeft at X=-17 Z=-1, FrontWallRight at X=17 Z=-1, etc.
 	var found_front_wall := _find_rect_near(overlay._scanned_rects, -17.0, -1.0, 3.0)
-	_check("plaza_tower_front_wall_found", found_front_wall,
-		"Tower front wall (near -17,-1) not found in scanned rects")
+	_check(
+		"plaza_tower_front_wall_found",
+		found_front_wall,
+		"Tower front wall (near -17,-1) not found in scanned rects"
+	)
 
 	# --- Tower lobby (Y = 0, inside tower) ---
 	print("\n-- Tower lobby (Y=0, inside tower) --")
 	overlay._player_pos = Vector3(0.0, 0.0, 20.0)
 	overlay.scan_environment(hub)
 
-	_check("lobby_has_rects",
+	_check(
+		"lobby_has_rects",
 		overlay._scanned_rects.size() > 0,
-		"Expected scanned rects > 0 in lobby, got %d" % overlay._scanned_rects.size())
+		"Expected scanned rects > 0 in lobby, got %d" % overlay._scanned_rects.size()
+	)
 
 	# Should see lobby floor, walls, etc.
-	_check("lobby_min_3_rects",
+	_check(
+		"lobby_min_3_rects",
 		overlay._scanned_rects.size() >= 3,
-		"Expected >= 3 rects in lobby, got %d" % overlay._scanned_rects.size())
+		"Expected >= 3 rects in lobby, got %d" % overlay._scanned_rects.size()
+	)
 
 	# --- Ops level (Y = 100) ---
 	print("\n-- Ops level (Y=100) --")
 	overlay._player_pos = Vector3(10.0, 100.0, 20.0)
 	overlay.scan_environment(hub)
 
-	_check("ops_has_rects",
+	_check(
+		"ops_has_rects",
 		overlay._scanned_rects.size() > 0,
-		"Expected scanned rects > 0 at ops, got %d" % overlay._scanned_rects.size())
+		"Expected scanned rects > 0 at ops, got %d" % overlay._scanned_rects.size()
+	)
 
 	# Should see ops floor, partitions, landing pad
-	_check("ops_min_3_rects",
+	_check(
+		"ops_min_3_rects",
 		overlay._scanned_rects.size() >= 3,
-		"Expected >= 3 rects at ops, got %d" % overlay._scanned_rects.size())
+		"Expected >= 3 rects at ops, got %d" % overlay._scanned_rects.size()
+	)
 
 	# Landing pad area should be visible (around X=33, Z=5.5)
 	var found_landing := _find_rect_near(overlay._scanned_rects, 33.0, 5.5, 10.0)
-	_check("ops_landing_pad_found", found_landing,
-		"Landing pad area (near 33, 5.5) not found in scanned rects")
+	_check(
+		"ops_landing_pad_found",
+		found_landing,
+		"Landing pad area (near 33, 5.5) not found in scanned rects"
+	)
 
 	# --- Floors should NOT bleed into each other ---
 	print("\n-- Floor isolation --")
@@ -124,8 +156,11 @@ func _run_tests() -> void:
 	overlay.scan_environment(hub)
 	# Ops partitions are at Y=100 — they must not appear at Y=-200
 	var found_ops_partition := _find_rect_near(overlay._scanned_rects, -18.0, 10.0, 2.0)
-	_check("no_ops_partition_at_lower_district", not found_ops_partition,
-		"Ops partition (near -18,10) should not appear when scanning at Y=-200")
+	_check(
+		"no_ops_partition_at_lower_district",
+		not found_ops_partition,
+		"Ops partition (near -18,10) should not appear when scanning at Y=-200"
+	)
 
 	hub.queue_free()
 
@@ -139,19 +174,25 @@ func _run_tests() -> void:
 	overlay._player_pos = Vector3(0.0, 0.0, 0.0)
 	overlay.scan_environment(arena)
 
-	_check("arena_has_rects",
+	_check(
+		"arena_has_rects",
 		overlay._scanned_rects.size() > 0,
-		"Expected scanned rects > 0 in arena, got %d" % overlay._scanned_rects.size())
+		"Expected scanned rects > 0 in arena, got %d" % overlay._scanned_rects.size()
+	)
 
 	# Arena has: floor, 3 walls, 6 pillars, 4 covers = at minimum 10+
-	_check("arena_min_10_rects",
+	_check(
+		"arena_min_10_rects",
 		overlay._scanned_rects.size() >= 10,
-		"Expected >= 10 rects in arena (walls+pillars+floor), got %d" % overlay._scanned_rects.size())
+		(
+			"Expected >= 10 rects in arena (walls+pillars+floor), got %d"
+			% overlay._scanned_rects.size()
+		)
+	)
 
 	# Verify a pillar is found (Pillar1 at -8, -6)
 	var found_pillar := _find_rect_near(overlay._scanned_rects, -8.0, -6.0, 2.0)
-	_check("arena_pillar_found", found_pillar,
-		"Pillar1 (near -8,-6) not found in scanned rects")
+	_check("arena_pillar_found", found_pillar, "Pillar1 (near -8,-6) not found in scanned rects")
 
 	arena.queue_free()
 	overlay.queue_free()
@@ -176,13 +217,17 @@ func _run_tests() -> void:
 
 	hud._detect_floor(Vector3(5.0, -200.0, -55.0))
 
-	_check("minimap_lower_district_has_rects",
+	_check(
+		"minimap_lower_district_has_rects",
 		hud._floor_rects.size() > 0,
-		"Minimap should have rects for lower district, got %d" % hud._floor_rects.size())
+		"Minimap should have rects for lower district, got %d" % hud._floor_rects.size()
+	)
 
-	_check("minimap_lower_district_min_15",
+	_check(
+		"minimap_lower_district_min_15",
 		hud._floor_rects.size() >= 15,
-		"Minimap expected >= 15 rects, got %d" % hud._floor_rects.size())
+		"Minimap expected >= 15 rects, got %d" % hud._floor_rects.size()
+	)
 
 	fake_player.queue_free()
 	hud.queue_free()
@@ -212,8 +257,11 @@ func _run_tests() -> void:
 		if r.size.x > 200.0 and r.size.y > 200.0:
 			grass_type = entry["type"]
 			break
-	_check("plaza_grass_is_garden", grass_type == "garden",
-		"GrassTop should be 'garden' type, got '%s'" % grass_type)
+	_check(
+		"plaza_grass_is_garden",
+		grass_type == "garden",
+		"GrassTop should be 'garden' type, got '%s'" % grass_type
+	)
 
 	# Sidewalk paths should be present as "ground"
 	var found_path := false
@@ -222,8 +270,11 @@ func _run_tests() -> void:
 		if r.size.x < 5.0 and r.size.y > 50.0 and entry["type"] == "ground":
 			found_path = true
 			break
-	_check("plaza_sidewalk_path_shown", found_path,
-		"Narrow sidewalk paths should appear as ground type")
+	_check(
+		"plaza_sidewalk_path_shown",
+		found_path,
+		"Narrow sidewalk paths should appear as ground type"
+	)
 
 	# Buildings A1 at lower district should be "wall" type
 	overlay2._player_pos = Vector3(5.0, -200.0, -55.0)
@@ -236,8 +287,7 @@ func _run_tests() -> void:
 		if absf(cx - (-65.0)) < 5.0 and absf(cz - (-125.0)) < 5.0:
 			a1_is_wall = entry["type"] == "wall"
 			break
-	_check("lower_district_a1_is_wall", a1_is_wall,
-		"Building A1 should be classified as wall")
+	_check("lower_district_a1_is_wall", a1_is_wall, "Building A1 should be classified as wall")
 
 	# Greenery should be tagged green
 	overlay2._player_pos = Vector3(0.0, 0.0, -20.0)
@@ -251,8 +301,11 @@ func _run_tests() -> void:
 		if circ.get("green", false):
 			found_green = true
 			break
-	_check("plaza_has_greenery", found_green,
-		"Plaza should have green-tagged shapes (hedges, planters)")
+	_check(
+		"plaza_has_greenery",
+		found_green,
+		"Plaza should have green-tagged shapes (hedges, planters)"
+	)
 
 	overlay2.queue_free()
 	hub3.queue_free()
@@ -278,8 +331,11 @@ func _run_tests() -> void:
 	# First detect — populates floor rects
 	hud_rescan._detect_floor(Vector3(0.0, 0.0, -20.0))
 	var first_count: int = hud_rescan._floor_rects.size()
-	_check("rescan_first_detect_has_rects", first_count > 0,
-		"First detect should populate rects, got %d" % first_count)
+	_check(
+		"rescan_first_detect_has_rects",
+		first_count > 0,
+		"First detect should populate rects, got %d" % first_count
+	)
 
 	# Manually corrupt the cached data to simulate stale state
 	hud_rescan._floor_rects.clear()
@@ -287,8 +343,14 @@ func _run_tests() -> void:
 	# Second detect on the SAME floor — should rescan, not skip
 	hud_rescan._detect_floor(Vector3(0.0, 0.0, -20.0))
 	var second_count: int = hud_rescan._floor_rects.size()
-	_check("rescan_second_detect_repopulates", second_count == first_count,
-		"Second detect on same floor should rescan, got %d (expected %d)" % [second_count, first_count])
+	_check(
+		"rescan_second_detect_repopulates",
+		second_count == first_count,
+		(
+			"Second detect on same floor should rescan, got %d (expected %d)"
+			% [second_count, first_count]
+		)
+	)
 
 	fp.queue_free()
 	hud_rescan.queue_free()
@@ -320,8 +382,11 @@ func _run_tests() -> void:
 		if absf(r.size.x - 6.0) < 0.5 and absf(r.size.y - 57.0) < 1.0:
 			found_ground_plane_n = true
 			break
-	_check("no_ground_plane_n_at_plaza", not found_ground_plane_n,
-		"GroundPlaneN (6x57 sub-floor fill) should not appear on plaza map")
+	_check(
+		"no_ground_plane_n_at_plaza",
+		not found_ground_plane_n,
+		"GroundPlaneN (6x57 sub-floor fill) should not appear on plaza map"
+	)
 
 	# Also check the minimap scanner
 	var hud2 := Control.new()
@@ -341,8 +406,11 @@ func _run_tests() -> void:
 		if absf(r.size.x - 6.0) < 0.5 and absf(r.size.y - 57.0) < 1.0:
 			found_in_minimap = true
 			break
-	_check("no_ground_plane_n_in_minimap", not found_in_minimap,
-		"GroundPlaneN (6x57 sub-floor fill) should not appear in minimap")
+	_check(
+		"no_ground_plane_n_in_minimap",
+		not found_in_minimap,
+		"GroundPlaneN (6x57 sub-floor fill) should not appear in minimap"
+	)
 
 	fake_player2.queue_free()
 	hud2.queue_free()
@@ -363,6 +431,7 @@ func _run_tests() -> void:
 # =============================================================================
 # Helpers
 # =============================================================================
+
 
 func _check(name: String, condition: bool, msg: String = "") -> void:
 	if condition:

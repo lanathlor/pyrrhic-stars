@@ -31,9 +31,7 @@ func _ready() -> void:
 		else:
 			size = rng.randf_range(5.0, 9.0)
 
-		xforms.append(Transform3D(
-			Basis.from_scale(Vector3(size, size, size)),
-			Vector3(x, y, z)))
+		xforms.append(Transform3D(Basis.from_scale(Vector3(size, size, size)), Vector3(x, y, z)))
 
 	# Build multimesh
 	var mesh := SphereMesh.new()

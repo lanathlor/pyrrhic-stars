@@ -20,10 +20,10 @@ const HIT_MARKER_DURATION: float = 0.15
 
 const CONFIG_NAMES: Array[String] = ["ORBIT", "FAN", "LANCE", "SCATTER", "CROWN"]
 const CONFIG_COLORS: Array[Color] = [
-	Color(0.2, 0.8, 0.9, 1.0),   # Orbit -- cyan
-	Color(1.0, 0.5, 0.1, 1.0),   # Fan -- orange
-	Color(0.9, 0.2, 0.1, 1.0),   # Lance -- red
-	Color(0.6, 0.2, 0.9, 1.0),   # Scatter -- purple
+	Color(0.2, 0.8, 0.9, 1.0),  # Orbit -- cyan
+	Color(1.0, 0.5, 0.1, 1.0),  # Fan -- orange
+	Color(0.9, 0.2, 0.1, 1.0),  # Lance -- red
+	Color(0.6, 0.2, 0.9, 1.0),  # Scatter -- purple
 	Color(1.0, 0.85, 0.3, 1.0),  # Crown -- gold
 ]
 
@@ -67,8 +67,13 @@ func _draw() -> void:
 		for i in range(segments):
 			var a1 := start_angle + sweep_angle * (float(i) / float(segments))
 			var a2 := start_angle + sweep_angle * (float(i + 1) / float(segments))
-			draw_line(center + Vector2(cos(a1), sin(a1)) * radius,
-				center + Vector2(cos(a2), sin(a2)) * radius, arc_color, thickness, true)
+			draw_line(
+				center + Vector2(cos(a1), sin(a1)) * radius,
+				center + Vector2(cos(a2), sin(a2)) * radius,
+				arc_color,
+				thickness,
+				true
+			)
 
 	# Hit marker
 	if _hit_marker_timer > 0.0:
@@ -77,10 +82,34 @@ func _draw() -> void:
 		var gap: float = 5.0
 		var x_len: float = 10.0
 		var thick: float = 2.5
-		draw_line(center + Vector2(-gap - x_len, -gap - x_len), center + Vector2(-gap, -gap), color, thick, true)
-		draw_line(center + Vector2(gap + x_len, -gap - x_len), center + Vector2(gap, -gap), color, thick, true)
-		draw_line(center + Vector2(-gap - x_len, gap + x_len), center + Vector2(-gap, gap), color, thick, true)
-		draw_line(center + Vector2(gap + x_len, gap + x_len), center + Vector2(gap, gap), color, thick, true)
+		draw_line(
+			center + Vector2(-gap - x_len, -gap - x_len),
+			center + Vector2(-gap, -gap),
+			color,
+			thick,
+			true
+		)
+		draw_line(
+			center + Vector2(gap + x_len, -gap - x_len),
+			center + Vector2(gap, -gap),
+			color,
+			thick,
+			true
+		)
+		draw_line(
+			center + Vector2(-gap - x_len, gap + x_len),
+			center + Vector2(-gap, gap),
+			color,
+			thick,
+			true
+		)
+		draw_line(
+			center + Vector2(gap + x_len, gap + x_len),
+			center + Vector2(gap, gap),
+			color,
+			thick,
+			true
+		)
 
 	# Shield bar — shown above ability bar when shield > 0
 	if _shield_hp > 0.1:
@@ -91,8 +120,15 @@ func _draw() -> void:
 		var fill := clampf(_shield_hp / SHIELD_MAX, 0.0, 1.0)
 		_draw_status_bar(Rect2(bar_x, bar_y, bar_w, bar_h), fill, Color(0.7, 0.9, 1.0, 0.85))
 		var shield_text := "%.0f" % _shield_hp
-		draw_string(ThemeDB.fallback_font, Vector2(bar_x + bar_w + 6.0, bar_y + 7.0), shield_text,
-			HORIZONTAL_ALIGNMENT_LEFT, 40.0, 10, Color(0.7, 0.9, 1.0, 0.9))
+		draw_string(
+			ThemeDB.fallback_font,
+			Vector2(bar_x + bar_w + 6.0, bar_y + 7.0),
+			shield_text,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			40.0,
+			10,
+			Color(0.7, 0.9, 1.0, 0.9)
+		)
 
 	config_display.queue_redraw()
 
@@ -168,6 +204,7 @@ func _get_config_name(cfg: int) -> String:
 
 # --- Config display (drawn on ConfigDisplay control) ---
 
+
 func _draw_config() -> void:
 	var display := config_display
 	var center_x := display.size.x / 2.0
@@ -175,8 +212,15 @@ func _draw_config() -> void:
 	var color := _get_current_color()
 
 	var font := ThemeDB.fallback_font
-	display.draw_string(font, Vector2(center_x - 50.0, 24.0), config_name,
-		HORIZONTAL_ALIGNMENT_CENTER, 100, 24, color)
+	display.draw_string(
+		font,
+		Vector2(center_x - 50.0, 24.0),
+		config_name,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		100,
+		24,
+		color
+	)
 
 	var pip_y := 36.0
 	var pip_spacing := 16.0
@@ -193,6 +237,7 @@ func _draw_config() -> void:
 
 # --- Custom tooltip content for Blade Dancer (config transitions) ---
 
+
 func _draw_custom_tooltip(bar: Control, spell: Dictionary, tip_rect: Rect2) -> void:
 	var font := ThemeDB.fallback_font
 	var dest_cfg: int = spell.get("dest", 0)
@@ -202,16 +247,29 @@ func _draw_custom_tooltip(bar: Control, spell: Dictionary, tip_rect: Rect2) -> v
 	# Transition arrow: CURRENT -> DEST
 	var from_name := _get_config_name(_current_config)
 	var transition_text := "%s -> %s" % [from_name, dest_name]
-	bar.draw_string(font, Vector2(tip_rect.position.x + 8.0, tip_rect.position.y + 32.0), transition_text,
-		HORIZONTAL_ALIGNMENT_LEFT, tip_rect.size.x - 16.0, 10, dest_color)
+	bar.draw_string(
+		font,
+		Vector2(tip_rect.position.x + 8.0, tip_rect.position.y + 32.0),
+		transition_text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		tip_rect.size.x - 16.0,
+		10,
+		dest_color
+	)
 
-	bar.draw_circle(Vector2(tip_rect.position.x + tip_rect.size.x - 14.0, tip_rect.position.y + 28.0), 4.0, dest_color)
+	bar.draw_circle(
+		Vector2(tip_rect.position.x + tip_rect.size.x - 14.0, tip_rect.position.y + 28.0),
+		4.0,
+		dest_color
+	)
 
 
 func _draw_panel(canvas: CanvasItem, rect: Rect2, accent: Color) -> void:
 	canvas.draw_rect(rect, PANEL_FILL)
 	canvas.draw_rect(rect, PANEL_BORDER, false, 1.0)
-	canvas.draw_rect(Rect2(rect.position + Vector2(1.0, 1.0), rect.size - Vector2(2.0, 2.0)), accent, false, 1.0)
+	canvas.draw_rect(
+		Rect2(rect.position + Vector2(1.0, 1.0), rect.size - Vector2(2.0, 2.0)), accent, false, 1.0
+	)
 
 
 func _draw_status_bar(rect: Rect2, ratio: float, fill_color: Color) -> void:

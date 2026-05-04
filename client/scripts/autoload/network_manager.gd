@@ -43,10 +43,10 @@ var _my_peer_id: int = 0
 var _was_connected := false
 var _input_tick: int = 0
 
-
 # =============================================================================
 # Connection
 # =============================================================================
+
 
 func connect_to_server(address: String = "127.0.0.1") -> Error:
 	disconnect_game()
@@ -86,6 +86,7 @@ func get_my_id() -> int:
 # Sending
 # =============================================================================
 
+
 func send_msg(opcode: int, payload: PackedByteArray = PackedByteArray()) -> void:
 	if _ws.get_ready_state() != WebSocketPeer.STATE_OPEN:
 		return
@@ -97,16 +98,25 @@ func send_msg(opcode: int, payload: PackedByteArray = PackedByteArray()) -> void
 
 
 ## Send position + rotation + animation for one simulation tick.
-func send_player_position(pos: Vector3, rot_y: float, anim_name: String = "", anim_speed: float = 1.0, aim_pitch: float = 0.0) -> void:
+func send_player_position(
+	pos: Vector3,
+	rot_y: float,
+	anim_name: String = "",
+	anim_speed: float = 1.0,
+	aim_pitch: float = 0.0
+) -> void:
 	_input_tick += 1
-	send_msg(NetSerializer.OP_PLAYER_INPUT,
-		NetSerializer.encode_player_input(pos, rot_y, _input_tick, anim_name, anim_speed, aim_pitch))
+	send_msg(
+		NetSerializer.OP_PLAYER_INPUT,
+		NetSerializer.encode_player_input(pos, rot_y, _input_tick, anim_name, anim_speed, aim_pitch)
+	)
 
 
 ## Send a combat action to the server.
 func send_ability(action_id: int, aim_pitch: float = 0.0, rot_y: float = 0.0) -> void:
-	send_msg(NetSerializer.OP_ABILITY_INPUT,
-		NetSerializer.encode_ability(action_id, aim_pitch, rot_y))
+	send_msg(
+		NetSerializer.OP_ABILITY_INPUT, NetSerializer.encode_ability(action_id, aim_pitch, rot_y)
+	)
 
 
 ## Send a generic interaction to the server (class select, ready toggle, etc.).
@@ -117,6 +127,7 @@ func send_interact(action: int, data: String = "") -> void:
 # =============================================================================
 # Lobby helpers (use InteractInput under the hood)
 # =============================================================================
+
 
 func set_player_class(class_name_str: String) -> void:
 	if not is_active:
@@ -139,6 +150,7 @@ func reset_ready_states() -> void:
 # =============================================================================
 # Poll loop
 # =============================================================================
+
 
 func _process(_delta: float) -> void:
 	if not is_active:
@@ -176,6 +188,7 @@ func _on_ws_connected() -> void:
 # =============================================================================
 # Message dispatch
 # =============================================================================
+
 
 func _on_message(data: PackedByteArray) -> void:
 	var parsed := NetSerializer.decode_header(data)
@@ -230,6 +243,7 @@ func _on_message(data: PackedByteArray) -> void:
 # Zone handlers
 # =============================================================================
 
+
 func _handle_zone_joined(payload: PackedByteArray) -> void:
 	var info := NetSerializer.decode_zone_joined(payload)
 	if info.is_empty():
@@ -269,11 +283,14 @@ func _handle_peer_disconnected(payload: PackedByteArray) -> void:
 # Server-authoritative handlers
 # =============================================================================
 
+
 func _handle_lobby_state(payload: PackedByteArray) -> void:
 	var data := NetSerializer.decode_lobby_state(payload)
 	player_info.clear()
 	for p in data.players:
-		player_info[p.peer_id] = {"class_name": p.class_name, "username": p.username, "ready": p.is_ready}
+		player_info[p.peer_id] = {
+			"class_name": p.class_name, "username": p.username, "ready": p.is_ready
+		}
 	lobby_state_updated.emit(data.players)
 	player_info_changed.emit()
 
@@ -304,7 +321,12 @@ func _handle_character_state(payload: PackedByteArray) -> void:
 
 func _handle_character_list(payload: PackedByteArray) -> void:
 	var data := NetSerializer.decode_character_list(payload)
-	print("[Net] Character list: %d characters, last_char_id=%d" % [data.characters.size(), data.last_char_id])
+	print(
+		(
+			"[Net] Character list: %d characters, last_char_id=%d"
+			% [data.characters.size(), data.last_char_id]
+		)
+	)
 	character_list_received.emit(data)
 
 
@@ -313,7 +335,10 @@ func send_select_character(char_id: int) -> void:
 
 
 func send_create_character(class_name_str: String, char_name: String) -> void:
-	send_msg(NetSerializer.OP_CREATE_CHARACTER, NetSerializer.encode_create_character(class_name_str, char_name))
+	send_msg(
+		NetSerializer.OP_CREATE_CHARACTER,
+		NetSerializer.encode_create_character(class_name_str, char_name)
+	)
 
 
 func _handle_character_error(payload: PackedByteArray) -> void:
@@ -352,6 +377,7 @@ func _handle_group_error(payload: PackedByteArray) -> void:
 # Group / social send helpers
 # =============================================================================
 
+
 func send_group_create() -> void:
 	send_msg(NetSerializer.OP_GROUP_CREATE)
 
@@ -361,7 +387,10 @@ func send_group_invite(target_peer_id: int) -> void:
 
 
 func send_group_invite_reply(group_id: int, accept: bool) -> void:
-	send_msg(NetSerializer.OP_GROUP_INVITE_REPLY, NetSerializer.encode_group_invite_reply(group_id, accept))
+	send_msg(
+		NetSerializer.OP_GROUP_INVITE_REPLY,
+		NetSerializer.encode_group_invite_reply(group_id, accept)
+	)
 
 
 func send_group_leave() -> void:

@@ -45,6 +45,7 @@ func _make_state(hp: float, pos: Vector3) -> Dictionary:
 # Gunner — death via server state
 # =============================================================================
 
+
 func test_gunner_death_via_server_state() -> void:
 	var died_emitted := false
 	_gunner.died.connect(func(): died_emitted = true)
@@ -82,6 +83,7 @@ func test_gunner_respawn_restores_alive() -> void:
 # Vanguard — death via server state
 # =============================================================================
 
+
 func test_vanguard_death_via_server_state() -> void:
 	var died_emitted := false
 	_vanguard.died.connect(func(): died_emitted = true)
@@ -115,6 +117,7 @@ func test_vanguard_respawn_restores_move_state() -> void:
 # =============================================================================
 # Blade Dancer — death via server state
 # =============================================================================
+
 
 func test_blade_dancer_death_via_server_state() -> void:
 	var died_emitted := false
@@ -150,6 +153,7 @@ func test_blade_dancer_respawn_restores_move_state() -> void:
 # Cross-controller: net_position also snapped
 # =============================================================================
 
+
 func test_gunner_respawn_updates_net_position() -> void:
 	_gunner.apply_server_state(_make_state(100.0, Vector3(5.0, 1.0, 5.0)))
 	_gunner.apply_server_state(_make_state(0.0, Vector3(5.0, 0.0, 5.0)))
@@ -177,6 +181,7 @@ func test_blade_dancer_respawn_updates_net_position() -> void:
 # =============================================================================
 # Edge case: already alive player does not snap position
 # =============================================================================
+
 
 func test_gunner_alive_no_position_snap() -> void:
 	# Start alive at a known position

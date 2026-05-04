@@ -5,10 +5,10 @@ extends GdUnitTestSuite
 ## and map_overlay — covering floor detection, geometry loading, waypoints,
 ## NPC parsing, toggle behavior, and coordinate transforms.
 
-
 # =============================================================================
 # MapData — Floor definitions
 # =============================================================================
+
 
 func test_floors_array_has_four_entries() -> void:
 	assert_int(MapData.FLOORS.size()).is_equal(4)
@@ -31,6 +31,7 @@ func test_floors_have_unique_ids() -> void:
 # =============================================================================
 # MapData — get_floor_for_position
 # =============================================================================
+
 
 func test_get_floor_lower_district() -> void:
 	var f := MapData.get_floor_for_position(Vector3(5.0, -199.0, -55.0))
@@ -69,6 +70,7 @@ func test_tower_lobby_bounds_excludes_x25() -> void:
 # MapData — get_geometry_for_floor
 # =============================================================================
 
+
 func test_get_geometry_lower_district() -> void:
 	var geo := MapData.get_geometry_for_floor("lower_district")
 	assert_bool(geo.has("buildings")).is_true()
@@ -103,6 +105,7 @@ func test_unknown_floor_returns_empty() -> void:
 # =============================================================================
 # MapData — Building counts
 # =============================================================================
+
 
 func test_lower_district_has_17_buildings() -> void:
 	var buildings: Array = MapData.LOWER_DISTRICT["buildings"]
@@ -167,25 +170,48 @@ func test_on_enter_hub_resets_floor_id() -> void:
 # SharedHUD — NPC positions from world state
 # =============================================================================
 
+
 func test_npc_positions_parsed() -> void:
 	_make_hud()
-	_hud.update_world_state({
-		"players": [],
-		"enemies": [],
-		"npcs": [
-			{"npc_id": 1, "pos": Vector3(10.0, 0.0, 20.0), "rot_y": 0.0, "anim_name": "idle"},
-			{"npc_id": 2, "pos": Vector3(30.0, 0.0, 40.0), "rot_y": 1.0, "anim_name": "walk"},
-		],
-	})
+	(
+		_hud
+		. update_world_state(
+			{
+				"players": [],
+				"enemies": [],
+				"npcs":
+				[
+					{
+						"npc_id": 1,
+						"pos": Vector3(10.0, 0.0, 20.0),
+						"rot_y": 0.0,
+						"anim_name": "idle"
+					},
+					{
+						"npc_id": 2,
+						"pos": Vector3(30.0, 0.0, 40.0),
+						"rot_y": 1.0,
+						"anim_name": "walk"
+					},
+				],
+			}
+		)
+	)
 	assert_int(_hud._npc_positions.size()).is_equal(2)
 
 
 func test_npc_positions_cleared_on_update() -> void:
 	_make_hud()
-	_hud.update_world_state({
-		"players": [], "enemies": [],
-		"npcs": [{"npc_id": 1, "pos": Vector3.ZERO, "rot_y": 0.0, "anim_name": "idle"}],
-	})
+	(
+		_hud
+		. update_world_state(
+			{
+				"players": [],
+				"enemies": [],
+				"npcs": [{"npc_id": 1, "pos": Vector3.ZERO, "rot_y": 0.0, "anim_name": "idle"}],
+			}
+		)
+	)
 	_hud.update_world_state({"players": [], "enemies": [], "npcs": []})
 	assert_int(_hud._npc_positions.size()).is_equal(0)
 
@@ -193,6 +219,7 @@ func test_npc_positions_cleared_on_update() -> void:
 # =============================================================================
 # SharedHUD — Floor detection and geometry
 # =============================================================================
+
 
 func test_detect_floor_lower_district() -> void:
 	_make_hud()
@@ -290,6 +317,7 @@ func test_overlay_reset_floor() -> void:
 # MapOverlay — waypoints
 # =============================================================================
 
+
 func test_overlay_arena_no_waypoint() -> void:
 	_make_overlay()
 	_overlay.set_floor("arena", "Arena")
@@ -305,7 +333,9 @@ func test_overlay_hub_floor_has_waypoint() -> void:
 
 func test_overlay_set_waypoint_path() -> void:
 	_make_overlay()
-	var path := PackedVector3Array([Vector3.ZERO, Vector3(10.0, 0.0, 10.0), Vector3(20.0, 0.0, 0.0)])
+	var path := PackedVector3Array(
+		[Vector3.ZERO, Vector3(10.0, 0.0, 10.0), Vector3(20.0, 0.0, 0.0)]
+	)
 	_overlay.set_waypoint_path(path)
 	assert_int(_overlay._waypoint_path.size()).is_equal(3)
 
@@ -314,15 +344,21 @@ func test_overlay_set_waypoint_path() -> void:
 # MapOverlay — state updates
 # =============================================================================
 
+
 func test_overlay_update_state() -> void:
 	_make_overlay()
-	_overlay.update_state({
-		"player_pos": Vector3(10.0, 0.0, 20.0),
-		"player_rot_y": 1.5,
-		"players": {1: {"pos": Vector3.ZERO, "health": 100.0, "rot_y": 0.0}},
-		"npcs": [Vector3(5.0, 0.0, 5.0)],
-		"enemies": [Vector3(20.0, 0.0, 20.0)],
-	})
+	(
+		_overlay
+		. update_state(
+			{
+				"player_pos": Vector3(10.0, 0.0, 20.0),
+				"player_rot_y": 1.5,
+				"players": {1: {"pos": Vector3.ZERO, "health": 100.0, "rot_y": 0.0}},
+				"npcs": [Vector3(5.0, 0.0, 5.0)],
+				"enemies": [Vector3(20.0, 0.0, 20.0)],
+			}
+		)
+	)
 	assert_that(_overlay._player_pos).is_equal(Vector3(10.0, 0.0, 20.0))
 	assert_float(_overlay._player_rot_y).is_equal_approx(1.5, 0.01)
 	assert_int(_overlay._npc_positions.size()).is_equal(1)
@@ -332,6 +368,7 @@ func test_overlay_update_state() -> void:
 # =============================================================================
 # MapOverlay — coordinate transforms
 # =============================================================================
+
 
 func test_overlay_world_to_screen_center() -> void:
 	_make_overlay()
