@@ -64,6 +64,7 @@ func (b *Brain) Enemy() *entity.Enemy { return b.enemy }
 func (b *Brain) Tick(dt float32, players []*entity.Player,
 	obstacles []combat.Obstacle,
 	spawnProjectile func(pos, dir entity.Vec3, speed, damage, lifetime float32),
+	castPattern func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3),
 ) []combat.DamageEvent {
 	e := b.enemy
 
@@ -71,7 +72,7 @@ func (b *Brain) Tick(dt float32, players []*entity.Player,
 	b.events = b.events[:0]
 	b.bb.TickTimers(dt)
 	b.ctx.Logger = b.Logger
-	b.ctx.Reset(dt, players, obstacles, spawnProjectile, &b.events)
+	b.ctx.Reset(dt, players, obstacles, spawnProjectile, castPattern, &b.events)
 	b.ctx.BoundsMinX = b.BoundsMinX
 	b.ctx.BoundsMaxX = b.BoundsMaxX
 	b.ctx.BoundsMinZ = b.BoundsMinZ

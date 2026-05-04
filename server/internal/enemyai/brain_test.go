@@ -240,19 +240,22 @@ func TestDefRegistryContainsAll(t *testing.T) {
 	}
 }
 
-func TestGuardCaptainHasFourAbilities(t *testing.T) {
-	if len(GuardCaptain.Abilities) != 4 {
-		t.Errorf("guard captain abilities = %d, want 4", len(GuardCaptain.Abilities))
+func TestGuardCaptainAbilityCount(t *testing.T) {
+	if len(GuardCaptain.Abilities) != 5 {
+		t.Errorf("guard captain abilities = %d, want 5", len(GuardCaptain.Abilities))
 	}
 }
 
 func TestGuardCaptainPhaseOverrides(t *testing.T) {
-	resolved := GuardCaptain.ResolveAbility(&GuardCaptain.Abilities[1], 2) // fireball_burst phase 2
-	if resolved.ProjectileCount != 2 {
-		t.Errorf("phase 2 projectile count = %d, want 2", resolved.ProjectileCount)
+	// fireball_burst (index 1) phase 2: telegraph shortens
+	resolved := GuardCaptain.ResolveAbility(&GuardCaptain.Abilities[1], 2)
+	if resolved.TelegraphTime != 0.8 {
+		t.Errorf("phase 2 fireball telegraph = %f, want 0.8", resolved.TelegraphTime)
 	}
-	if resolved.ProjectileDamage != 15.0 {
-		t.Errorf("phase 2 damage = %f, want 15.0", resolved.ProjectileDamage)
+	// void_barrage (index 2) phase 2: telegraph shortens
+	vb := GuardCaptain.ResolveAbility(&GuardCaptain.Abilities[2], 2)
+	if vb.TelegraphTime != 1.0 {
+		t.Errorf("phase 2 void_barrage telegraph = %f, want 1.0", vb.TelegraphTime)
 	}
 }
 

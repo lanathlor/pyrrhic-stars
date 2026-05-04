@@ -1,6 +1,8 @@
 package system
 
 import (
+	"math/rand/v2"
+
 	"codex-online/server/internal/ability"
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/enemyai"
@@ -121,9 +123,14 @@ type World struct {
 	// Reusable ability tick context (avoids per-player allocation in CombatSystem).
 	abilTickCtx ability.TickContext
 
+	// Pattern engine for bullet-hell projectile patterns.
+	PatternEngine *combat.PatternEngine
+	PatternRng    *rand.Rand
+
 	// Pre-allocated spawn function for AISystem (avoids per-tick closure).
 	spawnEnemyIdx int
 	spawnFn       func(pos, dir entity.Vec3, speed, damage, lifetime float32)
+	castPatternFn func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3)
 }
 
 // FirstEnemy returns the first enemy or nil.

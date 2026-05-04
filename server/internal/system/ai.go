@@ -26,6 +26,11 @@ func (s *AISystem) Tick(w *World, dt float32) {
 			w.SpawnEnemyProjectile(w.spawnEnemyIdx, pos, dir, speed, damage, lifetime)
 		}
 	}
+	if w.castPatternFn == nil && w.PatternEngine != nil {
+		w.castPatternFn = func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3) {
+			w.PatternEngine.Spawn(pattern, abilityName, 0, w.spawnEnemyIdx, origin, facing)
+		}
+	}
 
 	for i, e := range w.Enemies {
 		if e == nil || !e.Alive || i >= len(w.Brains) {
@@ -39,7 +44,7 @@ func (s *AISystem) Tick(w *World, dt float32) {
 			w.filteredPlayers = playersOnSameSide(w.filteredPlayers[:0], allPlayers, e.Position.Z, w.Level.BossRoomEntryZ)
 			visiblePlayers = w.filteredPlayers
 		}
-		events := w.Brains[i].Tick(dt, visiblePlayers, w.Level.Obstacles, w.spawnFn)
+		events := w.Brains[i].Tick(dt, visiblePlayers, w.Level.Obstacles, w.spawnFn, w.castPatternFn)
 		for _, evt := range events {
 			if _, ok := w.Players[evt.TargetPeerID]; ok {
 				e.AddThreat(evt.TargetPeerID, evt.Amount)

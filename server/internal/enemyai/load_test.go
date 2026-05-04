@@ -185,7 +185,7 @@ func TestBuildTreeFromData_Melee(t *testing.T) {
 
 	// No players: should patrol
 	e.State = entity.EnemyPatrol
-	b.Tick(0.05, nil, nil, noSpawn)
+	b.Tick(0.05, nil, nil, noSpawn, nil)
 	if e.State != entity.EnemyPatrol {
 		t.Errorf("expected patrol with no players, got state %d", e.State)
 	}
@@ -193,7 +193,7 @@ func TestBuildTreeFromData_Melee(t *testing.T) {
 	// Add player in aggro range: should chase
 	p := testPlayer(1, entity.Vec3{X: 0, Z: 5})
 	players := testPlayers(p)
-	b.Tick(0.05, players, nil, noSpawn)
+	b.Tick(0.05, players, nil, noSpawn, nil)
 	if e.State != entity.EnemyChase {
 		t.Errorf("expected chase after aggro, got state %d", e.State)
 	}
@@ -201,7 +201,7 @@ func TestBuildTreeFromData_Melee(t *testing.T) {
 	// Move player to melee range: should telegraph
 	p.Position = entity.Vec3{X: 0, Z: 1}
 	for range 100 {
-		b.Tick(0.05, players, nil, noSpawn)
+		b.Tick(0.05, players, nil, noSpawn, nil)
 		if e.State == entity.EnemyMeleeTelegraph {
 			break
 		}
@@ -1142,7 +1142,7 @@ func BenchmarkBrainTick_YAMLMelee(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		br.Tick(0.05, players, nil, noSpawn)
+		br.Tick(0.05, players, nil, noSpawn, nil)
 	}
 }
 
@@ -1168,6 +1168,6 @@ func BenchmarkBrainTick_YAMLRanged(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		br.Tick(0.05, players, nil, noSpawn)
+		br.Tick(0.05, players, nil, noSpawn, nil)
 	}
 }

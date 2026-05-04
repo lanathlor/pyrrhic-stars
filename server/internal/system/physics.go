@@ -13,6 +13,21 @@ func (s *PhysicsSystem) Tick(w *World, dt float32) {
 		return
 	}
 
+	// Tick pattern engine: emitters fire waves → spawn requests → projectiles
+	if w.PatternEngine != nil {
+		w.PatternEngine.Tick(dt, w.PatternRng)
+		for _, req := range w.PatternEngine.DrainSpawns() {
+			w.NextProjID++
+			p := entity.NewProjectile(w.NextProjID, req.OwnerID, req.EnemyIdx,
+				req.Position, req.Direction, req.Speed, req.Damage, req.Lifetime)
+			p.VisualTag = req.VisualTag
+			p.Acceleration = req.Acceleration
+			p.AngularVelocity = req.AngularVelocity
+			p.MaxSpeed = req.MaxSpeed
+			w.Projectiles = append(w.Projectiles, p)
+		}
+	}
+
 	alive := w.Projectiles[:0]
 	for _, proj := range w.Projectiles {
 		proj.Tick(dt)
@@ -32,7 +47,7 @@ func (s *PhysicsSystem) Tick(w *World, dt float32) {
 				if !p.Alive {
 					continue
 				}
-				if combat.CheckProjectileHit(proj.Position, p.Position, entity.ProjectileHitRadius+0.5) {
+				if combat.CheckProjectileHit(proj.Position, p.Position, entity.ProjectileHitRadius+entity.PlayerHurtRadius) {
 					dealt := p.ApplyDamage(proj.Damage)
 					if dealt > 0 {
 						// Add player to threat table of the specific enemy that fired

@@ -3,11 +3,13 @@ package zone
 import (
 	"context"
 	"log/slog"
+	"math/rand/v2"
 	"sync"
 	"time"
 
 	"codex-online/server/internal/ability"
 	"codex-online/server/internal/codec"
+	"codex-online/server/internal/combat"
 	"codex-online/server/internal/enemyai"
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/level"
@@ -91,6 +93,8 @@ func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
 		Clients:       make(map[uint16]*system.Client),
 		Level:         l,
 		AbilityEngine: ability.NewEngine(slog.Default().With("zone_id", id)),
+		PatternEngine: combat.NewPatternEngine(),
+		PatternRng:    rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), 0)),
 	}
 
 	if zoneType == ZoneTypeInstanced {

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"codex-online/server/internal/bt"
+	"codex-online/server/internal/combat"
 
 	"gopkg.in/yaml.v3"
 )
@@ -67,6 +68,38 @@ type abilityFile struct {
 	ChargeStopOnObstacle bool    `yaml:"charge_stop_on_obstacle"`
 
 	DamageSource uint8 `yaml:"damage_source"`
+
+	// Pattern: bullet-hell emitter composition (replaces ProjectileCount/Spread)
+	Pattern *patternFile `yaml:"pattern"`
+}
+
+type patternFile struct {
+	Emitters []emitterFile `yaml:"emitters"`
+}
+
+type emitterFile struct {
+	Type          string  `yaml:"type"` // radial, cone, line, arc, ring_contract, targeted, random_zone
+	Count         int     `yaml:"count"`
+	Waves         int     `yaml:"waves"`
+	WaveInterval  float32 `yaml:"wave_interval"`
+	OffsetPerWave float32 `yaml:"offset_per_wave"` // degrees
+	StartAngle    float32 `yaml:"start_angle"`     // degrees
+	ArcAngle      float32 `yaml:"arc_angle"`       // degrees
+	LineWidth     float32 `yaml:"line_width"`
+	StartRadius   float32 `yaml:"start_radius"`
+	ZoneRadius    float32 `yaml:"zone_radius"`
+	AimAtTarget   bool    `yaml:"aim_at_target"`
+	Projectile    projFile `yaml:"projectile"`
+}
+
+type projFile struct {
+	Speed           float32 `yaml:"speed"`
+	Damage          float32 `yaml:"damage"`
+	Lifetime        float32 `yaml:"lifetime"`
+	Radius          float32 `yaml:"radius"`
+	Acceleration    float32 `yaml:"acceleration"`
+	MaxSpeed        float32 `yaml:"max_speed"`
+	AngularVelocity float32 `yaml:"angular_velocity"` // degrees/s
 }
 
 type phaseFile struct {
@@ -229,7 +262,78 @@ func convertAbility(af abilityFile) (AbilityDef, error) {
 		return AbilityDef{}, fmt.Errorf("unknown target strategy %q", af.Target)
 	}
 
+	if af.Pattern != nil {
+		p, err := convertPattern(af.Pattern)
+		if err != nil {
+			return AbilityDef{}, fmt.Errorf("pattern: %w", err)
+		}
+		ad.Pattern = p
+	}
+
 	return ad, nil
+}
+
+func convertPattern(pf *patternFile) (*combat.PatternDef, error) {
+	if len(pf.Emitters) == 0 {
+		return nil, errors.New("pattern has no emitters")
+	}
+	def := &combat.PatternDef{
+		Emitters: make([]combat.EmitterDef, 0, len(pf.Emitters)),
+	}
+	for i, ef := range pf.Emitters {
+		etype, err := parseEmitterType(ef.Type)
+		if err != nil {
+			return nil, fmt.Errorf("emitter[%d]: %w", i, err)
+		}
+		waves := ef.Waves
+		if waves == 0 {
+			waves = 1
+		}
+		def.Emitters = append(def.Emitters, combat.EmitterDef{
+			Type:          etype,
+			Count:         ef.Count,
+			Waves:         waves,
+			WaveInterval:  ef.WaveInterval,
+			OffsetPerWave: ef.OffsetPerWave * math.Pi / 180.0,
+			StartAngle:    ef.StartAngle * math.Pi / 180.0,
+			ArcAngle:      ef.ArcAngle * math.Pi / 180.0,
+			LineWidth:     ef.LineWidth,
+			StartRadius:   ef.StartRadius,
+			ZoneRadius:    ef.ZoneRadius,
+			AimAtTarget:   ef.AimAtTarget,
+			Projectile: combat.ProjectileDef{
+				Speed:           ef.Projectile.Speed,
+				Damage:          ef.Projectile.Damage,
+				Lifetime:        ef.Projectile.Lifetime,
+				Radius:          ef.Projectile.Radius,
+				Acceleration:    ef.Projectile.Acceleration,
+				MaxSpeed:        ef.Projectile.MaxSpeed,
+				AngularVelocity: ef.Projectile.AngularVelocity * math.Pi / 180.0,
+			},
+		})
+	}
+	return def, nil
+}
+
+func parseEmitterType(s string) (combat.EmitterType, error) {
+	switch s {
+	case "radial":
+		return combat.EmitterRadial, nil
+	case "cone":
+		return combat.EmitterCone, nil
+	case "line":
+		return combat.EmitterLine, nil
+	case "arc":
+		return combat.EmitterArc, nil
+	case "ring_contract":
+		return combat.EmitterRingContract, nil
+	case "targeted":
+		return combat.EmitterTargeted, nil
+	case "random_zone":
+		return combat.EmitterRandomZone, nil
+	default:
+		return 0, fmt.Errorf("unknown emitter type %q", s)
+	}
 }
 
 func convertPhase(pf phaseFile) PhaseDef {

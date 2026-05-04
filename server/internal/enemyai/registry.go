@@ -2,6 +2,8 @@ package enemyai
 
 import (
 	"math"
+
+	"codex-online/server/internal/combat"
 )
 
 // GuardCaptain is the first dungeon boss — a corrupted guard captain
@@ -28,27 +30,98 @@ var GuardCaptain = EnemyDef{
 			FaceTarget:       true,
 			MeleeRange:       3.0,
 			MeleeDamage:      30.0,
-			MeleeConeAngle:   math.Pi,          // 180° — wide boss sweep
+			MeleeConeAngle:   math.Pi, // 180° — wide boss sweep
 			DamageSourceType: SourceEnemyMelee,
 		},
 		{
-			Name:               "fireball_burst",
-			Type:               AbilityRanged,
-			TargetStrategy:     TargetFarthest,
-			TelegraphTime:      1.0,
-			ExecuteTime:        0.1,
-			CooldownTime:       1.5,
-			BaseWeight:         30,
-			MinRange:           3.0,
-			FaceTarget:         false,
-			TrackTarget:        true,
-			ProjectileCount:    1,
-			ProjectileSpeed:    22.0,
-			ProjectileDamage:   20.0,
-			ProjectileSpread:   5.0 * math.Pi / 180.0,
-			ProjectileOriginY:  1.5,
-			ProjectileLifetime: 5.0,
-			DamageSourceType:   SourceEnemyRanged,
+			// Multi-emitter: aimed cone burst → radial spiral ring
+			Name:              "fireball_burst",
+			Type:              AbilityRanged,
+			TargetStrategy:    TargetFarthest,
+			TelegraphTime:     1.0,
+			ExecuteTime:       0.1,
+			CooldownTime:      1.5,
+			BaseWeight:        25,
+			MinRange:          3.0,
+			FaceTarget:        false,
+			TrackTarget:       true,
+			ProjectileOriginY: 1.5,
+			DamageSourceType:  SourceEnemyRanged,
+			Pattern: &combat.PatternDef{
+				Emitters: []combat.EmitterDef{
+					{
+						// Phase 1: cone burst aimed at target
+						Type:         combat.EmitterCone,
+						Count:        5,
+						Waves:        3,
+						WaveInterval: 0.2,
+						ArcAngle:     40 * math.Pi / 180, // 40° spread
+						Projectile: combat.ProjectileDef{
+							Speed:    12,
+							Damage:   10,
+							Lifetime: 3,
+						},
+					},
+					{
+						// Phase 2: radial spiral ring
+						Type:          combat.EmitterRadial,
+						Count:         12,
+						Waves:         2,
+						WaveInterval:  0.15,
+						OffsetPerWave: 15 * math.Pi / 180, // 15° spiral offset
+						Projectile: combat.ProjectileDef{
+							Speed:           6,
+							Damage:          8,
+							Lifetime:        4,
+							AngularVelocity: 0.4, // curves outward
+						},
+					},
+				},
+			},
+		},
+		{
+			// Contracting ring → radial burst. Teaches players to dodge inward then outward.
+			Name:              "void_barrage",
+			Type:              AbilityRanged,
+			TargetStrategy:    TargetNearest,
+			TelegraphTime:     1.3,
+			ExecuteTime:       0.1,
+			CooldownTime:      2.0,
+			BaseWeight:        15,
+			MinRange:          4.0,
+			FaceTarget:        false,
+			TrackTarget:       true,
+			ProjectileOriginY: 0.0, // ground level for the ring
+			DamageSourceType:  SourceEnemyRanged,
+			Pattern: &combat.PatternDef{
+				Emitters: []combat.EmitterDef{
+					{
+						// Ring contracts inward — dodge through it
+						Type:        combat.EmitterRingContract,
+						Count:       16,
+						Waves:       1,
+						StartRadius: 12,
+						Projectile: combat.ProjectileDef{
+							Speed:    5,
+							Damage:   15,
+							Lifetime: 3,
+						},
+					},
+					{
+						// Then radial burst — punish players who dodged to center
+						Type:          combat.EmitterRadial,
+						Count:         8,
+						Waves:         2,
+						WaveInterval:  0.1,
+						OffsetPerWave: 22.5 * math.Pi / 180, // half-step offset between waves
+						Projectile: combat.ProjectileDef{
+							Speed:    10,
+							Damage:   8,
+							Lifetime: 2.5,
+						},
+					},
+				},
+			},
 		},
 		{
 			Name:             "ground_slam",
@@ -57,7 +130,7 @@ var GuardCaptain = EnemyDef{
 			TelegraphTime:    1.5,
 			ExecuteTime:      0.1,
 			CooldownTime:     1.5,
-			BaseWeight:       20,
+			BaseWeight:       15,
 			MaxRange:         7.5,
 			FaceTarget:       true,
 			AoERadius:        5.0,
@@ -70,7 +143,7 @@ var GuardCaptain = EnemyDef{
 			TargetStrategy:       TargetNearest,
 			TelegraphTime:        1.0,
 			CooldownTime:         1.5,
-			BaseWeight:           20,
+			BaseWeight:           15,
 			MinRange:             6.0,
 			FaceTarget:           true,
 			ChargeSpeed:          12.0,
@@ -91,19 +164,21 @@ var GuardCaptain = EnemyDef{
 			MoveSpeed:        5.0,
 			CooldownOverride: 1.2,
 			WeightOverrides: map[string]int{
-				"melee_swipe":    25,
+				"melee_swipe":    20,
 				"fireball_burst": 25,
-				"ground_slam":    25,
-				"bull_charge":    25,
+				"void_barrage":   20,
+				"ground_slam":    15,
+				"bull_charge":    20,
 			},
 			AbilityOverrides: map[string]AbilityOverride{
 				"melee_swipe": {
 					TelegraphTime: F32(0.9),
 				},
 				"fireball_burst": {
-					TelegraphTime:   F32(0.8),
-					Damage:          F32(15.0),
-					ProjectileCount: Int(2),
+					TelegraphTime: F32(0.8),
+				},
+				"void_barrage": {
+					TelegraphTime: F32(1.0),
 				},
 				"ground_slam": {
 					TelegraphTime: F32(1.2),
@@ -117,16 +192,17 @@ var GuardCaptain = EnemyDef{
 			},
 		},
 		{
-			// Phase 3 at 30% HP — enraged, barely pauses between attacks
+			// Phase 3 at 30% HP — enraged, bullet-hell intensifies
 			HPThresholdPct:   0.3,
 			TransitionTime:   1.5,
 			MoveSpeed:        6.0,
 			CooldownOverride: 0.4,
 			WeightOverrides: map[string]int{
-				"melee_swipe":    20,
-				"fireball_burst": 20,
-				"ground_slam":    25,
-				"bull_charge":    35,
+				"melee_swipe":    15,
+				"fireball_burst": 25,
+				"void_barrage":   25,
+				"ground_slam":    15,
+				"bull_charge":    20,
 			},
 			AbilityOverrides: map[string]AbilityOverride{
 				"melee_swipe": {
@@ -134,9 +210,10 @@ var GuardCaptain = EnemyDef{
 					Damage:        F32(35.0),
 				},
 				"fireball_burst": {
-					TelegraphTime:   F32(0.6),
-					Damage:          F32(12.0),
-					ProjectileCount: Int(3),
+					TelegraphTime: F32(0.6),
+				},
+				"void_barrage": {
+					TelegraphTime: F32(0.8),
 				},
 				"ground_slam": {
 					TelegraphTime: F32(1.0),

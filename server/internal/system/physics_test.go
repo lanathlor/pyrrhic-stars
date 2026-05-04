@@ -83,11 +83,11 @@ func TestPhysicsEnemyProjectileHitsPlayer(t *testing.T) {
 	e.Alive = true
 	w.Enemies = []*entity.Enemy{e}
 
-	// Enemy projectile heading toward player
+	// Enemy projectile approaching player — slow enough to overlap after one tick
 	proj := entity.NewProjectile(1, 0, 0, // ownerID=0 → enemy projectile, enemyIdx=0
-		entity.Vec3{X: 0, Y: 1.1, Z: 25}, // right at player
+		entity.Vec3{X: 0, Y: 1.1, Z: 25.1}, // just past player
 		entity.Vec3{X: 0, Z: -1},
-		20, 25, 5.0)
+		2, 25, 5.0) // speed=2 → moves 0.1 units/tick, ending at Z=25.0
 	w.Projectiles = []*entity.Projectile{proj}
 
 	sys := PhysicsSystem{}

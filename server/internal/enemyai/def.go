@@ -1,5 +1,6 @@
 package enemyai
 
+import "codex-online/server/internal/combat"
 
 // AbilityType identifies how an ability's damage is resolved.
 type AbilityType uint8
@@ -68,6 +69,11 @@ type AbilityDef struct {
 
 	// DamageSourceType maps to combat.DamageEvent.SourceType.
 	DamageSourceType uint8
+
+	// Pattern defines a bullet-hell pattern for this ability.
+	// If non-nil, the pattern engine handles projectile spawning instead of
+	// the legacy ProjectileCount/ProjectileSpread fan system.
+	Pattern *combat.PatternDef
 }
 
 // PhaseDef defines stat overrides for a specific HP phase.

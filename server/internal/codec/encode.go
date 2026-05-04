@@ -107,6 +107,14 @@ func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.
 		buf = appendF32(buf, proj.Direction.X)
 		buf = appendF32(buf, proj.Direction.Y)
 		buf = appendF32(buf, proj.Direction.Z)
+		buf = appendF32(buf, proj.Speed)
+		buf = appendF32(buf, proj.AngularVelocity)
+		tag := proj.VisualTag
+		if len(tag) > 255 {
+			tag = tag[:255]
+		}
+		buf = append(buf, byte(len(tag)))
+		buf = append(buf, tag...)
 	}
 
 	npcList := npcs

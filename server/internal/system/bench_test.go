@@ -1,6 +1,8 @@
 package system
 
 import (
+	"math"
+	"math/rand/v2"
 	"sync"
 	"testing"
 
@@ -76,6 +78,8 @@ func benchWorld() *World {
 		Level:         lvl,
 		Clients:       make(map[uint16]*Client),
 		AbilityEngine: ability.NewEngine(nil),
+		PatternEngine: combat.NewPatternEngine(),
+		PatternRng:    rand.New(rand.NewPCG(42, 0)),
 		// Pre-allocate pooled buffers so broadcast doesn't allocate in the tick loop.
 		SendBuf:     make([]byte, 0, 4096),
 		DamageBuf:   make([]byte, 0, 256),
@@ -663,7 +667,7 @@ func BenchmarkBrainTickChase(b *testing.B) {
 		e.State = entity.EnemyChase
 		e.ChaseTimer = 0
 		e.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
-		brain.Tick(0.05, players, obs, func(_, _ entity.Vec3, _, _, _ float32) {})
+		brain.Tick(0.05, players, obs, func(_, _ entity.Vec3, _, _, _ float32) {}, nil)
 	}
 }
 
@@ -692,7 +696,7 @@ func BenchmarkBrainTickMeleeAttack(b *testing.B) {
 		p.Health = p.MaxHealth
 		p.Alive = true
 		p.State = entity.PlayerStateMove
-		brain.Tick(0.05, players, obs, nil)
+		brain.Tick(0.05, players, obs, nil, nil)
 	}
 }
 
@@ -720,7 +724,7 @@ func BenchmarkBrainTickMeleeAttackMiss(b *testing.B) {
 		e.ActiveAbility = 0
 		e.RotationY = 0
 		e.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
-		brain.Tick(0.05, players, obs, nil)
+		brain.Tick(0.05, players, obs, nil, nil)
 	}
 }
 
@@ -742,5 +746,194 @@ func BenchmarkVec3Normalized(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = v.Normalized()
+	}
+}
+
+// --- Pattern engine system benchmarks ---
+// These measure the pattern engine cost within the full system pipeline context.
+
+// BenchmarkPhysicsWithPatterns_5Active measures PhysicsSystem.Tick with 5 active
+// patterns each spawning 16 projectiles per wave (80 new projectiles/tick).
+func BenchmarkPhysicsWithPatterns_5Active(b *testing.B) {
+	w := benchWorld()
+	sys := PhysicsSystem{}
+
+	spiralDef := &combat.PatternDef{
+		Emitters: []combat.EmitterDef{{
+			Type:          combat.EmitterRadial,
+			Count:         16,
+			Waves:         1000,
+			WaveInterval:  0.05,
+			OffsetPerWave: 10 * math.Pi / 180,
+			Projectile: combat.ProjectileDef{
+				Speed:           8,
+				Damage:          10,
+				Lifetime:        4,
+				AngularVelocity: 0.3,
+			},
+		}},
+	}
+	for i := range 5 {
+		w.PatternEngine.Spawn(spiralDef, "fire_spiral", 0, i%len(w.Enemies),
+			entity.Vec3{X: float32(i) * 3, Z: 20}, entity.Vec3{Z: -1})
+	}
+	// Let first waves fire
+	w.PatternEngine.Tick(0.05, w.PatternRng)
+	w.PatternEngine.DrainSpawns()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		// Reset projectiles and pattern timer to avoid accumulation
+		w.Projectiles = w.Projectiles[:0]
+		w.DamageEvents = w.DamageEvents[:0]
+		for _, ap := range w.PatternEngine.Active {
+			ap.WaveTimer = 0.04 // about to fire
+			ap.WaveIdx = 1      // prevent completion
+		}
+		sys.Tick(w, 0.05)
+	}
+}
+
+// BenchmarkPhysicsWithPatterns_10Active_32Count is the stress scenario:
+// 10 patterns, 32 projectiles each = 320 new projectiles spawned per tick,
+// plus 200 existing projectiles being ticked.
+func BenchmarkPhysicsWithPatterns_10Active_32Count(b *testing.B) {
+	w := benchWorld()
+	sys := PhysicsSystem{}
+
+	denseDef := &combat.PatternDef{
+		Emitters: []combat.EmitterDef{{
+			Type:          combat.EmitterRadial,
+			Count:         32,
+			Waves:         1000,
+			WaveInterval:  0.05,
+			OffsetPerWave: 8 * math.Pi / 180,
+			Projectile: combat.ProjectileDef{
+				Speed:           6,
+				Damage:          8,
+				Lifetime:        5,
+				AngularVelocity: 0.4,
+				Acceleration:    2.0,
+				MaxSpeed:        12,
+			},
+		}},
+	}
+	for i := range 10 {
+		w.PatternEngine.Spawn(denseDef, "void_storm", 0, i%len(w.Enemies),
+			entity.Vec3{X: float32(i-5) * 4, Z: 25}, entity.Vec3{Z: -1})
+	}
+	// Fire first waves
+	w.PatternEngine.Tick(0.05, w.PatternRng)
+	w.PatternEngine.DrainSpawns()
+
+	// Pre-populate 200 existing curved projectiles (from previous ticks)
+	existingProjs := make([]*entity.Projectile, 200)
+	for i := range existingProjs {
+		existingProjs[i] = &entity.Projectile{
+			ID:              uint32(10000 + i),
+			OwnerID:         0,
+			EnemyIdx:        i % len(w.Enemies),
+			Position:        entity.Vec3{X: float32(i%20 - 10), Y: 1.5, Z: float32(i/20 + 5)},
+			Direction:       entity.Vec3{X: 0.1, Z: -1},
+			Speed:           8,
+			Damage:          10,
+			Lifetime:        5,
+			Timer:           float32(i%40) * 0.05,
+			Alive:           true,
+			AngularVelocity: 0.3,
+			Acceleration:    1.0,
+			MaxSpeed:        12,
+		}
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		// Reset state for consistent measurement
+		w.Projectiles = append(w.Projectiles[:0], existingProjs...)
+		for _, p := range w.Projectiles {
+			p.Alive = true
+			p.Timer = float32(int(p.Timer*20)%40) * 0.05
+		}
+		w.DamageEvents = w.DamageEvents[:0]
+		for _, ap := range w.PatternEngine.Active {
+			ap.WaveTimer = 0.04
+			ap.WaveIdx = 1 // prevent completion
+		}
+		sys.Tick(w, 0.05)
+	}
+}
+
+// BenchmarkFullTickWithPatterns measures the complete tick pipeline with active patterns.
+// Represents a realistic boss fight: 5 players, 9 enemies, boss firing patterns,
+// 100+ projectiles in flight.
+func BenchmarkFullTickWithPatterns(b *testing.B) {
+	w := benchWorld()
+	inputSys := InputSystem{}
+	combatSys := CombatSystem{}
+	aiSys := AISystem{}
+	physicsSys := PhysicsSystem{}
+
+	// Boss fires a spiral pattern
+	spiralDef := &combat.PatternDef{
+		Emitters: []combat.EmitterDef{{
+			Type:          combat.EmitterRadial,
+			Count:         16,
+			Waves:         1000,
+			WaveInterval:  0.05,
+			OffsetPerWave: 12 * math.Pi / 180,
+			Projectile: combat.ProjectileDef{
+				Speed:           8,
+				Damage:          12,
+				Lifetime:        3.5,
+				AngularVelocity: 0.3,
+			},
+		}},
+	}
+	w.PatternEngine.Spawn(spiralDef, "fireball_burst", 0, 8,
+		entity.Vec3{X: 0, Y: 1.5, Z: 25}, entity.Vec3{Z: -1})
+	// First wave
+	w.PatternEngine.Tick(0.05, w.PatternRng)
+	w.PatternEngine.DrainSpawns()
+
+	// 50 existing projectiles in flight
+	for i := range 50 {
+		p := entity.NewProjectile(uint32(5000+i), 0, 8,
+			entity.Vec3{X: float32(i%10 - 5), Y: 1.5, Z: float32(10 + i/10)},
+			entity.Vec3{Z: -1}, 8, 12, 3.5)
+		p.AngularVelocity = 0.3
+		w.Projectiles = append(w.Projectiles, p)
+	}
+
+	inputs := make([]InputMsg, 5)
+	for i := uint16(1); i <= 5; i++ {
+		inputs[i-1] = InputMsg{
+			PeerID:  i,
+			Opcode:  0x0030,
+			Payload: codec.EncodePlayerInput(nil, float32(i)*2, 0.1, 5, 0, 100, "run", 1.0, 0),
+		}
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		w.InputQueue = inputs
+		w.DamageEvents = w.DamageEvents[:0]
+		w.GameFlowEvents = w.GameFlowEvents[:0]
+		// Reset projectiles to consistent state
+		for _, p := range w.Projectiles {
+			p.Alive = true
+			p.Timer = 0.5
+		}
+		for _, ap := range w.PatternEngine.Active {
+			ap.WaveTimer = 0.04
+			ap.WaveIdx = 1 // prevent completion
+		}
+
+		inputSys.Tick(w, 0.05)
+		combatSys.Tick(w, 0.05)
+		aiSys.Tick(w, 0.05)
+		physicsSys.Tick(w, 0.05)
 	}
 }

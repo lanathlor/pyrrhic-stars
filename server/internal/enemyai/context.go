@@ -15,16 +15,17 @@ import (
 // once per Brain and reset each tick. Lazy-cached queries avoid repeated
 // computation within a single tick.
 type EntityContext struct {
-	Enemy   *entity.Enemy
-	Def     *EnemyDef
-	Engine  *ability.Engine
-	BB      *Blackboard
-	Rng     *rand.Rand
-	Dt      float32
-	Players []*entity.Player
-	Obs     []combat.Obstacle
-	SpawnFn func(pos, dir entity.Vec3, speed, damage, lifetime float32)
-	Events  *[]combat.DamageEvent
+	Enemy         *entity.Enemy
+	Def           *EnemyDef
+	Engine        *ability.Engine
+	BB            *Blackboard
+	Rng           *rand.Rand
+	Dt            float32
+	Players       []*entity.Player
+	Obs           []combat.Obstacle
+	SpawnFn       func(pos, dir entity.Vec3, speed, damage, lifetime float32)
+	CastPatternFn func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3)
+	Events        *[]combat.DamageEvent
 
 	// Logger enables optional BT trace logging. Nil disables logging.
 	Logger *slog.Logger
@@ -48,11 +49,13 @@ type EntityContext struct {
 func (ctx *EntityContext) Reset(dt float32, players []*entity.Player,
 	obstacles []combat.Obstacle,
 	spawnFn func(pos, dir entity.Vec3, speed, damage, lifetime float32),
+	castPatternFn func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3),
 	events *[]combat.DamageEvent) {
 	ctx.Dt = dt
 	ctx.Players = players
 	ctx.Obs = obstacles
 	ctx.SpawnFn = spawnFn
+	ctx.CastPatternFn = castPatternFn
 	ctx.Events = events
 	ctx.nearestCached = false
 	ctx.farthestCached = false
@@ -293,15 +296,26 @@ func (ctx *EntityContext) CastMeleeOrAoE(resolved AbilityDef) {
 }
 
 // SpawnProjectiles spawns projectiles for a ranged attack.
+// If the ability has a Pattern definition, uses the pattern engine for
+// bullet-hell style multi-wave emission. Otherwise uses the legacy fan system.
 func (ctx *EntityContext) SpawnProjectiles(resolved AbilityDef) {
 	e := ctx.Enemy
-	baseDir := e.RangedTargetPos.Sub(e.Position.Add(entity.Vec3{Y: resolved.ProjectileOriginY})).Normalized()
+	origin := e.Position.Add(entity.Vec3{Y: resolved.ProjectileOriginY})
+	baseDir := e.RangedTargetPos.Sub(origin).Normalized()
+
+	// Pattern engine path: multi-wave bullet-hell patterns
+	if resolved.Pattern != nil && ctx.CastPatternFn != nil {
+		ctx.CastPatternFn(resolved.Pattern, resolved.Name, origin, baseDir)
+		return
+	}
+
+	// Legacy path: simple fan of projectiles
 	count := resolved.ProjectileCount
 	for i := range count {
 		offset := (float32(i) - float32(count-1)/2.0) * resolved.ProjectileSpread
 		dir := combat.RotateVecY(baseDir, offset)
 		ctx.SpawnFn(
-			e.Position.Add(entity.Vec3{Y: resolved.ProjectileOriginY}),
+			origin,
 			dir,
 			resolved.ProjectileSpeed,
 			resolved.ProjectileDamage,

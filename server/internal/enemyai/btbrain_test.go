@@ -31,7 +31,7 @@ func TestBrain_DeadStopsVelocity(t *testing.T) {
 	e.Alive = false
 	e.Velocity = entity.Vec3{X: 5, Z: 5}
 
-	b.Tick(0.05, testPlayers(), nil, noSpawn)
+	b.Tick(0.05, testPlayers(), nil, noSpawn, nil)
 	if e.Velocity.X != 0 || e.Velocity.Z != 0 {
 		t.Errorf("velocity should be zero, got %v", e.Velocity)
 	}
@@ -44,13 +44,13 @@ func TestBrain_PhaseTransitionWaits(t *testing.T) {
 	e.State = entity.EnemyPhaseTransition
 	e.StateTimer = 1.0
 
-	b.Tick(0.5, testPlayers(), nil, noSpawn)
+	b.Tick(0.5, testPlayers(), nil, noSpawn, nil)
 	if e.State != entity.EnemyPhaseTransition {
 		t.Errorf("should still be transitioning, got %d", e.State)
 	}
 
 	// Tick past transition
-	b.Tick(0.6, testPlayers(), nil, noSpawn)
+	b.Tick(0.6, testPlayers(), nil, noSpawn, nil)
 	if e.State != entity.EnemyChase {
 		t.Errorf("should be chase after transition, got %d", e.State)
 	}
@@ -67,7 +67,7 @@ func TestBrain_ChasesTowardTarget(t *testing.T) {
 	players := testPlayers(p)
 	e.TargetPlayerID = p.ID
 
-	b.Tick(0.05, players, nil, noSpawn)
+	b.Tick(0.05, players, nil, noSpawn, nil)
 
 	if e.Velocity.Z <= 0 {
 		t.Errorf("should move toward target (Z+), got velocity %v", e.Velocity)
@@ -85,7 +85,7 @@ func TestBrain_MeleeAttackAtRange(t *testing.T) {
 	players := testPlayers(p)
 	e.TargetPlayerID = p.ID
 
-	b.Tick(0.05, players, nil, noSpawn)
+	b.Tick(0.05, players, nil, noSpawn, nil)
 
 	// Should have transitioned to a telegraph state
 	if e.State != entity.EnemyMeleeTelegraph && e.State != entity.EnemyAoETelegraph {
@@ -121,7 +121,7 @@ func TestBrain_FullMeleeCycle(t *testing.T) {
 	e.TargetPlayerID = p.ID
 
 	// Tick 1: select + telegraph starts
-	b.Tick(0.05, players, nil, noSpawn)
+	b.Tick(0.05, players, nil, noSpawn, nil)
 	if e.State != entity.EnemyMeleeTelegraph {
 		t.Fatalf("tick 1: expected MeleeTelegraph, got %d", e.State)
 	}
@@ -129,14 +129,14 @@ func TestBrain_FullMeleeCycle(t *testing.T) {
 	// Tick through telegraph (0.5s) + execute (0.3s) + cooldown (0.5s) = ~1.3s
 	// Need ~26 ticks at 0.05s each after the first tick
 	for range 30 {
-		b.Tick(0.05, players, nil, noSpawn)
+		b.Tick(0.05, players, nil, noSpawn, nil)
 	}
 
 	// After ~1.55s total, should be back to chase or starting a new attack
 	if e.State == entity.EnemyCooldown || e.State == entity.EnemyMeleeAttack {
 		// Still finishing up, tick a few more
 		for range 10 {
-			b.Tick(0.05, players, nil, noSpawn)
+			b.Tick(0.05, players, nil, noSpawn, nil)
 		}
 	}
 
@@ -174,7 +174,7 @@ func TestBrain_PatrolAndAggro(t *testing.T) {
 	e.Position = entity.Vec3{X: -4, Z: 0}
 
 	// No players nearby — should patrol
-	b.Tick(0.05, testPlayers(), nil, noSpawn)
+	b.Tick(0.05, testPlayers(), nil, noSpawn, nil)
 	// PatrolA is at X=-5 and we're at X=-4, so we should move toward PatrolA (X-)
 	// OR if already past the waypoint threshold, move toward PatrolB
 	if e.Velocity.X == 0 && e.Velocity.Z == 0 {
@@ -184,7 +184,7 @@ func TestBrain_PatrolAndAggro(t *testing.T) {
 	// Add player within aggro range
 	p := testPlayer(1, entity.Vec3{X: -3, Z: 0})
 	players := testPlayers(p)
-	b.Tick(0.05, players, nil, noSpawn)
+	b.Tick(0.05, players, nil, noSpawn, nil)
 	if e.State != entity.EnemyChase {
 		t.Errorf("should aggro to chase, got state %d", e.State)
 	}
@@ -207,7 +207,7 @@ func TestBrain_LeashReset(t *testing.T) {
 	e.TargetPlayerID = p.ID
 	players := testPlayers(p)
 
-	b.Tick(0.05, players, nil, noSpawn)
+	b.Tick(0.05, players, nil, noSpawn, nil)
 	if e.State != entity.EnemyPatrol {
 		t.Errorf("should leash to patrol, got state %d", e.State)
 	}
@@ -251,7 +251,7 @@ func TestBrain_RangedSpawnsProjectile(t *testing.T) {
 
 	// Reactive selector re-evaluates attack branch each tick — should fire quickly with LoS
 	for range 80 {
-		b.Tick(0.05, players, nil, spawnFn)
+		b.Tick(0.05, players, nil, spawnFn, nil)
 		if projectiles > 0 {
 			break
 		}
@@ -303,7 +303,7 @@ func TestBrain_ChargeHitsPlayer(t *testing.T) {
 
 	var allEvents []combat.DamageEvent
 	for range 200 {
-		events := b.Tick(0.05, players, nil, noSpawn)
+		events := b.Tick(0.05, players, nil, noSpawn, nil)
 		allEvents = append(allEvents, events...)
 		if p.Health < 100 {
 			break
@@ -328,7 +328,7 @@ func TestBrain_HallwayMeleeTree(t *testing.T) {
 
 	startX := e.Position.X
 	for range 20 {
-		b.Tick(0.05, testPlayers(), nil, noSpawn)
+		b.Tick(0.05, testPlayers(), nil, noSpawn, nil)
 	}
 	if e.Position.X == startX {
 		t.Errorf("should have moved during patrol, still at %f", e.Position.X)
@@ -366,7 +366,7 @@ func TestBrain_MeleeCommitsDirection(t *testing.T) {
 
 	// Tick until telegraph starts
 	for range 100 {
-		b.Tick(0.05, players, nil, noSpawn)
+		b.Tick(0.05, players, nil, noSpawn, nil)
 		if e.State == entity.EnemyMeleeTelegraph {
 			break
 		}
@@ -386,7 +386,7 @@ func TestBrain_MeleeCommitsDirection(t *testing.T) {
 		if e.State != entity.EnemyMeleeTelegraph {
 			break
 		}
-		b.Tick(0.05, players, nil, noSpawn)
+		b.Tick(0.05, players, nil, noSpawn, nil)
 	}
 
 	if e.RotationY != committedYaw {
@@ -426,7 +426,7 @@ func TestBrain_RangedTracksTarget(t *testing.T) {
 
 	// Tick until ranged telegraph starts
 	for range 400 {
-		b.Tick(0.05, players, nil, noSpawn)
+		b.Tick(0.05, players, nil, noSpawn, nil)
 		if e.State == entity.EnemyRangedTelegraph {
 			break
 		}
@@ -439,7 +439,7 @@ func TestBrain_RangedTracksTarget(t *testing.T) {
 
 	// Move the player — target pos should update
 	p.Position = entity.Vec3{X: 5, Z: 15}
-	b.Tick(0.05, players, nil, noSpawn)
+	b.Tick(0.05, players, nil, noSpawn, nil)
 
 	if e.RangedTargetPos == initialTargetPos {
 		t.Error("ranged with TrackTarget=true should update target position during telegraph")
@@ -457,7 +457,7 @@ func TestBrain_GuardCaptainTree(t *testing.T) {
 	e.TargetPlayerID = p.ID
 
 	for range 200 {
-		b.Tick(0.05, players, nil, noSpawn)
+		b.Tick(0.05, players, nil, noSpawn, nil)
 	}
 	if !e.Alive {
 		t.Error("boss should still be alive (no player damage)")

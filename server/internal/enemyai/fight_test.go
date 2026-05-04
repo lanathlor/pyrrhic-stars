@@ -12,7 +12,7 @@ import (
 func tickN(b *Brain, n int, dt float32, players []*entity.Player, obs []combat.Obstacle, spawn func(entity.Vec3, entity.Vec3, float32, float32, float32)) []combat.DamageEvent {
 	var all []combat.DamageEvent
 	for range n {
-		all = append(all, b.Tick(dt, players, obs, spawn)...)
+		all = append(all, b.Tick(dt, players, obs, spawn, nil)...)
 	}
 	return all
 }
@@ -21,7 +21,7 @@ func tickN(b *Brain, n int, dt float32, players []*entity.Player, obs []combat.O
 func tickUntil(b *Brain, maxTicks int, dt float32, players []*entity.Player, spawn func(entity.Vec3, entity.Vec3, float32, float32, float32), pred func() bool) ([]combat.DamageEvent, int) {
 	var all []combat.DamageEvent
 	for i := range maxTicks {
-		all = append(all, b.Tick(dt, players, nil, spawn)...)
+		all = append(all, b.Tick(dt, players, nil, spawn, nil)...)
 		if pred() {
 			return all, i + 1
 		}
@@ -94,7 +94,7 @@ func TestFight_HallwayMelee(t *testing.T) {
 	}
 
 	// Verify dead state
-	b.Tick(0.05, players, nil, noSpawn)
+	b.Tick(0.05, players, nil, noSpawn, nil)
 	if e.Velocity.X != 0 || e.Velocity.Z != 0 {
 		t.Errorf("dead mob velocity should be zero, got %v", e.Velocity)
 	}
@@ -128,7 +128,7 @@ func TestFight_HallwayRanged(t *testing.T) {
 
 	// Tick long enough for a ranged attack
 	for range 200 {
-		b.Tick(0.05, players, nil, spawnFn)
+		b.Tick(0.05, players, nil, spawnFn, nil)
 		if projectiles > 0 {
 			break
 		}
@@ -140,7 +140,7 @@ func TestFight_HallwayRanged(t *testing.T) {
 
 	// Kill the mob
 	e.ApplyDamage(e.Health)
-	b.Tick(0.05, players, nil, noSpawn)
+	b.Tick(0.05, players, nil, noSpawn, nil)
 	if e.Alive {
 		t.Error("mob should be dead")
 	}
@@ -241,7 +241,7 @@ func TestFight_GuardCaptain_AllPhases(t *testing.T) {
 
 	// === Death ===
 	e.ApplyDamage(e.Health)
-	b.Tick(0.05, players, nil, noSpawn)
+	b.Tick(0.05, players, nil, noSpawn, nil)
 	if e.Alive {
 		t.Error("boss should be dead")
 	}
@@ -280,7 +280,7 @@ func TestFight_MultiPlayer_TargetSwitch(t *testing.T) {
 	// The boss might chase (if state reset) or directly attack
 	targetFound := false
 	for range 50 {
-		b.Tick(0.05, players, nil, noSpawn)
+		b.Tick(0.05, players, nil, noSpawn, nil)
 		if e.TargetPlayerID == p2.ID {
 			targetFound = true
 			break
@@ -332,7 +332,7 @@ func TestFight_AoEHitsMultiplePlayers(t *testing.T) {
 
 	var allEvents []combat.DamageEvent
 	for range 200 {
-		evts := b.Tick(0.05, players, nil, noSpawn)
+		evts := b.Tick(0.05, players, nil, noSpawn, nil)
 		allEvents = append(allEvents, evts...)
 		// Check if at least 2 players were hit in any single tick's events
 		if len(evts) >= 2 {
@@ -384,7 +384,7 @@ func TestFight_ChargeHitsMultiplePlayers(t *testing.T) {
 
 	hitPlayers := map[uint16]bool{}
 	for range 400 {
-		evts := b.Tick(0.05, players, nil, noSpawn)
+		evts := b.Tick(0.05, players, nil, noSpawn, nil)
 		for _, ev := range evts {
 			hitPlayers[ev.TargetPeerID] = true
 		}
@@ -420,7 +420,7 @@ func TestFight_LeashDuringCombat(t *testing.T) {
 	p.Position = entity.Vec3{X: 0, Z: 30}
 	// Chase until leash triggers
 	for range 200 {
-		b.Tick(0.05, players, nil, noSpawn)
+		b.Tick(0.05, players, nil, noSpawn, nil)
 		if e.State == entity.EnemyPatrol {
 			break
 		}
@@ -528,10 +528,10 @@ func TestFight_PhaseOverridesAffectAbilities(t *testing.T) {
 		t.Errorf("P2 telegraph = %f, want 0.9", resolved2.TelegraphTime)
 	}
 
-	// fireball_burst Phase 2: projectile count increases
+	// fireball_burst Phase 2: telegraph shortens (pattern handles projectile spawning)
 	fb2 := def.ResolveAbility(&def.Abilities[1], 2)
-	if fb2.ProjectileCount != 2 {
-		t.Errorf("P2 fireball count = %d, want 2", fb2.ProjectileCount)
+	if fb2.TelegraphTime != 0.8 {
+		t.Errorf("P2 fireball telegraph = %f, want 0.8", fb2.TelegraphTime)
 	}
 
 	// Phase 3: enraged
@@ -544,14 +544,14 @@ func TestFight_PhaseOverridesAffectAbilities(t *testing.T) {
 		t.Errorf("P3 melee damage = %f, want 35.0", resolved3.MeleeDamage)
 	}
 
-	// fireball_burst Phase 3: 3 projectiles
+	// fireball_burst Phase 3: telegraph even shorter
 	fb3 := def.ResolveAbility(&def.Abilities[1], 3)
-	if fb3.ProjectileCount != 3 {
-		t.Errorf("P3 fireball count = %d, want 3", fb3.ProjectileCount)
+	if fb3.TelegraphTime != 0.6 {
+		t.Errorf("P3 fireball telegraph = %f, want 0.6", fb3.TelegraphTime)
 	}
 
-	// ground_slam Phase 3: bigger radius and more damage
-	gs3 := def.ResolveAbility(&def.Abilities[2], 3)
+	// ground_slam Phase 3: bigger radius and more damage (index 3 after void_barrage)
+	gs3 := def.ResolveAbility(&def.Abilities[3], 3)
 	if gs3.AoERadius != 7.0 {
 		t.Errorf("P3 AoE radius = %f, want 7.0", gs3.AoERadius)
 	}
@@ -559,8 +559,8 @@ func TestFight_PhaseOverridesAffectAbilities(t *testing.T) {
 		t.Errorf("P3 AoE damage = %f, want 45.0", gs3.AoEDamage)
 	}
 
-	// bull_charge Phase 3: faster and longer
-	bc3 := def.ResolveAbility(&def.Abilities[3], 3)
+	// bull_charge Phase 3: faster and longer (index 4)
+	bc3 := def.ResolveAbility(&def.Abilities[4], 3)
 	if bc3.ChargeSpeed != 16.0 {
 		t.Errorf("P3 charge speed = %f, want 16.0", bc3.ChargeSpeed)
 	}
@@ -602,7 +602,7 @@ func TestFight_DamageEventSourceTypes(t *testing.T) {
 
 	var events []combat.DamageEvent
 	for range 200 {
-		evts := b.Tick(0.05, players, nil, noSpawn)
+		evts := b.Tick(0.05, players, nil, noSpawn, nil)
 		events = append(events, evts...)
 		if len(events) > 0 {
 			break
@@ -696,7 +696,7 @@ func BenchmarkBrainTick_Patrol(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		br.Tick(0.05, players, nil, noSpawn)
+		br.Tick(0.05, players, nil, noSpawn, nil)
 	}
 }
 
@@ -712,7 +712,7 @@ func BenchmarkBrainTick_Chase(b *testing.B) {
 	b.ResetTimer()
 	for b.Loop() {
 		e.Position = entity.Vec3{X: 0, Z: 0} // reset position
-		br.Tick(0.05, players, nil, noSpawn)
+		br.Tick(0.05, players, nil, noSpawn, nil)
 	}
 }
 
@@ -745,7 +745,7 @@ func BenchmarkBrainTick_MeleeAttackCycle(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		br.Tick(0.05, players, nil, noSpawn)
+		br.Tick(0.05, players, nil, noSpawn, nil)
 	}
 }
 
@@ -760,13 +760,13 @@ func BenchmarkBrainTick_GuardCaptainFight(b *testing.B) {
 
 	// Warm up the BT
 	for range 50 {
-		br.Tick(0.05, players, nil, noSpawn)
+		br.Tick(0.05, players, nil, noSpawn, nil)
 	}
 
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		br.Tick(0.05, players, nil, noSpawn)
+		br.Tick(0.05, players, nil, noSpawn, nil)
 	}
 }
 
@@ -793,14 +793,14 @@ func BenchmarkBrainTick_MultiEnemy5(b *testing.B) {
 	b.ResetTimer()
 	for b.Loop() {
 		for _, bp := range brains {
-			bp.brain.Tick(0.05, players, nil, noSpawn)
+			bp.brain.Tick(0.05, players, nil, noSpawn, nil)
 		}
 	}
 }
 
 func BenchmarkSelectAbility(b *testing.B) {
 	br, _ := testBrain(&GuardCaptain)
-	br.ctx.Reset(0.05, testPlayers(), nil, noSpawn, &[]combat.DamageEvent{})
+	br.ctx.Reset(0.05, testPlayers(), nil, noSpawn, nil, &[]combat.DamageEvent{})
 
 	b.ReportAllocs()
 	b.ResetTimer()

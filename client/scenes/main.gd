@@ -777,7 +777,8 @@ func _despawn_all_projectiles() -> void:
 	_spawned_projectiles.clear()
 
 
-func _spawn_projectile(proj_id: int, pos: Vector3, dir: Vector3) -> void:
+func _spawn_projectile(proj_id: int, pos: Vector3, dir: Vector3, spd: float = 22.0, ang_vel: float = 0.0, tag: String = "") -> void:
+	# TODO: select scene based on visual_tag for different VFX per ability
 	var scene := load("res://scenes/enemies/basic_enemy/enemy_projectile.tscn") as PackedScene
 	if not scene:
 		return
@@ -786,7 +787,7 @@ func _spawn_projectile(proj_id: int, pos: Vector3, dir: Vector3) -> void:
 	_projectiles_node.add_child(proj)
 	proj.global_position = pos
 	if proj.has_method("setup"):
-		proj.setup(dir, 0.0)
+		proj.setup(dir, spd, ang_vel, tag)
 	_spawned_projectiles[proj_id] = proj
 
 
@@ -965,7 +966,9 @@ func _on_world_state(data: Dictionary) -> void:
 		var pid: int = p["proj_id"]
 		active_ids[pid] = true
 		if pid not in _spawned_projectiles:
-			_spawn_projectile(pid, p["pos"], p["direction"])
+			_spawn_projectile(pid, p["pos"], p["direction"],
+				p.get("speed", 22.0), p.get("angular_velocity", 0.0),
+				p.get("visual_tag", ""))
 		else:
 			_spawned_projectiles[pid].global_position = p["pos"]
 	var proj_to_remove: Array = []

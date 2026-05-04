@@ -469,10 +469,19 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 		var proj_id := buf.get_u32()
 		var ppos := Vector3(buf.get_float(), buf.get_float(), buf.get_float())
 		var pdir := Vector3(buf.get_float(), buf.get_float(), buf.get_float())
+		var pspeed := buf.get_float()
+		var pangular_vel := buf.get_float()
+		var ptag_len := buf.get_u8()
+		var ptag := ""
+		if ptag_len > 0:
+			ptag = buf.get_data(ptag_len)[1].get_string_from_utf8()
 		projectiles.append({
 			"proj_id": proj_id,
 			"pos": ppos,
 			"direction": pdir,
+			"speed": pspeed,
+			"angular_velocity": pangular_vel,
+			"visual_tag": ptag,
 		})
 
 	# NPCs (appended after projectiles)
