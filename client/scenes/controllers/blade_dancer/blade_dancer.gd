@@ -60,7 +60,6 @@ var _camera_pitch: float = -0.3
 # Lock-on
 var _lock_target: Node3D = null
 var _lock_on_active: bool = false
-var _lock_cam_yaw: float = 0.0
 
 var _gravity: float = 8.5  # must match server gravity
 var _flash_timer: float = 0.0
@@ -95,7 +94,7 @@ const SPELL_SLOT_ACTIONS: Array[StringName] = [
 	&"light_attack",   # slot 0 -- LMB
 	&"heavy_attack",   # slot 1 -- R
 	&"block",          # slot 2 -- RMB
-	&"ability_2",      # slot 3 -- E
+	&"ability_2",      # slot 3 -- T
 ]
 
 ## All 20 transition spells. SPELL_TABLE[origin_config][slot] -> spell dict.
@@ -215,7 +214,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not _is_local():
 		return
 	if event is InputEventMouseMotion and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
-		_camera_yaw -= event.relative.x * mouse_sensitivity
+		if not _lock_on_active:
+			_camera_yaw -= event.relative.x * mouse_sensitivity
 		_camera_pitch -= event.relative.y * mouse_sensitivity
 		_camera_pitch = clampf(_camera_pitch, deg_to_rad(-60.0), deg_to_rad(20.0))
 
@@ -540,6 +540,7 @@ func _perform_raycast_hit(max_range: float) -> void:
 
 func _toggle_lock_on() -> void:
 	if _lock_on_active:
+		# _camera_yaw is already at the auto-computed angle — no snap on unlock
 		_lock_on_active = false
 		_lock_target = null
 		hud.hide_lock_on()
@@ -548,7 +549,6 @@ func _toggle_lock_on() -> void:
 		if target:
 			_lock_on_active = true
 			_lock_target = target
-			_lock_cam_yaw = _camera_yaw
 			hud.show_lock_on()
 
 
@@ -821,24 +821,37 @@ func _apply_blade_material(node: Node3D, mat: StandardMaterial3D) -> void:
 
 func _update_camera() -> void:
 	var player_pos := global_position + Vector3(0.0, camera_height_offset, 0.0)
-	var desired_cam_pos: Vector3
+	var delta := get_physics_process_delta_time()
 
 	if _lock_on_active and _lock_target and is_instance_valid(_lock_target):
-		# Dark Souls style: camera position stays player-driven (free orbit),
-		# only the look-at changes to keep the enemy in frame.
+		# Dark Souls lock-on: camera orbits behind the player, looking toward target.
+		var target_pos := _lock_target.global_position + Vector3(0.0, 1.0, 0.0)
+		var midpoint := player_pos.lerp(target_pos, 0.4)
+
+		# Compute desired yaw: opposite of player-to-target direction (behind the player)
+		var to_target := target_pos - player_pos
+		var desired_yaw := atan2(to_target.x, to_target.z) + PI
+
+		# Smoothly interpolate camera yaw toward the auto-computed angle
+		_camera_yaw = lerp_angle(_camera_yaw, desired_yaw, 6.0 * delta)
+
+		# Auto-adjust pitch based on height difference
+		var height_diff := target_pos.y - player_pos.y
+		var desired_pitch := clampf(-0.2 - height_diff * 0.05, deg_to_rad(-60.0), deg_to_rad(20.0))
+		_camera_pitch = lerp(_camera_pitch, desired_pitch, 4.0 * delta)
+
+		# Position camera behind the player (opposite side from target)
 		var cam_offset := Vector3(0.0, 0.0, camera_distance)
 		cam_offset = cam_offset.rotated(Vector3.RIGHT, _camera_pitch)
 		cam_offset = cam_offset.rotated(Vector3.UP, _camera_yaw)
-		desired_cam_pos = player_pos + cam_offset
+		var desired_cam_pos := player_pos + cam_offset
 		camera.global_position = _apply_camera_collision(player_pos, desired_cam_pos)
-		var target_pos := _lock_target.global_position + Vector3(0.0, 1.0, 0.0)
-		var look_target := player_pos.lerp(target_pos, 0.6)
-		camera.look_at(look_target, Vector3.UP)
+		camera.look_at(midpoint, Vector3.UP)
 	else:
 		var cam_offset := Vector3(0.0, 0.0, camera_distance)
 		cam_offset = cam_offset.rotated(Vector3.RIGHT, _camera_pitch)
 		cam_offset = cam_offset.rotated(Vector3.UP, _camera_yaw)
-		desired_cam_pos = player_pos + cam_offset
+		var desired_cam_pos := player_pos + cam_offset
 		camera.global_position = _apply_camera_collision(player_pos, desired_cam_pos)
 		camera.look_at(player_pos, Vector3.UP)
 

@@ -263,7 +263,7 @@ func _physics_process(delta: float) -> void:
 		{name="Shoot", keybind="LMB", desc="10 dmg hitscan. 0.18s fire rate.", cooldown=0.0, cooldown_max=0.0},
 		{name="Roll", keybind="C", desc="Dodge roll with i-frames.", cooldown=_roll_cooldown_timer, cooldown_max=roll_cooldown},
 		{name="Overclock", keybind="Q", desc="7s fire rate + speed boost.", cooldown=_overclock_cooldown if not _overclock_active else 0.0, cooldown_max=OVERCLOCK_COOLDOWN, active=_overclock_active, active_remaining=_overclock_timer, active_max=OVERCLOCK_DURATION},
-		{name="Rechamber", keybind="E", desc="Timed reload. Perfect timing = dmg buff.", cooldown=0.0, cooldown_max=0.0, active=_rechamber_buff, active_remaining=_rechamber_buff_timer, active_max=RECHAMBER_BUFF_DURATION, status_text=_get_rechamber_status()},
+		{name="Rechamber", keybind="T", desc="Timed reload. Perfect timing = dmg buff.", cooldown=0.0, cooldown_max=0.0, active=_rechamber_buff, active_remaining=_rechamber_buff_timer, active_max=RECHAMBER_BUFF_DURATION, status_text=_get_rechamber_status()},
 	])
 
 	# Send position + animation to server
