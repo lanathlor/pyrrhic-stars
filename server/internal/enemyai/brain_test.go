@@ -9,13 +9,29 @@ import (
 
 // --- Helpers ---
 
+// testTreeData returns a YAML-style tree spec that mirrors the hallway_melee
+// tree — the original default for unnamed defs in buildTree.
+func testTreeData() any {
+	return map[string]any{
+		"reactive_selector": []any{
+			map[string]any{"sequence": []any{"is_dead", "stop"}},
+			map[string]any{"sequence": []any{"phase_transitioning", "wait_transition"}},
+			map[string]any{"sequence": []any{"!has_target", "aggro_or_patrol"}},
+			map[string]any{"sequence": []any{"!in_leash_range", "leash_reset"}},
+			map[string]any{"sequence": []any{"target_in_melee_range", "has_los", "attack"}},
+			"chase",
+		},
+	}
+}
+
 func testDef() *EnemyDef {
 	return &EnemyDef{
-		Name:                  "test_enemy",
-		MaxHealth:             1000,
-		MoveSpeed:             4.0,
-		Radius:                1.0,
+		Name:       "test_enemy",
+		MaxHealth:  1000,
+		MoveSpeed:  4.0,
+		Radius:     1.0,
 		AntiRepeat: 2.0,
+		TreeData:   testTreeData(),
 		Abilities: []AbilityDef{
 			{
 				Name: "melee", Type: AbilityMelee,

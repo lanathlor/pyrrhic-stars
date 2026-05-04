@@ -100,6 +100,7 @@ func TestBrain_FullMeleeCycle(t *testing.T) {
 		MaxHealth: 500,
 		MoveSpeed: 4.0,
 		Radius:    1.0,
+		TreeData:  testTreeData(),
 		Abilities: []AbilityDef{
 			{
 				Name: "melee", Type: AbilityMelee,
@@ -153,6 +154,7 @@ func TestBrain_PatrolAndAggro(t *testing.T) {
 		MaxHealth: 200,
 		MoveSpeed: 4.0,
 		Radius:    1.0,
+		TreeData:  testTreeData(),
 		Abilities: []AbilityDef{
 			{
 				Name: "melee", Type: AbilityMelee,
@@ -315,7 +317,7 @@ func TestBrain_ChargeHitsPlayer(t *testing.T) {
 
 // TestBrain_HallwayMeleeTree verifies the named tree is built correctly.
 func TestBrain_HallwayMeleeTree(t *testing.T) {
-	b, e := testBrain(&HallwayMelee)
+	b, e := testBrain(DefRegistry["hallway_melee"])
 	e.Alive = true
 	e.State = entity.EnemyPatrol
 	e.PatrolA = entity.Vec3{X: -5}
@@ -341,6 +343,7 @@ func TestBrain_MeleeCommitsDirection(t *testing.T) {
 		MaxHealth: 500,
 		MoveSpeed: 4.0,
 		Radius:    1.0,
+		TreeData:  testTreeData(),
 		Abilities: []AbilityDef{
 			{
 				Name: "melee", Type: AbilityMelee,

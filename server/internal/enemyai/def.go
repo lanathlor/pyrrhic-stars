@@ -125,6 +125,10 @@ type EnemyDef struct {
 
 	// Phases (sorted by HPThresholdPct descending, e.g. 0.6, 0.3)
 	Phases []PhaseDef
+
+	// TreeData holds parsed YAML tree data for data-driven mobs (Tier 1/2).
+	// Nil for Go-defined mobs (Tier 3 bosses) which use hardcoded tree builders.
+	TreeData any
 }
 
 // CurrentPhase returns the PhaseDef for the given phase number, or nil for phase 1.

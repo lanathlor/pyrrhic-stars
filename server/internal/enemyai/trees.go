@@ -1,17 +1,39 @@
 package enemyai
 
-import "codex-online/server/internal/bt"
+import (
+	"fmt"
 
-// buildTree constructs the BT for an enemy based on its definition name.
+	"codex-online/server/internal/bt"
+)
+
+// buildTree constructs the BT for an enemy. If the definition has TreeData
+// (loaded from YAML), the tree is built from data. Otherwise falls through
+// to hardcoded Go tree builders for Tier 3 bosses.
 func buildTree(def *EnemyDef, _ *EntityContext) *bt.Tree {
-	switch def.Name {
-	case "guard_captain":
-		return bt.NewTree(guardCaptainTree())
-	case "hallway_ranged":
-		return bt.NewTree(hallwayRangedTree())
-	default:
-		return bt.NewTree(hallwayMeleeTree())
+	if def.TreeData != nil {
+		node, err := buildTreeFromData(def.TreeData)
+		if err != nil {
+			// TreeData is validated at load time, so this should not happen.
+			panic(fmt.Sprintf("buildTree: %s: %v", def.Name, err))
+		}
+		return bt.NewTree(node)
 	}
+
+	if def.Name == "guard_captain" {
+		return bt.NewTree(guardCaptainTree())
+	}
+
+	// Fallback: check if a registered def with the same name has TreeData.
+	// This handles inline test defs that borrow a registered mob's name.
+	if reg := DefRegistry[def.Name]; reg != nil && reg.TreeData != nil {
+		node, err := buildTreeFromData(reg.TreeData)
+		if err != nil {
+			panic(fmt.Sprintf("buildTree: %s (registry fallback): %v", def.Name, err))
+		}
+		return bt.NewTree(node)
+	}
+
+	panic(fmt.Sprintf("buildTree: no tree for %q", def.Name))
 }
 
 // attackSubtree models the full attack lifecycle as a BT Sequence:
@@ -35,94 +57,6 @@ func attackSubtree() bt.Node {
 			bt.NewAction(actionExecuteAbility),
 		),
 		bt.NewAction(actionCooldown),
-	)
-}
-
-// hallwayMeleeTree builds a simple melee mob tree:
-//
-//	ReactiveSelector
-//	├── Sequence [is_dead → stop]
-//	├── Sequence [phase_transitioning → wait_transition]
-//	├── Sequence [NOT has_target → patrol_or_aggro]
-//	├── Sequence [NOT in_leash_range → leash_reset]
-//	├── Sequence [target_in_melee → has_los → attack]
-//	└── chase
-func hallwayMeleeTree() bt.Node {
-	return bt.NewReactiveSelector(
-		// Dead
-		bt.NewSequence(
-			bt.NewCondition(condIsDead),
-			bt.NewAction(actionStop),
-		),
-		// Phase transition
-		bt.NewSequence(
-			bt.NewCondition(condPhaseTransitioning),
-			bt.NewAction(actionWaitTransition),
-		),
-		// No target → try aggro or patrol
-		bt.NewSequence(
-			bt.NewInverter(bt.NewCondition(condHasTarget)),
-			bt.NewSelector(
-				bt.NewSequence(
-					bt.NewCondition(condPlayerNearby(8)),
-					bt.NewAction(actionAggroNearest),
-				),
-				bt.NewAction(actionPatrol),
-			),
-		),
-		// Leash check
-		bt.NewSequence(
-			bt.NewInverter(bt.NewCondition(condInLeashRange)),
-			bt.NewAction(actionLeashReset),
-		),
-		// In melee range with LoS → attack
-		bt.NewSequence(
-			bt.NewCondition(condTargetInMeleeRange),
-			bt.NewCondition(condHasLoS),
-			attackSubtree(),
-		),
-		// Chase
-		bt.NewAction(actionChase),
-	)
-}
-
-// hallwayRangedTree builds a ranged mob tree. Same structure as melee but
-// the chase action handles backpedaling and preferred range via the EnemyDef.
-func hallwayRangedTree() bt.Node {
-	return bt.NewReactiveSelector(
-		// Dead
-		bt.NewSequence(
-			bt.NewCondition(condIsDead),
-			bt.NewAction(actionStop),
-		),
-		// Phase transition
-		bt.NewSequence(
-			bt.NewCondition(condPhaseTransitioning),
-			bt.NewAction(actionWaitTransition),
-		),
-		// No target → try aggro or patrol
-		bt.NewSequence(
-			bt.NewInverter(bt.NewCondition(condHasTarget)),
-			bt.NewSelector(
-				bt.NewSequence(
-					bt.NewCondition(condPlayerNearby(8)),
-					bt.NewAction(actionAggroNearest),
-				),
-				bt.NewAction(actionPatrol),
-			),
-		),
-		// Leash check
-		bt.NewSequence(
-			bt.NewInverter(bt.NewCondition(condInLeashRange)),
-			bt.NewAction(actionLeashReset),
-		),
-		// Has LoS → attack at range
-		bt.NewSequence(
-			bt.NewCondition(condHasLoS),
-			attackSubtree(),
-		),
-		// Chase / maintain range
-		bt.NewAction(actionChase),
 	)
 }
 

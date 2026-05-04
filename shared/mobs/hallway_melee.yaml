@@ -1,0 +1,30 @@
+name: hallway_melee
+tier: 1
+max_health: 200
+move_speed: 5.0
+radius: 0.8
+anti_repeat: 1.0
+
+abilities:
+  - name: melee_slash
+    type: melee
+    target: nearest
+    telegraph_time: 0.5
+    execute_time: 0.2
+    cooldown_time: 0.4
+    base_weight: 100
+    max_range: 2.5
+    face_target: true
+    melee_range: 2.5
+    melee_damage: 15
+    melee_cone_deg: 120
+    damage_source: 1
+
+tree:
+  reactive_selector:
+    - sequence: [is_dead, stop]
+    - sequence: [phase_transitioning, wait_transition]
+    - sequence: ["!has_target", aggro_or_patrol]
+    - sequence: ["!in_leash_range", leash_reset]
+    - sequence: [target_in_melee_range, has_los, attack]
+    - chase

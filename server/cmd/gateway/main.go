@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"codex-online/server/internal/container"
+	"codex-online/server/internal/enemyai"
 	"codex-online/server/internal/message"
 	"codex-online/server/internal/network"
 	"codex-online/server/internal/persistence"
@@ -48,6 +49,12 @@ func main() {
 		os.Exit(1)
 	}
 	slog.Info("database initialized", "driver", dbDriver)
+
+	// Load data-driven mob definitions from YAML.
+	if err := enemyai.LoadMobs(enemyai.MobsDir()); err != nil {
+		slog.Error("load mobs failed", "error", err)
+		os.Exit(1)
+	}
 
 	ctr := container.New(repo)
 	gw := newGateway(ctr)

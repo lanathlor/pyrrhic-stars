@@ -37,9 +37,9 @@ func benchWorld() *World {
 		if i == 8 {
 			def = &enemyai.GuardCaptain
 		} else if i%2 == 0 {
-			def = &enemyai.HallwayMelee
+			def = enemyai.DefRegistry["hallway_melee"]
 		} else {
-			def = &enemyai.HallwayRanged
+			def = enemyai.DefRegistry["hallway_ranged"]
 		}
 		e := entity.NewEnemy(uint16(100+i), def.MaxHealth, def.Name)
 		e.Position = entity.Vec3{X: float32(i-4) * 3, Y: 0.1, Z: float32(20 + i*2)}
@@ -383,9 +383,9 @@ func benchArenaInstance(instanceID uint16) *World {
 		if i == 8 {
 			def = &enemyai.GuardCaptain
 		} else if i%2 == 0 {
-			def = &enemyai.HallwayMelee
+			def = enemyai.DefRegistry["hallway_melee"]
 		} else {
-			def = &enemyai.HallwayRanged
+			def = enemyai.DefRegistry["hallway_ranged"]
 		}
 		e := entity.NewEnemy(uint16(10000+int(instanceID)*10+i), def.MaxHealth, def.Name)
 		if i == 8 {

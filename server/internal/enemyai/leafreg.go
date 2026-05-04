@@ -1,0 +1,129 @@
+package enemyai
+
+import (
+	"fmt"
+	"strconv"
+	"strings"
+
+	"codex-online/server/internal/bt"
+)
+
+// leafEntry describes a single leaf in the registry.
+type leafEntry struct {
+	isCond bool
+	cond   func(any) bool
+	action func(any) bt.Result
+}
+
+// leafRegistry maps string names used in YAML tree definitions to BT leaf
+// constructors. Populated once at package init — no mutex needed.
+var leafRegistry = map[string]leafEntry{
+	// Conditions
+	"is_dead":                  {isCond: true, cond: condIsDead},
+	"has_target":               {isCond: true, cond: condHasTarget},
+	"target_in_melee_range":    {isCond: true, cond: condTargetInMeleeRange},
+	"has_los":                  {isCond: true, cond: condHasLoS},
+	"phase_transitioning":      {isCond: true, cond: condPhaseTransitioning},
+	"in_leash_range":           {isCond: true, cond: condInLeashRange},
+	"active_ability_is_charge": {isCond: true, cond: condActiveAbilityIsCharge},
+
+	// Actions
+	"stop":             {action: actionStop},
+	"aggro_nearest":    {action: actionAggroNearest},
+	"wait_transition":  {action: actionWaitTransition},
+	"leash_reset":      {action: actionLeashReset},
+	"patrol":           {action: actionPatrol},
+	"chase":            {action: actionChase},
+	"select_ability":   {action: actionSelectAbility},
+	"telegraph":        {action: actionTelegraph},
+	"execute_ability":  {action: actionExecuteAbility},
+	"charge_dash":      {action: actionChargeDash},
+	"cooldown":         {action: actionCooldown},
+}
+
+// paramFactories maps parameterized leaf base names to factories that accept
+// a parsed argument and return a leafEntry.
+var paramFactories = map[string]func(string) (leafEntry, error){
+	"player_nearby": func(arg string) (leafEntry, error) {
+		v, err := strconv.ParseFloat(arg, 32)
+		if err != nil {
+			return leafEntry{}, fmt.Errorf("player_nearby: invalid radius %q: %w", arg, err)
+		}
+		return leafEntry{isCond: true, cond: condPlayerNearby(float32(v))}, nil
+	},
+	"phase_eq": func(arg string) (leafEntry, error) {
+		v, err := strconv.Atoi(arg)
+		if err != nil {
+			return leafEntry{}, fmt.Errorf("phase_eq: invalid phase %q: %w", arg, err)
+		}
+		return leafEntry{isCond: true, cond: condPhaseEq(v)}, nil
+	},
+}
+
+// resolveLeaf converts a leaf name string into a bt.Node. It handles:
+//   - "!" prefix for inversion
+//   - built-in subtrees: "attack", "aggro_or_patrol"
+//   - parameterized leaves: "player_nearby(8)", "phase_eq(2)"
+//   - simple leaf lookup from leafRegistry
+func resolveLeaf(name string) (bt.Node, error) {
+	// Inverter prefix
+	if strings.HasPrefix(name, "!") {
+		inner, err := resolveLeaf(name[1:])
+		if err != nil {
+			return nil, err
+		}
+		return bt.NewInverter(inner), nil
+	}
+
+	// Built-in subtrees
+	switch name {
+	case "attack":
+		return attackSubtree(), nil
+	case "aggro_or_patrol":
+		return aggroOrPatrolSubtree(), nil
+	}
+
+	// Parameterized leaves: name(arg)
+	if idx := strings.Index(name, "("); idx > 0 && strings.HasSuffix(name, ")") {
+		baseName := name[:idx]
+		arg := name[idx+1 : len(name)-1]
+		factory, ok := paramFactories[baseName]
+		if !ok {
+			return nil, fmt.Errorf("unknown parameterized leaf: %q", baseName)
+		}
+		entry, err := factory(arg)
+		if err != nil {
+			return nil, err
+		}
+		return entryToNode(entry), nil
+	}
+
+	// Simple lookup
+	entry, ok := leafRegistry[name]
+	if !ok {
+		return nil, fmt.Errorf("unknown leaf: %q", name)
+	}
+	return entryToNode(entry), nil
+}
+
+func entryToNode(e leafEntry) bt.Node {
+	if e.isCond {
+		return bt.NewCondition(e.cond)
+	}
+	return bt.NewAction(e.action)
+}
+
+// aggroOrPatrolSubtree builds the standard "no target" handler:
+//
+//	Selector
+//	├── Sequence [player_nearby(8) → aggro_nearest]
+//	└── patrol
+func aggroOrPatrolSubtree() bt.Node {
+	return bt.NewSelector(
+		bt.NewSequence(
+			bt.NewCondition(condPlayerNearby(8)),
+			bt.NewAction(actionAggroNearest),
+		),
+		bt.NewAction(actionPatrol),
+	)
+}

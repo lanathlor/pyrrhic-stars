@@ -16,6 +16,7 @@ services:
       REDIS_ADDR: redis:6379
       DB_DRIVER: sqlite
       CODEX_LEVELS_DIR: /shared/levels
+      CODEX_MOBS_DIR: /shared/mobs
 
   zone:
     build:

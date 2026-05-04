@@ -34,7 +34,7 @@ func tickUntil(b *Brain, maxTicks int, dt float32, players []*entity.Player, spa
 // TestFight_HallwayMelee simulates a full trash mob fight:
 // patrol → aggro → chase → melee attack → player kills mob.
 func TestFight_HallwayMelee(t *testing.T) {
-	b, e := testBrain(&HallwayMelee)
+	b, e := testBrain(DefRegistry["hallway_melee"])
 	e.Alive = true
 	e.State = entity.EnemyPatrol
 	e.PatrolA = entity.Vec3{X: -5}
@@ -103,7 +103,7 @@ func TestFight_HallwayMelee(t *testing.T) {
 // TestFight_HallwayRanged simulates a ranged mob fight:
 // patrol → aggro → maintain distance → fire projectile → die.
 func TestFight_HallwayRanged(t *testing.T) {
-	b, e := testBrain(&HallwayRanged)
+	b, e := testBrain(DefRegistry["hallway_ranged"])
 	e.Alive = true
 	e.State = entity.EnemyPatrol
 	e.PatrolA = entity.Vec3{X: -5}
@@ -252,7 +252,7 @@ func TestFight_GuardCaptain_AllPhases(t *testing.T) {
 
 // TestFight_MultiPlayer_TargetSwitch verifies the boss re-targets when the current target dies.
 func TestFight_MultiPlayer_TargetSwitch(t *testing.T) {
-	b, e := testBrain(&HallwayMelee)
+	b, e := testBrain(DefRegistry["hallway_melee"])
 	e.Alive = true
 	e.State = entity.EnemyChase
 	e.AggroRadius = 10.0
@@ -300,6 +300,7 @@ func TestFight_AoEHitsMultiplePlayers(t *testing.T) {
 		MaxHealth: 500,
 		MoveSpeed: 4.0,
 		Radius:    1.0,
+		TreeData:  testTreeData(),
 		Abilities: []AbilityDef{
 			{
 				Name: "melee_tap", Type: AbilityMelee,
@@ -399,7 +400,7 @@ func TestFight_ChargeHitsMultiplePlayers(t *testing.T) {
 
 // TestFight_LeashDuringCombat verifies boss resets when player retreats beyond leash.
 func TestFight_LeashDuringCombat(t *testing.T) {
-	b, e := testBrain(&HallwayMelee)
+	b, e := testBrain(DefRegistry["hallway_melee"])
 	e.Alive = true
 	e.State = entity.EnemyChase
 	e.LeashRadius = 10.0
@@ -438,7 +439,7 @@ func TestFight_LeashDuringCombat(t *testing.T) {
 
 // TestFight_ObstacleAvoidanceDuringChase verifies the enemy steers around obstacles.
 func TestFight_ObstacleAvoidanceDuringChase(t *testing.T) {
-	b, e := testBrain(&HallwayMelee)
+	b, e := testBrain(DefRegistry["hallway_melee"])
 	e.Alive = true
 	e.State = entity.EnemyChase
 	e.Position = entity.Vec3{X: 0, Z: 0}
@@ -466,7 +467,7 @@ func TestFight_ObstacleAvoidanceDuringChase(t *testing.T) {
 
 // TestFight_RangedBackpedal verifies the ranged mob backs away when player is too close.
 func TestFight_RangedBackpedal(t *testing.T) {
-	b, e := testBrain(&HallwayRanged)
+	b, e := testBrain(DefRegistry["hallway_ranged"])
 	e.Alive = true
 	e.State = entity.EnemyChase
 	e.Position = entity.Vec3{X: 0, Z: 0}
@@ -487,7 +488,7 @@ func TestFight_RangedBackpedal(t *testing.T) {
 
 // TestFight_RangedAdvance verifies the ranged mob advances when player is too far.
 func TestFight_RangedAdvance(t *testing.T) {
-	b, e := testBrain(&HallwayRanged)
+	b, e := testBrain(DefRegistry["hallway_ranged"])
 	e.Alive = true
 	e.State = entity.EnemyChase
 	e.Position = entity.Vec3{X: 0, Z: 0}
@@ -579,6 +580,7 @@ func TestFight_DamageEventSourceTypes(t *testing.T) {
 		MaxHealth: 500,
 		MoveSpeed: 4.0,
 		Radius:    1.0,
+		TreeData:  testTreeData(),
 		Abilities: []AbilityDef{
 			{
 				Name: "melee", Type: AbilityMelee,
@@ -658,6 +660,7 @@ func TestFight_SelectAbilityAntiRepeat(t *testing.T) {
 		MaxHealth:  100,
 		MoveSpeed:  4,
 		AntiRepeat: 100.0, // extreme anti-repeat
+		TreeData:   testTreeData(),
 		Abilities: []AbilityDef{
 			{Name: "a", Type: AbilityMelee, BaseWeight: 50, MaxRange: 5, MeleeRange: 5},
 			{Name: "b", Type: AbilityMelee, BaseWeight: 50, MaxRange: 5, MeleeRange: 5},
@@ -683,7 +686,7 @@ func TestFight_SelectAbilityAntiRepeat(t *testing.T) {
 // --- Benchmarks ---
 
 func BenchmarkBrainTick_Patrol(b *testing.B) {
-	br, e := testBrain(&HallwayMelee)
+	br, e := testBrain(DefRegistry["hallway_melee"])
 	e.Alive = true
 	e.State = entity.EnemyPatrol
 	e.PatrolA = entity.Vec3{X: -10}
@@ -698,7 +701,7 @@ func BenchmarkBrainTick_Patrol(b *testing.B) {
 }
 
 func BenchmarkBrainTick_Chase(b *testing.B) {
-	br, e := testBrain(&HallwayMelee)
+	br, e := testBrain(DefRegistry["hallway_melee"])
 	e.Alive = true
 	e.State = entity.EnemyChase
 	p := testPlayer(1, entity.Vec3{X: 0, Z: 10})
@@ -719,6 +722,7 @@ func BenchmarkBrainTick_MeleeAttackCycle(b *testing.B) {
 		MaxHealth: 500,
 		MoveSpeed: 4.0,
 		Radius:    1.0,
+		TreeData:  testTreeData(),
 		Abilities: []AbilityDef{
 			{
 				Name: "melee", Type: AbilityMelee,
@@ -773,7 +777,7 @@ func BenchmarkBrainTick_MultiEnemy5(b *testing.B) {
 	}
 	var brains [5]pair
 	for i := range brains {
-		br, e := testBrain(&HallwayMelee)
+		br, e := testBrain(DefRegistry["hallway_melee"])
 		e.Alive = true
 		e.State = entity.EnemyChase
 		e.Position = entity.Vec3{X: float32(i) * 3, Z: 0}
