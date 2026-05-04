@@ -12,21 +12,34 @@ func (s *AISystem) Tick(w *World, dt float32) {
 	if w.State != StateFight {
 		return
 	}
+
+	// Build player slice once for all brains (avoids per-brain map iteration).
+	allPlayers := w.playerSlice[:0]
+	for _, p := range w.Players {
+		allPlayers = append(allPlayers, p)
+	}
+	w.playerSlice = allPlayers
+
+	// Lazy-init a single spawn closure on the World (allocated once, not per tick).
+	if w.spawnFn == nil {
+		w.spawnFn = func(pos, dir entity.Vec3, speed, damage, lifetime float32) {
+			w.SpawnEnemyProjectile(w.spawnEnemyIdx, pos, dir, speed, damage, lifetime)
+		}
+	}
+
 	for i, e := range w.Enemies {
 		if e == nil || !e.Alive || i >= len(w.Brains) {
 			continue
 		}
-		idx := i
-		spawnFn := func(pos, dir entity.Vec3, speed, damage, lifetime float32) {
-			w.SpawnEnemyProjectile(idx, pos, dir, speed, damage, lifetime)
-		}
+		w.spawnEnemyIdx = i
 		// When the boss gate is active, enemies only see players on
 		// their side of the gate (Z < BossRoomEntryZ = boss room).
-		visiblePlayers := w.Players
+		visiblePlayers := allPlayers
 		if w.BossGateActive {
-			visiblePlayers = playersOnSameSide(w.Players, e.Position.Z, w.Level.BossRoomEntryZ)
+			w.filteredPlayers = playersOnSameSide(w.filteredPlayers[:0], allPlayers, e.Position.Z, w.Level.BossRoomEntryZ)
+			visiblePlayers = w.filteredPlayers
 		}
-		events := w.Brains[i].Tick(dt, visiblePlayers, w.Level.Obstacles, spawnFn)
+		events := w.Brains[i].Tick(dt, visiblePlayers, w.Level.Obstacles, w.spawnFn)
 		for _, evt := range events {
 			if _, ok := w.Players[evt.TargetPeerID]; ok {
 				e.AddThreat(evt.TargetPeerID, evt.Amount)
@@ -42,49 +55,37 @@ func (s *AISystem) Tick(w *World, dt float32) {
 	propagateGroupAggro(w)
 }
 
-// playersOnSameSide returns only the players that are on the same side of
-// gateZ as the given enemyZ. Enemies in the boss room (Z < gateZ) only see
-// players in the boss room, and vice-versa.
-func playersOnSameSide(players map[uint16]*entity.Player, enemyZ, gateZ float32) map[uint16]*entity.Player {
+// playersOnSameSide filters players to those on the same side of gateZ as enemyZ.
+// Uses the provided dst slice to avoid allocation.
+func playersOnSameSide(dst []*entity.Player, players []*entity.Player, enemyZ, gateZ float32) []*entity.Player {
 	enemyInBossRoom := enemyZ < gateZ
-	filtered := make(map[uint16]*entity.Player, len(players))
-	for id, p := range players {
+	for _, p := range players {
 		playerInBossRoom := p.Position.Z < gateZ
 		if playerInBossRoom == enemyInBossRoom {
-			filtered[id] = p
+			dst = append(dst, p)
 		}
 	}
-	return filtered
+	return dst
 }
 
 // propagateGroupAggro ensures that if any mob in a group has left patrol
 // (e.g. due to proximity aggro), all other patrol members in the same group
-// also switch to chase.
+// also switch to chase. Uses O(n²) scan instead of a map to avoid allocation.
 func propagateGroupAggro(w *World) {
-	// Collect which groups have an aggroed member and their target
-	type groupAggro struct {
-		targetPeerID uint16
-	}
-	aggroed := map[int]groupAggro{}
 	for _, e := range w.Enemies {
-		if e == nil || !e.Alive || e.GroupID == 0 {
+		if e == nil || !e.Alive || e.GroupID == 0 || e.State != entity.EnemyPatrol {
 			continue
 		}
-		if e.State != entity.EnemyPatrol {
-			aggroed[e.GroupID] = groupAggro{targetPeerID: e.TargetPlayerID}
-		}
-	}
-
-	// Wake any remaining patrol mobs in aggroed groups
-	for _, e := range w.Enemies {
-		if e == nil || !e.Alive || e.GroupID == 0 {
-			continue
-		}
-		if e.State == entity.EnemyPatrol {
-			if ga, ok := aggroed[e.GroupID]; ok {
+		// Check if any group member is already aggroed
+		for _, other := range w.Enemies {
+			if other == e || other == nil || !other.Alive || other.GroupID != e.GroupID {
+				continue
+			}
+			if other.State != entity.EnemyPatrol {
 				e.State = entity.EnemyChase
 				e.ChaseTimer = 0
-				e.TargetPlayerID = ga.targetPeerID
+				e.TargetPlayerID = other.TargetPlayerID
+				break
 			}
 		}
 	}

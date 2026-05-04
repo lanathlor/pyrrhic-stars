@@ -66,7 +66,7 @@ type World struct {
 	NextProjID  uint32
 
 	// AI brains (parallel to Enemies)
-	Brains []*enemyai.Brain
+	Brains []enemyai.BrainTicker
 
 	// Level geometry
 	Level *level.Level
@@ -109,6 +109,21 @@ type World struct {
 	// messages. In production and benchmarks (TestMode=false), the pooled
 	// buffer is passed directly to Send, matching real socket behavior.
 	TestMode bool
+
+	// Reusable player slices for the AI system. Built once per tick from
+	// Players map to avoid per-brain map iteration allocations.
+	playerSlice     []*entity.Player
+	filteredPlayers []*entity.Player
+
+	// Reusable buffer for enemy→Target interface conversion.
+	enemyTargetBuf []entity.Target
+
+	// Reusable ability tick context (avoids per-player allocation in CombatSystem).
+	abilTickCtx ability.TickContext
+
+	// Pre-allocated spawn function for AISystem (avoids per-tick closure).
+	spawnEnemyIdx int
+	spawnFn       func(pos, dir entity.Vec3, speed, damage, lifetime float32)
 }
 
 // FirstEnemy returns the first enemy or nil.
@@ -159,11 +174,12 @@ func (w *World) SpawnPlayerProjectile(ownerID uint16, pos, dir entity.Vec3, spee
 	w.Projectiles = append(w.Projectiles, p)
 }
 
-// enemiesToTargets converts an enemy slice to a Target interface slice.
-func enemiesToTargets(enemies []*entity.Enemy) []entity.Target {
-	targets := make([]entity.Target, len(enemies))
-	for i, e := range enemies {
-		targets[i] = e
+// enemiesToTargets converts an enemy slice to a Target interface slice,
+// reusing the provided buffer to avoid allocation.
+func enemiesToTargets(dst []entity.Target, enemies []*entity.Enemy) []entity.Target {
+	dst = dst[:0]
+	for _, e := range enemies {
+		dst = append(dst, e)
 	}
-	return targets
+	return dst
 }

@@ -180,24 +180,24 @@ func TestPlayersOnSameSide(t *testing.T) {
 	p2 := entity.NewPlayer(2, entity.ClassVanguard)
 	p2.Position = entity.Vec3{Z: 20} // Z > 12 → hallway
 
-	players := map[uint16]*entity.Player{1: p1, 2: p2}
+	players := []*entity.Player{p1, p2}
 
 	// Enemy in boss room (Z=0 < 12)
-	bossRoom := playersOnSameSide(players, 0, 12)
+	bossRoom := playersOnSameSide(nil, players, 0, 12)
 	if len(bossRoom) != 1 {
 		t.Errorf("boss room players = %d, want 1", len(bossRoom))
 	}
-	if _, ok := bossRoom[1]; !ok {
-		t.Error("player 1 should be in boss room")
+	if bossRoom[0].ID != 1 {
+		t.Errorf("expected player 1 in boss room, got %d", bossRoom[0].ID)
 	}
 
 	// Enemy in hallway (Z=20 > 12)
-	hallway := playersOnSameSide(players, 20, 12)
+	hallway := playersOnSameSide(nil, players, 20, 12)
 	if len(hallway) != 1 {
 		t.Errorf("hallway players = %d, want 1", len(hallway))
 	}
-	if _, ok := hallway[2]; !ok {
-		t.Error("player 2 should be in hallway")
+	if hallway[0].ID != 2 {
+		t.Errorf("expected player 2 in hallway, got %d", hallway[0].ID)
 	}
 }
 

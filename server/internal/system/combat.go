@@ -1,7 +1,6 @@
 package system
 
 import (
-	"codex-online/server/internal/ability"
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
 )
@@ -24,11 +23,10 @@ func (s *CombatSystem) Tick(w *World, dt float32) {
 			continue
 		}
 
-		ctx := &ability.TickContext{
-			Targets:   enemiesToTargets(w.Enemies),
-			Obstacles: w.Level.Obstacles,
-		}
-		results := w.AbilityEngine.TickPlayer(p, dt, ctx)
+		w.enemyTargetBuf = enemiesToTargets(w.enemyTargetBuf, w.Enemies)
+		w.abilTickCtx.Targets = w.enemyTargetBuf
+		w.abilTickCtx.Obstacles = w.Level.Obstacles
+		results := w.AbilityEngine.TickPlayer(p, dt, &w.abilTickCtx)
 
 		// Convert tick results (DoT damage, blade_swirl ticks) to combat events
 		for _, r := range results {

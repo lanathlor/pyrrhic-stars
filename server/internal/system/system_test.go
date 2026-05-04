@@ -369,7 +369,7 @@ func TestAISystem_SkipsNilEnemies(_ *testing.T) {
 		State:    StateFight,
 		Players:  map[uint16]*entity.Player{1: entity.NewPlayer(1, entity.ClassGunner)},
 		Enemies:  []*entity.Enemy{nil},
-		Brains:   []*enemyai.Brain{}, // brains shorter than enemies
+		Brains:   []enemyai.BrainTicker{}, // brains shorter than enemies
 		Level:    level.NewArenaLevel(),
 	}
 

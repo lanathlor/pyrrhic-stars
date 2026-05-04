@@ -31,7 +31,7 @@ func benchWorld() *World {
 	}
 
 	enemies := make([]*entity.Enemy, 9)
-	brains := make([]*enemyai.Brain, 9)
+	brains := make([]enemyai.BrainTicker, 9)
 	for i := 0; i < 9; i++ {
 		var def *enemyai.EnemyDef
 		if i == 8 {
@@ -377,7 +377,7 @@ func benchArenaInstance(instanceID uint16) *World {
 
 	// 8 trash enemies (alternating melee/ranged) + 1 boss
 	enemies := make([]*entity.Enemy, 9)
-	brains := make([]*enemyai.Brain, 9)
+	brains := make([]enemyai.BrainTicker, 9)
 	for i := 0; i < 9; i++ {
 		var def *enemyai.EnemyDef
 		if i == 8 {
@@ -654,7 +654,7 @@ func BenchmarkBrainTickChase(b *testing.B) {
 
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 5, Y: 0.1, Z: 5}
-	players := map[uint16]*entity.Player{1: p}
+	players := []*entity.Player{p}
 	obs := level.NewArenaLevel().Obstacles
 
 	b.ReportAllocs()
@@ -678,7 +678,7 @@ func BenchmarkBrainTickMeleeAttack(b *testing.B) {
 
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: -2}
-	players := map[uint16]*entity.Player{1: p}
+	players := []*entity.Player{p}
 	obs := level.NewArenaLevel().Obstacles
 
 	b.ReportAllocs()
@@ -709,7 +709,7 @@ func BenchmarkBrainTickMeleeAttackMiss(b *testing.B) {
 
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: -50} // far away — miss
-	players := map[uint16]*entity.Player{1: p}
+	players := []*entity.Player{p}
 	obs := level.NewArenaLevel().Obstacles
 
 	b.ReportAllocs()

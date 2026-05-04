@@ -128,9 +128,10 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 	}
 
 	// Cast through the ability engine
+	w.enemyTargetBuf = enemiesToTargets(w.enemyTargetBuf, w.Enemies)
 	ctx := &ability.CastContext{
 		Caster:    p,
-		Targets:   enemiesToTargets(w.Enemies),
+		Targets:   w.enemyTargetBuf,
 		Obstacles: w.Level.Obstacles,
 	}
 	result := w.AbilityEngine.Cast(abilityID, ctx)

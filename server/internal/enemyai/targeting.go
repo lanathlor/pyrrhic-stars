@@ -7,7 +7,7 @@ import (
 )
 
 // NearestAlivePlayer returns the closest alive player to pos, or nil.
-func NearestAlivePlayer(pos entity.Vec3, players map[uint16]*entity.Player) *entity.Player {
+func NearestAlivePlayer(pos entity.Vec3, players []*entity.Player) *entity.Player {
 	var best *entity.Player
 	bestDist := float32(math.MaxFloat32)
 	for _, p := range players {
@@ -24,7 +24,7 @@ func NearestAlivePlayer(pos entity.Vec3, players map[uint16]*entity.Player) *ent
 }
 
 // FarthestAlivePlayer returns the farthest alive player from pos, or nil.
-func FarthestAlivePlayer(pos entity.Vec3, players map[uint16]*entity.Player) *entity.Player {
+func FarthestAlivePlayer(pos entity.Vec3, players []*entity.Player) *entity.Player {
 	var best *entity.Player
 	var bestDist float32
 	for _, p := range players {

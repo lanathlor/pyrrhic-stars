@@ -85,10 +85,6 @@ type PhaseDef struct {
 	// Cooldown override (0 = use ability's CooldownTime)
 	CooldownOverride float32
 
-	// Chase threshold overrides (0 = use EnemyDef defaults)
-	ChaseThreshold    float32
-	ChaseThresholdFar float32
-
 	// Per-ability weight overrides, keyed by AbilityDef.Name
 	WeightOverrides map[string]int
 
@@ -122,11 +118,6 @@ type EnemyDef struct {
 	//   PreferredRange == 0: classic chase — move toward target until in melee range.
 	PreferredRange float32
 	BackpedalSpeed float32 // speed when backpedaling (0 = 50% of MoveSpeed)
-
-	// Chase behavior
-	ChaseThreshold        float32 // seconds before forcing attack
-	ChaseThresholdFar     float32 // threshold when target is far
-	FarDistanceMultiplier float32 // multiplied by longest melee range to determine "far"
 
 	// Abilities
 	Abilities  []AbilityDef

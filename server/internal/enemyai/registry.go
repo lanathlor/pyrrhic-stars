@@ -13,10 +13,7 @@ var GuardCaptain = EnemyDef{
 	MoveSpeed: 4.0,
 	Radius:    1.0,
 
-	ChaseThreshold:        1.5,
-	ChaseThresholdFar:     0.5,
-	FarDistanceMultiplier: 3.0,
-	AntiRepeat:            2.0,
+	AntiRepeat: 2.0,
 
 	Abilities: []AbilityDef{
 		{
@@ -125,8 +122,6 @@ var GuardCaptain = EnemyDef{
 			TransitionTime:   1.5,
 			MoveSpeed:        6.0,
 			CooldownOverride: 0.4,
-			ChaseThreshold:   0.6,
-			ChaseThresholdFar: 0.2,
 			WeightOverrides: map[string]int{
 				"melee_swipe":    20,
 				"fireball_burst": 20,
@@ -166,10 +161,7 @@ var HallwayMelee = EnemyDef{
 	MoveSpeed: 5.0,
 	Radius:    0.8,
 
-	ChaseThreshold:        0.5,
-	ChaseThresholdFar:     0.3,
-	FarDistanceMultiplier: 2.0,
-	AntiRepeat:            1.0,
+	AntiRepeat: 1.0,
 
 	Abilities: []AbilityDef{
 		{
@@ -200,10 +192,7 @@ var HallwayRanged = EnemyDef{
 	BackpedalSpeed: 3.0,
 	Radius:         0.8,
 
-	ChaseThreshold:        0.8,
-	ChaseThresholdFar:     0.5,
-	FarDistanceMultiplier: 2.0,
-	AntiRepeat:            1.0,
+	AntiRepeat: 1.0,
 
 	Abilities: []AbilityDef{
 		{
