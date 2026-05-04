@@ -44,6 +44,17 @@ test-race:
 bench:
     CODEX_LEVELS_DIR=`pwd`/../shared/levels go test ./... -bench=. -benchmem -run='^$' -count=1 2>&1 | grep -E '(ns/op|^ok |^FAIL)'
 
+# Run benchmarks in a specific folder/package
+# Usage: just bench-folder ./internal/system/
+bench-folder folder:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    TARGET={{folder}}
+    if [[ "$TARGET" != ./* && "$TARGET" != /* ]]; then
+        TARGET="./$TARGET"
+    fi
+    CODEX_LEVELS_DIR={{justfile_directory()}}/../shared/levels go test "$TARGET" -bench=. -benchmem -run='^$' -count=1 2>&1 | grep -E '(ns/op|^ok |^FAIL|^---)'
+
 # Run benchmarks with 3 iterations for stable results
 bench-stable:
     CODEX_LEVELS_DIR=`pwd`/../shared/levels go test ./... -bench=. -benchmem -run='^$' -count=3 2>&1 | grep -E '(ns/op|^ok |^FAIL)'
