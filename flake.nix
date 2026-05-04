@@ -17,6 +17,7 @@
         packages = with pkgs; [
           # Client
           godot_4
+          gdtoolkit_4 # gdformat + gdlint
 
           # Assets
           blender

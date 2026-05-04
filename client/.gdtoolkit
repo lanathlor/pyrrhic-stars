@@ -1,0 +1,2 @@
+line_length: 120
+excluded_directories: {.git, addons}

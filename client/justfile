@@ -1,0 +1,27 @@
+set dotenv-load := false
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+# List available commands
+default:
+    @just --list
+
+# --- Lint & Format ---
+
+# Format all GDScript files
+fmt:
+    gdformat scripts/ scenes/ tests/
+
+# Check formatting without writing changes
+fmt-check:
+    gdformat --check scripts/ scenes/ tests/
+
+# Show formatting diff without writing changes
+fmt-diff:
+    gdformat --diff scripts/ scenes/ tests/
+
+# Lint all GDScript files
+lint:
+    gdlint scripts/ scenes/ tests/
+
+# Run both lint and format check
+check: fmt-check lint
