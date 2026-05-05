@@ -47,15 +47,15 @@ func _make_state(hp: float, pos: Vector3) -> Dictionary:
 
 
 func test_gunner_death_via_server_state() -> void:
-	var died_emitted := false
-	_gunner.died.connect(func(): died_emitted = true)
+	var result := [false]
+	_gunner.died.connect(func(): result[0] = true)
 	# Ensure alive first
 	_gunner.apply_server_state(_make_state(100.0, Vector3(5.0, 1.0, 5.0)))
 	assert_bool(_gunner._alive).is_true()
 	# Kill via server state
 	_gunner.apply_server_state(_make_state(0.0, Vector3(5.0, 0.0, 5.0)))
 	assert_bool(_gunner._alive).is_false()
-	assert_bool(died_emitted).is_true()
+	assert_bool(result[0]).is_true()
 
 
 func test_gunner_respawn_snaps_position() -> void:
@@ -85,13 +85,13 @@ func test_gunner_respawn_restores_alive() -> void:
 
 
 func test_vanguard_death_via_server_state() -> void:
-	var died_emitted := false
-	_vanguard.died.connect(func(): died_emitted = true)
+	var result := [false]
+	_vanguard.died.connect(func(): result[0] = true)
 	_vanguard.apply_server_state(_make_state(150.0, Vector3(5.0, 1.0, 5.0)))
 	assert_bool(_vanguard._alive).is_true()
 	_vanguard.apply_server_state(_make_state(0.0, Vector3(5.0, 0.0, 5.0)))
 	assert_bool(_vanguard._alive).is_false()
-	assert_bool(died_emitted).is_true()
+	assert_bool(result[0]).is_true()
 	assert_int(_vanguard.state).is_equal(_vanguard.State.DEAD)
 
 
@@ -120,13 +120,13 @@ func test_vanguard_respawn_restores_move_state() -> void:
 
 
 func test_blade_dancer_death_via_server_state() -> void:
-	var died_emitted := false
-	_bd.died.connect(func(): died_emitted = true)
+	var result := [false]
+	_bd.died.connect(func(): result[0] = true)
 	_bd.apply_server_state(_make_state(100.0, Vector3(5.0, 1.0, 5.0)))
 	assert_bool(_bd._alive).is_true()
 	_bd.apply_server_state(_make_state(0.0, Vector3(5.0, 0.0, 5.0)))
 	assert_bool(_bd._alive).is_false()
-	assert_bool(died_emitted).is_true()
+	assert_bool(result[0]).is_true()
 	assert_int(_bd.state).is_equal(_bd.State.DEAD)
 
 

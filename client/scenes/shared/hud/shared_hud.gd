@@ -6,6 +6,30 @@ extends Control
 
 const MapData := preload("res://scenes/shared/hud/map_data.gd")
 
+# --- Constants ---
+const CLASS_MAX_HP := {
+	"gunner": 150.0,
+	"vanguard": 200.0,
+	"blade_dancer": 150.0,
+}
+const ENEMY_MAX_HP := 2000.0
+const MINIMAP_RADIUS := 80.0
+const MINIMAP_WORLD_RADIUS := 25.0  # world units shown in minimap
+const MINIMAP_CIRCLE_POINTS := 48  # vertices for circle clipping polygon
+const HUD_BG := Color(0.02, 0.025, 0.035, 0.82)
+const HUD_PANEL := Color(0.04, 0.05, 0.07, 0.45)
+const HUD_INSET := Color(0.11, 0.12, 0.15, 0.4)
+const HUD_BORDER := Color(0.28, 0.3, 0.36, 0.85)
+const HUD_ACCENT := Color(0.7, 0.74, 0.82, 0.55)
+const TEXT_PRIMARY := Color(0.9, 0.92, 0.96, 0.95)
+const TEXT_MUTED := Color(0.63, 0.67, 0.74, 0.92)
+const HEALTH_GOOD := Color(0.28, 0.78, 0.4, 1.0)
+const HEALTH_BAD := Color(0.82, 0.24, 0.24, 1.0)
+const POWER_COLOR := Color(0.82, 0.68, 0.24, 1.0)
+const BOSS_PHASE_ONE := Color(0.56, 0.22, 0.22, 1.0)
+const BOSS_PHASE_TWO := Color(0.74, 0.44, 0.18, 1.0)
+const BOSS_PHASE_THREE := Color(0.78, 0.18, 0.18, 1.0)
+
 # --- References (set by main.gd) ---
 var _local_player: CharacterBody3D = null
 var _local_class: String = "gunner"
@@ -51,39 +75,15 @@ var _waypoint_target: Vector3 = Vector3.ZERO
 var _has_waypoint: bool = false
 var _floor_check_timer: float = 0.0
 var _environment: Node3D = null  # ref to current environment scene for scanning
-
-# --- Constants ---
-const CLASS_MAX_HP := {
-	"gunner": 150.0,
-	"vanguard": 200.0,
-	"blade_dancer": 150.0,
-}
-const ENEMY_MAX_HP := 2000.0
-const MINIMAP_RADIUS := 80.0
-const MINIMAP_WORLD_RADIUS := 25.0  # world units shown in minimap
-const MINIMAP_CIRCLE_POINTS := 48  # vertices for circle clipping polygon
 var _minimap_circle_poly: PackedVector2Array  # circle polygon centered at origin
-
-const HUD_BG := Color(0.02, 0.025, 0.035, 0.82)
-const HUD_PANEL := Color(0.04, 0.05, 0.07, 0.45)
-const HUD_INSET := Color(0.11, 0.12, 0.15, 0.4)
-const HUD_BORDER := Color(0.28, 0.3, 0.36, 0.85)
-const HUD_ACCENT := Color(0.7, 0.74, 0.82, 0.55)
-const TEXT_PRIMARY := Color(0.9, 0.92, 0.96, 0.95)
-const TEXT_MUTED := Color(0.63, 0.67, 0.74, 0.92)
-const HEALTH_GOOD := Color(0.28, 0.78, 0.4, 1.0)
-const HEALTH_BAD := Color(0.82, 0.24, 0.24, 1.0)
-const POWER_COLOR := Color(0.82, 0.68, 0.24, 1.0)
-const BOSS_PHASE_ONE := Color(0.56, 0.22, 0.22, 1.0)
-const BOSS_PHASE_TWO := Color(0.74, 0.44, 0.18, 1.0)
-const BOSS_PHASE_THREE := Color(0.78, 0.18, 0.18, 1.0)
 
 
 func _process(delta: float) -> void:
 	# Read local player state each frame for responsive bars
 	if _local_player and is_instance_valid(_local_player):
-		_player_health = _local_player.health
-		_player_max_health = _local_player.max_health
+		if "health" in _local_player:
+			_player_health = _local_player.health
+			_player_max_health = _local_player.max_health
 		_player_rot_y = _local_player.rotation.y
 		# Duck-type resource (only Vanguard has stamina)
 		if "stamina" in _local_player:
