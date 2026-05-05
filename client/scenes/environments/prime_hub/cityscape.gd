@@ -7,9 +7,9 @@ extends Node3D
 
 const GROUND_Y: float = -300.0
 const EXTENT: float = 50000.0
-const SPACING_NEAR: float = 20.0    # within 500m
-const SPACING_MID: float = 40.0     # 500-1200m
-const SPACING_FAR: float = 80.0     # 1200-3000m
+const SPACING_NEAR: float = 20.0  # within 500m
+const SPACING_MID: float = 40.0  # 500-1200m
+const SPACING_FAR: float = 80.0  # 1200-3000m
 const SPACING_ULTRA: float = 500.0  # 3000-50000m
 const PLAZA_X: float = 135.0
 const PLAZA_Z_MIN: float = -120.0
@@ -65,7 +65,12 @@ func _generate() -> void:
 					continue
 
 				# Skip lower street district (hand-crafted zone)
-				if cx > DISTRICT_X_MIN and cx < DISTRICT_X_MAX and cz > DISTRICT_Z_MIN and cz < DISTRICT_Z_MAX:
+				if (
+					cx > DISTRICT_X_MIN
+					and cx < DISTRICT_X_MAX
+					and cz > DISTRICT_Z_MIN
+					and cz < DISTRICT_Z_MAX
+				):
 					continue
 
 				# Skip if inside inner radius (already populated by denser band)
@@ -103,9 +108,7 @@ func _generate() -> void:
 					h = minf(h, north_h)
 
 				var y: float = GROUND_Y + h * 0.5
-				bldg.append(Transform3D(
-					Basis.from_scale(Vector3(w, h, d)),
-					Vector3(cx, y, cz)))
+				bldg.append(Transform3D(Basis.from_scale(Vector3(w, h, d)), Vector3(cx, y, cz)))
 
 				# Window strip — narrow band on plaza-facing side, like a column of lit windows
 				if dist_from_center < 1200.0 and h > 40.0 and rng.randf() < 0.3:
@@ -116,12 +119,14 @@ func _generate() -> void:
 						var fx: float = cx + (w * 0.5 + 0.1) * signf(to_plaza.x)
 						wt = Transform3D(
 							Basis.from_scale(Vector3(0.2, win_h, d * 0.4)),
-							Vector3(fx, GROUND_Y + h * 0.35, cz))
+							Vector3(fx, GROUND_Y + h * 0.35, cz)
+						)
 					else:
 						var fz: float = cz + (d * 0.5 + 0.1) * signf(to_plaza.y)
 						wt = Transform3D(
 							Basis.from_scale(Vector3(w * 0.4, win_h, 0.2)),
-							Vector3(cx, GROUND_Y + h * 0.35, fz))
+							Vector3(cx, GROUND_Y + h * 0.35, fz)
+						)
 					if rng.randf() < 0.7:
 						win_warm.append(wt)
 					else:
@@ -129,9 +134,12 @@ func _generate() -> void:
 
 				# Blue trim cap on tallest buildings
 				if h > 150.0 and rng.randf() < 0.4:
-					trims.append(Transform3D(
-						Basis.from_scale(Vector3(w + 0.4, 0.3, d + 0.4)),
-						Vector3(cx, GROUND_Y + h + 0.15, cz)))
+					trims.append(
+						Transform3D(
+							Basis.from_scale(Vector3(w + 0.4, 0.3, d + 0.4)),
+							Vector3(cx, GROUND_Y + h + 0.15, cz)
+						)
+					)
 
 	# Ground plane — dark metallic city floor
 	var ground_mi := MeshInstance3D.new()
@@ -181,19 +189,29 @@ func _generate() -> void:
 	var mono_d := 300.0
 	var mono_h := 3000.0
 	var mono_y := GROUND_Y + mono_h * 0.5
-	bldg.append(Transform3D(Basis.from_scale(Vector3(mono_w, mono_h, mono_d)), Vector3(mono_x, mono_y, mono_z)))
+	bldg.append(
+		Transform3D(
+			Basis.from_scale(Vector3(mono_w, mono_h, mono_d)), Vector3(mono_x, mono_y, mono_z)
+		)
+	)
 
 	# Monolith blue trim at the top
-	trims.append(Transform3D(
-		Basis.from_scale(Vector3(mono_w + 2.0, 1.0, mono_d + 2.0)),
-		Vector3(mono_x, GROUND_Y + mono_h + 0.5, mono_z)))
+	trims.append(
+		Transform3D(
+			Basis.from_scale(Vector3(mono_w + 2.0, 1.0, mono_d + 2.0)),
+			Vector3(mono_x, GROUND_Y + mono_h + 0.5, mono_z)
+		)
+	)
 
 	# Monolith window strips — tall vertical bands on the south face (facing plaza)
 	for strip_i in 5:
 		var strip_x: float = mono_x + (strip_i - 2) * 80.0
-		win_warm.append(Transform3D(
-			Basis.from_scale(Vector3(30.0, mono_h * 0.6, 0.5)),
-			Vector3(strip_x, GROUND_Y + mono_h * 0.35, mono_z + mono_d * 0.5 + 0.2)))
+		win_warm.append(
+			Transform3D(
+				Basis.from_scale(Vector3(30.0, mono_h * 0.6, 0.5)),
+				Vector3(strip_x, GROUND_Y + mono_h * 0.35, mono_z + mono_d * 0.5 + 0.2)
+			)
+		)
 
 	# Monolith lights — massive glow visible from the plaza
 	var mono_lights := Node3D.new()
@@ -238,13 +256,19 @@ func _generate() -> void:
 		var ly: float = GROUND_Y + lh * 0.5
 		bldg.append(Transform3D(Basis.from_scale(Vector3(lw, lh, ld)), Vector3(lx, ly, lz)))
 		# All landmarks get blue trim + window glow
-		trims.append(Transform3D(
-			Basis.from_scale(Vector3(lw + 0.5, 0.4, ld + 0.5)),
-			Vector3(lx, GROUND_Y + lh + 0.2, lz)))
+		trims.append(
+			Transform3D(
+				Basis.from_scale(Vector3(lw + 0.5, 0.4, ld + 0.5)),
+				Vector3(lx, GROUND_Y + lh + 0.2, lz)
+			)
+		)
 		var win_face_z: float = lz + ld * 0.5 + 0.15
-		win_blue.append(Transform3D(
-			Basis.from_scale(Vector3(lw * 0.8, lh * 0.6, 0.3)),
-			Vector3(lx, GROUND_Y + lh * 0.4, win_face_z)))
+		win_blue.append(
+			Transform3D(
+				Basis.from_scale(Vector3(lw * 0.8, lh * 0.6, 0.3)),
+				Vector3(lx, GROUND_Y + lh * 0.4, win_face_z)
+			)
+		)
 
 		# Volumetric fog light on each landmark — visible glow through fog
 		# Base light (warm, at mid-height)
@@ -282,9 +306,13 @@ func _generate() -> void:
 	var wall_d := 500.0
 	var wall_y := GROUND_Y + wall_h * 0.5
 	# North
-	_add_wall("WallN", Vector3(0, wall_y, -wall_dist + 10), Vector3(wall_w, wall_h, wall_d), wall_mat)
+	_add_wall(
+		"WallN", Vector3(0, wall_y, -wall_dist + 10), Vector3(wall_w, wall_h, wall_d), wall_mat
+	)
 	# South
-	_add_wall("WallS", Vector3(0, wall_y, wall_dist + 10), Vector3(wall_w, wall_h, wall_d), wall_mat)
+	_add_wall(
+		"WallS", Vector3(0, wall_y, wall_dist + 10), Vector3(wall_w, wall_h, wall_d), wall_mat
+	)
 	# West
 	_add_wall("WallW", Vector3(-wall_dist, wall_y, 10), Vector3(wall_d, wall_h, wall_w), wall_mat)
 	# East
@@ -310,15 +338,24 @@ func _generate() -> void:
 		var ltw: float = lt[2]
 		var ltd: float = lt[3]
 		var lth: float = lt[4]
-		bldg.append(Transform3D(
-			Basis.from_scale(Vector3(ltw, lth, ltd)),
-			Vector3(ltx, lower_roof_y + lth * 0.5, ltz)))
-		win_warm.append(Transform3D(
-			Basis.from_scale(Vector3(0.3, lth * 0.5, ltd * 0.35)),
-			Vector3(ltx + ltw * 0.5 + 0.15, lower_roof_y + lth * 0.4, ltz)))
-		win_blue.append(Transform3D(
-			Basis.from_scale(Vector3(ltw * 0.35, lth * 0.5, 0.3)),
-			Vector3(ltx, lower_roof_y + lth * 0.4, ltz + ltd * 0.5 + 0.15)))
+		bldg.append(
+			Transform3D(
+				Basis.from_scale(Vector3(ltw, lth, ltd)),
+				Vector3(ltx, lower_roof_y + lth * 0.5, ltz)
+			)
+		)
+		win_warm.append(
+			Transform3D(
+				Basis.from_scale(Vector3(0.3, lth * 0.5, ltd * 0.35)),
+				Vector3(ltx + ltw * 0.5 + 0.15, lower_roof_y + lth * 0.4, ltz)
+			)
+		)
+		win_blue.append(
+			Transform3D(
+				Basis.from_scale(Vector3(ltw * 0.35, lth * 0.5, 0.3)),
+				Vector3(ltx, lower_roof_y + lth * 0.4, ltz + ltd * 0.5 + 0.15)
+			)
+		)
 
 	# Lower cityscape — buildings on the UndergroundBase roof, not inside it
 	for lgx in range(-30, 31):
@@ -326,7 +363,12 @@ func _generate() -> void:
 			var lcx: float = lgx * 22.0 + rng.randf_range(-6, 6)
 			var lcz: float = lgz * 22.0 + rng.randf_range(-6, 6)
 			# Skip lower street district
-			if lcx > DISTRICT_X_MIN and lcx < DISTRICT_X_MAX and lcz > DISTRICT_Z_MIN and lcz < DISTRICT_Z_MAX:
+			if (
+				lcx > DISTRICT_X_MIN
+				and lcx < DISTRICT_X_MAX
+				and lcz > DISTRICT_Z_MIN
+				and lcz < DISTRICT_Z_MAX
+			):
 				continue
 			# Skip south building + plaza above
 			if lcx > -PLAZA_X and lcx < PLAZA_X and lcz > 45.0 and lcz < PLAZA_Z_MAX + 10.0:
@@ -339,9 +381,12 @@ func _generate() -> void:
 			var lw: float = rng.randf_range(12, 32)
 			var ld: float = rng.randf_range(10, 28)
 			var lh: float = rng.randf_range(40, 160)
-			bldg.append(Transform3D(
-				Basis.from_scale(Vector3(lw, lh, ld)),
-				Vector3(lcx, lower_roof_y + lh * 0.5, lcz)))
+			bldg.append(
+				Transform3D(
+					Basis.from_scale(Vector3(lw, lh, ld)),
+					Vector3(lcx, lower_roof_y + lh * 0.5, lcz)
+				)
+			)
 			if lh > 15.0:
 				var win_y: float = lower_roof_y + lh * 0.35
 				var win_h: float = lh * 0.5
@@ -349,20 +394,29 @@ func _generate() -> void:
 					if rng.randf() < 0.6:
 						var fx: float = lcx + (lw * 0.5 + 0.1) * side
 						var wlist: Array = win_warm if rng.randf() < 0.7 else win_blue
-						wlist.append(Transform3D(
-							Basis.from_scale(Vector3(0.2, win_h, ld * 0.35)),
-							Vector3(fx, win_y, lcz)))
+						wlist.append(
+							Transform3D(
+								Basis.from_scale(Vector3(0.2, win_h, ld * 0.35)),
+								Vector3(fx, win_y, lcz)
+							)
+						)
 				for side in [-1.0, 1.0]:
 					if rng.randf() < 0.6:
 						var fz: float = lcz + (ld * 0.5 + 0.1) * side
 						var wlist: Array = win_warm if rng.randf() < 0.7 else win_blue
-						wlist.append(Transform3D(
-							Basis.from_scale(Vector3(lw * 0.35, win_h, 0.2)),
-							Vector3(lcx, win_y, fz)))
+						wlist.append(
+							Transform3D(
+								Basis.from_scale(Vector3(lw * 0.35, win_h, 0.2)),
+								Vector3(lcx, win_y, fz)
+							)
+						)
 				if rng.randf() < 0.3:
-					trims.append(Transform3D(
-						Basis.from_scale(Vector3(lw + 0.3, 0.2, ld + 0.3)),
-						Vector3(lcx, lower_roof_y + lh + 0.1, lcz)))
+					trims.append(
+						Transform3D(
+							Basis.from_scale(Vector3(lw + 0.3, 0.2, ld + 0.3)),
+							Vector3(lcx, lower_roof_y + lh + 0.1, lcz)
+						)
+					)
 
 	# 5 multimeshes = 5 draw calls
 	# Buildings: varied shades of dark grey
@@ -396,7 +450,7 @@ func _mm_varied(nm: String, xforms: Array[Transform3D], rng: RandomNumberGenerat
 	mmi.name = nm
 	# Shader material that reads INSTANCE_CUSTOM for color variation
 	var shader := Shader.new()
-	shader.code = "shader_type spatial;
+	shader.code = """shader_type spatial;
 render_mode cull_back;
 uniform vec3 base_color = vec3(0.35, 0.36, 0.38);
 uniform float roughness_val : hint_range(0.0, 1.0) = 0.75;
@@ -410,7 +464,7 @@ void fragment() {
 	ALBEDO = base_color * v_shade + vec3(v_warm, v_warm * 0.5, -v_warm);
 	ROUGHNESS = roughness_val;
 }
-"
+"""
 	var mat := ShaderMaterial.new()
 	mat.shader = shader
 	mat.set_shader_parameter("base_color", Vector3(0.35, 0.36, 0.38))

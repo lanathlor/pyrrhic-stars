@@ -12,12 +12,19 @@ signal died
 # 5=RangedAttack, 6=AoETelegraph, 7=AoESlam, 8=ChargeTelegraph, 9=Charge,
 # 10=Cooldown, 11=PhaseTransition, 12=Dead, 13=Patrol
 enum State {
-	IDLE, CHASE,
-	MELEE_TELEGRAPH, MELEE_ATTACK,
-	RANGED_TELEGRAPH, RANGED_ATTACK,
-	AOE_TELEGRAPH, AOE_SLAM,
-	CHARGE_TELEGRAPH, CHARGE,
-	COOLDOWN, PHASE_TRANSITION, DEAD,
+	IDLE,
+	CHASE,
+	MELEE_TELEGRAPH,
+	MELEE_ATTACK,
+	RANGED_TELEGRAPH,
+	RANGED_ATTACK,
+	AOE_TELEGRAPH,
+	AOE_SLAM,
+	CHARGE_TELEGRAPH,
+	CHARGE,
+	COOLDOWN,
+	PHASE_TRANSITION,
+	DEAD,
 	PATROL,
 }
 
@@ -75,7 +82,7 @@ var _gun_node: Node3D
 var _sword_attachment: BoneAttachment3D
 var _gun_attachment: BoneAttachment3D
 var _last_weapon: String = "sword"  # which weapon to show between attacks
-var _def_name: String = ""          # enemy definition name from server
+var _def_name: String = ""  # enemy definition name from server
 
 # Ranged target position for laser warning visual
 var _ranged_target_position: Vector3
@@ -104,8 +111,16 @@ func _ready() -> void:
 func _log_loaded_anims() -> void:
 	var loaded: PackedStringArray = character_model._loaded_anims
 	print("[Boss] Loaded animations: ", loaded)
-	for needed in ["idle", "run", "slash", "rifle_idle", "rifle_shoot",
-			"rifle_aim_idle", "rifle_aim_run", "rifle_aim_walk"]:
+	for needed in [
+		"idle",
+		"run",
+		"slash",
+		"rifle_idle",
+		"rifle_shoot",
+		"rifle_aim_idle",
+		"rifle_aim_run",
+		"rifle_aim_walk"
+	]:
 		if needed not in loaded:
 			print("[Boss] WARNING: animation '%s' not loaded — will use fallback" % needed)
 
@@ -117,6 +132,7 @@ func _exit_tree() -> void:
 # =============================================================================
 # Server state application
 # =============================================================================
+
 
 func apply_server_state(data: Dictionary) -> void:
 	_server_position = data.pos
@@ -176,6 +192,7 @@ func _physics_process(delta: float) -> void:
 # State visual sync
 # =============================================================================
 
+
 func _update_state_visuals() -> void:
 	# Map server state int to telegraph visibility
 	var synced_state: int = _server_state
@@ -218,6 +235,7 @@ func _update_state_visuals() -> void:
 # Damage visual (called externally for hit flash)
 # =============================================================================
 
+
 func on_damage_visual(amount: float, hit_pos: Vector3) -> void:
 	character_model.flash_damage()
 
@@ -225,6 +243,7 @@ func on_damage_visual(amount: float, hit_pos: Vector3) -> void:
 # =============================================================================
 # Character model animations
 # =============================================================================
+
 
 func _play_anim_with_fallback(primary: String, fallback: String, speed: float = 1.0) -> void:
 	if primary in character_model._loaded_anims:
@@ -281,6 +300,7 @@ func _update_boss_animation() -> void:
 # =============================================================================
 # Health bar (billboard quad above head)
 # =============================================================================
+
 
 func _create_health_bar() -> void:
 	_health_bar_pivot = Node3D.new()
@@ -348,6 +368,7 @@ func _face_health_bar_to_camera() -> void:
 # Telegraph visuals
 # =============================================================================
 
+
 func _update_melee_telegraph_params() -> void:
 	# Update mesh size to match active melee range
 	var mesh := _melee_telegraph_mesh.mesh as PlaneMesh
@@ -398,7 +419,7 @@ func _create_aoe_telegraph() -> void:
 
 func _create_circle_shader() -> Shader:
 	var shader := Shader.new()
-	shader.code = "
+	shader.code = """
 shader_type spatial;
 render_mode unshaded, cull_disabled;
 
@@ -417,13 +438,13 @@ void fragment() {
 	ALBEDO = mix(color.rgb, edge_color.rgb, t);
 	ALPHA = mix(color.a, edge_color.a, t);
 }
-"
+"""
 	return shader
 
 
 func _create_cone_shader() -> Shader:
 	var shader := Shader.new()
-	shader.code = "
+	shader.code = """
 shader_type spatial;
 render_mode unshaded, cull_disabled;
 
@@ -452,13 +473,13 @@ void fragment() {
 	ALBEDO = mix(color.rgb, edge_color.rgb, t);
 	ALPHA = mix(color.a, edge_color.a, t);
 }
-"
+"""
 	return shader
 
 
 func _create_fire_shader() -> Shader:
 	var shader := Shader.new()
-	shader.code = "
+	shader.code = """
 shader_type spatial;
 render_mode unshaded, blend_add, cull_disabled, depth_draw_never;
 
@@ -565,7 +586,7 @@ void fragment() {
 	ALBEDO = fire_color * (2.0 + intensity * 4.0);
 	ALPHA = alpha * COLOR.a;
 }
-"
+"""
 	return shader
 
 
@@ -634,23 +655,23 @@ func _create_aoe_particles() -> void:
 	slam_mat.emission_sphere_radius = 1.0  # start from a wider core
 	slam_mat.direction = Vector3(0.0, 0.0, 0.0)  # no bias — pure radial
 	slam_mat.spread = 180.0
-	slam_mat.initial_velocity_min = 4.0   # slow — keeps the ball dense
+	slam_mat.initial_velocity_min = 4.0  # slow — keeps the ball dense
 	slam_mat.initial_velocity_max = 10.0  # some faster ones at the front edge
 	slam_mat.gravity = Vector3(0.0, 0.5, 0.0)  # slight upward mushroom drift
 	slam_mat.damping_min = 2.0
 	slam_mat.damping_max = 4.0
-	slam_mat.scale_min = 2.0   # huge overlapping quads = solid mass
+	slam_mat.scale_min = 2.0  # huge overlapping quads = solid mass
 	slam_mat.scale_max = 4.0
 	slam_mat.angular_velocity_min = -120.0
 	slam_mat.angular_velocity_max = 120.0
 	# Color: white-hot flash -> yellow -> orange -> red -> black
 	var slam_ramp := Gradient.new()
-	slam_ramp.set_color(0, Color(1.0, 1.0, 0.95, 1.0))   # white flash
+	slam_ramp.set_color(0, Color(1.0, 1.0, 0.95, 1.0))  # white flash
 	slam_ramp.add_point(0.08, Color(1.0, 0.9, 0.4, 1.0))  # bright yellow
-	slam_ramp.add_point(0.25, Color(1.0, 0.5, 0.08, 0.95)) # orange
+	slam_ramp.add_point(0.25, Color(1.0, 0.5, 0.08, 0.95))  # orange
 	slam_ramp.add_point(0.5, Color(0.8, 0.2, 0.03, 0.7))  # red-orange
-	slam_ramp.add_point(0.75, Color(0.4, 0.06, 0.01, 0.35)) # dark red
-	slam_ramp.set_color(1, Color(0.08, 0.01, 0.0, 0.0))   # fade to nothing
+	slam_ramp.add_point(0.75, Color(0.4, 0.06, 0.01, 0.35))  # dark red
+	slam_ramp.set_color(1, Color(0.08, 0.01, 0.0, 0.0))  # fade to nothing
 	var slam_color_tex := GradientTexture1D.new()
 	slam_color_tex.gradient = slam_ramp
 	slam_mat.color_ramp = slam_color_tex
@@ -740,8 +761,10 @@ func _update_charge_indicator() -> void:
 # Charge max distance per phase (needed for telegraph visual only)
 func _get_charge_max_distance() -> float:
 	match _current_phase:
-		2: return 18.0
-		3: return 20.0
+		2:
+			return 18.0
+		3:
+			return 20.0
 	return 15.0
 
 
@@ -749,10 +772,12 @@ func _get_charge_max_distance() -> float:
 # Weapons (bone-attached via CharacterModel)
 # =============================================================================
 
+
 func _attach_weapons() -> void:
 	# Sword in right hand — used for melee, charge, AoE
 	_sword_node = character_model.attach_weapon(
-		SWORD_SCENE_PATH, "mixamorig_RightHand",
+		SWORD_SCENE_PATH,
+		"mixamorig_RightHand",
 		Vector3(0.0, 0.08, 0.0),
 		Vector3(deg_to_rad(20.0), 0.0, deg_to_rad(-90.0))
 	)
@@ -788,9 +813,7 @@ func _attach_weapons() -> void:
 func _update_weapons(_delta: float) -> void:
 	# Track which weapon was last actively used
 	match state:
-		State.MELEE_TELEGRAPH, State.MELEE_ATTACK, \
-		State.CHARGE_TELEGRAPH, State.CHARGE, \
-		State.AOE_TELEGRAPH, State.AOE_SLAM:
+		State.MELEE_TELEGRAPH, State.MELEE_ATTACK, State.CHARGE_TELEGRAPH, State.CHARGE, State.AOE_TELEGRAPH, State.AOE_SLAM:
 			_last_weapon = "sword"
 		State.RANGED_TELEGRAPH, State.RANGED_ATTACK:
 			_last_weapon = "gun"
