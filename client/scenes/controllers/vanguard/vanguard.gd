@@ -2,6 +2,7 @@ extends CharacterBody3D
 
 ## Vanguard — Souls-like third-person melee controller (Blade spec).
 ## Combo chains, dodge rolls with i-frames, block/parry, stamina, lock-on.
+## Sub-systems: combat, movement, cam, anim (child nodes).
 
 signal died
 
@@ -42,6 +43,11 @@ const VANGUARD_TELEGRAPH_COLOR := Color(0.9, 0.6, 0.3, 0.4)
 const NET_INTERP_SPEED := 15.0
 
 const WEAPON_SCENE := "res://assets/models/weapons/weapon_longsword.glb"
+
+const CombatScript := preload("res://scenes/controllers/vanguard/vanguard_combat.gd")
+const MovementScript := preload("res://scenes/controllers/vanguard/vanguard_movement.gd")
+const CameraScript := preload("res://scenes/controllers/vanguard/vanguard_camera.gd")
+const AnimScript := preload("res://scenes/controllers/vanguard/vanguard_animation.gd")
 
 # Movement
 @export var run_speed: float = 5.0
@@ -103,20 +109,22 @@ var max_stamina: float = 100.0
 # State
 var state: State = State.MOVE
 
+# Sub-systems
+var combat: Node
+var movement: Node
+var cam: Node
+var anim: Node
+
 var _state_timer: float = 0.0
 var _combo_window_timer: float = 0.0
-var _stamina_cooldown_timer: float = 0.0
-var _dodge_direction: Vector3 = Vector3.ZERO
 var _is_invincible: bool = false
 var _parry_timer: float = 0.0
-var _has_hit_this_attack: bool = false
 var _queued_light: bool = false
 var _stagger_duration: float = 0.3
 
 # Blade Swirl (Q)
 var _blade_swirl_timer: float = 0.0
 var _blade_swirl_cooldown: float = 0.0
-var _blade_swirl_tick_timer: float = 0.0
 
 # Ground Slam (E)
 var _ground_slam_cooldown: float = 0.0
@@ -129,9 +137,7 @@ var _camera_pitch: float = -0.3
 var _lock_target: Node3D = null
 var _lock_on_active: bool = false
 
-var _gravity: float = 8.5  # must match server gravity
-var _flash_timer: float = 0.0
-var _facing_angle: float = 0.0
+var _gravity: float = 8.5
 var _alive: bool = true
 
 # Network sync
@@ -146,6 +152,12 @@ var _net_rotation_y: float = 0.0
 
 
 func _ready() -> void:
+	# Create sub-systems
+	combat = _add_subsystem("Combat", CombatScript)
+	movement = _add_subsystem("Movement", MovementScript)
+	cam = _add_subsystem("Cam", CameraScript)
+	anim = _add_subsystem("Anim", AnimScript)
+
 	GameManager.register_player(self)
 	_net_position = global_position
 	_net_rotation_y = rotation.y
@@ -158,13 +170,14 @@ func _ready() -> void:
 		camera.current = false
 		set_process_unhandled_input(false)
 
-	_attach_weapon.call_deferred()
+	anim.attach_weapon.call_deferred()
 
 
-func _attach_weapon() -> void:
-	var offset_pos := Vector3(0.0, 0.08, 0.0)
-	var offset_rot := Vector3(deg_to_rad(20.0), 0.0, deg_to_rad(-90.0))
-	character_model.attach_weapon(WEAPON_SCENE, "mixamorig_RightHand", offset_pos, offset_rot)
+func _add_subsystem(node_name: String, script: GDScript) -> Node:
+	var node: Node = script.new()
+	node.name = node_name
+	add_child(node)
+	return node
 
 
 func _exit_tree() -> void:
@@ -183,7 +196,6 @@ func _is_local() -> bool:
 func apply_server_state(data: Dictionary) -> void:
 	if _is_local():
 		health = data.health
-		# Sync stamina from server — server is authoritative
 		var server_stamina: float = data.get("stamina", -1.0)
 		if server_stamina >= 0.0:
 			stamina = server_stamina
@@ -194,11 +206,9 @@ func apply_server_state(data: Dictionary) -> void:
 		elif health > 0.0 and not _alive:
 			_alive = true
 			_enter_state(State.MOVE)
-			# Snap to server position on respawn
 			global_position = data.pos
 			_net_position = data.pos
 	else:
-		# Remote player: apply all state
 		_net_position = data.pos
 		_net_rotation_y = data.rot_y
 		health = data.health
@@ -214,7 +224,7 @@ func on_hit_confirmed(_amount: float) -> void:
 ## Visual-only damage feedback (called from main.gd on DamageEvent).
 func on_damage_visual(_amount: float, _hit_pos: Vector3) -> void:
 	hud.show_damage_flash()
-	_show_body_flash()
+	anim.show_body_flash()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -232,8 +242,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _physics_process(delta: float) -> void:
 	if not _is_local():
-		# Constant-speed interpolation — avoids stop-go jitter from exponential lerp
-		var move_speed := 12.0  # slightly above max sprint to avoid falling behind
+		var move_speed := 12.0
 		global_position = global_position.move_toward(_net_position, move_speed * delta)
 		rotation.y = lerp_angle(rotation.y, _net_rotation_y, 8.0 * delta)
 		if _net_anim != "":
@@ -243,49 +252,48 @@ func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
 	else:
-		velocity.y = -0.5  # keep pressed to floor so is_on_floor() stays reliable
+		velocity.y = -0.5
 
 	_state_timer -= delta
-	_update_flash(delta)
-	_update_camera()
-	_update_stamina(delta)
+	anim.update_flash(delta)
+	cam.update_camera()
+	movement.update_stamina(delta)
 	_update_parry(delta)
 	_blade_swirl_cooldown = maxf(_blade_swirl_cooldown - delta, 0.0)
 	_ground_slam_cooldown = maxf(_ground_slam_cooldown - delta, 0.0)
 
 	match state:
 		State.MOVE:
-			_process_move(delta)
+			movement.process_move(delta)
 		State.DODGE:
-			_process_dodge(delta)
+			combat.process_dodge(delta)
 		State.LIGHT_1, State.LIGHT_2, State.LIGHT_3:
-			_process_light_attack(delta)
+			combat.process_light_attack(delta)
 		State.HEAVY_WINDUP:
-			_process_heavy_windup(delta)
+			combat.process_heavy_windup(delta)
 		State.HEAVY:
-			_process_heavy_attack(delta)
+			combat.process_heavy_attack(delta)
 		State.BLOCK:
-			_process_block(delta)
+			combat.process_block(delta)
 		State.STAGGER:
-			_process_stagger()
+			combat.process_stagger()
 		State.BLADE_SWIRL:
-			_process_blade_swirl(delta)
+			combat.process_blade_swirl(delta)
 		State.GROUND_SLAM_WINDUP:
-			_process_ground_slam_windup(delta)
+			combat.process_ground_slam_windup(delta)
 		State.GROUND_SLAM:
-			_process_ground_slam(delta)
+			combat.process_ground_slam(delta)
 		State.DEAD:
 			velocity.x = 0.0
 			velocity.z = 0.0
 
 	move_and_slide()
-	# Safety net: respawn if fallen far below any valid floor (lowest is Y=-200)
 	if global_position.y < -250.0:
 		global_position.y = -199.0
 
-	_update_animation()
-	_update_weapon_visual()
-	# Clear lock if target is dead, freed, or hidden — use same path as Q toggle
+	anim.update_animation()
+	anim.update_weapon_visual()
+	# Clear lock if target is dead, freed, or hidden
 	if _lock_on_active and _lock_target:
 		if (
 			not is_instance_valid(_lock_target)
@@ -355,348 +363,7 @@ func _physics_process(delta: float) -> void:
 		NetworkManager.send_player_position(global_position, rotation.y, _net_anim, _net_anim_speed)
 
 
-# --- Movement ---
-
-
-## Get world-space wish direction from input + actual camera transform.
-func _get_camera_wish_dir() -> Vector3:
-	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
-	if input_dir.length() < 0.1:
-		return Vector3.ZERO
-	var cam_xf := camera.global_transform
-	var cam_forward := -cam_xf.basis.z
-	cam_forward.y = 0.0
-	if cam_forward.length() < 0.01:
-		return Vector3.ZERO
-	cam_forward = cam_forward.normalized()
-	var cam_right := cam_xf.basis.x
-	cam_right.y = 0.0
-	cam_right = cam_right.normalized()
-	# forward = negative Y in get_vector, so negate input_dir.y
-	return (cam_right * input_dir.x + cam_forward * -input_dir.y).normalized()
-
-
-func _process_move(delta: float) -> void:
-	if _combo_window_timer > 0.0:
-		_combo_window_timer -= delta
-		if _combo_window_timer <= 0.0:
-			_queued_light = false
-
-	var cursor_active := Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED
-
-	# Attack inputs (disabled when cursor is visible)
-	if (
-		not cursor_active
-		and Input.is_action_just_pressed("light_attack")
-		and stamina >= light_stamina_cost
-	):
-		_start_light_attack(1)
-		return
-	if Input.is_action_just_pressed("heavy_attack") and stamina >= heavy_stamina_cost:
-		_start_heavy_attack()
-		return
-	if not cursor_active and Input.is_action_pressed("block"):
-		_enter_state(State.BLOCK)
-		_parry_timer = parry_window
-		return
-
-	# Jump
-	if Input.is_action_just_pressed("jump") and is_on_floor():
-		velocity.y = 3.5  # must match server JumpVel for vanguard
-
-	# Dodge
-	if Input.is_action_just_pressed("dodge") and is_on_floor() and stamina >= dodge_stamina_cost:
-		_start_dodge()
-		return
-
-	# Blade Swirl (F)
-	if (
-		not cursor_active
-		and Input.is_action_just_pressed("ability_1")
-		and stamina >= BLADE_SWIRL_STAMINA
-		and _blade_swirl_cooldown <= 0.0
-	):
-		_start_blade_swirl()
-		return
-
-	# Ground Slam (E)
-	if (
-		not cursor_active
-		and Input.is_action_just_pressed("ability_2")
-		and stamina >= GROUND_SLAM_STAMINA
-		and _ground_slam_cooldown <= 0.0
-	):
-		_start_ground_slam()
-		return
-
-	# Movement — direction derived from actual camera transform
-	var speed := sprint_speed if Input.is_action_pressed("sprint") else run_speed
-	var wish_dir := _get_camera_wish_dir()
-
-	var on_floor := is_on_floor()
-	var accel: float = ground_accel if on_floor else air_accel
-	var decel: float = ground_decel if on_floor else air_decel
-
-	if wish_dir.length() > 0.1:
-		var target_vel := wish_dir * speed
-		velocity.x = move_toward(velocity.x, target_vel.x, accel * delta)
-		velocity.z = move_toward(velocity.z, target_vel.z, accel * delta)
-		if _lock_on_active and _lock_target and is_instance_valid(_lock_target):
-			_face_target(delta)
-		else:
-			_face_direction(wish_dir, delta)
-	else:
-		velocity.x = move_toward(velocity.x, 0.0, decel * delta)
-		velocity.z = move_toward(velocity.z, 0.0, decel * delta)
-		if _lock_on_active and _lock_target and is_instance_valid(_lock_target):
-			_face_target(delta)
-
-
-func _get_target_yaw(dir: Vector3) -> float:
-	# Compute the Y rotation that makes the node's -Z align with dir
-	var t := Transform3D()
-	t = t.looking_at(dir, Vector3.UP)
-	return t.basis.get_euler().y
-
-
-func _face_direction(dir: Vector3, delta: float) -> void:
-	if dir.length() < 0.1:
-		return
-	var target_angle := _get_target_yaw(dir)
-	_facing_angle = lerp_angle(_facing_angle, target_angle, rotation_speed * delta)
-	rotation.y = _facing_angle
-
-
-func _face_target(delta: float) -> void:
-	if not _lock_target or not is_instance_valid(_lock_target):
-		return
-	var to_target := _lock_target.global_position - global_position
-	to_target.y = 0.0
-	if to_target.length() > 0.1:
-		var target_angle := _get_target_yaw(to_target)
-		_facing_angle = lerp_angle(_facing_angle, target_angle, rotation_speed * delta)
-		rotation.y = _facing_angle
-
-
-## Auto-face during attacks: lock target > nearest enemy > camera forward.
-func _face_attack_direction(delta: float) -> void:
-	if _lock_on_active and _lock_target and is_instance_valid(_lock_target):
-		_face_target(delta)
-		return
-
-	# Auto-target nearest visible enemy within engagement range
-	var best: Node3D = null
-	var best_dist: float = melee_range * 2.5
-	for enemy in GameManager.enemies:
-		if not is_instance_valid(enemy) or not enemy.visible:
-			continue
-		var dist := global_position.distance_to(enemy.global_position)
-		if dist < best_dist:
-			best_dist = dist
-			best = enemy
-
-	if best:
-		var to_enemy := best.global_position - global_position
-		to_enemy.y = 0.0
-		if to_enemy.length() > 0.1:
-			var target_angle := _get_target_yaw(to_enemy)
-			# Fast snap during attacks
-			_facing_angle = lerp_angle(_facing_angle, target_angle, 25.0 * delta)
-			rotation.y = _facing_angle
-		return
-
-	# No enemy nearby — face camera forward direction
-	var cam_fwd := -camera.global_transform.basis.z
-	cam_fwd.y = 0.0
-	if cam_fwd.length() > 0.01:
-		cam_fwd = cam_fwd.normalized()
-		var target_angle := _get_target_yaw(cam_fwd)
-		_facing_angle = lerp_angle(_facing_angle, target_angle, 15.0 * delta)
-		rotation.y = _facing_angle
-
-
-## Apply reduced movement during attack states.
-func _apply_attack_movement(delta: float) -> void:
-	var wish_dir := _get_camera_wish_dir()
-	var speed := run_speed * attack_move_speed_mult
-	if wish_dir.length() > 0.1:
-		var target_vel := wish_dir * speed
-		velocity.x = move_toward(velocity.x, target_vel.x, ground_accel * delta)
-		velocity.z = move_toward(velocity.z, target_vel.z, ground_accel * delta)
-	else:
-		velocity.x = move_toward(velocity.x, 0.0, ground_decel * delta)
-		velocity.z = move_toward(velocity.z, 0.0, ground_decel * delta)
-
-
-# --- Dodge ---
-
-
-func _start_dodge() -> void:
-	var wish := _get_camera_wish_dir()
-	if wish.length() > 0.1:
-		if _lock_on_active and _lock_target and is_instance_valid(_lock_target):
-			# Dodge relative to character facing (strafe dodges when locked on)
-			var input_dir := Input.get_vector(
-				"move_left", "move_right", "move_forward", "move_backward"
-			)
-			_dodge_direction = (
-				(transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
-			)
-		else:
-			_dodge_direction = wish
-	else:
-		# No input: dodge backward relative to facing
-		_dodge_direction = (transform.basis * Vector3(0.0, 0.0, 1.0)).normalized()
-
-	_enter_state(State.DODGE)
-	_state_timer = dodge_duration
-	_is_invincible = true
-	# Stamina deducted server-side
-	if NetworkManager.is_active:
-		NetworkManager.send_ability(3, 0.0, rotation.y)  # ActionDodge
-
-
-func _process_dodge(_delta: float) -> void:
-	velocity.x = _dodge_direction.x * dodge_speed
-	velocity.z = _dodge_direction.z * dodge_speed
-
-	# I-frames end after dodge_iframe_duration
-	var elapsed := dodge_duration - _state_timer
-	if elapsed >= dodge_iframe_duration:
-		_is_invincible = false
-
-	if _state_timer <= 0.0:
-		_is_invincible = false
-		velocity.x *= 0.3
-		velocity.z *= 0.3
-		_enter_state(State.MOVE)
-
-
-# --- Light Attack Combo ---
-
-
-func _start_light_attack(combo_step: int) -> void:
-	_queued_light = false
-	_has_hit_this_attack = false
-	# Stamina deducted server-side
-	# Tell server we're attacking
-	if NetworkManager.is_active:
-		NetworkManager.send_ability(1, 0.0, rotation.y)  # 1 = ActionMelee
-
-	match combo_step:
-		1:
-			_enter_state(State.LIGHT_1)
-			_state_timer = light_duration_1
-		2:
-			_enter_state(State.LIGHT_2)
-			_state_timer = light_duration_2
-		3:
-			_enter_state(State.LIGHT_3)
-			_state_timer = light_duration_3
-
-
-func _process_light_attack(delta: float) -> void:
-	_face_attack_direction(delta)
-
-	var dur := _get_current_light_duration()
-
-	# Reduced movement during attacks — vanguard can reposition while swinging
-	_apply_attack_movement(delta)
-
-	# Buffer next attack
-	if Input.is_action_just_pressed("light_attack"):
-		_queued_light = true
-
-	# Hit at 40% through the swing
-	if not _has_hit_this_attack and _state_timer <= dur * 0.6:
-		_has_hit_this_attack = true
-		_perform_melee_hit(_get_current_light_damage())
-
-	if _state_timer <= 0.0:
-		var next := _get_next_combo_step()
-		if _queued_light and next > 0 and stamina >= light_stamina_cost:
-			_start_light_attack(next)
-		else:
-			_combo_window_timer = light_combo_window
-			_enter_state(State.MOVE)
-
-
-func _get_current_light_damage() -> float:
-	match state:
-		State.LIGHT_1:
-			return light_damage_1
-		State.LIGHT_2:
-			return light_damage_2
-		State.LIGHT_3:
-			return light_damage_3
-	return 0.0
-
-
-func _get_current_light_duration() -> float:
-	match state:
-		State.LIGHT_1:
-			return light_duration_1
-		State.LIGHT_2:
-			return light_duration_2
-		State.LIGHT_3:
-			return light_duration_3
-	return light_duration_1
-
-
-func _get_next_combo_step() -> int:
-	match state:
-		State.LIGHT_1:
-			return 2
-		State.LIGHT_2:
-			return 3
-	return 0
-
-
-# --- Heavy Attack ---
-
-
-func _start_heavy_attack() -> void:
-	_has_hit_this_attack = false
-	# Stamina deducted server-side
-	# Tell server we're heavy attacking
-	if NetworkManager.is_active:
-		NetworkManager.send_ability(2, 0.0, rotation.y)  # 2 = ActionHeavy
-	_enter_state(State.HEAVY_WINDUP)
-	_state_timer = heavy_windup_time
-
-
-func _process_heavy_windup(delta: float) -> void:
-	velocity.x = 0.0
-	velocity.z = 0.0
-	_face_attack_direction(delta)
-	if _state_timer <= 0.0:
-		_enter_state(State.HEAVY)
-		_state_timer = heavy_attack_duration
-
-
-func _process_heavy_attack(delta: float) -> void:
-	_face_attack_direction(delta)
-
-	# Reduced movement during heavy attack
-	_apply_attack_movement(delta)
-
-	if not _has_hit_this_attack and _state_timer <= heavy_attack_duration * 0.5:
-		_has_hit_this_attack = true
-		_perform_melee_hit(heavy_damage)
-	if _state_timer <= 0.0:
-		_enter_state(State.MOVE)
-
-
-# --- Block ---
-
-
-func _process_block(delta: float) -> void:
-	velocity.x = 0.0
-	velocity.z = 0.0
-	_face_attack_direction(delta)
-	_consume_stamina(block_stamina_drain * delta)
-	if not Input.is_action_pressed("block") or stamina <= 0.0:
-		_enter_state(State.MOVE)
+# --- Parry timer (shared between combat states) ---
 
 
 func _update_parry(delta: float) -> void:
@@ -704,339 +371,11 @@ func _update_parry(delta: float) -> void:
 		_parry_timer -= delta
 
 
-# --- Stagger ---
-
-
-func _process_stagger() -> void:
-	velocity.x = 0.0
-	velocity.z = 0.0
-	if _state_timer <= 0.0:
-		_enter_state(State.MOVE)
-
-
-# --- Blade Swirl (Q) ---
-
-
-func _start_blade_swirl() -> void:
-	# Stamina deducted server-side; local gate in _process_move prevents spam
-	_blade_swirl_cooldown = BLADE_SWIRL_COOLDOWN
-	_blade_swirl_timer = BLADE_SWIRL_DURATION
-	_blade_swirl_tick_timer = 0.0
-	_enter_state(State.BLADE_SWIRL)
-	_state_timer = BLADE_SWIRL_DURATION
-	if NetworkManager.is_active:
-		NetworkManager.send_ability(20, 0.0, rotation.y)
-	PlayerTelegraph.spawn_circle(
-		get_tree().current_scene, global_position, 6.0, VANGUARD_TELEGRAPH_COLOR
-	)
-
-
-func _process_blade_swirl(delta: float) -> void:
-	_face_attack_direction(delta)
-
-	# Slow movement while spinning
-	var wish_dir := _get_camera_wish_dir()
-	var speed := run_speed * BLADE_SWIRL_SPEED_MULT
-	if wish_dir.length() > 0.1:
-		var target_vel := wish_dir * speed
-		velocity.x = move_toward(velocity.x, target_vel.x, ground_accel * delta)
-		velocity.z = move_toward(velocity.z, target_vel.z, ground_accel * delta)
-	else:
-		velocity.x = move_toward(velocity.x, 0.0, ground_decel * delta)
-		velocity.z = move_toward(velocity.z, 0.0, ground_decel * delta)
-
-	# Spawn telegraph every 0.5s to show damage ticks
-	_blade_swirl_tick_timer += delta
-	if _blade_swirl_tick_timer >= 0.5:
-		_blade_swirl_tick_timer -= 0.5
-		PlayerTelegraph.spawn_circle(
-			get_tree().current_scene, global_position, 6.0, VANGUARD_TELEGRAPH_COLOR
-		)
-
-	if _state_timer <= 0.0:
-		_enter_state(State.MOVE)
-
-
-# --- Ground Slam (E) ---
-
-
-func _start_ground_slam() -> void:
-	# Stamina deducted server-side; local gate in _process_move prevents spam
-	_enter_state(State.GROUND_SLAM_WINDUP)
-	_state_timer = GROUND_SLAM_WINDUP_TIME
-	if NetworkManager.is_active:
-		NetworkManager.send_ability(21, 0.0, rotation.y)
-
-
-func _process_ground_slam_windup(delta: float) -> void:
-	velocity.x = 0.0
-	velocity.z = 0.0
-	_face_attack_direction(delta)
-	if _state_timer <= 0.0:
-		_enter_state(State.GROUND_SLAM)
-		_state_timer = GROUND_SLAM_HIT_TIME
-		_ground_slam_cooldown = GROUND_SLAM_COOLDOWN
-		PlayerTelegraph.spawn_cone(
-			get_tree().current_scene,
-			global_position,
-			rotation.y,
-			7.0,
-			45.0,
-			VANGUARD_TELEGRAPH_COLOR
-		)
-
-
-func _process_ground_slam(_delta: float) -> void:
-	velocity.x = 0.0
-	velocity.z = 0.0
-	if _state_timer <= 0.0:
-		_enter_state(State.MOVE)
-
-
-# --- Melee Hit Detection ---
-
-
-func _perform_melee_hit(_damage: float) -> void:
-	# Server resolves hits — client only shows optimistic hit marker
-	var forward := -transform.basis.z
-	forward.y = 0.0
-	forward = forward.normalized()
-
-	for enemy in GameManager.enemies:
-		if not is_instance_valid(enemy):
-			continue
-		var to_enemy := enemy.global_position - global_position
-		to_enemy.y = 0.0
-		var dist := to_enemy.length()
-		if dist > melee_range:
-			continue
-		if dist < 0.01:
-			continue  # Hit marker now driven by server-confirmed damage events
-		var angle := rad_to_deg(forward.angle_to(to_enemy.normalized()))
-		if angle <= melee_arc_degrees / 2.0:
-			pass  # Hit marker now driven by server-confirmed damage events
-
-
-# --- Stamina ---
-
-
-func _consume_stamina(amount: float) -> void:
-	stamina -= amount
-	stamina = maxf(stamina, 0.0)
-	_stamina_cooldown_timer = stamina_regen_delay
-
-
-func _update_stamina(_delta: float) -> void:
-	# Stamina is server-authoritative — no client-side prediction.
-	# Value is synced every tick via apply_server_state().
-	pass
-
-
-# --- Lock-on ---
-
-
-func _toggle_lock_on() -> void:
-	if _lock_on_active:
-		# _camera_yaw is already at the auto-computed angle — no snap on unlock
-		_lock_on_active = false
-		_lock_target = null
-		hud.hide_lock_on()
-	else:
-		var target := _find_lock_target()
-		if target:
-			_lock_on_active = true
-			_lock_target = target
-			hud.show_lock_on()
-
-
-func _find_lock_target() -> Node3D:
-	var best: Node3D = null
-	var best_dist: float = 30.0
-	for enemy in GameManager.enemies:
-		if not is_instance_valid(enemy) or not enemy.visible:
-			continue
-		var dist := global_position.distance_to(enemy.global_position)
-		if dist < best_dist:
-			best_dist = dist
-			best = enemy
-	return best
-
-
 # --- Damage (server-authoritative) ---
-# Health is updated via apply_server_state(). These are for compat only.
 
 
 func take_damage(_amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
 	pass  # Server handles all damage
-
-
-# --- Visual feedback ---
-
-
-func _show_body_flash() -> void:
-	character_model.flash_damage()
-
-
-func _update_flash(_delta: float) -> void:
-	pass
-
-
-func _update_animation() -> void:
-	match state:
-		State.DODGE:
-			_net_anim = "roll"
-			_net_anim_speed = 1.0
-			character_model.play_anim_timed("roll", dodge_duration)
-			return
-		State.LIGHT_1:
-			_net_anim = "sword_slash_1"
-			_net_anim_speed = 1.0
-			character_model.play_anim_timed("sword_slash_1", light_duration_1)
-			return
-		State.LIGHT_2:
-			_net_anim = "sword_slash_2"
-			_net_anim_speed = 1.0
-			character_model.play_anim_timed("sword_slash_2", light_duration_2)
-			return
-		State.LIGHT_3:
-			_net_anim = "sword_slash_3"
-			_net_anim_speed = 1.0
-			character_model.play_anim_timed("sword_slash_3", light_duration_3)
-			return
-		State.HEAVY_WINDUP:
-			_net_anim = "sword_heavy"
-			_net_anim_speed = 1.0
-			character_model.play_anim_timed(
-				"sword_heavy", heavy_windup_time + heavy_attack_duration
-			)
-			return
-		State.HEAVY:
-			_net_anim = "sword_heavy"
-			_net_anim_speed = 3.0
-			character_model.set_animation_speed(3.0)
-			return
-		State.BLOCK:
-			_net_anim = "sword_block"
-			_net_anim_speed = 1.0
-			character_model.play_anim("sword_block")
-			return
-		State.STAGGER:
-			_net_anim = "sword_impact"
-			_net_anim_speed = 1.0
-			character_model.play_anim("sword_impact")
-			return
-		State.BLADE_SWIRL:
-			_net_anim = "sword_heavy"
-			_net_anim_speed = 2.0
-			character_model.play_anim("sword_heavy", 2.0)
-			return
-		State.GROUND_SLAM_WINDUP:
-			_net_anim = "sword_heavy"
-			_net_anim_speed = 0.5
-			character_model.play_anim_timed(
-				"sword_heavy", GROUND_SLAM_WINDUP_TIME + GROUND_SLAM_HIT_TIME
-			)
-			return
-		State.GROUND_SLAM:
-			_net_anim = "sword_heavy"
-			_net_anim_speed = 3.0
-			character_model.set_animation_speed(3.0)
-			return
-		State.DEAD:
-			_net_anim = "sword_idle"
-			_net_anim_speed = 1.0
-			character_model.play_anim("sword_idle")
-			return
-
-	if not is_on_floor():
-		_net_anim = "sword_jump"
-		_net_anim_speed = 2.0
-		character_model.play_anim("sword_jump", 2.0)
-		return
-
-	var flat_vel := Vector3(velocity.x, 0.0, velocity.z)
-	if flat_vel.length() > 0.5:
-		var speed_ratio := flat_vel.length() / sprint_speed
-		_net_anim_speed = clampf(speed_ratio, 0.5, 1.5)
-		_net_anim = "sword_run"
-		character_model.play_anim("sword_run", _net_anim_speed)
-	else:
-		_net_anim = "sword_idle"
-		_net_anim_speed = 1.0
-		character_model.play_anim("sword_idle")
-
-
-func _update_weapon_visual() -> void:
-	# Weapon is now bone-attached; skip if not ready yet
-	if not character_model.weapon_node:
-		return
-
-
-# --- Helpers ---
-
-
-func _nearest_enemy_distance() -> float:
-	var best := INF
-	for enemy in GameManager.enemies:
-		if not is_instance_valid(enemy) or not enemy.visible:
-			continue
-		var d := global_position.distance_to(enemy.global_position)
-		if d < best:
-			best = d
-	return best
-
-
-# --- Camera ---
-
-
-func _update_camera() -> void:
-	var player_pos := global_position + Vector3(0.0, camera_height_offset, 0.0)
-	var delta := get_physics_process_delta_time()
-
-	if _lock_on_active and _lock_target and is_instance_valid(_lock_target):
-		# Dark Souls lock-on: camera orbits behind the player, looking toward target.
-		var target_pos := _lock_target.global_position + Vector3(0.0, 1.0, 0.0)
-		var midpoint := player_pos.lerp(target_pos, 0.4)
-
-		# Compute desired yaw: opposite of player-to-target direction (behind the player)
-		var to_target := target_pos - player_pos
-		var desired_yaw := atan2(to_target.x, to_target.z) + PI
-
-		# Smoothly interpolate camera yaw toward the auto-computed angle
-		_camera_yaw = lerp_angle(_camera_yaw, desired_yaw, 6.0 * delta)
-
-		# Auto-adjust pitch based on height difference
-		var height_diff := target_pos.y - player_pos.y
-		var desired_pitch := clampf(-0.2 - height_diff * 0.05, deg_to_rad(-60.0), deg_to_rad(20.0))
-		_camera_pitch = lerp(_camera_pitch, desired_pitch, 4.0 * delta)
-
-		# Position camera behind the player (opposite side from target)
-		var cam_offset := Vector3(0.0, 0.0, camera_distance)
-		cam_offset = cam_offset.rotated(Vector3.RIGHT, _camera_pitch)
-		cam_offset = cam_offset.rotated(Vector3.UP, _camera_yaw)
-		var desired_cam_pos := player_pos + cam_offset
-		camera.global_position = _apply_camera_collision(player_pos, desired_cam_pos)
-		camera.look_at(midpoint, Vector3.UP)
-	else:
-		var cam_offset := Vector3(0.0, 0.0, camera_distance)
-		cam_offset = cam_offset.rotated(Vector3.RIGHT, _camera_pitch)
-		cam_offset = cam_offset.rotated(Vector3.UP, _camera_yaw)
-		var desired_cam_pos := player_pos + cam_offset
-		camera.global_position = _apply_camera_collision(player_pos, desired_cam_pos)
-		camera.look_at(player_pos, Vector3.UP)
-
-
-func _apply_camera_collision(from: Vector3, to: Vector3) -> Vector3:
-	var space := get_world_3d().direct_space_state
-	if not space:
-		return to
-	var query := PhysicsRayQueryParameters3D.create(from, to, 1)  # mask 1 = World layer
-	query.exclude = [get_rid()]
-	var result := space.intersect_ray(query)
-	if result:
-		# Pull camera slightly in front of the hit surface
-		return result.position + (from - to).normalized() * 0.3
-	return to
 
 
 # --- State helpers ---
@@ -1047,4 +386,147 @@ func _enter_state(new_state: State) -> void:
 		State.DODGE:
 			_is_invincible = false
 	state = new_state
-	_has_hit_this_attack = false
+	combat._has_hit_this_attack = false
+
+
+# --- Delegate wrappers for test/bot compatibility ---
+
+
+func _consume_stamina(amount: float) -> void:
+	movement.consume_stamina(amount)
+
+
+func _start_dodge() -> void:
+	combat.start_dodge()
+
+
+func _process_dodge(delta: float) -> void:
+	combat.process_dodge(delta)
+
+
+func _start_light_attack(combo_step: int) -> void:
+	combat.start_light_attack(combo_step)
+
+
+func _process_light_attack(delta: float) -> void:
+	combat.process_light_attack(delta)
+
+
+func _get_current_light_damage() -> float:
+	return combat.get_current_light_damage()
+
+
+func _get_current_light_duration() -> float:
+	return combat.get_current_light_duration()
+
+
+func _get_next_combo_step() -> int:
+	return combat.get_next_combo_step()
+
+
+func _start_heavy_attack() -> void:
+	combat.start_heavy_attack()
+
+
+func _process_heavy_windup(delta: float) -> void:
+	combat.process_heavy_windup(delta)
+
+
+func _process_heavy_attack(delta: float) -> void:
+	combat.process_heavy_attack(delta)
+
+
+func _process_block(delta: float) -> void:
+	combat.process_block(delta)
+
+
+func _process_stagger() -> void:
+	combat.process_stagger()
+
+
+func _start_blade_swirl() -> void:
+	combat.start_blade_swirl()
+
+
+func _process_blade_swirl(delta: float) -> void:
+	combat.process_blade_swirl(delta)
+
+
+func _start_ground_slam() -> void:
+	combat.start_ground_slam()
+
+
+func _process_ground_slam_windup(delta: float) -> void:
+	combat.process_ground_slam_windup(delta)
+
+
+func _process_ground_slam(delta: float) -> void:
+	combat.process_ground_slam(delta)
+
+
+func _perform_melee_hit(damage: float) -> void:
+	combat.perform_melee_hit(damage)
+
+
+func _toggle_lock_on() -> void:
+	cam.toggle_lock_on()
+
+
+func _find_lock_target() -> Node3D:
+	return cam.find_lock_target()
+
+
+func _update_camera() -> void:
+	cam.update_camera()
+
+
+func _apply_camera_collision(from: Vector3, to: Vector3) -> Vector3:
+	return cam.apply_camera_collision(from, to)
+
+
+func _nearest_enemy_distance() -> float:
+	return cam.nearest_enemy_distance()
+
+
+func _update_animation() -> void:
+	anim.update_animation()
+
+
+func _update_weapon_visual() -> void:
+	anim.update_weapon_visual()
+
+
+func _show_body_flash() -> void:
+	anim.show_body_flash()
+
+
+func _update_flash(delta: float) -> void:
+	anim.update_flash(delta)
+
+
+func _get_camera_wish_dir() -> Vector3:
+	return movement.get_camera_wish_dir()
+
+
+func _process_move(delta: float) -> void:
+	movement.process_move(delta)
+
+
+func _update_stamina(delta: float) -> void:
+	movement.update_stamina(delta)
+
+
+func _face_direction(dir: Vector3, delta: float) -> void:
+	movement.face_direction(dir, delta)
+
+
+func _face_target(delta: float) -> void:
+	movement.face_target(delta)
+
+
+func _face_attack_direction(delta: float) -> void:
+	movement.face_attack_direction(delta)
+
+
+func _apply_attack_movement(delta: float) -> void:
+	movement.apply_attack_movement(delta)

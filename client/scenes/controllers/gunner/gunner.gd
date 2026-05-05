@@ -2,6 +2,7 @@ extends CharacterBody3D
 
 ## FPS player controller for the Gunner class.
 ## WASD movement, mouse look, hitscan raycast gun.
+## Sub-systems: weapon, abilities (child nodes).
 
 signal died
 
@@ -21,6 +22,9 @@ const RECHAMBER_BUFF_DURATION: float = 4.0
 const NET_INTERP_SPEED := 15.0
 
 const WEAPON_SCENE := "res://assets/models/weapons/weapon_rifle.glb"
+
+const WeaponScript := preload("res://scenes/controllers/gunner/gunner_weapon.gd")
+const AbilitiesScript := preload("res://scenes/controllers/gunner/gunner_abilities.gd")
 
 # Movement — tuned toward Halo 3 feel
 # H3: no sprint, 7.69 m/s measured base, weighty inertia
@@ -57,6 +61,10 @@ var max_health: float = 150.0
 # Network identity (set by main.gd before add_child)
 var peer_id: int = 0
 
+# Sub-systems
+var weapon: Node
+var abilities: Node
+
 var _alive: bool = true
 var _fire_cooldown: float = 0.0
 var _gravity: float = 8.5
@@ -83,13 +91,6 @@ var _net_anim: String = ""
 var _net_anim_speed: float = 1.0
 var _net_position: Vector3 = Vector3.ZERO
 var _net_rotation_y: float = 0.0
-var _muzzle_flash_timer: float = 0.0
-
-# Viewmodel state
-var _viewmodel: Node3D
-var _viewmodel_weapon: Node3D
-var _recoil_offset: float = 0.0
-var _bob_time: float = 0.0
 
 # Remote fire detection
 var _net_aim_pitch: float = 0.0
@@ -104,6 +105,10 @@ var _net_state: int = 0  # track remote state for attack transition detection
 
 
 func _ready() -> void:
+	# Create sub-systems
+	weapon = _add_subsystem("Weapon", WeaponScript)
+	abilities = _add_subsystem("Abilities", AbilitiesScript)
+
 	GameManager.register_player(self)
 	_net_position = global_position
 	_net_rotation_y = rotation.y
@@ -111,103 +116,25 @@ func _ready() -> void:
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		# FPS: hide own body so it doesn't clip into the camera
 		character_model.hide_model()
-		_attach_weapon.call_deferred()
-		_setup_viewmodel.call_deferred()
+		weapon.attach_weapon.call_deferred()
+		weapon.setup_viewmodel.call_deferred()
 	else:
 		# Remote player: show model, hide HUD, disable camera
 		$HUDLayer.visible = false
 		camera.current = false
 		set_process_unhandled_input(false)
-		_attach_weapon.call_deferred()
+		weapon.attach_weapon.call_deferred()
 
 
-func _attach_weapon() -> void:
-	var offset_pos := _weapon_offset_pos
-	var offset_rot := Vector3(
-		deg_to_rad(_weapon_offset_rot_deg.x),
-		deg_to_rad(_weapon_offset_rot_deg.y),
-		deg_to_rad(_weapon_offset_rot_deg.z)
-	)
-	character_model.attach_weapon(WEAPON_SCENE, "mixamorig_RightHand", offset_pos, offset_rot)
-
-
-func _setup_viewmodel() -> void:
-	_viewmodel = Node3D.new()
-	_viewmodel.name = "Viewmodel"
-	camera.add_child(_viewmodel)
-	_viewmodel.position = _vm_pos
-	_viewmodel.rotation = Vector3(
-		deg_to_rad(_vm_rot_deg.x), deg_to_rad(_vm_rot_deg.y), deg_to_rad(_vm_rot_deg.z)
-	)
-	_viewmodel.scale = _vm_scale
-
-	var weapon_scene := load(WEAPON_SCENE) as PackedScene
-	if weapon_scene:
-		_viewmodel_weapon = weapon_scene.instantiate()
-		_viewmodel.add_child(_viewmodel_weapon)
-
-
-## Spawn a bullet tracer line in world space from origin to end point.
-func _spawn_tracer(from_pos: Vector3, to_pos: Vector3) -> void:
-	var diff := to_pos - from_pos
-	var length := diff.length()
-	if length < 0.1:
-		return
-
-	var dir := diff.normalized()
-	var mid := (from_pos + to_pos) / 2.0
-
-	# Build transform manually — no need for look_at or being in tree
-	var tracer := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = Vector3(0.03, 0.03, length)
-	tracer.mesh = box
-	tracer.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(1.0, 0.95, 0.6, 0.7)
-	mat.emission_enabled = true
-	mat.emission = Color(1.0, 0.85, 0.3)
-	mat.emission_energy_multiplier = 6.0
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	tracer.material_override = mat
-
-	# Orient along the line using a manual basis
-	var up := Vector3.UP
-	if absf(dir.dot(up)) > 0.99:
-		up = Vector3.RIGHT
-	var z_axis := -dir
-	var x_axis := up.cross(z_axis).normalized()
-	var y_axis := z_axis.cross(x_axis).normalized()
-	tracer.transform = Transform3D(Basis(x_axis, y_axis, z_axis), mid)
-
-	var scene_root: Node = get_tree().current_scene if get_tree().current_scene else get_tree().root
-	scene_root.add_child(tracer)
-
-	# Fade out and free
-	var tween := get_tree().create_tween()
-	tween.tween_property(mat, "albedo_color:a", 0.0, 0.12)
-	tween.parallel().tween_property(mat, "emission_energy_multiplier", 0.0, 0.12)
-	tween.tween_callback(tracer.queue_free)
+func _add_subsystem(node_name: String, script: GDScript) -> Node:
+	var node: Node = script.new()
+	node.name = node_name
+	add_child(node)
+	return node
 
 
 func _process(_delta: float) -> void:
-	# Live-update weapon offset from inspector while game runs
-	if character_model.weapon_node:
-		character_model.weapon_node.position = _weapon_offset_pos
-		character_model.weapon_node.rotation = Vector3(
-			deg_to_rad(_weapon_offset_rot_deg.x),
-			deg_to_rad(_weapon_offset_rot_deg.y),
-			deg_to_rad(_weapon_offset_rot_deg.z)
-		)
-	# Live-update viewmodel from inspector
-	if _viewmodel and _is_local():
-		if _recoil_offset <= 0.001:
-			_viewmodel.rotation = Vector3(
-				deg_to_rad(_vm_rot_deg.x), deg_to_rad(_vm_rot_deg.y), deg_to_rad(_vm_rot_deg.z)
-			)
-		_viewmodel.scale = _vm_scale
+	weapon.update_weapon_live()
 
 
 func _exit_tree() -> void:
@@ -252,21 +179,21 @@ func _physics_process(delta: float) -> void:
 	_apply_gravity(delta)
 
 	if _is_rolling:
-		_process_roll(delta)
+		abilities.process_roll(delta)
 	else:
 		_handle_jump()
-		_handle_dodge()
+		abilities.handle_dodge()
 		_handle_movement(delta)
 
 	move_and_slide()
 
 	if not _is_rolling and not Input.is_action_pressed("sprint"):
-		_handle_shooting(delta)
-		_handle_overclock(delta)
-		_handle_rechamber(delta)
+		weapon.handle_shooting(delta)
+		abilities.handle_overclock(delta)
+		abilities.handle_rechamber(delta)
 
-	_update_muzzle_flash(delta)
-	_update_viewmodel(delta)
+	weapon.update_muzzle_flash(delta)
+	weapon.update_viewmodel(delta)
 	_update_animation()
 	(
 		hud
@@ -357,205 +284,6 @@ func _handle_movement(delta: float) -> void:
 	velocity.z = flat_vel.z
 
 
-func _handle_dodge() -> void:
-	if Input.is_action_just_pressed("dodge") and _roll_cooldown_timer <= 0.0 and is_on_floor():
-		_start_roll()
-
-
-func _start_roll() -> void:
-	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
-	if input_dir.length() > 0.1:
-		_roll_direction = (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
-	else:
-		# Default: roll backward (away from where you're looking)
-		_roll_direction = (transform.basis * Vector3(0.0, 0.0, 1.0)).normalized()
-	_is_rolling = true
-	_roll_timer = roll_duration
-	_roll_cooldown_timer = roll_cooldown
-
-
-func _process_roll(delta: float) -> void:
-	_roll_timer -= delta
-	velocity.x = _roll_direction.x * roll_speed
-	velocity.z = _roll_direction.z * roll_speed
-	if _roll_timer <= 0.0:
-		_is_rolling = false
-		# Bleed off some speed coming out of roll
-		velocity.x *= 0.4
-		velocity.z *= 0.4
-
-
-func _handle_shooting(delta: float) -> void:
-	_fire_cooldown -= delta
-	# During rechamber timing window, shoot button confirms the rechamber instead
-	if _rechamber_phase == 2:
-		if (
-			Input.is_action_just_pressed("shoot")
-			and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED
-		):
-			_rechamber_phase = 0
-			_rechamber_buff = true
-			_rechamber_buff_timer = RECHAMBER_BUFF_DURATION
-			if NetworkManager.is_active:
-				NetworkManager.send_ability(12, head.rotation.x, rotation.y)  # RechamberConfirm
-		return
-	# Normal shooting — can't shoot during rechamber windup or lockout
-	if _rechamber_phase != 0:
-		return
-	var current_fire_rate: float = OVERCLOCK_FIRE_RATE if _overclock_active else fire_rate
-	if (
-		Input.is_action_pressed("shoot")
-		and _fire_cooldown <= 0.0
-		and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED
-	):
-		_shoot()
-		_fire_cooldown = current_fire_rate
-
-
-func _shoot() -> void:
-	gun_ray.force_raycast_update()
-	_muzzle_flash_timer = 0.05
-	muzzle_light.visible = true
-	hud.on_shoot()
-	_recoil_offset = 0.06
-
-	# Tracer line from weapon muzzle to hit (or max range)
-	var tracer_from := _get_muzzle_pos()
-	var tracer_to: Vector3
-	if gun_ray.is_colliding():
-		tracer_to = gun_ray.get_collision_point()
-	else:
-		tracer_to = head.global_position + head.global_transform.basis * Vector3(0, 0, -100)
-	_spawn_tracer(tracer_from, tracer_to)
-
-	# Tell server we fired
-	if NetworkManager.is_active:
-		NetworkManager.send_ability(0, head.rotation.x, rotation.y)  # 0 = ActionShoot
-
-
-func _handle_overclock(delta: float) -> void:
-	# Tick timers
-	if _overclock_active:
-		_overclock_timer -= delta
-		if _overclock_timer <= 0.0:
-			_overclock_active = false
-			_overclock_timer = 0.0
-	if _overclock_cooldown > 0.0:
-		_overclock_cooldown -= delta
-	# Activation
-	if (
-		Input.is_action_just_pressed("ability_1")
-		and not _overclock_active
-		and _overclock_cooldown <= 0.0
-	):
-		_overclock_active = true
-		_overclock_timer = OVERCLOCK_DURATION
-		_overclock_cooldown = OVERCLOCK_COOLDOWN
-		if NetworkManager.is_active:
-			NetworkManager.send_ability(10, head.rotation.x, rotation.y)  # ActionOverclock
-
-
-func _get_rechamber_status() -> String:
-	match _rechamber_phase:
-		1:
-			return "..."
-		2:
-			return "FIRE!"
-	return ""
-
-
-func _handle_rechamber(delta: float) -> void:
-	# Tick rechamber buff
-	if _rechamber_buff:
-		_rechamber_buff_timer -= delta
-		if _rechamber_buff_timer <= 0.0:
-			_rechamber_buff = false
-			_rechamber_buff_timer = 0.0
-	# Tick rechamber phases
-	match _rechamber_phase:
-		1:  # Windup
-			_rechamber_timer -= delta
-			if _rechamber_timer <= 0.0:
-				_rechamber_phase = 2
-				_rechamber_timer = RECHAMBER_WINDOW
-		2:  # Timing window — handled in _handle_shooting for confirm
-			_rechamber_timer -= delta
-			if _rechamber_timer <= 0.0:
-				_rechamber_phase = 3
-				_rechamber_timer = RECHAMBER_LOCKOUT
-		3:  # Lockout
-			_rechamber_timer -= delta
-			if _rechamber_timer <= 0.0:
-				_rechamber_phase = 0
-	# Activation — only when idle and not shooting
-	if (
-		Input.is_action_just_pressed("ability_2")
-		and _rechamber_phase == 0
-		and _fire_cooldown <= 0.0
-	):
-		_rechamber_phase = 1
-		_rechamber_timer = RECHAMBER_WINDUP
-		_fire_cooldown = RECHAMBER_WINDUP  # lock out shooting during windup
-		if NetworkManager.is_active:
-			NetworkManager.send_ability(11, head.rotation.x, rotation.y)  # ActionRechamber
-
-
-func _update_muzzle_flash(delta: float) -> void:
-	if _muzzle_flash_timer > 0.0:
-		_muzzle_flash_timer -= delta
-		if _muzzle_flash_timer <= 0.0:
-			muzzle_light.visible = false
-
-
-func _update_viewmodel(delta: float) -> void:
-	if not _viewmodel:
-		return
-	var flat_vel := Vector3(velocity.x, 0.0, velocity.z)
-	var speed := flat_vel.length()
-
-	# Walk bob
-	if speed > 0.5 and is_on_floor():
-		_bob_time += delta * speed * 1.2
-		var bob_y := sin(_bob_time * 2.0) * 0.006
-		var bob_x := cos(_bob_time) * 0.003
-		_viewmodel.position = _vm_pos + Vector3(bob_x, bob_y, 0.0)
-	else:
-		_bob_time = 0.0
-		_viewmodel.position = _viewmodel.position.lerp(_vm_pos, delta * 10.0)
-
-	# Recoil recovery
-	if _recoil_offset > 0.001:
-		_recoil_offset = lerpf(_recoil_offset, 0.0, delta * 18.0)
-	else:
-		_recoil_offset = 0.0
-	_viewmodel.rotation.x = deg_to_rad(_vm_rot_deg.x) - _recoil_offset
-
-
-## Get the muzzle position — from viewmodel for local, from bone weapon for remote.
-func _get_muzzle_pos() -> Vector3:
-	if _is_local() and _viewmodel:
-		return _viewmodel.global_position
-	if character_model.weapon_node and is_instance_valid(character_model.weapon_node):
-		return character_model.weapon_node.global_position
-	return global_position + Vector3(0.0, 1.4, 0.0)
-
-
-## Spawn a tracer for a remote gunner using their synced aim data.
-func _fire_remote_tracer() -> void:
-	# Use the latest server position + shoulder height for a reliable origin.
-	# weapon_node.global_position is stale here (signal handler runs before
-	# _physics_process interpolates the skeleton pose).
-	# Then offset forward along the aim direction to approximate the barrel tip.
-	var shoulder := _net_position + Vector3(0.0, 1.3, 0.0)
-	var fwd := Vector3(0, 0, -1).rotated(Vector3(0, 1, 0), _net_rotation_y)
-	var from_pos := shoulder + fwd * 0.5
-	var dir := Vector3(0, 0, -1)
-	dir = dir.rotated(Vector3(1, 0, 0), _net_aim_pitch)
-	dir = dir.rotated(Vector3(0, 1, 0), _net_rotation_y)
-	var to_pos := from_pos + dir * 100.0
-	_spawn_tracer(from_pos, to_pos)
-
-
 ## Called by main.gd when server confirms this player hit an enemy.
 func on_hit_confirmed(_amount: float) -> void:
 	hud.show_hit_marker()
@@ -563,7 +291,7 @@ func on_hit_confirmed(_amount: float) -> void:
 
 ## Called by main.gd on remote gunners when a damage event confirms they hit something.
 func on_hit_tracer(hit_pos: Vector3) -> void:
-	_spawn_tracer(_get_muzzle_pos(), hit_pos)
+	weapon.spawn_tracer(weapon.get_muzzle_pos(), hit_pos)
 
 
 ## Called by main.gd when the server sends a DAMAGE_EVENT targeting this player.
@@ -603,7 +331,7 @@ func apply_server_state(data: Dictionary) -> void:
 		_net_aim_pitch = data.get("aim_pitch", 0.0)
 		var new_state: int = data.get("state", 0)
 		if new_state == 2 and _net_state != 2:  # transition into attack
-			_fire_remote_tracer()
+			weapon.fire_remote_tracer()
 		_net_state = new_state
 
 
@@ -628,3 +356,34 @@ func _update_animation() -> void:
 		_net_anim = "rifle_idle"
 		_net_anim_speed = 1.0
 		character_model.play_anim("rifle_idle")
+
+
+# --- Delegate wrappers for test/bot compatibility ---
+
+
+func _start_roll() -> void:
+	abilities.start_roll()
+
+
+func _process_roll(delta: float) -> void:
+	abilities.process_roll(delta)
+
+
+func _handle_shooting(delta: float) -> void:
+	weapon.handle_shooting(delta)
+
+
+func _handle_overclock(delta: float) -> void:
+	abilities.handle_overclock(delta)
+
+
+func _handle_rechamber(delta: float) -> void:
+	abilities.handle_rechamber(delta)
+
+
+func _get_rechamber_status() -> String:
+	return abilities.get_rechamber_status()
+
+
+func _spawn_tracer(from_pos: Vector3, to_pos: Vector3) -> void:
+	weapon.spawn_tracer(from_pos, to_pos)
