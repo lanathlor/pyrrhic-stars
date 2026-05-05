@@ -1,6 +1,58 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://scenes/main.gd" id="4"]
+[ext_resource type="Script" path="res://scenes/main/entity_manager.gd" id="entity_mgr"]
+[ext_resource type="Script" path="res://scenes/main/world_state_sync.gd" id="world_sync"]
+[ext_resource type="Script" path="res://scenes/main/hub_interaction.gd" id="hub_interact"]
+[ext_resource type="Script" path="res://scenes/main/group_manager.gd" id="group_mgr"]
+[ext_resource type="Script" path="res://scenes/main/environment_builder.gd" id="env_builder"]
+[ext_resource type="Script" path="res://scenes/main/ui_controller.gd" id="ui_ctrl"]
+[ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="pause_menu"]
+[ext_resource type="PackedScene" path="res://scenes/ui/menu.tscn" id="menu_ui"]
+[ext_resource type="PackedScene" path="res://scenes/ui/character_select.tscn" id="char_select"]
+[ext_resource type="PackedScene" path="res://scenes/ui/character_create.tscn" id="char_create"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hub_hud.tscn" id="hub_hud"]
+[ext_resource type="PackedScene" path="res://scenes/ui/invite_popup.tscn" id="invite_popup"]
+[ext_resource type="PackedScene" path="res://scenes/ui/shared_hud.tscn" id="shared_hud"]
+[ext_resource type="PackedScene" path="res://scenes/ui/death_overlay.tscn" id="death_overlay"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("4")
+
+[node name="EntityManager" type="Node" parent="."]
+script = ExtResource("entity_mgr")
+
+[node name="WorldStateSync" type="Node" parent="."]
+script = ExtResource("world_sync")
+
+[node name="HubInteraction" type="Node" parent="."]
+script = ExtResource("hub_interact")
+
+[node name="GroupManager" type="Node" parent="."]
+script = ExtResource("group_mgr")
+
+[node name="EnvironmentBuilder" type="Node" parent="."]
+script = ExtResource("env_builder")
+
+[node name="UIController" type="Node" parent="."]
+script = ExtResource("ui_ctrl")
+
+[node name="Players" type="Node3D" parent="."]
+
+[node name="Projectiles" type="Node3D" parent="."]
+
+[node name="PauseMenu" parent="." instance=ExtResource("pause_menu")]
+
+[node name="MenuUI" parent="." instance=ExtResource("menu_ui")]
+
+[node name="CharSelectUI" parent="." instance=ExtResource("char_select")]
+
+[node name="CharCreateUI" parent="." instance=ExtResource("char_create")]
+
+[node name="HubHUD" parent="." instance=ExtResource("hub_hud")]
+
+[node name="InvitePopup" parent="." instance=ExtResource("invite_popup")]
+
+[node name="SharedHUD" parent="." instance=ExtResource("shared_hud")]
+
+[node name="DeathOverlay" parent="." instance=ExtResource("death_overlay")]

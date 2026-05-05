@@ -1,4 +1,7 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://scenes/environments/arena/arena_buildings.gd" id="arena_buildings"]
+[ext_resource type="Script" path="res://scenes/environments/arena/dungeon_atmosphere.gd" id="dungeon_atmo"]
 
 [sub_resource type="StandardMaterial3D" id="mat_floor"]
 albedo_color = Color(0.15, 0.15, 0.18, 1)
@@ -47,6 +50,17 @@ fog_density = 0.005
 albedo_color = Color(0.18, 0.18, 0.22, 1)
 roughness = 0.25
 metallic = 0.3
+
+[sub_resource type="StandardMaterial3D" id="mat_hallway_floor"]
+albedo_color = Color(0.12, 0.12, 0.15, 1)
+roughness = 0.3
+metallic = 0.25
+
+[sub_resource type="StandardMaterial3D" id="mat_gate"]
+albedo_color = Color(0.6, 0.15, 0.15, 1)
+emission_enabled = true
+emission = Color(0.5, 0.1, 0.1, 1)
+emission_energy_multiplier = 0.5
 
 [node name="Arena" type="Node3D"]
 
@@ -261,3 +275,90 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.5, 46)
 light_color = Color(0.3, 0.3, 0.55, 1)
 light_energy = 2.5
 omni_range = 12.0
+
+[node name="HallwayFloor" type="CSGBox3D" parent="."]
+size = Vector3(16, 0.5, 28)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 26)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_hallway_floor")
+
+[node name="HallwayWallLeft" type="CSGBox3D" parent="."]
+size = Vector3(0.5, 5, 28)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 2.5, 26)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_wall")
+
+[node name="HallwayWallRight" type="CSGBox3D" parent="."]
+size = Vector3(0.5, 5, 28)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 2.5, 26)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_wall")
+
+[node name="ConnectorWallLeft" type="CSGBox3D" parent="."]
+size = Vector3(12, 5, 0.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14, 2.5, 11.6)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_wall")
+
+[node name="ConnectorWallRight" type="CSGBox3D" parent="."]
+size = Vector3(12, 5, 0.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 2.5, 11.6)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_wall")
+
+[node name="HallwayCover0" type="CSGBox3D" parent="."]
+size = Vector3(2, 1.2, 1)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0.6, 27)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_cover")
+
+[node name="HallwayCover1" type="CSGBox3D" parent="."]
+size = Vector3(2, 1.2, 1)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0.6, 27)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_cover")
+
+[node name="HallwayCover2" type="CSGBox3D" parent="."]
+size = Vector3(2, 1.2, 1)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0.6, 17)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_cover")
+
+[node name="HallwayCover3" type="CSGBox3D" parent="."]
+size = Vector3(2, 1.2, 1)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0.6, 17)
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_cover")
+
+[node name="BossGate" type="CSGBox3D" parent="."]
+size = Vector3(40, 5, 0.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 12)
+visible = false
+use_collision = false
+collision_layer = 1
+collision_mask = 0
+material = SubResource("mat_gate")
+
+[node name="ArenaBuildings" type="Node3D" parent="."]
+script = ExtResource("arena_buildings")
+
+[node name="DungeonAtmosphere" type="Node3D" parent="."]
+script = ExtResource("dungeon_atmo")

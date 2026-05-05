@@ -1,0 +1,78 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scenes/ui/hub_hud.gd" id="script"]
+
+[node name="HubHUD" type="CanvasLayer"]
+layer = 14
+visible = false
+script = ExtResource("script")
+
+[node name="ClassLabel" type="Label" parent="."]
+unique_name_in_owner = true
+anchor_left = 0.0
+anchor_right = 1.0
+anchor_top = 0.0
+anchor_bottom = 0.0
+offset_top = 10.0
+offset_bottom = 60.0
+text = "[1] Gunner  [2] Vanguard  [3] Blade Dancer"
+horizontal_alignment = 1
+
+[node name="StatusLabel" type="Label" parent="."]
+unique_name_in_owner = true
+anchor_left = 0.0
+anchor_right = 1.0
+anchor_top = 0.0
+anchor_bottom = 0.0
+offset_top = 65.0
+offset_bottom = 90.0
+text = "Hub - Walk to the portal to enter the arena"
+horizontal_alignment = 1
+
+[node name="PortalPrompt" type="Label" parent="."]
+unique_name_in_owner = true
+visible = false
+anchor_left = 0.0
+anchor_right = 1.0
+anchor_top = 0.7
+anchor_bottom = 0.75
+text = "Press [E] to enter Arena"
+horizontal_alignment = 1
+
+[node name="LiftPrompt" type="Label" parent="."]
+unique_name_in_owner = true
+visible = false
+anchor_left = 0.0
+anchor_right = 1.0
+anchor_top = 0.65
+anchor_bottom = 0.7
+text = "Press [E] — Go up"
+horizontal_alignment = 1
+
+[node name="GroupPanel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+anchor_left = 0.0
+anchor_right = 0.0
+anchor_top = 0.0
+anchor_bottom = 0.0
+offset_left = 10.0
+offset_top = 80.0
+offset_right = 228.0
+offset_bottom = 220.0
+
+[node name="VBox" type="VBoxContainer" parent="GroupPanel"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="GroupLabel" type="Label" parent="GroupPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "No group\n[G] Create group"
+
+[node name="GroupLeaveBtn" type="Button" parent="GroupPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+visible = false
+custom_minimum_size = Vector2(0, 34)
+text = "Leave Group [G]"

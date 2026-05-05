@@ -69,17 +69,18 @@ var _flash_tween: Tween = null
 
 
 func _ready() -> void:
-	# Load base model (provides mesh + skeleton)
-	var base_scene := load(BASE_MODEL) as PackedScene
-	if not base_scene:
-		push_warning("CharacterModel: could not load base model %s" % BASE_MODEL)
-		return
-
-	var instance := base_scene.instantiate()
-	add_child(instance)
-
-	# Mixamo models face +Z, Godot characters face -Z
-	instance.rotation.y = PI
+	# Base model is a static child (BaseModel) in the scene — find it
+	var instance: Node = get_node_or_null("BaseModel")
+	if not instance:
+		# Fallback: load dynamically (e.g. when instantiated from code without scene)
+		var base_scene := load(BASE_MODEL) as PackedScene
+		if not base_scene:
+			push_warning("CharacterModel: could not load base model %s" % BASE_MODEL)
+			return
+		instance = base_scene.instantiate()
+		instance.name = "BaseModel"
+		instance.rotation.y = PI
+		add_child(instance)
 
 	# Find nodes in the imported scene tree
 	_anim_player = _find_child_of_type(instance, "AnimationPlayer") as AnimationPlayer

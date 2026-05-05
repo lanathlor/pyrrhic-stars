@@ -1,6 +1,7 @@
-[gd_scene load_steps=54 format=3]
+[gd_scene load_steps=55 format=3]
 
 [ext_resource type="Script" path="res://scenes/environments/prime_hub/military_building_collision.gd" id="collision_script"]
+[ext_resource type="Script" path="res://scenes/environments/prime_hub/portal_trail.gd" id="portal_trail_script"]
 [ext_resource type="Script" path="res://scenes/environments/prime_hub/lift.gd" id="lift_script"]
 [ext_resource type="Script" path="res://scenes/environments/prime_hub/spatial_debug.gd" id="spatial_debug"]
 [ext_resource type="Script" path="res://scenes/environments/prime_hub/plaza_collision.gd" id="plaza_collision"]
@@ -3108,3 +3109,11 @@ script = ExtResource("starfield")
 
 [node name="AirTraffic" type="Node3D" parent="."]
 script = ExtResource("air_traffic")
+
+; ================================================================
+; PORTAL TRAIL — guides player toward dungeon portal (hidden by default)
+; ================================================================
+
+[node name="PortalTrail" type="Node3D" parent="."]
+visible = false
+script = ExtResource("portal_trail_script")

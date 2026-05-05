@@ -26,6 +26,7 @@ var _mesh: QuadMesh
 
 
 func _ready() -> void:
+	set_process(false)  # starts hidden; env_builder enables when shown
 	_setup_particles()
 	call_deferred("_bake_navigation")
 

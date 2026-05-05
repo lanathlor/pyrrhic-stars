@@ -73,74 +73,45 @@ const UI_TEXT_MUTED := Color(0.6, 0.66, 0.75, 0.95)
 const UI_TEXT_DIM := Color(0.48, 0.53, 0.6, 0.95)
 const UI_DANGER := Color(0.86, 0.28, 0.28, 0.96)
 
-const EntityManagerScript := preload("res://scenes/main/entity_manager.gd")
-const WorldStateSyncScript := preload("res://scenes/main/world_state_sync.gd")
-const HubInteractionScript := preload("res://scenes/main/hub_interaction.gd")
-const GroupManagerScript := preload("res://scenes/main/group_manager.gd")
-const EnvironmentBuilderScript := preload("res://scenes/main/environment_builder.gd")
-const UiControllerScript := preload("res://scenes/main/ui_controller.gd")
-
 var state: GameState = GameState.MENU
 var paused: bool = false
-
-# Sub-systems
-var entity_mgr: Node
-var world_sync: Node
-var hub_interact: Node
-var group_mgr: Node
-var env_builder: Node
-var ui_ctrl: Node
-
 var _local_class: String = "gunner"
 var _saved_hub_position: Vector3 = Vector3.ZERO
 var _saved_hub_rot_y: float = 0.0
 var _has_saved_state: bool = false
-var _class_button_group: ButtonGroup = ButtonGroup.new()
 var _username: String = ""
 var _player_names: Dictionary = {}  # peer_id -> username
 var _cursor_toggled: bool = false  # backtick toggle state
 var _alt_held: bool = false  # alt hold state
 var _local_player_dead: bool = false
-# Replay system
 var _replay_browser: CanvasLayer = null
 var _replay_scene: Node3D = null
-# Character select data
 var _char_list_data: Dictionary = {}
 var _selected_char_id: int = 0
 var _account_username: String = ""
-# UI element refs (created by ui_ctrl, accessed by other sub-systems)
-var _pause_layer: CanvasLayer
-var _menu_layer: CanvasLayer
 var _username_input: LineEdit
 var _menu_welcome_label: Label
-var _char_select_layer: CanvasLayer
 var _char_list_container: VBoxContainer
 var _enter_world_btn: Button
 var _char_select_welcome: Label
-var _char_create_layer: CanvasLayer
 var _char_create_cards: Dictionary = {}
 var _char_name_input: LineEdit
 var _char_create_error_label: Label
 var _char_create_btn: Button
-var _hub_layer: CanvasLayer
 var _hub_class_label: Label
 var _hub_status_label: Label
 var _portal_prompt: Label
 var _lift_prompt: Label
 var _group_panel: PanelContainer
 var _group_label: Label
-var _group_create_btn: Button
 var _group_leave_btn: Button
-var _invite_popup: CanvasLayer
 var _invite_label: Label
-var _shared_hud_layer: CanvasLayer
 var _shared_hud: Control
 var _map_overlay: Control
-var _death_overlay_layer: CanvasLayer
 var _death_overlay_bg: ColorRect
-var _death_label: Label
 var _respawn_btn: Button
 var _respawn_hub_btn: Button
+
 # Group data (alias for group_mgr access pattern)
 var _group_data: Dictionary:
 	get:
@@ -157,28 +128,92 @@ var _portal_trail: Node3D:
 			return env_builder.portal_trail
 		return null
 
+# Sub-systems (static children in main.tscn)
+@onready var entity_mgr: Node = $EntityManager
+@onready var world_sync: Node = $WorldStateSync
+@onready var hub_interact: Node = $HubInteraction
+@onready var group_mgr: Node = $GroupManager
+@onready var env_builder: Node = $EnvironmentBuilder
+@onready var ui_ctrl: Node = $UIController
+# UI scenes (static instances in main.tscn)
+@onready var _pause_layer: CanvasLayer = $PauseMenu
+@onready var _menu_layer: CanvasLayer = $MenuUI
+@onready var _char_select_layer: CanvasLayer = $CharSelectUI
+@onready var _char_create_layer: CanvasLayer = $CharCreateUI
+@onready var _hub_layer: CanvasLayer = $HubHUD
+@onready var _invite_popup: CanvasLayer = $InvitePopup
+@onready var _shared_hud_layer: CanvasLayer = $SharedHUD
+@onready var _death_overlay_layer: CanvasLayer = $DeathOverlay
+
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
-	# Create sub-systems
-	entity_mgr = _add_subsystem("EntityManager", EntityManagerScript)
-	world_sync = _add_subsystem("WorldStateSync", WorldStateSyncScript)
-	hub_interact = _add_subsystem("HubInteraction", HubInteractionScript)
-	group_mgr = _add_subsystem("GroupManager", GroupManagerScript)
-	env_builder = _add_subsystem("EnvironmentBuilder", EnvironmentBuilderScript)
-	ui_ctrl = _add_subsystem("UIController", UiControllerScript)
+	# Resolve inner UI element references from static scenes
+	_username_input = _menu_layer.username_input
+	_menu_welcome_label = _menu_layer.welcome_label
+	_char_list_container = _char_select_layer.char_list_container
+	_enter_world_btn = _char_select_layer.enter_world_btn
+	_char_select_welcome = _char_select_layer.welcome_label
+	_char_create_cards = _char_create_layer.cards
+	_char_name_input = _char_create_layer.name_input
+	_char_create_error_label = _char_create_layer.error_label
+	_char_create_btn = _char_create_layer.create_btn
+	_hub_class_label = _hub_layer.class_label
+	_hub_status_label = _hub_layer.status_label
+	_portal_prompt = _hub_layer.portal_prompt
+	_lift_prompt = _hub_layer.lift_prompt
+	_group_panel = _hub_layer.group_panel
+	_group_label = _hub_layer.group_label
+	_group_leave_btn = _hub_layer.group_leave_btn
+	_invite_label = _invite_popup.invite_label
+	_shared_hud = _shared_hud_layer.hud
+	_map_overlay = _shared_hud_layer.map_overlay
+	_death_overlay_bg = _death_overlay_layer.background
+	_respawn_btn = _death_overlay_layer.respawn_btn
+	_respawn_hub_btn = _death_overlay_layer.respawn_hub_btn
 
-	# Build all UI
-	ui_ctrl.create_pause_menu()
-	ui_ctrl.create_menu_ui()
-	ui_ctrl.create_char_select_ui()
-	ui_ctrl.create_char_create_ui()
-	ui_ctrl.create_hub_ui()
-	ui_ctrl.create_group_panel()
-	ui_ctrl.create_invite_popup()
-	ui_ctrl.create_shared_hud()
-	ui_ctrl.create_death_overlay()
+	# Connect UI signals
+	_pause_layer.resume_btn.pressed.connect(_toggle_pause)
+	_pause_layer.menu_btn.pressed.connect(
+		func():
+			get_tree().paused = false
+			paused = false
+			entity_mgr.despawn_all_players()
+			_enter_menu()
+	)
+	_pause_layer.quit_btn.pressed.connect(func(): get_tree().quit())
+	_menu_layer.play_btn.pressed.connect(_on_connect_pressed)
+	_menu_layer.replays_btn.pressed.connect(_enter_replay_browser)
+	_char_select_layer.back_btn.pressed.connect(
+		func():
+			NetworkManager.disconnect_game()
+			_enter_menu()
+	)
+	_char_select_layer.create_btn.pressed.connect(_enter_create_character)
+	_enter_world_btn.pressed.connect(_on_enter_world_pressed)
+	_char_create_layer.back_btn.pressed.connect(
+		func():
+			_char_create_layer.visible = false
+			_enter_character_select()
+	)
+	_char_create_btn.pressed.connect(_on_create_character_pressed)
+	_group_leave_btn.pressed.connect(func(): NetworkManager.send_group_leave())
+	_invite_popup.accept_btn.pressed.connect(group_mgr.accept_invite)
+	_invite_popup.decline_btn.pressed.connect(group_mgr.decline_invite)
+	_respawn_btn.pressed.connect(_on_respawn)
+	_respawn_hub_btn.pressed.connect(_on_respawn_hub)
+
+	# Load saved username
+	var saved: String = _load_saved_username()
+	if saved != "":
+		_username = saved
+		_username_input.visible = false
+		_menu_welcome_label.text = "Welcome back, %s" % saved
+		_menu_welcome_label.visible = true
+
+	# Set player names on shared HUD
+	_shared_hud.set_player_names(_player_names)
 
 	# Connect network signals
 	NetworkManager.player_disconnected.connect(_on_net_player_disconnected)
@@ -197,13 +232,6 @@ func _ready() -> void:
 	NetworkManager.character_error_received.connect(_on_character_error)
 
 	_enter_menu()
-
-
-func _add_subsystem(node_name: String, script: GDScript) -> Node:
-	var node: Node = script.new()
-	node.name = node_name
-	add_child(node)
-	return node
 
 
 func _input(event: InputEvent) -> void:
@@ -569,9 +597,6 @@ func _enter_arena_warmup() -> void:
 	if env_builder.current_env == null or env_builder.current_env.name != "Arena":
 		env_builder.unload_environment()
 		env_builder.load_environment(ARENA_SCENE)
-		env_builder.create_hallway_geometry()
-		env_builder.create_atmosphere()
-		env_builder.create_arena_buildings()
 
 
 func _select_class(class_name_str: String) -> void:
@@ -657,9 +682,6 @@ func _on_zone_transfer(zone_type: int, _new_peer_id: int) -> void:
 	if zone_type == NetSerializer.ZONE_TYPE_ARENA:
 		env_builder.unload_environment()
 		env_builder.load_environment(ARENA_SCENE)
-		env_builder.create_hallway_geometry()
-		env_builder.create_atmosphere()
-		env_builder.create_arena_buildings()
 		# Spawn local player in warmup room immediately
 		state = GameState.ARENA_LOBBY
 		_hub_layer.visible = false

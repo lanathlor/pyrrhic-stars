@@ -17,20 +17,12 @@ var spawned_projectiles: Dictionary = {}  # proj_id -> Node3D
 var enemy_nodes: Dictionary = {}  # enemy_id -> CharacterBody3D
 var npc_nodes: Dictionary = {}  # npc_id -> Node3D
 
-var _players_node: Node3D
-var _projectiles_node: Node3D
+@onready var _players_node: Node3D = get_parent().get_node("Players")
+@onready var _projectiles_node: Node3D = get_parent().get_node("Projectiles")
 
 
 func _ready() -> void:
 	ctrl = get_parent()
-
-	_players_node = Node3D.new()
-	_players_node.name = "Players"
-	ctrl.add_child(_players_node)
-
-	_projectiles_node = Node3D.new()
-	_projectiles_node.name = "Projectiles"
-	ctrl.add_child(_projectiles_node)
 
 
 func spawn_player(peer_id: int, class_name_str: String, spawn_pos: Vector3) -> void:

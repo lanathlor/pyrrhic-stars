@@ -9,8 +9,6 @@ var ctrl: Node
 
 var current_env: Node3D = null
 var boss_gate: CSGBox3D
-var atmosphere: Node3D
-var arena_buildings: Node3D
 var exit_portal: CSGCylinder3D = null
 var portal_trail: Node3D
 
@@ -26,6 +24,11 @@ func load_environment(scene_path: String) -> void:
 	var scene: PackedScene = load(scene_path) as PackedScene
 	current_env = scene.instantiate()
 	ctrl.add_child(current_env)
+	# Grab boss gate reference from arena scene
+	if current_env.has_node("BossGate"):
+		boss_gate = current_env.get_node("BossGate") as CSGBox3D
+	else:
+		boss_gate = null
 	if ctrl._shared_hud:
 		ctrl._shared_hud.set_environment(current_env)
 	print("[Main] Loaded environment: %s" % scene_path)
@@ -37,140 +40,8 @@ func unload_environment() -> void:
 		current_env = null
 	ctrl.entity_mgr.clear_all_enemies()
 	ctrl.entity_mgr.clear_all_npcs()
-	if boss_gate and is_instance_valid(boss_gate):
-		boss_gate.queue_free()
 	boss_gate = null
-	atmosphere = null
-	if arena_buildings and is_instance_valid(arena_buildings):
-		arena_buildings.queue_free()
-	arena_buildings = null
 	remove_portal_trail()
-
-
-func create_hallway_geometry() -> void:
-	# Hallway connects warmup room (Z 40-52) to boss room (Z -14.5 to 12).
-	# Hallway spans Z 12 to 40, X -8 to 8 (narrower corridor).
-	var mat_floor := StandardMaterial3D.new()
-	mat_floor.albedo_color = Color(0.12, 0.12, 0.15)
-	mat_floor.roughness = 0.3
-	mat_floor.metallic = 0.25
-	var mat_wall := StandardMaterial3D.new()
-	mat_wall.albedo_color = Color(0.18, 0.18, 0.22)
-	mat_wall.roughness = 0.75
-	var mat_cover := StandardMaterial3D.new()
-	mat_cover.albedo_color = Color(0.16, 0.18, 0.22)
-	mat_cover.roughness = 0.7
-
-	# Hallway floor (16 wide x 28 deep)
-	var hall_floor := CSGBox3D.new()
-	hall_floor.name = "HallwayFloor"
-	hall_floor.size = Vector3(16.0, 0.5, 28.0)
-	hall_floor.transform.origin = Vector3(0.0, -0.25, 26.0)
-	hall_floor.use_collision = true
-	hall_floor.collision_layer = 1
-	hall_floor.collision_mask = 0
-	hall_floor.material = mat_floor
-	current_env.add_child(hall_floor)
-
-	# Hallway left wall
-	var hall_wall_l := CSGBox3D.new()
-	hall_wall_l.name = "HallwayWallLeft"
-	hall_wall_l.size = Vector3(0.5, 5.0, 28.0)
-	hall_wall_l.transform.origin = Vector3(-8.0, 2.5, 26.0)
-	hall_wall_l.use_collision = true
-	hall_wall_l.collision_layer = 1
-	hall_wall_l.collision_mask = 0
-	hall_wall_l.material = mat_wall
-	current_env.add_child(hall_wall_l)
-
-	# Hallway right wall
-	var hall_wall_r := CSGBox3D.new()
-	hall_wall_r.name = "HallwayWallRight"
-	hall_wall_r.size = Vector3(0.5, 5.0, 28.0)
-	hall_wall_r.transform.origin = Vector3(8.0, 2.5, 26.0)
-	hall_wall_r.use_collision = true
-	hall_wall_r.collision_layer = 1
-	hall_wall_r.collision_mask = 0
-	hall_wall_r.material = mat_wall
-	current_env.add_child(hall_wall_r)
-
-	# Connector walls: fill the gap between hallway (X 8) and boss room (X 20)
-	# Left connector at Z=12
-	var conn_wall_l := CSGBox3D.new()
-	conn_wall_l.name = "ConnectorWallLeft"
-	conn_wall_l.size = Vector3(12.0, 5.0, 0.5)
-	conn_wall_l.transform.origin = Vector3(-14.0, 2.5, 11.6)
-	conn_wall_l.use_collision = true
-	conn_wall_l.collision_layer = 1
-	conn_wall_l.collision_mask = 0
-	conn_wall_l.material = mat_wall
-	current_env.add_child(conn_wall_l)
-
-	# Right connector at Z=12
-	var conn_wall_r := CSGBox3D.new()
-	conn_wall_r.name = "ConnectorWallRight"
-	conn_wall_r.size = Vector3(12.0, 5.0, 0.5)
-	conn_wall_r.transform.origin = Vector3(14.0, 2.5, 11.6)
-	conn_wall_r.use_collision = true
-	conn_wall_r.collision_layer = 1
-	conn_wall_r.collision_mask = 0
-	conn_wall_r.material = mat_wall
-	current_env.add_child(conn_wall_r)
-
-	# Hallway cover obstacles (matching server hallway obstacles)
-	var cover_positions := [
-		Vector3(-4.0, 0.6, 27.0),
-		Vector3(4.0, 0.6, 27.0),
-		Vector3(-4.0, 0.6, 17.0),
-		Vector3(4.0, 0.6, 17.0),
-	]
-	for i in cover_positions.size():
-		var cover := CSGBox3D.new()
-		cover.name = "HallwayCover%d" % i
-		cover.size = Vector3(2.0, 1.2, 1.0)
-		cover.transform.origin = cover_positions[i]
-		cover.use_collision = true
-		cover.collision_layer = 1
-		cover.collision_mask = 0
-		cover.material = mat_cover
-		current_env.add_child(cover)
-
-	# Boss room gate at Z=12 (hidden by default, closes when boss aggros)
-	boss_gate = CSGBox3D.new()
-	boss_gate.size = Vector3(40.0, 5.0, 0.5)
-	boss_gate.transform.origin = Vector3(0.0, 2.5, BOSS_ROOM_ENTRY_Z)
-	boss_gate.use_collision = true
-	boss_gate.collision_layer = 1
-	boss_gate.collision_mask = 0
-	var gate_mat := StandardMaterial3D.new()
-	gate_mat.albedo_color = Color(0.6, 0.15, 0.15)
-	gate_mat.emission_enabled = true
-	gate_mat.emission = Color(0.5, 0.1, 0.1)
-	gate_mat.emission_energy_multiplier = 0.5
-	boss_gate.material = gate_mat
-	boss_gate.visible = false
-	boss_gate.use_collision = false
-	current_env.add_child(boss_gate)
-
-
-func create_arena_buildings() -> void:
-	if arena_buildings and is_instance_valid(arena_buildings):
-		arena_buildings.queue_free()
-	var buildings_script: GDScript = load("res://scenes/environments/arena/arena_buildings.gd")
-	arena_buildings = Node3D.new()
-	arena_buildings.name = "ArenaBuildings"
-	arena_buildings.set_script(buildings_script)
-	current_env.add_child(arena_buildings)
-
-
-func create_atmosphere() -> void:
-	if atmosphere and is_instance_valid(atmosphere):
-		atmosphere.queue_free()
-	var atmosphere_script: GDScript = load("res://scenes/environments/arena/dungeon_atmosphere.gd")
-	atmosphere = Node3D.new()
-	atmosphere.name = "DungeonAtmosphere"
-	atmosphere.set_script(atmosphere_script)
-	current_env.add_child(atmosphere)
 
 
 func close_boss_gate() -> void:
@@ -264,17 +135,18 @@ func is_near_exit_portal() -> bool:
 
 
 func create_portal_trail() -> void:
-	remove_portal_trail()
-	var trail_script: GDScript = load("res://scenes/environments/prime_hub/portal_trail.gd")
-	portal_trail = Node3D.new()
-	portal_trail.name = "PortalTrail"
-	portal_trail.set_script(trail_script)
-	ctrl.add_child(portal_trail)
+	if current_env and current_env.has_node("PortalTrail"):
+		portal_trail = current_env.get_node("PortalTrail")
+		portal_trail.visible = true
+		portal_trail.set_process(true)
+	else:
+		portal_trail = null
 
 
 func remove_portal_trail() -> void:
 	if portal_trail and is_instance_valid(portal_trail):
-		portal_trail.queue_free()
+		portal_trail.visible = false
+		portal_trail.set_process(false)
 	portal_trail = null
 
 

@@ -1,0 +1,26 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scenes/ui/shared_hud_layer.gd" id="script"]
+[ext_resource type="Script" path="res://scenes/shared/hud/shared_hud.gd" id="shared_hud"]
+[ext_resource type="Script" path="res://scenes/shared/hud/map_overlay.gd" id="map_overlay"]
+
+[node name="SharedHUD" type="CanvasLayer"]
+layer = 9
+script = ExtResource("script")
+
+[node name="HUD" type="Control" parent="."]
+unique_name_in_owner = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("shared_hud")
+
+[node name="MapOverlay" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("map_overlay")
