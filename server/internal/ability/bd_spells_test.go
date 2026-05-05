@@ -28,10 +28,10 @@ func TestBDSpells_WrongConfigBlocked(t *testing.T) {
 	eng := NewEngine(nil)
 
 	tests := []struct {
-		spell     string
-		wrongCfg  int
+		spell    string
+		wrongCfg int
 	}{
-		{"shielded_sweep", entity.ConfigFan},      // needs orbit
+		{"shielded_sweep", entity.ConfigFan},       // needs orbit
 		{"reaping_guard", entity.ConfigOrbit},      // needs fan
 		{"piercing_barrier", entity.ConfigScatter}, // needs lance
 		{"dispersed_shield", entity.ConfigCrown},   // needs scatter

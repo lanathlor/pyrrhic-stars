@@ -3,7 +3,7 @@ package ability
 import "codex-online/server/internal/entity"
 
 var vgBlockDef = AbilityDef{
-	ID:      "vg_block", Name: "Block",
+	ID: "vg_block", Name: "Block",
 	Handler: "vg_block",
 }
 

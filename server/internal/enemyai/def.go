@@ -7,9 +7,9 @@ type AbilityType uint8
 
 const (
 	AbilityMelee  AbilityType = iota // arc check, hit all in range
-	AbilityRanged                     // spawn projectiles toward target
-	AbilityAoE                        // radius check centered on enemy
-	AbilityCharge                     // linear dash, hit along path
+	AbilityRanged                    // spawn projectiles toward target
+	AbilityAoE                       // radius check centered on enemy
+	AbilityCharge                    // linear dash, hit along path
 )
 
 // TargetStrategy controls who the ability targets.
@@ -17,8 +17,8 @@ type TargetStrategy uint8
 
 const (
 	TargetNearest  TargetStrategy = iota // nearest alive player
-	TargetFarthest                        // farthest alive player
-	TargetCurrent                         // keep current chase target
+	TargetFarthest                       // farthest alive player
+	TargetCurrent                        // keep current chase target
 )
 
 // AbilityDef declares a single enemy ability.
@@ -62,7 +62,7 @@ type AbilityDef struct {
 	// Charge-specific
 	ChargeSpeed          float32
 	ChargeDamage         float32
-	ChargeMaxDistance     float32
+	ChargeMaxDistance    float32
 	ChargeHitRadius      float32
 	ChargeStopOnWall     bool
 	ChargeStopOnObstacle bool
@@ -101,13 +101,13 @@ type PhaseDef struct {
 // AbilityOverride lets a phase modify specific fields of an ability.
 // Nil pointers mean "use the base definition."
 type AbilityOverride struct {
-	TelegraphTime    *float32
-	Damage           *float32 // overrides MeleeDamage, AoEDamage, ChargeDamage, or ProjectileDamage
-	ProjectileCount  *int
-	AoERadius        *float32
-	ChargeSpeed      *float32
+	TelegraphTime     *float32
+	Damage            *float32 // overrides MeleeDamage, AoEDamage, ChargeDamage, or ProjectileDamage
+	ProjectileCount   *int
+	AoERadius         *float32
+	ChargeSpeed       *float32
 	ChargeMaxDistance *float32
-	CooldownTime     *float32
+	CooldownTime      *float32
 }
 
 // EnemyDef declares a complete enemy type.

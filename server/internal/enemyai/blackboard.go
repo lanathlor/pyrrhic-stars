@@ -38,13 +38,13 @@ func (bb *Blackboard) TickTimers(dt float32) {
 
 // --- Flags ---
 
-func (bb *Blackboard) GetFlag(key string) bool    { return bb.flags[key] }
-func (bb *Blackboard) SetFlag(key string)          { bb.flags[key] = true }
-func (bb *Blackboard) ClearFlag(key string)        { delete(bb.flags, key) }
+func (bb *Blackboard) GetFlag(key string) bool { return bb.flags[key] }
+func (bb *Blackboard) SetFlag(key string)      { bb.flags[key] = true }
+func (bb *Blackboard) ClearFlag(key string)    { delete(bb.flags, key) }
 
 // --- Counters ---
 
-func (bb *Blackboard) GetCounter(key string) int   { return bb.counters[key] }
+func (bb *Blackboard) GetCounter(key string) int    { return bb.counters[key] }
 func (bb *Blackboard) SetCounter(key string, v int) { bb.counters[key] = v }
 func (bb *Blackboard) IncrementCounter(key string)  { bb.counters[key]++ }
 
@@ -86,9 +86,9 @@ func (bb *Blackboard) TimerRemaining(key string) float32 {
 
 // --- Arbitrary values ---
 
-func (bb *Blackboard) Set(key string, v any)    { bb.values[key] = v }
-func (bb *Blackboard) Get(key string) any       { return bb.values[key] }
-func (bb *Blackboard) Delete(key string)         { delete(bb.values, key) }
+func (bb *Blackboard) Set(key string, v any) { bb.values[key] = v }
+func (bb *Blackboard) Get(key string) any    { return bb.values[key] }
+func (bb *Blackboard) Delete(key string)     { delete(bb.values, key) }
 
 func (bb *Blackboard) GetFloat32(key string) float32 {
 	if v, ok := bb.values[key].(float32); ok {

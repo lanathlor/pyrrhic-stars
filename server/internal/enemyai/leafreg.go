@@ -28,17 +28,17 @@ var leafRegistry = map[string]leafEntry{
 	"active_ability_is_charge": {isCond: true, cond: condActiveAbilityIsCharge},
 
 	// Actions
-	"stop":             {action: actionStop},
-	"aggro_nearest":    {action: actionAggroNearest},
-	"wait_transition":  {action: actionWaitTransition},
-	"leash_reset":      {action: actionLeashReset},
-	"patrol":           {action: actionPatrol},
-	"chase":            {action: actionChase},
-	"select_ability":   {action: actionSelectAbility},
-	"telegraph":        {action: actionTelegraph},
-	"execute_ability":  {action: actionExecuteAbility},
-	"charge_dash":      {action: actionChargeDash},
-	"cooldown":         {action: actionCooldown},
+	"stop":            {action: actionStop},
+	"aggro_nearest":   {action: actionAggroNearest},
+	"wait_transition": {action: actionWaitTransition},
+	"leash_reset":     {action: actionLeashReset},
+	"patrol":          {action: actionPatrol},
+	"chase":           {action: actionChase},
+	"select_ability":  {action: actionSelectAbility},
+	"telegraph":       {action: actionTelegraph},
+	"execute_ability": {action: actionExecuteAbility},
+	"charge_dash":     {action: actionChargeDash},
+	"cooldown":        {action: actionCooldown},
 }
 
 // paramFactories maps parameterized leaf base names to factories that accept

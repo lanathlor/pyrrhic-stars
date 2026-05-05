@@ -3,7 +3,7 @@ package ability
 import "codex-online/server/internal/entity"
 
 var overclockDef = AbilityDef{
-	ID:      "overclock", Name: "Overclock",
+	ID: "overclock", Name: "Overclock",
 	Handler: "overclock",
 }
 

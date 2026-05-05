@@ -6,7 +6,7 @@ import (
 )
 
 var meleeHeavyDef = AbilityDef{
-	ID:         "melee_heavy", Name: "Heavy Attack",
+	ID: "melee_heavy", Name: "Heavy Attack",
 	Hit:        HitDef{Type: HitMeleeArc, Range: 6, ArcDegrees: 120},
 	BaseDamage: 45,
 	Handler:    "melee_heavy_vg",

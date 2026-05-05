@@ -11,10 +11,10 @@ import (
 // nopHandler is a slog.Handler that discards all output with zero allocations.
 type nopHandler struct{}
 
-func (nopHandler) Enabled(context.Context, slog.Level) bool { return false }
+func (nopHandler) Enabled(context.Context, slog.Level) bool  { return false }
 func (nopHandler) Handle(context.Context, slog.Record) error { return nil }
 func (nopHandler) WithAttrs([]slog.Attr) slog.Handler        { return nopHandler{} }
-func (nopHandler) WithGroup(string) slog.Handler              { return nopHandler{} }
+func (nopHandler) WithGroup(string) slog.Handler             { return nopHandler{} }
 
 // HandlerFunc is a Go function that handles complex ability execution.
 type HandlerFunc func(eng *Engine, ctx *CastContext) CastResult

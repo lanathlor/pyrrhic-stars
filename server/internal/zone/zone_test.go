@@ -84,9 +84,9 @@ func setupFightZone(t *testing.T) (*Zone, uint16) {
 // player ability inputs during processTick are NOT cleared before broadcast.
 //
 // This is a regression test for a bug where processTick:
-//   1. Processed inputs (handleAbilityInput -> appended to damageEvents)
-//   2. Cleared damageEvents at the start of tickFight
-//   3. Broadcast damageEvents (now empty -- player events lost)
+//  1. Processed inputs (handleAbilityInput -> appended to damageEvents)
+//  2. Cleared damageEvents at the start of tickFight
+//  3. Broadcast damageEvents (now empty -- player events lost)
 func TestPlayerDamageEventsSurviveTick(t *testing.T) {
 	z, peerID := setupFightZone(t)
 
@@ -706,7 +706,7 @@ func extractPlayerState(msg []byte, wantPeer uint16) int {
 			return -1
 		}
 		animLen := int(payload[off])
-		off++ // anim_len
+		off++          // anim_len
 		off += animLen // anim bytes
 		off += 4       // anim_speed
 		off += 4       // aim_pitch

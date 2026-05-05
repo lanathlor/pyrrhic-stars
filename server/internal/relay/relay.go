@@ -41,10 +41,10 @@ type Relay struct {
 	mu    sync.RWMutex
 
 	// Metrics instruments.
-	connGauge      metric.Int64UpDownCounter
-	msgCounter     metric.Int64Counter
-	zoneGauge      metric.Int64UpDownCounter
-	msgSizeHisto   metric.Int64Histogram
+	connGauge    metric.Int64UpDownCounter
+	msgCounter   metric.Int64Counter
+	zoneGauge    metric.Int64UpDownCounter
+	msgSizeHisto metric.Int64Histogram
 }
 
 // New creates a new Relay with OTel metric instruments.

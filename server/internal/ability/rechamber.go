@@ -3,18 +3,18 @@ package ability
 import "codex-online/server/internal/entity"
 
 var rechamberDef = AbilityDef{
-	ID:      "rechamber", Name: "Rechamber",
+	ID: "rechamber", Name: "Rechamber",
 	Handler: "rechamber",
 }
 
 var rechamberConfirmDef = AbilityDef{
-	ID:      "rechamber_confirm", Name: "Rechamber Confirm",
+	ID: "rechamber_confirm", Name: "Rechamber Confirm",
 	Handler: "rechamber_confirm",
 }
 
 // RechamberState tracks the rechamber phase machine for a gunner.
 type RechamberState struct {
-	Phase uint8   // 0=idle, 1=windup, 2=timing_window, 3=lockout
+	Phase uint8 // 0=idle, 1=windup, 2=timing_window, 3=lockout
 	Timer float32
 }
 

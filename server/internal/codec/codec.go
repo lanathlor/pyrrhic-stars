@@ -11,9 +11,9 @@ import (
 // PlayerInputMsg is the decoded client movement packet.
 type PlayerInputMsg struct {
 	PosX, PosY, PosZ, RotY float32
-	Tick                    uint32
-	AnimName                string
-	AnimSpeed, AimPitch     float32
+	Tick                   uint32
+	AnimName               string
+	AnimSpeed, AimPitch    float32
 }
 
 // AbilityInputMsg is the decoded ability activation packet.

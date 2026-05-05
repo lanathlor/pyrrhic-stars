@@ -13,10 +13,10 @@ type User struct {
 // Character represents a named character belonging to a user.
 // A user may have multiple characters of the same class.
 type Character struct {
-	ID        uint      `gorm:"primaryKey"`
-	UserID    string    `gorm:"size:36;index"`
-	ClassName string    `gorm:"size:20"`
-	Name      string    `gorm:"size:20;uniqueIndex"`
+	ID        uint   `gorm:"primaryKey"`
+	UserID    string `gorm:"size:36;index"`
+	ClassName string `gorm:"size:20"`
+	Name      string `gorm:"size:20;uniqueIndex"`
 	PosX      float64
 	PosY      float64
 	PosZ      float64

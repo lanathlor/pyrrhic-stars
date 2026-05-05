@@ -20,8 +20,8 @@ type NPC struct {
 	DefName string
 
 	// Movement
-	Speed     float32
-	Waypoints []Vec3
+	Speed       float32
+	Waypoints   []Vec3
 	WaypointIdx int // current target waypoint
 
 	// Idle timer: when > 0 the NPC stands still

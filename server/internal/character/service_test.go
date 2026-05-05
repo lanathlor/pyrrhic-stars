@@ -9,10 +9,10 @@ import (
 
 // stubRepo implements persistence.Repository for testing.
 type stubRepo struct {
-	chars     map[uint]*persistence.Character
+	chars      map[uint]*persistence.Character
 	namesTaken map[string]bool
-	charCount int64
-	createErr error
+	charCount  int64
+	createErr  error
 }
 
 func newStubRepo() *stubRepo {
@@ -22,10 +22,12 @@ func newStubRepo() *stubRepo {
 	}
 }
 
-func (r *stubRepo) UpsertUser(string, string) error                        { return nil }
-func (r *stubRepo) GetUser(string) (*persistence.User, error)              { return nil, nil }
-func (r *stubRepo) UpdateCharacterPosition(uint, float64, float64, float64, float64) error { return nil }
-func (r *stubRepo) GetCharacters(string) ([]*persistence.Character, error)     { return nil, nil }
+func (r *stubRepo) UpsertUser(string, string) error           { return nil }
+func (r *stubRepo) GetUser(string) (*persistence.User, error) { return nil, nil }
+func (r *stubRepo) UpdateCharacterPosition(uint, float64, float64, float64, float64) error {
+	return nil
+}
+func (r *stubRepo) GetCharacters(string) ([]*persistence.Character, error) { return nil, nil }
 
 func (r *stubRepo) GetCharacterByID(id uint) (*persistence.Character, error) {
 	c, ok := r.chars[id]
@@ -59,10 +61,10 @@ func TestSelect(t *testing.T) {
 	svc := NewService(repo)
 
 	tests := []struct {
-		name      string
-		charID    uint
-		playerID  string
-		wantErr   error
+		name     string
+		charID   uint
+		playerID string
+		wantErr  error
 	}{
 		{"valid", 1, "player-1", nil},
 		{"wrong owner", 1, "player-2", ErrNotFound},

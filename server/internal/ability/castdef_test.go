@@ -253,8 +253,8 @@ func TestCastDef_EnemyCaster_SkipsResourceCheck(t *testing.T) {
 	e := newEnemyCaster(200, 1000)
 
 	def := &AbilityDef{
-		ID:   "enemy_ability",
-		Hit:  HitDef{Type: HitNone},
+		ID:    "enemy_ability",
+		Hit:   HitDef{Type: HitNone},
 		Costs: []ResourceCost{{Resource: "stamina", Amount: 999}},
 	}
 
@@ -383,8 +383,8 @@ func TestResolveAoECone_EnemyRotated(t *testing.T) {
 	e := newEnemyCaster(200, 1000)
 	e.RotationY = float32(-math.Pi / 2) // facing +X
 
-	pRight := playerTarget(1, entity.Vec3{X: 3, Y: 0.1, Z: 0})   // in front (+X)
-	pLeft := playerTarget(2, entity.Vec3{X: -3, Y: 0.1, Z: 0})    // behind (-X)
+	pRight := playerTarget(1, entity.Vec3{X: 3, Y: 0.1, Z: 0}) // in front (+X)
+	pLeft := playerTarget(2, entity.Vec3{X: -3, Y: 0.1, Z: 0}) // behind (-X)
 
 	hit := HitDef{Type: HitAoECone, Range: 5.0, ArcDegrees: 180}
 	results := resolveAoECone(nil, e, []entity.Target{pRight, pLeft}, nil, hit, 25, 0)

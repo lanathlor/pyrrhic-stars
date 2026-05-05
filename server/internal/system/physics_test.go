@@ -23,7 +23,7 @@ func TestPhysicsProjectileMovement(t *testing.T) {
 	w := makePhysicsWorld()
 	proj := entity.NewProjectile(1, 0, -1,
 		entity.Vec3{X: 0, Y: 1.5, Z: 25}, // in hallway, clear of obstacles
-		entity.Vec3{X: 0, Z: -1},          // moving -Z
+		entity.Vec3{X: 0, Z: -1},         // moving -Z
 		20, 10, 5.0)
 	w.Projectiles = []*entity.Projectile{proj}
 

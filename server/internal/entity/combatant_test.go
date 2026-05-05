@@ -33,10 +33,10 @@ func TestEnemyCasterPos(t *testing.T) {
 
 func TestEnemyCasterForward(t *testing.T) {
 	tests := []struct {
-		name        string
-		rotY        float32
-		wantX       float32
-		wantZ       float32
+		name  string
+		rotY  float32
+		wantX float32
+		wantZ float32
 	}{
 		{"facing -Z (default)", 0, 0, -1},
 		{"facing -X", float32(math.Pi / 2), -1, 0},

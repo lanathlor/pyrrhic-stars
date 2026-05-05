@@ -16,13 +16,13 @@ func testCtx(def *EnemyDef, e *entity.Enemy, players []*entity.Player) *EntityCo
 	bb := NewBlackboard()
 	events := &[]combat.DamageEvent{}
 	ctx := &EntityContext{
-		Enemy:   e,
-		Def:     def,
-		Engine:  ability.NewEngine(nil),
-		BB:      bb,
-		Players: players,
-		Dt:      0.05,
-		Events:  events,
+		Enemy:      e,
+		Def:        def,
+		Engine:     ability.NewEngine(nil),
+		BB:         bb,
+		Players:    players,
+		Dt:         0.05,
+		Events:     events,
 		BoundsMinX: -20, BoundsMaxX: 20,
 		BoundsMinZ: -15, BoundsMaxZ: 50,
 		SpawnFn: func(_, _ entity.Vec3, _, _, _ float32) {},
@@ -922,7 +922,7 @@ func TestAction_ChargeDash_HitsPlayerOnce(t *testing.T) {
 			{
 				Name: "charge", Type: AbilityCharge,
 				ChargeSpeed: 10, ChargeDamage: 20, ChargeMaxDistance: 100,
-				ChargeHitRadius: 3.0,
+				ChargeHitRadius:  3.0,
 				DamageSourceType: SourceEnemyCharge,
 			},
 		},
@@ -1000,4 +1000,3 @@ func TestAction_Cooldown_FailsWhenAborted(t *testing.T) {
 		t.Errorf("should fail when dead, got %v", r)
 	}
 }
-

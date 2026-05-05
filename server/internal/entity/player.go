@@ -315,9 +315,9 @@ func (p *Player) AimDirection() Vec3 {
 
 // --- Caster interface (overrides for player-specific behavior) ---
 
-func (p *Player) CasterEyePos() Vec3          { return p.EyePosition() }
-func (p *Player) CasterAimDir() Vec3          { return p.AimDirection() }
-func (p *Player) CasterDamageMult() float32   { return p.DamageMult() }
+func (p *Player) CasterEyePos() Vec3        { return p.EyePosition() }
+func (p *Player) CasterAimDir() Vec3        { return p.AimDirection() }
+func (p *Player) CasterDamageMult() float32 { return p.DamageMult() }
 
 // --- Target interface (overrides for player-specific behavior) ---
 

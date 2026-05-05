@@ -189,7 +189,7 @@ func TestCheckHitscanAngles(t *testing.T) {
 			name:   "side eye height level aim (no pitch)",
 			origin: entity.Vec3{X: 10, Y: eyeY, Z: 0},
 			dir:    entity.Vec3{X: -1, Y: 0, Z: 0}, // pure horizontal
-			want:   true, // Y=1.6 is within cylinder [0, 2.5]
+			want:   true,                           // Y=1.6 is within cylinder [0, 2.5]
 		},
 		// === Close range side, aim slightly past center ===
 		{
@@ -316,7 +316,7 @@ func TestCheckMeleeArc(t *testing.T) {
 			name:     "target at 50 deg (within 120 arc)",
 			attacker: entity.Vec3{},
 			forward:  entity.Vec3{Z: 1},
-			target:   entity.Vec3{X: float32(math.Sin(50.0 * math.Pi / 180.0)) * 2, Z: float32(math.Cos(50.0*math.Pi/180.0)) * 2},
+			target:   entity.Vec3{X: float32(math.Sin(50.0*math.Pi/180.0)) * 2, Z: float32(math.Cos(50.0*math.Pi/180.0)) * 2},
 			rng:      3.0,
 			arc:      120,
 			want:     true,
@@ -325,7 +325,7 @@ func TestCheckMeleeArc(t *testing.T) {
 			name:     "target at 70 deg (outside 120 arc = 60 each side)",
 			attacker: entity.Vec3{},
 			forward:  entity.Vec3{Z: 1},
-			target:   entity.Vec3{X: float32(math.Sin(70.0 * math.Pi / 180.0)) * 2, Z: float32(math.Cos(70.0*math.Pi/180.0)) * 2},
+			target:   entity.Vec3{X: float32(math.Sin(70.0*math.Pi/180.0)) * 2, Z: float32(math.Cos(70.0*math.Pi/180.0)) * 2},
 			rng:      3.0,
 			arc:      120,
 			want:     false,

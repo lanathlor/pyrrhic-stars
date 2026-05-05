@@ -3,7 +3,7 @@ package ability
 import "codex-online/server/internal/entity"
 
 var bdGuardDef = AbilityDef{
-	ID:  "bd_guard", Name: "BD Guard",
+	ID: "bd_guard", Name: "BD Guard",
 	Hit: HitDef{Type: HitNone},
 	SelfBuffs: []BuffEffect{{
 		ID:       "guard",

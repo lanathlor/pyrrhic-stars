@@ -6,7 +6,7 @@ import (
 )
 
 var meleeLightDef = AbilityDef{
-	ID:      "melee_light", Name: "Light Attack",
+	ID: "melee_light", Name: "Light Attack",
 	Hit:     HitDef{Type: HitMeleeArc, Range: 6, ArcDegrees: 120},
 	Handler: "melee_light_vg",
 }

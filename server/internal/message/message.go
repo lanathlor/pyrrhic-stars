@@ -37,13 +37,13 @@ const (
 	OpRespawnRequest uint16 = 0x0033 // death respawn (arena or hub)
 
 	// Server → Client authoritative state.
-	OpWorldState     uint16 = 0x0040 // full entity snapshot per tick
-	OpEntitySpawn    uint16 = 0x0041 // new entity appeared
-	OpEntityDespawn  uint16 = 0x0042 // entity removed
-	OpDamageEvent    uint16 = 0x0043 // visual damage event (for effects)
-	OpGameFlowEvent  uint16 = 0x0044 // fight start, result, phase transition
-	OpLobbyState     uint16 = 0x0045 // lobby player list, ready states
-	OpInputAck       uint16 = 0x0046 // acknowledges client input tick
+	OpWorldState    uint16 = 0x0040 // full entity snapshot per tick
+	OpEntitySpawn   uint16 = 0x0041 // new entity appeared
+	OpEntityDespawn uint16 = 0x0042 // entity removed
+	OpDamageEvent   uint16 = 0x0043 // visual damage event (for effects)
+	OpGameFlowEvent uint16 = 0x0044 // fight start, result, phase transition
+	OpLobbyState    uint16 = 0x0045 // lobby player list, ready states
+	OpInputAck      uint16 = 0x0046 // acknowledges client input tick
 
 	// Social / group — client → server (gateway-handled).
 	OpGroupCreate      uint16 = 0x0050
@@ -54,25 +54,25 @@ const (
 	OpEnterPortal      uint16 = 0x0055
 
 	// Social / group — server → client.
-	OpGroupState       uint16 = 0x0060
-	OpGroupInviteRecv  uint16 = 0x0061
-	OpGroupError       uint16 = 0x0062
-	OpHubState         uint16 = 0x0063
-	OpPlayerNames      uint16 = 0x0064
+	OpGroupState      uint16 = 0x0060
+	OpGroupInviteRecv uint16 = 0x0061
+	OpGroupError      uint16 = 0x0062
+	OpHubState        uint16 = 0x0063
+	OpPlayerNames     uint16 = 0x0064
 
 	// Zone management — server-handled, never relayed.
-	OpJoinZone         uint16 = 0xFF00
-	OpZoneJoined       uint16 = 0xFF01
-	OpPeerConnected    uint16 = 0xFF02
-	OpPeerDisconnected uint16 = 0xFF03
-	OpSetUsername      uint16 = 0xFF04
+	OpJoinZone            uint16 = 0xFF00
+	OpZoneJoined          uint16 = 0xFF01
+	OpPeerConnected       uint16 = 0xFF02
+	OpPeerDisconnected    uint16 = 0xFF03
+	OpSetUsername         uint16 = 0xFF04
 	OpRequestZoneTransfer uint16 = 0xFF05
-	OpZoneTransfer     uint16 = 0xFF06
-	OpCharacterState   uint16 = 0xFF07 // server → client: saved character data after auth
-	OpCharacterList    uint16 = 0xFF08 // server → client: all characters after auth
-	OpSelectCharacter  uint16 = 0xFF09 // client → server: pick character to play
-	OpCreateCharacter  uint16 = 0xFF0A // client → server: create new character
-	OpCharacterError   uint16 = 0xFF0B // server → client: character operation error
+	OpZoneTransfer        uint16 = 0xFF06
+	OpCharacterState      uint16 = 0xFF07 // server → client: saved character data after auth
+	OpCharacterList       uint16 = 0xFF08 // server → client: all characters after auth
+	OpSelectCharacter     uint16 = 0xFF09 // client → server: pick character to play
+	OpCreateCharacter     uint16 = 0xFF0A // client → server: create new character
+	OpCharacterError      uint16 = 0xFF0B // server → client: character operation error
 )
 
 // HeaderSize is the fixed-size message header: 2 bytes opcode + 2 bytes sender ID.
@@ -172,16 +172,16 @@ func IsClientInput(opcode uint16) bool {
 
 // Game flow event types sent within OpGameFlowEvent payload.
 const (
-	FlowSpawnPlayers   uint8 = 1
-	FlowFightStart     uint8 = 2
-	FlowShowResult     uint8 = 3
+	FlowSpawnPlayers    uint8 = 1
+	FlowFightStart      uint8 = 2
+	FlowShowResult      uint8 = 3
 	FlowPhaseTransition uint8 = 4
-	FlowReturnLobby    uint8 = 5
-	FlowReturnHub      uint8 = 6
-	FlowBossDead       uint8 = 7
-	FlowAllDead        uint8 = 8
-	FlowBossActivated  uint8 = 9
-	FlowBossReset      uint8 = 10
+	FlowReturnLobby     uint8 = 5
+	FlowReturnHub       uint8 = 6
+	FlowBossDead        uint8 = 7
+	FlowAllDead         uint8 = 8
+	FlowBossActivated   uint8 = 9
+	FlowBossReset       uint8 = 10
 )
 
 // Interact input action types sent within OpInteractInput payload.

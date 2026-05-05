@@ -301,11 +301,11 @@ func TestGunnerSustainedFire_RemoteTracerCount(t *testing.T) {
 	// (each shot = ~4 ticks Attack + 1 tick Move before next shot)
 	switch tracersFired {
 	case 0:
-		t.Errorf("BUG: 0 tracers detected during 2s sustained fire -- remote client "+
+		t.Errorf("BUG: 0 tracers detected during 2s sustained fire -- remote client " +
 			"would see NO bullets at all")
 	case 1:
-		t.Errorf("BUG: only 1 tracer detected during 2s sustained fire -- state "+
-			"never returned to Move between shots, remote client sees ONE bullet "+
+		t.Errorf("BUG: only 1 tracer detected during 2s sustained fire -- state " +
+			"never returned to Move between shots, remote client sees ONE bullet " +
 			"for the entire burst")
 	default:
 		t.Logf("OK: %d tracers detected during 2s sustained fire", tracersFired)

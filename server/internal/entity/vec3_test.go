@@ -112,11 +112,11 @@ func TestMoveToward(t *testing.T) {
 	tests := []struct {
 		current, target, delta, want float32
 	}{
-		{0, 10, 3, 3},      // move toward
-		{0, 10, 20, 10},    // overshoot clamps
-		{5, 0, 2, 3},       // move backward
-		{5, 0, 10, 0},      // overshoot backward
-		{5, 5, 1, 5},       // already there
+		{0, 10, 3, 3},   // move toward
+		{0, 10, 20, 10}, // overshoot clamps
+		{5, 0, 2, 3},    // move backward
+		{5, 0, 10, 0},   // overshoot backward
+		{5, 5, 1, 5},    // already there
 	}
 	for _, tc := range tests {
 		got := MoveToward(tc.current, tc.target, tc.delta)

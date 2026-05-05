@@ -30,17 +30,17 @@ type mobFile struct {
 }
 
 type abilityFile struct {
-	Name           string  `yaml:"name"`
-	Type           string  `yaml:"type"`   // melee, ranged, aoe, charge
-	Target         string  `yaml:"target"` // nearest, farthest, current
-	TelegraphTime  float32 `yaml:"telegraph_time"`
-	ExecuteTime    float32 `yaml:"execute_time"`
-	CooldownTime   float32 `yaml:"cooldown_time"`
-	BaseWeight     int     `yaml:"base_weight"`
-	MinRange       float32 `yaml:"min_range"`
-	MaxRange       float32 `yaml:"max_range"`
-	FaceTarget     bool    `yaml:"face_target"`
-	TrackTarget    bool    `yaml:"track_target"`
+	Name          string  `yaml:"name"`
+	Type          string  `yaml:"type"`   // melee, ranged, aoe, charge
+	Target        string  `yaml:"target"` // nearest, farthest, current
+	TelegraphTime float32 `yaml:"telegraph_time"`
+	ExecuteTime   float32 `yaml:"execute_time"`
+	CooldownTime  float32 `yaml:"cooldown_time"`
+	BaseWeight    int     `yaml:"base_weight"`
+	MinRange      float32 `yaml:"min_range"`
+	MaxRange      float32 `yaml:"max_range"`
+	FaceTarget    bool    `yaml:"face_target"`
+	TrackTarget   bool    `yaml:"track_target"`
 
 	// Melee
 	MeleeRange   float32 `yaml:"melee_range"`
@@ -62,7 +62,7 @@ type abilityFile struct {
 	// Charge
 	ChargeSpeed          float32 `yaml:"charge_speed"`
 	ChargeDamage         float32 `yaml:"charge_damage"`
-	ChargeMaxDistance     float32 `yaml:"charge_max_distance"`
+	ChargeMaxDistance    float32 `yaml:"charge_max_distance"`
 	ChargeHitRadius      float32 `yaml:"charge_hit_radius"`
 	ChargeStopOnWall     bool    `yaml:"charge_stop_on_wall"`
 	ChargeStopOnObstacle bool    `yaml:"charge_stop_on_obstacle"`
@@ -78,17 +78,17 @@ type patternFile struct {
 }
 
 type emitterFile struct {
-	Type          string  `yaml:"type"` // radial, cone, line, arc, ring_contract, targeted, random_zone
-	Count         int     `yaml:"count"`
-	Waves         int     `yaml:"waves"`
-	WaveInterval  float32 `yaml:"wave_interval"`
-	OffsetPerWave float32 `yaml:"offset_per_wave"` // degrees
-	StartAngle    float32 `yaml:"start_angle"`     // degrees
-	ArcAngle      float32 `yaml:"arc_angle"`       // degrees
-	LineWidth     float32 `yaml:"line_width"`
-	StartRadius   float32 `yaml:"start_radius"`
-	ZoneRadius    float32 `yaml:"zone_radius"`
-	AimAtTarget   bool    `yaml:"aim_at_target"`
+	Type          string   `yaml:"type"` // radial, cone, line, arc, ring_contract, targeted, random_zone
+	Count         int      `yaml:"count"`
+	Waves         int      `yaml:"waves"`
+	WaveInterval  float32  `yaml:"wave_interval"`
+	OffsetPerWave float32  `yaml:"offset_per_wave"` // degrees
+	StartAngle    float32  `yaml:"start_angle"`     // degrees
+	ArcAngle      float32  `yaml:"arc_angle"`       // degrees
+	LineWidth     float32  `yaml:"line_width"`
+	StartRadius   float32  `yaml:"start_radius"`
+	ZoneRadius    float32  `yaml:"zone_radius"`
+	AimAtTarget   bool     `yaml:"aim_at_target"`
 	Projectile    projFile `yaml:"projectile"`
 }
 
@@ -103,23 +103,23 @@ type projFile struct {
 }
 
 type phaseFile struct {
-	HPThresholdPct   float32                    `yaml:"hp_threshold_pct"`
-	TransitionTime   float32                    `yaml:"transition_time"`
-	MoveSpeed        float32                    `yaml:"move_speed"`
-	BackpedalSpeed   float32                    `yaml:"backpedal_speed"`
-	CooldownOverride float32                    `yaml:"cooldown_override"`
-	WeightOverrides  map[string]int             `yaml:"weight_overrides"`
-	AbilityOverrides map[string]abilityOvrFile  `yaml:"ability_overrides"`
+	HPThresholdPct   float32                   `yaml:"hp_threshold_pct"`
+	TransitionTime   float32                   `yaml:"transition_time"`
+	MoveSpeed        float32                   `yaml:"move_speed"`
+	BackpedalSpeed   float32                   `yaml:"backpedal_speed"`
+	CooldownOverride float32                   `yaml:"cooldown_override"`
+	WeightOverrides  map[string]int            `yaml:"weight_overrides"`
+	AbilityOverrides map[string]abilityOvrFile `yaml:"ability_overrides"`
 }
 
 type abilityOvrFile struct {
-	TelegraphTime    *float32 `yaml:"telegraph_time"`
-	Damage           *float32 `yaml:"damage"`
-	ProjectileCount  *int     `yaml:"projectile_count"`
-	AoERadius        *float32 `yaml:"aoe_radius"`
-	ChargeSpeed      *float32 `yaml:"charge_speed"`
+	TelegraphTime     *float32 `yaml:"telegraph_time"`
+	Damage            *float32 `yaml:"damage"`
+	ProjectileCount   *int     `yaml:"projectile_count"`
+	AoERadius         *float32 `yaml:"aoe_radius"`
+	ChargeSpeed       *float32 `yaml:"charge_speed"`
 	ChargeMaxDistance *float32 `yaml:"charge_max_distance"`
-	CooldownTime     *float32 `yaml:"cooldown_time"`
+	CooldownTime      *float32 `yaml:"cooldown_time"`
 }
 
 // MobsDir returns the mobs directory path.
@@ -230,7 +230,7 @@ func convertAbility(af abilityFile) (AbilityDef, error) {
 
 		ChargeSpeed:          af.ChargeSpeed,
 		ChargeDamage:         af.ChargeDamage,
-		ChargeMaxDistance:     af.ChargeMaxDistance,
+		ChargeMaxDistance:    af.ChargeMaxDistance,
 		ChargeHitRadius:      af.ChargeHitRadius,
 		ChargeStopOnWall:     af.ChargeStopOnWall,
 		ChargeStopOnObstacle: af.ChargeStopOnObstacle,

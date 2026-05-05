@@ -96,8 +96,8 @@ func (r *Registry) HubFlushTargets() []HubFlushTarget {
 		if sess.UserUUID != "" && sess.ZoneID == zone.ZoneHub && sess.CharID != 0 {
 			targets = append(targets, HubFlushTarget{
 				UserUUID: sess.UserUUID,
-				CharID:     sess.CharID,
-				PeerID:     sess.PeerID,
+				CharID:   sess.CharID,
+				PeerID:   sess.PeerID,
 			})
 		}
 	}

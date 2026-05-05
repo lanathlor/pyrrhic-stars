@@ -74,7 +74,7 @@ func (ctx *EntityContext) HealthPct() float32 {
 
 func (ctx *EntityContext) Position() entity.Vec3 { return ctx.Enemy.Position }
 func (ctx *EntityContext) Phase() int            { return ctx.Enemy.Phase }
-func (ctx *EntityContext) IsAlive() bool          { return ctx.Enemy.Alive }
+func (ctx *EntityContext) IsAlive() bool         { return ctx.Enemy.Alive }
 
 // --- Threat / Targeting ---
 

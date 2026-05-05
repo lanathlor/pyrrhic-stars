@@ -538,7 +538,7 @@ func TestBladeSwirl3xIntegration(t *testing.T) {
 
 	e := entity.NewEnemy(1000, 500.0, "test_enemy")
 	e.Position = entity.Vec3{X: 2, Y: 0.1, Z: 0} // 2m away, within 6m radius
-	e.State = entity.EnemyChase                    // not patrol, so AggroEnemy won't interfere
+	e.State = entity.EnemyChase                  // not patrol, so AggroEnemy won't interfere
 
 	enemies := []*entity.Enemy{e}
 	w := makeWorld(map[uint16]*entity.Player{1: p}, enemies)

@@ -6,7 +6,7 @@ import (
 )
 
 var bladeSwirlDef = AbilityDef{
-	ID:      "blade_swirl", Name: "Blade Swirl",
+	ID: "blade_swirl", Name: "Blade Swirl",
 	Handler: "blade_swirl",
 }
 

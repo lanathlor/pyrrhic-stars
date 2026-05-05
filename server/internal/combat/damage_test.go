@@ -21,8 +21,8 @@ func makeVanguard(peerID uint16, pos entity.Vec3, rotY float32) *entity.Player {
 // Client expects: [target_peer_id:u16 LE][source_peer_id:u16 LE][amount:f32 LE][hit_x:f32 LE][hit_y:f32 LE][hit_z:f32 LE][source_type:u8]
 func TestDamageEventWireFormat(t *testing.T) {
 	evt := DamageEvent{
-		TargetPeerID: 0,     // enemy
-		SourcePeerID: 42,    // player who dealt damage
+		TargetPeerID: 0,  // enemy
+		SourcePeerID: 42, // player who dealt damage
 		Amount:       10.0,
 		HitPos:       entity.Vec3{X: 1.5, Y: 2.0, Z: -3.5},
 		SourceType:   SourcePlayerAttack,
@@ -251,8 +251,8 @@ func TestResolveAoEAtPosition(t *testing.T) {
 // TestEnemyDamageEventWireFormat verifies enemy->player damage events.
 func TestEnemyDamageEventWireFormat(t *testing.T) {
 	evt := DamageEvent{
-		TargetPeerID: 7,  // player who got hit
-		SourcePeerID: 0,  // enemy (no peer id)
+		TargetPeerID: 7, // player who got hit
+		SourcePeerID: 0, // enemy (no peer id)
 		Amount:       25.0,
 		HitPos:       entity.Vec3{X: 0, Y: 1.0, Z: 0},
 		SourceType:   SourceEnemyMelee,

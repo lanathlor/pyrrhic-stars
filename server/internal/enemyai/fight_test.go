@@ -363,7 +363,7 @@ func TestFight_ChargeHitsMultiplePlayers(t *testing.T) {
 				Name: "charge", Type: AbilityCharge,
 				TelegraphTime: 0.1, CooldownTime: 0.5,
 				BaseWeight: 100, MinRange: 2.0,
-				FaceTarget:       true,
+				FaceTarget:  true,
 				ChargeSpeed: 20.0, ChargeDamage: 30.0,
 				ChargeMaxDistance: 30.0, ChargeHitRadius: 3.0,
 				ChargeStopOnWall: true,

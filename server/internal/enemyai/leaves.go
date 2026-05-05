@@ -170,7 +170,7 @@ func actionPatrol(v any) bt.Result {
 		if distSq <= e.AggroRadius*e.AggroRadius {
 			e.TargetPlayerID = p.ID
 			e.State = entity.EnemyChase
-					return bt.Success
+			return bt.Success
 		}
 	}
 
@@ -465,4 +465,3 @@ func (ctx *EntityContext) faceTargetPlayer() {
 		ctx.FaceToward(p.Position)
 	}
 }
-

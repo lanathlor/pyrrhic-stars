@@ -63,9 +63,9 @@ type Level struct {
 
 // NPCSpawnPoint defines a hub NPC with patrol waypoints.
 type NPCSpawnPoint struct {
-	DefName      string      // visual definition name
-	Speed        float32     // walk speed (m/s)
-	IdleDuration float32     // seconds to idle at each waypoint
+	DefName      string  // visual definition name
+	Speed        float32 // walk speed (m/s)
+	IdleDuration float32 // seconds to idle at each waypoint
 	Waypoints    []entity.Vec3
 }
 

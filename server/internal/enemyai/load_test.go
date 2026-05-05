@@ -462,8 +462,8 @@ func TestResolveLeaf_InverterBuiltin(t *testing.T) {
 // TestResolveLeaf_ParamInvalidArgs verifies bad params return errors.
 func TestResolveLeaf_ParamInvalidArgs(t *testing.T) {
 	cases := []struct {
-		name    string
-		leaf    string
+		name string
+		leaf string
 	}{
 		{"player_nearby non-numeric", "player_nearby(abc)"},
 		{"phase_eq non-numeric", "phase_eq(abc)"},
