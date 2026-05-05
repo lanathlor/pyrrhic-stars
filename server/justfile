@@ -390,6 +390,10 @@ build:
 tidy:
     go mod tidy
 
+# Format with goimports
+fmt:
+    goimports -w cmd/ internal/
+
 # Run go vet on all packages
 vet:
     go vet ./...

@@ -1,18 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Only lint if staged files include Go code under server/
-STAGED_GO=$(git diff --cached --name-only --diff-filter=ACM -- 'server/*.go' 'server/**/*.go' || true)
+STAGED_GO=$(git diff --cached --name-only --diff-filter=ACM -- 'server/**/*.go' 'server/*.go' || true)
+STAGED_GD=$(git diff --cached --name-only --diff-filter=ACM -- 'client/**/*.gd' 'client/*.gd' || true)
 
-if [ -z "$STAGED_GO" ]; then
-  exit 0
+if [ -n "$STAGED_GO" ]; then
+  just server lint
+  just server test
+  just server fmt
 fi
 
-if ! command -v golangci-lint &>/dev/null; then
-  echo "warning: golangci-lint not found, skipping lint (run inside nix develop shell)"
-  exit 0
+if [ -n "$STAGED_GD" ]; then
+  just client check
+  just client test
+  just client fmt
 fi
-
-echo "Running golangci-lint on staged Go files..."
-cd server
-golangci-lint run ./...
