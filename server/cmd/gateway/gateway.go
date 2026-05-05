@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"sync"
 
-	"codex-online/server/internal/codec"
 	"codex-online/server/internal/character"
+	"codex-online/server/internal/codec"
 	"codex-online/server/internal/container"
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/group"
@@ -55,6 +55,7 @@ func (g *gateway) getOrCreateZone(zoneID string, zoneType zone.ZoneType) *zoneIn
 	zi, ok := g.zones[zoneID]
 	if !ok {
 		z := zone.New(zoneID, zoneType)
+		z.CombatLogSink = g.container.CombatLogSink
 		ctx, cancel := context.WithCancel(context.Background())
 		zi = &zoneInstance{zone: z, zoneType: zoneType, cancel: cancel, nextID: 1}
 		g.zones[zoneID] = zi
@@ -85,7 +86,7 @@ func (g *gateway) removeZone(zoneID string) {
 type joinResponse uint8
 
 const (
-	joinResponseZoneJoined  joinResponse = iota // OpZoneJoined  [peerID:2][0:1]
+	joinResponseZoneJoined   joinResponse = iota // OpZoneJoined  [peerID:2][0:1]
 	joinResponseZoneTransfer                     // OpZoneTransfer [type:1][peerID:2]
 )
 
@@ -214,4 +215,3 @@ func (g *gateway) handlePlayerRespawnHub(zoneID string, peerID uint16) {
 		g.broadcastGroupState(grp)
 	}
 }
-

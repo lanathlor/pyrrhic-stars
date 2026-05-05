@@ -25,10 +25,10 @@ godot-editor:
     godot --editor --path client/
 
 client-test:
-    godot --headless --path client/ -s addons/gdUnit4/bin/GdUnitCmdTool.gd -a res://tests
+    godot --headless --path client/ -s addons/gdUnit4/bin/GdUnitCmdTool.gd -a res://tests --ignoreHeadlessMode
 
 client-test-suite suite:
-    godot --headless --path client/ -s addons/gdUnit4/bin/GdUnitCmdTool.gd -a res://tests/{{suite}}.gd
+    godot --headless --path client/ -s addons/gdUnit4/bin/GdUnitCmdTool.gd -a res://tests/{{suite}}.gd --ignoreHeadlessMode
 
 # Bot plays the game (watch it go)
 client-bot:

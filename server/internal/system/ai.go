@@ -2,6 +2,8 @@ package system
 
 import (
 	"codex-online/server/internal/combat"
+	"codex-online/server/internal/combatlog"
+	"codex-online/server/internal/enemyai"
 	"codex-online/server/internal/entity"
 )
 
@@ -44,10 +46,38 @@ func (s *AISystem) Tick(w *World, dt float32) {
 			w.filteredPlayers = playersOnSameSide(w.filteredPlayers[:0], allPlayers, e.Position.Z, w.Level.BossRoomEntryZ)
 			visiblePlayers = w.filteredPlayers
 		}
+		prevState := e.State
 		events := w.Brains[i].Tick(dt, visiblePlayers, w.Level.Obstacles, w.spawnFn, w.castPatternFn)
+
+		// Detect proximity aggro: brain transitioned patrol→chase directly
+		// (bypassing AggroEnemy). Start combat log session for this enemy's group.
+		if prevState == entity.EnemyPatrol && e.State != entity.EnemyPatrol {
+			if key := enemySessionKey(e); key != 0 {
+				startGroupCombatLog(w, key)
+			}
+		}
 		for _, evt := range events {
 			if _, ok := w.Players[evt.TargetPeerID]; ok {
 				e.AddThreat(evt.TargetPeerID, evt.Amount)
+			}
+
+			// Log enemy damage
+			abilName := resolveEnemyAbilityName(e)
+			w.logCombatEvent(combatlog.LogEntry{
+				EventType:    combatlog.EventDamage,
+				SourceEntity: combatlog.FormatEnemyID(e.ID),
+				SourceClass:  e.DefName,
+				Target:       combatlog.FormatPlayerID(evt.TargetPeerID),
+				AbilityID:    abilName,
+				Amount:       evt.Amount,
+				PosX:         evt.HitPos.X,
+				PosY:         evt.HitPos.Y,
+				PosZ:         evt.HitPos.Z,
+			})
+
+			// Log death if player died
+			if p, ok := w.Players[evt.TargetPeerID]; ok && !p.Alive {
+				w.logCombatDeath(combatlog.FormatPlayerID(evt.TargetPeerID), combatlog.FormatEnemyID(e.ID), e.DefName)
 			}
 		}
 		w.DamageEvents = append(w.DamageEvents, events...)
@@ -71,6 +101,19 @@ func playersOnSameSide(dst []*entity.Player, players []*entity.Player, enemyZ, g
 		}
 	}
 	return dst
+}
+
+// resolveEnemyAbilityName looks up the current ability name for an enemy from its def.
+func resolveEnemyAbilityName(e *entity.Enemy) string {
+	def := enemyai.DefRegistry[e.DefName]
+	if def == nil {
+		return ""
+	}
+	abil := def.AbilityByIndex(e.ActiveAbility)
+	if abil == nil {
+		return ""
+	}
+	return abil.Name
 }
 
 // propagateGroupAggro ensures that if any mob in a group has left patrol

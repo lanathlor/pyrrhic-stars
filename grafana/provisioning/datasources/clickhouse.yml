@@ -1,0 +1,23 @@
+apiVersion: 1
+
+datasources:
+  - name: ClickHouse
+    type: grafana-clickhouse-datasource
+    access: proxy
+    isDefault: true
+    jsonData:
+      host: clickhouse
+      port: 9000
+      protocol: native
+      username: codex
+      defaultDatabase: codex
+      logs:
+        defaultDatabase: codex
+        defaultTable: instances
+        otelEnabled: false
+        timeColumn: started_at
+        levelColumn: outcome
+        messageColumn: instance_id
+    secureJsonData:
+      password: codex
+    editable: true

@@ -9,6 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"codex-online/server/internal/combatlog"
+	combatapi "codex-online/server/internal/combatlog/api"
+	chrepo "codex-online/server/internal/combatlog/clickhouse"
 	"codex-online/server/internal/container"
 	"codex-online/server/internal/enemyai"
 	"codex-online/server/internal/message"
@@ -18,6 +21,7 @@ import (
 	"codex-online/server/internal/validation"
 	"codex-online/server/internal/zone"
 
+	clickhousedriver "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/coder/websocket"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -56,7 +60,48 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Initialize combat log sink (ClickHouse or NullSink).
+	var combatSink combatlog.EventSink = combatlog.NullSink{}
+	var logQueryRepo combatlog.ReadRepository
+	if chAddr := os.Getenv("CLICKHOUSE_ADDR"); chAddr != "" {
+		chDB := os.Getenv("CLICKHOUSE_DB")
+		if chDB == "" {
+			chDB = "codex"
+		}
+		chUser := os.Getenv("CLICKHOUSE_USER")
+		if chUser == "" {
+			chUser = "default"
+		}
+		chPass := os.Getenv("CLICKHOUSE_PASSWORD")
+
+		chConn, err := clickhousedriver.Open(&clickhousedriver.Options{
+			Addr: []string{chAddr},
+			Auth: clickhousedriver.Auth{
+				Database: chDB,
+				Username: chUser,
+				Password: chPass,
+			},
+		})
+		if err != nil {
+			slog.Error("clickhouse connect failed, combat logging disabled", "addr", chAddr, "error", err)
+		} else if err = chrepo.EnsureSchema(ctx, chConn); err != nil {
+			slog.Error("clickhouse schema init failed, combat logging disabled", "error", err)
+			_ = chConn.Close()
+		} else {
+			chRepo := chrepo.NewRepo(chConn)
+			combatSink = combatlog.NewLogger(chRepo)
+			logQueryRepo = chRepo
+			slog.Info("combat logging enabled", "clickhouse_addr", chAddr, "db", chDB)
+		}
+	}
+	defer func() {
+		if err := combatSink.Close(); err != nil {
+			slog.Error("combat log close", "error", err)
+		}
+	}()
+
 	ctr := container.New(repo)
+	ctr.CombatLogSink = combatSink
 	gw := newGateway(ctr)
 
 	// Create persistent hub zone at startup.
@@ -71,6 +116,15 @@ func main() {
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, req *http.Request) {
 		handleConnection(gw, w, req)
 	})
+
+	// Combat log REST API (only if ClickHouse is available).
+	if logQueryRepo != nil {
+		apiMux := http.NewServeMux()
+		logAPI := combatapi.NewHandler(logQueryRepo)
+		logAPI.Register(apiMux)
+		mux.Handle("/api/", combatapi.CORS(apiMux))
+		slog.Info("combat log API enabled")
+	}
 
 	addr := ":7777"
 	if envAddr := os.Getenv("GATEWAY_ADDR"); envAddr != "" {

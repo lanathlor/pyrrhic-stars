@@ -3,7 +3,17 @@ extends Node3D
 ## Game flow: Menu -> Hub -> Arena (Lobby -> Fight -> Fight Over) -> Hub.
 ## Server-authoritative: all game flow is driven by server events.
 
-enum GameState { MENU, CHARACTER_SELECT, CREATE_CHARACTER, HUB, ARENA_LOBBY, FIGHT, FIGHT_OVER }
+enum GameState {
+	MENU,
+	CHARACTER_SELECT,
+	CREATE_CHARACTER,
+	HUB,
+	ARENA_LOBBY,
+	FIGHT,
+	FIGHT_OVER,
+	REPLAY_BROWSER,
+	REPLAY,
+}
 
 var state: GameState = GameState.MENU
 var paused: bool = false
@@ -75,6 +85,10 @@ const USERNAME_SAVE_PATH := "user://username.txt"
 var _current_env: Node3D = null
 var _enemy_nodes: Dictionary = {}  # enemy_id -> CharacterBody3D
 var _npc_nodes: Dictionary = {}  # npc_id -> Node3D
+
+# Replay system
+var _replay_browser: CanvasLayer = null
+var _replay_scene: Node3D = null
 
 # Dynamic nodes
 var _boss_gate: CSGBox3D
@@ -350,6 +364,57 @@ func _save_username(name: String) -> void:
 		return
 	f.store_string(name)
 	f.close()
+
+
+# =============================================================================
+# Replay System
+# =============================================================================
+
+
+func _enter_replay_browser() -> void:
+	state = GameState.REPLAY_BROWSER
+	_menu_layer.visible = false
+
+	var browser_script := load("res://scripts/replay/replay_browser.gd")
+	_replay_browser = CanvasLayer.new()
+	_replay_browser.set_script(browser_script)
+	add_child(_replay_browser)
+	_replay_browser.replay_selected.connect(_on_replay_selected)
+	_replay_browser.browser_closed.connect(_on_browser_closed)
+
+
+func _on_replay_selected(replay: Variant) -> void:
+	# Clean up browser
+	if _replay_browser:
+		_replay_browser.queue_free()
+		_replay_browser = null
+
+	state = GameState.REPLAY
+
+	# Create replay scene
+	var scene_script := load("res://scripts/replay/replay_scene.gd")
+	_replay_scene = Node3D.new()
+	_replay_scene.set_script(scene_script)
+	add_child(_replay_scene)
+	_replay_scene.replay_exited.connect(_on_replay_exited)
+	_replay_scene.start_replay(replay)
+
+
+func _on_browser_closed() -> void:
+	if _replay_browser:
+		_replay_browser.queue_free()
+		_replay_browser = null
+	state = GameState.MENU
+	_menu_layer.visible = true
+
+
+func _on_replay_exited() -> void:
+	if _replay_scene:
+		_replay_scene.queue_free()
+		_replay_scene = null
+	state = GameState.MENU
+	_menu_layer.visible = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
 func _on_character_state(data: Dictionary) -> void:
@@ -1651,6 +1716,13 @@ func _create_menu_ui() -> void:
 	_ui_apply_button_style(play_btn)
 	play_btn.pressed.connect(_on_connect_pressed)
 	vbox.add_child(play_btn)
+
+	var replay_btn := Button.new()
+	replay_btn.text = "Replays"
+	replay_btn.custom_minimum_size = Vector2(200.0, 42.0)
+	_ui_apply_button_style(replay_btn)
+	replay_btn.pressed.connect(_enter_replay_browser)
+	vbox.add_child(replay_btn)
 
 
 func _create_char_select_ui() -> void:

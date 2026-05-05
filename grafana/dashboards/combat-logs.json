@@ -1,0 +1,343 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "id": 20,
+      "title": "Encounters",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 0 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": { "defaults": { "thresholds": { "steps": [{ "color": "blue", "value": null }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [{
+        "rawSql": "SELECT count() AS total FROM instances",
+        "format": 1,
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 21,
+      "title": "Kill Rate",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 4, "y": 0 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "thresholds": { "steps": [{ "color": "red", "value": null }, { "color": "yellow", "value": 0.3 }, { "color": "green", "value": 0.6 }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [{
+        "rawSql": "SELECT countIf(outcome = 'player_win') / count() AS kill_rate FROM instances",
+        "format": 1,
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 22,
+      "title": "Avg Fight Duration",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 0 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "steps": [{ "color": "blue", "value": null }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [{
+        "rawSql": "SELECT round(avg(duration_ms) / 1000, 1) AS avg_duration FROM instances",
+        "format": 1,
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 23,
+      "title": "Total Events",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 12, "y": 0 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": { "defaults": { "thresholds": { "steps": [{ "color": "purple", "value": null }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [{
+        "rawSql": "SELECT count() AS total FROM combat_events",
+        "format": 1,
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 24,
+      "title": "Total Deaths",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 16, "y": 0 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": { "defaults": { "thresholds": { "steps": [{ "color": "red", "value": null }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [{
+        "rawSql": "SELECT count() AS deaths FROM combat_events WHERE event_type = 11",
+        "format": 1,
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 25,
+      "title": "Avg DPS (Kills Only)",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 20, "y": 0 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": { "defaults": { "decimals": 0, "thresholds": { "steps": [{ "color": "orange", "value": null }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [{
+        "rawSql": "SELECT round(avg(total_dps), 0) AS avg_dps FROM (SELECT i.instance_id, sum(ce.amount) / (i.duration_ms / 1000) AS total_dps FROM instances i JOIN combat_events ce ON i.instance_id = ce.instance_id WHERE i.outcome = 'player_win' AND ce.event_type IN (1, 5) AND ce.source LIKE 'player_%' GROUP BY i.instance_id, i.duration_ms)",
+        "format": 1,
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 1,
+      "title": "Recent Encounters",
+      "type": "table",
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 3 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "auto" } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "duration_s" }, "properties": [{ "id": "unit", "value": "s" }] },
+          {
+            "matcher": { "id": "byName", "options": "outcome" },
+            "properties": [{
+              "id": "custom.cellOptions",
+              "value": {
+                "type": "color-background",
+                "mode": "basic"
+              }
+            }, {
+              "id": "mappings",
+              "value": [
+                { "type": "value", "options": { "player_win": { "text": "Kill", "color": "green" }, "boss_win": { "text": "Wipe", "color": "red" }, "timeout": { "text": "Reset", "color": "yellow" } } }
+              ]
+            }]
+          }
+        ]
+      },
+      "options": { "showHeader": true, "sortBy": [{ "displayName": "started_at", "desc": true }] },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+        "rawSql": "SELECT i.instance_id, i.encounter_id, i.outcome, i.source, i.started_at, i.duration_ms / 1000 AS duration_s, countIf(ce.event_type = 11) AS deaths, count(ce.instance_id) AS events FROM instances i LEFT JOIN combat_events ce ON i.instance_id = ce.instance_id GROUP BY i.instance_id, i.encounter_id, i.outcome, i.source, i.started_at, i.duration_ms ORDER BY i.started_at DESC LIMIT 20",
+        "format": 1,
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 2,
+      "title": "Outcome Distribution",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 9 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "player_win" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "boss_win" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "timeout" }, "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }] }
+        ]
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+        "rawSql": "SELECT outcome, count() AS cnt FROM instances GROUP BY outcome",
+        "format": 1,
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 3,
+      "title": "DPS by Player",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 9, "x": 6, "y": 9 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": {
+        "defaults": { "unit": "none", "custom": { "fillOpacity": 80 } },
+        "overrides": []
+      },
+      "options": { "orientation": "horizontal", "xTickLabelRotation": 0, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+        "rawSql": "SELECT source AS player, round(sum(amount) / (max(i.duration_ms) / 1000), 1) AS dps FROM combat_events ce JOIN instances i ON ce.instance_id = i.instance_id WHERE ce.instance_id = '${fight}' AND ce.event_type IN (1, 5) AND ce.source LIKE 'player_%' GROUP BY ce.source ORDER BY dps DESC",
+        "format": 1,
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 4,
+      "title": "Damage Taken by Player",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 9, "x": 15, "y": 9 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": {
+        "defaults": { "unit": "none", "custom": { "fillOpacity": 80 } },
+        "overrides": []
+      },
+      "options": { "orientation": "horizontal", "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+        "rawSql": "SELECT target AS player, round(sum(amount), 0) AS total_damage_taken FROM combat_events WHERE instance_id = '${fight}' AND event_type = 1 AND target LIKE 'player_%' GROUP BY target ORDER BY total_damage_taken DESC",
+        "format": 1,
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 5,
+      "title": "Boss HP Over Time",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 17 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "custom": { "fillOpacity": 10, "lineWidth": 2, "spanNulls": true }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+        "rawSql": "SELECT toDateTime(i.started_at + toIntervalMillisecond(ce.timestamp_ms)) AS time, ce.boss_health FROM combat_events ce JOIN instances i ON ce.instance_id = i.instance_id WHERE ce.instance_id = '${fight}' AND ce.boss_health > 0 AND ce.event_type IN (1, 5, 12) ORDER BY ce.tick",
+        "format": 0,
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 6,
+      "title": "Deaths",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 17 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": { "defaults": { "custom": { "align": "auto" } }, "overrides": [] },
+      "options": { "showHeader": true },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+        "rawSql": "SELECT round(timestamp_ms / 1000, 1) AS time_s, target AS who_died, source AS killed_by, source_class FROM combat_events WHERE instance_id = '${fight}' AND event_type = 11 ORDER BY tick",
+        "format": 1,
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 7,
+      "title": "Ability Damage Breakdown",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 25 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "legend": { "displayMode": "list", "placement": "right" } },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+        "rawSql": "SELECT ability_id, round(sum(amount), 0) AS total_damage FROM combat_events WHERE instance_id = '${fight}' AND event_type IN (1, 5) AND source LIKE 'player_%' AND ability_id != '' GROUP BY ability_id ORDER BY total_damage DESC LIMIT 10",
+        "format": 1,
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 8,
+      "title": "Event Type Distribution",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 25 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 80 } }, "overrides": [] },
+      "options": { "orientation": "horizontal", "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+        "rawSql": "SELECT multiIf(event_type = 1, 'damage', event_type = 2, 'heal', event_type = 3, 'buff_apply', event_type = 4, 'buff_remove', event_type = 5, 'buff_tick', event_type = 6, 'cast_start', event_type = 7, 'cast_end', event_type = 8, 'cd_start', event_type = 9, 'cd_end', event_type = 10, 'dodge', event_type = 11, 'death', event_type = 12, 'phase_change', 'unknown') AS event_name, count() AS cnt FROM combat_events WHERE instance_id = '${fight}' GROUP BY event_type ORDER BY cnt DESC",
+        "format": 1,
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 9,
+      "title": "Damage Timeline",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 25 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": { "fillOpacity": 20, "lineWidth": 1, "spanNulls": false, "stacking": { "mode": "normal" } }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+        "rawSql": "SELECT toDateTime(i.started_at + toIntervalMillisecond(intDiv(ce.timestamp_ms, 1000) * 1000)) AS time, ce.source, round(sum(ce.amount), 0) AS damage FROM combat_events ce JOIN instances i ON ce.instance_id = i.instance_id WHERE ce.instance_id = '${fight}' AND ce.event_type IN (1, 5) AND ce.source LIKE 'player_%' GROUP BY time, ce.source ORDER BY time",
+        "format": 0,
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 10,
+      "title": "Fight Duration Trend",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 33 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "fillOpacity": 10, "lineWidth": 2, "pointSize": 8, "drawStyle": "points" } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+        "rawSql": "SELECT started_at AS time, duration_ms / 1000 AS duration_s, outcome FROM instances ORDER BY started_at",
+        "format": 0,
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 11,
+      "title": "Phase Transitions",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 33 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": { "defaults": { "custom": { "align": "auto" } }, "overrides": [] },
+      "options": { "showHeader": true },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+        "rawSql": "SELECT round(timestamp_ms / 1000, 1) AS time_s, phase, target, round(boss_health * 100, 1) AS boss_hp_pct FROM combat_events WHERE instance_id = '${fight}' AND event_type = 12 ORDER BY tick",
+        "format": 1,
+        "refId": "A"
+      }]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["combat", "analytics"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "ClickHouse", "value": "ClickHouse" },
+        "hide": 2,
+        "includeAll": false,
+        "name": "DS_CLICKHOUSE",
+        "options": [],
+        "query": "grafana-clickhouse-datasource",
+        "type": "datasource"
+      },
+      {
+        "name": "fight",
+        "label": "Fight",
+        "type": "query",
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+        "query": "SELECT instance_id AS __value, concat(encounter_id, ' — ', outcome, ' — ', toString(started_at), ' (', toString(duration_ms / 1000), 's)') AS __text FROM instances ORDER BY started_at DESC LIMIT 50",
+        "refresh": 2,
+        "sort": 0,
+        "includeAll": false,
+        "multi": false,
+        "current": {},
+        "hide": 0
+      }
+    ]
+  },
+  "time": { "from": "now-24h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Combat Logs",
+  "uid": "combat-logs",
+  "version": 2
+}

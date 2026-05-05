@@ -178,7 +178,8 @@ func _spawn_tracer(from_pos: Vector3, to_pos: Vector3) -> void:
 	var y_axis := z_axis.cross(x_axis).normalized()
 	tracer.transform = Transform3D(Basis(x_axis, y_axis, z_axis), mid)
 
-	get_tree().current_scene.add_child(tracer)
+	var scene_root: Node = get_tree().current_scene if get_tree().current_scene else get_tree().root
+	scene_root.add_child(tracer)
 
 	# Fade out and free
 	var tween := get_tree().create_tween()
@@ -210,6 +211,8 @@ func _exit_tree() -> void:
 
 
 func _is_local() -> bool:
+	if has_meta("replay_puppet"):
+		return false
 	if not NetworkManager.is_active:
 		return true
 	return peer_id == NetworkManager.get_my_id()

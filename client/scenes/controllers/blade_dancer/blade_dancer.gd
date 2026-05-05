@@ -316,6 +316,8 @@ func _exit_tree() -> void:
 
 
 func _is_local() -> bool:
+	if has_meta("replay_puppet"):
+		return false
 	if not NetworkManager.is_active:
 		return true
 	return peer_id == NetworkManager.get_my_id()
@@ -627,7 +629,7 @@ func _process_casting(delta: float) -> void:
 		velocity.z = move_toward(velocity.z, 0.0, ground_decel * delta)
 
 	_cast_timer -= delta
-	if _cast_timer <= 0.0:
+	if _cast_timer <= 0.0 and not _casting_spell.is_empty():
 		# Transition config on cast completion
 		config = _casting_spell.dest as Config
 		hud.update_config(config)

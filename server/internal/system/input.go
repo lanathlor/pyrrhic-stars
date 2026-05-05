@@ -4,6 +4,7 @@ import (
 	"codex-online/server/internal/ability"
 	"codex-online/server/internal/codec"
 	"codex-online/server/internal/combat"
+	"codex-online/server/internal/combatlog"
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/message"
 )
@@ -116,8 +117,15 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 	// Dodge is special: it doesn't go through the engine (client-authoritative movement)
 	// but we still need to check/spend stamina for vanguard
 	if inp.Action == entity.ActionDodge {
-		// Spend stamina if the class has it (vanguard)
 		p.SpendResource("stamina", 20)
+		w.logCombatEvent(combatlog.LogEntry{
+			EventType:    combatlog.EventDodge,
+			SourceEntity: combatlog.FormatPlayerID(peerID),
+			SourceClass:  p.ClassID,
+			PosX:         p.Position.X,
+			PosY:         p.Position.Y,
+			PosZ:         p.Position.Z,
+		})
 		return
 	}
 
@@ -139,6 +147,17 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 		return
 	}
 
+	// Log cast_start
+	w.logCombatEvent(combatlog.LogEntry{
+		EventType:    combatlog.EventCastStart,
+		SourceEntity: combatlog.FormatPlayerID(peerID),
+		SourceClass:  p.ClassID,
+		AbilityID:    abilityID,
+		PosX:         p.Position.X,
+		PosY:         p.Position.Y,
+		PosZ:         p.Position.Z,
+	})
+
 	// Convert ability results to combat damage events and apply threat
 	for _, r := range result.Events {
 		w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
@@ -148,9 +167,54 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 			HitPos:       r.HitPos,
 			SourceType:   r.SourceType,
 		})
+
+		// Log damage
+		w.logCombatEvent(combatlog.LogEntry{
+			EventType:    combatlog.EventDamage,
+			SourceEntity: combatlog.FormatPlayerID(peerID),
+			SourceClass:  p.ClassID,
+			Target:       combatlog.FormatEnemyID(r.TargetID),
+			AbilityID:    abilityID,
+			Amount:       r.Amount,
+			PosX:         r.HitPos.X,
+			PosY:         r.HitPos.Y,
+			PosZ:         r.HitPos.Z,
+		})
+
 		if enemy, ok := r.Target.(*entity.Enemy); ok {
 			enemy.AddThreat(peerID, r.Amount)
 			w.AggroEnemy(enemy, peerID)
+
+			// Log death if enemy died from this hit
+			if !enemy.Alive {
+				w.logCombatDeath(combatlog.FormatEnemyID(r.TargetID), combatlog.FormatPlayerID(peerID), p.ClassID)
+				checkEnemyGroupDead(w, enemy)
+			}
+			w.logPhaseChange(enemy)
+		}
+	}
+
+	// Log buff applications
+	def := w.AbilityEngine.GetAbility(abilityID)
+	if def != nil {
+		for _, buff := range def.SelfBuffs {
+			w.logCombatEvent(combatlog.LogEntry{
+				EventType:    combatlog.EventBuffApply,
+				SourceEntity: combatlog.FormatPlayerID(peerID),
+				SourceClass:  p.ClassID,
+				Target:       combatlog.FormatPlayerID(peerID),
+				AbilityID:    buff.ID,
+			})
+		}
+
+		// Log cooldown start
+		if def.Cooldown > 0 {
+			w.logCombatEvent(combatlog.LogEntry{
+				EventType:    combatlog.EventCooldownStart,
+				SourceEntity: combatlog.FormatPlayerID(peerID),
+				SourceClass:  p.ClassID,
+				AbilityID:    abilityID,
+			})
 		}
 	}
 }

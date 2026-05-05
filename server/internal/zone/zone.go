@@ -2,6 +2,7 @@ package zone
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"math/rand/v2"
 	"sync"
@@ -10,6 +11,7 @@ import (
 	"codex-online/server/internal/ability"
 	"codex-online/server/internal/codec"
 	"codex-online/server/internal/combat"
+	"codex-online/server/internal/combatlog"
 	"codex-online/server/internal/enemyai"
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/level"
@@ -28,9 +30,9 @@ const (
 type GameFlowState = system.GameFlowState
 
 const (
-	StateLobby    = system.StateLobby
-	StateSpawned  = system.StateSpawned
-	StateFight    = system.StateFight
+	StateLobby     = system.StateLobby
+	StateSpawned   = system.StateSpawned
+	StateFight     = system.StateFight
 	StateFightOver = system.StateFightOver
 )
 
@@ -65,10 +67,19 @@ type Zone struct {
 	// OnPlayerRespawnHub is called when a dead player requests to return to hub.
 	// Set by the gateway to trigger zone transfer for a single player.
 	OnPlayerRespawnHub func(peerID uint16)
+
+	// CombatLogSink receives combat events. Set before Run(). NullSink if nil.
+	CombatLogSink combatlog.EventSink
+
+	// replayBuf is a reusable buffer for encoding WorldState frames.
+	// Shared across all active replay recorders to avoid redundant encoding.
+	replayBuf []byte
 }
 
 // New creates a zone ready to run. The level defines geometry, spawns, and
 // obstacles. Pass nil to use the default level for the zone type.
+// Set CombatLogSink on the returned Zone before calling Run() to enable
+// combat event logging.
 func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
 	z := &Zone{
 		ID:   id,
@@ -88,6 +99,7 @@ func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
 	z.world = system.World{
 		ZoneID:        id,
 		ZoneType:      uint8(zoneType),
+		RunID:         fmt.Sprintf("%s_%d", id, time.Now().UnixMilli()),
 		State:         system.StateLobby,
 		Players:       make(map[uint16]*entity.Player),
 		Clients:       make(map[uint16]*system.Client),
@@ -249,11 +261,38 @@ func (z *Zone) processTick() {
 	z.pendingInputs = z.pendingInputs[:0]
 	// Copy the callback into the world so systems can access it
 	z.world.OnPlayerRespawnHub = z.OnPlayerRespawnHub
+	// Wire combat log sink
+	z.world.CombatLogSink = z.CombatLogSink
 	z.mu.Unlock()
 
 	z.world.TickNum++
 	for _, sys := range z.systems {
 		sys.Tick(&z.world, DeltaTime)
+	}
+
+	// Record replay frame for every active encounter session.
+	z.recordReplayFrames()
+}
+
+// recordReplayFrames encodes the WorldState once and appends it to all active
+// replay recorders. No-op when no encounter sessions are recording.
+func (z *Zone) recordReplayFrames() {
+	hasSessions := len(z.world.CombatLogs) > 0
+	if !hasSessions {
+		return
+	}
+
+	// Encode WorldState once, share the buffer across all recorders.
+	z.replayBuf = z.replayBuf[:0]
+	z.replayBuf = codec.AppendEncodeWorldState(
+		z.replayBuf, z.world.TickNum,
+		z.world.Players, z.world.Enemies, z.world.Projectiles, z.world.NPCs,
+	)
+
+	for _, session := range z.world.CombatLogs {
+		if session.Recorder != nil {
+			session.Recorder.AppendFrame(z.replayBuf)
+		}
 	}
 }
 

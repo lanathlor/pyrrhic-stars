@@ -5,6 +5,7 @@ import (
 
 	"codex-online/server/internal/ability"
 	"codex-online/server/internal/combat"
+	"codex-online/server/internal/combatlog"
 	"codex-online/server/internal/enemyai"
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/level"
@@ -20,7 +21,7 @@ type GameFlowState uint8
 
 const (
 	StateLobby   GameFlowState = iota
-	StateSpawned // players spawned, waiting for arena entry
+	StateSpawned               // players spawned, waiting for arena entry
 	StateFight
 	StateFightOver
 )
@@ -51,13 +52,14 @@ type World struct {
 	// Identity
 	ZoneID   string
 	ZoneType uint8 // 0=OpenWorld, 1=Instanced
+	RunID    string
 
 	// Tick counter
 	TickNum uint32
 
 	// Game state
-	State        GameFlowState
-	BossDefeated bool
+	State          GameFlowState
+	BossDefeated   bool
 	BossGateActive bool // true when boss room is sealed (boss is fighting)
 
 	// Entities
@@ -127,6 +129,12 @@ type World struct {
 	PatternEngine *combat.PatternEngine
 	PatternRng    *rand.Rand
 
+	// Combat event logger. CombatLogSink is injected by Zone (NullSink if
+	// disabled). CombatLogs tracks all active per-group sessions (keyed by
+	// enemy GroupID or synthetic -enemyID for solo bosses).
+	CombatLogSink combatlog.EventSink
+	CombatLogs    map[int]*combatlog.EncounterSession
+
 	// Pre-allocated spawn function for AISystem (avoids per-tick closure).
 	spawnEnemyIdx int
 	spawnFn       func(pos, dir entity.Vec3, speed, damage, lifetime float32)
@@ -143,7 +151,8 @@ func (w *World) FirstEnemy() *entity.Enemy {
 }
 
 // AggroEnemy forces an enemy out of patrol into chase, targeting the given player.
-// If the enemy belongs to a group, all group members also aggro.
+// If the enemy belongs to a group, all group members also aggro and a combat log
+// session is started for the group.
 func (w *World) AggroEnemy(e *entity.Enemy, targetPeerID uint16) {
 	if e.State != entity.EnemyPatrol {
 		return
@@ -151,6 +160,11 @@ func (w *World) AggroEnemy(e *entity.Enemy, targetPeerID uint16) {
 	e.State = entity.EnemyChase
 	e.ChaseTimer = 0
 	e.TargetPlayerID = targetPeerID
+
+	// Start combat logging on first aggro.
+	if key := enemySessionKey(e); key != 0 {
+		startGroupCombatLog(w, key)
+	}
 
 	// Group aggro: wake all allies in the same group
 	if e.GroupID > 0 {
@@ -189,4 +203,40 @@ func enemiesToTargets(dst []entity.Target, enemies []*entity.Enemy) []entity.Tar
 		dst = append(dst, e)
 	}
 	return dst
+}
+
+// logCombatEvent emits a combat log entry to all active encounter sessions.
+// No-op if no sessions are recording.
+func (w *World) logCombatEvent(entry combatlog.LogEntry) {
+	if len(w.CombatLogs) == 0 {
+		return
+	}
+	var bossHP float32
+	var bossPhase int
+	if boss := findBoss(w); boss != nil {
+		if boss.MaxHealth > 0 {
+			bossHP = boss.Health / boss.MaxHealth
+		}
+		bossPhase = boss.Phase
+	}
+	for _, session := range w.CombatLogs {
+		session.LogEvent(w.TickNum, bossHP, bossPhase, entry)
+	}
+}
+
+// logPhaseChange checks and logs phase transitions for an enemy across all sessions.
+func (w *World) logPhaseChange(enemy *entity.Enemy) {
+	for _, session := range w.CombatLogs {
+		session.CheckPhaseChange(w.TickNum, enemy.ID, enemy.Phase, enemy.Health/enemy.MaxHealth)
+	}
+}
+
+// logCombatDeath emits a death event for the given entity.
+func (w *World) logCombatDeath(target string, source string, sourceClass string) {
+	w.logCombatEvent(combatlog.LogEntry{
+		EventType:    combatlog.EventDeath,
+		Target:       target,
+		SourceEntity: source,
+		SourceClass:  sourceClass,
+	})
 }

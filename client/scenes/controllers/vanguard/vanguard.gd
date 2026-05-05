@@ -161,6 +161,8 @@ func _exit_tree() -> void:
 
 
 func _is_local() -> bool:
+	if has_meta("replay_puppet"):
+		return false
 	if not NetworkManager.is_active:
 		return true
 	return peer_id == NetworkManager.get_my_id()

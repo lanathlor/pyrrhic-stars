@@ -3,6 +3,7 @@ package system
 import (
 	"log/slog"
 
+	"codex-online/server/internal/combatlog"
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/message"
 )
@@ -107,6 +108,7 @@ func checkBossGate(w *World) {
 		}
 		if !anyPlayerInBossRoom {
 			// Reset boss and open gate
+			finalizeGroupCombatLog(w, boss.GroupID, combatlog.OutcomeTimeout)
 			bossIdx := findBossIndex(w)
 			if bossIdx >= 0 && bossIdx < len(w.Level.EnemySpawns) {
 				boss.Reset(w.Level.EnemySpawns[bossIdx].Position, entity.EnemyPatrol)
@@ -150,6 +152,7 @@ func checkFightEnd(w *World) {
 	// Boss dead → victory
 	boss := findBoss(w)
 	if boss != nil && boss.State == entity.EnemyDead {
+		finalizeAllCombatLogs(w, combatlog.OutcomePlayerWin)
 		w.State = StateFightOver
 		w.BossDefeated = true
 		w.Projectiles = nil
@@ -168,6 +171,7 @@ func checkFightEnd(w *World) {
 		}
 	}
 	if allDead && len(w.Players) > 0 {
+		finalizeAllCombatLogs(w, combatlog.OutcomeBossWin)
 		w.State = StateFightOver
 		w.BossDefeated = false
 		w.Projectiles = nil

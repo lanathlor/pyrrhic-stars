@@ -2,6 +2,7 @@ package system
 
 import (
 	"codex-online/server/internal/combat"
+	"codex-online/server/internal/combatlog"
 	"codex-online/server/internal/entity"
 )
 
@@ -51,17 +52,40 @@ func (s *PhysicsSystem) Tick(w *World, dt float32) {
 					dealt := p.ApplyDamage(proj.Damage)
 					if dealt > 0 {
 						// Add player to threat table of the specific enemy that fired
-					if proj.EnemyIdx >= 0 && proj.EnemyIdx < len(w.Enemies) {
-						if e := w.Enemies[proj.EnemyIdx]; e != nil && e.Alive {
-							e.AddThreat(p.ID, dealt)
+						if proj.EnemyIdx >= 0 && proj.EnemyIdx < len(w.Enemies) {
+							if e := w.Enemies[proj.EnemyIdx]; e != nil && e.Alive {
+								e.AddThreat(p.ID, dealt)
+							}
 						}
-					}
 						w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
 							TargetPeerID: p.ID,
 							Amount:       dealt,
 							HitPos:       proj.Position,
 							SourceType:   combat.SourceEnemyRanged,
 						})
+
+						// Log projectile damage
+						var enemyName string
+						if proj.EnemyIdx >= 0 && proj.EnemyIdx < len(w.Enemies) {
+							if e := w.Enemies[proj.EnemyIdx]; e != nil {
+								enemyName = e.DefName
+							}
+						}
+						w.logCombatEvent(combatlog.LogEntry{
+							EventType:    combatlog.EventDamage,
+							SourceEntity: "enemy_projectile",
+							SourceClass:  enemyName,
+							Target:       combatlog.FormatPlayerID(p.ID),
+							Amount:       dealt,
+							PosX:         proj.Position.X,
+							PosY:         proj.Position.Y,
+							PosZ:         proj.Position.Z,
+						})
+
+						// Log death if player died
+						if !p.Alive {
+							w.logCombatDeath(combatlog.FormatPlayerID(p.ID), "enemy_projectile", enemyName)
+						}
 					}
 					proj.Alive = false
 					break
