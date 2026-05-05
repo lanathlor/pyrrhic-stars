@@ -5,8 +5,6 @@ extends CharacterBody3D
 
 signal died
 
-const PlayerTelegraph := preload("res://scenes/shared/telegraph/player_telegraph.gd")
-
 enum State {
 	MOVE,
 	DODGE,
@@ -22,6 +20,28 @@ enum State {
 	GROUND_SLAM_WINDUP,
 	GROUND_SLAM
 }
+
+const PlayerTelegraph := preload("res://scenes/shared/telegraph/player_telegraph.gd")
+
+# Blade Swirl (Q)
+const BLADE_SWIRL_DURATION: float = 1.5
+const BLADE_SWIRL_COOLDOWN: float = 10.0
+const BLADE_SWIRL_STAMINA: float = 25.0
+const BLADE_SWIRL_SPEED_MULT: float = 0.8
+
+# Ground Slam (E)
+const GROUND_SLAM_COOLDOWN: float = 8.0
+const GROUND_SLAM_STAMINA: float = 20.0
+const GROUND_SLAM_WINDUP_TIME: float = 0.3
+const GROUND_SLAM_HIT_TIME: float = 0.1
+
+# Telegraph color
+const VANGUARD_TELEGRAPH_COLOR := Color(0.9, 0.6, 0.3, 0.4)
+
+# Network
+const NET_INTERP_SPEED := 15.0
+
+const WEAPON_SCENE := "res://assets/models/weapons/weapon_longsword.glb"
 
 # Movement
 @export var run_speed: float = 5.0
@@ -65,17 +85,24 @@ enum State {
 @export var parry_window: float = 0.15
 @export var block_stamina_drain: float = 15.0
 
+# Stamina
+@export var stamina_regen_rate: float = 30.0
+@export var stamina_regen_delay: float = 0.6
+
+# Camera
+@export var camera_distance: float = 6.0
+@export var camera_height_offset: float = 2.0
+
 # Health & Stamina
 var health: float = 200.0
 var max_health: float = 200.0
 var peer_id: int = 0
 var stamina: float = 100.0
 var max_stamina: float = 100.0
-@export var stamina_regen_rate: float = 30.0
-@export var stamina_regen_delay: float = 0.6
 
 # State
 var state: State = State.MOVE
+
 var _state_timer: float = 0.0
 var _combo_window_timer: float = 0.0
 var _stamina_cooldown_timer: float = 0.0
@@ -90,26 +117,13 @@ var _stagger_duration: float = 0.3
 var _blade_swirl_timer: float = 0.0
 var _blade_swirl_cooldown: float = 0.0
 var _blade_swirl_tick_timer: float = 0.0
-const BLADE_SWIRL_DURATION: float = 1.5
-const BLADE_SWIRL_COOLDOWN: float = 10.0
-const BLADE_SWIRL_STAMINA: float = 25.0
-const BLADE_SWIRL_SPEED_MULT: float = 0.8
 
 # Ground Slam (E)
 var _ground_slam_cooldown: float = 0.0
-const GROUND_SLAM_COOLDOWN: float = 8.0
-const GROUND_SLAM_STAMINA: float = 20.0
-const GROUND_SLAM_WINDUP_TIME: float = 0.3
-const GROUND_SLAM_HIT_TIME: float = 0.1
-
-# Telegraph color
-const VANGUARD_TELEGRAPH_COLOR := Color(0.9, 0.6, 0.3, 0.4)
 
 # Camera
 var _camera_yaw: float = 0.0
 var _camera_pitch: float = -0.3
-@export var camera_distance: float = 6.0
-@export var camera_height_offset: float = 2.0
 
 # Lock-on
 var _lock_target: Node3D = null
@@ -125,9 +139,6 @@ var _net_anim: String = ""
 var _net_anim_speed: float = 1.0
 var _net_position: Vector3 = Vector3.ZERO
 var _net_rotation_y: float = 0.0
-const NET_INTERP_SPEED := 15.0
-
-const WEAPON_SCENE := "res://assets/models/weapons/weapon_longsword.glb"
 
 @onready var camera: Camera3D = $Camera3D
 @onready var character_model: Node3D = $CharacterModel
@@ -196,7 +207,7 @@ func apply_server_state(data: Dictionary) -> void:
 
 
 ## Called by main.gd when server confirms this player hit an enemy.
-func on_hit_confirmed(amount: float) -> void:
+func on_hit_confirmed(_amount: float) -> void:
 	hud.show_hit_marker()
 
 
@@ -545,7 +556,7 @@ func _start_dodge() -> void:
 		NetworkManager.send_ability(3, 0.0, rotation.y)  # ActionDodge
 
 
-func _process_dodge(delta: float) -> void:
+func _process_dodge(_delta: float) -> void:
 	velocity.x = _dodge_direction.x * dodge_speed
 	velocity.z = _dodge_direction.z * dodge_speed
 

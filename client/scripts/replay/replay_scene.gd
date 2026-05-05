@@ -2,6 +2,8 @@ extends Node3D
 ## Replay playback scene. Loads an environment, spawns entity puppets from
 ## decoded WorldState frames, and drives playback via the ReplayHUD.
 
+signal replay_exited
+
 const ARENA_SCENE := "res://scenes/environments/arena/arena.tscn"
 const ENEMY_SCENE := "res://scenes/enemies/basic_enemy/basic_enemy.tscn"
 const PROJECTILE_SCENE := "res://scenes/enemies/basic_enemy/enemy_projectile.tscn"
@@ -30,8 +32,6 @@ var _hud: Node  # replay_hud.gd instance
 var _spawned_players: Dictionary = {}  # peer_id -> CharacterBody3D
 var _spawned_enemies: Dictionary = {}  # enemy_id -> CharacterBody3D
 var _spawned_projectiles: Dictionary = {}  # proj_id -> Node3D
-
-signal replay_exited
 
 
 func _ready() -> void:

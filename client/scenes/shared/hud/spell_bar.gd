@@ -6,13 +6,6 @@ extends Control
 ## Spell dict keys (required): name, desc, keybind, cooldown, cooldown_max
 ## Optional keys: active, active_remaining, active_max, status_text, color, dur
 
-var accent_color: Color = Color.WHITE
-var custom_tooltip_draw := Callable()
-
-var _spells: Array = []
-var _gcd_ratio: float = 0.0
-var _hovered_slot: int = -1
-
 const SLOT_SIZE: float = 58.0
 const SLOT_GAP: float = 4.0
 const PANEL_BG := Color(0.02, 0.025, 0.035, 0.82)
@@ -21,6 +14,13 @@ const PANEL_INSET := Color(0.11, 0.12, 0.15, 0.3)
 const PANEL_BORDER := Color(0.28, 0.3, 0.36, 0.85)
 const TEXT_PRIMARY := Color(0.92, 0.94, 0.97, 0.95)
 const TEXT_MUTED := Color(0.66, 0.7, 0.77, 0.9)
+
+var accent_color: Color = Color.WHITE
+var custom_tooltip_draw := Callable()
+
+var _spells: Array = []
+var _gcd_ratio: float = 0.0
+var _hovered_slot: int = -1
 
 
 func update_spells(spells: Array) -> void:

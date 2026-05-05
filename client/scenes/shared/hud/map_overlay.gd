@@ -6,6 +6,26 @@ extends Control
 
 const MapData := preload("res://scenes/shared/hud/map_data.gd")
 
+const PADDING := 0.15
+const FLOOR_COLOR := Color(0.30, 0.30, 0.34, 1.0)  # plaza, large ground surfaces
+const GARDEN_COLOR := Color(0.12, 0.28, 0.12, 1.0)  # large grass/garden areas
+const GROUND_COLOR := Color(0.38, 0.38, 0.42, 1.0)  # roads, sidewalks, small paths
+const WALL_COLOR := Color(0.18, 0.18, 0.22, 1.0)  # buildings, walls
+const GREEN_COLOR := Color(0.15, 0.38, 0.15, 1.0)  # hedges, trees, planters
+const BG_COLOR := Color(0.06, 0.06, 0.08, 0.9)  # void / unexplored
+const BORDER_COLOR := Color(0.45, 0.45, 0.50, 0.6)  # subtle outlines
+const WAYPOINT_COLOR := Color(0.3, 0.55, 1.0, 0.8)
+const PLAYER_COLOR := Color(0.3, 0.9, 0.3, 0.9)
+const ENEMY_COLOR := Color(0.9, 0.2, 0.2, 0.9)
+const NPC_COLOR := Color(0.9, 0.75, 0.2, 0.8)
+const SELF_COLOR := Color(1.0, 1.0, 1.0, 0.95)
+# Y tolerance: how close a node's Y must be to the player's floor to be included
+const Y_TOLERANCE := 15.0
+# Minimum XZ footprint area to be drawn (skip tiny collision slivers)
+const MIN_FOOTPRINT := 0.1
+# Height threshold: boxes taller than this relative to XZ are walls, not floors
+const WALL_HEIGHT_RATIO := 0.5
+
 var _current_floor_id: String = ""
 var _floor_name: String = ""
 var _scanned_rects: Array = []  # Array of {rect: Rect2, type: String} — "ground", "wall", "green"
@@ -26,27 +46,6 @@ var _has_waypoint: bool = false
 
 var _map_scale: float = 1.0
 var _map_offset: Vector2 = Vector2.ZERO
-
-const PADDING := 0.15
-const FLOOR_COLOR := Color(0.30, 0.30, 0.34, 1.0)  # plaza, large ground surfaces
-const GARDEN_COLOR := Color(0.12, 0.28, 0.12, 1.0)  # large grass/garden areas
-const GROUND_COLOR := Color(0.38, 0.38, 0.42, 1.0)  # roads, sidewalks, small paths
-const WALL_COLOR := Color(0.18, 0.18, 0.22, 1.0)  # buildings, walls
-const GREEN_COLOR := Color(0.15, 0.38, 0.15, 1.0)  # hedges, trees, planters
-const BG_COLOR := Color(0.06, 0.06, 0.08, 0.9)  # void / unexplored
-const BORDER_COLOR := Color(0.45, 0.45, 0.50, 0.6)  # subtle outlines
-const WAYPOINT_COLOR := Color(0.3, 0.55, 1.0, 0.8)
-const PLAYER_COLOR := Color(0.3, 0.9, 0.3, 0.9)
-const ENEMY_COLOR := Color(0.9, 0.2, 0.2, 0.9)
-const NPC_COLOR := Color(0.9, 0.75, 0.2, 0.8)
-const SELF_COLOR := Color(1.0, 1.0, 1.0, 0.95)
-
-# Y tolerance: how close a node's Y must be to the player's floor to be included
-const Y_TOLERANCE := 15.0
-# Minimum XZ footprint area to be drawn (skip tiny collision slivers)
-const MIN_FOOTPRINT := 0.1
-# Height threshold: boxes taller than this relative to XZ are walls, not floors
-const WALL_HEIGHT_RATIO := 0.5
 
 
 func _process(_delta: float) -> void:

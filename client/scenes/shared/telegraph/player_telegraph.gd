@@ -5,6 +5,10 @@ extends Node3D
 
 enum Shape { CIRCLE, CONE }
 
+static var _circle_shader: Shader
+static var _cone_shader: Shader
+static var _self_script: GDScript
+
 var shape: Shape = Shape.CIRCLE
 var radius: float = 5.0
 var half_angle: float = PI / 4.0  # for cone only, radians
@@ -12,14 +16,9 @@ var telegraph_color: Color = Color(0.3, 0.7, 1.0, 0.4)
 var edge_color: Color = Color(0.5, 0.85, 1.0, 0.9)
 var linger_time: float = 0.15
 var fade_time: float = 0.35
-
 var _timer: float = 0.0
 var _phase: int = 0  # 0=linger, 1=fade
 var _material: ShaderMaterial
-
-static var _circle_shader: Shader
-static var _cone_shader: Shader
-static var _self_script: GDScript
 
 
 static func _get_self_script() -> GDScript:

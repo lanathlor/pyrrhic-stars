@@ -6,88 +6,15 @@ extends CharacterBody3D
 
 signal died
 
-const PlayerTelegraph := preload("res://scenes/shared/telegraph/player_telegraph.gd")
-
 enum Config { ORBIT, FAN, LANCE, SCATTER, CROWN }
 enum State { MOVE, CASTING, DASH, STAGGER, DEAD }
 
-# Movement
-@export var run_speed: float = 6.0
-@export var sprint_speed: float = 9.0
-@export var mouse_sensitivity: float = 0.003
-@export var ground_accel: float = 20.0
-@export var ground_decel: float = 15.0
-@export var air_accel: float = 2.0
-@export var air_decel: float = 1.0
-@export var rotation_speed: float = 10.0
+const PlayerTelegraph := preload("res://scenes/shared/telegraph/player_telegraph.gd")
 
-# Dash
-@export var dash_speed: float = 15.0
-@export var dash_duration: float = 0.2
-@export var dash_iframe_duration: float = 0.15
-
-# GCD
-@export var gcd_duration: float = 0.5
-
-# Cast range (all damage abilities are ranged)
-@export var cast_range: float = 20.0
-
-# Health
-var health: float = 150.0
-var max_health: float = 150.0
-var peer_id: int = 0
-
-# Camera
-@export var camera_distance: float = 6.0
-@export var camera_height_offset: float = 2.0
-
-# State
-var state: State = State.MOVE
-var config: Config = Config.ORBIT
-var _cast_timer: float = 0.0
-var _casting_spell: Dictionary = {}
-var _state_timer: float = 0.0
-var _gcd_timer: float = 0.0
-var _is_invincible: bool = false
-
-# Dash
-var _dash_direction: Vector3 = Vector3.ZERO
-
-# Camera
-var _camera_yaw: float = 0.0
-var _camera_pitch: float = -0.3
-
-# Lock-on
-var _lock_target: Node3D = null
-var _lock_on_active: bool = false
-
-var _gravity: float = 8.5  # must match server gravity
-var _flash_timer: float = 0.0
-var _facing_angle: float = 0.0
-var _alive: bool = true
-
-# Network sync
-var _net_anim: String = ""
-var _net_anim_speed: float = 1.0
-var _net_position: Vector3 = Vector3.ZERO
-var _net_rotation_y: float = 0.0
 const NET_INTERP_SPEED := 15.0
 
 const BLADE_SCENE := "res://assets/models/weapons/weapon_floating_blade.glb"
 const TELEGRAPH_COLOR := Color(0.2, 0.75, 0.9, 0.4)
-
-# Blade visuals
-var _blade_nodes: Array[Node3D] = []
-var _blade_orbit_angle: float = 0.0
-var _blade_lerp_speed: float = 12.0
-var _blade_spin: float = 0.0
-
-# Materials -- one per config
-var _orbit_material: StandardMaterial3D
-var _fan_material: StandardMaterial3D
-var _lance_material: StandardMaterial3D
-var _scatter_material: StandardMaterial3D
-var _crown_material: StandardMaterial3D
 
 # Input actions mapped to spell slots 0-3
 const SPELL_SLOT_ACTIONS: Array[StringName] = [
@@ -286,6 +213,81 @@ const SPELL_TABLE := {
 	],
 }
 
+# Movement
+@export var run_speed: float = 6.0
+@export var sprint_speed: float = 9.0
+@export var mouse_sensitivity: float = 0.003
+@export var ground_accel: float = 20.0
+@export var ground_decel: float = 15.0
+@export var air_accel: float = 2.0
+@export var air_decel: float = 1.0
+@export var rotation_speed: float = 10.0
+
+# Dash
+@export var dash_speed: float = 15.0
+@export var dash_duration: float = 0.2
+@export var dash_iframe_duration: float = 0.15
+
+# GCD
+@export var gcd_duration: float = 0.5
+
+# Cast range (all damage abilities are ranged)
+@export var cast_range: float = 20.0
+
+# Camera
+@export var camera_distance: float = 6.0
+@export var camera_height_offset: float = 2.0
+
+# Health
+var health: float = 150.0
+var max_health: float = 150.0
+var peer_id: int = 0
+
+# State
+var state: State = State.MOVE
+var config: Config = Config.ORBIT
+
+var _cast_timer: float = 0.0
+var _casting_spell: Dictionary = {}
+var _state_timer: float = 0.0
+var _gcd_timer: float = 0.0
+var _is_invincible: bool = false
+
+# Dash
+var _dash_direction: Vector3 = Vector3.ZERO
+
+# Camera
+var _camera_yaw: float = 0.0
+var _camera_pitch: float = -0.3
+
+# Lock-on
+var _lock_target: Node3D = null
+var _lock_on_active: bool = false
+
+var _gravity: float = 8.5  # must match server gravity
+var _flash_timer: float = 0.0
+var _facing_angle: float = 0.0
+var _alive: bool = true
+
+# Network sync
+var _net_anim: String = ""
+var _net_anim_speed: float = 1.0
+var _net_position: Vector3 = Vector3.ZERO
+var _net_rotation_y: float = 0.0
+
+# Blade visuals
+var _blade_nodes: Array[Node3D] = []
+var _blade_orbit_angle: float = 0.0
+var _blade_lerp_speed: float = 12.0
+var _blade_spin: float = 0.0
+
+# Materials -- one per config
+var _orbit_material: StandardMaterial3D
+var _fan_material: StandardMaterial3D
+var _lance_material: StandardMaterial3D
+var _scatter_material: StandardMaterial3D
+var _crown_material: StandardMaterial3D
+
 @onready var camera: Camera3D = $Camera3D
 @onready var character_model: Node3D = $CharacterModel
 @onready var blade_pivot: Node3D = $BladePivot
@@ -355,7 +357,7 @@ func apply_server_state(data: Dictionary) -> void:
 
 
 ## Called by main.gd when server confirms this player hit an enemy.
-func on_hit_confirmed(amount: float) -> void:
+func on_hit_confirmed(_amount: float) -> void:
 	hud.show_hit_marker()
 
 
@@ -698,7 +700,7 @@ func _perform_raycast_hit(max_range: float) -> void:
 		return
 	var query := PhysicsRayQueryParameters3D.create(origin, origin + direction * max_range, 4 | 1)
 	query.exclude = [get_rid()]
-	var _result := space.intersect_ray(query)
+	var result := space.intersect_ray(query)
 	# Hit marker now driven by server-confirmed damage events (on_hit_confirmed)
 
 

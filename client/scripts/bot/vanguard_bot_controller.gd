@@ -70,7 +70,7 @@ func _physics_process(delta: float) -> void:
 			_move_away(dir)
 			_player._start_dodge()
 			return
-		elif _player.state == _player.State.MOVE:
+		if _player.state == _player.State.MOVE:
 			_move_away(dir)
 			Input.action_press("sprint")
 			return
@@ -85,7 +85,7 @@ func _physics_process(delta: float) -> void:
 			_move_strafe(dir)
 			_player._start_dodge()
 			return
-		elif _player.state == _player.State.MOVE:
+		if _player.state == _player.State.MOVE:
 			Input.action_press("block")
 			return
 
@@ -99,7 +99,7 @@ func _physics_process(delta: float) -> void:
 			_move_strafe(dir)
 			_player._start_dodge()
 			return
-		elif _player.state == _player.State.MOVE:
+		if _player.state == _player.State.MOVE:
 			Input.action_press("block")
 			return
 

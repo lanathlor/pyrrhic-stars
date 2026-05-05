@@ -15,13 +15,9 @@ enum GameState {
 	REPLAY,
 }
 
-var state: GameState = GameState.MENU
-var paused: bool = false
-
 const HUB_SCENE := "res://scenes/environments/prime_hub/military_building.tscn"
 const ARENA_SCENE := "res://scenes/environments/arena/arena.tscn"
 const EXIT_PORTAL_POS := Vector3(0.0, 0.1, 0.0)
-
 const LOBBY_SPAWN := Vector3(0.0, 0.1, 48.0)
 const PLAYER_SPAWNS := [
 	Vector3(-2.0, 0.1, 48.0),
@@ -40,13 +36,11 @@ const HUB_SPAWNS := [
 	Vector3(12.5, -199.9, -81.0),
 ]
 const HUB_SPAWN_YAW := PI / 2.0  # face west
-
 const CLASS_SCENES := {
 	"gunner": "res://scenes/controllers/gunner/gunner.tscn",
 	"vanguard": "res://scenes/controllers/vanguard/vanguard.tscn",
 	"blade_dancer": "res://scenes/controllers/blade_dancer/blade_dancer.tscn",
 }
-
 const CLASS_INFO := {
 	"gunner":
 	{
@@ -67,6 +61,22 @@ const CLASS_INFO := {
 		"desc": "5 configurations, 4 spells each.\nHighest skill ceiling."
 	},
 }
+const SERVER_ADDRESS := "90.29.175.30"
+const USERNAME_SAVE_PATH := "user://username.txt"
+const NPC_MODEL_SCENE := "res://scenes/shared/character_model/character_model.tscn"
+const NPC_PUPPET_SCRIPT := "res://scenes/shared/npc_puppet/npc_puppet.gd"
+const UI_SURFACE := Color(0.035, 0.045, 0.065, 0.88)
+const UI_SURFACE_ALT := Color(0.05, 0.06, 0.085, 0.92)
+const UI_SURFACE_ACTIVE := Color(0.08, 0.1, 0.15, 0.96)
+const UI_BORDER := Color(0.28, 0.31, 0.37, 0.9)
+const UI_BORDER_ACTIVE := Color(0.32, 0.58, 0.92, 0.95)
+const UI_TEXT := Color(0.9, 0.93, 0.98, 0.96)
+const UI_TEXT_MUTED := Color(0.6, 0.66, 0.75, 0.95)
+const UI_TEXT_DIM := Color(0.48, 0.53, 0.6, 0.95)
+const UI_DANGER := Color(0.86, 0.28, 0.28, 0.96)
+
+var state: GameState = GameState.MENU
+var paused: bool = false
 
 var _spawned_players: Dictionary = {}  # peer_id -> CharacterBody3D
 var _spawned_projectiles: Dictionary = {}  # proj_id -> Node3D
@@ -78,18 +88,13 @@ var _class_button_group: ButtonGroup = ButtonGroup.new()
 var _players_node: Node3D
 var _projectiles_node: Node3D
 var _username: String = ""
-const SERVER_ADDRESS := "90.29.175.30"
-const USERNAME_SAVE_PATH := "user://username.txt"
-
 # Scene management
 var _current_env: Node3D = null
 var _enemy_nodes: Dictionary = {}  # enemy_id -> CharacterBody3D
 var _npc_nodes: Dictionary = {}  # npc_id -> Node3D
-
 # Replay system
 var _replay_browser: CanvasLayer = null
 var _replay_scene: Node3D = null
-
 # Dynamic nodes
 var _boss_gate: CSGBox3D
 var _atmosphere: Node3D
@@ -98,7 +103,6 @@ var _pause_layer: CanvasLayer
 var _menu_layer: CanvasLayer
 var _username_input: LineEdit
 var _menu_welcome_label: Label
-
 # Character select UI
 var _char_select_layer: CanvasLayer
 var _char_list_container: VBoxContainer  # holds character row buttons
@@ -107,20 +111,17 @@ var _selected_char_id: int = 0
 var _enter_world_btn: Button
 var _char_select_welcome: Label
 var _account_username: String = ""
-
 # Create character UI
 var _char_create_layer: CanvasLayer
 var _char_create_cards: Dictionary = {}  # class_name -> PanelContainer
 var _char_name_input: LineEdit
 var _char_create_error_label: Label
 var _char_create_btn: Button
-
 # Hub UI
 var _hub_layer: CanvasLayer
 var _hub_class_label: Label
 var _hub_status_label: Label
 var _portal_prompt: Label
-
 # Group UI
 var _group_panel: PanelContainer
 var _group_label: Label
@@ -129,7 +130,6 @@ var _group_leave_btn: Button
 var _invite_popup: CanvasLayer
 var _invite_label: Label
 var _pending_invite_group_id: int = 0
-
 # Hub state
 var _near_portal: bool = false
 var _near_lift: bool = false
@@ -139,12 +139,10 @@ var _group_data: Dictionary = {}  # current group state
 var _aimed_peer_id: int = 0  # peer id under crosshair for invite
 var _cursor_toggled: bool = false  # backtick toggle state
 var _alt_held: bool = false  # alt hold state
-
 # Shared HUD (boss frame, group frames, damage meter, minimap, player status)
 var _shared_hud_layer: CanvasLayer
 var _shared_hud: Control
 var _map_overlay: Control
-
 # Death overlay
 var _death_overlay_layer: CanvasLayer
 var _death_overlay_bg: ColorRect
@@ -152,12 +150,10 @@ var _death_label: Label
 var _respawn_btn: Button
 var _respawn_hub_btn: Button
 var _local_player_dead: bool = false
-
 # Exit portal (spawns after boss kill)
 var _exit_portal: CSGCylinder3D = null
 var _near_exit_portal: bool = false
 var _exit_portal_prompt: Label = null
-
 # Portal trail (hub guide)
 var _portal_trail: Node3D
 
@@ -731,7 +727,7 @@ func _on_group_invite(group_id: int, leader_name: String) -> void:
 	)
 
 
-func _on_group_error(code: int, msg: String) -> void:
+func _on_group_error(_code: int, msg: String) -> void:
 	print("[Main] Group error: %s" % msg)
 	if _hub_status_label:
 		_hub_status_label.text = "Error: %s" % msg
@@ -990,7 +986,7 @@ func _on_zone_transfer(zone_type: int, new_peer_id: int) -> void:
 # =============================================================================
 
 
-func _on_game_flow_event(flow_type: int, text: String) -> void:
+func _on_game_flow_event(flow_type: int, _text: String) -> void:
 	match flow_type:
 		NetSerializer.FLOW_SPAWN_PLAYERS:
 			_spawn_multiplayer_players()
@@ -1325,10 +1321,6 @@ func _update_npcs(npcs_data: Array) -> void:
 		_npc_nodes.erase(nid)
 
 
-const NPC_MODEL_SCENE := "res://scenes/shared/character_model/character_model.tscn"
-const NPC_PUPPET_SCRIPT := "res://scenes/shared/npc_puppet/npc_puppet.gd"
-
-
 func _create_npc_node(ndata: Dictionary) -> Node3D:
 	var root := Node3D.new()
 	root.name = "NPC_%d" % ndata["npc_id"]
@@ -1518,16 +1510,6 @@ func _open_boss_gate() -> void:
 # =============================================================================
 # UI builders
 # =============================================================================
-
-const UI_SURFACE := Color(0.035, 0.045, 0.065, 0.88)
-const UI_SURFACE_ALT := Color(0.05, 0.06, 0.085, 0.92)
-const UI_SURFACE_ACTIVE := Color(0.08, 0.1, 0.15, 0.96)
-const UI_BORDER := Color(0.28, 0.31, 0.37, 0.9)
-const UI_BORDER_ACTIVE := Color(0.32, 0.58, 0.92, 0.95)
-const UI_TEXT := Color(0.9, 0.93, 0.98, 0.96)
-const UI_TEXT_MUTED := Color(0.6, 0.66, 0.75, 0.95)
-const UI_TEXT_DIM := Color(0.48, 0.53, 0.6, 0.95)
-const UI_DANGER := Color(0.86, 0.28, 0.28, 0.96)
 
 
 func _ui_style_box(

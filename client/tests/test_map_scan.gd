@@ -6,6 +6,9 @@ extends SceneTree
 ##
 ## Run: godot4 --headless --script res://tests/test_map_scan.gd
 
+const MapOverlayScript := preload("res://scenes/shared/hud/map_overlay.gd")
+const SharedHudScript := preload("res://scenes/shared/hud/shared_hud.gd")
+
 var _pass := 0
 var _fail := 0
 var _errors: Array[String] = []
@@ -30,7 +33,7 @@ func _run_tests() -> void:
 	await root.get_tree().process_frame  # let transforms propagate
 
 	var overlay := Control.new()
-	overlay.set_script(load("res://scenes/shared/hud/map_overlay.gd"))
+	overlay.set_script(MapOverlayScript)
 	overlay.size = Vector2(1920, 1080)
 	overlay.visible = false
 	root.add_child(overlay)
@@ -204,7 +207,7 @@ func _run_tests() -> void:
 	await root.get_tree().process_frame
 
 	var hud := Control.new()
-	hud.set_script(load("res://scenes/shared/hud/shared_hud.gd"))
+	hud.set_script(SharedHudScript)
 	root.add_child(hud)
 	hud.set_environment(hub2)
 	hud._hub_mode = true
@@ -241,7 +244,7 @@ func _run_tests() -> void:
 	await root.get_tree().process_frame
 
 	var overlay2 := Control.new()
-	overlay2.set_script(load("res://scenes/shared/hud/map_overlay.gd"))
+	overlay2.set_script(MapOverlayScript)
 	overlay2.size = Vector2(1920, 1080)
 	overlay2.visible = false
 	root.add_child(overlay2)
@@ -318,7 +321,7 @@ func _run_tests() -> void:
 	await root.get_tree().process_frame
 
 	var hud_rescan := Control.new()
-	hud_rescan.set_script(load("res://scenes/shared/hud/shared_hud.gd"))
+	hud_rescan.set_script(SharedHudScript)
 	root.add_child(hud_rescan)
 	hud_rescan.set_environment(hub_rescan)
 	hud_rescan._hub_mode = true
@@ -364,7 +367,7 @@ func _run_tests() -> void:
 	await root.get_tree().process_frame
 
 	var overlay3 := Control.new()
-	overlay3.set_script(load("res://scenes/shared/hud/map_overlay.gd"))
+	overlay3.set_script(MapOverlayScript)
 	overlay3.size = Vector2(1920, 1080)
 	overlay3.visible = false
 	root.add_child(overlay3)
@@ -390,7 +393,7 @@ func _run_tests() -> void:
 
 	# Also check the minimap scanner
 	var hud2 := Control.new()
-	hud2.set_script(load("res://scenes/shared/hud/shared_hud.gd"))
+	hud2.set_script(SharedHudScript)
 	root.add_child(hud2)
 	hud2.set_environment(hub4)
 	hud2._hub_mode = true

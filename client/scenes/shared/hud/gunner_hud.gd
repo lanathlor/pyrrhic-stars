@@ -2,18 +2,18 @@ extends Control
 
 ## Gunner HUD — crosshair, hit/damage feedback, shared spell bar.
 
-@onready var crosshair: Control = $Crosshair
-@onready var damage_overlay: ColorRect = $DamageOverlay
-@onready var ability_bar = $AbilityBar
+const HIT_MARKER_DURATION: float = 0.15
+const DAMAGE_FLASH_DURATION: float = 0.3
+const RECOIL_DURATION: float = 0.06
+const GUNNER_COLOR := Color(0.24, 0.62, 0.95)
 
 var _hit_marker_timer: float = 0.0
 var _damage_flash_timer: float = 0.0
 var _recoil_timer: float = 0.0
 
-const HIT_MARKER_DURATION: float = 0.15
-const DAMAGE_FLASH_DURATION: float = 0.3
-const RECOIL_DURATION: float = 0.06
-const GUNNER_COLOR := Color(0.24, 0.62, 0.95)
+@onready var crosshair: Control = $Crosshair
+@onready var damage_overlay: ColorRect = $DamageOverlay
+@onready var ability_bar = $AbilityBar
 
 
 func _ready() -> void:

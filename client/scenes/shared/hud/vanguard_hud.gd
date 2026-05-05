@@ -2,18 +2,18 @@ extends Control
 
 ## Vanguard HUD — lock-on reticle, damage/parry feedback, hit marker, shared spell bar.
 
-@onready var damage_overlay: ColorRect = $DamageOverlay
-@onready var lock_on_reticle: Control = $LockOnReticle
-@onready var ability_bar = $AbilityBar
+const DAMAGE_FLASH_DURATION: float = 0.3
+const PARRY_FLASH_DURATION: float = 0.25
+const HIT_MARKER_DURATION: float = 0.15
+const VANGUARD_COLOR := Color(0.82, 0.44, 0.24)
 
 var _damage_flash_timer: float = 0.0
 var _parry_flash_timer: float = 0.0
 var _hit_marker_timer: float = 0.0
 
-const DAMAGE_FLASH_DURATION: float = 0.3
-const PARRY_FLASH_DURATION: float = 0.25
-const HIT_MARKER_DURATION: float = 0.15
-const VANGUARD_COLOR := Color(0.82, 0.44, 0.24)
+@onready var damage_overlay: ColorRect = $DamageOverlay
+@onready var lock_on_reticle: Control = $LockOnReticle
+@onready var ability_bar = $AbilityBar
 
 
 func _ready() -> void:

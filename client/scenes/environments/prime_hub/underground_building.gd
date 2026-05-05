@@ -1,9 +1,6 @@
 extends Node3D
 ## Generates window bands and trim strips on the south building's north face.
 
-@export var glass_mat: Material
-@export var trim_mat: Material
-
 const FACE_Z := 49.9
 const TRIM_Z := 49.85
 const FLOOR_INTERVAL := 4.0
@@ -11,6 +8,9 @@ const WIN_HEIGHT := 3.0
 const WIDTH := 250.0
 const Y_START := -6.0
 const Y_END := -150.0
+
+@export var glass_mat: Material
+@export var trim_mat: Material
 
 
 func _ready() -> void:

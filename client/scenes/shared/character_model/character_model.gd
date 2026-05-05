@@ -53,6 +53,9 @@ const LOOPING_ANIMS := [
 	"sword_block",
 ]
 
+## The currently attached weapon node (if any), for external rotation.
+var weapon_node: Node3D = null
+
 var _anim_player: AnimationPlayer = null
 var _mesh_instances: Array[MeshInstance3D] = []
 var _skeleton: Skeleton3D = null
@@ -61,10 +64,8 @@ var _hips_bone_idx: int = -1
 var _original_materials: Array[Material] = []
 var _current_anim: String = ""
 var _loaded_anims: PackedStringArray = []
-
-## The currently attached weapon node (if any), for external rotation.
-var weapon_node: Node3D = null
 var _bone_attachment: BoneAttachment3D = null
+var _flash_tween: Tween = null
 
 
 func _ready() -> void:
@@ -200,9 +201,6 @@ func attach_weapon(
 
 
 ## Flash the mesh white for damage feedback.
-var _flash_tween: Tween = null
-
-
 func flash_damage(color: Color = Color(1.0, 1.0, 1.0), duration: float = 0.12) -> void:
 	if _mesh_instances.is_empty():
 		return

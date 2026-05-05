@@ -5,6 +5,9 @@ extends GdUnitTestSuite
 ## and map_overlay — covering floor detection, geometry loading, waypoints,
 ## NPC parsing, toggle behavior, and coordinate transforms.
 
+var _hud: Control
+var _overlay: Control
+
 # =============================================================================
 # MapData — Floor definitions
 # =============================================================================
@@ -125,8 +128,6 @@ func test_ops_has_extra_floors() -> void:
 # =============================================================================
 # SharedHUD — hub/arena mode transitions
 # =============================================================================
-
-var _hud: Control
 
 
 func _make_hud() -> void:
@@ -256,7 +257,7 @@ func test_floor_geometry_fallback_first_rect_correct() -> void:
 	_hud._hub_mode = true
 	_hud._detect_floor(Vector3(5.0, -199.0, -55.0))
 	# A1: center=(-65,-125), size=(50,45) -> Rect2(-90, -147.5, 50, 45)
-	var r: Rect2 = _hud._floor_rects[0]
+	var r: Rect2 = _hud._floor_rects[0]["rect"]
 	assert_float(r.position.x).is_equal_approx(-90.0, 0.1)
 	assert_float(r.position.y).is_equal_approx(-147.5, 0.1)
 	assert_float(r.size.x).is_equal_approx(50.0, 0.1)
@@ -266,8 +267,6 @@ func test_floor_geometry_fallback_first_rect_correct() -> void:
 # =============================================================================
 # MapOverlay — basic state
 # =============================================================================
-
-var _overlay: Control
 
 
 func _make_overlay() -> void:

@@ -28,20 +28,23 @@ enum State {
 	PATROL,
 }
 
+# Interpolation
+const NET_INTERP_SPEED := 15.0
+const SWORD_SCENE_PATH := "res://assets/models/weapons/weapon_longsword.glb"
+const GUN_SCENE_PATH := "res://assets/models/weapons/weapon_rifle.glb"
+
 # Stats needed for health bar display
 @export var max_health: float = 2000.0
 @export var melee_range: float = 3.0
-var _melee_cone_angle: float = PI  # full cone angle in radians (default 180°)
 
 var health: float
 var state: State = State.IDLE
-
-# Phase tracking (for health bar color and charge distance)
-var _current_phase: int = 1
-
 # Enemy network identity (server assigns IDs >= 1000 to avoid player peer ID collision)
 var peer_id: int = 0
 
+var _melee_cone_angle: float = PI  # full cone angle in radians (default 180°)
+# Phase tracking (for health bar color and charge distance)
+var _current_phase: int = 1
 # Server state (set by main.gd from WorldState)
 var _server_position: Vector3 = Vector3.ZERO
 var _server_rotation_y: float = 0.0
@@ -51,13 +54,9 @@ var _server_phase: int = 1
 var _server_ranged_target: Vector3 = Vector3.ZERO
 var _server_charge_dir: Vector3 = Vector3.ZERO
 var _server_alive: bool = true
-
-# Interpolation
-const NET_INTERP_SPEED := 15.0
 var _last_synced_state: int = -1
 var _prev_position: Vector3 = Vector3.ZERO
 var _visual_velocity: Vector3 = Vector3.ZERO
-
 # Dynamic visual nodes
 var _melee_telegraph_mesh: MeshInstance3D
 var _laser_warning_mesh: MeshInstance3D
@@ -65,17 +64,9 @@ var _aoe_telegraph_mesh: MeshInstance3D
 var _charge_telegraph_mesh: MeshInstance3D
 var _health_bar_pivot: Node3D
 var _health_bar_fg: MeshInstance3D
-
 # AoE fire particles
 var _aoe_particles: GPUParticles3D
 var _aoe_slam_particles: GPUParticles3D
-
-# Scene references
-@onready var character_model: Node3D = $CharacterModel
-
-const SWORD_SCENE_PATH := "res://assets/models/weapons/weapon_longsword.glb"
-const GUN_SCENE_PATH := "res://assets/models/weapons/weapon_rifle.glb"
-
 # Weapon nodes (bone-attached via CharacterModel)
 var _sword_node: Node3D
 var _gun_node: Node3D
@@ -83,11 +74,13 @@ var _sword_attachment: BoneAttachment3D
 var _gun_attachment: BoneAttachment3D
 var _last_weapon: String = "sword"  # which weapon to show between attacks
 var _def_name: String = ""  # enemy definition name from server
-
 # Ranged target position for laser warning visual
 var _ranged_target_position: Vector3
 # Charge direction for charge telegraph visual
 var _charge_direction: Vector3 = Vector3.ZERO
+
+# Scene references
+@onready var character_model: Node3D = $CharacterModel
 
 
 func _ready() -> void:
@@ -236,7 +229,7 @@ func _update_state_visuals() -> void:
 # =============================================================================
 
 
-func on_damage_visual(amount: float, hit_pos: Vector3) -> void:
+func on_damage_visual(_amount: float, _hit_pos: Vector3) -> void:
 	character_model.flash_damage()
 
 

@@ -3,12 +3,12 @@ extends Node
 ## Logs combat events during a fight and writes to JSON after fight ends.
 ## Output: res://test_output/combat_log.json (client/test_output/ on disk).
 
+var output_dir: String = "res://test_output/"
+
 var _events: Array[Dictionary] = []
 var _fight_active: bool = false
 var _fight_start_time: float = 0.0
 var _summary: Dictionary = {}
-
-var output_dir: String = "res://test_output/"
 
 
 func _ready() -> void:

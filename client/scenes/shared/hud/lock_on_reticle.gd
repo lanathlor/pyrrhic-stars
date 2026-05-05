@@ -16,13 +16,13 @@ func _draw() -> void:
 	var cam: Camera3D = null
 	if has_meta("lock_target"):
 		var t = get_meta("lock_target")
-		if t is Node3D and is_instance_valid(t):
+		if is_instance_valid(t) and t is Node3D:
 			target = t
 		else:
 			remove_meta("lock_target")
 	if has_meta("lock_camera"):
 		var c = get_meta("lock_camera")
-		if c is Camera3D and is_instance_valid(c):
+		if is_instance_valid(c) and c is Camera3D:
 			cam = c
 		else:
 			remove_meta("lock_camera")

@@ -5,6 +5,23 @@ extends CharacterBody3D
 
 signal died
 
+# Overclock
+const OVERCLOCK_DURATION: float = 7.0
+const OVERCLOCK_COOLDOWN: float = 15.0
+const OVERCLOCK_FIRE_RATE: float = 0.10
+const OVERCLOCK_SPEED_MULT: float = 1.3
+
+# Rechamber
+const RECHAMBER_WINDUP: float = 0.6
+const RECHAMBER_WINDOW: float = 0.35
+const RECHAMBER_LOCKOUT: float = 0.8
+const RECHAMBER_BUFF_DURATION: float = 4.0
+
+# Network
+const NET_INTERP_SPEED := 15.0
+
+const WEAPON_SCENE := "res://assets/models/weapons/weapon_rifle.glb"
+
 # Movement — tuned toward Halo 3 feel
 # H3: no sprint, 7.69 m/s measured base, weighty inertia
 @export var walk_speed: float = 5.5
@@ -37,11 +54,10 @@ signal died
 # Health
 var health: float = 150.0
 var max_health: float = 150.0
-var _alive: bool = true
-
 # Network identity (set by main.gd before add_child)
 var peer_id: int = 0
 
+var _alive: bool = true
 var _fire_cooldown: float = 0.0
 var _gravity: float = 8.5
 
@@ -55,37 +71,18 @@ var _roll_direction: Vector3 = Vector3.ZERO
 var _overclock_active: bool = false
 var _overclock_timer: float = 0.0
 var _overclock_cooldown: float = 0.0
-const OVERCLOCK_DURATION: float = 7.0
-const OVERCLOCK_COOLDOWN: float = 15.0
-const OVERCLOCK_FIRE_RATE: float = 0.10
-const OVERCLOCK_SPEED_MULT: float = 1.3
 
 # Rechamber state
 var _rechamber_phase: int = 0  # 0=idle, 1=windup, 2=timing_window, 3=lockout
 var _rechamber_timer: float = 0.0
 var _rechamber_buff: bool = false
 var _rechamber_buff_timer: float = 0.0
-const RECHAMBER_WINDUP: float = 0.6
-const RECHAMBER_WINDOW: float = 0.35
-const RECHAMBER_LOCKOUT: float = 0.8
-const RECHAMBER_BUFF_DURATION: float = 4.0
 
 # Network sync
 var _net_anim: String = ""
 var _net_anim_speed: float = 1.0
 var _net_position: Vector3 = Vector3.ZERO
 var _net_rotation_y: float = 0.0
-const NET_INTERP_SPEED := 15.0
-
-const WEAPON_SCENE := "res://assets/models/weapons/weapon_rifle.glb"
-
-@onready var head: Node3D = $Head
-@onready var camera: Camera3D = $Head/Camera3D
-@onready var gun_ray: RayCast3D = $Head/GunRay
-@onready var muzzle_light: OmniLight3D = $Head/MuzzleLight
-@onready var hud: Control = $HUDLayer/GunnerHUD
-@onready var character_model: Node3D = $CharacterModel
-
 var _muzzle_flash_timer: float = 0.0
 
 # Viewmodel state
@@ -97,6 +94,13 @@ var _bob_time: float = 0.0
 # Remote fire detection
 var _net_aim_pitch: float = 0.0
 var _net_state: int = 0  # track remote state for attack transition detection
+
+@onready var head: Node3D = $Head
+@onready var camera: Camera3D = $Head/Camera3D
+@onready var gun_ray: RayCast3D = $Head/GunRay
+@onready var muzzle_light: OmniLight3D = $Head/MuzzleLight
+@onready var hud: Control = $HUDLayer/GunnerHUD
+@onready var character_model: Node3D = $CharacterModel
 
 
 func _ready() -> void:
@@ -553,7 +557,7 @@ func _fire_remote_tracer() -> void:
 
 
 ## Called by main.gd when server confirms this player hit an enemy.
-func on_hit_confirmed(amount: float) -> void:
+func on_hit_confirmed(_amount: float) -> void:
 	hud.show_hit_marker()
 
 
@@ -564,7 +568,7 @@ func on_hit_tracer(hit_pos: Vector3) -> void:
 
 ## Called by main.gd when the server sends a DAMAGE_EVENT targeting this player.
 ## Health is already updated via apply_server_state -- this is visuals only.
-func on_damage_visual(amount: float, hit_pos: Vector3) -> void:
+func on_damage_visual(_amount: float, _hit_pos: Vector3) -> void:
 	hud.show_damage_flash()
 	character_model.flash_damage()
 

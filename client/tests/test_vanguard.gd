@@ -42,8 +42,6 @@ func test_initial_health() -> void:
 	assert_float(_vanguard.max_health).is_equal(200.0)
 
 
-
-
 # --- Stamina ---
 
 
@@ -60,8 +58,6 @@ func test_consume_stamina() -> void:
 func test_stamina_clamps_at_zero() -> void:
 	_vanguard._consume_stamina(999.0)
 	assert_float(_vanguard.stamina).is_equal(0.0)
-
-
 
 
 # --- Dodge ---
@@ -190,8 +186,6 @@ func test_block_drains_stamina() -> void:
 	# (need to hold block input for it to stay in BLOCK)
 	_vanguard._consume_stamina(_vanguard.block_stamina_drain * DELTA)
 	assert_float(_vanguard.stamina).is_less(before)
-
-
 
 
 # --- Lock-on ---

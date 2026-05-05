@@ -2,15 +2,15 @@ extends Node3D
 ## Dungeon atmospheric effects: rain, lightning, and flickering accent lights.
 ## Attach to the Arena root after loading the scene.
 
-@export var rain_enabled: bool = true
-@export var lightning_enabled: bool = true
-@export var flicker_enabled: bool = true
-
 # Rain config
 const RAIN_AREA := Vector3(50.0, 1.0, 80.0)  # covers full dungeon length
 const RAIN_CENTER := Vector3(0.0, 15.0, 18.0)  # centered over dungeon
 const RAIN_AMOUNT := 4000
 const RAIN_LIFETIME := 1.2
+
+@export var rain_enabled: bool = true
+@export var lightning_enabled: bool = true
+@export var flicker_enabled: bool = true
 
 # Lightning config
 var _lightning_timer: float = 0.0

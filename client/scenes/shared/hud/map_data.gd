@@ -1,5 +1,5 @@
-extends RefCounted
 class_name MapData
+extends RefCounted
 
 ## Pure-data script holding floor geometry and waypoint targets for the minimap
 ## and full map overlay. Shared by shared_hud.gd, map_overlay.gd, and portal_trail.gd.

@@ -2,14 +2,14 @@ extends Node
 ## HTTP client for the combat log REST API.
 ## Instantiated by the replay browser — NOT an autoload.
 
+signal instances_loaded(data: Array)
+signal replay_loaded(replay: Variant)
+
 const BASE_URL := "http://90.29.175.30:7777"
-const _ReplayDataScript := preload("res://scripts/replay/replay_data.gd")
+const ReplayDataScript := preload("res://scripts/replay/replay_data.gd")
 
 var _instances_http: HTTPRequest
 var _replay_http: HTTPRequest
-
-signal instances_loaded(data: Array)
-signal replay_loaded(replay: Variant)
 
 
 func _ready() -> void:
@@ -56,5 +56,5 @@ func _on_replay_response(
 	if json.parse(body.get_string_from_utf8()) != OK:
 		replay_loaded.emit(null)
 		return
-	var replay = _ReplayDataScript.from_json(json.data)
+	var replay = ReplayDataScript.from_json(json.data)
 	replay_loaded.emit(replay)
