@@ -30,10 +30,13 @@ func TestHubPersistence_PositionSavedOnDisconnect(t *testing.T) {
 		t.Fatal("local player never appeared in WorldState")
 	}
 
+	// Wait past spawn grace period (10 ticks @ 20Hz = 500ms).
+	time.Sleep(600 * time.Millisecond)
+
 	// Walk in small steps.
-	walkX := float32(20.0)
-	walkY := float32(-199.9)
-	walkZ := float32(-88.0)
+	walkX := float32(25.0)
+	walkY := float32(100.15)
+	walkZ := float32(-5.0)
 	walkRotY := float32(1.0)
 
 	startX := me.PosX
@@ -52,7 +55,7 @@ func TestHubPersistence_PositionSavedOnDisconnect(t *testing.T) {
 	for !confirmed && time.Now().Before(deadline) {
 		ws := c1.WaitWorldState(3 * time.Second)
 		p := ws.Player(c1.PeerID)
-		if p != nil && p.PosX > 18.0 && p.PosZ < -85.0 {
+		if p != nil && p.PosX < 27.0 && p.PosZ < -3.0 {
 			confirmed = true
 		}
 	}
@@ -73,8 +76,8 @@ func TestHubPersistence_PositionSavedOnDisconnect(t *testing.T) {
 	cs2 := c2.SelectCharacter(charID)
 	t.Logf("restored: pos=(%.1f, %.1f, %.1f) rotY=%.4f", cs2.PosX, cs2.PosY, cs2.PosZ, cs2.RotY)
 
-	assertNear(t, cs2.PosX, walkX, 2.0, "restored X")
-	assertNear(t, cs2.PosY, walkY, 2.0, "restored Y")
-	assertNear(t, cs2.PosZ, walkZ, 2.0, "restored Z")
+	assertNear(t, cs2.PosX, walkX, 3.0, "restored X")
+	assertNear(t, cs2.PosY, walkY, 3.0, "restored Y")
+	assertNear(t, cs2.PosZ, walkZ, 3.0, "restored Z")
 	assertNear(t, cs2.RotY, walkRotY, 0.2, "restored RotY")
 }

@@ -67,12 +67,12 @@ func TestHubSpawn_Position(t *testing.T) {
 	t.Logf("spawn: pos=(%.1f, %.1f, %.1f) rotY=%.4f class=%s name=%s",
 		me.PosX, me.PosY, me.PosZ, me.RotY, me.ClassName, me.Username)
 
-	assertNear(t, me.PosY, -199.9, 1.0, "spawn Y (street level)")
-	if me.PosX < 10.0 || me.PosX > 20.0 {
-		t.Errorf("spawn X = %.1f, want 10-20", me.PosX)
+	assertNear(t, me.PosY, 100.15, 1.0, "spawn Y (upper plaza)")
+	if me.PosX < 31.0 || me.PosX > 35.0 {
+		t.Errorf("spawn X = %.1f, want 31-35", me.PosX)
 	}
-	if me.PosZ > -75.0 || me.PosZ < -85.0 {
-		t.Errorf("spawn Z = %.1f, want -85 to -75", me.PosZ)
+	if me.PosZ < 2.0 || me.PosZ > 6.0 {
+		t.Errorf("spawn Z = %.1f, want 2-6", me.PosZ)
 	}
 }
 
@@ -91,8 +91,8 @@ func TestHubSpawn_FacingDirection(t *testing.T) {
 		t.Fatal("local player never appeared in WorldState")
 	}
 
-	wantYaw := float32(math.Pi / 2.0)
-	assertNear(t, me.RotY, wantYaw, 0.1, "spawn yaw (facing west)")
+	wantYaw := float32(math.Pi)
+	assertNear(t, me.RotY, wantYaw, 0.1, "spawn yaw (facing south)")
 }
 
 func TestHubSpawn_NPCsPresent(t *testing.T) {
