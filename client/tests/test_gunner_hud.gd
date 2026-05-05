@@ -3,18 +3,19 @@ extends GdUnitTestSuite
 
 ## Tests for the Gunner HUD — hit feedback, damage flash, recoil, spell bar.
 
+const GunnerHudScript := preload("res://scenes/shared/hud/gunner_hud.gd")
 const GUNNER_SCENE := "res://scenes/controllers/gunner/gunner.tscn"
 const DELTA := 1.0 / 60.0
 
 var _gunner: CharacterBody3D
-var _hud: Control
+var _hud: GunnerHudScript
 
 
 func before_test() -> void:
-	_gunner = auto_free(load(GUNNER_SCENE).instantiate())
+	_gunner = auto_free(load(GUNNER_SCENE).instantiate()) as CharacterBody3D
 	add_child(_gunner)
 	await get_tree().process_frame
-	_hud = _gunner.hud
+	_hud = _gunner.hud as GunnerHudScript
 
 
 # --- Spell bar ---
@@ -32,11 +33,11 @@ func test_update_spells_passes_to_ability_bar() -> void:
 	assert_str(bar._spells[1].name).is_equal("Roll")
 
 
-func test_ability_bar_accent_color_is_cyan() -> void:
+func test_ability_bar_accent_color_is_blue() -> void:
 	var bar: Control = _hud.get_node("AbilityBar")
-	assert_float(bar.accent_color.r).is_equal_approx(0.3, 0.01)
-	assert_float(bar.accent_color.g).is_equal_approx(0.9, 0.01)
-	assert_float(bar.accent_color.b).is_equal_approx(1.0, 0.01)
+	assert_float(bar.accent_color.r).is_equal_approx(0.24, 0.01)
+	assert_float(bar.accent_color.g).is_equal_approx(0.62, 0.01)
+	assert_float(bar.accent_color.b).is_equal_approx(0.95, 0.01)
 
 
 # --- Hit marker ---

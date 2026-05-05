@@ -25,3 +25,13 @@ lint:
 
 # Run both lint and format check
 check: fmt-check lint
+
+# --- Tests ---
+
+# Run all GdUnit tests
+test:
+    godot --headless -s addons/gdUnit4/bin/GdUnitCmdTool.gd -a res://tests --ignoreHeadlessMode
+
+# Run a single test suite
+test-suite suite:
+    godot --headless -s addons/gdUnit4/bin/GdUnitCmdTool.gd -a res://tests/{{suite}}.gd --ignoreHeadlessMode

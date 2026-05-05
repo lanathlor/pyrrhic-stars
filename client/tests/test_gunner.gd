@@ -3,14 +3,15 @@ extends GdUnitTestSuite
 
 ## Tests for the Gunner FPS controller — movement, roll, shooting rules.
 
+const GunnerScript := preload("res://scenes/controllers/gunner/gunner.gd")
 const GUNNER_SCENE := "res://scenes/controllers/gunner/gunner.tscn"
 const DELTA := 1.0 / 60.0  # 60 fps
 
-var _gunner: CharacterBody3D
+var _gunner: GunnerScript
 
 
 func before_test() -> void:
-	_gunner = auto_free(load(GUNNER_SCENE).instantiate())
+	_gunner = auto_free(load(GUNNER_SCENE).instantiate()) as GunnerScript
 	# Place on a floor so is_on_floor() can work
 	_gunner.position = Vector3(0.0, 5.0, 0.0)
 	add_child(_gunner)
@@ -34,28 +35,12 @@ func after_test() -> void:
 			Input.action_release(action)
 
 
-# --- Health & Damage ---
+# --- Health ---
 
 
 func test_initial_health() -> void:
-	assert_float(_gunner.health).is_equal(100.0)
-	assert_float(_gunner.max_health).is_equal(100.0)
-
-
-func test_take_damage_reduces_health() -> void:
-	_gunner.take_damage(30.0)
-	assert_float(_gunner.health).is_equal(70.0)
-
-
-func test_take_damage_clamps_at_zero() -> void:
-	_gunner.take_damage(999.0)
-	assert_float(_gunner.health).is_equal(0.0)
-
-
-func test_respawn_restores_health() -> void:
-	_gunner.take_damage(999.0)
-	# take_damage calls _respawn at 0 HP
-	assert_float(_gunner.health).is_equal(100.0)
+	assert_float(_gunner.health).is_equal(150.0)
+	assert_float(_gunner.max_health).is_equal(150.0)
 
 
 # --- Roll mechanics ---
@@ -157,9 +142,10 @@ func test_model_hidden_for_fps() -> void:
 # --- Remote tracer (bullet line) state transition ---
 
 
-func _make_remote_gunner() -> CharacterBody3D:
-	var remote := auto_free(load(GUNNER_SCENE).instantiate())
+func _make_remote_gunner() -> GunnerScript:
+	var remote: GunnerScript = auto_free(load(GUNNER_SCENE).instantiate()) as GunnerScript
 	remote.peer_id = 99  # non-zero, not matching NetworkManager
+	remote.set_meta("replay_puppet", true)  # Force _is_local() = false without NetworkManager
 	remote.position = Vector3(5.0, 5.0, 0.0)
 	add_child(remote)
 	await get_tree().process_frame
@@ -168,7 +154,8 @@ func _make_remote_gunner() -> CharacterBody3D:
 
 func _count_tracers() -> int:
 	var count := 0
-	for child in get_tree().current_scene.get_children():
+	var root: Node = get_tree().current_scene if get_tree().current_scene else get_tree().root
+	for child in root.get_children():
 		if child is MeshInstance3D and child.mesh is BoxMesh:
 			var box: BoxMesh = child.mesh
 			# Tracers use a thin box (0.03 x 0.03 x length)

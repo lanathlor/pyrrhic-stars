@@ -4,14 +4,15 @@ extends GdUnitTestSuite
 ## Tests for the Blade Dancer state machine controller -- 5 configs, 20 spells,
 ## blade formations, dash, and casting.
 
+const BDScript := preload("res://scenes/controllers/blade_dancer/blade_dancer.gd")
 const BD_SCENE := "res://scenes/controllers/blade_dancer/blade_dancer.tscn"
 const DELTA := 1.0 / 60.0
 
-var _bd: CharacterBody3D
+var _bd: BDScript
 
 
 func before_test() -> void:
-	_bd = auto_free(load(BD_SCENE).instantiate())
+	_bd = auto_free(load(BD_SCENE).instantiate()) as BDScript
 	_bd.position = Vector3(0.0, 5.0, 0.0)
 	add_child(_bd)
 	await get_tree().process_frame
@@ -121,7 +122,7 @@ func test_spell_transitions_config_on_complete() -> void:
 	for i in frames:
 		_bd._cast_timer -= DELTA
 		if _bd._cast_timer <= 0.0:
-			_bd.config = _bd._casting_spell.dest as _bd.Config
+			_bd.config = int(_bd._casting_spell.dest)
 			_bd._enter_state(_bd.State.MOVE)
 			break
 	assert_int(_bd.config).is_equal(_bd.Config.FAN)
@@ -195,6 +196,7 @@ func test_dash_invincibility_expires() -> void:
 	_bd._start_dash()
 	var frames := ceili((_bd.dash_iframe_duration + 0.02) / DELTA)
 	for i in frames:
+		_bd._state_timer -= DELTA
 		_bd._process_dash(DELTA)
 	assert_bool(_bd._is_invincible).is_false()
 
@@ -203,6 +205,7 @@ func test_dash_completes_to_move() -> void:
 	_bd._start_dash()
 	var frames := ceili((_bd.dash_duration + 0.05) / DELTA)
 	for i in frames:
+		_bd._state_timer -= DELTA
 		_bd._process_dash(DELTA)
 	assert_int(_bd.state).is_equal(_bd.State.MOVE)
 
@@ -220,6 +223,7 @@ func test_dash_bleeds_velocity() -> void:
 	_bd._start_dash()
 	var frames := ceili((_bd.dash_duration + 0.05) / DELTA)
 	for i in frames:
+		_bd._state_timer -= DELTA
 		_bd._process_dash(DELTA)
 	var flat_speed := Vector2(_bd.velocity.x, _bd.velocity.z).length()
 	assert_float(flat_speed).is_less(_bd.dash_speed * 0.5)

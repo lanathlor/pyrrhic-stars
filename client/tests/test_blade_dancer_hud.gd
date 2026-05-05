@@ -3,18 +3,20 @@ extends GdUnitTestSuite
 
 ## Tests for the Blade Dancer HUD — config display, GCD, damage flash, hit marker, lock-on, spell bar.
 
+const BDScript := preload("res://scenes/controllers/blade_dancer/blade_dancer.gd")
+const BDHudScript := preload("res://scenes/shared/hud/blade_dancer_hud.gd")
 const BD_SCENE := "res://scenes/controllers/blade_dancer/blade_dancer.tscn"
 const DELTA := 1.0 / 60.0
 
-var _bd: CharacterBody3D
-var _hud: Control
+var _bd: BDScript
+var _hud: BDHudScript
 
 
 func before_test() -> void:
-	_bd = auto_free(load(BD_SCENE).instantiate())
+	_bd = auto_free(load(BD_SCENE).instantiate()) as BDScript
 	add_child(_bd)
 	await get_tree().process_frame
-	_hud = _bd.hud
+	_hud = _bd.hud as BDHudScript
 
 
 # --- Damage flash ---
@@ -168,8 +170,10 @@ func test_lock_on_hide() -> void:
 
 
 func test_lock_on_update_stores_meta() -> void:
-	var target := auto_free(Node3D.new())
-	var cam := auto_free(Camera3D.new())
+	var target: Node3D = auto_free(Node3D.new())
+	var cam: Camera3D = auto_free(Camera3D.new())
+	add_child(target)
+	add_child(cam)
 	_hud.update_lock_on(target, cam)
 	var reticle: Control = _hud.get_node("LockOnReticle")
 	assert_that(reticle.get_meta("lock_target")).is_same(target)

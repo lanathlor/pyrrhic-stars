@@ -4,12 +4,15 @@ extends GdUnitTestSuite
 ## Tests for the shared HUD overlay — player status, group frames, boss frame,
 ## damage meter, and minimap data layer.
 
-var _hud: Control
+const SharedHudScript := preload("res://scenes/shared/hud/shared_hud.gd")
+
+var _hud: SharedHudScript
 
 
 func before_test() -> void:
-	_hud = auto_free(Control.new())
-	_hud.set_script(load("res://scenes/shared/hud/shared_hud.gd"))
+	var ctrl: Control = auto_free(Control.new())
+	ctrl.set_script(SharedHudScript)
+	_hud = ctrl as SharedHudScript
 	add_child(_hud)
 	await get_tree().process_frame
 
@@ -54,37 +57,37 @@ func test_initial_world_players_empty() -> void:
 
 
 func test_set_local_player_gunner_max_hp() -> void:
-	var player := auto_free(CharacterBody3D.new())
+	var player: CharacterBody3D = auto_free(CharacterBody3D.new())
 	_hud.set_local_player(player, "gunner", 1)
 	assert_float(_hud._player_max_health).is_equal(150.0)
 
 
 func test_set_local_player_vanguard_max_hp() -> void:
-	var player := auto_free(CharacterBody3D.new())
+	var player: CharacterBody3D = auto_free(CharacterBody3D.new())
 	_hud.set_local_player(player, "vanguard", 2)
 	assert_float(_hud._player_max_health).is_equal(200.0)
 
 
 func test_set_local_player_blade_dancer_max_hp() -> void:
-	var player := auto_free(CharacterBody3D.new())
+	var player: CharacterBody3D = auto_free(CharacterBody3D.new())
 	_hud.set_local_player(player, "blade_dancer", 3)
 	assert_float(_hud._player_max_health).is_equal(150.0)
 
 
 func test_set_local_player_unknown_class_defaults() -> void:
-	var player := auto_free(CharacterBody3D.new())
+	var player: CharacterBody3D = auto_free(CharacterBody3D.new())
 	_hud.set_local_player(player, "unknown_class", 99)
 	assert_float(_hud._player_max_health).is_equal(150.0)
 
 
 func test_set_local_player_stores_peer_id() -> void:
-	var player := auto_free(CharacterBody3D.new())
+	var player: CharacterBody3D = auto_free(CharacterBody3D.new())
 	_hud.set_local_player(player, "gunner", 42)
 	assert_int(_hud._local_peer_id).is_equal(42)
 
 
 func test_set_local_player_stores_class() -> void:
-	var player := auto_free(CharacterBody3D.new())
+	var player: CharacterBody3D = auto_free(CharacterBody3D.new())
 	_hud.set_local_player(player, "vanguard", 1)
 	assert_str(_hud._local_class).is_equal("vanguard")
 
@@ -418,7 +421,7 @@ func test_update_group_members_empty() -> void:
 
 
 func test_clear_local_player_nulls_ref() -> void:
-	var player := auto_free(CharacterBody3D.new())
+	var player: CharacterBody3D = auto_free(CharacterBody3D.new())
 	_hud.set_local_player(player, "gunner", 1)
 	_hud.clear_local_player()
 	assert_that(_hud._local_player).is_null()

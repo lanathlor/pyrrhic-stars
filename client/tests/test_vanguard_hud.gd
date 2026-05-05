@@ -3,18 +3,20 @@ extends GdUnitTestSuite
 
 ## Tests for the Vanguard HUD — damage/parry flash, hit marker, lock-on reticle, spell bar.
 
+const VanguardScript := preload("res://scenes/controllers/vanguard/vanguard.gd")
+const VanguardHudScript := preload("res://scenes/shared/hud/vanguard_hud.gd")
 const VANGUARD_SCENE := "res://scenes/controllers/vanguard/vanguard.tscn"
 const DELTA := 1.0 / 60.0
 
-var _vanguard: CharacterBody3D
-var _hud: Control
+var _vanguard: VanguardScript
+var _hud: VanguardHudScript
 
 
 func before_test() -> void:
-	_vanguard = auto_free(load(VANGUARD_SCENE).instantiate())
+	_vanguard = auto_free(load(VANGUARD_SCENE).instantiate()) as VanguardScript
 	add_child(_vanguard)
 	await get_tree().process_frame
-	_hud = _vanguard.hud
+	_hud = _vanguard.hud as VanguardHudScript
 
 
 # --- Spell bar ---
@@ -46,9 +48,9 @@ func test_update_spells_passes_to_ability_bar() -> void:
 
 func test_ability_bar_accent_color_is_orange() -> void:
 	var bar: Control = _hud.get_node("AbilityBar")
-	assert_float(bar.accent_color.r).is_equal_approx(0.9, 0.01)
-	assert_float(bar.accent_color.g).is_equal_approx(0.6, 0.01)
-	assert_float(bar.accent_color.b).is_equal_approx(0.3, 0.01)
+	assert_float(bar.accent_color.r).is_equal_approx(0.82, 0.01)
+	assert_float(bar.accent_color.g).is_equal_approx(0.44, 0.01)
+	assert_float(bar.accent_color.b).is_equal_approx(0.24, 0.01)
 
 
 # --- Damage flash ---
@@ -155,8 +157,10 @@ func test_lock_on_hide() -> void:
 
 
 func test_lock_on_update_stores_meta() -> void:
-	var target := auto_free(Node3D.new())
-	var cam := auto_free(Camera3D.new())
+	var target: Node3D = auto_free(Node3D.new())
+	var cam: Camera3D = auto_free(Camera3D.new())
+	add_child(target)
+	add_child(cam)
 	_hud.update_lock_on(target, cam)
 	var reticle: Control = _hud.get_node("LockOnReticle")
 	assert_that(reticle.get_meta("lock_target")).is_same(target)
