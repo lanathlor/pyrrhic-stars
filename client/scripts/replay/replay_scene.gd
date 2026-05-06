@@ -125,9 +125,13 @@ func _apply_frame(index: int) -> void:
 		return
 
 	var world_state: Dictionary = NetSerializer.decode_world_state(frame_data)
-	_sync_players(world_state.get("players", []))
-	_sync_enemies(world_state.get("enemies", []))
+	var players_data: Array = world_state.get("players", [])
+	var enemies_data: Array = world_state.get("enemies", [])
+	_sync_players(players_data)
+	_sync_enemies(enemies_data)
 	_sync_projectiles(world_state.get("projectiles", []))
+	_hud.update_players(players_data)
+	_hud.update_enemies(enemies_data)
 
 
 func _sync_players(players_data: Array) -> void:
@@ -140,6 +144,10 @@ func _sync_players(players_data: Array) -> void:
 		var player: CharacterBody3D = _spawned_players[pid]
 		if is_instance_valid(player) and player.has_method("apply_server_state"):
 			player.apply_server_state(pdata)
+		# Hide dead players, show alive ones
+		var hp: float = pdata.get("health", 1.0)
+		if is_instance_valid(player):
+			player.visible = hp > 0.0
 		# Update overhead name
 		_update_overhead_name(player, pdata)
 
@@ -251,6 +259,10 @@ func _sync_projectiles(proj_data: Array) -> void:
 							p.get("visual_tag", ""),
 						)
 					)
+				# Disable self-movement and auto-destruction — replay drives position
+				proj.set_physics_process(false)
+				if proj is Area3D:
+					proj.monitoring = false
 				_spawned_projectiles[pid] = proj
 		elif is_instance_valid(_spawned_projectiles[pid]):
 			_spawned_projectiles[pid].global_position = p["pos"]
@@ -270,6 +282,7 @@ func _check_events(frame_tick: int) -> void:
 	# Events are keyed by absolute tick as well.
 	var events: Array = _replay.get_events_at_tick(frame_tick)
 	for ev in events:
+		_hud.record_event(ev)
 		var event_type: int = ev.get("event_type", 0)
 		match event_type:
 			1, 5:  # Damage, BuffTick
@@ -318,6 +331,7 @@ func _on_frame_seeked(frame: int) -> void:
 	_accumulator = 0.0
 	_apply_frame(_current_frame)
 	_hud.update_frame(_current_frame)
+	_hud.rebuild_damage(_current_frame)
 
 
 func _on_back_pressed() -> void:

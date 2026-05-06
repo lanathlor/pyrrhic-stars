@@ -36,10 +36,21 @@ func _on_instances_response(
 	result: int, code: int, _headers: PackedStringArray, body: PackedByteArray
 ) -> void:
 	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
+		printerr(
+			(
+				"[ReplayAPI] Failed to fetch instances: HTTPRequest result=%d, status=%d"
+				% [result, code]
+			)
+		)
+		if body.size() > 0:
+			printerr("[ReplayAPI]   Response body: ", body.get_string_from_utf8().substr(0, 500))
 		instances_loaded.emit([])
 		return
 	var json := JSON.new()
-	if json.parse(body.get_string_from_utf8()) != OK:
+	var body_str := body.get_string_from_utf8()
+	if json.parse(body_str) != OK:
+		printerr("[ReplayAPI] Failed to parse instances JSON: ", json.get_error_message())
+		printerr("[ReplayAPI]   Raw body (first 500 chars): ", body_str.substr(0, 500))
 		instances_loaded.emit([])
 		return
 	var data: Array = json.data if json.data is Array else []
@@ -50,11 +61,29 @@ func _on_replay_response(
 	result: int, code: int, _headers: PackedStringArray, body: PackedByteArray
 ) -> void:
 	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
+		printerr(
+			"[ReplayAPI] Failed to fetch replay: HTTPRequest result=%d, status=%d" % [result, code]
+		)
+		if body.size() > 0:
+			printerr("[ReplayAPI]   Response body: ", body.get_string_from_utf8().substr(0, 500))
 		replay_loaded.emit(null)
 		return
 	var json := JSON.new()
-	if json.parse(body.get_string_from_utf8()) != OK:
+	var body_str := body.get_string_from_utf8()
+	if json.parse(body_str) != OK:
+		printerr("[ReplayAPI] Failed to parse replay JSON: ", json.get_error_message())
+		printerr("[ReplayAPI]   Raw body (first 500 chars): ", body_str.substr(0, 500))
+		replay_loaded.emit(null)
+		return
+	if not json.data is Dictionary:
+		printerr("[ReplayAPI] Replay JSON is not a Dictionary, got: ", typeof(json.data))
 		replay_loaded.emit(null)
 		return
 	var replay = ReplayDataScript.from_json(json.data)
+	if replay == null:
+		printerr("[ReplayAPI] ReplayData.from_json() returned null")
+	else:
+		var fc: int = replay.frame_count
+		var ec: int = replay.events.size()
+		print("[ReplayAPI] Replay loaded: %d frames, %d events" % [fc, ec])
 	replay_loaded.emit(replay)
