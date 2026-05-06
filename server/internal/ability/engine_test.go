@@ -71,7 +71,7 @@ func TestNewEngine_RegistersAllAbilities(t *testing.T) {
 	for _, id := range []string{
 		"fire_shot", "overclock", "rechamber", "rechamber_confirm",
 		"melee_light", "melee_heavy", "vg_block", "blade_swirl", "ground_slam",
-		"bd_melee", "bd_heavy", "bd_guard",
+		"bd_guard",
 		"shielded_sweep", "cleaving_pierce", "decree_strike", "dodge",
 	} {
 		if eng.GetAbility(id) == nil {

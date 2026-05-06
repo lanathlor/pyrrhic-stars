@@ -20,8 +20,6 @@ func registerAbilities(eng *Engine) {
 	eng.Register(&groundSlamDef)
 
 	// Blade Dancer
-	eng.Register(&bdMeleeDef)
-	eng.Register(&bdHeavyDef)
 	eng.Register(&bdGuardDef)
 	for _, def := range bdTransitionSpells() {
 		eng.Register(def)

@@ -390,4 +390,3 @@ func convertPhase(pf phaseFile) PhaseDef {
 	}
 	return pd
 }
-
