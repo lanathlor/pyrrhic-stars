@@ -546,7 +546,7 @@ func TestTransferPlayer_MovesPlayerBetweenZones(t *testing.T) {
 	}
 
 	// Transfer to arena (getOrCreateZone will create it).
-	gw.transferPlayer(sess, "arena_test", zone.ZoneTypeInstanced)
+	gw.transferPlayer(sess, "arena_test", zone.ZoneTypeInstanced, 1)
 
 	if hubZI.zone.ClientCount() != 0 {
 		t.Errorf("hub ClientCount after transfer = %d, want 0", hubZI.zone.ClientCount())
@@ -679,7 +679,7 @@ func BenchmarkTransferPlayer(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		gw.joinZone(sess, hubZI, joinResponseZoneJoined)
-		gw.transferPlayer(sess, "arena_bench", zone.ZoneTypeInstanced)
+		gw.transferPlayer(sess, "arena_bench", zone.ZoneTypeInstanced, 1)
 		arenaZI.zone.RemoveClient(sess.PeerID)
 	}
 }

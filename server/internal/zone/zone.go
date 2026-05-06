@@ -97,16 +97,17 @@ func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
 	}
 
 	z.world = system.World{
-		ZoneID:        id,
-		ZoneType:      uint8(zoneType),
-		RunID:         fmt.Sprintf("%s_%d", id, time.Now().UnixMilli()),
-		State:         system.StateLobby,
-		Players:       make(map[uint16]*entity.Player),
-		Clients:       make(map[uint16]*system.Client),
-		Level:         l,
-		AbilityEngine: ability.NewEngine(slog.Default().With("zone_id", id)),
-		PatternEngine: combat.NewPatternEngine(),
-		PatternRng:    rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), 0)),
+		ZoneID:          id,
+		ZoneType:        uint8(zoneType),
+		RunID:           fmt.Sprintf("%s_%d", id, time.Now().UnixMilli()),
+		State:           system.StateLobby,
+		EnemyDamageMult: 1.0,
+		Players:         make(map[uint16]*entity.Player),
+		Clients:         make(map[uint16]*system.Client),
+		Level:           l,
+		AbilityEngine:   ability.NewEngine(slog.Default().With("zone_id", id)),
+		PatternEngine:   combat.NewPatternEngine(),
+		PatternRng:      rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), 0)),
 	}
 
 	if zoneType == ZoneTypeInstanced {
@@ -165,6 +166,22 @@ func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
 	}
 
 	return z
+}
+
+// SetGroupSize configures instance scaling based on the number of players.
+// HP scales from 1x (solo) to 4x (5 players), damage from 1x to 2x.
+// Must be called before the fight starts.
+func (z *Zone) SetGroupSize(n int) {
+	if n <= 1 {
+		return
+	}
+	hpMult := 1.0 + 0.75*float64(n-1)
+	dmgMult := 1.0 + 0.25*float64(n-1)
+	z.world.EnemyDamageMult = float32(dmgMult)
+	for _, e := range z.world.Enemies {
+		e.MaxHealth *= float32(hpMult)
+		e.Health = e.MaxHealth
+	}
 }
 
 // AddClient adds a connected client to the zone.

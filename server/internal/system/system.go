@@ -62,6 +62,9 @@ type World struct {
 	BossDefeated   bool
 	BossGateActive bool // true when boss room is sealed (boss is fighting)
 
+	// Group scaling — multiplier applied to all enemy damage (1.0 = no scaling)
+	EnemyDamageMult float32
+
 	// Entities
 	Players     map[uint16]*entity.Player
 	Enemies     []*entity.Enemy
@@ -139,6 +142,14 @@ type World struct {
 	spawnEnemyIdx int
 	spawnFn       func(pos, dir entity.Vec3, speed, damage, lifetime float32)
 	castPatternFn func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3)
+}
+
+// EnemyDmgMult returns the enemy damage multiplier, defaulting to 1.0 if unset.
+func (w *World) EnemyDmgMult() float32 {
+	if w.EnemyDamageMult == 0 {
+		return 1.0
+	}
+	return w.EnemyDamageMult
 }
 
 // FirstEnemy returns the first enemy or nil.

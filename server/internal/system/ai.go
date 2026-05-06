@@ -49,6 +49,13 @@ func (s *AISystem) Tick(w *World, dt float32) {
 		prevState := e.State
 		events := w.Brains[i].Tick(dt, visiblePlayers, w.Level.Obstacles, w.spawnFn, w.castPatternFn)
 
+		// Apply group-size damage scaling to direct hits (melee, AoE, charge).
+		if mult := w.EnemyDmgMult(); mult != 1.0 {
+			for j := range events {
+				events[j].Amount *= mult
+			}
+		}
+
 		// Detect proximity aggro: brain transitioned patrol→chase directly
 		// (bypassing AggroEnemy). Start combat log session for this enemy's group.
 		if prevState == entity.EnemyPatrol && e.State != entity.EnemyPatrol {

@@ -49,18 +49,22 @@ func newGateway(ctr *container.Container) *gateway {
 }
 
 // getOrCreateZone returns the zone for the given ID, creating it if needed.
-func (g *gateway) getOrCreateZone(zoneID string, zoneType zone.ZoneType) *zoneInstance {
+// groupSize is used for instance scaling (ignored for open-world zones).
+func (g *gateway) getOrCreateZone(zoneID string, zoneType zone.ZoneType, groupSize int) *zoneInstance {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	zi, ok := g.zones[zoneID]
 	if !ok {
 		z := zone.New(zoneID, zoneType)
+		if zoneType == zone.ZoneTypeInstanced {
+			z.SetGroupSize(groupSize)
+		}
 		z.CombatLogSink = g.container.CombatLogSink
 		ctx, cancel := context.WithCancel(context.Background())
 		zi = &zoneInstance{zone: z, zoneType: zoneType, cancel: cancel, nextID: 1}
 		g.zones[zoneID] = zi
 		go z.Run(ctx)
-		slog.Info("zone created", "zone_id", zoneID, "type", zoneType)
+		slog.Info("zone created", "zone_id", zoneID, "type", zoneType, "group_size", groupSize)
 	}
 	return zi
 }
@@ -184,10 +188,11 @@ func (g *gateway) joinZone(sess *session.Session, zi *zoneInstance, resp joinRes
 }
 
 // transferPlayer moves a player from their current zone to a new zone.
-func (g *gateway) transferPlayer(sess *session.Session, targetZoneID string, targetType zone.ZoneType) {
+// groupSize is used for instance scaling when creating a new arena.
+func (g *gateway) transferPlayer(sess *session.Session, targetZoneID string, targetType zone.ZoneType, groupSize int) {
 	g.leaveZone(sess)
 
-	zi := g.getOrCreateZone(targetZoneID, targetType)
+	zi := g.getOrCreateZone(targetZoneID, targetType, groupSize)
 	if targetType == zone.ZoneTypeInstanced {
 		zi.zone.OnPlayerRespawnHub = func(peerID uint16) {
 			g.handlePlayerRespawnHub(targetZoneID, peerID)
@@ -208,7 +213,7 @@ func (g *gateway) handlePlayerRespawnHub(zoneID string, peerID uint16) {
 		return
 	}
 	slog.Info("player respawning to hub", "player_id", sess.ID, "from_zone", zoneID)
-	g.transferPlayer(sess, zone.ZoneHub, zone.ZoneTypeOpenWorld)
+	g.transferPlayer(sess, zone.ZoneHub, zone.ZoneTypeOpenWorld, 0)
 
 	grp := g.groups.GetGroup(sess.ID)
 	if grp != nil {

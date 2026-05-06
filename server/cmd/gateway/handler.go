@@ -33,7 +33,7 @@ func handleServerMessage(gw *gateway, sess *session.Session, opcode uint16, payl
 		if strings.HasPrefix(zoneID, "arena") {
 			zoneType = zone.ZoneTypeInstanced
 		}
-		zi := gw.getOrCreateZone(zoneID, zoneType)
+		zi := gw.getOrCreateZone(zoneID, zoneType, 1)
 		gw.joinZone(sess, zi, joinResponseZoneJoined)
 
 	default:
@@ -44,6 +44,6 @@ func handleServerMessage(gw *gateway, sess *session.Session, opcode uint16, payl
 // joinHubAfterCharSelect handles the shared logic for joining the hub zone
 // after a character is selected or created.
 func (g *gateway) joinHubAfterCharSelect(sess *session.Session) {
-	zi := g.getOrCreateZone(zone.ZoneHub, zone.ZoneTypeOpenWorld)
+	zi := g.getOrCreateZone(zone.ZoneHub, zone.ZoneTypeOpenWorld, 0)
 	g.joinZone(sess, zi, joinResponseZoneJoined)
 }

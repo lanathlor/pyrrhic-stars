@@ -102,13 +102,15 @@ func (g *gateway) handleGroupMessage(sess *session.Session, opcode uint16, paylo
 		}
 		grp := g.groups.GetGroup(sess.ID)
 		var arenaID string
+		groupSize := 1
 		if grp != nil {
 			arenaID = fmt.Sprintf("arena_g%d", grp.ID)
+			groupSize = len(grp.Members)
 		} else {
 			arenaID = fmt.Sprintf("arena_s%d", sess.ID)
 		}
-		slog.Info("player entering portal", "player_id", sess.ID, "arena", arenaID)
-		g.transferPlayer(sess, arenaID, zone.ZoneTypeInstanced)
+		slog.Info("player entering portal", "player_id", sess.ID, "arena", arenaID, "group_size", groupSize)
+		g.transferPlayer(sess, arenaID, zone.ZoneTypeInstanced, groupSize)
 		if grp != nil {
 			g.broadcastGroupState(grp)
 		}

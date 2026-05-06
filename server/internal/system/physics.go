@@ -49,7 +49,7 @@ func (s *PhysicsSystem) Tick(w *World, dt float32) {
 					continue
 				}
 				if combat.CheckProjectileHit(proj.Position, p.Position, entity.ProjectileHitRadius+entity.PlayerHurtRadius) {
-					dealt := p.ApplyDamage(proj.Damage)
+					dealt := p.ApplyDamage(proj.Damage * w.EnemyDmgMult())
 					if dealt > 0 {
 						// Add player to threat table of the specific enemy that fired
 						if proj.EnemyIdx >= 0 && proj.EnemyIdx < len(w.Enemies) {
