@@ -191,7 +191,7 @@ func RunSimulation(cfg SimConfig) SimResult {
 		}
 
 		// Resolve active ability for puppet context
-		var activeAbil *enemyai.AbilityDef
+		var activeAbil *ability.AbilityDef
 		if abil := def.AbilityByIndex(enemy.ActiveAbility); abil != nil {
 			resolved := def.ResolveAbility(abil, enemy.Phase)
 			activeAbil = &resolved

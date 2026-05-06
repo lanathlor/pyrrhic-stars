@@ -7,7 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"codex-online/server/internal/ability"
 	"codex-online/server/internal/bt"
+	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
 )
 
@@ -45,20 +47,20 @@ func TestLoadMobs_HallwayMeleeFields(t *testing.T) {
 	if a.Name != "melee_slash" {
 		t.Errorf("ability Name = %q, want melee_slash", a.Name)
 	}
-	if a.Type != AbilityMelee {
-		t.Errorf("ability Type = %d, want %d (melee)", a.Type, AbilityMelee)
+	if a.Category != ability.CategoryMelee {
+		t.Errorf("ability Category = %d, want %d (melee)", a.Category, ability.CategoryMelee)
 	}
-	if a.TargetStrategy != TargetNearest {
-		t.Errorf("ability TargetStrategy = %d, want %d (nearest)", a.TargetStrategy, TargetNearest)
+	if a.TargetStrategy != ability.TargetNearest {
+		t.Errorf("ability TargetStrategy = %d, want %d (nearest)", a.TargetStrategy, ability.TargetNearest)
 	}
-	if a.TelegraphTime != 0.5 {
-		t.Errorf("TelegraphTime = %f, want 0.5", a.TelegraphTime)
+	if a.CommitTime != 0.5 {
+		t.Errorf("CommitTime = %f, want 0.5", a.CommitTime)
 	}
 	if a.ExecuteTime != 0.2 {
 		t.Errorf("ExecuteTime = %f, want 0.2", a.ExecuteTime)
 	}
-	if a.CooldownTime != 0.4 {
-		t.Errorf("CooldownTime = %f, want 0.4", a.CooldownTime)
+	if a.Cooldown != 0.4 {
+		t.Errorf("Cooldown = %f, want 0.4", a.Cooldown)
 	}
 	if a.BaseWeight != 100 {
 		t.Errorf("BaseWeight = %d, want 100", a.BaseWeight)
@@ -69,20 +71,19 @@ func TestLoadMobs_HallwayMeleeFields(t *testing.T) {
 	if !a.FaceTarget {
 		t.Error("FaceTarget should be true")
 	}
-	if a.MeleeRange != 2.5 {
-		t.Errorf("MeleeRange = %f, want 2.5", a.MeleeRange)
+	if a.Hit.Range != 2.5 {
+		t.Errorf("Hit.Range = %f, want 2.5", a.Hit.Range)
 	}
-	if a.MeleeDamage != 15 {
-		t.Errorf("MeleeDamage = %f, want 15", a.MeleeDamage)
+	if a.BaseDamage != 15 {
+		t.Errorf("BaseDamage = %f, want 15", a.BaseDamage)
 	}
 
-	// 120 degrees → radians
-	expectedCone := float32(120.0 * math.Pi / 180.0)
-	if diff := a.MeleeConeAngle - expectedCone; diff > 0.001 || diff < -0.001 {
-		t.Errorf("MeleeConeAngle = %f, want %f (120 deg)", a.MeleeConeAngle, expectedCone)
+	// 120 degrees stored as degrees
+	if a.Hit.ArcDegrees != 120 {
+		t.Errorf("Hit.ArcDegrees = %f, want 120", a.Hit.ArcDegrees)
 	}
-	if a.DamageSourceType != SourceEnemyMelee {
-		t.Errorf("DamageSourceType = %d, want %d", a.DamageSourceType, SourceEnemyMelee)
+	if a.DamageSource != combat.SourceEnemyMelee {
+		t.Errorf("DamageSource = %d, want %d", a.DamageSource, combat.SourceEnemyMelee)
 	}
 }
 
@@ -113,23 +114,23 @@ func TestLoadMobs_HallwayRangedFields(t *testing.T) {
 	if a.Name != "energy_bolt" {
 		t.Errorf("ability Name = %q, want energy_bolt", a.Name)
 	}
-	if a.Type != AbilityRanged {
-		t.Errorf("ability Type = %d, want %d (ranged)", a.Type, AbilityRanged)
+	if a.Category != ability.CategoryRanged {
+		t.Errorf("ability Category = %d, want %d (ranged)", a.Category, ability.CategoryRanged)
 	}
-	if a.ProjectileCount != 1 {
-		t.Errorf("ProjectileCount = %d, want 1", a.ProjectileCount)
+	if a.Projectile.Count != 1 {
+		t.Errorf("Projectile.Count = %d, want 1", a.Projectile.Count)
 	}
-	if a.ProjectileSpeed != 18.0 {
-		t.Errorf("ProjectileSpeed = %f, want 18", a.ProjectileSpeed)
+	if a.Projectile.Speed != 18.0 {
+		t.Errorf("Projectile.Speed = %f, want 18", a.Projectile.Speed)
 	}
-	if a.ProjectileDamage != 12.0 {
-		t.Errorf("ProjectileDamage = %f, want 12", a.ProjectileDamage)
+	if a.Projectile.Damage != 12.0 {
+		t.Errorf("Projectile.Damage = %f, want 12", a.Projectile.Damage)
 	}
 	if !a.TrackTarget {
 		t.Error("TrackTarget should be true")
 	}
-	if a.DamageSourceType != SourceEnemyRanged {
-		t.Errorf("DamageSourceType = %d, want %d", a.DamageSourceType, SourceEnemyRanged)
+	if a.DamageSource != combat.SourceEnemyRanged {
+		t.Errorf("DamageSource = %d, want %d", a.DamageSource, combat.SourceEnemyRanged)
 	}
 }
 
@@ -413,8 +414,8 @@ tree:
 		t.Errorf("WeightOverrides[slash] = %d, want 100", ph.WeightOverrides["slash"])
 	}
 	ovr := ph.AbilityOverrides["slash"]
-	if ovr.TelegraphTime == nil || *ovr.TelegraphTime != 0.3 {
-		t.Errorf("AbilityOverrides[slash].TelegraphTime = %v, want 0.3", ovr.TelegraphTime)
+	if ovr.CommitTime == nil || *ovr.CommitTime != 0.3 {
+		t.Errorf("AbilityOverrides[slash].CommitTime = %v, want 0.3", ovr.CommitTime)
 	}
 	if ovr.Damage == nil || *ovr.Damage != 30 {
 		t.Errorf("AbilityOverrides[slash].Damage = %v, want 30", ovr.Damage)
@@ -603,12 +604,12 @@ func TestBuildTreeFromData_StringLeaf(t *testing.T) {
 func TestConvertAbility_AllTypes(t *testing.T) {
 	cases := []struct {
 		typeStr string
-		want    AbilityType
+		want    ability.AbilityCategory
 	}{
-		{"melee", AbilityMelee},
-		{"ranged", AbilityRanged},
-		{"aoe", AbilityAoE},
-		{"charge", AbilityCharge},
+		{"melee", ability.CategoryMelee},
+		{"ranged", ability.CategoryRanged},
+		{"aoe", ability.CategoryAoE},
+		{"charge", ability.CategoryCharge},
 	}
 	for _, tc := range cases {
 		t.Run(tc.typeStr, func(t *testing.T) {
@@ -617,8 +618,8 @@ func TestConvertAbility_AllTypes(t *testing.T) {
 			if err != nil {
 				t.Fatalf("convertAbility: %v", err)
 			}
-			if ad.Type != tc.want {
-				t.Errorf("Type = %d, want %d", ad.Type, tc.want)
+			if ad.Category != tc.want {
+				t.Errorf("Category = %d, want %d", ad.Category, tc.want)
 			}
 		})
 	}
@@ -628,12 +629,12 @@ func TestConvertAbility_AllTypes(t *testing.T) {
 func TestConvertAbility_AllTargetStrategies(t *testing.T) {
 	cases := []struct {
 		targetStr string
-		want      TargetStrategy
+		want      ability.TargetStrategy
 	}{
-		{"nearest", TargetNearest},
-		{"", TargetNearest}, // default
-		{"farthest", TargetFarthest},
-		{"current", TargetCurrent},
+		{"nearest", ability.TargetNearest},
+		{"", ability.TargetNearest}, // default
+		{"farthest", ability.TargetFarthest},
+		{"current", ability.TargetCurrent},
 	}
 	for _, tc := range cases {
 		name := tc.targetStr
@@ -673,22 +674,31 @@ func TestConvertAbility_ErrorUnknownTarget(t *testing.T) {
 
 // TestConvertAbility_DegreeConversions verifies cone and spread angle conversions.
 func TestConvertAbility_DegreeConversions(t *testing.T) {
-	af := abilityFile{
-		Name: "test", Type: "ranged", BaseWeight: 100,
-		MeleeConeDeg:        90,
-		ProjectileSpreadDeg: 30,
+	// Melee cone: degrees stored directly on Hit.ArcDegrees
+	meleeAf := abilityFile{
+		Name: "cone_test", Type: "melee", BaseWeight: 100,
+		MeleeConeDeg: 90, MeleeRange: 3, MeleeDamage: 10,
 	}
-	ad, err := convertAbility(af)
+	meleeAd, err := convertAbility(meleeAf)
 	if err != nil {
-		t.Fatalf("convertAbility: %v", err)
+		t.Fatalf("convertAbility melee: %v", err)
 	}
-	expectedCone := float32(90.0 * math.Pi / 180.0)
-	if diff := ad.MeleeConeAngle - expectedCone; diff > 0.001 || diff < -0.001 {
-		t.Errorf("MeleeConeAngle = %f, want %f", ad.MeleeConeAngle, expectedCone)
+	if meleeAd.Hit.ArcDegrees != 90 {
+		t.Errorf("Hit.ArcDegrees = %f, want 90", meleeAd.Hit.ArcDegrees)
+	}
+
+	// Ranged spread: degrees converted to radians on Projectile.Spread
+	rangedAf := abilityFile{
+		Name: "spread_test", Type: "ranged", BaseWeight: 100,
+		ProjectileSpreadDeg: 30, ProjectileCount: 1,
+	}
+	rangedAd, err := convertAbility(rangedAf)
+	if err != nil {
+		t.Fatalf("convertAbility ranged: %v", err)
 	}
 	expectedSpread := float32(30.0 * math.Pi / 180.0)
-	if diff := ad.ProjectileSpread - expectedSpread; diff > 0.001 || diff < -0.001 {
-		t.Errorf("ProjectileSpread = %f, want %f", ad.ProjectileSpread, expectedSpread)
+	if diff := rangedAd.Projectile.Spread - expectedSpread; diff > 0.001 || diff < -0.001 {
+		t.Errorf("Projectile.Spread = %f, want %f", rangedAd.Projectile.Spread, expectedSpread)
 	}
 }
 
@@ -698,32 +708,32 @@ func TestConvertAbility_ChargeFields(t *testing.T) {
 		Name: "rush", Type: "charge", BaseWeight: 100,
 		ChargeSpeed: 15, ChargeDamage: 40, ChargeMaxDistance: 20,
 		ChargeHitRadius: 3, ChargeStopOnWall: true, ChargeStopOnObstacle: true,
-		DamageSource: SourceEnemyCharge,
+		DamageSource: combat.SourceEnemyCharge,
 	}
 	ad, err := convertAbility(af)
 	if err != nil {
 		t.Fatalf("convertAbility: %v", err)
 	}
-	if ad.ChargeSpeed != 15 {
-		t.Errorf("ChargeSpeed = %f, want 15", ad.ChargeSpeed)
+	if ad.Charge.Speed != 15 {
+		t.Errorf("Charge.Speed = %f, want 15", ad.Charge.Speed)
 	}
-	if ad.ChargeDamage != 40 {
-		t.Errorf("ChargeDamage = %f, want 40", ad.ChargeDamage)
+	if ad.Charge.Damage != 40 {
+		t.Errorf("Charge.Damage = %f, want 40", ad.Charge.Damage)
 	}
-	if ad.ChargeMaxDistance != 20 {
-		t.Errorf("ChargeMaxDistance = %f, want 20", ad.ChargeMaxDistance)
+	if ad.Charge.MaxDistance != 20 {
+		t.Errorf("Charge.MaxDistance = %f, want 20", ad.Charge.MaxDistance)
 	}
-	if ad.ChargeHitRadius != 3 {
-		t.Errorf("ChargeHitRadius = %f, want 3", ad.ChargeHitRadius)
+	if ad.Charge.HitRadius != 3 {
+		t.Errorf("Charge.HitRadius = %f, want 3", ad.Charge.HitRadius)
 	}
-	if !ad.ChargeStopOnWall {
-		t.Error("ChargeStopOnWall should be true")
+	if !ad.Charge.StopOnWall {
+		t.Error("Charge.StopOnWall should be true")
 	}
-	if !ad.ChargeStopOnObstacle {
-		t.Error("ChargeStopOnObstacle should be true")
+	if !ad.Charge.StopOnObstacle {
+		t.Error("Charge.StopOnObstacle should be true")
 	}
-	if ad.DamageSourceType != SourceEnemyCharge {
-		t.Errorf("DamageSourceType = %d, want %d", ad.DamageSourceType, SourceEnemyCharge)
+	if ad.DamageSource != combat.SourceEnemyCharge {
+		t.Errorf("DamageSource = %d, want %d", ad.DamageSource, combat.SourceEnemyCharge)
 	}
 }
 
@@ -731,17 +741,17 @@ func TestConvertAbility_ChargeFields(t *testing.T) {
 func TestConvertAbility_AoEFields(t *testing.T) {
 	af := abilityFile{
 		Name: "blast", Type: "aoe", BaseWeight: 100,
-		AoERadius: 5, AoEDamage: 25, DamageSource: SourceEnemyAoE,
+		AoERadius: 5, AoEDamage: 25, DamageSource: combat.SourceEnemyAoE,
 	}
 	ad, err := convertAbility(af)
 	if err != nil {
 		t.Fatalf("convertAbility: %v", err)
 	}
-	if ad.AoERadius != 5 {
-		t.Errorf("AoERadius = %f, want 5", ad.AoERadius)
+	if ad.Hit.Radius != 5 {
+		t.Errorf("Hit.Radius = %f, want 5", ad.Hit.Radius)
 	}
-	if ad.AoEDamage != 25 {
-		t.Errorf("AoEDamage = %f, want 25", ad.AoEDamage)
+	if ad.BaseDamage != 25 {
+		t.Errorf("BaseDamage = %f, want 25", ad.BaseDamage)
 	}
 }
 
@@ -865,36 +875,36 @@ tree:
 		t.Errorf("BackpedalSpeed = %f, want 2.5", def.BackpedalSpeed)
 	}
 	a := def.Abilities[0]
-	if a.Type != AbilityRanged {
-		t.Errorf("Type = %d, want %d", a.Type, AbilityRanged)
+	if a.Category != ability.CategoryRanged {
+		t.Errorf("Category = %d, want %d", a.Category, ability.CategoryRanged)
 	}
-	if a.TargetStrategy != TargetFarthest {
-		t.Errorf("TargetStrategy = %d, want %d", a.TargetStrategy, TargetFarthest)
+	if a.TargetStrategy != ability.TargetFarthest {
+		t.Errorf("TargetStrategy = %d, want %d", a.TargetStrategy, ability.TargetFarthest)
 	}
-	if a.ProjectileCount != 3 {
-		t.Errorf("ProjectileCount = %d, want 3", a.ProjectileCount)
+	if a.Projectile.Count != 3 {
+		t.Errorf("Projectile.Count = %d, want 3", a.Projectile.Count)
 	}
-	if a.ProjectileSpeed != 20 {
-		t.Errorf("ProjectileSpeed = %f, want 20", a.ProjectileSpeed)
+	if a.Projectile.Speed != 20 {
+		t.Errorf("Projectile.Speed = %f, want 20", a.Projectile.Speed)
 	}
-	if a.ProjectileDamage != 10 {
-		t.Errorf("ProjectileDamage = %f, want 10", a.ProjectileDamage)
+	if a.Projectile.Damage != 10 {
+		t.Errorf("Projectile.Damage = %f, want 10", a.Projectile.Damage)
 	}
 	expectedSpread := float32(15.0 * math.Pi / 180.0)
-	if diff := a.ProjectileSpread - expectedSpread; diff > 0.001 || diff < -0.001 {
-		t.Errorf("ProjectileSpread = %f, want %f", a.ProjectileSpread, expectedSpread)
+	if diff := a.Projectile.Spread - expectedSpread; diff > 0.001 || diff < -0.001 {
+		t.Errorf("Projectile.Spread = %f, want %f", a.Projectile.Spread, expectedSpread)
 	}
-	if a.ProjectileOriginY != 1.5 {
-		t.Errorf("ProjectileOriginY = %f, want 1.5", a.ProjectileOriginY)
+	if a.Projectile.OriginY != 1.5 {
+		t.Errorf("Projectile.OriginY = %f, want 1.5", a.Projectile.OriginY)
 	}
-	if a.ProjectileLifetime != 3.0 {
-		t.Errorf("ProjectileLifetime = %f, want 3", a.ProjectileLifetime)
+	if a.Projectile.Lifetime != 3.0 {
+		t.Errorf("Projectile.Lifetime = %f, want 3", a.Projectile.Lifetime)
 	}
 	if !a.TrackTarget {
 		t.Error("TrackTarget should be true")
 	}
-	if a.DamageSourceType != SourceEnemyRanged {
-		t.Errorf("DamageSourceType = %d, want %d", a.DamageSourceType, SourceEnemyRanged)
+	if a.DamageSource != combat.SourceEnemyRanged {
+		t.Errorf("DamageSource = %d, want %d", a.DamageSource, combat.SourceEnemyRanged)
 	}
 }
 

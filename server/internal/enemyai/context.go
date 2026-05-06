@@ -41,7 +41,6 @@ type EntityContext struct {
 
 	// Reusable buffers
 	targetBuf []entity.Target
-	defBuf    ability.AbilityDef
 	castCtx   ability.CastContext
 }
 
@@ -122,14 +121,14 @@ func (ctx *EntityContext) HasLineOfSight(target entity.Vec3) bool {
 
 // --- Combat ---
 
-// SelectAbility runs weighted random ability selection (extracted from Brain.selectAbility).
-func (ctx *EntityContext) SelectAbility(distance float32) *AbilityDef {
+// SelectAbility runs weighted random ability selection.
+func (ctx *EntityContext) SelectAbility(distance float32) *ability.AbilityDef {
 	e := ctx.Enemy
 	def := ctx.Def
 	phase := def.CurrentPhase(e.Phase)
 
 	type candidate struct {
-		ability *AbilityDef
+		ability *ability.AbilityDef
 		weight  int
 	}
 
@@ -146,13 +145,13 @@ func (ctx *EntityContext) SelectAbility(distance float32) *AbilityDef {
 
 		weight := a.BaseWeight
 		if phase != nil {
-			if w, ok := phase.WeightOverrides[a.Name]; ok {
+			if w, ok := phase.WeightOverrides[a.ID]; ok {
 				weight = w
 			}
 		}
 
 		// Anti-repeat
-		if a.Name == ctx.BB.GetString("last_attack") && weight > 1 && def.AntiRepeat > 0 {
+		if a.ID == ctx.BB.GetString("last_attack") && weight > 1 && def.AntiRepeat > 0 {
 			weight = int(float32(weight) / def.AntiRepeat)
 		}
 
@@ -183,10 +182,10 @@ func (ctx *EntityContext) SelectAbility(distance float32) *AbilityDef {
 	return candidates[0].ability
 }
 
-// FindAbilityByType returns the first ability matching the given type.
-func (ctx *EntityContext) FindAbilityByType(t AbilityType) *AbilityDef {
+// FindAbilityByCategory returns the first ability matching the given category.
+func (ctx *EntityContext) FindAbilityByCategory(c ability.AbilityCategory) *ability.AbilityDef {
 	for i := range ctx.Def.Abilities {
-		if ctx.Def.Abilities[i].Type == t {
+		if ctx.Def.Abilities[i].Category == c {
 			return &ctx.Def.Abilities[i]
 		}
 	}
@@ -194,7 +193,7 @@ func (ctx *EntityContext) FindAbilityByType(t AbilityType) *AbilityDef {
 }
 
 // AbilityIndex returns the index of an ability in the def's Abilities slice.
-func (ctx *EntityContext) AbilityIndex(a *AbilityDef) int {
+func (ctx *EntityContext) AbilityIndex(a *ability.AbilityDef) int {
 	for i := range ctx.Def.Abilities {
 		if &ctx.Def.Abilities[i] == a {
 			return i
@@ -203,53 +202,50 @@ func (ctx *EntityContext) AbilityIndex(a *AbilityDef) int {
 	return 0
 }
 
-// StartAbility sets up the telegraph state for an ability on the entity.
+// StartAbility sets up the commit state for an ability on the entity.
 // When FaceTarget is true, the enemy faces the target at the moment of
 // commitment — after this point, rotation only updates if TrackTarget is set.
-func (ctx *EntityContext) StartAbility(abil *AbilityDef) {
+func (ctx *EntityContext) StartAbility(abil *ability.AbilityDef) {
 	e := ctx.Enemy
 	resolved := ctx.Def.ResolveAbility(abil, e.Phase)
 	e.ActiveAbility = ctx.AbilityIndex(abil)
-	ctx.BB.Set("last_attack", abil.Name)
+	ctx.BB.Set("last_attack", abil.ID)
 	e.Velocity = entity.Vec3{}
 
-	switch abil.Type {
-	case AbilityMelee:
+	switch abil.Category {
+	case ability.CategoryMelee:
 		e.State = entity.EnemyMeleeTelegraph
-		e.StateTimer = resolved.TelegraphTime
-		e.MeleeRange = resolved.MeleeRange
-		coneAngle := resolved.MeleeConeAngle
-		if coneAngle <= 0 {
-			coneAngle = math.Pi
+		e.StateTimer = resolved.CommitTime
+		e.MeleeRange = resolved.Hit.Range
+		arcDeg := resolved.Hit.ArcDegrees
+		if arcDeg <= 0 {
+			arcDeg = 180
 		}
-		e.MeleeConeAngle = coneAngle
-		// Commit direction: face target at start
+		e.MeleeConeAngle = arcDeg * math.Pi / 180.0
 		if resolved.FaceTarget {
 			if p := ctx.TargetPlayer(); p != nil {
 				ctx.FaceToward(p.Position)
 			}
 		}
-	case AbilityRanged:
+	case ability.CategoryRanged:
 		e.State = entity.EnemyRangedTelegraph
-		e.StateTimer = resolved.TelegraphTime
+		e.StateTimer = resolved.CommitTime
 		target := FarthestAlivePlayer(e.Position, ctx.Players)
 		if target != nil {
 			e.TargetPlayerID = target.ID
 			e.RangedTargetPos = target.Position.Add(entity.Vec3{Y: 1.0})
 		}
-	case AbilityAoE:
+	case ability.CategoryAoE:
 		e.State = entity.EnemyAoETelegraph
-		e.StateTimer = resolved.TelegraphTime
-		// Commit direction: face target at start
+		e.StateTimer = resolved.CommitTime
 		if resolved.FaceTarget {
 			if p := ctx.TargetPlayer(); p != nil {
 				ctx.FaceToward(p.Position)
 			}
 		}
-	case AbilityCharge:
+	case ability.CategoryCharge:
 		e.State = entity.EnemyChargeTelegraph
-		e.StateTimer = resolved.TelegraphTime
-		// Commit direction: set initial charge vector toward target
+		e.StateTimer = resolved.CommitTime
 		if resolved.FaceTarget {
 			if p := ctx.TargetPlayer(); p != nil {
 				ctx.FaceToward(p.Position)
@@ -266,25 +262,24 @@ func (ctx *EntityContext) StartAbility(abil *AbilityDef) {
 }
 
 // ResolveCurrentAbility returns the resolved AbilityDef for the currently active ability.
-func (ctx *EntityContext) ResolveCurrentAbility() AbilityDef {
+func (ctx *EntityContext) ResolveCurrentAbility() ability.AbilityDef {
 	abil := ctx.Def.AbilityByIndex(ctx.Enemy.ActiveAbility)
 	if abil == nil {
-		return AbilityDef{}
+		return ability.AbilityDef{}
 	}
 	return ctx.Def.ResolveAbility(abil, ctx.Enemy.Phase)
 }
 
 // CastMeleeOrAoE resolves a melee/AoE hit via the ability engine and appends damage events.
-func (ctx *EntityContext) CastMeleeOrAoE(resolved AbilityDef) {
-	ctx.resolveEngineDef(resolved)
+func (ctx *EntityContext) CastMeleeOrAoE(resolved ability.AbilityDef) {
 	ctx.fillTargets()
 
 	ctx.castCtx.Caster = ctx.Enemy
 	ctx.castCtx.Targets = ctx.targetBuf
 	ctx.castCtx.Obstacles = ctx.Obs
-	ctx.castCtx.SourceType = resolved.DamageSourceType
+	ctx.castCtx.SourceType = resolved.DamageSource
 
-	result := ctx.Engine.CastDef(&ctx.defBuf, &ctx.castCtx)
+	result := ctx.Engine.CastDef(&resolved, &ctx.castCtx)
 	for _, r := range result.Events {
 		*ctx.Events = append(*ctx.Events, combat.DamageEvent{
 			TargetPeerID: r.TargetID,
@@ -298,9 +293,14 @@ func (ctx *EntityContext) CastMeleeOrAoE(resolved AbilityDef) {
 // SpawnProjectiles spawns projectiles for a ranged attack.
 // If the ability has a Pattern definition, uses the pattern engine for
 // bullet-hell style multi-wave emission. Otherwise uses the legacy fan system.
-func (ctx *EntityContext) SpawnProjectiles(resolved AbilityDef) {
+func (ctx *EntityContext) SpawnProjectiles(resolved ability.AbilityDef) {
 	e := ctx.Enemy
-	origin := e.Position.Add(entity.Vec3{Y: resolved.ProjectileOriginY})
+
+	var originY float32
+	if resolved.Projectile != nil {
+		originY = resolved.Projectile.OriginY
+	}
+	origin := e.Position.Add(entity.Vec3{Y: originY})
 	baseDir := e.RangedTargetPos.Sub(origin).Normalized()
 
 	// Pattern engine path: multi-wave bullet-hell patterns
@@ -309,17 +309,20 @@ func (ctx *EntityContext) SpawnProjectiles(resolved AbilityDef) {
 		return
 	}
 
-	// Legacy path: simple fan of projectiles
-	count := resolved.ProjectileCount
-	for i := range count {
-		offset := (float32(i) - float32(count-1)/2.0) * resolved.ProjectileSpread
+	// Fan path: simple fan of projectiles
+	if resolved.Projectile == nil {
+		return
+	}
+	proj := resolved.Projectile
+	for i := range proj.Count {
+		offset := (float32(i) - float32(proj.Count-1)/2.0) * proj.Spread
 		dir := combat.RotateVecY(baseDir, offset)
 		ctx.SpawnFn(
 			origin,
 			dir,
-			resolved.ProjectileSpeed,
-			resolved.ProjectileDamage,
-			resolved.ProjectileLifetime,
+			proj.Speed,
+			proj.Damage,
+			proj.Lifetime,
 		)
 	}
 }
@@ -365,36 +368,6 @@ func (ctx *EntityContext) AvoidObstacles(dir, from, to entity.Vec3) entity.Vec3 
 }
 
 // --- Internal helpers ---
-
-func (ctx *EntityContext) resolveEngineDef(resolved AbilityDef) {
-	switch resolved.Type {
-	case AbilityMelee:
-		coneAngle := resolved.MeleeConeAngle
-		if coneAngle <= 0 {
-			coneAngle = math.Pi
-		}
-		ctx.defBuf = ability.AbilityDef{
-			ID:         resolved.Name,
-			BaseDamage: resolved.MeleeDamage,
-			Hit: ability.HitDef{
-				Type:       ability.HitAoECone,
-				Range:      resolved.MeleeRange,
-				ArcDegrees: float32(float64(coneAngle) * 180.0 / math.Pi),
-			},
-		}
-	case AbilityAoE:
-		ctx.defBuf = ability.AbilityDef{
-			ID:         resolved.Name,
-			BaseDamage: resolved.AoEDamage,
-			Hit: ability.HitDef{
-				Type:   ability.HitAoECircle,
-				Radius: resolved.AoERadius,
-			},
-		}
-	default:
-		ctx.defBuf = ability.AbilityDef{ID: resolved.Name}
-	}
-}
 
 func (ctx *EntityContext) fillTargets() {
 	ctx.targetBuf = ctx.targetBuf[:0]

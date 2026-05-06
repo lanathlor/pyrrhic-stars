@@ -1,5 +1,46 @@
 package ability
 
+import "codex-online/server/internal/combat"
+
+// AbilityCategory classifies the execution path of an ability.
+type AbilityCategory uint8
+
+const (
+	CategoryMelee  AbilityCategory = iota // arc/cone hit resolution
+	CategoryRanged                        // spawn projectiles
+	CategoryAoE                           // radius hit resolution
+	CategoryCharge                        // linear dash with per-entity collision
+)
+
+// TargetStrategy controls who the ability targets.
+type TargetStrategy uint8
+
+const (
+	TargetNearest  TargetStrategy = iota // nearest alive target
+	TargetFarthest                       // farthest alive target
+	TargetCurrent                        // keep current target
+)
+
+// ProjectileDef describes projectile spawning for a ranged ability.
+type ProjectileDef struct {
+	Count    int     `yaml:"count"`
+	Speed    float32 `yaml:"speed"`
+	Damage   float32 `yaml:"damage"`
+	Spread   float32 `yaml:"spread"`    // angle between projectiles (radians)
+	OriginY  float32 `yaml:"origin_y"`  // Y offset from caster position
+	Lifetime float32 `yaml:"lifetime"`
+}
+
+// ChargeDef describes charge movement for a charge ability.
+type ChargeDef struct {
+	Speed          float32 `yaml:"speed"`
+	Damage         float32 `yaml:"damage"`
+	MaxDistance     float32 `yaml:"max_distance"`
+	HitRadius      float32 `yaml:"hit_radius"`
+	StopOnWall     bool    `yaml:"stop_on_wall"`
+	StopOnObstacle bool    `yaml:"stop_on_obstacle"`
+}
+
 // HitType identifies how an ability resolves its targeting.
 type HitType uint8
 
@@ -80,4 +121,33 @@ type AbilityDef struct {
 
 	// Shield cap when granting shield (0 = no cap)
 	ShieldCap float32 `yaml:"shield_cap"`
+
+	// Category classifies the execution path (melee/ranged/aoe/charge).
+	Category AbilityCategory `yaml:"category"`
+
+	// Commit/execute timing
+	CommitTime  float32 `yaml:"commit_time"`  // time entity is committed before execute window
+	ExecuteTime float32 `yaml:"execute_time"` // duration of execution window
+
+	// Projectile spawning (ranged abilities)
+	Projectile *ProjectileDef `yaml:"projectile"`
+
+	// Charge movement (charge abilities)
+	Charge *ChargeDef `yaml:"charge"`
+
+	// Bullet-hell pattern (overrides Projectile fan if set)
+	Pattern *combat.PatternDef `yaml:"-"`
+
+	// DamageSource categorizes the damage for client rendering.
+	DamageSource uint8 `yaml:"damage_source"`
+
+	// Selection (used by encounter design for weighted ability picking)
+	BaseWeight     int            `yaml:"base_weight"`
+	MinRange       float32        `yaml:"min_range"`
+	MaxRange       float32        `yaml:"max_range"`
+	TargetStrategy TargetStrategy `yaml:"target_strategy"`
+
+	// Commit behavior
+	FaceTarget  bool `yaml:"face_target"`  // face target at commit
+	TrackTarget bool `yaml:"track_target"` // continuously update target during commit
 }

@@ -3,8 +3,8 @@ package bosstest
 import (
 	"math"
 
+	"codex-online/server/internal/ability"
 	"codex-online/server/internal/bt"
-	"codex-online/server/internal/enemyai"
 	"codex-online/server/internal/entity"
 )
 
@@ -40,10 +40,10 @@ func condInAoEDanger(v any) bool {
 		return false
 	}
 	abil := c.ActiveAbil
-	if abil == nil || abil.Type != enemyai.AbilityAoE {
+	if abil == nil || abil.Category != ability.CategoryAoE {
 		return false
 	}
-	radius := abil.AoERadius + c.Puppet.Params.SafetyMargin
+	radius := abil.Hit.Radius + c.Puppet.Params.SafetyMargin
 	dist := c.Puppet.DistToBoss(c.Boss)
 	return dist < radius
 }
@@ -55,7 +55,7 @@ func condInChargePath(v any) bool {
 		return false
 	}
 	abil := c.ActiveAbil
-	if abil == nil || abil.Type != enemyai.AbilityCharge {
+	if abil == nil || abil.Category != ability.CategoryCharge || abil.Charge == nil {
 		return false
 	}
 
@@ -77,7 +77,7 @@ func condInChargePath(v any) bool {
 	perpVec := toPlayer.Sub(projVec)
 	perpDist := perpVec.Length()
 
-	hitRadius := abil.ChargeHitRadius + c.Puppet.Params.SafetyMargin
+	hitRadius := abil.Charge.HitRadius + c.Puppet.Params.SafetyMargin
 	return perpDist < hitRadius
 }
 
@@ -88,12 +88,12 @@ func condInMeleeDanger(v any) bool {
 		return false
 	}
 	abil := c.ActiveAbil
-	if abil == nil || abil.Type != enemyai.AbilityMelee {
+	if abil == nil || abil.Category != ability.CategoryMelee {
 		return false
 	}
 
 	dist := c.Puppet.DistToBoss(c.Boss)
-	meleeRange := abil.MeleeRange + c.Puppet.Params.SafetyMargin
+	meleeRange := abil.Hit.Range + c.Puppet.Params.SafetyMargin
 	if dist > meleeRange {
 		return false
 	}
@@ -102,10 +102,11 @@ func condInMeleeDanger(v any) bool {
 	bossForward := c.Boss.Forward()
 	toPlayer := c.Puppet.Player.Position.Sub(c.Boss.Position).Flat().Normalized()
 	dot := bossForward.Flat().Normalized().Dot(toPlayer)
-	coneHalf := abil.MeleeConeAngle / 2
-	if coneHalf <= 0 {
-		coneHalf = math.Pi / 2 // default 180° = Pi/2 half-angle
+	arcDeg := abil.Hit.ArcDegrees
+	if arcDeg <= 0 {
+		arcDeg = 180
 	}
+	coneHalf := arcDeg * math.Pi / 180.0 / 2
 	return dot > float32(math.Cos(float64(coneHalf)))
 }
 
@@ -117,7 +118,7 @@ func condTargetedByRanged(v any) bool {
 		return false
 	}
 	abil := c.ActiveAbil
-	if abil == nil || abil.Type != enemyai.AbilityRanged {
+	if abil == nil || abil.Category != ability.CategoryRanged {
 		return false
 	}
 	// Already dodged this telegraph? Don't keep dodging.
@@ -145,11 +146,11 @@ func isLikelyTarget(c *PuppetContext) bool {
 		}
 		otherDist := other.Player.Position.Flat().DistanceTo(c.Boss.Position.Flat())
 		switch strategy {
-		case enemyai.TargetNearest:
+		case ability.TargetNearest:
 			if otherDist < myDist {
 				return false // someone else is closer
 			}
-		case enemyai.TargetFarthest:
+		case ability.TargetFarthest:
 			if otherDist > myDist {
 				return false // someone else is farther
 			}

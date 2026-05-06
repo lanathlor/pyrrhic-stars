@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"codex-online/server/internal/ability"
 	"codex-online/server/internal/bt"
 	"codex-online/server/internal/combat"
 
@@ -239,70 +240,76 @@ func parseMobYAML(data []byte) (*EnemyDef, error) {
 	return def, nil
 }
 
-func convertAbility(af abilityFile) (AbilityDef, error) {
-	ad := AbilityDef{
-		Name:          af.Name,
-		TelegraphTime: af.TelegraphTime,
-		ExecuteTime:   af.ExecuteTime,
-		CooldownTime:  af.CooldownTime,
-		BaseWeight:    af.BaseWeight,
-		MinRange:      af.MinRange,
-		MaxRange:      af.MaxRange,
-		FaceTarget:    af.FaceTarget,
-		TrackTarget:   af.TrackTarget,
-
-		MeleeRange:     af.MeleeRange,
-		MeleeDamage:    af.MeleeDamage,
-		MeleeConeAngle: af.MeleeConeDeg * math.Pi / 180.0,
-
-		ProjectileCount:    af.ProjectileCount,
-		ProjectileSpeed:    af.ProjectileSpeed,
-		ProjectileDamage:   af.ProjectileDamage,
-		ProjectileSpread:   af.ProjectileSpreadDeg * math.Pi / 180.0,
-		ProjectileOriginY:  af.ProjectileOriginY,
-		ProjectileLifetime: af.ProjectileLifetime,
-
-		AoERadius: af.AoERadius,
-		AoEDamage: af.AoEDamage,
-
-		ChargeSpeed:          af.ChargeSpeed,
-		ChargeDamage:         af.ChargeDamage,
-		ChargeMaxDistance:    af.ChargeMaxDistance,
-		ChargeHitRadius:      af.ChargeHitRadius,
-		ChargeStopOnWall:     af.ChargeStopOnWall,
-		ChargeStopOnObstacle: af.ChargeStopOnObstacle,
-
-		DamageSourceType: af.DamageSource,
+func convertAbility(af abilityFile) (ability.AbilityDef, error) {
+	ad := ability.AbilityDef{
+		ID:           af.Name,
+		Name:         af.Name,
+		CommitTime:   af.TelegraphTime,
+		ExecuteTime:  af.ExecuteTime,
+		Cooldown:     af.CooldownTime,
+		BaseWeight:   af.BaseWeight,
+		MinRange:     af.MinRange,
+		MaxRange:     af.MaxRange,
+		FaceTarget:   af.FaceTarget,
+		TrackTarget:  af.TrackTarget,
+		DamageSource: af.DamageSource,
 	}
 
 	switch af.Type {
 	case "melee":
-		ad.Type = AbilityMelee
+		ad.Category = ability.CategoryMelee
+		ad.BaseDamage = af.MeleeDamage
+		ad.Hit = ability.HitDef{
+			Type:       ability.HitAoECone,
+			Range:      af.MeleeRange,
+			ArcDegrees: af.MeleeConeDeg,
+		}
 	case "ranged":
-		ad.Type = AbilityRanged
+		ad.Category = ability.CategoryRanged
+		ad.Projectile = &ability.ProjectileDef{
+			Count:    af.ProjectileCount,
+			Speed:    af.ProjectileSpeed,
+			Damage:   af.ProjectileDamage,
+			Spread:   af.ProjectileSpreadDeg * math.Pi / 180.0,
+			OriginY:  af.ProjectileOriginY,
+			Lifetime: af.ProjectileLifetime,
+		}
 	case "aoe":
-		ad.Type = AbilityAoE
+		ad.Category = ability.CategoryAoE
+		ad.BaseDamage = af.AoEDamage
+		ad.Hit = ability.HitDef{
+			Type:   ability.HitAoECircle,
+			Radius: af.AoERadius,
+		}
 	case "charge":
-		ad.Type = AbilityCharge
+		ad.Category = ability.CategoryCharge
+		ad.Charge = &ability.ChargeDef{
+			Speed:          af.ChargeSpeed,
+			Damage:         af.ChargeDamage,
+			MaxDistance:     af.ChargeMaxDistance,
+			HitRadius:      af.ChargeHitRadius,
+			StopOnWall:     af.ChargeStopOnWall,
+			StopOnObstacle: af.ChargeStopOnObstacle,
+		}
 	default:
-		return AbilityDef{}, fmt.Errorf("unknown ability type %q", af.Type)
+		return ability.AbilityDef{}, fmt.Errorf("unknown ability type %q", af.Type)
 	}
 
 	switch af.Target {
 	case "nearest", "":
-		ad.TargetStrategy = TargetNearest
+		ad.TargetStrategy = ability.TargetNearest
 	case "farthest":
-		ad.TargetStrategy = TargetFarthest
+		ad.TargetStrategy = ability.TargetFarthest
 	case "current":
-		ad.TargetStrategy = TargetCurrent
+		ad.TargetStrategy = ability.TargetCurrent
 	default:
-		return AbilityDef{}, fmt.Errorf("unknown target strategy %q", af.Target)
+		return ability.AbilityDef{}, fmt.Errorf("unknown target strategy %q", af.Target)
 	}
 
 	if af.Pattern != nil {
 		p, err := convertPattern(af.Pattern)
 		if err != nil {
-			return AbilityDef{}, fmt.Errorf("pattern: %w", err)
+			return ability.AbilityDef{}, fmt.Errorf("pattern: %w", err)
 		}
 		ad.Pattern = p
 	}
@@ -385,7 +392,15 @@ func convertPhase(pf phaseFile) PhaseDef {
 	if len(pf.AbilityOverrides) > 0 {
 		pd.AbilityOverrides = make(map[string]AbilityOverride, len(pf.AbilityOverrides))
 		for name, ovr := range pf.AbilityOverrides {
-			pd.AbilityOverrides[name] = AbilityOverride(ovr)
+			pd.AbilityOverrides[name] = AbilityOverride{
+				CommitTime:       ovr.TelegraphTime,
+				Damage:           ovr.Damage,
+				ProjectileCount:  ovr.ProjectileCount,
+				AoERadius:        ovr.AoERadius,
+				ChargeSpeed:      ovr.ChargeSpeed,
+				ChargeMaxDistance: ovr.ChargeMaxDistance,
+				CooldownTime:     ovr.CooldownTime,
+			}
 		}
 	}
 	return pd

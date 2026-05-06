@@ -4,6 +4,8 @@ import (
 	"math"
 	"testing"
 
+	"codex-online/server/internal/ability"
+	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
 )
 
@@ -32,38 +34,44 @@ func testDef() *EnemyDef {
 		Radius:     1.0,
 		AntiRepeat: 2.0,
 		TreeData:   testTreeData(),
-		Abilities: []AbilityDef{
+		Abilities: []ability.AbilityDef{
 			{
-				Name: "melee", Type: AbilityMelee,
-				TelegraphTime: 1.0, CooldownTime: 1.0,
+				ID: "melee", Name: "melee", Category: ability.CategoryMelee,
+				CommitTime: 1.0, Cooldown: 1.0,
 				BaseWeight: 50, MaxRange: 3.0,
-				MeleeRange: 3.0, MeleeDamage: 30.0, MeleeConeAngle: math.Pi,
-				DamageSourceType: SourceEnemyMelee,
+				BaseDamage:   30.0,
+				Hit:          ability.HitDef{Type: ability.HitAoECone, Range: 3.0, ArcDegrees: 180},
+				DamageSource: combat.SourceEnemyMelee,
 			},
 			{
-				Name: "ranged", Type: AbilityRanged,
-				TelegraphTime: 0.8, CooldownTime: 1.0,
+				ID: "ranged", Name: "ranged", Category: ability.CategoryRanged,
+				CommitTime: 0.8, Cooldown: 1.0,
 				BaseWeight: 50, MinRange: 3.0,
-				ProjectileCount: 1, ProjectileSpeed: 20.0,
-				ProjectileDamage: 15.0, ProjectileOriginY: 1.5,
-				ProjectileLifetime: 5.0,
-				DamageSourceType:   SourceEnemyRanged,
+				Projectile: &ability.ProjectileDef{
+					Count: 1, Speed: 20.0,
+					Damage: 15.0, OriginY: 1.5,
+					Lifetime: 5.0,
+				},
+				DamageSource: combat.SourceEnemyRanged,
 			},
 			{
-				Name: "aoe", Type: AbilityAoE,
-				TelegraphTime: 1.2, CooldownTime: 1.5,
-				BaseWeight: 30, MaxRange: 7.0,
-				AoERadius: 5.0, AoEDamage: 40.0,
-				DamageSourceType: SourceEnemyAoE,
+				ID: "aoe", Name: "aoe", Category: ability.CategoryAoE,
+				CommitTime: 1.2, Cooldown: 1.5,
+				BaseWeight:   30, MaxRange: 7.0,
+				BaseDamage:   40.0,
+				Hit:          ability.HitDef{Type: ability.HitAoECircle, Radius: 5.0},
+				DamageSource: combat.SourceEnemyAoE,
 			},
 			{
-				Name: "charge", Type: AbilityCharge,
-				TelegraphTime: 1.0, CooldownTime: 1.5,
+				ID: "charge", Name: "charge", Category: ability.CategoryCharge,
+				CommitTime: 1.0, Cooldown: 1.5,
 				BaseWeight: 20, MinRange: 6.0,
-				ChargeSpeed: 12.0, ChargeDamage: 35.0,
-				ChargeMaxDistance: 15.0, ChargeHitRadius: 2.0,
-				ChargeStopOnWall: true, ChargeStopOnObstacle: true,
-				DamageSourceType: SourceEnemyCharge,
+				Charge: &ability.ChargeDef{
+					Speed: 12.0, Damage: 35.0,
+					MaxDistance: 15.0, HitRadius: 2.0,
+					StopOnWall: true, StopOnObstacle: true,
+				},
+				DamageSource: combat.SourceEnemyCharge,
 			},
 		},
 		Phases: []PhaseDef{
@@ -73,7 +81,7 @@ func testDef() *EnemyDef {
 				CooldownOverride: 0.8,
 				WeightOverrides:  map[string]int{"melee": 25, "ranged": 25, "aoe": 25, "charge": 25},
 				AbilityOverrides: map[string]AbilityOverride{
-					"melee": {TelegraphTime: F32(0.8), Damage: F32(35.0)},
+					"melee": {CommitTime: F32(0.8), Damage: F32(35.0)},
 				},
 			},
 		},
@@ -150,11 +158,11 @@ func TestResolveAbilityBase(t *testing.T) {
 	def := testDef()
 	melee := &def.Abilities[0]
 	resolved := def.ResolveAbility(melee, 1)
-	if resolved.TelegraphTime != 1.0 {
-		t.Errorf("base telegraph = %f, want 1.0", resolved.TelegraphTime)
+	if resolved.CommitTime != 1.0 {
+		t.Errorf("base commit time = %f, want 1.0", resolved.CommitTime)
 	}
-	if resolved.MeleeDamage != 30.0 {
-		t.Errorf("base damage = %f, want 30.0", resolved.MeleeDamage)
+	if resolved.BaseDamage != 30.0 {
+		t.Errorf("base damage = %f, want 30.0", resolved.BaseDamage)
 	}
 }
 
@@ -162,11 +170,11 @@ func TestResolveAbilityPhaseOverride(t *testing.T) {
 	def := testDef()
 	melee := &def.Abilities[0]
 	resolved := def.ResolveAbility(melee, 2)
-	if resolved.TelegraphTime != 0.8 {
-		t.Errorf("phase 2 telegraph = %f, want 0.8", resolved.TelegraphTime)
+	if resolved.CommitTime != 0.8 {
+		t.Errorf("phase 2 commit time = %f, want 0.8", resolved.CommitTime)
 	}
-	if resolved.MeleeDamage != 35.0 {
-		t.Errorf("phase 2 damage = %f, want 35.0", resolved.MeleeDamage)
+	if resolved.BaseDamage != 35.0 {
+		t.Errorf("phase 2 damage = %f, want 35.0", resolved.BaseDamage)
 	}
 }
 
@@ -255,15 +263,15 @@ func TestGuardCaptainPhaseOverrides(t *testing.T) {
 	if gc == nil {
 		t.Fatal("guard_captain not in DefRegistry")
 	}
-	// fireball_burst (index 1) phase 2: telegraph shortens
+	// fireball_burst (index 1) phase 2: commit time shortens
 	resolved := gc.ResolveAbility(&gc.Abilities[1], 2)
-	if resolved.TelegraphTime != 0.8 {
-		t.Errorf("phase 2 fireball telegraph = %f, want 0.8", resolved.TelegraphTime)
+	if resolved.CommitTime != 0.8 {
+		t.Errorf("phase 2 fireball commit time = %f, want 0.8", resolved.CommitTime)
 	}
-	// void_barrage (index 2) phase 2: telegraph shortens
+	// void_barrage (index 2) phase 2: commit time shortens
 	vb := gc.ResolveAbility(&gc.Abilities[2], 2)
-	if vb.TelegraphTime != 1.0 {
-		t.Errorf("phase 2 void_barrage telegraph = %f, want 1.0", vb.TelegraphTime)
+	if vb.CommitTime != 1.0 {
+		t.Errorf("phase 2 void_barrage commit time = %f, want 1.0", vb.CommitTime)
 	}
 }
 

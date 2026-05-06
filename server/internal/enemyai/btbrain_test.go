@@ -1,7 +1,6 @@
 package enemyai
 
 import (
-	"math"
 	"testing"
 
 	"codex-online/server/internal/ability"
@@ -101,14 +100,14 @@ func TestBrain_FullMeleeCycle(t *testing.T) {
 		MoveSpeed: 4.0,
 		Radius:    1.0,
 		TreeData:  testTreeData(),
-		Abilities: []AbilityDef{
+		Abilities: []ability.AbilityDef{
 			{
-				Name: "melee", Type: AbilityMelee,
-				TelegraphTime: 0.5, CooldownTime: 0.5,
+				ID: "melee", Name: "melee", Category: ability.CategoryMelee,
+				CommitTime: 0.5, Cooldown: 0.5,
 				BaseWeight: 100, MaxRange: 3.0,
-				MeleeRange: 3.0, MeleeDamage: 30.0,
-				MeleeConeAngle:   math.Pi,
-				DamageSourceType: SourceEnemyMelee,
+				BaseDamage:   30.0,
+				Hit:          ability.HitDef{Type: ability.HitAoECone, Range: 3.0, ArcDegrees: 180},
+				DamageSource: combat.SourceEnemyMelee,
 			},
 		},
 	}
@@ -155,12 +154,13 @@ func TestBrain_PatrolAndAggro(t *testing.T) {
 		MoveSpeed: 4.0,
 		Radius:    1.0,
 		TreeData:  testTreeData(),
-		Abilities: []AbilityDef{
+		Abilities: []ability.AbilityDef{
 			{
-				Name: "melee", Type: AbilityMelee,
-				TelegraphTime: 0.5, CooldownTime: 0.5,
+				ID: "melee", Name: "melee", Category: ability.CategoryMelee,
+				CommitTime: 0.5, Cooldown: 0.5,
 				BaseWeight: 100, MaxRange: 3.0,
-				MeleeRange: 3.0, MeleeDamage: 10.0,
+				BaseDamage: 10.0,
+				Hit:        ability.HitDef{Type: ability.HitAoECone, Range: 3.0},
 			},
 		},
 	}
@@ -224,15 +224,17 @@ func TestBrain_RangedSpawnsProjectile(t *testing.T) {
 		MaxHealth: 200,
 		MoveSpeed: 3.0,
 		Radius:    1.0,
-		Abilities: []AbilityDef{
+		Abilities: []ability.AbilityDef{
 			{
-				Name: "bolt", Type: AbilityRanged,
-				TelegraphTime: 0.2, CooldownTime: 0.5,
-				BaseWeight:      100,
-				ProjectileCount: 1, ProjectileSpeed: 20.0,
-				ProjectileDamage: 10.0, ProjectileOriginY: 1.5,
-				ProjectileLifetime: 3.0,
-				DamageSourceType:   SourceEnemyRanged,
+				ID: "bolt", Name: "bolt", Category: ability.CategoryRanged,
+				CommitTime: 0.2, Cooldown: 0.5,
+				BaseWeight: 100,
+				Projectile: &ability.ProjectileDef{
+					Count: 1, Speed: 20.0,
+					Damage: 10.0, OriginY: 1.5,
+					Lifetime: 3.0,
+				},
+				DamageSource: combat.SourceEnemyRanged,
 			},
 		},
 		PreferredRange: 8.0,
@@ -270,24 +272,26 @@ func TestBrain_ChargeHitsPlayer(t *testing.T) {
 		MaxHealth: 500,
 		MoveSpeed: 4.0,
 		Radius:    1.0,
-		Abilities: []AbilityDef{
+		Abilities: []ability.AbilityDef{
 			{
-				Name: "melee", Type: AbilityMelee,
-				TelegraphTime: 0.3, CooldownTime: 0.5,
+				ID: "melee", Name: "melee", Category: ability.CategoryMelee,
+				CommitTime: 0.3, Cooldown: 0.5,
 				BaseWeight: 10, MaxRange: 3.0,
-				MeleeRange: 3.0, MeleeDamage: 15.0,
-				MeleeConeAngle:   math.Pi,
-				DamageSourceType: SourceEnemyMelee,
+				BaseDamage:   15.0,
+				Hit:          ability.HitDef{Type: ability.HitAoECone, Range: 3.0, ArcDegrees: 180},
+				DamageSource: combat.SourceEnemyMelee,
 			},
 			{
-				Name: "charge", Type: AbilityCharge,
-				TelegraphTime: 0.2, CooldownTime: 0.5,
+				ID: "charge", Name: "charge", Category: ability.CategoryCharge,
+				CommitTime: 0.2, Cooldown: 0.5,
 				BaseWeight: 90, MinRange: 4.0,
-				FaceTarget:  true,
-				ChargeSpeed: 12.0, ChargeDamage: 35.0,
-				ChargeMaxDistance: 20.0, ChargeHitRadius: 2.0,
-				ChargeStopOnWall: true,
-				DamageSourceType: SourceEnemyCharge,
+				FaceTarget: true,
+				Charge: &ability.ChargeDef{
+					Speed: 12.0, Damage: 35.0,
+					MaxDistance: 20.0, HitRadius: 2.0,
+					StopOnWall: true,
+				},
+				DamageSource: combat.SourceEnemyCharge,
 			},
 		},
 	}
@@ -344,15 +348,15 @@ func TestBrain_MeleeCommitsDirection(t *testing.T) {
 		MoveSpeed: 4.0,
 		Radius:    1.0,
 		TreeData:  testTreeData(),
-		Abilities: []AbilityDef{
+		Abilities: []ability.AbilityDef{
 			{
-				Name: "melee", Type: AbilityMelee,
-				TelegraphTime: 1.0, CooldownTime: 0.5,
+				ID: "melee", Name: "melee", Category: ability.CategoryMelee,
+				CommitTime: 1.0, Cooldown: 0.5,
 				BaseWeight: 100, MaxRange: 5.0,
 				FaceTarget:  true,
 				TrackTarget: false,
-				MeleeRange:  5.0, MeleeDamage: 10.0,
-				MeleeConeAngle: math.Pi,
+				BaseDamage:  10.0,
+				Hit:         ability.HitDef{Type: ability.HitAoECone, Range: 5.0, ArcDegrees: 180},
 			},
 		},
 	}
@@ -404,15 +408,17 @@ func TestBrain_RangedTracksTarget(t *testing.T) {
 		Radius:         1.0,
 		PreferredRange: 8.0,
 		BackpedalSpeed: 2.0,
-		Abilities: []AbilityDef{
+		Abilities: []ability.AbilityDef{
 			{
-				Name: "bolt", Type: AbilityRanged,
-				TelegraphTime: 1.0, CooldownTime: 0.5,
-				BaseWeight:      100,
-				TrackTarget:     true,
-				ProjectileCount: 1, ProjectileSpeed: 20.0,
-				ProjectileDamage: 10.0, ProjectileOriginY: 1.5,
-				ProjectileLifetime: 3.0,
+				ID: "bolt", Name: "bolt", Category: ability.CategoryRanged,
+				CommitTime: 1.0, Cooldown: 0.5,
+				BaseWeight:  100,
+				TrackTarget: true,
+				Projectile: &ability.ProjectileDef{
+					Count: 1, Speed: 20.0,
+					Damage: 10.0, OriginY: 1.5,
+					Lifetime: 3.0,
+				},
 			},
 		},
 	}

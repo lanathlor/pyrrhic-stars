@@ -4,6 +4,7 @@ import (
 	"math"
 	"math/rand/v2"
 
+	"codex-online/server/internal/ability"
 	"codex-online/server/internal/bt"
 	"codex-online/server/internal/codec"
 	"codex-online/server/internal/enemyai"
@@ -66,7 +67,7 @@ type PuppetContext struct {
 	World      *system.World
 	Boss       *entity.Enemy
 	BossDef    *enemyai.EnemyDef
-	ActiveAbil *enemyai.AbilityDef // resolved with phase overrides, nil if none
+	ActiveAbil *ability.AbilityDef // resolved with phase overrides, nil if none
 	AllPuppets []*PlayerPuppet
 	Dt         float32
 }

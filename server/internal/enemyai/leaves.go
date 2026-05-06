@@ -4,6 +4,7 @@ import (
 	"math"
 	"slices"
 
+	"codex-online/server/internal/ability"
 	"codex-online/server/internal/bt"
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
@@ -269,7 +270,7 @@ func isTelegraphState(s entity.EnemyState) bool {
 func condActiveAbilityIsCharge(v any) bool {
 	c := ctx(v)
 	abil := c.Def.AbilityByIndex(c.Enemy.ActiveAbility)
-	result := abil != nil && abil.Type == AbilityCharge
+	result := abil != nil && abil.Category == ability.CategoryCharge
 	c.logCond("active_ability_is_charge", result)
 	return result
 }
@@ -305,8 +306,8 @@ func actionTelegraph(v any) bt.Result {
 	e.Velocity = entity.Vec3{}
 	abil := c.Def.AbilityByIndex(e.ActiveAbility)
 	if abil != nil && abil.TrackTarget {
-		switch abil.Type {
-		case AbilityCharge:
+		switch abil.Category {
+		case ability.CategoryCharge:
 			c.faceTargetPlayer()
 			if target := c.TargetPlayer(); target != nil {
 				dir := target.Position.Sub(e.Position).Flat()
@@ -314,11 +315,11 @@ func actionTelegraph(v any) bt.Result {
 					e.ChargeDirection = dir.Normalized()
 				}
 			}
-		case AbilityRanged:
+		case ability.CategoryRanged:
 			if target := c.TargetPlayer(); target != nil {
 				e.RangedTargetPos = target.Position.Add(entity.Vec3{Y: 1.0})
 			}
-		case AbilityMelee, AbilityAoE:
+		case ability.CategoryMelee, ability.CategoryAoE:
 			c.faceTargetPlayer()
 		}
 	}
@@ -346,12 +347,12 @@ func actionExecuteAbility(v any) bt.Result {
 	// First tick: transition from telegraph to attack state.
 	if isTelegraphState(e.State) {
 		resolved := c.Def.ResolveAbility(abil, e.Phase)
-		switch abil.Type {
-		case AbilityMelee:
+		switch abil.Category {
+		case ability.CategoryMelee:
 			e.State = entity.EnemyMeleeAttack
-		case AbilityRanged:
+		case ability.CategoryRanged:
 			e.State = entity.EnemyRangedAttack
-		case AbilityAoE:
+		case ability.CategoryAoE:
 			e.State = entity.EnemyAoESlam
 		}
 		e.StateTimer = resolved.ExecuteTime
@@ -365,10 +366,10 @@ func actionExecuteAbility(v any) bt.Result {
 
 	// Resolve damage.
 	resolved := c.ResolveCurrentAbility()
-	switch abil.Type {
-	case AbilityMelee, AbilityAoE:
+	switch abil.Category {
+	case ability.CategoryMelee, ability.CategoryAoE:
 		c.CastMeleeOrAoE(resolved)
-	case AbilityRanged:
+	case ability.CategoryRanged:
 		c.SpawnProjectiles(resolved)
 	}
 	c.logAction("execute_ability", bt.Success, "ability", abil.Name)
@@ -394,7 +395,11 @@ func actionChargeDash(v any) bt.Result {
 	}
 
 	resolved := c.ResolveCurrentAbility()
-	spd := resolved.ChargeSpeed
+	charge := resolved.Charge
+	if charge == nil {
+		return bt.Failure
+	}
+	spd := charge.Speed
 	e.Velocity = entity.Vec3{X: e.ChargeDirection.X * spd, Z: e.ChargeDirection.Z * spd}
 	e.ChargeDistance += spd * c.Dt
 
@@ -403,14 +408,14 @@ func actionChargeDash(v any) bt.Result {
 		if !p.Alive || slices.Contains(e.ChargeHitPlayers, p.ID) {
 			continue
 		}
-		if e.Position.DistanceTo(p.Position) <= resolved.ChargeHitRadius {
-			dealt := p.ApplyDamage(resolved.ChargeDamage)
+		if e.Position.DistanceTo(p.Position) <= charge.HitRadius {
+			dealt := p.ApplyDamage(charge.Damage)
 			if dealt > 0 {
 				*c.Events = append(*c.Events, combat.DamageEvent{
 					TargetPeerID: p.ID,
 					Amount:       dealt,
 					HitPos:       e.Position,
-					SourceType:   resolved.DamageSourceType,
+					SourceType:   resolved.DamageSource,
 				})
 				if c.Logger != nil {
 					c.logAction("charge_dash", bt.Running, "phase", "charge_hit", "target", p.ID, "damage", dealt)
@@ -421,13 +426,13 @@ func actionChargeDash(v any) bt.Result {
 	}
 
 	// Stop conditions.
-	stop := e.ChargeDistance >= resolved.ChargeMaxDistance
-	if resolved.ChargeStopOnWall {
+	stop := e.ChargeDistance >= charge.MaxDistance
+	if charge.StopOnWall {
 		stop = stop || combat.IsAtWall(e.Position,
 			c.BoundsMinX, c.BoundsMaxX,
 			c.BoundsMinZ, c.BoundsMaxZ)
 	}
-	if resolved.ChargeStopOnObstacle {
+	if charge.StopOnObstacle {
 		stop = stop || combat.IsAtObstacle(e.Position, c.Obs, c.Def.Radius)
 	}
 	if stop {

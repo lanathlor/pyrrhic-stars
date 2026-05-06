@@ -1,7 +1,6 @@
 package enemyai
 
 import (
-	"math"
 	"math/rand/v2"
 	"testing"
 
@@ -36,14 +35,14 @@ func simpleMeleeDef() *EnemyDef {
 		MaxHealth: 500,
 		MoveSpeed: 4.0,
 		Radius:    1.0,
-		Abilities: []AbilityDef{
+		Abilities: []ability.AbilityDef{
 			{
-				Name: "melee", Type: AbilityMelee,
-				TelegraphTime: 0.5, ExecuteTime: 0.2, CooldownTime: 0.5,
+				ID: "melee", Name: "melee", Category: ability.CategoryMelee,
+				CommitTime: 0.5, ExecuteTime: 0.2, Cooldown: 0.5,
 				BaseWeight: 100, MaxRange: 3.0,
-				MeleeRange: 3.0, MeleeDamage: 20.0,
-				MeleeConeAngle:   math.Pi,
-				DamageSourceType: SourceEnemyMelee,
+				BaseDamage: 20.0,
+				Hit:          ability.HitDef{Type: ability.HitAoECone, Range: 3.0, ArcDegrees: 180},
+				DamageSource: combat.SourceEnemyMelee,
 			},
 		},
 	}
@@ -268,9 +267,9 @@ func TestCond_ActiveAbilityIsCharge(t *testing.T) {
 	def := &EnemyDef{
 		Name:      "test_charge",
 		MaxHealth: 500,
-		Abilities: []AbilityDef{
-			{Name: "melee", Type: AbilityMelee},
-			{Name: "charge", Type: AbilityCharge},
+		Abilities: []ability.AbilityDef{
+			{ID: "melee", Name: "melee", Category: ability.CategoryMelee},
+			{ID: "charge", Name: "charge", Category: ability.CategoryCharge},
 		},
 	}
 	e := entity.NewEnemy(0, 500, "test")
@@ -523,7 +522,7 @@ func TestAction_Chase_RangedBackpedals(t *testing.T) {
 		PreferredRange: 8.0,
 		BackpedalSpeed: 2.5,
 		Radius:         1.0,
-		Abilities:      []AbilityDef{{Name: "bolt", Type: AbilityRanged, MeleeRange: 0}},
+		Abilities:      []ability.AbilityDef{{ID: "bolt", Name: "bolt", Category: ability.CategoryRanged}},
 	}
 	e := entity.NewEnemy(0, 200, "ranged")
 	e.Position = entity.Vec3{X: 0, Z: 0}
@@ -550,7 +549,7 @@ func TestAction_Chase_RangedAdvances(t *testing.T) {
 		PreferredRange: 8.0,
 		BackpedalSpeed: 2.5,
 		Radius:         1.0,
-		Abilities:      []AbilityDef{{Name: "bolt", Type: AbilityRanged, MeleeRange: 0}},
+		Abilities:      []ability.AbilityDef{{ID: "bolt", Name: "bolt", Category: ability.CategoryRanged}},
 	}
 	e := entity.NewEnemy(0, 200, "ranged")
 	e.Position = entity.Vec3{X: 0, Z: 0}
@@ -577,7 +576,7 @@ func TestAction_Chase_RangedStopsInSweetSpot(t *testing.T) {
 		PreferredRange: 8.0,
 		BackpedalSpeed: 2.5,
 		Radius:         1.0,
-		Abilities:      []AbilityDef{{Name: "bolt", Type: AbilityRanged, MeleeRange: 0}},
+		Abilities:      []ability.AbilityDef{{ID: "bolt", Name: "bolt", Category: ability.CategoryRanged}},
 	}
 	e := entity.NewEnemy(0, 200, "ranged")
 	e.Position = entity.Vec3{X: 0, Z: 0}
@@ -650,8 +649,8 @@ func TestAction_SelectAbility_FailsNoValidAbility(t *testing.T) {
 	def := &EnemyDef{
 		Name:      "test",
 		MaxHealth: 500,
-		Abilities: []AbilityDef{
-			{Name: "bolt", Type: AbilityRanged, BaseWeight: 100, MinRange: 5.0},
+		Abilities: []ability.AbilityDef{
+			{ID: "bolt", Name: "bolt", Category: ability.CategoryRanged, BaseWeight: 100, MinRange: 5.0},
 		},
 	}
 	e := entity.NewEnemy(0, 500, "test")
@@ -737,8 +736,8 @@ func TestAction_Telegraph_TrackTargetRanged(t *testing.T) {
 	def := &EnemyDef{
 		Name:      "test",
 		MaxHealth: 500,
-		Abilities: []AbilityDef{
-			{Name: "bolt", Type: AbilityRanged, TrackTarget: true, TelegraphTime: 1.0},
+		Abilities: []ability.AbilityDef{
+			{ID: "bolt", Name: "bolt", Category: ability.CategoryRanged, TrackTarget: true, CommitTime: 1.0},
 		},
 	}
 	e := entity.NewEnemy(0, 500, "test")
@@ -823,11 +822,13 @@ func TestAction_ChargeDash_InitializesCharge(t *testing.T) {
 		Name:      "test",
 		MaxHealth: 500,
 		Radius:    1.0,
-		Abilities: []AbilityDef{
+		Abilities: []ability.AbilityDef{
 			{
-				Name: "charge", Type: AbilityCharge,
-				ChargeSpeed: 10, ChargeDamage: 20, ChargeMaxDistance: 15,
-				ChargeHitRadius: 2.0, ChargeStopOnWall: true,
+				ID: "charge", Name: "charge", Category: ability.CategoryCharge,
+				Charge: &ability.ChargeDef{
+					Speed: 10, Damage: 20, MaxDistance: 15,
+					HitRadius: 2.0, StopOnWall: true,
+				},
 			},
 		},
 	}
@@ -856,11 +857,13 @@ func TestAction_ChargeDash_StopsAtMaxDistance(t *testing.T) {
 		Name:      "test",
 		MaxHealth: 500,
 		Radius:    1.0,
-		Abilities: []AbilityDef{
+		Abilities: []ability.AbilityDef{
 			{
-				Name: "charge", Type: AbilityCharge,
-				ChargeSpeed: 10, ChargeDamage: 20, ChargeMaxDistance: 5,
-				ChargeHitRadius: 2.0,
+				ID: "charge", Name: "charge", Category: ability.CategoryCharge,
+				Charge: &ability.ChargeDef{
+					Speed: 10, Damage: 20, MaxDistance: 5,
+					HitRadius: 2.0,
+				},
 			},
 		},
 	}
@@ -888,11 +891,13 @@ func TestAction_ChargeDash_StopsAtWall(t *testing.T) {
 		Name:      "test",
 		MaxHealth: 500,
 		Radius:    1.0,
-		Abilities: []AbilityDef{
+		Abilities: []ability.AbilityDef{
 			{
-				Name: "charge", Type: AbilityCharge,
-				ChargeSpeed: 10, ChargeDamage: 20, ChargeMaxDistance: 100,
-				ChargeHitRadius: 2.0, ChargeStopOnWall: true,
+				ID: "charge", Name: "charge", Category: ability.CategoryCharge,
+				Charge: &ability.ChargeDef{
+					Speed: 10, Damage: 20, MaxDistance: 100,
+					HitRadius: 2.0, StopOnWall: true,
+				},
 			},
 		},
 	}
@@ -918,12 +923,14 @@ func TestAction_ChargeDash_HitsPlayerOnce(t *testing.T) {
 		Name:      "test",
 		MaxHealth: 500,
 		Radius:    1.0,
-		Abilities: []AbilityDef{
+		Abilities: []ability.AbilityDef{
 			{
-				Name: "charge", Type: AbilityCharge,
-				ChargeSpeed: 10, ChargeDamage: 20, ChargeMaxDistance: 100,
-				ChargeHitRadius:  3.0,
-				DamageSourceType: SourceEnemyCharge,
+				ID: "charge", Name: "charge", Category: ability.CategoryCharge,
+				Charge: &ability.ChargeDef{
+					Speed: 10, Damage: 20, MaxDistance: 100,
+					HitRadius: 3.0,
+				},
+				DamageSource: combat.SourceEnemyCharge,
 			},
 		},
 	}

@@ -1,9 +1,9 @@
 package enemyai
 
 import (
-	"math"
 	"testing"
 
+	"codex-online/server/internal/ability"
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
 )
@@ -301,21 +301,22 @@ func TestFight_AoEHitsMultiplePlayers(t *testing.T) {
 		MoveSpeed: 4.0,
 		Radius:    1.0,
 		TreeData:  testTreeData(),
-		Abilities: []AbilityDef{
+		Abilities: []ability.AbilityDef{
 			{
-				Name: "melee_tap", Type: AbilityMelee,
-				TelegraphTime: 0.1, CooldownTime: 0.3,
+				ID: "melee_tap", Name: "melee_tap", Category: ability.CategoryMelee,
+				CommitTime: 0.1, Cooldown: 0.3,
 				BaseWeight: 1, MaxRange: 5.0,
-				MeleeRange: 5.0, MeleeDamage: 5.0,
-				MeleeConeAngle:   math.Pi,
-				DamageSourceType: SourceEnemyMelee,
+				BaseDamage:   5.0,
+				Hit:          ability.HitDef{Type: ability.HitAoECone, Range: 5.0, ArcDegrees: 180},
+				DamageSource: combat.SourceEnemyMelee,
 			},
 			{
-				Name: "slam", Type: AbilityAoE,
-				TelegraphTime: 0.2, CooldownTime: 0.5,
+				ID: "slam", Name: "slam", Category: ability.CategoryAoE,
+				CommitTime: 0.2, Cooldown: 0.5,
 				BaseWeight: 100, MaxRange: 10.0,
-				AoERadius: 5.0, AoEDamage: 25.0,
-				DamageSourceType: SourceEnemyAoE,
+				BaseDamage:   25.0,
+				Hit:          ability.HitDef{Type: ability.HitAoECircle, Radius: 5.0},
+				DamageSource: combat.SourceEnemyAoE,
 			},
 		},
 	}
@@ -358,16 +359,18 @@ func TestFight_ChargeHitsMultiplePlayers(t *testing.T) {
 		MaxHealth: 500,
 		MoveSpeed: 4.0,
 		Radius:    1.0,
-		Abilities: []AbilityDef{
+		Abilities: []ability.AbilityDef{
 			{
-				Name: "charge", Type: AbilityCharge,
-				TelegraphTime: 0.1, CooldownTime: 0.5,
+				ID: "charge", Name: "charge", Category: ability.CategoryCharge,
+				CommitTime: 0.1, Cooldown: 0.5,
 				BaseWeight: 100, MinRange: 2.0,
-				FaceTarget:  true,
-				ChargeSpeed: 20.0, ChargeDamage: 30.0,
-				ChargeMaxDistance: 30.0, ChargeHitRadius: 3.0,
-				ChargeStopOnWall: true,
-				DamageSourceType: SourceEnemyCharge,
+				FaceTarget: true,
+				Charge: &ability.ChargeDef{
+					Speed: 20.0, Damage: 30.0,
+					MaxDistance: 30.0, HitRadius: 3.0,
+					StopOnWall: true,
+				},
+				DamageSource: combat.SourceEnemyCharge,
 			},
 		},
 	}
@@ -514,61 +517,61 @@ func TestFight_PhaseOverridesAffectAbilities(t *testing.T) {
 
 	// Phase 1: base stats
 	resolved1 := def.ResolveAbility(&def.Abilities[0], 1) // melee_swipe
-	if resolved1.MeleeDamage != 30.0 {
-		t.Errorf("P1 melee damage = %f, want 30.0", resolved1.MeleeDamage)
+	if resolved1.BaseDamage != 30.0 {
+		t.Errorf("P1 melee damage = %f, want 30.0", resolved1.BaseDamage)
 	}
-	if resolved1.TelegraphTime != 1.2 {
-		t.Errorf("P1 telegraph = %f, want 1.2", resolved1.TelegraphTime)
+	if resolved1.CommitTime != 1.2 {
+		t.Errorf("P1 commit time = %f, want 1.2", resolved1.CommitTime)
 	}
 
 	// Phase 2
 	e.Phase = 2
 	resolved2 := def.ResolveAbility(&def.Abilities[0], 2)
-	if resolved2.TelegraphTime != 0.9 {
-		t.Errorf("P2 telegraph = %f, want 0.9", resolved2.TelegraphTime)
+	if resolved2.CommitTime != 0.9 {
+		t.Errorf("P2 commit time = %f, want 0.9", resolved2.CommitTime)
 	}
 
-	// fireball_burst Phase 2: telegraph shortens (pattern handles projectile spawning)
+	// fireball_burst Phase 2: commit time shortens (pattern handles projectile spawning)
 	fb2 := def.ResolveAbility(&def.Abilities[1], 2)
-	if fb2.TelegraphTime != 0.8 {
-		t.Errorf("P2 fireball telegraph = %f, want 0.8", fb2.TelegraphTime)
+	if fb2.CommitTime != 0.8 {
+		t.Errorf("P2 fireball commit time = %f, want 0.8", fb2.CommitTime)
 	}
 
 	// Phase 3: enraged
 	e.Phase = 3
 	resolved3 := def.ResolveAbility(&def.Abilities[0], 3)
-	if resolved3.TelegraphTime != 0.7 {
-		t.Errorf("P3 telegraph = %f, want 0.7", resolved3.TelegraphTime)
+	if resolved3.CommitTime != 0.7 {
+		t.Errorf("P3 commit time = %f, want 0.7", resolved3.CommitTime)
 	}
-	if resolved3.MeleeDamage != 35.0 {
-		t.Errorf("P3 melee damage = %f, want 35.0", resolved3.MeleeDamage)
+	if resolved3.BaseDamage != 35.0 {
+		t.Errorf("P3 melee damage = %f, want 35.0", resolved3.BaseDamage)
 	}
 
-	// fireball_burst Phase 3: telegraph even shorter
+	// fireball_burst Phase 3: commit time even shorter
 	fb3 := def.ResolveAbility(&def.Abilities[1], 3)
-	if fb3.TelegraphTime != 0.6 {
-		t.Errorf("P3 fireball telegraph = %f, want 0.6", fb3.TelegraphTime)
+	if fb3.CommitTime != 0.6 {
+		t.Errorf("P3 fireball commit time = %f, want 0.6", fb3.CommitTime)
 	}
 
 	// ground_slam Phase 3: bigger radius and more damage (index 3 after void_barrage)
 	gs3 := def.ResolveAbility(&def.Abilities[3], 3)
-	if gs3.AoERadius != 7.0 {
-		t.Errorf("P3 AoE radius = %f, want 7.0", gs3.AoERadius)
+	if gs3.Hit.Radius != 7.0 {
+		t.Errorf("P3 AoE radius = %f, want 7.0", gs3.Hit.Radius)
 	}
-	if gs3.AoEDamage != 45.0 {
-		t.Errorf("P3 AoE damage = %f, want 45.0", gs3.AoEDamage)
+	if gs3.BaseDamage != 45.0 {
+		t.Errorf("P3 AoE damage = %f, want 45.0", gs3.BaseDamage)
 	}
 
 	// bull_charge Phase 3: faster and longer (index 4)
 	bc3 := def.ResolveAbility(&def.Abilities[4], 3)
-	if bc3.ChargeSpeed != 16.0 {
-		t.Errorf("P3 charge speed = %f, want 16.0", bc3.ChargeSpeed)
+	if bc3.Charge.Speed != 16.0 {
+		t.Errorf("P3 charge speed = %f, want 16.0", bc3.Charge.Speed)
 	}
-	if bc3.ChargeMaxDistance != 20.0 {
-		t.Errorf("P3 charge max dist = %f, want 20.0", bc3.ChargeMaxDistance)
+	if bc3.Charge.MaxDistance != 20.0 {
+		t.Errorf("P3 charge max dist = %f, want 20.0", bc3.Charge.MaxDistance)
 	}
-	if bc3.ChargeDamage != 40.0 {
-		t.Errorf("P3 charge damage = %f, want 40.0", bc3.ChargeDamage)
+	if bc3.Charge.Damage != 40.0 {
+		t.Errorf("P3 charge damage = %f, want 40.0", bc3.Charge.Damage)
 	}
 }
 
@@ -581,14 +584,14 @@ func TestFight_DamageEventSourceTypes(t *testing.T) {
 		MoveSpeed: 4.0,
 		Radius:    1.0,
 		TreeData:  testTreeData(),
-		Abilities: []AbilityDef{
+		Abilities: []ability.AbilityDef{
 			{
-				Name: "melee", Type: AbilityMelee,
-				TelegraphTime: 0.1, CooldownTime: 0.2,
+				ID: "melee", Name: "melee", Category: ability.CategoryMelee,
+				CommitTime: 0.1, Cooldown: 0.2,
 				BaseWeight: 100, MaxRange: 5.0,
-				MeleeRange: 5.0, MeleeDamage: 10.0,
-				MeleeConeAngle:   2 * math.Pi, // full circle
-				DamageSourceType: SourceEnemyMelee,
+				BaseDamage:   10.0,
+				Hit:          ability.HitDef{Type: ability.HitAoECone, Range: 5.0, ArcDegrees: 360},
+				DamageSource: combat.SourceEnemyMelee,
 			},
 		},
 	}
@@ -612,8 +615,8 @@ func TestFight_DamageEventSourceTypes(t *testing.T) {
 	if len(events) == 0 {
 		t.Fatal("expected at least one damage event")
 	}
-	if events[0].SourceType != SourceEnemyMelee {
-		t.Errorf("source type = %d, want %d (SourceEnemyMelee)", events[0].SourceType, SourceEnemyMelee)
+	if events[0].SourceType != combat.SourceEnemyMelee {
+		t.Errorf("source type = %d, want %d (SourceEnemyMelee)", events[0].SourceType, combat.SourceEnemyMelee)
 	}
 }
 
@@ -626,26 +629,26 @@ func TestFight_SelectAbilityRangeFiltering(t *testing.T) {
 	tests := []struct {
 		name     string
 		distance float32
-		excluded []AbilityType
+		excluded []ability.AbilityCategory
 	}{
-		{"melee_range", 2.0, []AbilityType{AbilityRanged, AbilityCharge}},
-		{"mid_range", 4.0, []AbilityType{AbilityMelee}},
-		{"far_range", 8.0, []AbilityType{AbilityMelee, AbilityAoE}},
+		{"melee_range", 2.0, []ability.AbilityCategory{ability.CategoryRanged, ability.CategoryCharge}},
+		{"mid_range", 4.0, []ability.AbilityCategory{ability.CategoryMelee}},
+		{"far_range", 8.0, []ability.AbilityCategory{ability.CategoryMelee, ability.CategoryAoE}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Sample many times to catch all candidates
-			selected := map[AbilityType]int{}
+			selected := map[ability.AbilityCategory]int{}
 			for range 200 {
 				chosen := b.ctx.SelectAbility(tt.distance)
 				if chosen != nil {
-					selected[chosen.Type]++
+					selected[chosen.Category]++
 				}
 			}
 			for _, excluded := range tt.excluded {
 				if selected[excluded] > 0 {
-					t.Errorf("ability type %d should be excluded at dist %.1f, but was selected %d times",
+					t.Errorf("ability category %d should be excluded at dist %.1f, but was selected %d times",
 						excluded, tt.distance, selected[excluded])
 				}
 			}
@@ -661,9 +664,9 @@ func TestFight_SelectAbilityAntiRepeat(t *testing.T) {
 		MoveSpeed:  4,
 		AntiRepeat: 100.0, // extreme anti-repeat
 		TreeData:   testTreeData(),
-		Abilities: []AbilityDef{
-			{Name: "a", Type: AbilityMelee, BaseWeight: 50, MaxRange: 5, MeleeRange: 5},
-			{Name: "b", Type: AbilityMelee, BaseWeight: 50, MaxRange: 5, MeleeRange: 5},
+		Abilities: []ability.AbilityDef{
+			{ID: "a", Name: "a", Category: ability.CategoryMelee, BaseWeight: 50, MaxRange: 5, Hit: ability.HitDef{Type: ability.HitAoECone, Range: 5}},
+			{ID: "b", Name: "b", Category: ability.CategoryMelee, BaseWeight: 50, MaxRange: 5, Hit: ability.HitDef{Type: ability.HitAoECone, Range: 5}},
 		},
 	}
 	b, _ := testBrain(def)
@@ -723,14 +726,14 @@ func BenchmarkBrainTick_MeleeAttackCycle(b *testing.B) {
 		MoveSpeed: 4.0,
 		Radius:    1.0,
 		TreeData:  testTreeData(),
-		Abilities: []AbilityDef{
+		Abilities: []ability.AbilityDef{
 			{
-				Name: "melee", Type: AbilityMelee,
-				TelegraphTime: 0.3, CooldownTime: 0.3,
+				ID: "melee", Name: "melee", Category: ability.CategoryMelee,
+				CommitTime: 0.3, Cooldown: 0.3,
 				BaseWeight: 100, MaxRange: 5.0,
-				MeleeRange: 5.0, MeleeDamage: 10.0,
-				MeleeConeAngle:   6.28,
-				DamageSourceType: SourceEnemyMelee,
+				BaseDamage:   10.0,
+				Hit:          ability.HitDef{Type: ability.HitAoECone, Range: 5.0, ArcDegrees: 360},
+				DamageSource: combat.SourceEnemyMelee,
 			},
 		},
 	}
