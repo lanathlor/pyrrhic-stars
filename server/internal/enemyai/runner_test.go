@@ -43,7 +43,7 @@ func chargeRunnerDef() *EnemyDef {
 				Charge: &ability.ChargeDef{
 					Speed:       12.0,
 					Damage:      30.0,
-					MaxDistance:  15.0,
+					MaxDistance: 15.0,
 					HitRadius:   2.0,
 					StopOnWall:  true,
 				},

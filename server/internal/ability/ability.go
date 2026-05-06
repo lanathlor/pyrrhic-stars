@@ -153,6 +153,6 @@ type AbilityDef struct {
 
 	// Lifecycle control (used by AbilityRunner)
 	Cancellable      bool `yaml:"cancellable"`        // BT can abort during commit phase
-	CanMoveCommitted bool `yaml:"can_move_committed"`  // entity can move during commit
-	CanMoveExecuting bool `yaml:"can_move_executing"`  // entity can move during execute
+	CanMoveCommitted bool `yaml:"can_move_committed"` // entity can move during commit
+	CanMoveExecuting bool `yaml:"can_move_executing"` // entity can move during execute
 }

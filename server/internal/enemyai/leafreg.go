@@ -27,10 +27,10 @@ var leafRegistry = map[string]leafEntry{
 	"phase_transitioning":      {isCond: true, cond: condPhaseTransitioning},
 	"in_leash_range":           {isCond: true, cond: condInLeashRange},
 	"active_ability_is_charge": {isCond: true, cond: condActiveAbilityIsCharge},
-	"is_casting":              {isCond: true, cond: condIsCasting},
-	"is_committed":            {isCond: true, cond: condIsCommitted},
-	"can_cast":                {isCond: true, cond: condCanCast},
-	"can_move":                {isCond: true, cond: condCanMove},
+	"is_casting":               {isCond: true, cond: condIsCasting},
+	"is_committed":             {isCond: true, cond: condIsCommitted},
+	"can_cast":                 {isCond: true, cond: condCanCast},
+	"can_move":                 {isCond: true, cond: condCanMove},
 
 	// Actions
 	"stop":            {action: actionStop},

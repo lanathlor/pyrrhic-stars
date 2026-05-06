@@ -31,20 +31,20 @@ type mobFile struct {
 }
 
 type abilityFile struct {
-	Name          string  `yaml:"name"`
-	Type          string  `yaml:"type"`   // melee, ranged, aoe, charge
-	Target        string  `yaml:"target"` // nearest, farthest, current
-	TelegraphTime float32 `yaml:"telegraph_time"`
-	ExecuteTime   float32 `yaml:"execute_time"`
-	CooldownTime  float32 `yaml:"cooldown_time"`
-	BaseWeight    int     `yaml:"base_weight"`
-	MinRange      float32 `yaml:"min_range"`
-	MaxRange      float32 `yaml:"max_range"`
-	FaceTarget       bool `yaml:"face_target"`
-	TrackTarget      bool `yaml:"track_target"`
-	Cancellable      bool `yaml:"cancellable"`
-	CanMoveCommitted bool `yaml:"can_move_committed"`
-	CanMoveExecuting bool `yaml:"can_move_executing"`
+	Name             string  `yaml:"name"`
+	Type             string  `yaml:"type"`   // melee, ranged, aoe, charge
+	Target           string  `yaml:"target"` // nearest, farthest, current
+	TelegraphTime    float32 `yaml:"telegraph_time"`
+	ExecuteTime      float32 `yaml:"execute_time"`
+	CooldownTime     float32 `yaml:"cooldown_time"`
+	BaseWeight       int     `yaml:"base_weight"`
+	MinRange         float32 `yaml:"min_range"`
+	MaxRange         float32 `yaml:"max_range"`
+	FaceTarget       bool    `yaml:"face_target"`
+	TrackTarget      bool    `yaml:"track_target"`
+	Cancellable      bool    `yaml:"cancellable"`
+	CanMoveCommitted bool    `yaml:"can_move_committed"`
+	CanMoveExecuting bool    `yaml:"can_move_executing"`
 
 	// Melee
 	MeleeRange   float32 `yaml:"melee_range"`
@@ -245,14 +245,14 @@ func parseMobYAML(data []byte) (*EnemyDef, error) {
 
 func convertAbility(af abilityFile) (ability.AbilityDef, error) {
 	ad := ability.AbilityDef{
-		ID:           af.Name,
-		Name:         af.Name,
-		CommitTime:   af.TelegraphTime,
-		ExecuteTime:  af.ExecuteTime,
-		Cooldown:     af.CooldownTime,
-		BaseWeight:   af.BaseWeight,
-		MinRange:     af.MinRange,
-		MaxRange:     af.MaxRange,
+		ID:               af.Name,
+		Name:             af.Name,
+		CommitTime:       af.TelegraphTime,
+		ExecuteTime:      af.ExecuteTime,
+		Cooldown:         af.CooldownTime,
+		BaseWeight:       af.BaseWeight,
+		MinRange:         af.MinRange,
+		MaxRange:         af.MaxRange,
 		FaceTarget:       af.FaceTarget,
 		TrackTarget:      af.TrackTarget,
 		Cancellable:      af.Cancellable,
