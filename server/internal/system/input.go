@@ -187,7 +187,7 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 
 			// Log death if enemy died from this hit
 			if !enemy.Alive {
-				w.logCombatDeath(combatlog.FormatEnemyID(r.TargetID), combatlog.FormatPlayerID(peerID), p.ClassID)
+				w.logCombatDeath(combatlog.FormatEnemyID(r.TargetID), combatlog.FormatPlayerID(peerID), p.ClassID, abilityID)
 				checkEnemyGroupDead(w, enemy)
 			}
 			w.logPhaseChange(enemy)

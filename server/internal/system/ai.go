@@ -84,7 +84,7 @@ func (s *AISystem) Tick(w *World, dt float32) {
 
 			// Log death if player died
 			if p, ok := w.Players[evt.TargetPeerID]; ok && !p.Alive {
-				w.logCombatDeath(combatlog.FormatPlayerID(evt.TargetPeerID), combatlog.FormatEnemyID(e.ID), e.DefName)
+				w.logCombatDeath(combatlog.FormatPlayerID(evt.TargetPeerID), combatlog.FormatEnemyID(e.ID), e.DefName, abilName)
 			}
 		}
 		w.DamageEvents = append(w.DamageEvents, events...)

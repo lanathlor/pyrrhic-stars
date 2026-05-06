@@ -12,6 +12,7 @@ type DamageResult struct {
 	Amount     float32
 	HitPos     entity.Vec3
 	SourceType uint8
+	AbilityID  string
 	Target     entity.Target // the hit entity (caller type-asserts for threat/aggro)
 }
 

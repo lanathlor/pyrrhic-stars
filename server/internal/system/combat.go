@@ -79,6 +79,7 @@ func (s *CombatSystem) Tick(w *World, dt float32) {
 				SourceEntity: combatlog.FormatPlayerID(r.SourceID),
 				SourceClass:  p.ClassID,
 				Target:       combatlog.FormatEnemyID(r.TargetID),
+				AbilityID:    r.AbilityID,
 				Amount:       r.Amount,
 				PosX:         r.HitPos.X,
 				PosY:         r.HitPos.Y,
@@ -88,7 +89,7 @@ func (s *CombatSystem) Tick(w *World, dt float32) {
 			if enemy, ok := r.Target.(*entity.Enemy); ok {
 				w.AggroEnemy(enemy, r.SourceID)
 				if !enemy.Alive {
-					w.logCombatDeath(combatlog.FormatEnemyID(r.TargetID), combatlog.FormatPlayerID(r.SourceID), p.ClassID)
+					w.logCombatDeath(combatlog.FormatEnemyID(r.TargetID), combatlog.FormatPlayerID(r.SourceID), p.ClassID, r.AbilityID)
 					checkEnemyGroupDead(w, enemy)
 				}
 				w.logPhaseChange(enemy)

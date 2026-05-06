@@ -19,6 +19,7 @@ type ActiveBuff struct {
 type ActiveDoT struct {
 	EnemyID    uint16
 	SourcePeer uint16
+	AbilityID  string
 	Damage     float32
 	Remaining  float32
 	Interval   float32

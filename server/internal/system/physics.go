@@ -76,6 +76,7 @@ func (s *PhysicsSystem) Tick(w *World, dt float32) {
 							SourceEntity: "enemy_projectile",
 							SourceClass:  enemyName,
 							Target:       combatlog.FormatPlayerID(p.ID),
+							AbilityID:    proj.VisualTag,
 							Amount:       dealt,
 							PosX:         proj.Position.X,
 							PosY:         proj.Position.Y,
@@ -84,7 +85,7 @@ func (s *PhysicsSystem) Tick(w *World, dt float32) {
 
 						// Log death if player died
 						if !p.Alive {
-							w.logCombatDeath(combatlog.FormatPlayerID(p.ID), "enemy_projectile", enemyName)
+							w.logCombatDeath(combatlog.FormatPlayerID(p.ID), "enemy_projectile", enemyName, proj.VisualTag)
 						}
 					}
 					proj.Alive = false

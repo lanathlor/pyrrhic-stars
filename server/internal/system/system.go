@@ -243,11 +243,12 @@ func (w *World) logPhaseChange(enemy *entity.Enemy) {
 }
 
 // logCombatDeath emits a death event for the given entity.
-func (w *World) logCombatDeath(target string, source string, sourceClass string) {
+func (w *World) logCombatDeath(target string, source string, sourceClass string, abilityID string) {
 	w.logCombatEvent(combatlog.LogEntry{
 		EventType:    combatlog.EventDeath,
 		Target:       target,
 		SourceEntity: source,
 		SourceClass:  sourceClass,
+		AbilityID:    abilityID,
 	})
 }

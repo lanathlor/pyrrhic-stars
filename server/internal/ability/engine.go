@@ -254,6 +254,7 @@ func (eng *Engine) doCast(abilityID string, def *AbilityDef, ctx *CastContext) C
 				p.DoTs = append(p.DoTs, entity.ActiveDoT{
 					EnemyID:    evt.TargetID,
 					SourcePeer: p.ID,
+					AbilityID:  def.Name,
 					Damage:     dot.Damage,
 					Remaining:  dot.Duration,
 					Interval:   dot.Interval,
@@ -351,6 +352,11 @@ func (eng *Engine) TickPlayer(p *entity.Player, dt float32, ctx *TickContext) []
 	for name, fn := range eng.tickHandlers {
 		if _, ok := p.AbilityState[name]; ok {
 			results := fn(eng, p, dt, ctx)
+			for i := range results {
+				if results[i].AbilityID == "" {
+					results[i].AbilityID = name
+				}
+			}
 			eng.tickBuf = append(eng.tickBuf, results...)
 		}
 	}
@@ -423,6 +429,7 @@ func (eng *Engine) TickPlayer(p *entity.Player, dt float32, ctx *TickContext) []
 								Amount:     dealt,
 								HitPos:     t.TargetPos().Add(entity.Vec3{Y: 1.0}),
 								SourceType: combat.SourcePlayerAttack,
+								AbilityID:  dot.AbilityID,
 								Target:     t,
 							})
 							if th, ok := t.(entity.Threateable); ok {
