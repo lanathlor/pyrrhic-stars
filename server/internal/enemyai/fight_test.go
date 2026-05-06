@@ -149,7 +149,7 @@ func TestFight_HallwayRanged(t *testing.T) {
 // TestFight_GuardCaptain_AllPhases simulates a full boss fight:
 // chase → P1 attacks → phase 2 transition → P2 attacks → phase 3 → death.
 func TestFight_GuardCaptain_AllPhases(t *testing.T) {
-	b, e := testBrain(&GuardCaptain)
+	b, e := testBrain(DefRegistry["guard_captain"])
 	e.Alive = true
 	e.State = entity.EnemyChase
 	e.LeashRadius = 50.0
@@ -509,7 +509,7 @@ func TestFight_RangedAdvance(t *testing.T) {
 
 // TestFight_PhaseOverridesAffectAbilities verifies that phase overrides change ability stats.
 func TestFight_PhaseOverridesAffectAbilities(t *testing.T) {
-	def := &GuardCaptain
+	def := DefRegistry["guard_captain"]
 	e := entity.NewEnemy(1000, def.MaxHealth, def.Name)
 
 	// Phase 1: base stats
@@ -750,7 +750,7 @@ func BenchmarkBrainTick_MeleeAttackCycle(b *testing.B) {
 }
 
 func BenchmarkBrainTick_GuardCaptainFight(b *testing.B) {
-	br, e := testBrain(&GuardCaptain)
+	br, e := testBrain(DefRegistry["guard_captain"])
 	e.Alive = true
 	e.State = entity.EnemyChase
 	p := testPlayer(1, entity.Vec3{X: 0, Z: 2})
@@ -799,7 +799,7 @@ func BenchmarkBrainTick_MultiEnemy5(b *testing.B) {
 }
 
 func BenchmarkSelectAbility(b *testing.B) {
-	br, _ := testBrain(&GuardCaptain)
+	br, _ := testBrain(DefRegistry["guard_captain"])
 	br.ctx.Reset(0.05, testPlayers(), nil, noSpawn, nil, &[]combat.DamageEvent{})
 
 	b.ReportAllocs()

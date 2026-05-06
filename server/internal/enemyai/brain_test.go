@@ -241,19 +241,27 @@ func TestDefRegistryContainsAll(t *testing.T) {
 }
 
 func TestGuardCaptainAbilityCount(t *testing.T) {
-	if len(GuardCaptain.Abilities) != 5 {
-		t.Errorf("guard captain abilities = %d, want 5", len(GuardCaptain.Abilities))
+	gc := DefRegistry["guard_captain"]
+	if gc == nil {
+		t.Fatal("guard_captain not in DefRegistry")
+	}
+	if len(gc.Abilities) != 5 {
+		t.Errorf("guard captain abilities = %d, want 5", len(gc.Abilities))
 	}
 }
 
 func TestGuardCaptainPhaseOverrides(t *testing.T) {
+	gc := DefRegistry["guard_captain"]
+	if gc == nil {
+		t.Fatal("guard_captain not in DefRegistry")
+	}
 	// fireball_burst (index 1) phase 2: telegraph shortens
-	resolved := GuardCaptain.ResolveAbility(&GuardCaptain.Abilities[1], 2)
+	resolved := gc.ResolveAbility(&gc.Abilities[1], 2)
 	if resolved.TelegraphTime != 0.8 {
 		t.Errorf("phase 2 fireball telegraph = %f, want 0.8", resolved.TelegraphTime)
 	}
 	// void_barrage (index 2) phase 2: telegraph shortens
-	vb := GuardCaptain.ResolveAbility(&GuardCaptain.Abilities[2], 2)
+	vb := gc.ResolveAbility(&gc.Abilities[2], 2)
 	if vb.TelegraphTime != 1.0 {
 		t.Errorf("phase 2 void_barrage telegraph = %f, want 1.0", vb.TelegraphTime)
 	}

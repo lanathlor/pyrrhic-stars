@@ -132,6 +132,43 @@ func MobsDir() string {
 	return dir
 }
 
+// EncountersDir returns the encounters directory path.
+// Checks CODEX_ENCOUNTERS_DIR env var first, then falls back to ../shared/encounters/.
+func EncountersDir() string {
+	dir := os.Getenv("CODEX_ENCOUNTERS_DIR")
+	if dir == "" {
+		dir = filepath.Join("..", "shared", "encounters")
+	}
+	return dir
+}
+
+// LoadEncounters reads all .yaml files from dir, parses each into an EnemyDef,
+// and registers them in DefRegistry. Existing entries with the same name
+// are overwritten. Uses the same schema as LoadMobs (Tier 3 bosses are
+// expressed identically to Tier 1/2 mobs in YAML).
+func LoadEncounters(dir string) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return fmt.Errorf("LoadEncounters: read dir %q: %w", dir, err)
+	}
+
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".yaml") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			return fmt.Errorf("LoadEncounters: read %q: %w", e.Name(), err)
+		}
+		def, err := parseMobYAML(data)
+		if err != nil {
+			return fmt.Errorf("LoadEncounters: parse %q: %w", e.Name(), err)
+		}
+		DefRegistry[def.Name] = def
+	}
+	return nil
+}
+
 // LoadMobs reads all .yaml files from dir, parses each into an EnemyDef,
 // and registers them in DefRegistry. Existing entries with the same name
 // are overwritten.
@@ -172,7 +209,7 @@ func parseMobYAML(data []byte) (*EnemyDef, error) {
 	}
 
 	// Validate tree at load time (fail fast on unknown leaves)
-	if _, err := buildTreeFromData(mf.Tree); err != nil {
+	if _, err := bt.BuildTreeFromYAML(mf.Tree, resolveLeaf); err != nil {
 		return nil, fmt.Errorf("mob %q tree: %w", mf.Name, err)
 	}
 
@@ -354,44 +391,3 @@ func convertPhase(pf phaseFile) PhaseDef {
 	return pd
 }
 
-// buildTreeFromData recursively constructs a bt.Node from parsed YAML data.
-// Each element is either:
-//   - a string (leaf name, optionally prefixed with "!" for inversion)
-//   - a map with one key (composite type: "sequence", "selector", "reactive_selector")
-func buildTreeFromData(data any) (bt.Node, error) {
-	switch v := data.(type) {
-	case string:
-		return resolveLeaf(v)
-
-	case map[string]any:
-		if len(v) != 1 {
-			return nil, fmt.Errorf("tree node map must have exactly one key, got %d", len(v))
-		}
-		for key, val := range v {
-			children, ok := val.([]any)
-			if !ok {
-				return nil, fmt.Errorf("composite %q: children must be a list", key)
-			}
-			nodes := make([]bt.Node, 0, len(children))
-			for i, child := range children {
-				n, err := buildTreeFromData(child)
-				if err != nil {
-					return nil, fmt.Errorf("composite %q child %d: %w", key, i, err)
-				}
-				nodes = append(nodes, n)
-			}
-			switch key {
-			case "sequence":
-				return bt.NewSequence(nodes...), nil
-			case "selector":
-				return bt.NewSelector(nodes...), nil
-			case "reactive_selector":
-				return bt.NewReactiveSelector(nodes...), nil
-			default:
-				return nil, fmt.Errorf("unknown composite type: %q", key)
-			}
-		}
-	}
-
-	return nil, fmt.Errorf("unexpected tree node type %T", data)
-}

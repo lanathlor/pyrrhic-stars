@@ -37,7 +37,7 @@ func benchWorld() *World {
 	for i := 0; i < 9; i++ {
 		var def *enemyai.EnemyDef
 		if i == 8 {
-			def = &enemyai.GuardCaptain
+			def = enemyai.DefRegistry["guard_captain"]
 		} else if i%2 == 0 {
 			def = enemyai.DefRegistry["hallway_melee"]
 		} else {
@@ -385,7 +385,7 @@ func benchArenaInstance(instanceID uint16) *World {
 	for i := 0; i < 9; i++ {
 		var def *enemyai.EnemyDef
 		if i == 8 {
-			def = &enemyai.GuardCaptain
+			def = enemyai.DefRegistry["guard_captain"]
 		} else if i%2 == 0 {
 			def = enemyai.DefRegistry["hallway_melee"]
 		} else {
@@ -645,7 +645,7 @@ func BenchmarkBroadcastOnly(b *testing.B) {
 // --- Vec3 benchmarks ---
 
 func BenchmarkBrainTickChase(b *testing.B) {
-	def := &enemyai.GuardCaptain
+	def := enemyai.DefRegistry["guard_captain"]
 	e := entity.NewEnemy(0, def.MaxHealth, def.Name)
 	e.State = entity.EnemyChase
 	e.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
@@ -672,7 +672,7 @@ func BenchmarkBrainTickChase(b *testing.B) {
 }
 
 func BenchmarkBrainTickMeleeAttack(b *testing.B) {
-	def := &enemyai.GuardCaptain
+	def := enemyai.DefRegistry["guard_captain"]
 	e := entity.NewEnemy(0, def.MaxHealth, def.Name)
 	brain := enemyai.NewBrain(def, e, ability.NewEngine(nil))
 	brain.BoundsMinX = -20
@@ -703,7 +703,7 @@ func BenchmarkBrainTickMeleeAttack(b *testing.B) {
 // Narrowing: melee attack that misses (player out of range). If 0 allocs,
 // the alloc in BrainTickMeleeAttack is the []DamageEvent append on hit.
 func BenchmarkBrainTickMeleeAttackMiss(b *testing.B) {
-	def := &enemyai.GuardCaptain
+	def := enemyai.DefRegistry["guard_captain"]
 	e := entity.NewEnemy(0, def.MaxHealth, def.Name)
 	brain := enemyai.NewBrain(def, e, ability.NewEngine(nil))
 	brain.BoundsMinX = -20

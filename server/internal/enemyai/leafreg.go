@@ -72,7 +72,7 @@ func resolveLeaf(name string) (bt.Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		return bt.NewInverter(inner), nil
+		return bt.Named("!"+unwrapName(inner), bt.NewInverter(inner)), nil
 	}
 
 	// Built-in subtrees
@@ -81,6 +81,8 @@ func resolveLeaf(name string) (bt.Node, error) {
 		return attackSubtree(), nil
 	case "aggro_or_patrol":
 		return aggroOrPatrolSubtree(), nil
+	case "combat_subtree":
+		return combatSubtree(), nil
 	}
 
 	// Parameterized leaves: name(arg)
@@ -95,7 +97,7 @@ func resolveLeaf(name string) (bt.Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		return entryToNode(entry), nil
+		return bt.Named(name, entryToNode(entry)), nil
 	}
 
 	// Simple lookup
@@ -103,7 +105,15 @@ func resolveLeaf(name string) (bt.Node, error) {
 	if !ok {
 		return nil, fmt.Errorf("unknown leaf: %q", name)
 	}
-	return entryToNode(entry), nil
+	return bt.Named(name, entryToNode(entry)), nil
+}
+
+// unwrapName extracts the label from a NamedNode, or returns "" if not named.
+func unwrapName(n bt.Node) string {
+	if nn, ok := n.(*bt.NamedNode); ok {
+		return nn.Label
+	}
+	return "?"
 }
 
 func entryToNode(e leafEntry) bt.Node {
@@ -121,9 +131,9 @@ func entryToNode(e leafEntry) bt.Node {
 func aggroOrPatrolSubtree() bt.Node {
 	return bt.NewSelector(
 		bt.NewSequence(
-			bt.NewCondition(condPlayerNearby(8)),
-			bt.NewAction(actionAggroNearest),
+			bt.Named("player_nearby(8)", bt.NewCondition(condPlayerNearby(8))),
+			bt.Named("aggro_nearest", bt.NewAction(actionAggroNearest)),
 		),
-		bt.NewAction(actionPatrol),
+		bt.Named("patrol", bt.NewAction(actionPatrol)),
 	)
 }

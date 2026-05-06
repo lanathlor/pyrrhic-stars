@@ -39,5 +39,7 @@ func resetNode(n Node) {
 		}
 	case *Inverter:
 		resetNode(v.Child)
+	case *NamedNode:
+		resetNode(v.Inner)
 	}
 }

@@ -30,3 +30,19 @@ func (c *Condition) Tick(ctx any) Result {
 	}
 	return Failure
 }
+
+// NamedNode wraps a Node and associates a human-readable label with it.
+// Used so that instrumentation can report meaningful names for leaf nodes.
+type NamedNode struct {
+	Inner Node
+	Label string
+}
+
+func Named(label string, inner Node) *NamedNode {
+	return &NamedNode{Inner: inner, Label: label}
+}
+
+func (n *NamedNode) Tick(ctx any) Result { return n.Inner.Tick(ctx) }
+
+// NodeName returns the label. Used by instrumentation to display readable names.
+func (n *NamedNode) NodeName() string { return n.Label }

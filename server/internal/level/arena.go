@@ -137,11 +137,20 @@ func hardcodedArenaLevel() *Level {
 }
 
 // levelDataPath returns the path to a level JSON file.
-// Checks CODEX_LEVELS_DIR env var first, then falls back to ../shared/levels/.
+// Checks CODEX_LEVELS_DIR env var first, then walks up from CWD looking for shared/levels/.
 func levelDataPath(zone string) string {
 	dir := os.Getenv("CODEX_LEVELS_DIR")
-	if dir == "" {
-		dir = filepath.Join("..", "shared", "levels")
+	if dir != "" {
+		return filepath.Join(dir, zone+".json")
 	}
-	return filepath.Join(dir, zone+".json")
+	// Walk up from CWD to find shared/levels/
+	cwd, _ := os.Getwd()
+	for d := cwd; d != "/" && d != "."; d = filepath.Dir(d) {
+		candidate := filepath.Join(d, "shared", "levels", zone+".json")
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	// Last resort: relative path (works when run from server/)
+	return filepath.Join("..", "shared", "levels", zone+".json")
 }

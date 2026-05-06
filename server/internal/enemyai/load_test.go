@@ -147,17 +147,23 @@ func TestLoadMobs_TreeDataPresent(t *testing.T) {
 	}
 }
 
-// TestLoadMobs_GuardCaptainUntouched verifies the Go-defined boss is unaffected.
-func TestLoadMobs_GuardCaptainUntouched(t *testing.T) {
+// TestLoadEncounters_GuardCaptain verifies the boss loads from YAML with correct values.
+func TestLoadEncounters_GuardCaptain(t *testing.T) {
 	def := DefRegistry["guard_captain"]
 	if def == nil {
 		t.Fatal("guard_captain missing from DefRegistry")
 	}
-	if def.TreeData != nil {
-		t.Error("guard_captain.TreeData should be nil (Go-defined)")
+	if def.TreeData == nil {
+		t.Error("guard_captain.TreeData should be set (YAML-defined)")
 	}
 	if def.MaxHealth != 2000 {
 		t.Errorf("guard_captain MaxHealth = %f, want 2000", def.MaxHealth)
+	}
+	if len(def.Abilities) != 5 {
+		t.Errorf("guard_captain abilities = %d, want 5", len(def.Abilities))
+	}
+	if len(def.Phases) != 2 {
+		t.Errorf("guard_captain phases = %d, want 2", len(def.Phases))
 	}
 }
 
@@ -327,9 +333,9 @@ func TestBuildTreeFromData_NestedComposites(t *testing.T) {
 			"chase",
 		},
 	}
-	node, err := buildTreeFromData(data)
+	node, err := bt.BuildTreeFromYAML(data, resolveLeaf)
 	if err != nil {
-		t.Fatalf("buildTreeFromData: %v", err)
+		t.Fatalf("BuildTreeFromYAML: %v", err)
 	}
 
 	// Tick with alive enemy — should reach chase (Selector tries sequence which fails on is_dead)
@@ -515,9 +521,9 @@ func TestBuildTreeFromData_AllCompositeTypes(t *testing.T) {
 	}
 	for _, tc := range composites {
 		t.Run(tc.name, func(t *testing.T) {
-			node, err := buildTreeFromData(tc.data)
+			node, err := bt.BuildTreeFromYAML(tc.data, resolveLeaf)
 			if err != nil {
-				t.Fatalf("buildTreeFromData: %v", err)
+				t.Fatalf("BuildTreeFromYAML: %v", err)
 			}
 			if node == nil {
 				t.Fatal("expected non-nil node")
@@ -532,7 +538,7 @@ func TestBuildTreeFromData_ErrorMultipleKeys(t *testing.T) {
 		"sequence": []any{"stop"},
 		"selector": []any{"stop"},
 	}
-	_, err := buildTreeFromData(data)
+	_, err := bt.BuildTreeFromYAML(data, resolveLeaf)
 	if err == nil {
 		t.Fatal("expected error for map with multiple keys")
 	}
@@ -546,7 +552,7 @@ func TestBuildTreeFromData_ErrorUnknownComposite(t *testing.T) {
 	data := map[string]any{
 		"parallel": []any{"stop"},
 	}
-	_, err := buildTreeFromData(data)
+	_, err := bt.BuildTreeFromYAML(data, resolveLeaf)
 	if err == nil {
 		t.Fatal("expected error for unknown composite 'parallel'")
 	}
@@ -560,7 +566,7 @@ func TestBuildTreeFromData_ErrorChildrenNotList(t *testing.T) {
 	data := map[string]any{
 		"sequence": "stop",
 	}
-	_, err := buildTreeFromData(data)
+	_, err := bt.BuildTreeFromYAML(data, resolveLeaf)
 	if err == nil {
 		t.Fatal("expected error for non-list children")
 	}
@@ -571,7 +577,7 @@ func TestBuildTreeFromData_ErrorChildrenNotList(t *testing.T) {
 
 // TestBuildTreeFromData_ErrorUnexpectedType verifies unexpected types (int, float) fail.
 func TestBuildTreeFromData_ErrorUnexpectedType(t *testing.T) {
-	_, err := buildTreeFromData(42)
+	_, err := bt.BuildTreeFromYAML(42, resolveLeaf)
 	if err == nil {
 		t.Fatal("expected error for integer tree node")
 	}
@@ -582,9 +588,9 @@ func TestBuildTreeFromData_ErrorUnexpectedType(t *testing.T) {
 
 // TestBuildTreeFromData_StringLeaf verifies a single string resolves.
 func TestBuildTreeFromData_StringLeaf(t *testing.T) {
-	node, err := buildTreeFromData("chase")
+	node, err := bt.BuildTreeFromYAML("chase", resolveLeaf)
 	if err != nil {
-		t.Fatalf("buildTreeFromData: %v", err)
+		t.Fatalf("BuildTreeFromYAML: %v", err)
 	}
 	if node == nil {
 		t.Fatal("expected non-nil node")
@@ -1069,7 +1075,7 @@ func BenchmarkBuildTreeFromData(b *testing.B) {
 	data := testTreeData()
 	b.ResetTimer()
 	for b.Loop() {
-		_, err := buildTreeFromData(data)
+		_, err := bt.BuildTreeFromYAML(data, resolveLeaf)
 		if err != nil {
 			b.Fatal(err)
 		}

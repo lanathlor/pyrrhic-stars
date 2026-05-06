@@ -60,6 +60,12 @@ func NewBrainSeeded(def *EnemyDef, enemy *entity.Enemy, engine *ability.Engine, 
 // Enemy returns the brain's enemy.
 func (b *Brain) Enemy() *entity.Enemy { return b.enemy }
 
+// Tree returns the brain's behavior tree root node.
+func (b *Brain) Tree() bt.Node { return b.tree.Root }
+
+// SetTree replaces the brain's tree root (used for instrumentation in tests).
+func (b *Brain) SetTree(root bt.Node) { b.tree = bt.NewTree(root) }
+
 // Tick advances the BT by dt seconds. Returns damage events to emit.
 func (b *Brain) Tick(dt float32, players []*entity.Player,
 	obstacles []combat.Obstacle,

@@ -448,7 +448,7 @@ func TestBrain_RangedTracksTarget(t *testing.T) {
 
 // TestBrain_GuardCaptainTree verifies the boss tree builds and runs without panic.
 func TestBrain_GuardCaptainTree(t *testing.T) {
-	b, e := testBrain(&GuardCaptain)
+	b, e := testBrain(DefRegistry["guard_captain"])
 	e.Alive = true
 	e.State = entity.EnemyChase
 

@@ -267,9 +267,8 @@ func TestClampEnemyOutOfBounds(t *testing.T) {
 func TestLevelDataPathDefault(t *testing.T) {
 	t.Setenv("CODEX_LEVELS_DIR", "")
 	path := levelDataPath("arena")
-	expected := filepath.Join("..", "shared", "levels", "arena.json")
-	if path != expected {
-		t.Errorf("path = %q, want %q", path, expected)
+	if _, err := os.Stat(path); err != nil {
+		t.Errorf("levelDataPath returned %q which does not exist: %v", path, err)
 	}
 }
 

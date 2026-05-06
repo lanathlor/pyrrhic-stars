@@ -59,6 +59,10 @@ func main() {
 		slog.Error("load mobs failed", "error", err)
 		os.Exit(1)
 	}
+	if err := enemyai.LoadEncounters(enemyai.EncountersDir()); err != nil {
+		slog.Error("load encounters failed", "error", err)
+		os.Exit(1)
+	}
 
 	// Initialize combat log sink (ClickHouse or NullSink).
 	var combatSink combatlog.EventSink = combatlog.NullSink{}
@@ -105,7 +109,7 @@ func main() {
 	gw := newGateway(ctr)
 
 	// Create persistent hub zone at startup.
-	gw.getOrCreateZone(zone.ZoneHub, zone.ZoneTypeOpenWorld)
+	gw.getOrCreateZone(zone.ZoneHub, zone.ZoneTypeOpenWorld, 0)
 
 	// Start periodic position flush (every 30s).
 	flushCtx, flushCancel := context.WithCancel(ctx)
