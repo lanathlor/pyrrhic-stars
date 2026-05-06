@@ -334,3 +334,17 @@ func TestResetClearsThreat(t *testing.T) {
 		t.Error("threat table not cleared after Reset()")
 	}
 }
+
+func TestResetClearsTargetPlayerID(t *testing.T) {
+	e := NewEnemy(0, 2000.0, "guard_captain")
+	e.TargetPlayerID = 42
+	e.ActiveAbility = 2
+	e.Reset(Vec3{X: 5, Y: 0, Z: 5}, EnemyPatrol)
+
+	if e.TargetPlayerID != 0 {
+		t.Errorf("TargetPlayerID = %d after Reset, want 0", e.TargetPlayerID)
+	}
+	if e.ActiveAbility != 0 {
+		t.Errorf("ActiveAbility = %d after Reset, want 0", e.ActiveAbility)
+	}
+}

@@ -98,6 +98,8 @@ func (e *Enemy) Reset(spawnPos Vec3, initialState ...EnemyState) {
 	e.StateTimer = 0
 	e.ChaseTimer = 0
 	e.LastAttack = ""
+	e.ActiveAbility = 0
+	e.TargetPlayerID = 0
 	e.Position = spawnPos
 	e.RotationY = 0
 	e.Velocity = Vec3{}

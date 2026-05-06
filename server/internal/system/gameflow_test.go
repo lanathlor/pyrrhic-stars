@@ -880,6 +880,68 @@ func TestFindBossIndex(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Full wipe → respawn → fight: boss must not chase after reset
+// ---------------------------------------------------------------------------
+
+func TestWipeAndRespawn_BossStaysPatrol(t *testing.T) {
+	boss := entity.NewEnemy(0, 2000, "guard_captain")
+	boss.IsBoss = true
+	boss.State = entity.EnemyChase
+	boss.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0} // in boss room
+	boss.TargetPlayerID = 1
+	boss.AddThreat(1, 100)
+
+	p := entity.NewPlayer(1, entity.ClassGunner)
+	p.Alive = false
+	p.Health = 0
+	p.State = entity.PlayerStateDead
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5} // died in boss room
+
+	enemies := []*entity.Enemy{boss}
+	players := map[uint16]*entity.Player{1: p}
+	w := makeArenaWorld(players, enemies)
+	w.State = StateFight
+	w.BossGateActive = true
+
+	sys := &GameFlowSystem{}
+
+	// Tick 1: all dead → checkBossGate resets boss, checkFightEnd → StateFightOver
+	sys.Tick(w, 0.05)
+	if w.State != StateFightOver {
+		t.Fatalf("after wipe: state = %d, want StateFightOver", w.State)
+	}
+
+	// Simulate player respawn (client sends respawn)
+	p.Alive = true
+	p.Health = p.MaxHealth
+
+	// Tick 2: all alive + !bossDefeated → returnToLobby → StateSpawned
+	w.GameFlowEvents = w.GameFlowEvents[:0]
+	sys.Tick(w, 0.05)
+	if w.State != StateSpawned {
+		t.Fatalf("after respawn: state = %d, want StateSpawned", w.State)
+	}
+
+	// Tick 3: players present → StateFight
+	w.GameFlowEvents = w.GameFlowEvents[:0]
+	sys.Tick(w, 0.05)
+	if w.State != StateFight {
+		t.Fatalf("after spawned: state = %d, want StateFight", w.State)
+	}
+
+	// Verify boss is patrol with no stale target
+	if boss.State != entity.EnemyPatrol {
+		t.Errorf("boss state = %d, want EnemyPatrol", boss.State)
+	}
+	if boss.TargetPlayerID != 0 {
+		t.Errorf("boss TargetPlayerID = %d, want 0 (should be cleared on reset)", boss.TargetPlayerID)
+	}
+	if boss.HasThreat(1) {
+		t.Error("boss should have empty threat table after reset")
+	}
+}
+
+// ---------------------------------------------------------------------------
 // returnToLobby (tested indirectly via tickFightOver)
 // ---------------------------------------------------------------------------
 
