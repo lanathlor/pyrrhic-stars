@@ -40,8 +40,11 @@ type abilityFile struct {
 	BaseWeight    int     `yaml:"base_weight"`
 	MinRange      float32 `yaml:"min_range"`
 	MaxRange      float32 `yaml:"max_range"`
-	FaceTarget    bool    `yaml:"face_target"`
-	TrackTarget   bool    `yaml:"track_target"`
+	FaceTarget       bool `yaml:"face_target"`
+	TrackTarget      bool `yaml:"track_target"`
+	Cancellable      bool `yaml:"cancellable"`
+	CanMoveCommitted bool `yaml:"can_move_committed"`
+	CanMoveExecuting bool `yaml:"can_move_executing"`
 
 	// Melee
 	MeleeRange   float32 `yaml:"melee_range"`
@@ -250,9 +253,12 @@ func convertAbility(af abilityFile) (ability.AbilityDef, error) {
 		BaseWeight:   af.BaseWeight,
 		MinRange:     af.MinRange,
 		MaxRange:     af.MaxRange,
-		FaceTarget:   af.FaceTarget,
-		TrackTarget:  af.TrackTarget,
-		DamageSource: af.DamageSource,
+		FaceTarget:       af.FaceTarget,
+		TrackTarget:      af.TrackTarget,
+		Cancellable:      af.Cancellable,
+		CanMoveCommitted: af.CanMoveCommitted,
+		CanMoveExecuting: af.CanMoveExecuting,
+		DamageSource:     af.DamageSource,
 	}
 
 	switch af.Type {
@@ -286,7 +292,7 @@ func convertAbility(af abilityFile) (ability.AbilityDef, error) {
 		ad.Charge = &ability.ChargeDef{
 			Speed:          af.ChargeSpeed,
 			Damage:         af.ChargeDamage,
-			MaxDistance:     af.ChargeMaxDistance,
+			MaxDistance:    af.ChargeMaxDistance,
 			HitRadius:      af.ChargeHitRadius,
 			StopOnWall:     af.ChargeStopOnWall,
 			StopOnObstacle: af.ChargeStopOnObstacle,
@@ -393,13 +399,13 @@ func convertPhase(pf phaseFile) PhaseDef {
 		pd.AbilityOverrides = make(map[string]AbilityOverride, len(pf.AbilityOverrides))
 		for name, ovr := range pf.AbilityOverrides {
 			pd.AbilityOverrides[name] = AbilityOverride{
-				CommitTime:       ovr.TelegraphTime,
-				Damage:           ovr.Damage,
-				ProjectileCount:  ovr.ProjectileCount,
-				AoERadius:        ovr.AoERadius,
-				ChargeSpeed:      ovr.ChargeSpeed,
+				CommitTime:        ovr.TelegraphTime,
+				Damage:            ovr.Damage,
+				ProjectileCount:   ovr.ProjectileCount,
+				AoERadius:         ovr.AoERadius,
+				ChargeSpeed:       ovr.ChargeSpeed,
 				ChargeMaxDistance: ovr.ChargeMaxDistance,
-				CooldownTime:     ovr.CooldownTime,
+				CooldownTime:      ovr.CooldownTime,
 			}
 		}
 	}

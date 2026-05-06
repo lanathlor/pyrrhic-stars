@@ -26,8 +26,8 @@ type ProjectileDef struct {
 	Count    int     `yaml:"count"`
 	Speed    float32 `yaml:"speed"`
 	Damage   float32 `yaml:"damage"`
-	Spread   float32 `yaml:"spread"`    // angle between projectiles (radians)
-	OriginY  float32 `yaml:"origin_y"`  // Y offset from caster position
+	Spread   float32 `yaml:"spread"`   // angle between projectiles (radians)
+	OriginY  float32 `yaml:"origin_y"` // Y offset from caster position
 	Lifetime float32 `yaml:"lifetime"`
 }
 
@@ -35,7 +35,7 @@ type ProjectileDef struct {
 type ChargeDef struct {
 	Speed          float32 `yaml:"speed"`
 	Damage         float32 `yaml:"damage"`
-	MaxDistance     float32 `yaml:"max_distance"`
+	MaxDistance    float32 `yaml:"max_distance"`
 	HitRadius      float32 `yaml:"hit_radius"`
 	StopOnWall     bool    `yaml:"stop_on_wall"`
 	StopOnObstacle bool    `yaml:"stop_on_obstacle"`
@@ -150,4 +150,9 @@ type AbilityDef struct {
 	// Commit behavior
 	FaceTarget  bool `yaml:"face_target"`  // face target at commit
 	TrackTarget bool `yaml:"track_target"` // continuously update target during commit
+
+	// Lifecycle control (used by AbilityRunner)
+	Cancellable      bool `yaml:"cancellable"`        // BT can abort during commit phase
+	CanMoveCommitted bool `yaml:"can_move_committed"`  // entity can move during commit
+	CanMoveExecuting bool `yaml:"can_move_executing"`  // entity can move during execute
 }

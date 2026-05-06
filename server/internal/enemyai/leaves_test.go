@@ -19,6 +19,8 @@ func testCtx(def *EnemyDef, e *entity.Enemy, players []*entity.Player) *EntityCo
 		Def:        def,
 		Engine:     ability.NewEngine(nil),
 		BB:         bb,
+		Rng:        rand.New(rand.NewPCG(0, 0)),
+		Runner:     &AbilityRunner{},
 		Players:    players,
 		Dt:         0.05,
 		Events:     events,
@@ -40,7 +42,7 @@ func simpleMeleeDef() *EnemyDef {
 				ID: "melee", Name: "melee", Category: ability.CategoryMelee,
 				CommitTime: 0.5, ExecuteTime: 0.2, Cooldown: 0.5,
 				BaseWeight: 100, MaxRange: 3.0,
-				BaseDamage: 20.0,
+				BaseDamage:   20.0,
 				Hit:          ability.HitDef{Type: ability.HitAoECone, Range: 3.0, ArcDegrees: 180},
 				DamageSource: combat.SourceEnemyMelee,
 			},
@@ -1005,5 +1007,188 @@ func TestAction_Cooldown_FailsWhenAborted(t *testing.T) {
 	r := actionCooldown(ctx)
 	if r != bt.Failure {
 		t.Errorf("should fail when dead, got %v", r)
+	}
+}
+
+// ============================================================
+// Runner-based leaves
+// ============================================================
+
+func TestCond_IsCasting(t *testing.T) {
+	def := simpleMeleeDef()
+	e := entity.NewEnemy(0, 500, "test")
+	e.TargetPlayerID = 1
+	p := testPlayer(1, entity.Vec3{X: 0, Z: 2})
+
+	ctx := testCtx(def, e, testPlayers(p))
+	if condIsCasting(ctx) {
+		t.Error("should be false when idle")
+	}
+
+	ctx.Cast("melee")
+	if !condIsCasting(ctx) {
+		t.Error("should be true when casting")
+	}
+}
+
+func TestCond_IsCommitted(t *testing.T) {
+	def := simpleMeleeDef()
+	e := entity.NewEnemy(0, 500, "test")
+	e.TargetPlayerID = 1
+	p := testPlayer(1, entity.Vec3{X: 0, Z: 2})
+
+	ctx := testCtx(def, e, testPlayers(p))
+	if condIsCommitted(ctx) {
+		t.Error("should be false when idle")
+	}
+
+	ctx.Cast("melee")
+	if !condIsCommitted(ctx) {
+		t.Error("should be true during commit")
+	}
+}
+
+func TestCond_CanCast(t *testing.T) {
+	def := simpleMeleeDef()
+	e := entity.NewEnemy(0, 500, "test")
+	e.TargetPlayerID = 1
+	p := testPlayer(1, entity.Vec3{X: 0, Z: 2})
+
+	ctx := testCtx(def, e, testPlayers(p))
+	if !condCanCast(ctx) {
+		t.Error("should be true when idle")
+	}
+
+	ctx.Cast("melee")
+	if condCanCast(ctx) {
+		t.Error("should be false when busy")
+	}
+}
+
+func TestCond_CanMove(t *testing.T) {
+	def := simpleMeleeDef()
+	e := entity.NewEnemy(0, 500, "test")
+	e.TargetPlayerID = 1
+	p := testPlayer(1, entity.Vec3{X: 0, Z: 2})
+
+	ctx := testCtx(def, e, testPlayers(p))
+
+	// Idle → can move
+	if !condCanMove(ctx) {
+		t.Error("should be true when idle")
+	}
+
+	// Committed with CanMoveCommitted=false → cannot move
+	ctx.Cast("melee")
+	if condCanMove(ctx) {
+		t.Error("should be false during commit with CanMoveCommitted=false")
+	}
+}
+
+func TestAction_CastWeighted_Success(t *testing.T) {
+	def := simpleMeleeDef()
+	e := entity.NewEnemy(0, 500, "test")
+	e.Alive = true
+	e.State = entity.EnemyChase
+	e.TargetPlayerID = 1
+	p := testPlayer(1, entity.Vec3{X: 0, Z: 2})
+
+	ctx := testCtx(def, e, testPlayers(p))
+
+	r := actionCastWeighted(ctx)
+	if r != bt.Success {
+		t.Errorf("should succeed, got %v", r)
+	}
+	if ctx.Runner.Phase != RunnerCommit {
+		t.Error("runner should be in commit")
+	}
+}
+
+func TestAction_CastWeighted_FailsWhenBusy(t *testing.T) {
+	def := simpleMeleeDef()
+	e := entity.NewEnemy(0, 500, "test")
+	e.Alive = true
+	e.State = entity.EnemyChase
+	e.TargetPlayerID = 1
+	p := testPlayer(1, entity.Vec3{X: 0, Z: 2})
+
+	ctx := testCtx(def, e, testPlayers(p))
+	ctx.Cast("melee")
+
+	r := actionCastWeighted(ctx)
+	if r != bt.Failure {
+		t.Errorf("should fail when runner is busy, got %v", r)
+	}
+}
+
+func TestAction_WaitAbility(t *testing.T) {
+	def := simpleMeleeDef()
+	e := entity.NewEnemy(0, 500, "test")
+	e.TargetPlayerID = 1
+	p := testPlayer(1, entity.Vec3{X: 0, Z: 2})
+
+	ctx := testCtx(def, e, testPlayers(p))
+
+	// Idle → immediate success
+	r := actionWaitAbility(ctx)
+	if r != bt.Success {
+		t.Errorf("should return Success when idle, got %v", r)
+	}
+
+	// Busy → running
+	ctx.Cast("melee")
+	r = actionWaitAbility(ctx)
+	if r != bt.Running {
+		t.Errorf("should return Running when busy, got %v", r)
+	}
+}
+
+func TestAction_CancelAbility(t *testing.T) {
+	def := simpleMeleeDef()
+	def.Abilities[0].Cancellable = true
+	e := entity.NewEnemy(0, 500, "test")
+	e.TargetPlayerID = 1
+	p := testPlayer(1, entity.Vec3{X: 0, Z: 2})
+
+	ctx := testCtx(def, e, testPlayers(p))
+	ctx.Cast("melee")
+
+	r := actionCancelAbility(ctx)
+	if r != bt.Success {
+		t.Errorf("should succeed for cancellable ability, got %v", r)
+	}
+}
+
+func TestAction_CastByName(t *testing.T) {
+	def := simpleMeleeDef()
+	e := entity.NewEnemy(0, 500, "test")
+	e.Alive = true
+	e.State = entity.EnemyChase
+	e.TargetPlayerID = 1
+	p := testPlayer(1, entity.Vec3{X: 0, Z: 2})
+
+	ctx := testCtx(def, e, testPlayers(p))
+
+	castMelee := castByName("melee")
+	r := castMelee(ctx)
+	if r != bt.Success {
+		t.Errorf("should succeed, got %v", r)
+	}
+	if ctx.CurrentAbilityID() != "melee" {
+		t.Errorf("expected 'melee', got %q", ctx.CurrentAbilityID())
+	}
+}
+
+func TestAction_CastByName_UnknownAbility(t *testing.T) {
+	def := simpleMeleeDef()
+	e := entity.NewEnemy(0, 500, "test")
+	e.State = entity.EnemyChase
+
+	ctx := testCtx(def, e, nil)
+
+	castBogus := castByName("nonexistent")
+	r := castBogus(ctx)
+	if r != bt.Failure {
+		t.Errorf("should fail for unknown ability, got %v", r)
 	}
 }

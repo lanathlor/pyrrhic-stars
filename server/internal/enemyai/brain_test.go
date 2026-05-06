@@ -57,7 +57,7 @@ func testDef() *EnemyDef {
 			{
 				ID: "aoe", Name: "aoe", Category: ability.CategoryAoE,
 				CommitTime: 1.2, Cooldown: 1.5,
-				BaseWeight:   30, MaxRange: 7.0,
+				BaseWeight: 30, MaxRange: 7.0,
 				BaseDamage:   40.0,
 				Hit:          ability.HitDef{Type: ability.HitAoECircle, Radius: 5.0},
 				DamageSource: combat.SourceEnemyAoE,

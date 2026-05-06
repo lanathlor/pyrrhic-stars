@@ -1187,3 +1187,45 @@ func BenchmarkBrainTick_YAMLRanged(b *testing.B) {
 		br.Tick(0.05, players, nil, noSpawn, nil)
 	}
 }
+
+func TestParseMobYAML_LifecycleFields(t *testing.T) {
+	yamlData := `
+name: test_lifecycle
+max_health: 100
+move_speed: 3.0
+abilities:
+  - name: slash
+    type: melee
+    telegraph_time: 0.5
+    execute_time: 0.2
+    cooldown_time: 1.0
+    base_weight: 100
+    max_range: 3.0
+    melee_range: 3.0
+    melee_damage: 10
+    cancellable: true
+    can_move_committed: true
+    can_move_executing: false
+tree:
+  reactive_selector:
+    - sequence: [is_dead, stop]
+    - chase
+`
+	def, err := parseMobYAML([]byte(yamlData))
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	if len(def.Abilities) != 1 {
+		t.Fatalf("expected 1 ability, got %d", len(def.Abilities))
+	}
+	a := def.Abilities[0]
+	if !a.Cancellable {
+		t.Error("Cancellable should be true")
+	}
+	if !a.CanMoveCommitted {
+		t.Error("CanMoveCommitted should be true")
+	}
+	if a.CanMoveExecuting {
+		t.Error("CanMoveExecuting should be false")
+	}
+}

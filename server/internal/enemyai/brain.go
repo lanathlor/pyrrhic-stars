@@ -44,6 +44,7 @@ func NewBrainSeeded(def *EnemyDef, enemy *entity.Enemy, engine *ability.Engine, 
 		Engine: engine,
 		BB:     bb,
 		Rng:    rng,
+		Runner: &AbilityRunner{},
 	}
 	tree := buildTree(def, ctx)
 	return &Brain{
@@ -89,6 +90,7 @@ func (b *Brain) Tick(dt float32, players []*entity.Player,
 	}
 
 	b.tree.Tick(b.ctx)
+	b.ctx.Runner.Tick(b.ctx)
 
 	// Apply velocity
 	e.Position = e.Position.Add(e.Velocity.Scale(dt))

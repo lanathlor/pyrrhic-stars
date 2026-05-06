@@ -1,6 +1,7 @@
 package enemyai
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -26,6 +27,10 @@ var leafRegistry = map[string]leafEntry{
 	"phase_transitioning":      {isCond: true, cond: condPhaseTransitioning},
 	"in_leash_range":           {isCond: true, cond: condInLeashRange},
 	"active_ability_is_charge": {isCond: true, cond: condActiveAbilityIsCharge},
+	"is_casting":              {isCond: true, cond: condIsCasting},
+	"is_committed":            {isCond: true, cond: condIsCommitted},
+	"can_cast":                {isCond: true, cond: condCanCast},
+	"can_move":                {isCond: true, cond: condCanMove},
 
 	// Actions
 	"stop":            {action: actionStop},
@@ -39,6 +44,9 @@ var leafRegistry = map[string]leafEntry{
 	"execute_ability": {action: actionExecuteAbility},
 	"charge_dash":     {action: actionChargeDash},
 	"cooldown":        {action: actionCooldown},
+	"cast_weighted":   {action: actionCastWeighted},
+	"wait_ability":    {action: actionWaitAbility},
+	"cancel_ability":  {action: actionCancelAbility},
 }
 
 // paramFactories maps parameterized leaf base names to factories that accept
@@ -57,6 +65,12 @@ var paramFactories = map[string]func(string) (leafEntry, error){
 			return leafEntry{}, fmt.Errorf("phase_eq: invalid phase %q: %w", arg, err)
 		}
 		return leafEntry{isCond: true, cond: condPhaseEq(v)}, nil
+	},
+	"cast": func(arg string) (leafEntry, error) {
+		if arg == "" {
+			return leafEntry{}, errors.New("cast: missing ability ID")
+		}
+		return leafEntry{action: castByName(arg)}, nil
 	},
 }
 

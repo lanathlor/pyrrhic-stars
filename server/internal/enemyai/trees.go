@@ -32,35 +32,32 @@ func buildTree(def *EnemyDef, _ *EntityContext) *bt.Tree {
 	panic(fmt.Sprintf("buildTree: no tree for %q (missing TreeData — was it loaded from YAML?)", def.Name))
 }
 
-// attackSubtree models the full attack lifecycle as a BT Sequence:
+// attackSubtree picks a weighted-random ability and waits for the runner to
+// complete the full lifecycle (commit → execute → cooldown).
 //
 //	Sequence
-//	├── actionSelectAbility     (pick ability, enter telegraph)
-//	├── actionTelegraph         (wait telegraph timer, optional tracking)
-//	├── Selector                (branch by ability type)
-//	│   ├── Sequence [is_charge → charge_dash]
-//	│   └── actionExecuteAbility (melee/ranged/AoE resolution)
-//	└── actionCooldown          (wait cooldown, return to chase)
+//	├── cast_weighted   (pick ability, runner enters commit)
+//	└── wait_ability    (Running until runner returns to idle)
 func attackSubtree() bt.Node {
 	return bt.NewSequence(
-		bt.Named("select_ability", bt.NewAction(actionSelectAbility)),
-		bt.Named("telegraph", bt.NewAction(actionTelegraph)),
-		bt.NewSelector(
-			bt.NewSequence(
-				bt.Named("is_charge?", bt.NewCondition(condActiveAbilityIsCharge)),
-				bt.Named("charge_dash", bt.NewAction(actionChargeDash)),
-			),
-			bt.Named("execute_ability", bt.NewAction(actionExecuteAbility)),
-		),
-		bt.Named("cooldown", bt.NewAction(actionCooldown)),
+		bt.Named("cast_weighted", bt.NewAction(actionCastWeighted)),
+		bt.Named("wait_ability", bt.NewAction(actionWaitAbility)),
 	)
 }
 
 // combatSubtree is shared across phases. Phase differences come from
 // PhaseDef overrides on the EnemyDef (weight changes, cooldown changes,
 // speed changes) which are resolved at runtime by the leaf functions.
+//
+// The is_casting guard prevents the ReactiveSelector from re-entering
+// attackSubtree while an ability is already in progress.
 func combatSubtree() bt.Node {
 	return bt.NewReactiveSelector(
+		// Continue active ability (prevent interruption)
+		bt.NewSequence(
+			bt.Named("is_casting?", bt.NewCondition(condIsCasting)),
+			bt.Named("wait_ability", bt.NewAction(actionWaitAbility)),
+		),
 		// In melee range with LoS → attack
 		bt.NewSequence(
 			bt.Named("in_melee?", bt.NewCondition(condTargetInMeleeRange)),

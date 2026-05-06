@@ -462,6 +462,89 @@ func actionCooldown(v any) bt.Result {
 	return bt.Running
 }
 
+// --- Runner-based leaves ---
+
+func condIsCasting(v any) bool {
+	c := ctx(v)
+	result := c.IsRunnerBusy()
+	c.logCond("is_casting", result)
+	return result
+}
+
+func condIsCommitted(v any) bool {
+	c := ctx(v)
+	result := c.Runner.Phase == RunnerCommit
+	c.logCond("is_committed", result)
+	return result
+}
+
+func condCanCast(v any) bool {
+	c := ctx(v)
+	result := c.Runner.Phase == RunnerIdle
+	c.logCond("can_cast", result)
+	return result
+}
+
+func condCanMove(v any) bool {
+	c := ctx(v)
+	r := c.Runner
+	if r.Phase == RunnerIdle || r.Phase == RunnerCooldown {
+		return true
+	}
+	abil := c.Def.AbilityByIndex(r.AbilIdx)
+	if abil == nil {
+		return true
+	}
+	switch r.Phase {
+	case RunnerCommit:
+		return abil.CanMoveCommitted
+	case RunnerExecute:
+		return abil.CanMoveExecuting
+	}
+	return true
+}
+
+func actionCastWeighted(v any) bt.Result {
+	c := ctx(v)
+	if !c.CastWeighted() {
+		c.logAction("cast_weighted", bt.Failure)
+		return bt.Failure
+	}
+	c.logAction("cast_weighted", bt.Success, "ability", c.CurrentAbilityID())
+	return bt.Success
+}
+
+func actionWaitAbility(v any) bt.Result {
+	c := ctx(v)
+	if c.Runner.Phase == RunnerIdle {
+		return bt.Success
+	}
+	return bt.Running
+}
+
+func actionCancelAbility(v any) bt.Result {
+	c := ctx(v)
+	if c.CancelAbility() {
+		c.logAction("cancel_ability", bt.Success)
+		return bt.Success
+	}
+	c.logAction("cancel_ability", bt.Failure)
+	return bt.Failure
+}
+
+// castByName returns an action leaf that casts a specific ability by ID.
+func castByName(abilityID string) func(any) bt.Result {
+	return func(v any) bt.Result {
+		c := ctx(v)
+		if !c.Cast(abilityID) {
+			c.logAction("cast", bt.Failure, "ability", abilityID)
+			return bt.Failure
+		}
+		c.logAction("cast", bt.Success, "ability", abilityID)
+		return bt.Success
+	}
+}
+
 // --- Helpers ---
 
 func (ctx *EntityContext) faceTargetPlayer() {

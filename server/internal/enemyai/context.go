@@ -27,6 +27,9 @@ type EntityContext struct {
 	CastPatternFn func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3)
 	Events        *[]combat.DamageEvent
 
+	// Runner owns the ability commit→execute→cooldown lifecycle.
+	Runner *AbilityRunner
+
 	// Logger enables optional BT trace logging. Nil disables logging.
 	Logger *slog.Logger
 
@@ -335,6 +338,49 @@ func (ctx *EntityContext) EnterCooldown() {
 	e.State = entity.EnemyCooldown
 	e.StateTimer = cooldown
 	e.Velocity = entity.Vec3{}
+}
+
+// --- Runner API (BT interface) ---
+
+// Cast initiates an ability by ID. Returns true if accepted (runner was idle).
+func (ctx *EntityContext) Cast(abilityID string) bool {
+	return ctx.Runner.Start(ctx, abilityID)
+}
+
+// CastWeighted does weighted random selection then Cast. Returns true if cast started.
+func (ctx *EntityContext) CastWeighted() bool {
+	target := ctx.TargetPlayer()
+	if target == nil {
+		return false
+	}
+	distance := ctx.Enemy.Position.Flat().DistanceTo(target.Position.Flat())
+	chosen := ctx.SelectAbility(distance)
+	if chosen == nil {
+		return false
+	}
+	return ctx.Runner.Start(ctx, chosen.ID)
+}
+
+// CancelAbility cancels the current ability if in commit phase and cancellable.
+func (ctx *EntityContext) CancelAbility() bool {
+	return ctx.Runner.Cancel(ctx)
+}
+
+// IsRunnerBusy returns true if the runner is in any non-idle phase.
+func (ctx *EntityContext) IsRunnerBusy() bool {
+	return ctx.Runner.Phase != RunnerIdle
+}
+
+// CurrentAbilityID returns the ID of the currently active ability, or "".
+func (ctx *EntityContext) CurrentAbilityID() string {
+	if ctx.Runner.Phase == RunnerIdle {
+		return ""
+	}
+	abil := ctx.Def.AbilityByIndex(ctx.Runner.AbilIdx)
+	if abil == nil {
+		return ""
+	}
+	return abil.ID
 }
 
 // --- Movement ---

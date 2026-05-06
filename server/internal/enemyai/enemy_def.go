@@ -32,7 +32,7 @@ type AbilityOverride struct {
 	ProjectileCount   *int
 	AoERadius         *float32
 	ChargeSpeed       *float32
-	ChargeMaxDistance  *float32
+	ChargeMaxDistance *float32
 	CooldownTime      *float32 // overrides Cooldown
 }
 
