@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
@@ -96,7 +97,7 @@ func (r *Repo) GetInstance(ctx context.Context, instanceID string) (*combatlog.I
 		&inst.ZoneID, &inst.RunID, &mobGroupID,
 		&startedAt, &durationMS, &outcome, &source,
 	); err != nil {
-		if err == io.EOF {
+		if err == io.EOF || errors.Is(err, sql.ErrNoRows) {
 			return nil, combatlog.ErrNotFound
 		}
 		return nil, fmt.Errorf("get instance: %w", err)
@@ -219,7 +220,7 @@ func (r *Repo) GetReplay(ctx context.Context, instanceID string) ([][]byte, erro
 
 	var encoded string
 	if err := row.Scan(&encoded); err != nil {
-		if err == io.EOF {
+		if err == io.EOF || errors.Is(err, sql.ErrNoRows) {
 			return nil, combatlog.ErrNotFound
 		}
 		return nil, fmt.Errorf("get replay: %w", err)

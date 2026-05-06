@@ -182,6 +182,82 @@ func TestDecodeRespawnRequest(t *testing.T) {
 // EncodeWorldState — wire format verification
 // =============================================================================
 
+func TestWorldStateProjectileRoundtrip(t *testing.T) {
+	p := &entity.Player{
+		Combatant: entity.Combatant{
+			ID:       1,
+			Position: entity.Vec3{X: 1.0},
+			Health:   100.0,
+		},
+		ClassID:      entity.ClassGunner,
+		Resources:    make(map[string]*entity.Resource),
+		AbilityState: make(map[string]any),
+	}
+	e := entity.NewEnemy(0, 2000.0, "guard_captain")
+
+	projs := []*entity.Projectile{
+		{ID: 10, Position: entity.Vec3{X: 3, Y: 1, Z: -2}, Direction: entity.Vec3{X: 0, Z: 1}, Speed: 22.0, AngularVelocity: 0.5, VisualTag: "fireball"},
+		{ID: 11, Position: entity.Vec3{X: 5, Z: 4}, Direction: entity.Vec3{X: 1}, Speed: 15.0},
+	}
+
+	buf := EncodeWorldState(42, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e}, projs)
+	ws, ok := DecodeWorldState(buf)
+	if !ok {
+		t.Fatal("DecodeWorldState failed")
+	}
+	if ws.Tick != 42 {
+		t.Errorf("tick = %d, want 42", ws.Tick)
+	}
+	if len(ws.Players) != 1 {
+		t.Fatalf("players = %d, want 1", len(ws.Players))
+	}
+	if len(ws.Enemies) != 1 {
+		t.Fatalf("enemies = %d, want 1", len(ws.Enemies))
+	}
+	if len(ws.Projectiles) != 2 {
+		t.Fatalf("projectiles = %d, want 2", len(ws.Projectiles))
+	}
+
+	proj0 := ws.Projectiles[0]
+	if proj0.ID != 10 {
+		t.Errorf("proj[0].ID = %d, want 10", proj0.ID)
+	}
+	if proj0.PosX != 3 || proj0.PosY != 1 || proj0.PosZ != -2 {
+		t.Errorf("proj[0].Pos = (%f,%f,%f), want (3,1,-2)", proj0.PosX, proj0.PosY, proj0.PosZ)
+	}
+	if proj0.Speed != 22.0 {
+		t.Errorf("proj[0].Speed = %f, want 22", proj0.Speed)
+	}
+	if proj0.AngularVelocity != 0.5 {
+		t.Errorf("proj[0].AngularVelocity = %f, want 0.5", proj0.AngularVelocity)
+	}
+	if proj0.VisualTag != "fireball" {
+		t.Errorf("proj[0].VisualTag = %q, want %q", proj0.VisualTag, "fireball")
+	}
+
+	proj1 := ws.Projectiles[1]
+	if proj1.ID != 11 {
+		t.Errorf("proj[1].ID = %d, want 11", proj1.ID)
+	}
+	if proj1.Speed != 15.0 {
+		t.Errorf("proj[1].Speed = %f, want 15", proj1.Speed)
+	}
+	if proj1.VisualTag != "" {
+		t.Errorf("proj[1].VisualTag = %q, want empty", proj1.VisualTag)
+	}
+}
+
+func TestDecodeWorldStateNilProjectiles(t *testing.T) {
+	buf := EncodeWorldState(1, nil, nil, nil)
+	ws, ok := DecodeWorldState(buf)
+	if !ok {
+		t.Fatal("DecodeWorldState failed")
+	}
+	if len(ws.Projectiles) != 0 {
+		t.Errorf("projectiles = %d, want 0", len(ws.Projectiles))
+	}
+}
+
 func TestEncodeWorldStateWireFormat(t *testing.T) {
 	p := &entity.Player{
 		Combatant: entity.Combatant{

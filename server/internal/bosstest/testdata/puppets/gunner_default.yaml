@@ -1,0 +1,21 @@
+class: gunner
+
+# No bosses/profiles filter: this is the class-wide default.
+# More specific definitions (with bosses/profiles set) take priority.
+
+tree:
+  reactive_selector:
+    # Mechanics: dodge dangerous attacks while shooting
+    - sequence: [has_reacted_quick, in_charge_path, "strafe_charge(fire_shot)"]
+    - sequence: [has_reacted_quick, in_aoe_danger, "flee_aoe(fire_shot)"]
+    - sequence: [has_reacted_quick, targeted_by_ranged, "strafe_ranged(fire_shot)"]
+    # Projectile dodge: sidestep while shooting (immediate, no reaction gate)
+    - sequence: [projectile_incoming, "sidestep_projectile(fire_shot)"]
+    # Positioning: kite if too close (still shooting)
+    - sequence: [too_close, kite_and_shoot]
+    # Positioning: advance if too far
+    - sequence: [too_far, advance]
+    # Rotation: use overclock buff when available
+    - sequence: ["can_cast(overclock)", "cast(overclock)"]
+    # Filler: spam fire_shot
+    - "cast(fire_shot)"

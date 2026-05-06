@@ -36,6 +36,59 @@ test-unit:
 test-integration:
     go test ./internal/integration/ -v -count=1
 
+# Run all boss encounter tests (injection + scenarios + fuzz)
+test-boss *BOSS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export CODEX_MOBS_DIR="{{source_directory()}}/../shared/mobs"
+    export CODEX_ENCOUNTERS_DIR="{{source_directory()}}/../shared/encounters"
+    export CLICKHOUSE_ADDR="${CLICKHOUSE_ADDR:-localhost:9000}"
+    export CLICKHOUSE_DB="${CLICKHOUSE_DB:-codex}"
+    export CLICKHOUSE_USER="${CLICKHOUSE_USER:-codex}"
+    export CLICKHOUSE_PASSWORD="${CLICKHOUSE_PASSWORD:-codex}"
+    BOSS_ARGS=""
+    if [ -n "{{BOSS}}" ]; then BOSS_ARGS="-boss.only={{BOSS}}"; fi
+    go test ./internal/bosstest/ -v -count=1 -timeout=10m -run=TestBoss $BOSS_ARGS
+
+# Run only state injection tests (tier 1)
+test-boss-injection *BOSS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export CODEX_MOBS_DIR="{{source_directory()}}/../shared/mobs"
+    export CODEX_ENCOUNTERS_DIR="{{source_directory()}}/../shared/encounters"
+    BOSS_ARGS="-boss.tier=injection"
+    if [ -n "{{BOSS}}" ]; then BOSS_ARGS="$BOSS_ARGS -boss.only={{BOSS}}"; fi
+    go test ./internal/bosstest/ -v -count=1 -timeout=2m -run=TestBoss $BOSS_ARGS
+
+# Run only scripted scenarios (tier 2)
+test-boss-scenario *BOSS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export CODEX_MOBS_DIR="{{source_directory()}}/../shared/mobs"
+    export CODEX_ENCOUNTERS_DIR="{{source_directory()}}/../shared/encounters"
+    BOSS_ARGS="-boss.tier=scenario"
+    if [ -n "{{BOSS}}" ]; then BOSS_ARGS="$BOSS_ARGS -boss.only={{BOSS}}"; fi
+    go test ./internal/bosstest/ -v -count=1 -timeout=2m -run=TestBoss $BOSS_ARGS
+
+# Run fuzz simulation (tier 3)
+test-boss-fuzz *ARGS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export CODEX_MOBS_DIR="{{source_directory()}}/../shared/mobs"
+    export CODEX_ENCOUNTERS_DIR="{{source_directory()}}/../shared/encounters"
+    export CLICKHOUSE_ADDR="${CLICKHOUSE_ADDR:-localhost:9000}"
+    export CLICKHOUSE_DB="${CLICKHOUSE_DB:-codex}"
+    export CLICKHOUSE_USER="${CLICKHOUSE_USER:-codex}"
+    export CLICKHOUSE_PASSWORD="${CLICKHOUSE_PASSWORD:-codex}"
+    BOSS_ARGS="-boss.tier=fuzz"
+    for arg in {{ARGS}}; do
+        case "$arg" in
+            [0-9]*) BOSS_ARGS="$BOSS_ARGS -boss.fuzz-iterations=$arg" ;;
+            *) BOSS_ARGS="$BOSS_ARGS -boss.only=$arg" ;;
+        esac
+    done
+    go test ./internal/bosstest/ -v -count=1 -timeout=10m -run=TestBoss $BOSS_ARGS
+
 # Run all tests with race detector
 test-race:
     go test ./... -race -count=1
@@ -53,7 +106,7 @@ bench-folder folder:
     if [[ "$TARGET" != ./* && "$TARGET" != /* ]]; then
         TARGET="./$TARGET"
     fi
-    CODEX_LEVELS_DIR={{justfile_directory()}}/../shared/levels go test "$TARGET" -bench=. -benchmem -run='^$' -count=1 2>&1 | grep -E '(ns/op|^ok |^FAIL|^---)'
+    CODEX_LEVELS_DIR={{source_directory()}}/../shared/levels go test "$TARGET" -bench=. -benchmem -run='^$' -count=1 2>&1 | grep -E '(ns/op|^ok |^FAIL|^---)'
 
 # Run benchmarks with 3 iterations for stable results
 bench-stable:

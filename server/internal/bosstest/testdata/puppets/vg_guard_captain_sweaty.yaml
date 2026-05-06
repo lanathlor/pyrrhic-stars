@@ -1,0 +1,34 @@
+class: vanguard
+bosses: [guard_captain]
+profiles: [sweaty]
+
+# Sweaty vanguard: off-tank, DPS loss is acceptable for survival.
+# melee_light/heavy are MeleeArc 6 range — must stay in melee to deal damage.
+# Uses has_reacted (DodgeGreed=0.70) for melee telegraphs to maximize uptime,
+# has_reacted_quick for AoE/charge where staying provides zero benefit.
+# Block during melee telegraphs. Full rotation with blade_swirl (80% DR).
+
+tree:
+  reactive_selector:
+    # Charge: no benefit to tanking — dodge immediately while attacking
+    - sequence: [has_reacted_quick, in_charge_path, "strafe_charge(melee_light)"]
+    # AoE: flee immediately while attacking
+    - sequence: [has_reacted_quick, in_aoe_danger, "flee_aoe(melee_light)"]
+    # Melee telegraph: DodgeGreed delays dodge for uptime, then block + circle
+    - sequence: [has_reacted, in_melee_danger, should_use_defensive, "strafe_melee_cone(vg_block)"]
+    # Melee telegraph: circle behind boss while attacking (no block roll)
+    - sequence: [has_reacted, in_melee_danger, "strafe_melee_cone(melee_light)"]
+    # Ranged telegraph: void_barrage targets nearest (often us) — strafe
+    - sequence: [has_reacted_quick, targeted_by_ranged, "strafe_ranged(melee_light)"]
+    # Projectiles: immediate sidestep while attacking
+    - sequence: [projectile_incoming, "sidestep_projectile(melee_light)"]
+    # Positioning: advance to melee range (blocked during AoE/charge by out_of_melee)
+    - sequence: [out_of_melee, advance]
+    # Rotation: blade_swirl (80% DR + AoE damage)
+    - sequence: ["can_cast(blade_swirl)", "cast(blade_swirl)"]
+    # Rotation: ground_slam (high damage cone)
+    - sequence: ["can_cast(ground_slam)", "cast(ground_slam)"]
+    # Rotation: melee_heavy
+    - sequence: ["can_cast(melee_heavy)", "cast(melee_heavy)"]
+    # Filler: melee_light combo
+    - "cast(melee_light)"

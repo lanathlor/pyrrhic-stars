@@ -1,0 +1,24 @@
+class: blade_dancer
+bosses: [guard_captain]
+profiles: [bad]
+
+# Bad BD: plays at default 3m (melee range) instead of mid-distance.
+# Inside melee_swipe (3m), ground_slam (5m+), everything. Eats damage constantly.
+# Still mashes transitions while panicking.
+# Doesn't dodge melee cone or projectiles. CooldownWaste=0.40 and
+# MechanicIQ=0.20 degrade rotation.
+
+tree:
+  reactive_selector:
+    # Charge: late reaction, transition while running
+    - sequence: [has_reacted, in_charge_path, "strafe_charge(transition)"]
+    # AoE: late reaction, transition while fleeing
+    - sequence: [has_reacted, in_aoe_danger, "flee_aoe(transition)"]
+    # No melee cone dodge — doesn't know to circle behind boss
+    # No projectile dodge — doesn't notice
+    # Positioning: walk back into melee range
+    - sequence: [out_of_melee, advance]
+    # Rotation: transitions (MechanicIQ=0.20 = random picks)
+    - sequence: [can_transition, cast_best_transition]
+    # Filler
+    - cast_best_transition

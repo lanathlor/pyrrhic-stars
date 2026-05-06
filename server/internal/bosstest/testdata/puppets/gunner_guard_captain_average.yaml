@@ -1,0 +1,27 @@
+class: gunner
+bosses: [guard_captain]
+profiles: [average]
+
+# Average gunner: knows about mechanics but can't aim while dodging.
+# All dodge actions are bare (no fire_shot wrapping) — stops shooting to focus
+# on movement. Instinctive kiting (backpedal + shoot) still works.
+# Uses overclock (unlike bad who forgets). 0.40s reaction catches most telegraphs.
+
+tree:
+  reactive_selector:
+    # Charge: strafe but stop shooting (can't aim + move under pressure)
+    - sequence: [has_reacted_quick, in_charge_path, strafe_charge]
+    # AoE: flee but stop shooting
+    - sequence: [has_reacted_quick, in_aoe_danger, flee_aoe]
+    # Ranged telegraph: strafe but stop shooting
+    - sequence: [has_reacted_quick, targeted_by_ranged, strafe_ranged]
+    # Projectile: sidestep but stop shooting (focused on dodging)
+    - sequence: [projectile_incoming, sidestep_projectile]
+    # Kiting: backpedal and shoot (instinctive even for average)
+    - sequence: [too_close, kite_and_shoot]
+    # Positioning: advance if too far
+    - sequence: [too_far, advance]
+    # Rotation: overclock buff on cooldown (knows about it, unlike bad)
+    - sequence: ["can_cast(overclock)", "cast(overclock)"]
+    # Filler: spam fire_shot
+    - "cast(fire_shot)"

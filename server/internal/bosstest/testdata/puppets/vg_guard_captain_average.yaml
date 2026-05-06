@@ -1,0 +1,28 @@
+class: vanguard
+bosses: [guard_captain]
+profiles: [average]
+
+# Average vanguard: reacts to big mechanics (charge, AoE) instinctively with
+# melee mashing. Has some projectile awareness but stops attacking to dodge.
+# Doesn't know to circle behind boss (no melee cone dodge), doesn't block,
+# doesn't predict ranged targets. Full rotation but CooldownWaste=0.20 degrades it.
+
+tree:
+  reactive_selector:
+    # Charge: strafe while mashing attack (melee instinct)
+    - sequence: [has_reacted_quick, in_charge_path, "strafe_charge(melee_light)"]
+    # AoE: flee while mashing
+    - sequence: [has_reacted_quick, in_aoe_danger, "flee_aoe(melee_light)"]
+    # No melee cone dodge — doesn't know to circle behind boss
+    # No block — doesn't think to use defensives proactively
+    # No ranged target awareness — doesn't predict who boss targets
+    # Projectile: sidestep but stop attacking (takes focus)
+    - sequence: [projectile_incoming, sidestep_projectile]
+    # Positioning: get into melee range
+    - sequence: [out_of_melee, advance]
+    # Full rotation (CooldownWaste=0.20 handles quality degradation)
+    - sequence: ["can_cast(blade_swirl)", "cast(blade_swirl)"]
+    - sequence: ["can_cast(ground_slam)", "cast(ground_slam)"]
+    - sequence: ["can_cast(melee_heavy)", "cast(melee_heavy)"]
+    # Filler: melee_light spam
+    - "cast(melee_light)"

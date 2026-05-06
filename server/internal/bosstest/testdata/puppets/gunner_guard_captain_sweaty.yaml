@@ -1,0 +1,27 @@
+class: gunner
+bosses: [guard_captain]
+profiles: [sweaty]
+
+# Sweaty gunner: 100% DPS uptime. fire_shot is hitscan 100 range — hits from
+# anywhere. Every dodge action wraps fire_shot so DPS never stops.
+# At 10m preferred range, AoE (5-7m) rarely reaches. Main threats are charges,
+# targeted ranged (fireball_burst targets farthest = us), and projectiles.
+
+tree:
+  reactive_selector:
+    # Charge: always dangerous at any range — dodge while shooting
+    - sequence: [has_reacted_quick, in_charge_path, "strafe_charge(fire_shot)"]
+    # Ranged telegraph: fireball_burst targets farthest (us) — strafe while shooting
+    - sequence: [has_reacted_quick, targeted_by_ranged, "strafe_ranged(fire_shot)"]
+    # AoE: only P3 ground_slam (7m) could threaten at 10m — flee while shooting
+    - sequence: [has_reacted_quick, in_aoe_danger, "flee_aoe(fire_shot)"]
+    # Projectiles: immediate dodge, no reaction gate
+    - sequence: [projectile_incoming, "sidestep_projectile(fire_shot)"]
+    # Positioning: kite if boss closes in (still shooting)
+    - sequence: [too_close, kite_and_shoot]
+    # Positioning: advance if too far
+    - sequence: [too_far, advance]
+    # Rotation: overclock buff on cooldown
+    - sequence: ["can_cast(overclock)", "cast(overclock)"]
+    # Filler: spam fire_shot
+    - "cast(fire_shot)"

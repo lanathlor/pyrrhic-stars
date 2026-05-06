@@ -1,0 +1,25 @@
+class: blade_dancer
+bosses: [guard_captain]
+profiles: [average]
+
+# Average BD: reacts to big mechanics while transitioning (transitions are BD's
+# entire kit — instinctive like melee mashing). Has some projectile awareness but
+# stops transitioning to focus on dodging. Doesn't know to circle behind boss
+# (no melee cone dodge) or predict ranged targets.
+
+tree:
+  reactive_selector:
+    # Charge: strafe while transitioning (transitions are BD's entire kit)
+    - sequence: [has_reacted_quick, in_charge_path, "strafe_charge(transition)"]
+    # AoE: flee while transitioning
+    - sequence: [has_reacted_quick, in_aoe_danger, "flee_aoe(transition)"]
+    # No melee cone dodge — doesn't circle behind boss
+    # No ranged target awareness
+    # Projectile: bare sidestep (stops transitioning to focus)
+    - sequence: [projectile_incoming, sidestep_projectile]
+    # Positioning: get into melee range
+    - sequence: [out_of_melee, advance]
+    # Rotation: transitions (MechanicIQ=0.60 picks suboptimal order sometimes)
+    - sequence: [can_transition, cast_best_transition]
+    # Filler
+    - cast_best_transition

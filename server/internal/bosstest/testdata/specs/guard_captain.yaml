@@ -1,0 +1,44 @@
+boss: guard_captain
+runs: 500
+
+compositions:
+  - name: mixed_average
+    classes: [gunner, vanguard, blade_dancer]
+    profiles: [average, average, average]
+  - name: all_sweaty
+    classes: [gunner, vanguard, blade_dancer]
+    profiles: [sweaty, sweaty, sweaty]
+  - name: all_bad
+    classes: [gunner, vanguard, blade_dancer]
+    profiles: [bad, bad, bad]
+
+# NOTE: 100% win rate reflects boss being undertuned for real ability DPS.
+# Boss HP (2000) needs rebalancing for party DPS (~200+/s). Tighten after.
+win_rate:
+  min: 0.05
+  max: 1.00
+
+duration:
+  min_seconds: 15
+  max_seconds: 600
+
+phase_reach:
+  - phase: 2
+    min_rate: 0.60
+  - phase: 3
+    min_rate: 0.30
+
+tree_health:
+  max_dead_nodes: 10
+  max_cold_nodes: 6
+
+class_balance:
+  max_damage_share_sigma: 0.30
+
+ability_stats:
+  - ability: melee_swipe
+    max_kill_rate: 0.50
+  - ability: ground_slam
+    max_kill_rate: 0.60
+  - ability: bull_charge
+    max_kill_rate: 0.60

@@ -1,0 +1,27 @@
+class: blade_dancer
+bosses: [guard_captain]
+profiles: [sweaty]
+preferred_range: 8.0
+
+# Sweaty BD: mid-range hit-and-run at 8m. All damage comes from transitions.
+# At 8m: outside melee_swipe (3m), outside ground_slam P1/P2 (5-6m).
+# P3 ground_slam (7m) is the main AoE threat. Charges always dangerous.
+
+tree:
+  reactive_selector:
+    # Charge: always dangerous — strafe while transitioning
+    - sequence: [has_reacted_quick, in_charge_path, "strafe_charge(transition)"]
+    # AoE: only P3 ground_slam (7m) threatens at 8m — flee while transitioning
+    - sequence: [has_reacted_quick, in_aoe_danger, "flee_aoe(transition)"]
+    # Ranged telegraph: strafe while transitioning (rare — gunner is usually farthest)
+    - sequence: [has_reacted_quick, targeted_by_ranged, "strafe_ranged(transition)"]
+    # Projectiles: immediate sidestep while transitioning
+    - sequence: [projectile_incoming, "sidestep_projectile(transition)"]
+    # Positioning: backstep if boss gets too close (maintain 8m), still transitioning
+    - sequence: [too_close, "backstep(transition)"]
+    # Positioning: advance if too far
+    - sequence: [too_far, advance]
+    # Rotation: all transitions (MechanicIQ=0.95 picks optimal)
+    - sequence: [can_transition, cast_best_transition]
+    # Filler: best available transition
+    - cast_best_transition
