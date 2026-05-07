@@ -422,10 +422,12 @@ func actionCastBestTransition(v any) bt.Result {
 	c := pctx(v)
 	p := c.Puppet.Player
 	config := p.Config
+	distToBoss := p.Position.Sub(c.Boss.Position).Flat().Length()
 
 	// Collect available transitions from current config
 	type candidate struct {
-		abilID string
+		abilID   string
+		canReach bool // true if spell can hit the boss at current distance
 	}
 	var candidates []candidate
 
@@ -441,18 +443,33 @@ func actionCastBestTransition(v any) bt.Result {
 		if cd, exists := p.Cooldowns[abilID]; exists && cd > 0 {
 			continue
 		}
-		candidates = append(candidates, candidate{abilID})
+
+		canReach := true
+		if def := c.World.AbilityEngine.GetAbility(abilID); def != nil {
+			// AoECircle is caster-centered — can only hit if boss is within radius
+			if def.Hit.Type == ability.HitAoECircle && distToBoss > def.Hit.Radius {
+				canReach = false
+			}
+		}
+		candidates = append(candidates, candidate{abilID, canReach})
 	}
 
 	if len(candidates) == 0 {
 		return bt.Failure
 	}
 
-	// Sweaty: pick first available (assumes ordered by priority in ActionMap)
-	// Bad: random choice
+	// High MechanicIQ: prefer spells that can reach the boss
+	// Low MechanicIQ: random choice (ignores range)
 	var pick candidate
 	if c.Puppet.Rng.Float32() < c.Puppet.Params.MechanicIQ {
+		// Pick first reachable candidate; fall back to first unreachable if none
 		pick = candidates[0]
+		for _, cand := range candidates {
+			if cand.canReach {
+				pick = cand
+				break
+			}
+		}
 	} else {
 		pick = candidates[c.Puppet.Rng.IntN(len(candidates))]
 	}

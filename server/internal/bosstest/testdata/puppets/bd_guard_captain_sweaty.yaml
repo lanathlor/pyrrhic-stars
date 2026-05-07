@@ -20,7 +20,7 @@ tree:
     # Positioning: backstep if boss gets too close (maintain 8m), still transitioning
     - sequence: [too_close, "backstep(transition)"]
     # Positioning: advance if too far
-    - sequence: [too_far, advance]
+    - sequence: [too_far, "advance(transition)"]
     # Rotation: all transitions (MechanicIQ=0.95 picks optimal)
     - sequence: [can_transition, cast_best_transition]
     # Filler: best available transition
