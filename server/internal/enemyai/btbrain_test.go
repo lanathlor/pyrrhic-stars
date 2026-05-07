@@ -265,24 +265,31 @@ func TestBrain_RangedSpawnsProjectile(t *testing.T) {
 }
 
 // TestBrain_ChargeHitsPlayer verifies charge damage on contact.
-// Uses "guard_captain" name to get the boss tree which has chase-timer-ready attacks.
+// Uses a self-contained tree that attempts charge when target is beyond min range.
 func TestBrain_ChargeHitsPlayer(t *testing.T) {
+	// Self-contained tree: attempt charge at range, chase otherwise.
+	chargeTree := map[string]any{
+		"reactive_selector": []any{
+			map[string]any{"sequence": []any{"is_dead", "stop"}},
+			map[string]any{"sequence": []any{"phase_transitioning", "wait_transition"}},
+			map[string]any{"sequence": []any{"!has_target", "aggro_or_patrol"}},
+			map[string]any{"sequence": []any{"!in_leash_range", "leash_reset"}},
+			map[string]any{"sequence": []any{"is_casting", "wait_ability"}},
+			// Charge attempt when in range, chase otherwise.
+			// The tree uses "cast(bull_charge)" directly rather than attack (weighted).
+			map[string]any{"sequence": []any{"target_beyond(4)", "has_los", "cast(bull_charge)", "wait_ability"}},
+			"chase",
+		},
+	}
 	def := &EnemyDef{
-		Name:      "guard_captain",
+		Name:      "test_charge",
 		MaxHealth: 500,
 		MoveSpeed: 4.0,
 		Radius:    1.0,
+		TreeData:  chargeTree,
 		Abilities: []ability.AbilityDef{
 			{
-				ID: "melee", Name: "melee", Category: ability.CategoryMelee,
-				CommitTime: 0.3, Cooldown: 0.5,
-				BaseWeight: 10, MaxRange: 3.0,
-				BaseDamage:   15.0,
-				Hit:          ability.HitDef{Type: ability.HitAoECone, Range: 3.0, ArcDegrees: 180},
-				DamageSource: combat.SourceEnemyMelee,
-			},
-			{
-				ID: "charge", Name: "charge", Category: ability.CategoryCharge,
+				ID: "bull_charge", Category: ability.CategoryCharge,
 				CommitTime: 0.2, Cooldown: 0.5,
 				BaseWeight: 90, MinRange: 4.0,
 				FaceTarget: true,

@@ -100,6 +100,50 @@ func condPlayerNearby(radius float32) func(any) bool {
 	}
 }
 
+// condTargetBeyond returns a condition factory parameterized by distance.
+// Returns true when the current target is farther than d.
+func condTargetBeyond(d float32) func(any) bool {
+	return func(v any) bool {
+		c := ctx(v)
+		p := c.TargetPlayer()
+		if p == nil {
+			if c.Logger != nil {
+				c.logCond("target_beyond", false, "reason", "no_target")
+			}
+			return false
+		}
+		dist := c.Enemy.Position.Flat().DistanceTo(p.Position.Flat())
+		result := dist > d
+		if c.Logger != nil {
+			c.logCond("target_beyond", result, "dist", dist, "threshold", d)
+		}
+		return result
+	}
+}
+
+// condPlayersInAoE returns a condition factory parameterized by radius.
+// Returns true when 2+ alive players are within radius of the boss.
+func condPlayersInAoE(radius float32) func(any) bool {
+	rSq := radius * radius
+	return func(v any) bool {
+		c := ctx(v)
+		count := 0
+		for _, p := range c.Players {
+			if !p.Alive {
+				continue
+			}
+			if c.Enemy.Position.Flat().DistanceToSq(p.Position.Flat()) <= rSq {
+				count++
+			}
+		}
+		result := count >= 2
+		if c.Logger != nil {
+			c.logCond("players_in_aoe", result, "radius", radius, "count", count)
+		}
+		return result
+	}
+}
+
 // condPhaseEq returns a condition factory parameterized by phase number.
 func condPhaseEq(phase int) func(any) bool {
 	return func(v any) bool {
@@ -530,6 +574,16 @@ func actionCancelAbility(v any) bt.Result {
 	}
 	c.logAction("cancel_ability", bt.Failure)
 	return bt.Failure
+}
+
+// condAbilityReady returns a condition factory that checks per-ability cooldown.
+func condAbilityReady(abilityID string) func(any) bool {
+	return func(v any) bool {
+		c := ctx(v)
+		result := c.Runner.IsAbilityReady(c, abilityID)
+		c.logCond("ability_ready", result, "ability", abilityID)
+		return result
+	}
 }
 
 // castByName returns an action leaf that casts a specific ability by ID.

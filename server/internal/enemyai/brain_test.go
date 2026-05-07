@@ -199,11 +199,21 @@ func TestCurrentBackpedalSpeed(t *testing.T) {
 func TestCurrentCooldownTime(t *testing.T) {
 	def := testDef()
 	melee := &def.Abilities[0]
+	// Phase 1: base cooldown
 	if got := def.CurrentCooldownTime(melee, 1); got != 1.0 {
 		t.Errorf("phase 1 cooldown = %f, want 1.0", got)
 	}
-	if got := def.CurrentCooldownTime(melee, 2); got != 0.8 {
-		t.Errorf("phase 2 cooldown = %f, want 0.8 (override)", got)
+	// Phase 2: no per-ability cooldown override for melee → base cooldown
+	if got := def.CurrentCooldownTime(melee, 2); got != 1.0 {
+		t.Errorf("phase 2 cooldown = %f, want 1.0 (base, no per-ability override)", got)
+	}
+	// Phase 2 GCD uses CooldownOverride
+	if got := def.CurrentGCD(2); got != 0.8 {
+		t.Errorf("phase 2 GCD = %f, want 0.8 (cooldown_override)", got)
+	}
+	// Phase 1 GCD defaults to 0.5
+	if got := def.CurrentGCD(1); got != 0.5 {
+		t.Errorf("phase 1 GCD = %f, want 0.5 (default)", got)
 	}
 }
 

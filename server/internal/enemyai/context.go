@@ -233,7 +233,15 @@ func (ctx *EntityContext) StartAbility(abil *ability.AbilityDef) {
 	case ability.CategoryRanged:
 		e.State = entity.EnemyRangedTelegraph
 		e.StateTimer = resolved.CommitTime
-		target := FarthestAlivePlayer(e.Position, ctx.Players)
+		var target *entity.Player
+		switch abil.TargetStrategy {
+		case ability.TargetFarthest:
+			target = FarthestAlivePlayer(e.Position, ctx.Players)
+		case ability.TargetCurrent:
+			target = ctx.TargetPlayer()
+		default: // TargetNearest
+			target = NearestAlivePlayer(e.Position, ctx.Players)
+		}
 		if target != nil {
 			e.TargetPlayerID = target.ID
 			e.RangedTargetPos = target.Position.Add(entity.Vec3{Y: 1.0})
@@ -330,13 +338,12 @@ func (ctx *EntityContext) SpawnProjectiles(resolved ability.AbilityDef) {
 	}
 }
 
-// EnterCooldown sets the enemy into cooldown state.
+// EnterCooldown sets the enemy into cooldown state using the GCD.
 func (ctx *EntityContext) EnterCooldown() {
 	e := ctx.Enemy
-	abil := ctx.Def.AbilityByIndex(e.ActiveAbility)
-	cooldown := ctx.Def.CurrentCooldownTime(abil, e.Phase)
+	gcd := ctx.Def.CurrentGCD(e.Phase)
 	e.State = entity.EnemyCooldown
-	e.StateTimer = cooldown
+	e.StateTimer = gcd
 	e.Velocity = entity.Vec3{}
 }
 

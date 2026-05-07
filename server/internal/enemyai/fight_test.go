@@ -353,17 +353,30 @@ func TestFight_AoEHitsMultiplePlayers(t *testing.T) {
 }
 
 // TestFight_ChargeHitsMultiplePlayers verifies charge hits multiple players along its path.
+// Uses a self-contained tree that attempts charge directly.
 func TestFight_ChargeHitsMultiplePlayers(t *testing.T) {
+	chargeTree := map[string]any{
+		"reactive_selector": []any{
+			map[string]any{"sequence": []any{"is_dead", "stop"}},
+			map[string]any{"sequence": []any{"phase_transitioning", "wait_transition"}},
+			map[string]any{"sequence": []any{"!has_target", "aggro_or_patrol"}},
+			map[string]any{"sequence": []any{"!in_leash_range", "leash_reset"}},
+			map[string]any{"sequence": []any{"is_casting", "wait_ability"}},
+			map[string]any{"sequence": []any{"target_beyond(4)", "has_los", "cast(bull_charge)", "wait_ability"}},
+			"chase",
+		},
+	}
 	def := &EnemyDef{
-		Name:      "guard_captain",
+		Name:      "test_charge_multi",
 		MaxHealth: 500,
 		MoveSpeed: 4.0,
 		Radius:    1.0,
+		TreeData:  chargeTree,
 		Abilities: []ability.AbilityDef{
 			{
-				ID: "charge", Name: "charge", Category: ability.CategoryCharge,
+				ID: "bull_charge", Category: ability.CategoryCharge,
 				CommitTime: 0.1, Cooldown: 0.5,
-				BaseWeight: 100, MinRange: 2.0,
+				BaseWeight: 100, MinRange: 4.0,
 				FaceTarget: true,
 				Charge: &ability.ChargeDef{
 					Speed: 20.0, Damage: 30.0,
@@ -517,8 +530,8 @@ func TestFight_PhaseOverridesAffectAbilities(t *testing.T) {
 
 	// Phase 1: base stats
 	resolved1 := def.ResolveAbility(&def.Abilities[0], 1) // melee_swipe
-	if resolved1.BaseDamage != 30.0 {
-		t.Errorf("P1 melee damage = %f, want 30.0", resolved1.BaseDamage)
+	if resolved1.BaseDamage != 25.0 {
+		t.Errorf("P1 melee damage = %f, want 25.0", resolved1.BaseDamage)
 	}
 	if resolved1.CommitTime != 1.2 {
 		t.Errorf("P1 commit time = %f, want 1.2", resolved1.CommitTime)
@@ -543,8 +556,8 @@ func TestFight_PhaseOverridesAffectAbilities(t *testing.T) {
 	if resolved3.CommitTime != 0.7 {
 		t.Errorf("P3 commit time = %f, want 0.7", resolved3.CommitTime)
 	}
-	if resolved3.BaseDamage != 35.0 {
-		t.Errorf("P3 melee damage = %f, want 35.0", resolved3.BaseDamage)
+	if resolved3.BaseDamage != 30.0 {
+		t.Errorf("P3 melee damage = %f, want 30.0", resolved3.BaseDamage)
 	}
 
 	// fireball_burst Phase 3: commit time even shorter

@@ -66,11 +66,31 @@ var paramFactories = map[string]func(string) (leafEntry, error){
 		}
 		return leafEntry{isCond: true, cond: condPhaseEq(v)}, nil
 	},
+	"target_beyond": func(arg string) (leafEntry, error) {
+		v, err := strconv.ParseFloat(arg, 32)
+		if err != nil {
+			return leafEntry{}, fmt.Errorf("target_beyond: invalid distance %q: %w", arg, err)
+		}
+		return leafEntry{isCond: true, cond: condTargetBeyond(float32(v))}, nil
+	},
+	"players_in_aoe": func(arg string) (leafEntry, error) {
+		v, err := strconv.ParseFloat(arg, 32)
+		if err != nil {
+			return leafEntry{}, fmt.Errorf("players_in_aoe: invalid radius %q: %w", arg, err)
+		}
+		return leafEntry{isCond: true, cond: condPlayersInAoE(float32(v))}, nil
+	},
 	"cast": func(arg string) (leafEntry, error) {
 		if arg == "" {
 			return leafEntry{}, errors.New("cast: missing ability ID")
 		}
 		return leafEntry{action: castByName(arg)}, nil
+	},
+	"ability_ready": func(arg string) (leafEntry, error) {
+		if arg == "" {
+			return leafEntry{}, errors.New("ability_ready: missing ability ID")
+		}
+		return leafEntry{isCond: true, cond: condAbilityReady(arg)}, nil
 	},
 }
 

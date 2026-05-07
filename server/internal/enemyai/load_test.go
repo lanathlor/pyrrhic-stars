@@ -466,6 +466,48 @@ func TestResolveLeaf_InverterBuiltin(t *testing.T) {
 	}
 }
 
+// TestResolveLeaf_TargetBeyond verifies target_beyond parameterized condition.
+func TestResolveLeaf_TargetBeyond(t *testing.T) {
+	node, err := resolveLeaf("target_beyond(5)")
+	if err != nil {
+		t.Fatalf("resolveLeaf: %v", err)
+	}
+
+	e := entity.NewEnemy(0, 100, "test")
+	e.Alive = true
+	p := testPlayer(1, entity.Vec3{X: 0, Z: 8})
+	e.TargetPlayerID = p.ID
+	ctx := &EntityContext{Enemy: e, Def: &EnemyDef{}, Players: testPlayers(p)}
+	result := node.Tick(ctx)
+	if result != bt.Success {
+		t.Errorf("target_beyond(5) with player at Z=8 = %v, want Success", result)
+	}
+
+	p.Position = entity.Vec3{X: 0, Z: 3}
+	result = node.Tick(ctx)
+	if result != bt.Failure {
+		t.Errorf("target_beyond(5) with player at Z=3 = %v, want Failure", result)
+	}
+}
+
+// TestResolveLeaf_PlayersInAoE verifies players_in_aoe parameterized condition.
+func TestResolveLeaf_PlayersInAoE(t *testing.T) {
+	node, err := resolveLeaf("players_in_aoe(5)")
+	if err != nil {
+		t.Fatalf("resolveLeaf: %v", err)
+	}
+
+	e := entity.NewEnemy(0, 100, "test")
+	e.Alive = true
+	p1 := testPlayer(1, entity.Vec3{X: 2, Z: 0})
+	p2 := testPlayer(2, entity.Vec3{X: -2, Z: 0})
+	ctx := &EntityContext{Enemy: e, Def: &EnemyDef{}, Players: testPlayers(p1, p2)}
+	result := node.Tick(ctx)
+	if result != bt.Success {
+		t.Errorf("players_in_aoe(5) with 2 players at dist 2 = %v, want Success", result)
+	}
+}
+
 // TestResolveLeaf_ParamInvalidArgs verifies bad params return errors.
 func TestResolveLeaf_ParamInvalidArgs(t *testing.T) {
 	cases := []struct {
@@ -475,6 +517,8 @@ func TestResolveLeaf_ParamInvalidArgs(t *testing.T) {
 		{"player_nearby non-numeric", "player_nearby(abc)"},
 		{"phase_eq non-numeric", "phase_eq(abc)"},
 		{"player_nearby empty", "player_nearby()"},
+		{"target_beyond non-numeric", "target_beyond(abc)"},
+		{"players_in_aoe non-numeric", "players_in_aoe(abc)"},
 		{"unknown parameterized", "unknown_factory(5)"},
 	}
 	for _, tc := range cases {

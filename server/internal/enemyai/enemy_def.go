@@ -160,13 +160,26 @@ func (d *EnemyDef) CurrentBackpedalSpeed(phase int) float32 {
 	return d.CurrentMoveSpeed(phase) * 0.5
 }
 
-// CurrentCooldownTime returns the cooldown for the given phase/ability.
+// CurrentCooldownTime returns the per-ability cooldown for the given phase.
+// Checks ability-specific overrides first, then falls back to the base cooldown.
 func (d *EnemyDef) CurrentCooldownTime(abil *ability.AbilityDef, phase int) float32 {
+	pd := d.CurrentPhase(phase)
+	if pd != nil {
+		if ovr, ok := pd.AbilityOverrides[abil.ID]; ok && ovr.CooldownTime != nil {
+			return *ovr.CooldownTime
+		}
+	}
+	return abil.Cooldown
+}
+
+// CurrentGCD returns the global cooldown (recovery between abilities) for the phase.
+// Uses CooldownOverride if set, otherwise defaults to 0.5s.
+func (d *EnemyDef) CurrentGCD(phase int) float32 {
 	pd := d.CurrentPhase(phase)
 	if pd != nil && pd.CooldownOverride > 0 {
 		return pd.CooldownOverride
 	}
-	return abil.Cooldown
+	return 0.5
 }
 
 // AbilityByIndex returns the ability at the given index, or nil.

@@ -265,6 +265,112 @@ func TestCond_PhaseEq(t *testing.T) {
 	}
 }
 
+func TestCond_TargetBeyond(t *testing.T) {
+	def := simpleMeleeDef()
+	e := entity.NewEnemy(0, 500, "test")
+	e.Position = entity.Vec3{X: 0, Z: 0}
+
+	tests := []struct {
+		name      string
+		playerZ   float32
+		threshold float32
+		expected  bool
+	}{
+		{"beyond", 10.0, 5.0, true},
+		{"at_boundary", 5.0, 5.0, false},
+		{"within", 3.0, 5.0, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := testPlayer(1, entity.Vec3{X: 0, Z: tt.playerZ})
+			e.TargetPlayerID = p.ID
+			cond := condTargetBeyond(tt.threshold)
+			ctx := testCtx(def, e, testPlayers(p))
+			if got := cond(ctx); got != tt.expected {
+				t.Errorf("dist=%.1f threshold=%.1f: got %v, want %v", tt.playerZ, tt.threshold, got, tt.expected)
+			}
+		})
+	}
+
+	// No target
+	t.Run("no_target", func(t *testing.T) {
+		e.TargetPlayerID = 99
+		cond := condTargetBeyond(5)
+		ctx := testCtx(def, e, testPlayers())
+		if cond(ctx) {
+			t.Error("should be false with no target")
+		}
+	})
+}
+
+func TestCond_PlayersInAoE(t *testing.T) {
+	def := simpleMeleeDef()
+	e := entity.NewEnemy(0, 500, "test")
+	e.Position = entity.Vec3{X: 0, Z: 0}
+
+	cond := condPlayersInAoE(5)
+
+	// 0 players
+	t.Run("no_players", func(t *testing.T) {
+		ctx := testCtx(def, e, testPlayers())
+		if cond(ctx) {
+			t.Error("should be false with no players")
+		}
+	})
+
+	// 1 player in range (need 2+)
+	t.Run("one_in_range", func(t *testing.T) {
+		p := testPlayer(1, entity.Vec3{X: 3, Z: 0})
+		ctx := testCtx(def, e, testPlayers(p))
+		if cond(ctx) {
+			t.Error("should be false with only 1 player in range")
+		}
+	})
+
+	// 2 players in range
+	t.Run("two_in_range", func(t *testing.T) {
+		p1 := testPlayer(1, entity.Vec3{X: 2, Z: 0})
+		p2 := testPlayer(2, entity.Vec3{X: -2, Z: 0})
+		ctx := testCtx(def, e, testPlayers(p1, p2))
+		if !cond(ctx) {
+			t.Error("should be true with 2 players in range")
+		}
+	})
+
+	// 2 players but one out of range
+	t.Run("one_out_of_range", func(t *testing.T) {
+		p1 := testPlayer(1, entity.Vec3{X: 2, Z: 0})
+		p2 := testPlayer(2, entity.Vec3{X: 8, Z: 0})
+		ctx := testCtx(def, e, testPlayers(p1, p2))
+		if cond(ctx) {
+			t.Error("should be false with only 1 player in range")
+		}
+	})
+
+	// 3 players, 2 in range
+	t.Run("three_players_two_in", func(t *testing.T) {
+		p1 := testPlayer(1, entity.Vec3{X: 1, Z: 0})
+		p2 := testPlayer(2, entity.Vec3{X: -1, Z: 0})
+		p3 := testPlayer(3, entity.Vec3{X: 10, Z: 0})
+		ctx := testCtx(def, e, testPlayers(p1, p2, p3))
+		if !cond(ctx) {
+			t.Error("should be true with 2+ players in range")
+		}
+	})
+
+	// Dead player in range doesn't count
+	t.Run("dead_player_ignored", func(t *testing.T) {
+		p1 := testPlayer(1, entity.Vec3{X: 2, Z: 0})
+		p2 := testPlayer(2, entity.Vec3{X: -2, Z: 0})
+		p2.Alive = false
+		ctx := testCtx(def, e, testPlayers(p1, p2))
+		if cond(ctx) {
+			t.Error("should be false with only 1 alive player in range")
+		}
+	})
+}
+
 func TestCond_ActiveAbilityIsCharge(t *testing.T) {
 	def := &EnemyDef{
 		Name:      "test_charge",

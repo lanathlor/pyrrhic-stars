@@ -23,8 +23,9 @@ const (
 // Timer management: Brain.Tick decrements Enemy.StateTimer each tick.
 // The runner sets StateTimer at phase transitions and reads it to detect expiry.
 type AbilityRunner struct {
-	Phase   RunnerPhase
-	AbilIdx int // index into EnemyDef.Abilities
+	Phase      RunnerPhase
+	AbilIdx    int             // index into EnemyDef.Abilities
+	AbilityCDs map[int]float32 // per-ability cooldown timers (index → remaining seconds)
 }
 
 // Start initiates an ability by ID. Returns true if accepted (runner was idle).
@@ -75,7 +76,15 @@ func (r *AbilityRunner) Start(ctx *EntityContext, abilityID string) bool {
 	case ability.CategoryRanged:
 		e.State = entity.EnemyRangedTelegraph
 		e.StateTimer = resolved.CommitTime
-		target := FarthestAlivePlayer(e.Position, ctx.Players)
+		var target *entity.Player
+		switch abil.TargetStrategy {
+		case ability.TargetFarthest:
+			target = FarthestAlivePlayer(e.Position, ctx.Players)
+		case ability.TargetCurrent:
+			target = ctx.TargetPlayer()
+		default: // TargetNearest
+			target = NearestAlivePlayer(e.Position, ctx.Players)
+		}
 		if target != nil {
 			e.TargetPlayerID = target.ID
 			e.RangedTargetPos = target.Position.Add(entity.Vec3{Y: 1.0})
@@ -130,6 +139,16 @@ func (r *AbilityRunner) Cancel(ctx *EntityContext) bool {
 // Tick advances the ability lifecycle by one step. Called after the BT tick,
 // before velocity application. Brain.Tick decrements Enemy.StateTimer.
 func (r *AbilityRunner) Tick(ctx *EntityContext) {
+	// Always tick per-ability cooldowns, even when idle.
+	for idx, cd := range r.AbilityCDs {
+		cd -= ctx.Dt
+		if cd <= 0 {
+			delete(r.AbilityCDs, idx)
+		} else {
+			r.AbilityCDs[idx] = cd
+		}
+	}
+
 	switch r.Phase {
 	case RunnerIdle:
 		return
@@ -140,6 +159,20 @@ func (r *AbilityRunner) Tick(ctx *EntityContext) {
 	case RunnerCooldown:
 		r.tickCooldown(ctx)
 	}
+}
+
+// IsAbilityReady returns true if the named ability's per-ability cooldown has expired.
+func (r *AbilityRunner) IsAbilityReady(ctx *EntityContext, abilityID string) bool {
+	for i := range ctx.Def.Abilities {
+		if ctx.Def.Abilities[i].ID == abilityID {
+			if r.AbilityCDs == nil {
+				return true
+			}
+			_, onCD := r.AbilityCDs[i]
+			return !onCD
+		}
+	}
+	return false
 }
 
 func (r *AbilityRunner) tickCommit(ctx *EntityContext) {
@@ -310,11 +343,23 @@ func (r *AbilityRunner) tickCooldown(ctx *EntityContext) {
 }
 
 // enterCooldown transitions the runner into cooldown phase.
+// Sets per-ability cooldown for the used ability, and a short GCD for the global state.
 func (r *AbilityRunner) enterCooldown(ctx *EntityContext, abil *ability.AbilityDef) {
 	e := ctx.Enemy
-	cooldown := ctx.Def.CurrentCooldownTime(abil, e.Phase)
+
+	// Per-ability cooldown
+	abilityCooldown := ctx.Def.CurrentCooldownTime(abil, e.Phase)
+	if abilityCooldown > 0 {
+		if r.AbilityCDs == nil {
+			r.AbilityCDs = make(map[int]float32)
+		}
+		r.AbilityCDs[r.AbilIdx] = abilityCooldown
+	}
+
+	// Global cooldown (short recovery before next ability)
+	gcd := ctx.Def.CurrentGCD(e.Phase)
 	r.Phase = RunnerCooldown
 	e.State = entity.EnemyCooldown
-	e.StateTimer = cooldown
+	e.StateTimer = gcd
 	e.Velocity = entity.Vec3{}
 }
