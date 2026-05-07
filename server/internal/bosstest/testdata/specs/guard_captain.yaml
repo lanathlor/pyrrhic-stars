@@ -30,7 +30,7 @@ phase_reach:
 
 tree_health:
   max_dead_nodes: 10
-  max_cold_nodes: 10
+  max_cold_nodes: 20
 
 class_balance:
   max_damage_share_sigma: 0.30

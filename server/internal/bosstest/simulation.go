@@ -40,10 +40,11 @@ type SimConfig struct {
 
 // AbilityResult tracks per-ability combat statistics from a simulation run.
 type AbilityResult struct {
-	Name   string
-	Hits   int
-	Kills  int
-	Dodges int
+	Name        string
+	Hits        int
+	Kills       int
+	Dodges      int
+	TotalDamage float32
 }
 
 // SimResult holds the outcome of a single simulation run.
@@ -241,7 +242,9 @@ func RunSimulation(cfg SimConfig) SimResult {
 		for _, ev := range w.DamageEvents {
 			if ev.SourcePeerID == 0 && ev.TargetPeerID != 0 {
 				if abilName != "" {
-					trackAbility(abilStats, abilName).Hits++
+					ar := trackAbility(abilStats, abilName)
+					ar.Hits++
+					ar.TotalDamage += ev.Amount
 				}
 				if p, ok := w.Players[ev.TargetPeerID]; ok && !p.Alive {
 					if abilName != "" {
