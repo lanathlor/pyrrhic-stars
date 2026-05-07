@@ -9,7 +9,7 @@ interface Props {
 export function PhaseSelector({ phases, selected, onSelect }: Props) {
   return (
     <select
-      className="phase-selector"
+      className="px-2.5 py-1.5 bg-surface border border-border rounded text-text text-[0.8rem] mb-0.5"
       value={selected ?? ""}
       onChange={(e) => onSelect(e.target.value || null)}
     >

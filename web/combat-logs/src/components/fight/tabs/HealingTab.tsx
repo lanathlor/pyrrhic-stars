@@ -10,22 +10,22 @@ export function HealingTab() {
 
   if (healingDone.length === 0) {
     return (
-      <div className="tab-content">
-        <p style={{ color: "var(--text-muted)" }}>No healing events recorded.</p>
+      <div className="min-h-[200px]">
+        <p className="text-text-muted">No healing events recorded.</p>
       </div>
     );
   }
 
   return (
-    <div className="tab-content">
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+    <div className="min-h-[200px]">
+      <table className="w-full border-collapse">
         <thead>
           <tr>
             <th>Player</th>
-            <th style={{ textAlign: "right" }}>Total</th>
-            <th style={{ textAlign: "right" }}>HPS</th>
-            <th style={{ textAlign: "right" }}>Crit%</th>
-            <th style={{ textAlign: "right" }}>Hits</th>
+            <th className="text-right">Total</th>
+            <th className="text-right">HPS</th>
+            <th className="text-right">Crit%</th>
+            <th className="text-right">Hits</th>
           </tr>
         </thead>
         <tbody>
@@ -34,26 +34,25 @@ export function HealingTab() {
               <tr
                 key={h.entityId}
                 onClick={() => setExpanded(expanded === h.entityId ? null : h.entityId)}
-                style={{ cursor: "pointer" }}
-                className={expanded === h.entityId ? "row-expanded" : ""}
+                className={`cursor-pointer ${expanded === h.entityId ? "!bg-surface" : ""}`}
               >
                 <td>
                   <ClassIcon className={h.className} />
-                  <span style={{ marginLeft: "0.5rem" }}>{h.name}</span>
+                  <span className="ml-2">{h.name}</span>
                 </td>
-                <td style={{ textAlign: "right" }}>{formatAmount(h.totalHealing)}</td>
-                <td style={{ textAlign: "right" }}>{formatDps(h.hps)}</td>
-                <td style={{ textAlign: "right" }}>{formatPercent(h.critRate)}</td>
-                <td style={{ textAlign: "right" }}>{h.hitCount}</td>
+                <td className="text-right">{formatAmount(h.totalHealing)}</td>
+                <td className="text-right">{formatDps(h.hps)}</td>
+                <td className="text-right">{formatPercent(h.critRate)}</td>
+                <td className="text-right">{h.hitCount}</td>
               </tr>
               {expanded === h.entityId &&
                 h.abilities.map((a) => (
-                  <tr key={`${h.entityId}-${a.abilityId}`} className="row-ability">
-                    <td style={{ paddingLeft: "2rem" }}>{formatAbilityName(a.abilityId)}</td>
-                    <td style={{ textAlign: "right" }}>{formatAmount(a.totalDamage)}</td>
-                    <td style={{ textAlign: "right" }}>—</td>
-                    <td style={{ textAlign: "right" }}>{formatPercent(a.critRate)}</td>
-                    <td style={{ textAlign: "right" }}>{a.hitCount}</td>
+                  <tr key={`${h.entityId}-${a.abilityId}`} className="bg-surface text-text-muted text-[0.8rem] [&>td]:border-b-border/50">
+                    <td className="pl-8">{formatAbilityName(a.abilityId)}</td>
+                    <td className="text-right">{formatAmount(a.totalDamage)}</td>
+                    <td className="text-right">—</td>
+                    <td className="text-right">{formatPercent(a.critRate)}</td>
+                    <td className="text-right">{a.hitCount}</td>
                   </tr>
                 ))}
             </>

@@ -6,18 +6,12 @@ interface Props {
 }
 
 export function ClassIcon({ className, showName = true }: Props) {
-  const color = CLASS_COLORS[className] ?? "var(--text-muted)";
+  const color = CLASS_COLORS[className] ?? "var(--color-text-muted)";
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+    <span className="inline-flex items-center gap-1.5">
       <span
-        style={{
-          width: 8,
-          height: 8,
-          borderRadius: "50%",
-          backgroundColor: color,
-          display: "inline-block",
-          flexShrink: 0,
-        }}
+        className="size-2 rounded-full inline-block shrink-0"
+        style={{ backgroundColor: color }}
       />
       {showName && (
         <span style={{ color }}>{CLASS_DISPLAY_NAMES[className] ?? className}</span>

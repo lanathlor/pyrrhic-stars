@@ -17,7 +17,7 @@ import {
  * the effective fight duration from the event stream. This handles the case
  * where the server stores absolute tick offsets instead of fight-relative ones.
  */
-function normalizeEvents(events: LogEntry[]): { normalized: LogEntry[]; durationMs: number } {
+export function normalizeEvents(events: LogEntry[]): { normalized: LogEntry[]; durationMs: number } {
   if (events.length === 0) return { normalized: [], durationMs: 0 };
   const minTs = events[0].timestamp_ms; // events are sorted by tick
   if (minTs === 0) {

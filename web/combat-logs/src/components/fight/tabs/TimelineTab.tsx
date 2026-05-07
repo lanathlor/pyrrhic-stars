@@ -28,30 +28,30 @@ export function TimelineTab() {
   };
 
   const tooltipStyle = {
-    backgroundColor: "var(--surface)",
-    border: "1px solid var(--border)",
+    backgroundColor: "var(--color-surface)",
+    border: "1px solid var(--color-border)",
     borderRadius: 4,
-    color: "var(--text)",
+    color: "var(--color-text)",
   };
 
   return (
-    <div className="tab-content">
+    <div className="min-h-[200px]">
       {bossHP.length > 0 && (
-        <section>
+        <section className="mb-8">
           <h3>Boss Health</h3>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={bossHP}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
               <XAxis
                 dataKey="timestampMs"
                 tickFormatter={formatTime}
-                stroke="var(--text-muted)"
+                stroke="var(--color-text-muted)"
                 fontSize={12}
               />
               <YAxis
                 domain={[0, 100]}
                 tickFormatter={(v) => `${v}%`}
-                stroke="var(--text-muted)"
+                stroke="var(--color-text-muted)"
                 fontSize={12}
               />
               <Tooltip
@@ -63,21 +63,21 @@ export function TimelineTab() {
                 <ReferenceLine
                   key={p.phase}
                   x={p.startMs}
-                  stroke="var(--text-muted)"
+                  stroke="var(--color-text-muted)"
                   strokeDasharray="3 3"
-                  label={{ value: p.phase, position: "top", fill: "var(--text-muted)", fontSize: 11 }}
+                  label={{ value: p.phase, position: "top", fill: "var(--color-text-muted)", fontSize: 11 }}
                 />
               ))}
               <defs>
                 <linearGradient id="bossHPGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--danger)" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="var(--danger)" stopOpacity={0.05} />
+                  <stop offset="5%" stopColor="var(--color-danger)" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="var(--color-danger)" stopOpacity={0.05} />
                 </linearGradient>
               </defs>
               <Area
                 type="monotone"
                 dataKey="value"
-                stroke="var(--danger)"
+                stroke="var(--color-danger)"
                 fill="url(#bossHPGradient)"
                 strokeWidth={2}
               />
@@ -87,20 +87,20 @@ export function TimelineTab() {
       )}
 
       {dpsTimeline.length > 0 && (
-        <section style={{ marginTop: "1.5rem" }}>
+        <section className="mt-6">
           <h3>DPS Over Time</h3>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={dpsTimeline}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
               <XAxis
                 dataKey="timestampMs"
                 tickFormatter={formatTime}
-                stroke="var(--text-muted)"
+                stroke="var(--color-text-muted)"
                 fontSize={12}
               />
               <YAxis
                 tickFormatter={(v) => formatDps(v)}
-                stroke="var(--text-muted)"
+                stroke="var(--color-text-muted)"
                 fontSize={12}
               />
               <Tooltip
@@ -115,9 +115,9 @@ export function TimelineTab() {
                 <ReferenceLine
                   key={p.phase}
                   x={p.startMs}
-                  stroke="var(--text-muted)"
+                  stroke="var(--color-text-muted)"
                   strokeDasharray="3 3"
-                  label={{ value: p.phase, position: "top", fill: "var(--text-muted)", fontSize: 11 }}
+                  label={{ value: p.phase, position: "top", fill: "var(--color-text-muted)", fontSize: 11 }}
                 />
               ))}
               {playerParticipants.map((p) => (
@@ -125,7 +125,7 @@ export function TimelineTab() {
                   key={p.entity_id}
                   type="monotone"
                   dataKey={p.entity_id}
-                  stroke={CLASS_COLORS[p.class] ?? "var(--accent)"}
+                  stroke={CLASS_COLORS[p.class] ?? "var(--color-accent)"}
                   strokeWidth={1.5}
                   dot={false}
                   name={p.entity_id}

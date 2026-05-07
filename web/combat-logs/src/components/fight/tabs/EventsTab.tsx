@@ -6,9 +6,28 @@ import { EVENT_TYPES } from "../../../constants";
 
 const PAGE_SIZE = 100;
 
+const btnCls = "px-4 py-1.5 border border-border rounded bg-surface text-text cursor-pointer text-sm hover:border-accent disabled:opacity-40 disabled:cursor-default";
+const selectCls = "px-3 py-1.5 bg-surface border border-border rounded text-text text-sm";
+const inputCls = "px-3 py-1.5 bg-surface border border-border rounded text-text text-sm min-w-[150px] placeholder:text-text-muted";
+
 export function EventsTab() {
-  const { analysis } = useFightContext();
+  const { instance, analysis } = useFightContext();
   const { filteredEvents } = analysis;
+
+  const nameMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of instance.participants ?? []) {
+      m.set(p.entity_id, p.name);
+    }
+    return m;
+  }, [instance.participants]);
+
+  const resolveName = (id: string) => {
+    const name = nameMap.get(id);
+    if (name) return name;
+    if (id.startsWith("enemy_")) return formatAbilityName(instance.encounter_id);
+    return id;
+  };
 
   const [typeFilter, setTypeFilter] = useState<Set<number>>(new Set());
   const [sourceFilter, setSourceFilter] = useState("");
@@ -49,49 +68,50 @@ export function EventsTab() {
   };
 
   return (
-    <div className="tab-content">
-      <div className="filter-bar">
-        <div className="event-type-filters">
+    <div className="min-h-[200px]">
+      <div className="flex flex-col gap-3 mb-4">
+        <div className="flex flex-wrap gap-2">
           {Object.entries(EVENT_TYPE_NAMES).map(([key, name]) => {
             const k = Number(key);
             return (
-              <label key={k} className="event-type-check">
+              <label key={k} className="inline-flex items-center gap-1 text-[0.8rem] text-text-muted cursor-pointer">
                 <input
                   type="checkbox"
                   checked={typeFilter.has(k)}
                   onChange={() => toggleType(k)}
+                  className="accent-accent"
                 />
                 {name}
               </label>
             );
           })}
         </div>
-        <div className="filter-row">
-          <select value={sourceFilter} onChange={(e) => { setSourceFilter(e.target.value); setPage(0); }} className="filter-select">
+        <div className="flex gap-2 flex-wrap">
+          <select value={sourceFilter} onChange={(e) => { setSourceFilter(e.target.value); setPage(0); }} className={selectCls}>
             <option value="">All Sources</option>
-            {sources.map((s) => <option key={s} value={s}>{s}</option>)}
+            {sources.map((s) => <option key={s} value={s}>{resolveName(s)}</option>)}
           </select>
-          <select value={targetFilter} onChange={(e) => { setTargetFilter(e.target.value); setPage(0); }} className="filter-select">
+          <select value={targetFilter} onChange={(e) => { setTargetFilter(e.target.value); setPage(0); }} className={selectCls}>
             <option value="">All Targets</option>
-            {targets.map((t) => <option key={t} value={t}>{t}</option>)}
+            {targets.map((t) => <option key={t} value={t}>{resolveName(t)}</option>)}
           </select>
           <input
             type="text"
             placeholder="Filter ability..."
             value={abilityFilter}
             onChange={(e) => { setAbilityFilter(e.target.value); setPage(0); }}
-            className="filter-input"
+            className={inputCls}
           />
         </div>
       </div>
 
-      <div className="events-meta">
+      <div className="text-[0.8rem] text-text-muted mb-2">
         {filtered.length} events
         {totalPages > 1 && ` — page ${page + 1} of ${totalPages}`}
       </div>
 
-      <div className="events-table-wrapper">
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <div className="max-h-[600px] overflow-y-auto border border-border rounded-md">
+        <table className="w-full border-collapse">
           <thead>
             <tr>
               <th>Time</th>
@@ -99,7 +119,7 @@ export function EventsTab() {
               <th>Source</th>
               <th>Target</th>
               <th>Ability</th>
-              <th style={{ textAlign: "right" }}>Amount</th>
+              <th className="text-right">Amount</th>
               <th>Phase</th>
             </tr>
           </thead>
@@ -108,10 +128,10 @@ export function EventsTab() {
               <tr key={i} className={eventRowClass(e.event_type)}>
                 <td>{formatDuration(e.timestamp_ms)}</td>
                 <td>{EVENT_TYPE_NAMES[e.event_type] ?? e.event_type}</td>
-                <td>{e.source}</td>
-                <td>{e.target || "—"}</td>
+                <td>{resolveName(e.source)}</td>
+                <td>{e.target ? resolveName(e.target) : "—"}</td>
                 <td>{formatAbilityName(e.ability_id)}</td>
-                <td style={{ textAlign: "right" }}>
+                <td className="text-right">
                   {e.amount > 0 ? `${Math.round(e.amount).toLocaleString()}${e.is_crit ? "*" : ""}` : "—"}
                 </td>
                 <td>{e.phase || "—"}</td>
@@ -122,14 +142,14 @@ export function EventsTab() {
       </div>
 
       {totalPages > 1 && (
-        <div className="pagination">
-          <button className="btn" disabled={page === 0} onClick={() => setPage(page - 1)}>
+        <div className="flex items-center justify-center gap-4 mt-4 text-sm text-text-muted">
+          <button className={btnCls} disabled={page === 0} onClick={() => setPage(page - 1)}>
             Prev
           </button>
           <span>
             {page + 1} / {totalPages}
           </span>
-          <button className="btn" disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}>
+          <button className={btnCls} disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}>
             Next
           </button>
         </div>
@@ -138,11 +158,11 @@ export function EventsTab() {
   );
 }
 
-function eventRowClass(eventType: number): string {
+export function eventRowClass(eventType: number): string {
   switch (eventType) {
-    case EVENT_TYPES.DAMAGE: return "row-damage";
-    case EVENT_TYPES.HEAL: return "row-heal";
-    case EVENT_TYPES.DEATH: return "row-death";
+    case EVENT_TYPES.DAMAGE: return "[&>td]:text-danger";
+    case EVENT_TYPES.HEAL: return "[&>td]:text-success";
+    case EVENT_TYPES.DEATH: return "[&>td]:text-warning [&>td]:font-semibold";
     default: return "";
   }
 }

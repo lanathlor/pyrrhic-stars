@@ -11,8 +11,8 @@ export function SummaryTab() {
   const maxHealing = healingDone[0]?.totalHealing ?? 1;
 
   return (
-    <div className="tab-content">
-      <div className="kpi-grid">
+    <div className="min-h-[200px]">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3 mb-6">
         <KPICard label="Total Damage" value={formatAmount(summary.totalDamage)} />
         <KPICard label="Raid DPS" value={formatDps(summary.raidDps)} />
         <KPICard label="Total Healing" value={formatAmount(summary.totalHealing)} />
@@ -22,9 +22,9 @@ export function SummaryTab() {
       </div>
 
       {damageDone.length > 0 && (
-        <section>
+        <section className="mb-8">
           <h3>DPS Rankings</h3>
-          <div className="bar-list">
+          <div className="flex flex-col gap-1">
             {damageDone.map((d) => (
               <DamageBar
                 key={d.entityId}
@@ -40,9 +40,9 @@ export function SummaryTab() {
       )}
 
       {healingDone.length > 0 && (
-        <section>
+        <section className="mb-8">
           <h3>Healing Rankings</h3>
-          <div className="bar-list">
+          <div className="flex flex-col gap-1">
             {healingDone.map((h) => (
               <DamageBar
                 key={h.entityId}
@@ -58,15 +58,15 @@ export function SummaryTab() {
       )}
 
       {deaths.length > 0 && (
-        <section>
+        <section className="mb-8">
           <h3>Deaths ({deaths.length})</h3>
-          <div className="death-list-compact">
+          <div className="flex flex-col gap-1">
             {deaths.map((d, i) => (
-              <div key={i} className="death-compact">
-                <span className="death-time">{formatDuration(d.timestampMs)}</span>
-                <span style={{ color: "var(--warning)" }}>{d.victimName}</span>
+              <div key={i} className="flex items-center gap-3 text-sm py-1">
+                <span className="text-text-muted tabular-nums min-w-12">{formatDuration(d.timestampMs)}</span>
+                <span className="text-warning">{d.victimName}</span>
                 {d.killingBlow && (
-                  <span style={{ color: "var(--text-muted)" }}>
+                  <span className="text-text-muted">
                     killed by {d.killingBlow.source} ({d.killingBlow.ability_id || "auto"})
                   </span>
                 )}

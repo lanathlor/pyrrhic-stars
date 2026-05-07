@@ -147,3 +147,114 @@ export interface FightSummary {
   phases: string[];
   playerCount: number;
 }
+
+// --- Aggregate report types (across many runs) ---
+
+export interface EncounterSummary {
+  encounterId: string;
+  totalRuns: number;
+  wins: number;
+  losses: number;
+  timeouts: number;
+  winRate: number;
+  avgDurationMs: number;
+  firstRun: string; // ISO date
+  lastRun: string;
+  profiles: string[]; // distinct bot profiles seen
+  classes: string[]; // distinct classes seen
+}
+
+export interface ReportOverview {
+  encounterId: string;
+  totalRuns: number;
+  wins: number;
+  losses: number;
+  timeouts: number;
+  winRate: number;
+  durationStats: PercentileStats;
+  firstRun: string;
+  lastRun: string;
+}
+
+export interface PercentileStats {
+  min: number;
+  max: number;
+  avg: number;
+  median: number;
+  p95: number;
+  p99: number;
+  values: number[]; // sorted, for histogram
+}
+
+export interface ProfileStats {
+  profile: string;
+  runs: number;
+  wins: number;
+  losses: number;
+  timeouts: number;
+  winRate: number;
+  avgDurationMs: number;
+  durationStats: PercentileStats;
+}
+
+export interface CompStats {
+  name: string; // e.g. "gunner + vanguard (sweaty)"
+  classes: string[];
+  profiles: string[];
+  runs: number;
+  wins: number;
+  losses: number;
+  timeouts: number;
+  winRate: number;
+  avgDurationMs: number;
+  durationStats: PercentileStats;
+}
+
+export interface DurationBucket {
+  rangeLabel: string;
+  minMs: number;
+  maxMs: number;
+  count: number;
+}
+
+// --- Encounter aggregate stats (from server) ---
+
+export interface EncounterStats {
+  instance_damage: Record<string, Record<string, number>>;  // instance_id → class → total_damage
+  instance_healing: Record<string, Record<string, number>>; // instance_id → class → total_healing
+  instance_deaths: Record<string, number>;                   // instance_id → death_count
+  instance_phases: Record<string, string>;                   // instance_id → max_phase
+  boss_abilities: BossAbilityStat[];
+}
+
+export interface BossAbilityStat {
+  ability_id: string;
+  total_damage: number;
+  hits: number;
+  kills: number;
+  dodges: number;
+}
+
+// --- Computed aggregate types ---
+
+export interface ClassDPSDistribution {
+  className: string;
+  stats: PercentileStats;
+}
+
+export interface ProfileCombatStats extends ProfileStats {
+  classDPS: ClassDPSDistribution[];
+  deathStats: PercentileStats;
+  phaseReach: Record<string, number>; // phase → reach rate (0-1)
+}
+
+export interface PhaseReachEntry {
+  phase: string;
+  rate: number;  // 0-1
+  count: number;
+}
+
+export interface WipePhaseEntry {
+  phase: string;
+  count: number;
+}

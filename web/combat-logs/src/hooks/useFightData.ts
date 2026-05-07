@@ -1,24 +1,21 @@
-import { useEffect, useState } from "react";
-import type { InstanceLog, LogEntry } from "../types";
+import { useQuery } from "@tanstack/react-query";
 import { fetchInstance, fetchEvents } from "../api";
 
 export function useFightData(instanceId: string) {
-  const [instance, setInstance] = useState<InstanceLog | null>(null);
-  const [events, setEvents] = useState<LogEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const instanceQuery = useQuery({
+    queryKey: ["instance", instanceId],
+    queryFn: () => fetchInstance(instanceId),
+  });
 
-  useEffect(() => {
-    setLoading(true);
-    setError("");
-    Promise.all([fetchInstance(instanceId), fetchEvents(instanceId)])
-      .then(([inst, evts]) => {
-        setInstance(inst);
-        setEvents(evts);
-      })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [instanceId]);
+  const eventsQuery = useQuery({
+    queryKey: ["events", instanceId],
+    queryFn: () => fetchEvents(instanceId),
+  });
 
-  return { instance, events, loading, error };
+  return {
+    instance: instanceQuery.data ?? null,
+    events: eventsQuery.data ?? [],
+    loading: instanceQuery.isLoading || eventsQuery.isLoading,
+    error: instanceQuery.error?.message ?? eventsQuery.error?.message ?? "",
+  };
 }

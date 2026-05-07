@@ -9,13 +9,13 @@ export function DamageTakenTab() {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   return (
-    <div className="tab-content">
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+    <div className="min-h-[200px]">
+      <table className="w-full border-collapse">
         <thead>
           <tr>
             <th>Player</th>
-            <th style={{ textAlign: "right" }}>Total Taken</th>
-            <th style={{ textAlign: "right" }}>DTPS</th>
+            <th className="text-right">Total Taken</th>
+            <th className="text-right">DTPS</th>
           </tr>
         </thead>
         <tbody>
@@ -24,24 +24,23 @@ export function DamageTakenTab() {
               <tr
                 key={d.entityId}
                 onClick={() => setExpanded(expanded === d.entityId ? null : d.entityId)}
-                style={{ cursor: "pointer" }}
-                className={expanded === d.entityId ? "row-expanded" : ""}
+                className={`cursor-pointer ${expanded === d.entityId ? "!bg-surface" : ""}`}
               >
                 <td>
                   <ClassIcon className={d.className} />
-                  <span style={{ marginLeft: "0.5rem" }}>{d.name}</span>
+                  <span className="ml-2">{d.name}</span>
                 </td>
-                <td style={{ textAlign: "right" }}>{formatAmount(d.totalDamageTaken)}</td>
-                <td style={{ textAlign: "right" }}>{formatDps(d.dtps)}</td>
+                <td className="text-right">{formatAmount(d.totalDamageTaken)}</td>
+                <td className="text-right">{formatDps(d.dtps)}</td>
               </tr>
               {expanded === d.entityId &&
                 d.sources.map((s, i) => (
-                  <tr key={`${d.entityId}-${i}`} className="row-ability">
-                    <td style={{ paddingLeft: "2rem" }}>
+                  <tr key={`${d.entityId}-${i}`} className="bg-surface text-text-muted text-[0.8rem] [&>td]:border-b-border/50">
+                    <td className="pl-8">
                       {s.source} — {formatAbilityName(s.abilityId)}
                     </td>
-                    <td style={{ textAlign: "right" }}>{formatAmount(s.totalDamage)}</td>
-                    <td style={{ textAlign: "right" }}>{s.hitCount} hits</td>
+                    <td className="text-right">{formatAmount(s.totalDamage)}</td>
+                    <td className="text-right">{s.hitCount} hits</td>
                   </tr>
                 ))}
             </>

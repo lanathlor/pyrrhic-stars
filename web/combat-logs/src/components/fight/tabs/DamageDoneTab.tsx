@@ -14,22 +14,22 @@ export function DamageDoneTab() {
   const pieData = damageDone.map((d) => ({
     name: d.name,
     value: d.totalDamage,
-    fill: CLASS_COLORS[d.className] ?? "var(--accent)",
+    fill: CLASS_COLORS[d.className] ?? "var(--color-accent)",
   }));
 
   return (
-    <div className="tab-content">
-      <div className="tab-split">
-        <div className="tab-main">
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+    <div className="min-h-[200px]">
+      <div className="grid grid-cols-[1fr_280px] gap-6 items-start max-[900px]:grid-cols-1">
+        <div className="min-w-0">
+          <table className="w-full border-collapse">
             <thead>
               <tr>
                 <th>Player</th>
-                <th style={{ textAlign: "right" }}>Total</th>
-                <th style={{ textAlign: "right" }}>DPS</th>
-                <th style={{ textAlign: "right" }}>Crit%</th>
-                <th style={{ textAlign: "right" }}>Hits</th>
-                <th style={{ textAlign: "right" }}>%</th>
+                <th className="text-right">Total</th>
+                <th className="text-right">DPS</th>
+                <th className="text-right">Crit%</th>
+                <th className="text-right">Hits</th>
+                <th className="text-right">%</th>
               </tr>
             </thead>
             <tbody>
@@ -38,30 +38,29 @@ export function DamageDoneTab() {
                   <tr
                     key={d.entityId}
                     onClick={() => setExpanded(expanded === d.entityId ? null : d.entityId)}
-                    style={{ cursor: "pointer" }}
-                    className={expanded === d.entityId ? "row-expanded" : ""}
+                    className={`cursor-pointer ${expanded === d.entityId ? "!bg-surface" : ""}`}
                   >
                     <td>
                       <ClassIcon className={d.className} />
-                      <span style={{ marginLeft: "0.5rem" }}>{d.name}</span>
+                      <span className="ml-2">{d.name}</span>
                     </td>
-                    <td style={{ textAlign: "right" }}>{formatAmount(d.totalDamage)}</td>
-                    <td style={{ textAlign: "right" }}>{formatDps(d.dps)}</td>
-                    <td style={{ textAlign: "right" }}>{formatPercent(d.critRate)}</td>
-                    <td style={{ textAlign: "right" }}>{d.hitCount}</td>
-                    <td style={{ textAlign: "right" }}>
+                    <td className="text-right">{formatAmount(d.totalDamage)}</td>
+                    <td className="text-right">{formatDps(d.dps)}</td>
+                    <td className="text-right">{formatPercent(d.critRate)}</td>
+                    <td className="text-right">{d.hitCount}</td>
+                    <td className="text-right">
                       {totalDamage > 0 ? formatPercent(d.totalDamage / totalDamage) : "—"}
                     </td>
                   </tr>
                   {expanded === d.entityId &&
                     d.abilities.map((a) => (
-                      <tr key={`${d.entityId}-${a.abilityId}`} className="row-ability">
-                        <td style={{ paddingLeft: "2rem" }}>{formatAbilityName(a.abilityId)}</td>
-                        <td style={{ textAlign: "right" }}>{formatAmount(a.totalDamage)}</td>
-                        <td style={{ textAlign: "right" }}>—</td>
-                        <td style={{ textAlign: "right" }}>{formatPercent(a.critRate)}</td>
-                        <td style={{ textAlign: "right" }}>{a.hitCount}</td>
-                        <td style={{ textAlign: "right" }}>
+                      <tr key={`${d.entityId}-${a.abilityId}`} className="bg-surface text-text-muted text-[0.8rem] [&>td]:border-b-border/50">
+                        <td className="pl-8">{formatAbilityName(a.abilityId)}</td>
+                        <td className="text-right">{formatAmount(a.totalDamage)}</td>
+                        <td className="text-right">—</td>
+                        <td className="text-right">{formatPercent(a.critRate)}</td>
+                        <td className="text-right">{a.hitCount}</td>
+                        <td className="text-right">
                           {d.totalDamage > 0 ? formatPercent(a.totalDamage / d.totalDamage) : "—"}
                         </td>
                       </tr>
@@ -72,7 +71,7 @@ export function DamageDoneTab() {
           </table>
         </div>
         {pieData.length > 0 && (
-          <div className="tab-side">
+          <div className="sticky top-4">
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
@@ -83,7 +82,7 @@ export function DamageDoneTab() {
                   cy="50%"
                   outerRadius={100}
                   strokeWidth={1}
-                  stroke="var(--bg)"
+                  stroke="var(--color-bg)"
                 >
                   {pieData.map((entry, i) => (
                     <Cell key={i} fill={entry.fill} />
@@ -91,10 +90,10 @@ export function DamageDoneTab() {
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "var(--surface)",
-                    border: "1px solid var(--border)",
+                    backgroundColor: "var(--color-surface)",
+                    border: "1px solid var(--color-border)",
                     borderRadius: 4,
-                    color: "var(--text)",
+                    color: "var(--color-text)",
                   }}
                   formatter={(value) => formatAmount(Number(value))}
                 />

@@ -9,18 +9,18 @@ interface Props {
 }
 
 export function DamageBar({ name, className, value, secondary, percent }: Props) {
-  const color = CLASS_COLORS[className] ?? "var(--accent)";
+  const color = CLASS_COLORS[className] ?? "var(--color-accent)";
   return (
-    <div className="damage-bar">
+    <div className="relative h-8 bg-surface border border-border rounded overflow-hidden">
       <div
-        className="damage-bar-fill"
+        className="absolute top-0 left-0 h-full opacity-25 transition-[width] duration-300 ease-out"
         style={{ width: `${Math.max(percent * 100, 2)}%`, backgroundColor: color }}
       />
-      <div className="damage-bar-content">
-        <span className="damage-bar-name">{name}</span>
-        <span className="damage-bar-values">
-          <span className="damage-bar-value">{value}</span>
-          {secondary && <span className="damage-bar-secondary">{secondary}</span>}
+      <div className="relative flex items-center justify-between h-full px-3 text-sm z-1">
+        <span className="font-medium">{name}</span>
+        <span className="flex gap-4 items-center">
+          <span className="font-semibold">{value}</span>
+          {secondary && <span className="text-text-muted text-[0.8rem]">{secondary}</span>}
         </span>
       </div>
     </div>

@@ -15,21 +15,21 @@ export function FightHeader({ instance }: Props) {
   );
 
   return (
-    <div className="fight-header">
-      <div className="fight-header-top">
+    <div className="mb-6">
+      <div className="flex items-center gap-4 mb-3 flex-wrap">
         <h2>{instance.encounter_id}</h2>
         <OutcomeBadge outcome={instance.outcome} />
-        <span className="fight-header-meta">
+        <span className="text-text-muted text-sm">
           {formatDuration(analysis.effectiveDurationMs)}
         </span>
-        <span className="fight-header-meta">
+        <span className="text-text-muted text-sm">
           {new Date(instance.started_at).toLocaleString()}
         </span>
       </div>
       {players.length > 0 && (
-        <div className="fight-header-players">
+        <div className="flex gap-2 flex-wrap">
           {players.map((p) => (
-            <span key={p.entity_id} className="participant-chip">
+            <span key={p.entity_id} className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-surface border border-border rounded text-xs">
               <ClassIcon className={p.class} />
               <span>{p.name}</span>
             </span>
