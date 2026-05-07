@@ -247,6 +247,7 @@ func runFuzzTests(t *testing.T, spec *bosstest.EncounterSpec) {
 	for _, comp := range spec.Compositions {
 		party := comp.ToPartyConfigs()
 		runsPerComp := runs / len(spec.Compositions)
+		compGroupID := fmt.Sprintf("%s_%s", groupID, comp.Name)
 
 		for i := range runsPerComp {
 			result := bosstest.RunSimulation(bosstest.SimConfig{
@@ -254,8 +255,8 @@ func runFuzzTests(t *testing.T, spec *bosstest.EncounterSpec) {
 				Party:       party,
 				Seed:        uint64(i),
 				Sink:        sink,
-				GroupID:     groupID,
-				RunID:       fmt.Sprintf("%s_%s_%d", groupID, comp.Name, i),
+				GroupID:     compGroupID,
+				RunID:       fmt.Sprintf("%s_%d", compGroupID, i),
 				PuppetTrees: puppetTrees,
 			})
 			result.CompName = comp.Name

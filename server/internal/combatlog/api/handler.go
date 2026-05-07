@@ -27,6 +27,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/logs/instances/{id}/events", h.getEvents)
 	mux.HandleFunc("GET /api/v1/logs/instances/{id}/export", h.exportInstance)
 	mux.HandleFunc("GET /api/v1/logs/instances/{id}/replay", h.getReplay)
+	mux.HandleFunc("GET /api/v1/logs/stats/encounter/{encounter_id}", h.getEncounterStats)
 }
 
 func (h *Handler) listInstances(w http.ResponseWriter, r *http.Request) {
@@ -53,12 +54,8 @@ func (h *Handler) listInstances(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Batch-load participants for all returned instances.
-	ids := make([]string, len(instances))
-	for i, inst := range instances {
-		ids[i] = inst.InstanceID
-	}
-	partMap, err := h.repo.ListParticipants(r.Context(), ids)
+	// Load participants using a subquery to avoid exceeding ClickHouse query size limits.
+	partMap, err := h.repo.ListParticipantsByFilter(r.Context(), filter)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -237,6 +234,45 @@ func (h *Handler) getReplay(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, export)
+}
+
+// getEncounterStats returns aggregate combat stats across all instances of an encounter.
+func (h *Handler) getEncounterStats(w http.ResponseWriter, r *http.Request) {
+	encounterID := r.PathValue("encounter_id")
+	if encounterID == "" {
+		http.Error(w, "missing encounter_id", http.StatusBadRequest)
+		return
+	}
+
+	filter := combatlog.InstanceFilter{
+		EncounterID: encounterID,
+		Source:      r.URL.Query().Get("source"),
+	}
+
+	stats, err := h.repo.GetEncounterStats(r.Context(), filter)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	abilities := make([]BossAbilityDTO, len(stats.BossAbilities))
+	for i, ab := range stats.BossAbilities {
+		abilities[i] = BossAbilityDTO{
+			AbilityID:   ab.AbilityID,
+			TotalDamage: ab.TotalDamage,
+			Hits:        ab.Hits,
+			Kills:       ab.Kills,
+			Dodges:      ab.Dodges,
+		}
+	}
+
+	writeJSON(w, EncounterStatsResponse{
+		InstanceDamage:  stats.InstanceDamage,
+		InstanceHealing: stats.InstanceHealing,
+		InstanceDeaths:  stats.InstanceDeaths,
+		InstancePhases:  stats.InstancePhases,
+		BossAbilities:   abilities,
+	})
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

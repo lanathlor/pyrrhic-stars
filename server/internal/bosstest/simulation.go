@@ -157,6 +157,11 @@ func RunSimulation(cfg SimConfig) SimResult {
 			BotProfile: string(pp.Profile),
 		})
 	}
+	session.AddParticipant(combatlog.ParticipantLog{
+		EntityID: combatlog.FormatEnemyID(enemy.ID),
+		Name:     def.Name,
+		Class:    "enemy",
+	})
 	// Pre-populate combat logs so AISystem doesn't create a duplicate
 	w.CombatLogs = map[int]*combatlog.EncounterSession{-1: session}
 
@@ -283,7 +288,11 @@ func RunSimulation(cfg SimConfig) SimResult {
 		outcome = combatlog.OutcomeTimeout
 	}
 
-	session.Finalize(outcome, uint32(tick))
+	// Only finalize if CombatSystem didn't already (player_win is finalized
+	// by checkEnemyGroupDead inside CombatSystem.Tick).
+	if w.CombatLogs[-1] != nil {
+		session.Finalize(outcome, uint32(tick))
+	}
 
 	// Build phases list
 	phases := make([]int, 0, len(phasesReached))

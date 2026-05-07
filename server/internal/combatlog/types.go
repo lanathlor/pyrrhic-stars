@@ -91,3 +91,21 @@ type ParticipantLog struct {
 	IsBot      bool   `json:"is_bot"`
 	BotProfile string `json:"bot_profile,omitempty"`
 }
+
+// EncounterStats holds aggregate combat data across multiple instances.
+type EncounterStats struct {
+	InstanceDamage  map[string]map[string]float32 // instance_id -> class -> total_damage
+	InstanceHealing map[string]map[string]float32 // instance_id -> class -> total_healing
+	InstanceDeaths  map[string]int                // instance_id -> death_count
+	InstancePhases  map[string]string             // instance_id -> max_phase
+	BossAbilities   []BossAbilityStat
+}
+
+// BossAbilityStat holds aggregate stats for a single boss ability.
+type BossAbilityStat struct {
+	AbilityID   string
+	TotalDamage float32
+	Hits        int
+	Kills       int
+	Dodges      int
+}

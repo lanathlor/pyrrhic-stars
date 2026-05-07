@@ -14,7 +14,8 @@ type ReadRepository interface {
 	GetInstance(ctx context.Context, instanceID string) (*InstanceLog, error)
 	GetEvents(ctx context.Context, instanceID string, filter EventFilter) ([]LogEntry, error)
 	GetReplay(ctx context.Context, instanceID string) ([][]byte, error)
-	ListParticipants(ctx context.Context, instanceIDs []string) (map[string][]ParticipantLog, error)
+	ListParticipantsByFilter(ctx context.Context, filter InstanceFilter) (map[string][]ParticipantLog, error)
+	GetEncounterStats(ctx context.Context, filter InstanceFilter) (*EncounterStats, error)
 }
 
 // InstanceFilter controls which instances are returned.

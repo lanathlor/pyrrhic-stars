@@ -123,6 +123,24 @@ type FightExport struct {
 	Events       []EventDTO                 `json:"events"`
 }
 
+// EncounterStatsResponse is the JSON shape for encounter-wide aggregate stats.
+type EncounterStatsResponse struct {
+	InstanceDamage  map[string]map[string]float32 `json:"instance_damage"`
+	InstanceHealing map[string]map[string]float32 `json:"instance_healing"`
+	InstanceDeaths  map[string]int                `json:"instance_deaths"`
+	InstancePhases  map[string]string             `json:"instance_phases"`
+	BossAbilities   []BossAbilityDTO              `json:"boss_abilities"`
+}
+
+// BossAbilityDTO is the JSON shape for a single boss ability's aggregate stats.
+type BossAbilityDTO struct {
+	AbilityID   string  `json:"ability_id"`
+	TotalDamage float32 `json:"total_damage"`
+	Hits        int     `json:"hits"`
+	Kills       int     `json:"kills"`
+	Dodges      int     `json:"dodges"`
+}
+
 // ReplayExport is the response for the replay endpoint.
 // Frames are base64-encoded binary WorldState snapshots (one per tick).
 // The client decodes each frame with NetSerializer.decode_world_state().
