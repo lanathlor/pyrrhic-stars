@@ -1,0 +1,82 @@
+# Animation manifest — source of truth for the bake_animations.gd tool script.
+# Run the bake script after editing this file to regenerate mixamo_anims.tres.
+
+base_model: "res://assets/animations/Idle.fbx"
+
+animations:
+  # Base movement
+  idle:
+    fbx: "res://assets/animations/Idle.fbx"
+    loop: true
+  run:
+    fbx: "res://assets/animations/Running.fbx"
+    loop: true
+  jump:
+    fbx: "res://assets/animations/Jump.fbx"
+    loop: false
+  roll:
+    fbx: "res://assets/animations/Stand To Roll.fbx"
+    loop: false
+
+  # Rifle (old standalone)
+  rifle_idle:
+    fbx: "res://assets/animations/Rifle Idle.fbx"
+    loop: true
+  rifle_run:
+    fbx: "res://assets/animations/Rifle Run.fbx"
+    loop: true
+  rifle_jump:
+    fbx: "res://assets/animations/Rifle Jump.fbx"
+    loop: false
+  rifle_shoot:
+    fbx: "res://assets/animations/Gunplay.fbx"
+    loop: false
+
+  # Rifle (aiming set)
+  rifle_aim_idle:
+    fbx: "res://assets/animations/rifle/idle aiming.fbx"
+    loop: true
+  rifle_aim_walk:
+    fbx: "res://assets/animations/rifle/walk forward.fbx"
+    loop: true
+  rifle_aim_run:
+    fbx: "res://assets/animations/rifle/run forward.fbx"
+    loop: true
+
+  # Great sword
+  slash:
+    fbx: "res://assets/animations/Great Sword Slash.fbx"
+    loop: false
+  sword_idle:
+    fbx: "res://assets/animations/sword/great sword idle.fbx"
+    loop: true
+  sword_run:
+    fbx: "res://assets/animations/sword/great sword run.fbx"
+    loop: true
+  sword_walk:
+    fbx: "res://assets/animations/sword/great sword walk.fbx"
+    loop: true
+  sword_slash_1:
+    fbx: "res://assets/animations/sword/great sword slash.fbx"
+    loop: false
+  sword_slash_2:
+    fbx: "res://assets/animations/sword/great sword slash (2).fbx"
+    loop: false
+  sword_slash_3:
+    fbx: "res://assets/animations/sword/great sword slash (3).fbx"
+    loop: false
+  sword_heavy:
+    fbx: "res://assets/animations/sword/great sword attack.fbx"
+    loop: false
+  sword_block:
+    fbx: "res://assets/animations/sword/great sword blocking.fbx"
+    loop: true
+  sword_impact:
+    fbx: "res://assets/animations/sword/great sword impact.fbx"
+    loop: false
+  sword_jump:
+    fbx: "res://assets/animations/sword/great sword jump.fbx"
+    loop: false
+  sword_spin:
+    fbx: "res://assets/animations/sword/great sword high spin attack.fbx"
+    loop: false
