@@ -1,60 +1,21 @@
 extends Node3D
 
 ## Shared Mixamo character model wrapper.
-## Loads a base FBX for the mesh/skeleton, imports additional animations from
-## other FBX files, and exposes a simple play_anim() API.
+## Loads a pre-baked AnimationLibrary and exposes a simple play_anim() API.
+## To regenerate the library, edit animation_manifest.yaml and run bake_animations.gd.
 
-const BASE_MODEL := "res://assets/models/characters/Idle.fbx"
+const DEFAULT_BASE_MODEL := "res://assets/animations/Idle.fbx"
+const ANIM_LIBRARY := "res://assets/animations/mixamo_anims.tres"
 
-## Map of logical name → FBX path. Controllers call play_anim("run"), etc.
-## Each FBX's mixamo animation is imported and added to the AnimationPlayer.
-const ANIM_SOURCES := {
-	# Base
-	"idle": "res://assets/models/characters/Idle.fbx",
-	"run": "res://assets/models/characters/Running.fbx",
-	"jump": "res://assets/models/characters/Jump.fbx",
-	"roll": "res://assets/models/characters/Stand To Roll.fbx",
-	# Rifle (old standalone)
-	"rifle_idle": "res://assets/models/characters/Rifle Idle.fbx",
-	"rifle_run": "res://assets/models/characters/Rifle Run.fbx",
-	"rifle_jump": "res://assets/models/characters/Rifle Jump.fbx",
-	"rifle_shoot": "res://assets/models/characters/Gunplay.fbx",
-	# Rifle (aiming set)
-	"rifle_aim_idle": "res://assets/models/characters/rifle/idle aiming.fbx",
-	"rifle_aim_walk": "res://assets/models/characters/rifle/walk forward.fbx",
-	"rifle_aim_run": "res://assets/models/characters/rifle/run forward.fbx",
-	# Great sword
-	"slash": "res://assets/models/characters/Great Sword Slash.fbx",
-	"sword_idle": "res://assets/models/characters/sword/great sword idle.fbx",
-	"sword_run": "res://assets/models/characters/sword/great sword run.fbx",
-	"sword_walk": "res://assets/models/characters/sword/great sword walk.fbx",
-	"sword_slash_1": "res://assets/models/characters/sword/great sword slash.fbx",
-	"sword_slash_2": "res://assets/models/characters/sword/great sword slash (2).fbx",
-	"sword_slash_3": "res://assets/models/characters/sword/great sword slash (3).fbx",
-	"sword_heavy": "res://assets/models/characters/sword/great sword attack.fbx",
-	"sword_block": "res://assets/models/characters/sword/great sword blocking.fbx",
-	"sword_impact": "res://assets/models/characters/sword/great sword impact.fbx",
-	"sword_jump": "res://assets/models/characters/sword/great sword jump.fbx",
-	"sword_spin": "res://assets/models/characters/sword/great sword high spin attack.fbx",
-}
-
-## Which animations should loop (others play once).
-const LOOPING_ANIMS := [
-	"idle",
-	"run",
-	"rifle_idle",
-	"rifle_run",
-	"rifle_aim_idle",
-	"rifle_aim_walk",
-	"rifle_aim_run",
-	"sword_idle",
-	"sword_run",
-	"sword_walk",
-	"sword_block",
-]
+## Override the base model FBX/GLB. Leave empty to use the default Mixamo Idle model.
+@export var base_model_override: String = ""
 
 ## The currently attached weapon node (if any), for external rotation.
 var weapon_node: Node3D = null
+
+## AnimationTree and playback — set up via setup_state_machine().
+var anim_tree: AnimationTree = null
+var state_playback: AnimationNodeStateMachinePlayback = null
 
 var _anim_player: AnimationPlayer = null
 var _mesh_instances: Array[MeshInstance3D] = []
@@ -69,13 +30,23 @@ var _flash_tween: Tween = null
 
 
 func _ready() -> void:
-	# Base model is a static child (BaseModel) in the scene — find it
-	var instance: Node = get_node_or_null("BaseModel")
+	var model_path: String = (
+		base_model_override if base_model_override != "" else DEFAULT_BASE_MODEL
+	)
+
+	# Base model is a static child (BaseModel) in the scene — use it unless overridden
+	var instance: Node = null
+	if base_model_override == "":
+		instance = get_node_or_null("BaseModel")
+
 	if not instance:
-		# Fallback: load dynamically (e.g. when instantiated from code without scene)
-		var base_scene := load(BASE_MODEL) as PackedScene
+		# Remove default BaseModel if we're overriding
+		var old := get_node_or_null("BaseModel")
+		if old:
+			old.queue_free()
+		var base_scene := load(model_path) as PackedScene
 		if not base_scene:
-			push_warning("CharacterModel: could not load base model %s" % BASE_MODEL)
+			push_warning("CharacterModel: could not load base model %s" % model_path)
 			return
 		instance = base_scene.instantiate()
 		instance.name = "BaseModel"
@@ -86,6 +57,28 @@ func _ready() -> void:
 	_anim_player = _find_child_of_type(instance, "AnimationPlayer") as AnimationPlayer
 	_mesh_instances = _find_all_mesh_instances(instance)
 	_skeleton = _find_child_of_type(instance, "Skeleton3D") as Skeleton3D
+
+	# Normalize bone names so all Mixamo skeletons match the animation library.
+	# Some Mixamo exports use "mixamorig1_" instead of "mixamorig_".
+	# Must rename in both the Skeleton3D and all Skin bind names.
+	if _skeleton:
+		var needs_remap := false
+		for i in _skeleton.get_bone_count():
+			var bname := _skeleton.get_bone_name(i)
+			if bname.begins_with("mixamorig1_"):
+				_skeleton.set_bone_name(i, "mixamorig_" + bname.substr(len("mixamorig1_")))
+				needs_remap = true
+		if needs_remap:
+			for mesh in _find_all_mesh_instances(instance):
+				var skin: Skin = mesh.skin
+				if not skin:
+					continue
+				skin = skin.duplicate() as Skin
+				for i in skin.get_bind_count():
+					var bind_name := skin.get_bind_name(i)
+					if bind_name.begins_with("mixamorig1_"):
+						skin.set_bind_name(i, "mixamorig_" + bind_name.substr(len("mixamorig1_")))
+				mesh.skin = skin
 
 	# Find root bone and hips bone to strip root motion
 	if _skeleton:
@@ -103,10 +96,15 @@ func _ready() -> void:
 	if not _anim_player:
 		return
 
-	# Import animations from all FBX sources
-	for anim_name in ANIM_SOURCES:
-		var fbx_path: String = ANIM_SOURCES[anim_name]
-		_import_anim_from_fbx(anim_name, fbx_path)
+	# Load pre-baked animation library
+	var library := load(ANIM_LIBRARY) as AnimationLibrary
+	if library:
+		if _anim_player.has_animation_library(""):
+			_anim_player.remove_animation_library("")
+		_anim_player.add_animation_library("", library)
+		_loaded_anims = PackedStringArray(library.get_animation_list())
+	else:
+		push_warning("CharacterModel: could not load animation library %s" % ANIM_LIBRARY)
 
 	# Start at idle
 	if "idle" in _loaded_anims:
@@ -153,6 +151,82 @@ func play_anim_timed(anim_name: String, target_duration: float) -> void:
 func set_animation_speed(speed: float) -> void:
 	if _anim_player:
 		_anim_player.speed_scale = speed
+
+
+## Build an AnimationTree with a StateMachine from a state→clip mapping.
+## Returns the StateMachinePlayback for travel()/start() calls.
+## Call once from the controller's _ready() after character_model is ready.
+##
+## states: { "idle": "sword_idle", "run": "sword_run", "dodge": "roll", ... }
+## crossfade: default crossfade time for transitions between states
+func setup_state_machine(
+	states: Dictionary, crossfade: float = 0.1
+) -> AnimationNodeStateMachinePlayback:
+	if not _anim_player:
+		push_warning("CharacterModel: no AnimationPlayer — cannot create AnimationTree")
+		return null
+
+	var sm := AnimationNodeStateMachine.new()
+
+	# Add a node for each state
+	for state_name: String in states:
+		var clip_name: String = states[state_name]
+		var anim_node := AnimationNodeAnimation.new()
+		anim_node.animation = clip_name
+		sm.add_node(state_name, anim_node, Vector2(0, 0))
+
+	# Add transitions between all pairs for crossfade blending
+	var state_names: Array = states.keys()
+	for i in state_names.size():
+		for j in state_names.size():
+			if i == j:
+				continue
+			var t := AnimationNodeStateMachineTransition.new()
+			t.xfade_time = crossfade
+			t.switch_mode = AnimationNodeStateMachineTransition.SWITCH_MODE_IMMEDIATE
+			sm.add_transition(state_names[i], state_names[j], t)
+
+	anim_tree = AnimationTree.new()
+	anim_tree.tree_root = sm
+	add_child(anim_tree)
+	anim_tree.anim_player = anim_tree.get_path_to(_anim_player)
+	anim_tree.active = true
+
+	state_playback = anim_tree["parameters/playback"] as AnimationNodeStateMachinePlayback
+	return state_playback
+
+
+## Travel to a state in the AnimationTree state machine.
+## Falls back to play_anim() if no state machine is set up.
+func travel(state_name: String, speed: float = 1.0) -> void:
+	if _anim_player:
+		_anim_player.speed_scale = speed
+	if state_playback:
+		if state_playback.get_current_node() != state_name:
+			state_playback.travel(state_name)
+	else:
+		play_anim(state_name, speed)
+
+
+## Travel to a state scaled to fit a target duration.
+func travel_timed(state_name: String, target_duration: float) -> void:
+	if not _anim_player:
+		return
+	var anim_name: String = state_name
+	# Resolve clip name from state machine if available
+	if anim_tree and anim_tree.tree_root is AnimationNodeStateMachine:
+		var sm := anim_tree.tree_root as AnimationNodeStateMachine
+		if sm.has_node(state_name):
+			var node := sm.get_node(state_name)
+			if node is AnimationNodeAnimation:
+				anim_name = node.animation
+	if _anim_player.has_animation(anim_name):
+		var anim := _anim_player.get_animation(anim_name)
+		if anim and target_duration > 0.0:
+			var speed := anim.length / target_duration
+			travel(state_name, speed)
+			return
+	travel(state_name)
 
 
 ## Hide the entire model (for FPS — local player shouldn't see their own body).
@@ -233,80 +307,6 @@ func _clear_flash() -> void:
 			else:
 				mesh.set_surface_override_material(i, null)
 			mat_idx += 1
-
-
-## Extract the mixamo animation from an FBX and add it to our AnimationPlayer.
-func _import_anim_from_fbx(anim_name: String, fbx_path: String) -> void:
-	var fbx_scene := load(fbx_path) as PackedScene
-	if not fbx_scene:
-		push_warning("CharacterModel: could not load animation %s from %s" % [anim_name, fbx_path])
-		return
-
-	# Temporarily instance the FBX to grab its AnimationPlayer
-	var temp := fbx_scene.instantiate()
-	var temp_anim_player := _find_child_of_type(temp, "AnimationPlayer") as AnimationPlayer
-	if not temp_anim_player:
-		temp.queue_free()
-		return
-
-	# Find the actual animation (skip "Take 001" / "RESET")
-	var source_anim_name := ""
-	for name in temp_anim_player.get_animation_list():
-		if name != "Take 001" and name != "RESET":
-			source_anim_name = name
-			break
-	if source_anim_name == "":
-		# Fallback to first available
-		var list := temp_anim_player.get_animation_list()
-		if list.size() > 0:
-			source_anim_name = list[0]
-
-	if source_anim_name == "":
-		temp.queue_free()
-		return
-
-	var anim := temp_anim_player.get_animation(source_anim_name)
-	if not anim:
-		temp.queue_free()
-		return
-
-	# Duplicate to avoid ownership issues
-	var anim_copy := anim.duplicate()
-
-	# Strip root motion: zero out horizontal (X/Z) position on root/hips tracks
-	_strip_root_motion(anim_copy)
-
-	# Set loop mode
-	if anim_name in LOOPING_ANIMS:
-		anim_copy.loop_mode = Animation.LOOP_LINEAR
-	else:
-		anim_copy.loop_mode = Animation.LOOP_NONE
-
-	# Add to our AnimationPlayer under the logical name
-	if _anim_player.has_animation(anim_name):
-		_anim_player.get_animation_library("").remove_animation(anim_name)
-	_anim_player.get_animation_library("").add_animation(anim_name, anim_copy)
-	_loaded_anims.append(anim_name)
-
-	temp.queue_free()
-
-
-## Strip root motion from animation tracks.
-## Finds position tracks for root/hips bones and zeros keyframes.
-## If strip_y is true, also zeros Y (used for combat anims that move hips down).
-func _strip_root_motion(anim: Animation) -> void:
-	for track_idx in anim.get_track_count():
-		if anim.track_get_type(track_idx) != Animation.TYPE_POSITION_3D:
-			continue
-		var path := anim.track_get_path(track_idx)
-		var path_str := str(path).to_lower()
-		if "hips" not in path_str and "root" not in path_str:
-			continue
-		for key_idx in anim.track_get_key_count(track_idx):
-			var pos: Vector3 = anim.track_get_key_value(track_idx, key_idx)
-			pos.x = 0.0
-			pos.z = 0.0
-			anim.track_set_key_value(track_idx, key_idx, pos)
 
 
 ## Recursively find all MeshInstance3D nodes (handles subclasses too).
