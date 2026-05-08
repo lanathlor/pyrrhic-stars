@@ -98,40 +98,32 @@ func update_flash(_delta: float) -> void:
 func update_animation() -> void:
 	match ctrl.state:
 		ctrl.State.DASH:
-			ctrl._net_anim = "roll"
-			ctrl._net_anim_speed = 1.0
-			ctrl.character_model.play_anim_timed("roll", ctrl.dash_duration)
+			ctrl._visual_state = NetSerializer.VS_BD_DASH
+			ctrl.character_model.travel_timed("dash", ctrl.dash_duration)
 			return
 		ctrl.State.CASTING:
-			ctrl._net_anim = "slash"
-			ctrl._net_anim_speed = 1.0
+			ctrl._visual_state = NetSerializer.VS_BD_CASTING
 			var dur: float = ctrl._casting_spell.get("dur", 0.4)
-			ctrl.character_model.play_anim_timed("slash", dur)
+			ctrl.character_model.travel_timed("casting", dur)
 			return
 		ctrl.State.STAGGER:
-			ctrl._net_anim = "idle"
-			ctrl._net_anim_speed = 1.0
-			ctrl.character_model.play_anim("idle")
+			ctrl._visual_state = NetSerializer.VS_BD_STAGGER
+			ctrl.character_model.travel("stagger")
 			return
 		ctrl.State.DEAD:
-			ctrl._net_anim = "idle"
-			ctrl._net_anim_speed = 1.0
-			ctrl.character_model.play_anim("idle")
+			ctrl._visual_state = NetSerializer.VS_DEAD
+			ctrl.character_model.travel("dead")
 			return
 
 	if not ctrl.is_on_floor():
-		ctrl._net_anim = "jump"
-		ctrl._net_anim_speed = 2.0
-		ctrl.character_model.play_anim("jump", 2.0)
+		ctrl._visual_state = NetSerializer.VS_AIRBORNE
+		ctrl.character_model.travel("jump", 2.0)
 		return
 
+	ctrl._visual_state = NetSerializer.VS_MOVE
 	var flat_vel := Vector3(ctrl.velocity.x, 0.0, ctrl.velocity.z)
 	if flat_vel.length() > 0.5:
 		var speed_ratio: float = flat_vel.length() / ctrl.sprint_speed
-		ctrl._net_anim_speed = clampf(speed_ratio, 0.5, 1.5)
-		ctrl._net_anim = "run"
-		ctrl.character_model.play_anim("run", ctrl._net_anim_speed)
+		ctrl.character_model.travel("run", clampf(speed_ratio, 0.5, 1.5))
 	else:
-		ctrl._net_anim = "idle"
-		ctrl._net_anim_speed = 1.0
-		ctrl.character_model.play_anim("idle")
+		ctrl.character_model.travel("idle")

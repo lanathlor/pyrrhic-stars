@@ -87,8 +87,7 @@ var _rechamber_buff: bool = false
 var _rechamber_buff_timer: float = 0.0
 
 # Network sync
-var _net_anim: String = ""
-var _net_anim_speed: float = 1.0
+var _visual_state: int = 0
 var _net_position: Vector3 = Vector3.ZERO
 var _net_rotation_y: float = 0.0
 
@@ -112,6 +111,20 @@ func _ready() -> void:
 	GameManager.register_player(self)
 	_net_position = global_position
 	_net_rotation_y = rotation.y
+
+	# Set up animation state machine
+	(
+		character_model
+		. setup_state_machine(
+			{
+				"idle": "rifle_idle",
+				"run": "rifle_run",
+				"jump": "rifle_jump",
+				"roll": "roll",
+			}
+		)
+	)
+
 	if _is_local():
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		# FPS: hide own body so it doesn't clip into the camera
@@ -160,19 +173,17 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _physics_process(delta: float) -> void:
 	if not _is_local():
+		var prev_pos := global_position
 		global_position = global_position.move_toward(_net_position, 12.0 * delta)
 		rotation.y = lerp_angle(rotation.y, _net_rotation_y, 8.0 * delta)
-		if _net_anim != "":
-			character_model.play_anim(_net_anim, _net_anim_speed)
+		_drive_remote_animation(prev_pos, delta)
 		return
 
 	# Dead: freeze movement and abilities, but keep sending position
 	if not _alive:
 		velocity = Vector3.ZERO
 		if NetworkManager.is_active:
-			NetworkManager.send_player_position(
-				global_position, rotation.y, _net_anim, _net_anim_speed
-			)
+			NetworkManager.send_player_position(global_position, rotation.y, _visual_state)
 		return
 
 	_roll_cooldown_timer = maxf(_roll_cooldown_timer - delta, 0.0)
@@ -238,10 +249,10 @@ func _physics_process(delta: float) -> void:
 		)
 	)
 
-	# Send position + animation to server
+	# Send position + visual state to server
 	if NetworkManager.is_active:
 		NetworkManager.send_player_position(
-			global_position, rotation.y, _net_anim, _net_anim_speed, head.rotation.x
+			global_position, rotation.y, _visual_state, head.rotation.x
 		)
 
 
@@ -304,7 +315,7 @@ func on_damage_visual(_amount: float, _hit_pos: Vector3) -> void:
 ## Called by main.gd each tick with the authoritative world state for this player.
 func apply_server_state(data: Dictionary) -> void:
 	# data has: pos (Vector3), rot_y (float), health (float), state (int),
-	#           anim_name (String), anim_speed (float)
+	#           visual_state (int)
 	if _is_local():
 		health = data.health
 		# Sync buff states from server truth
@@ -326,8 +337,7 @@ func apply_server_state(data: Dictionary) -> void:
 		_net_position = data.pos
 		_net_rotation_y = data.rot_y
 		health = data.health
-		_net_anim = data.anim_name
-		_net_anim_speed = data.anim_speed
+		_visual_state = data.get("visual_state", 0)
 		_net_aim_pitch = data.get("aim_pitch", 0.0)
 		var new_state: int = data.get("state", 0)
 		if new_state == 2 and _net_state != 2:  # transition into attack
@@ -337,25 +347,37 @@ func apply_server_state(data: Dictionary) -> void:
 
 func _update_animation() -> void:
 	if _is_rolling:
-		_net_anim = "roll"
-		_net_anim_speed = 1.0
-		character_model.play_anim_timed("roll", roll_duration)
+		_visual_state = NetSerializer.VS_DODGE
+		character_model.travel_timed("roll", roll_duration)
 		return
 	if not is_on_floor():
-		_net_anim = "rifle_jump"
-		_net_anim_speed = 2.0
-		character_model.play_anim("rifle_jump", 2.0)
+		_visual_state = NetSerializer.VS_AIRBORNE
+		character_model.travel("jump", 2.0)
 		return
+	_visual_state = NetSerializer.VS_MOVE
 	var flat_vel := Vector3(velocity.x, 0.0, velocity.z)
 	if flat_vel.length() > 0.5:
 		var speed_ratio := flat_vel.length() / sprint_speed
-		_net_anim_speed = clampf(speed_ratio, 0.5, 1.5)
-		_net_anim = "rifle_run"
-		character_model.play_anim("rifle_run", _net_anim_speed)
+		character_model.travel("run", clampf(speed_ratio, 0.5, 1.5))
 	else:
-		_net_anim = "rifle_idle"
-		_net_anim_speed = 1.0
-		character_model.play_anim("rifle_idle")
+		character_model.travel("idle")
+
+
+func _drive_remote_animation(prev_pos: Vector3, delta: float) -> void:
+	match _visual_state:
+		NetSerializer.VS_DODGE:
+			character_model.travel("roll")
+		NetSerializer.VS_AIRBORNE:
+			character_model.travel("jump", 2.0)
+		NetSerializer.VS_DEAD:
+			character_model.travel("idle")
+		_:  # VS_MOVE or unknown — derive from velocity
+			var vel := (global_position - prev_pos) / delta if delta > 0 else Vector3.ZERO
+			var speed := Vector2(vel.x, vel.z).length()
+			if speed > 0.5:
+				character_model.travel("run", clampf(speed / sprint_speed, 0.5, 1.5))
+			else:
+				character_model.travel("idle")
 
 
 # --- Delegate wrappers for test/bot compatibility ---

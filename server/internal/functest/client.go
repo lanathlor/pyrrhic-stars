@@ -323,7 +323,7 @@ func decodeCharacterList(data []byte) CharacterList {
 // SendPlayerInput sends a movement packet.
 func (c *Client) SendPlayerInput(posX, posY, posZ, rotY float32, tick uint32) {
 	c.t.Helper()
-	buf := encodePlayerInput(posX, posY, posZ, rotY, tick, "idle", 1.0, 0)
+	buf := encodePlayerInput(posX, posY, posZ, rotY, tick, 0, 0)
 	c.send(message.Encode(message.OpPlayerInput, 0, buf))
 }
 
@@ -404,17 +404,17 @@ type WorldState struct {
 
 // PlayerState is a single player from a WorldState.
 type PlayerState struct {
-	PeerID    uint16
-	PosX      float32
-	PosY      float32
-	PosZ      float32
-	RotY      float32
-	Health    float32
-	State     uint8
-	ClassName string
-	Username  string
-	AnimName  string
-	Stamina   float32
+	PeerID      uint16
+	PosX        float32
+	PosY        float32
+	PosZ        float32
+	RotY        float32
+	Health      float32
+	State       uint8
+	ClassName   string
+	Username    string
+	VisualState uint8
+	Stamina     float32
 }
 
 // EnemyState is a single enemy from a WorldState.
@@ -510,13 +510,9 @@ func decodeWorldState(data []byte) (*WorldState, error) {
 		p.Username = string(data[off : off+nameLen])
 		off += nameLen
 
-		// anim name (str8)
-		animLen := int(data[off])
+		// visual_state (u8)
+		p.VisualState = data[off]
 		off++
-		p.AnimName = string(data[off : off+animLen])
-		off += animLen
-
-		off += 4 // anim speed
 		off += 4 // aim pitch
 		off++    // buff flags
 		off++    // config
@@ -708,17 +704,14 @@ func appendU32(buf []byte, v uint32) []byte {
 	return append(buf, b...)
 }
 
-func encodePlayerInput(posX, posY, posZ, rotY float32, tick uint32, animName string, animSpeed, aimPitch float32) []byte {
-	buf := make([]byte, 0, 30)
+func encodePlayerInput(posX, posY, posZ, rotY float32, tick uint32, visualState uint8, aimPitch float32) []byte {
+	buf := make([]byte, 0, 25)
 	buf = appendF32(buf, posX)
 	buf = appendF32(buf, posY)
 	buf = appendF32(buf, posZ)
 	buf = appendF32(buf, rotY)
 	buf = appendU32(buf, tick)
-	nameBytes := []byte(animName)
-	buf = append(buf, byte(len(nameBytes)))
-	buf = append(buf, nameBytes...)
-	buf = appendF32(buf, animSpeed)
+	buf = append(buf, visualState)
 	buf = appendF32(buf, aimPitch)
 	return buf
 }

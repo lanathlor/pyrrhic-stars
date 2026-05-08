@@ -246,7 +246,7 @@ func (pp *PlayerPuppet) emitPositionInput(ctx *PuppetContext) {
 		pos.X, pos.Y, pos.Z,
 		pp.Player.RotationY,
 		ctx.World.TickNum,
-		"run", 1.0, pp.Player.AimPitch,
+		0, pp.Player.AimPitch,
 	)
 	ctx.World.InputQueue = append(ctx.World.InputQueue, system.InputMsg{
 		PeerID:  pp.Player.ID,

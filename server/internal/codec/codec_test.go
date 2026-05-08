@@ -15,7 +15,7 @@ const testName = "Alice"
 // =============================================================================
 
 func TestPlayerInputRoundtrip(t *testing.T) {
-	buf := EncodePlayerInput(nil, 1.5, 2.0, -3.5, 0.7, 42, "run", 1.5, -0.3)
+	buf := EncodePlayerInput(nil, 1.5, 2.0, -3.5, 0.7, 42, 5, -0.3)
 	msg, ok := DecodePlayerInput(buf)
 	if !ok {
 		t.Fatal("DecodePlayerInput returned !ok")
@@ -35,11 +35,8 @@ func TestPlayerInputRoundtrip(t *testing.T) {
 	if msg.Tick != 42 {
 		t.Errorf("Tick = %d, want 42", msg.Tick)
 	}
-	if msg.AnimName != "run" {
-		t.Errorf("AnimName = %q, want %q", msg.AnimName, "run")
-	}
-	if msg.AnimSpeed != 1.5 {
-		t.Errorf("AnimSpeed = %f, want 1.5", msg.AnimSpeed)
+	if msg.VisualState != 5 {
+		t.Errorf("VisualState = %d, want 5", msg.VisualState)
 	}
 	if msg.AimPitch != -0.3 {
 		t.Errorf("AimPitch = %f, want -0.3", msg.AimPitch)
@@ -64,8 +61,8 @@ func TestPlayerInputMinimal(t *testing.T) {
 	if msg.Tick != 0 {
 		t.Errorf("Tick = %d, want 0", msg.Tick)
 	}
-	if msg.AnimName != "" {
-		t.Errorf("AnimName = %q, want empty", msg.AnimName)
+	if msg.VisualState != 0 {
+		t.Errorf("VisualState = %d, want 0", msg.VisualState)
 	}
 }
 
@@ -269,8 +266,6 @@ func TestEncodeWorldStateWireFormat(t *testing.T) {
 		State:        entity.PlayerStateAttack,
 		ClassID:      entity.ClassGunner,
 		Username:     testName,
-		AnimName:     "idle",
-		AnimSpeed:    1.0,
 		AimPitch:     -0.1,
 		Resources:    make(map[string]*entity.Resource),
 		AbilityState: make(map[string]any),
@@ -334,19 +329,11 @@ func TestEncodeWorldStateWireFormat(t *testing.T) {
 	if name != testName {
 		t.Errorf("name = %q, want %q", name, testName)
 	}
-	// anim
-	animLen := int(buf[off])
+	// visual_state
+	visualState := buf[off]
 	off++
-	anim := string(buf[off : off+animLen])
-	off += animLen
-	if anim != "idle" {
-		t.Errorf("anim = %q, want %q", anim, "idle")
-	}
-	// anim_speed
-	animSpeed := math.Float32frombits(binary.LittleEndian.Uint32(buf[off:]))
-	off += 4
-	if animSpeed != 1.0 {
-		t.Errorf("anim_speed = %f, want 1.0", animSpeed)
+	if visualState != 0 {
+		t.Errorf("visual_state = %d, want 0", visualState)
 	}
 	// aim_pitch
 	aimPitch := math.Float32frombits(binary.LittleEndian.Uint32(buf[off:]))

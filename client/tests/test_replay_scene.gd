@@ -132,8 +132,7 @@ func test_spawned_player_interpolates_position() -> void:
 		"state": 0,
 		"class_name": "gunner",
 		"username": "test",
-		"anim_name": "rifle_run",
-		"anim_speed": 1.0,
+		"visual_state": 0,
 		"aim_pitch": 0.0
 	}
 	var player: CharacterBody3D = _scene._spawned_players[1]

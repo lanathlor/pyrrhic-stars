@@ -66,6 +66,28 @@ const FLOW_BOSS_RESET := 10
 const ZONE_TYPE_HUB := 0
 const ZONE_TYPE_ARENA := 1
 
+# VisualState constants — passthrough byte sent by client, echoed by server.
+# Shared across classes:
+const VS_MOVE := 0
+const VS_DODGE := 1
+const VS_AIRBORNE := 2
+const VS_DEAD := 30
+# Vanguard-specific (10-19):
+const VS_VG_LIGHT_1 := 10
+const VS_VG_LIGHT_2 := 11
+const VS_VG_LIGHT_3 := 12
+const VS_VG_HEAVY_WINDUP := 13
+const VS_VG_HEAVY := 14
+const VS_VG_BLOCK := 15
+const VS_VG_STAGGER := 16
+const VS_VG_BLADE_SWIRL := 17
+const VS_VG_GROUND_SLAM_WINDUP := 18
+const VS_VG_GROUND_SLAM := 19
+# Blade Dancer-specific (20-29):
+const VS_BD_CASTING := 20
+const VS_BD_DASH := 21
+const VS_BD_STAGGER := 22
+
 const OP_JOIN_ZONE := 0xFF00
 const OP_ZONE_JOINED := 0xFF01
 const OP_PEER_CONNECTED := 0xFF02
@@ -329,15 +351,10 @@ func decode_peer_id(data: PackedByteArray) -> int:
 # =============================================================================
 
 
-## Client-authoritative movement: send position + current animation.
-## Format: [pos_x:f32][pos_y:f32][pos_z:f32][rot_y:f32][tick:u32][anim_len:u8][anim:...][anim_speed:f32]
+## Client-authoritative movement: send position + visual state.
+## Format: [pos_x:f32][pos_y:f32][pos_z:f32][rot_y:f32][tick:u32][visual_state:u8][aim_pitch:f32]
 func encode_player_input(
-	pos: Vector3,
-	rot_y: float,
-	tick: int,
-	anim_name: String = "",
-	anim_speed: float = 1.0,
-	aim_pitch: float = 0.0
+	pos: Vector3, rot_y: float, tick: int, visual_state: int = 0, aim_pitch: float = 0.0
 ) -> PackedByteArray:
 	var buf := StreamPeerBuffer.new()
 	buf.put_float(pos.x)
@@ -345,8 +362,7 @@ func encode_player_input(
 	buf.put_float(pos.z)
 	buf.put_float(rot_y)
 	buf.put_u32(tick)
-	_put_str8(buf, anim_name)
-	buf.put_float(anim_speed)
+	buf.put_u8(visual_state)
 	buf.put_float(aim_pitch)
 	return buf.data_array
 
@@ -403,7 +419,7 @@ func decode_interact_input(data: PackedByteArray) -> Dictionary:
 ## Format: [tick:u32][player_count:u8]
 ##   per player: [peer_id:u16][x:f32][y:f32][z:f32][rot_y:f32][health:f32]
 ##               [state:u8][class_len:u8][class:...][username_len:u8][username:...]
-##               [anim_name_len:u8][anim_name:...][anim_speed:f32][aim_pitch:f32]
+##               [visual_state:u8][aim_pitch:f32]
 ## Then: [enemy_count:u8]
 ##   per enemy: [alive:u8][enemy_id:u16][ex:f32][ey:f32][ez:f32][erot_y:f32]
 ##              [ehealth:f32][estate:u8][ephase:u8][emax_health:f32]
@@ -427,8 +443,7 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 		var state := buf.get_u8()
 		var class_name_str := _get_str8(buf)
 		var username := _get_str8(buf)
-		var anim_name := _get_str8(buf)
-		var anim_speed := buf.get_float()
+		var visual_state := buf.get_u8()
 		var aim_pitch := buf.get_float()
 		# Buff bitflags (1 byte) + config (1 byte) + stamina (4 bytes) — ability system
 		var buff_flags := buf.get_u8() if buf.get_position() < buf.get_size() else 0
@@ -446,8 +461,7 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 					"state": state,
 					"class_name": class_name_str,
 					"username": username,
-					"anim_name": anim_name,
-					"anim_speed": anim_speed,
+					"visual_state": visual_state,
 					"aim_pitch": aim_pitch,
 					"overclock_active": bool(buff_flags & 0x01),
 					"rechamber_buff": bool(buff_flags & 0x02),

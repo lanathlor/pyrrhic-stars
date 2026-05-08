@@ -141,8 +141,7 @@ var _gravity: float = 8.5
 var _alive: bool = true
 
 # Network sync
-var _net_anim: String = ""
-var _net_anim_speed: float = 1.0
+var _visual_state: int = 0
 var _net_position: Vector3 = Vector3.ZERO
 var _net_rotation_y: float = 0.0
 
@@ -162,6 +161,28 @@ func _ready() -> void:
 	_net_position = global_position
 	_net_rotation_y = rotation.y
 	camera.top_level = true
+
+	# Set up animation state machine
+	(
+		character_model
+		. setup_state_machine(
+			{
+				"idle": "sword_idle",
+				"run": "sword_run",
+				"jump": "sword_jump",
+				"dodge": "roll",
+				"light_1": "sword_slash_1",
+				"light_2": "sword_slash_2",
+				"light_3": "sword_slash_3",
+				"heavy": "sword_heavy",
+				"block": "sword_block",
+				"stagger": "sword_impact",
+				"blade_swirl": "sword_heavy",
+				"ground_slam": "sword_heavy",
+				"dead": "sword_idle",
+			}
+		)
+	)
 
 	if _is_local():
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
@@ -212,8 +233,7 @@ func apply_server_state(data: Dictionary) -> void:
 		_net_position = data.pos
 		_net_rotation_y = data.rot_y
 		health = data.health
-		_net_anim = data.anim_name
-		_net_anim_speed = data.anim_speed
+		_visual_state = data.get("visual_state", 0)
 
 
 ## Called by main.gd when server confirms this player hit an enemy.
@@ -242,11 +262,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _physics_process(delta: float) -> void:
 	if not _is_local():
-		var move_speed := 12.0
-		global_position = global_position.move_toward(_net_position, move_speed * delta)
+		var prev_pos := global_position
+		global_position = global_position.move_toward(_net_position, 12.0 * delta)
 		rotation.y = lerp_angle(rotation.y, _net_rotation_y, 8.0 * delta)
-		if _net_anim != "":
-			character_model.play_anim(_net_anim, _net_anim_speed)
+		_drive_remote_animation(prev_pos, delta)
 		return
 
 	if not is_on_floor():
@@ -358,9 +377,9 @@ func _physics_process(delta: float) -> void:
 		)
 	)
 
-	# Send position + animation to server
+	# Send position + visual state to server
 	if NetworkManager.is_active:
-		NetworkManager.send_player_position(global_position, rotation.y, _net_anim, _net_anim_speed)
+		NetworkManager.send_player_position(global_position, rotation.y, _visual_state)
 
 
 # --- Parry timer (shared between combat states) ---
@@ -376,6 +395,37 @@ func _update_parry(delta: float) -> void:
 
 func take_damage(_amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
 	pass  # Server handles all damage
+
+
+func _drive_remote_animation(prev_pos: Vector3, delta: float) -> void:
+	match _visual_state:
+		NetSerializer.VS_DODGE:
+			character_model.travel("dodge")
+		NetSerializer.VS_VG_LIGHT_1:
+			character_model.travel("light_1")
+		NetSerializer.VS_VG_LIGHT_2:
+			character_model.travel("light_2")
+		NetSerializer.VS_VG_LIGHT_3:
+			character_model.travel("light_3")
+		NetSerializer.VS_VG_HEAVY_WINDUP, NetSerializer.VS_VG_HEAVY:
+			character_model.travel("heavy")
+		NetSerializer.VS_VG_BLOCK:
+			character_model.travel("block")
+		NetSerializer.VS_VG_STAGGER:
+			character_model.travel("stagger")
+		NetSerializer.VS_VG_BLADE_SWIRL:
+			character_model.travel("blade_swirl", 2.0)
+		NetSerializer.VS_VG_GROUND_SLAM_WINDUP, NetSerializer.VS_VG_GROUND_SLAM:
+			character_model.travel("ground_slam")
+		NetSerializer.VS_DEAD:
+			character_model.travel("dead")
+		_:  # VS_MOVE or unknown — derive from velocity
+			var vel := (global_position - prev_pos) / delta if delta > 0 else Vector3.ZERO
+			var speed := Vector2(vel.x, vel.z).length()
+			if speed > 0.5:
+				character_model.travel("run", clampf(speed / sprint_speed, 0.5, 1.5))
+			else:
+				character_model.travel("idle")
 
 
 # --- State helpers ---

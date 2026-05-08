@@ -701,19 +701,13 @@ func extractPlayerState(msg []byte, wantPeer uint16) int {
 		nameLen := int(payload[off])
 		off++ // name_len
 		off += nameLen
-		// anim:str8
-		if off >= len(payload) {
-			return -1
-		}
-		animLen := int(payload[off])
-		off++          // anim_len
-		off += animLen // anim bytes
-		off += 4       // anim_speed
-		off += 4       // aim_pitch
-		off++          // flags
-		off++          // config
-		off += 4       // stamina
-		off += 4       // bdShieldHP
+		// visual_state: u8
+		off++    // visual_state
+		off += 4 // aim_pitch
+		off++    // flags
+		off++    // config
+		off += 4 // stamina
+		off += 4 // bdShieldHP
 		if peerID == wantPeer {
 			return state
 		}

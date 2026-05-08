@@ -36,8 +36,7 @@ func _make_state(hp: float, pos: Vector3) -> Dictionary:
 		"health": hp,
 		"pos": pos,
 		"rot_y": 0.0,
-		"anim_name": "",
-		"anim_speed": 1.0,
+		"visual_state": 0,
 	}
 
 

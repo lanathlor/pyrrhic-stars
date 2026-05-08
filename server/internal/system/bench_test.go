@@ -141,7 +141,7 @@ func BenchmarkInputSystemTick(b *testing.B) {
 		inputs[i-1] = InputMsg{
 			PeerID:  i,
 			Opcode:  0x0030,
-			Payload: codec.EncodePlayerInput(senderBuffer, float32(i)*2, 0.1, 5, 0, 100, "run", 1.0, 0),
+			Payload: codec.EncodePlayerInput(senderBuffer, float32(i)*2, 0.1, 5, 0, 100, 0, 0),
 		}
 	}
 	b.ReportAllocs()
@@ -154,7 +154,7 @@ func BenchmarkInputSystemTick(b *testing.B) {
 
 func BenchmarkHandlePlayerInput(b *testing.B) {
 	w := benchWorld()
-	payload := codec.EncodePlayerInput(nil, 3.0, 0.1, 6.0, 0.5, 101, "run", 1.0, 0.1)
+	payload := codec.EncodePlayerInput(nil, 3.0, 0.1, 6.0, 0.5, 101, 0, 0.1)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -210,7 +210,7 @@ func BenchmarkFullTickPipeline(b *testing.B) {
 		inputs[i-1] = InputMsg{
 			PeerID:  i,
 			Opcode:  0x0030,
-			Payload: codec.EncodePlayerInput(nil, float32(i)*2, 0.1, 5, 0, 100, "run", 1.0, 0),
+			Payload: codec.EncodePlayerInput(nil, float32(i)*2, 0.1, 5, 0, 100, 0, 0),
 		}
 	}
 
@@ -253,7 +253,7 @@ func BenchmarkAppendEncodeWorldState(b *testing.B) {
 }
 
 func BenchmarkDecodePlayerInput(b *testing.B) {
-	payload := codec.EncodePlayerInput(nil, 5.0, 0.1, 10.0, 1.5, 500, "run", 1.0, 0.2)
+	payload := codec.EncodePlayerInput(nil, 5.0, 0.1, 10.0, 1.5, 500, 0, 0.2)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -461,7 +461,7 @@ func buildInputs(instanceID uint16) []InputMsg {
 		inputs[i] = InputMsg{
 			PeerID:  peerID,
 			Opcode:  0x0030,
-			Payload: codec.EncodePlayerInput(nil, float32(i)*2, 0.1, 5, 0, 100, "run", 1.0, 0),
+			Payload: codec.EncodePlayerInput(nil, float32(i)*2, 0.1, 5, 0, 100, 0, 0),
 		}
 	}
 	return inputs
@@ -911,7 +911,7 @@ func BenchmarkFullTickWithPatterns(b *testing.B) {
 		inputs[i-1] = InputMsg{
 			PeerID:  i,
 			Opcode:  0x0030,
-			Payload: codec.EncodePlayerInput(nil, float32(i)*2, 0.1, 5, 0, 100, "run", 1.0, 0),
+			Payload: codec.EncodePlayerInput(nil, float32(i)*2, 0.1, 5, 0, 100, 0, 0),
 		}
 	}
 

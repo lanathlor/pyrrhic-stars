@@ -48,8 +48,7 @@ func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.
 		buf = append(buf, byte(p.State))
 		buf = appendStr8(buf, p.ClassName())
 		buf = appendStr8(buf, p.Username)
-		buf = appendStr8(buf, p.AnimName)
-		buf = appendF32(buf, p.AnimSpeed)
+		buf = append(buf, p.VisualState)
 		buf = appendF32(buf, p.AimPitch)
 		var flags uint8
 		if p.HasBuff("overclock") {
@@ -180,14 +179,13 @@ func EncodeGameFlow(flowType uint8, text string) []byte {
 
 // EncodePlayerInput serializes a client→server movement packet.
 // Used by test clients to build OpPlayerInput payloads.
-func EncodePlayerInput(senderBuffer []byte, posX, posY, posZ, rotY float32, tick uint32, animName string, animSpeed, aimPitch float32) []byte {
+func EncodePlayerInput(senderBuffer []byte, posX, posY, posZ, rotY float32, tick uint32, visualState uint8, aimPitch float32) []byte {
 	senderBuffer = appendF32(senderBuffer, posX)
 	senderBuffer = appendF32(senderBuffer, posY)
 	senderBuffer = appendF32(senderBuffer, posZ)
 	senderBuffer = appendF32(senderBuffer, rotY)
 	senderBuffer = appendU32(senderBuffer, tick)
-	senderBuffer = appendStr8(senderBuffer, animName)
-	senderBuffer = appendF32(senderBuffer, animSpeed)
+	senderBuffer = append(senderBuffer, visualState)
 	senderBuffer = appendF32(senderBuffer, aimPitch)
 	return senderBuffer
 }

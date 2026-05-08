@@ -93,8 +93,7 @@ func handlePlayerInput(w *World, peerID uint16, payload []byte) {
 	w.Level.ClampPlayer(&p.Position)
 	p.RotationY = inp.RotY
 	p.LastInput = entity.PlayerInput{PosX: inp.PosX, PosY: inp.PosY, PosZ: inp.PosZ, RotY: inp.RotY, Tick: inp.Tick}
-	p.AnimName = inp.AnimName
-	p.AnimSpeed = inp.AnimSpeed
+	p.VisualState = inp.VisualState
 	p.AimPitch = inp.AimPitch
 }
 
@@ -238,8 +237,7 @@ func handleInteractInput(w *World, peerID uint16, payload []byte) {
 			np.Username = p.Username
 			np.Position = p.Position
 			np.RotationY = p.RotationY
-			np.AnimName = p.AnimName
-			np.AnimSpeed = p.AnimSpeed
+			np.VisualState = p.VisualState
 			np.SpawnTick = p.SpawnTick
 			*p = *np
 		}

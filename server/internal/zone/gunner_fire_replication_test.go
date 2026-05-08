@@ -15,10 +15,9 @@ import (
 // decode exactly what the observer receives, then replay the client-side
 // transition detection logic to prove whether a tracer would be spawned.
 //
-// Root cause found: the server never sets a fire animation (AnimName) when a
-// gunner fires -- but more critically for the tracer issue, the state
-// transition that drives remote tracer spawning depends on the exact tick
-// order and the observer client correctly detecting Move->Attack.
+// The state transition that drives remote tracer spawning depends on the exact
+// tick order and the observer client correctly detecting Move->Attack.
+// Animation is now handled via VisualState (uint8 passthrough).
 // =============================================================================
 
 // mockSendCollector records all messages sent to a client.
@@ -50,8 +49,7 @@ func setupTwoPlayerFight(t *testing.T) (*Zone, uint16, uint16, *mockSendCollecto
 	shooter.Position = entity.Vec3{X: 0, Y: 0, Z: 10}
 	shooter.RotationY = 0
 	shooter.AimPitch = -0.06
-	shooter.AnimName = "rifle_idle"
-	shooter.AnimSpeed = 1.0
+	shooter.VisualState = 0
 
 	// Observer (receives broadcasts -- simulates the remote client)
 	var observerID uint16 = 2
@@ -68,12 +66,12 @@ func setupTwoPlayerFight(t *testing.T) (*Zone, uint16, uint16, *mockSendCollecto
 	return z, shooterID, observerID, col
 }
 
-// decodeShooterState extracts the shooter's (peerID=1) state and anim from
+// decodeShooterState extracts the shooter's (peerID=1) state and visualState from
 // a WorldState payload, using the exact same field order as the GDScript client.
-// Returns (state, animName, aimPitch, found).
-func decodeShooterState(payload []byte, targetPeerID uint16) (state uint8, animName string, aimPitch float32, found bool) {
+// Returns (state, visualState, aimPitch, found).
+func decodeShooterState(payload []byte, targetPeerID uint16) (state uint8, visualState uint8, aimPitch float32, found bool) {
 	if len(payload) < 5 {
-		return 0, "", 0, false
+		return 0, 0, 0, false
 	}
 	off := 4 // tick (u32 LE)
 	playerCount := int(payload[off])
@@ -109,16 +107,12 @@ func decodeShooterState(payload []byte, targetPeerID uint16) (state uint8, animN
 		}
 		nameLen := int(payload[off])
 		off += 1 + nameLen
-		// anim_name: str8
+		// visual_state: u8
 		if off >= len(payload) {
 			return
 		}
-		animLen := int(payload[off])
+		vs := payload[off]
 		off++
-		anim := string(payload[off : off+animLen])
-		off += animLen
-		// anim_speed: f32
-		off += 4
 		// aim_pitch: f32
 		if off+4 > len(payload) {
 			return
@@ -129,10 +123,10 @@ func decodeShooterState(payload []byte, targetPeerID uint16) (state uint8, animN
 		off += 1 + 1 + 4 + 4
 
 		if peerID == targetPeerID {
-			return st, anim, ap, true
+			return st, vs, ap, true
 		}
 	}
-	return 0, "", 0, false
+	return 0, 0, 0, false
 }
 
 // =============================================================================
@@ -180,13 +174,13 @@ func TestGunnerFire_RemoteClientTracerDetection(t *testing.T) {
 		if err != nil || opcode != message.OpWorldState {
 			continue
 		}
-		st, animName, _, ok := decodeShooterState(payload, shooterID)
+		st, _, _, ok := decodeShooterState(payload, shooterID)
 		if !ok {
 			t.Fatal("shooter not found in WorldState sent to observer")
 		}
 
-		t.Logf("observer sees: state=%d (Attack=%d), animName=%q, clientNetState=%d",
-			st, entity.PlayerStateAttack, animName, clientNetState)
+		t.Logf("observer sees: state=%d (Attack=%d), clientNetState=%d",
+			st, entity.PlayerStateAttack, clientNetState)
 
 		// Simulate client transition detection (same logic as gunner.gd:431)
 		if st == byte(entity.PlayerStateAttack) && clientNetState != byte(entity.PlayerStateAttack) {
@@ -206,11 +200,10 @@ func TestGunnerFire_RemoteClientTracerDetection(t *testing.T) {
 }
 
 // =============================================================================
-// BUG: AnimName is not updated when gunner fires -- the broadcast carries
-// the pre-fire animation ("rifle_idle"), so remote clients see no fire anim.
+// VisualState is a pure passthrough -- server stores whatever the client sent.
 // =============================================================================
 
-func TestGunnerFire_AnimNameUnchanged(t *testing.T) {
+func TestGunnerFire_VisualStatePassthrough(t *testing.T) {
 	z, shooterID, _, observerCol := setupTwoPlayerFight(t)
 
 	// Fire
@@ -223,7 +216,7 @@ func TestGunnerFire_AnimNameUnchanged(t *testing.T) {
 		if err != nil || opcode != message.OpWorldState {
 			continue
 		}
-		st, animName, _, ok := decodeShooterState(payload, shooterID)
+		st, visualState, _, ok := decodeShooterState(payload, shooterID)
 		if !ok {
 			t.Fatal("shooter not found in observer's WorldState")
 		}
@@ -232,14 +225,10 @@ func TestGunnerFire_AnimNameUnchanged(t *testing.T) {
 			t.Errorf("state=%d, want %d (Attack)", st, entity.PlayerStateAttack)
 		}
 
-		// Known limitation: AnimName stays at whatever the client last sent
-		// ("rifle_idle") because the server doesn't set a fire animation.
-		// Remote clients use the State transition (Move→Attack) to spawn
-		// tracers, so this doesn't affect gameplay. Setting AnimName here
-		// would be overwritten by the next PlayerInput in the same tick anyway.
-		if animName != "rifle_idle" {
-			t.Errorf("expected AnimName=%q during fire (server echoes client anim), got %q",
-				"rifle_idle", animName)
+		// VisualState is a pure passthrough -- server never sets it, so it
+		// stays at whatever the client last sent (0 in this test).
+		if visualState != 0 {
+			t.Errorf("expected VisualState=0 (passthrough default), got %d", visualState)
 		}
 		return
 	}
@@ -404,8 +393,6 @@ func TestGunnerFire_WorksInAllZoneStates(t *testing.T) {
 			p := z.world.Players[peerID]
 			p.ClassID = entity.ClassGunner
 			p.Position = entity.Vec3{X: 0, Y: 0, Z: 10}
-			p.AnimName = "rifle_idle"
-			p.AnimSpeed = 1.0
 
 			z.QueueInput(peerID, message.OpAbilityInput, buildShootPayload(-0.1))
 			z.processTick()

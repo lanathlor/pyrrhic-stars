@@ -33,83 +33,67 @@ func update_weapon_visual() -> void:
 func update_animation() -> void:
 	match ctrl.state:
 		ctrl.State.DODGE:
-			ctrl._net_anim = "roll"
-			ctrl._net_anim_speed = 1.0
-			ctrl.character_model.play_anim_timed("roll", ctrl.dodge_duration)
+			ctrl._visual_state = NetSerializer.VS_DODGE
+			ctrl.character_model.travel_timed("dodge", ctrl.dodge_duration)
 			return
 		ctrl.State.LIGHT_1:
-			ctrl._net_anim = "sword_slash_1"
-			ctrl._net_anim_speed = 1.0
-			ctrl.character_model.play_anim_timed("sword_slash_1", ctrl.light_duration_1)
+			ctrl._visual_state = NetSerializer.VS_VG_LIGHT_1
+			ctrl.character_model.travel_timed("light_1", ctrl.light_duration_1)
 			return
 		ctrl.State.LIGHT_2:
-			ctrl._net_anim = "sword_slash_2"
-			ctrl._net_anim_speed = 1.0
-			ctrl.character_model.play_anim_timed("sword_slash_2", ctrl.light_duration_2)
+			ctrl._visual_state = NetSerializer.VS_VG_LIGHT_2
+			ctrl.character_model.travel_timed("light_2", ctrl.light_duration_2)
 			return
 		ctrl.State.LIGHT_3:
-			ctrl._net_anim = "sword_slash_3"
-			ctrl._net_anim_speed = 1.0
-			ctrl.character_model.play_anim_timed("sword_slash_3", ctrl.light_duration_3)
+			ctrl._visual_state = NetSerializer.VS_VG_LIGHT_3
+			ctrl.character_model.travel_timed("light_3", ctrl.light_duration_3)
 			return
 		ctrl.State.HEAVY_WINDUP:
-			ctrl._net_anim = "sword_heavy"
-			ctrl._net_anim_speed = 1.0
-			ctrl.character_model.play_anim_timed(
-				"sword_heavy", ctrl.heavy_windup_time + ctrl.heavy_attack_duration
+			ctrl._visual_state = NetSerializer.VS_VG_HEAVY_WINDUP
+			ctrl.character_model.travel_timed(
+				"heavy", ctrl.heavy_windup_time + ctrl.heavy_attack_duration
 			)
 			return
 		ctrl.State.HEAVY:
-			ctrl._net_anim = "sword_heavy"
-			ctrl._net_anim_speed = 3.0
+			ctrl._visual_state = NetSerializer.VS_VG_HEAVY
 			ctrl.character_model.set_animation_speed(3.0)
 			return
 		ctrl.State.BLOCK:
-			ctrl._net_anim = "sword_block"
-			ctrl._net_anim_speed = 1.0
-			ctrl.character_model.play_anim("sword_block")
+			ctrl._visual_state = NetSerializer.VS_VG_BLOCK
+			ctrl.character_model.travel("block")
 			return
 		ctrl.State.STAGGER:
-			ctrl._net_anim = "sword_impact"
-			ctrl._net_anim_speed = 1.0
-			ctrl.character_model.play_anim("sword_impact")
+			ctrl._visual_state = NetSerializer.VS_VG_STAGGER
+			ctrl.character_model.travel("stagger")
 			return
 		ctrl.State.BLADE_SWIRL:
-			ctrl._net_anim = "sword_heavy"
-			ctrl._net_anim_speed = 2.0
-			ctrl.character_model.play_anim("sword_heavy", 2.0)
+			ctrl._visual_state = NetSerializer.VS_VG_BLADE_SWIRL
+			ctrl.character_model.travel("blade_swirl", 2.0)
 			return
 		ctrl.State.GROUND_SLAM_WINDUP:
-			ctrl._net_anim = "sword_heavy"
-			ctrl._net_anim_speed = 0.5
-			ctrl.character_model.play_anim_timed(
-				"sword_heavy", ctrl.GROUND_SLAM_WINDUP_TIME + ctrl.GROUND_SLAM_HIT_TIME
+			ctrl._visual_state = NetSerializer.VS_VG_GROUND_SLAM_WINDUP
+			ctrl.character_model.travel_timed(
+				"ground_slam", ctrl.GROUND_SLAM_WINDUP_TIME + ctrl.GROUND_SLAM_HIT_TIME
 			)
 			return
 		ctrl.State.GROUND_SLAM:
-			ctrl._net_anim = "sword_heavy"
-			ctrl._net_anim_speed = 3.0
+			ctrl._visual_state = NetSerializer.VS_VG_GROUND_SLAM
 			ctrl.character_model.set_animation_speed(3.0)
 			return
 		ctrl.State.DEAD:
-			ctrl._net_anim = "sword_idle"
-			ctrl._net_anim_speed = 1.0
-			ctrl.character_model.play_anim("sword_idle")
+			ctrl._visual_state = NetSerializer.VS_DEAD
+			ctrl.character_model.travel("dead")
 			return
 
 	if not ctrl.is_on_floor():
-		ctrl._net_anim = "sword_jump"
-		ctrl._net_anim_speed = 2.0
-		ctrl.character_model.play_anim("sword_jump", 2.0)
+		ctrl._visual_state = NetSerializer.VS_AIRBORNE
+		ctrl.character_model.travel("jump", 2.0)
 		return
 
+	ctrl._visual_state = NetSerializer.VS_MOVE
 	var flat_vel := Vector3(ctrl.velocity.x, 0.0, ctrl.velocity.z)
 	if flat_vel.length() > 0.5:
 		var speed_ratio: float = flat_vel.length() / ctrl.sprint_speed
-		ctrl._net_anim_speed = clampf(speed_ratio, 0.5, 1.5)
-		ctrl._net_anim = "sword_run"
-		ctrl.character_model.play_anim("sword_run", ctrl._net_anim_speed)
+		ctrl.character_model.travel("run", clampf(speed_ratio, 0.5, 1.5))
 	else:
-		ctrl._net_anim = "sword_idle"
-		ctrl._net_anim_speed = 1.0
-		ctrl.character_model.play_anim("sword_idle")
+		ctrl.character_model.travel("idle")

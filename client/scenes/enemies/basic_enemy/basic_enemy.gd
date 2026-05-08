@@ -97,25 +97,21 @@ func _ready() -> void:
 	_create_charge_telegraph()
 	_attach_weapons.call_deferred()
 
-	# Debug: log loaded animations
-	call_deferred("_log_loaded_anims")
-
-
-func _log_loaded_anims() -> void:
-	var loaded: PackedStringArray = character_model._loaded_anims
-	print("[Boss] Loaded animations: ", loaded)
-	for needed in [
-		"idle",
-		"run",
-		"slash",
-		"rifle_idle",
-		"rifle_shoot",
-		"rifle_aim_idle",
-		"rifle_aim_run",
-		"rifle_aim_walk"
-	]:
-		if needed not in loaded:
-			print("[Boss] WARNING: animation '%s' not loaded — will use fallback" % needed)
+	# Set up animation state machine for enemy
+	(
+		character_model
+		. setup_state_machine(
+			{
+				"sword_idle": "sword_idle",
+				"sword_run": "sword_run",
+				"gun_idle": "rifle_aim_idle",
+				"gun_run": "rifle_aim_run",
+				"melee_windup": "sword_heavy",
+				"melee_attack": "sword_slash_1",
+				"gun_shoot": "rifle_shoot",
+			}
+		)
+	)
 
 
 func _exit_tree() -> void:
@@ -238,56 +234,44 @@ func on_damage_visual(_amount: float, _hit_pos: Vector3) -> void:
 # =============================================================================
 
 
-func _play_anim_with_fallback(primary: String, fallback: String, speed: float = 1.0) -> void:
-	if primary in character_model._loaded_anims:
-		character_model.play_anim(primary, speed)
-	else:
-		character_model.play_anim(fallback, speed)
-
-
 func _update_boss_animation() -> void:
 	match state:
 		State.PATROL:
-			# Patrolling trash mobs walk at half speed — use weapon-appropriate anim
 			if _last_weapon == "gun":
-				_play_anim_with_fallback("rifle_aim_run", "run", 0.5)
+				character_model.travel("gun_run", 0.5)
 			else:
-				_play_anim_with_fallback("sword_run", "run", 0.5)
+				character_model.travel("sword_run", 0.5)
 		State.CHASE:
 			var flat_speed := Vector2(_visual_velocity.x, _visual_velocity.z).length()
 			if _last_weapon == "gun":
 				if flat_speed > 0.5:
-					_play_anim_with_fallback("rifle_aim_run", "rifle_run")
+					character_model.travel("gun_run")
 				else:
-					_play_anim_with_fallback("rifle_aim_idle", "rifle_idle")
+					character_model.travel("gun_idle")
 			else:
 				if flat_speed > 0.5:
-					_play_anim_with_fallback("sword_run", "run")
+					character_model.travel("sword_run")
 				else:
-					_play_anim_with_fallback("sword_idle", "idle")
+					character_model.travel("sword_idle")
 		State.MELEE_TELEGRAPH:
-			# Slow wind-up pose
-			_play_anim_with_fallback("sword_heavy", "slash", 0.3)
+			character_model.travel("melee_windup", 0.3)
 		State.MELEE_ATTACK:
-			# Fast slash on release — different animation
-			_play_anim_with_fallback("sword_slash_1", "slash")
+			character_model.travel("melee_attack")
 		State.RANGED_TELEGRAPH:
-			_play_anim_with_fallback("rifle_aim_idle", "rifle_idle")
+			character_model.travel("gun_idle")
 		State.RANGED_ATTACK:
-			_play_anim_with_fallback("rifle_shoot", "rifle_idle")
-		State.AOE_TELEGRAPH:
-			_play_anim_with_fallback("sword_idle", "idle")
-		State.AOE_SLAM:
-			_play_anim_with_fallback("sword_idle", "idle")
+			character_model.travel("gun_shoot")
+		State.AOE_TELEGRAPH, State.AOE_SLAM:
+			character_model.travel("sword_idle")
 		State.CHARGE_TELEGRAPH:
-			_play_anim_with_fallback("sword_idle", "idle")
+			character_model.travel("sword_idle")
 		State.CHARGE:
-			_play_anim_with_fallback("sword_run", "run", 1.5)
+			character_model.travel("sword_run", 1.5)
 		State.COOLDOWN, State.PHASE_TRANSITION, State.DEAD:
 			if _last_weapon == "gun":
-				_play_anim_with_fallback("rifle_aim_idle", "rifle_idle")
+				character_model.travel("gun_idle")
 			else:
-				_play_anim_with_fallback("sword_idle", "idle")
+				character_model.travel("sword_idle")
 
 
 # =============================================================================

@@ -176,8 +176,7 @@ func test_remote_attack_state_spawns_tracer() -> void:
 				"rot_y": 0.0,
 				"health": 100.0,
 				"state": 2,  # PlayerStateAttack
-				"anim_name": "rifle_idle",
-				"anim_speed": 1.0,
+				"visual_state": 0,
 				"aim_pitch": 0.0,
 			}
 		)
@@ -196,8 +195,7 @@ func test_remote_attack_state_no_retrigger_same_state() -> void:
 				"rot_y": 0.0,
 				"health": 100.0,
 				"state": 2,
-				"anim_name": "",
-				"anim_speed": 1.0,
+				"visual_state": 0,
 				"aim_pitch": 0.0,
 			}
 		)
@@ -213,8 +211,7 @@ func test_remote_attack_state_no_retrigger_same_state() -> void:
 				"rot_y": 0.0,
 				"health": 100.0,
 				"state": 2,
-				"anim_name": "",
-				"anim_speed": 1.0,
+				"visual_state": 0,
 				"aim_pitch": 0.0,
 			}
 		)
@@ -233,8 +230,7 @@ func test_remote_tracer_fires_again_after_state_reset() -> void:
 				"rot_y": 0.0,
 				"health": 100.0,
 				"state": 2,
-				"anim_name": "",
-				"anim_speed": 1.0,
+				"visual_state": 0,
 				"aim_pitch": 0.0,
 			}
 		)
@@ -249,8 +245,7 @@ func test_remote_tracer_fires_again_after_state_reset() -> void:
 				"rot_y": 0.0,
 				"health": 100.0,
 				"state": 0,
-				"anim_name": "",
-				"anim_speed": 1.0,
+				"visual_state": 0,
 				"aim_pitch": 0.0,
 			}
 		)
@@ -266,8 +261,7 @@ func test_remote_tracer_fires_again_after_state_reset() -> void:
 				"rot_y": 0.0,
 				"health": 100.0,
 				"state": 2,
-				"anim_name": "",
-				"anim_speed": 1.0,
+				"visual_state": 0,
 				"aim_pitch": 0.0,
 			}
 		)

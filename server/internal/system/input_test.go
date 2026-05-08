@@ -238,7 +238,7 @@ func TestHandlePlayerInput_AcceptsNearbyPosition(t *testing.T) {
 	}
 
 	// Move 2 units in Z (well within 10-unit teleport threshold)
-	payload := codec.EncodePlayerInput(nil, 0, 0.1, 46, 1.5, 100, "run", 1.0, 0.1)
+	payload := codec.EncodePlayerInput(nil, 0, 0.1, 46, 1.5, 100, 3, 0.1)
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
 
 	is := &InputSystem{}
@@ -250,8 +250,8 @@ func TestHandlePlayerInput_AcceptsNearbyPosition(t *testing.T) {
 	if p.RotationY != 1.5 {
 		t.Errorf("rotation = %f, want 1.5", p.RotationY)
 	}
-	if p.AnimName != "run" {
-		t.Errorf("anim = %q, want 'run'", p.AnimName)
+	if p.VisualState != 3 {
+		t.Errorf("visual_state = %d, want 3", p.VisualState)
 	}
 }
 
@@ -270,7 +270,7 @@ func TestHandlePlayerInput_RejectsTeleport(t *testing.T) {
 	}
 
 	// Teleport 15 units away (> 10 unit threshold, dist^2 = 225 > 100)
-	payload := codec.EncodePlayerInput(nil, 15, 0.1, 48, 0, 100, "run", 1.0, 0)
+	payload := codec.EncodePlayerInput(nil, 15, 0.1, 48, 0, 100, 0, 0)
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
 
 	is := &InputSystem{}
@@ -296,7 +296,7 @@ func TestHandlePlayerInput_SpawnGraceRejectsPosition(t *testing.T) {
 		Level:    lvl,
 	}
 
-	payload := codec.EncodePlayerInput(nil, 1, 0.1, 47, 0, 100, "run", 1.0, 0)
+	payload := codec.EncodePlayerInput(nil, 1, 0.1, 47, 0, 100, 0, 0)
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
 
 	is := &InputSystem{}
@@ -322,7 +322,7 @@ func TestHandlePlayerInput_AfterSpawnGraceAccepts(t *testing.T) {
 		Level:    lvl,
 	}
 
-	payload := codec.EncodePlayerInput(nil, 1, 0.1, 47, 0, 100, "run", 1.0, 0)
+	payload := codec.EncodePlayerInput(nil, 1, 0.1, 47, 0, 100, 0, 0)
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
 
 	is := &InputSystem{}
@@ -348,7 +348,7 @@ func TestHandlePlayerInput_YBoundsRejection(t *testing.T) {
 	}
 
 	// Try to go above Y bounds (arena max Y is 6.0)
-	payload := codec.EncodePlayerInput(nil, 0, 100.0, 48, 0, 100, "run", 1.0, 0)
+	payload := codec.EncodePlayerInput(nil, 0, 100.0, 48, 0, 100, 0, 0)
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
 
 	is := &InputSystem{}
@@ -375,7 +375,7 @@ func TestHandlePlayerInput_YBelowBoundsRejection(t *testing.T) {
 	}
 
 	// Try to go below Y bounds (arena min Y is -1.0)
-	payload := codec.EncodePlayerInput(nil, 0, -50.0, 48, 0, 100, "run", 1.0, 0)
+	payload := codec.EncodePlayerInput(nil, 0, -50.0, 48, 0, 100, 0, 0)
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
 
 	is := &InputSystem{}
@@ -395,7 +395,7 @@ func TestHandlePlayerInput_UnknownPeerIgnored(_ *testing.T) {
 		Level:    lvl,
 	}
 
-	payload := codec.EncodePlayerInput(nil, 0, 0.1, 48, 0, 100, "run", 1.0, 0)
+	payload := codec.EncodePlayerInput(nil, 0, 0.1, 48, 0, 100, 0, 0)
 	w.InputQueue = []InputMsg{{PeerID: 99, Opcode: message.OpPlayerInput, Payload: payload}}
 
 	is := &InputSystem{}
@@ -442,7 +442,7 @@ func TestHandlePlayerInput_ClampsToLevelBounds(t *testing.T) {
 	}
 
 	// Try to move slightly beyond X boundary (arena max X is 19.5)
-	payload := codec.EncodePlayerInput(nil, 25, 0.1, 48, 0, 100, "run", 1.0, 0)
+	payload := codec.EncodePlayerInput(nil, 25, 0.1, 48, 0, 100, 0, 0)
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
 
 	is := &InputSystem{}

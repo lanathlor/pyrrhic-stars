@@ -15,16 +15,8 @@ func DecodePlayerInput(payload []byte) (msg PlayerInputMsg, ok bool) {
 	}
 	off := 20
 	if off < len(payload) {
-		animLen := int(payload[off])
+		msg.VisualState = payload[off]
 		off++
-		if off+animLen <= len(payload) {
-			msg.AnimName = unsafeString(payload[off : off+animLen])
-			off += animLen
-		}
-		if off+4 <= len(payload) {
-			msg.AnimSpeed = getF32(payload[off : off+4])
-			off += 4
-		}
 		if off+4 <= len(payload) {
 			msg.AimPitch = getF32(payload[off : off+4])
 		}

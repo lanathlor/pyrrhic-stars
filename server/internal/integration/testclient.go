@@ -254,7 +254,7 @@ var senderBuffer = make([]byte, 0, 1024)
 
 func (tc *TestClient) SendPlayerInput(posX, posY, posZ, rotY float32, tick uint32, aimPitch float32) {
 	tc.t.Helper()
-	buf := codec.EncodePlayerInput(senderBuffer, posX, posY, posZ, rotY, tick, "idle", 1.0, aimPitch)
+	buf := codec.EncodePlayerInput(senderBuffer, posX, posY, posZ, rotY, tick, 0, aimPitch)
 	tc.send(message.Encode(message.OpPlayerInput, 0, buf))
 	clear(senderBuffer)
 }
@@ -344,14 +344,8 @@ func parsePlayerStateFromWorldState(payload []byte, wantPeer uint16) int {
 		nameLen := int(payload[off])
 		off++ // name_len
 		off += nameLen
-		// anim:str8
-		if off >= len(payload) {
-			return -1
-		}
-		animLen := int(payload[off])
-		off++ // anim_len
-		off += animLen
-		off += 4 // anim_speed
+		// visual_state: u8
+		off++    // visual_state
 		off += 4 // aim_pitch
 		if peerID == wantPeer {
 			return state

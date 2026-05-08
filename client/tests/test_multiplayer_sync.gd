@@ -55,28 +55,37 @@ func _test_player_net_vars() -> void:
 
 	verify("Has _net_position", "_net_position" in gunner)
 	verify("Has _net_rotation_y", "_net_rotation_y" in gunner)
-	verify("Has _net_anim", "_net_anim" in gunner)
-	verify("Has _net_sync method", gunner.has_method("_net_sync"))
-	verify("Has _sync_state_to_peers method", gunner.has_method("_sync_state_to_peers"))
+	verify("Has _visual_state", "_visual_state" in gunner)
 
 	gunner.queue_free()
 
 
 func _test_net_sync_rpc() -> void:
-	print("[3] _net_sync direct call simulating RPC receive...")
+	print("[3] Remote state application via apply_server_state...")
 	var scene := load(GUNNER_SCENE) as PackedScene
 	if not scene:
 		return
 
 	var gunner := scene.instantiate()
 	gunner.name = "TestGunner2"
+	gunner.peer_id = 99  # Make it a remote player
 	root.add_child(gunner)
 
-	gunner._net_sync.call(Vector3(5.0, 1.0, 10.0), 1.57, "rifle_run", 1.5, 120.0)
+	(
+		gunner
+		. apply_server_state(
+			{
+				"pos": Vector3(5.0, 1.0, 10.0),
+				"rot_y": 1.57,
+				"health": 120.0,
+				"visual_state": NetSerializer.VS_MOVE,
+				"state": 0,
+			}
+		)
+	)
 	verify("Position synced", gunner._net_position == Vector3(5.0, 1.0, 10.0))
 	verify("Rotation synced", is_equal_approx(gunner._net_rotation_y, 1.57))
-	verify("Anim synced", gunner._net_anim == "rifle_run")
-	verify("Anim speed synced", is_equal_approx(gunner._net_anim_speed, 1.5))
+	verify("VisualState synced", gunner._visual_state == NetSerializer.VS_MOVE)
 	verify("Health synced", is_equal_approx(gunner.health, 120.0))
 
 	gunner.queue_free()
@@ -107,8 +116,19 @@ func _test_two_peer_sync() -> void:
 	root.add_child(client_gunner)
 	verify("Client gunner is NOT local on host", client_gunner._is_local() == false)
 
-	# Simulate receiving sync from peer 2
-	client_gunner._net_sync.call(Vector3(3.0, 0.0, 7.0), -1.0, "rifle_idle", 1.0, 150.0)
+	# Simulate receiving state from peer 2
+	(
+		client_gunner
+		. apply_server_state(
+			{
+				"pos": Vector3(3.0, 0.0, 7.0),
+				"rot_y": -1.0,
+				"health": 150.0,
+				"visual_state": NetSerializer.VS_MOVE,
+				"state": 0,
+			}
+		)
+	)
 	verify("Remote position set", client_gunner._net_position == Vector3(3.0, 0.0, 7.0))
 	verify("Remote rotation set", is_equal_approx(client_gunner._net_rotation_y, -1.0))
 

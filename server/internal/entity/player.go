@@ -98,9 +98,8 @@ type Player struct {
 	// Blade Dancer config (visual state for client)
 	Config int // 0=orbit, 1=fan, 2=lance, 3=scatter, 4=crown
 
-	// Animation (forwarded to clients)
-	AnimName  string
-	AnimSpeed float32
+	// Visual state (forwarded to clients, server never interprets)
+	VisualState uint8
 
 	// Input
 	LastInput PlayerInput
@@ -125,8 +124,6 @@ func NewPlayer(peerID uint16, className string) *Player {
 		},
 		ClassID:      className,
 		OnGround:     true,
-		AnimName:     "idle",
-		AnimSpeed:    1.0,
 		Resources:    make(map[string]*Resource, len(classDef.Resources)),
 		Cooldowns:    make(map[string]float32),
 		ActionMap:    classDef.ActionMap,

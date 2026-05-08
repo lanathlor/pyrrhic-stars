@@ -277,8 +277,7 @@ var _gravity: float = 8.5  # must match server gravity
 var _alive: bool = true
 
 # Network sync
-var _net_anim: String = ""
-var _net_anim_speed: float = 1.0
+var _visual_state: int = 0
 var _net_position: Vector3 = Vector3.ZERO
 var _net_rotation_y: float = 0.0
 
@@ -331,6 +330,22 @@ func _ready() -> void:
 	_net_position = global_position
 	_net_rotation_y = rotation.y
 	camera.top_level = true
+
+	# Set up animation state machine
+	(
+		character_model
+		. setup_state_machine(
+			{
+				"idle": "idle",
+				"run": "run",
+				"jump": "jump",
+				"dash": "roll",
+				"casting": "slash",
+				"stagger": "idle",
+				"dead": "idle",
+			}
+		)
+	)
 
 	if _is_local():
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
@@ -388,8 +403,7 @@ func apply_server_state(data: Dictionary) -> void:
 		_net_position = data.pos
 		_net_rotation_y = data.rot_y
 		health = data.health
-		_net_anim = data.anim_name
-		_net_anim_speed = data.anim_speed
+		_visual_state = data.get("visual_state", 0)
 		if data.has("config"):
 			config = data.config as Config
 
@@ -420,10 +434,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _physics_process(delta: float) -> void:
 	if not _is_local():
+		var prev_pos := global_position
 		global_position = global_position.move_toward(_net_position, 12.0 * delta)
 		rotation.y = lerp_angle(rotation.y, _net_rotation_y, 8.0 * delta)
-		if _net_anim != "":
-			character_model.play_anim(_net_anim, _net_anim_speed)
+		_drive_remote_animation(prev_pos, delta)
 		blades.update_blade_visual(delta)
 		return
 
@@ -467,7 +481,7 @@ func _physics_process(delta: float) -> void:
 	hud.update_gcd(_gcd_timer / gcd_duration if _gcd_timer > 0.0 else 0.0)
 
 	if NetworkManager.is_active:
-		NetworkManager.send_player_position(global_position, rotation.y, _net_anim, _net_anim_speed)
+		NetworkManager.send_player_position(global_position, rotation.y, _visual_state)
 
 
 # --- Damage (server-authoritative) ---
@@ -475,6 +489,25 @@ func _physics_process(delta: float) -> void:
 
 func take_damage(_amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
 	pass  # Server handles all damage
+
+
+func _drive_remote_animation(prev_pos: Vector3, delta: float) -> void:
+	match _visual_state:
+		NetSerializer.VS_DODGE, NetSerializer.VS_BD_DASH:
+			character_model.travel("dash")
+		NetSerializer.VS_BD_CASTING:
+			character_model.travel("casting")
+		NetSerializer.VS_BD_STAGGER:
+			character_model.travel("stagger")
+		NetSerializer.VS_DEAD:
+			character_model.travel("dead")
+		_:  # VS_MOVE or unknown — derive from velocity
+			var vel := (global_position - prev_pos) / delta if delta > 0 else Vector3.ZERO
+			var speed := Vector2(vel.x, vel.z).length()
+			if speed > 0.5:
+				character_model.travel("run", clampf(speed / sprint_speed, 0.5, 1.5))
+			else:
+				character_model.travel("idle")
 
 
 # --- State helpers ---

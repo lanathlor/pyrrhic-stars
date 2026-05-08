@@ -10,17 +10,17 @@ type DecodedWorldState struct {
 
 // DecodedPlayer holds per-player fields from a WorldState frame.
 type DecodedPlayer struct {
-	PeerID              uint16
-	PosX, PosY, PosZ    float32
-	RotY                float32
-	Health              float32
-	State               uint8
-	Class               string
-	Username            string
-	AnimName            string
-	AnimSpeed, AimPitch float32
-	BuffFlags, Config   uint8
-	Stamina, ShieldHP   float32
+	PeerID            uint16
+	PosX, PosY, PosZ  float32
+	RotY              float32
+	Health            float32
+	State             uint8
+	Class             string
+	Username          string
+	VisualState       uint8
+	AimPitch          float32
+	BuffFlags, Config uint8
+	Stamina, ShieldHP float32
 }
 
 // DecodedEnemy holds per-enemy fields from a WorldState frame.
@@ -104,23 +104,16 @@ func DecodeWorldState(buf []byte) (DecodedWorldState, bool) {
 		}
 		p.Username = string(buf[off : off+sLen])
 		off += sLen
-		// anim: str8
+		// visual_state: u8
 		if off >= len(buf) {
 			return ws, false
 		}
-		sLen = int(buf[off])
+		p.VisualState = buf[off]
 		off++
-		if off+sLen > len(buf) {
-			return ws, false
-		}
-		p.AnimName = string(buf[off : off+sLen])
-		off += sLen
-		// anim_speed, aim_pitch, buff_flags, config, stamina, shield_hp
+		// aim_pitch, buff_flags, config, stamina, shield_hp
 		if off+14 > len(buf) {
 			return ws, false
 		}
-		p.AnimSpeed = getF32(buf[off:])
-		off += 4
 		p.AimPitch = getF32(buf[off:])
 		off += 4
 		p.BuffFlags = buf[off]

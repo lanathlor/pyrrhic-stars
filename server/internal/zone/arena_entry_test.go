@@ -11,8 +11,8 @@ import (
 )
 
 // buildPlayerInputPayload creates an OpPlayerInput payload.
-func buildPlayerInputPayload(x, y, z, rotY float32, tick uint32, animName string, animSpeed, aimPitch float32) []byte {
-	buf := make([]byte, 0, 64)
+func buildPlayerInputPayload(x, y, z, rotY float32, tick uint32, visualState uint8, aimPitch float32) []byte {
+	buf := make([]byte, 0, 25)
 	b4 := make([]byte, 4)
 
 	putF32 := func(v float32) {
@@ -29,10 +29,7 @@ func buildPlayerInputPayload(x, y, z, rotY float32, tick uint32, animName string
 	putF32(z)
 	putF32(rotY)
 	putU32(tick)
-	nameBytes := []byte(animName)
-	buf = append(buf, byte(len(nameBytes)))
-	buf = append(buf, nameBytes...)
-	putF32(animSpeed)
+	buf = append(buf, visualState)
 	putF32(aimPitch)
 
 	return buf
@@ -98,7 +95,7 @@ func TestArenaInstance_TeleportRejected(t *testing.T) {
 	z.AddClient(c)
 
 	// Simulate client sending (0, 0, 0) position — too far from spawn (Z≈48)
-	zeroPayload := buildPlayerInputPayload(0, 0, 0, 0, 1, "idle", 1.0, 0)
+	zeroPayload := buildPlayerInputPayload(0, 0, 0, 0, 1, 0, 0)
 	z.QueueInput(1, 0x0030, zeroPayload)
 
 	time.Sleep(100 * time.Millisecond)
