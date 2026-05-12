@@ -1,12 +1,5 @@
-[gd_scene load_steps=99 format=3 uid="uid://dnkrpp0215avx"]
+[gd_scene load_steps=107 format=3 uid="uid://dnkrpp0215avx"]
 
-[ext_resource type="PackedScene" path="res://assets/models/environments/hub/building/wall_front.glb" id="wall_front"]
-[ext_resource type="PackedScene" path="res://assets/models/environments/hub/building/wall_back.glb" id="wall_back"]
-[ext_resource type="PackedScene" path="res://assets/models/environments/hub/building/wall_back_mid.glb" id="wall_back_mid"]
-[ext_resource type="PackedScene" path="res://assets/models/environments/hub/building/wall_back_top.glb" id="wall_back_top"]
-[ext_resource type="PackedScene" path="res://assets/models/environments/hub/building/wall_side.glb" id="wall_side"]
-[ext_resource type="PackedScene" path="res://assets/models/environments/hub/building/wall_east_below.glb" id="wall_east_below"]
-[ext_resource type="PackedScene" path="res://assets/models/environments/hub/building/wall_east_above.glb" id="wall_east_above"]
 [ext_resource type="PackedScene" uid="uid://dxpx576j1t04b" path="res://assets/models/environments/hub/vegetation/acer_large_1.glb" id="acer_large_1"]
 [ext_resource type="PackedScene" uid="uid://c03ut2xy785ir" path="res://assets/models/environments/hub/vegetation/acer_large_2.glb" id="acer_large_2"]
 [ext_resource type="PackedScene" uid="uid://onqrlk27e8gy" path="res://assets/models/environments/hub/vegetation/acer_large_3.glb" id="acer_large_3"]
@@ -30,15 +23,23 @@
 [ext_resource type="Texture2D" uid="uid://duo7qobi7clmf" path="res://assets/textures/environments/hub/grass_nor.jpg" id="grass_nor_tex"]
 [ext_resource type="Texture2D" uid="uid://bsmmfdqcwuuoc" path="res://assets/textures/environments/hub/grass_rough.jpg" id="grass_rough_tex"]
 [ext_resource type="PackedScene" uid="uid://dn3a2ahmjbt7j" path="res://assets/models/environments/hub/vegetation/grass_tall_a.glb" id="grass_tall_a"]
+[ext_resource type="PackedScene" uid="uid://cxam8pw3c0j5m" path="res://assets/models/environments/prime_hub/architecture/modular_kit/interior_wall_panel.glb" id="int_wall"]
 [ext_resource type="PackedScene" uid="uid://bs8the8f3rpcd" path="res://assets/models/environments/hub/i_ship.glb" id="i_ship"]
 [ext_resource type="Script" uid="uid://dqnoccla18mn1" path="res://scenes/environments/prime_hub/lift.gd" id="lift_script"]
 [ext_resource type="Script" uid="uid://b3huk1xasp25j" path="res://scenes/environments/prime_hub/lower_district_collision.gd" id="lower_district_col"]
+[ext_resource type="PackedScene" uid="uid://bi032eiuafu8b" path="res://assets/models/environments/prime_hub/architecture/modular_kit/monitoring_station.glb" id="monitoring_station"]
 [ext_resource type="Script" uid="uid://ckiwr37mpuu63" path="res://scenes/environments/prime_hub/plaza_collision.gd" id="plaza_collision"]
 [ext_resource type="Script" uid="uid://kbpeuaeo3xjf" path="res://scenes/environments/prime_hub/portal_trail.gd" id="portal_trail_script"]
 [ext_resource type="Script" uid="uid://c386sk1pcnsfk" path="res://scenes/environments/prime_hub/public_lift.gd" id="public_lift_script"]
 [ext_resource type="PackedScene" uid="uid://cragq7udglbkx" path="res://assets/models/environments/hub/vegetation/shrub_sorrel.glb" id="shrub_sorrel"]
 [ext_resource type="Script" uid="uid://cyx3c8meitqfi" path="res://scenes/environments/prime_hub/starfield.gd" id="starfield"]
 [ext_resource type="Script" uid="uid://baf6uscr5nvkw" path="res://scenes/environments/prime_hub/underground_building.gd" id="underground_building"]
+[ext_resource type="PackedScene" uid="uid://tf64qukyqf0m" path="res://assets/models/environments/hub/building/wall_back.glb" id="wall_back"]
+[ext_resource type="PackedScene" uid="uid://dos566hqkudtl" path="res://assets/models/environments/hub/building/wall_back_mid.glb" id="wall_back_mid"]
+[ext_resource type="PackedScene" uid="uid://dbgwmq4maqpce" path="res://assets/models/environments/hub/building/wall_back_top.glb" id="wall_back_top"]
+[ext_resource type="PackedScene" uid="uid://benq38vamvo74" path="res://assets/models/environments/hub/building/wall_east.glb" id="wall_east"]
+[ext_resource type="PackedScene" uid="uid://qkxt5ie36v53" path="res://assets/models/environments/hub/building/wall_front.glb" id="wall_front"]
+[ext_resource type="PackedScene" uid="uid://dun3vimewi7a6" path="res://assets/models/environments/hub/building/wall_west.glb" id="wall_west"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 sky_top_color = Color(0.02, 0.03, 0.1, 1)
@@ -96,6 +97,9 @@ emission_energy_multiplier = 1.5
 albedo_color = Color(0.65, 0.64, 0.63, 1)
 roughness = 0.6
 
+[sub_resource type="StandardMaterial3D" id="slab_backing_mat"]
+albedo_color = Color(0.02, 0.02, 0.03, 1)
+
 [sub_resource type="StandardMaterial3D" id="floor_mat"]
 albedo_color = Color(0.82, 0.81, 0.8, 1)
 roughness = 0.55
@@ -103,10 +107,6 @@ roughness = 0.55
 [sub_resource type="StandardMaterial3D" id="ceiling_mat"]
 albedo_color = Color(0.92, 0.91, 0.9, 1)
 roughness = 0.9
-
-[sub_resource type="StandardMaterial3D" id="wall_mat"]
-albedo_color = Color(0.88, 0.87, 0.86, 1)
-roughness = 0.8
 
 [sub_resource type="BoxShape3D" id="cab_floor_shape"]
 size = Vector3(3.4, 0.1, 3.4)
@@ -339,16 +339,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 68, -1)
 size = Vector3(18, 124, 0.05)
 material = SubResource("glass_mat")
 
-[node name="EastWallLeftOfPad" type="CSGBox3D" parent="TowerExterior"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25, 102, -0.5)
-size = Vector3(0.4, 4, 3)
-material = SubResource("tower_ext_mat")
-
-[node name="EastWallRightOfPad" type="CSGBox3D" parent="TowerExterior"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25, 102, 26.5)
-size = Vector3(0.4, 4, 33)
-material = SubResource("tower_ext_mat")
-
 [node name="PadTrimTop" type="CSGBox3D" parent="TowerExterior"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25.05, 104.03, 5.5)
 size = Vector3(0.1, 0.06, 7.1)
@@ -427,14 +417,51 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 51.5, 43)
 [node name="SlabBackTop" parent="TowerExterior" instance=ExtResource("wall_back_top")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 116.5, 43)
 
-[node name="SlabWest" parent="TowerExterior" instance=ExtResource("wall_side")]
+[node name="SlabWest" parent="TowerExterior" instance=ExtResource("wall_west")]
 transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -25, 65, 21)
 
-[node name="SlabEastBelow" parent="TowerExterior" instance=ExtResource("wall_east_below")]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 25, 50, 21)
+[node name="SlabEast" parent="TowerExterior" instance=ExtResource("wall_east")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 25, 65, 21)
 
-[node name="SlabEastAbove" parent="TowerExterior" instance=ExtResource("wall_east_above")]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 25, 117, 21)
+[node name="BackingFrontBelow" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 49.925, -0.5)
+size = Vector3(50, 99.85, 0.1)
+material = SubResource("slab_backing_mat")
+
+[node name="BackingFrontAbove" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 117.575, -0.5)
+size = Vector3(50, 24.85, 0.1)
+material = SubResource("slab_backing_mat")
+
+[node name="BackingBackBelow" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 49.925, 42.5)
+size = Vector3(50, 99.85, 0.1)
+material = SubResource("slab_backing_mat")
+
+[node name="BackingBackAbove" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 117.575, 42.5)
+size = Vector3(50, 24.85, 0.1)
+material = SubResource("slab_backing_mat")
+
+[node name="BackingWestBelow" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24.5, 49.925, 21)
+size = Vector3(0.1, 99.85, 44)
+material = SubResource("slab_backing_mat")
+
+[node name="BackingWestAbove" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24.5, 117.575, 21)
+size = Vector3(0.1, 24.85, 44)
+material = SubResource("slab_backing_mat")
+
+[node name="BackingEastBelow" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.5, 49.925, 21)
+size = Vector3(0.1, 99.85, 44)
+material = SubResource("slab_backing_mat")
+
+[node name="BackingEastAbove" type="CSGBox3D" parent="TowerExterior"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.5, 117.575, 21)
+size = Vector3(0.1, 24.85, 44)
+material = SubResource("slab_backing_mat")
 
 [node name="GroundFloor" type="Node3D" parent="."]
 
@@ -512,40 +539,223 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.8, 102.5, 26)
 size = Vector3(0.05, 5, 34)
 material = SubResource("glass_mat")
 
-[node name="PartitionL" type="CSGBox3D" parent="OpsFloor"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 102.5, 10)
-size = Vector3(12, 5, 0.3)
-material = SubResource("wall_mat")
+[node name="PartL_0" parent="OpsFloor" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -22.990814, 100, 10)
 
-[node name="PartitionC" type="CSGBox3D" parent="OpsFloor"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 102.5, 10)
-size = Vector3(2, 5, 0.3)
-material = SubResource("wall_mat")
+[node name="PartL_1" parent="OpsFloor" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -18.990814, 100, 10)
 
-[node name="PartitionR" type="CSGBox3D" parent="OpsFloor"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 102.5, 10)
-size = Vector3(12, 5, 0.3)
-material = SubResource("wall_mat")
+[node name="PartL_2" parent="OpsFloor" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -14.990814, 100, 10)
 
-[node name="LintelL" type="CSGBox3D" parent="OpsFloor"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 104.5, 10)
-size = Vector3(8, 1, 0.3)
-material = SubResource("wall_mat")
+[node name="PartR_0" parent="OpsFloor" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 14.813116, 100, 10)
 
-[node name="LintelR" type="CSGBox3D" parent="OpsFloor"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 104.5, 10)
-size = Vector3(8, 1, 0.3)
-material = SubResource("wall_mat")
+[node name="PartR_1" parent="OpsFloor" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 18.813116, 100, 10)
 
-[node name="RoomDivider" type="CSGBox3D" parent="OpsFloor"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 102.5, 4.5)
-size = Vector3(0.3, 5, 11)
-material = SubResource("wall_mat")
+[node name="PartR_2" parent="OpsFloor" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 22.813116, 100, 10)
 
-[node name="TrimFront" type="CSGBox3D" parent="OpsFloor"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 100.03, -0.5)
-size = Vector3(48, 0.06, 0.06)
-material = SubResource("trim_mat")
+[node name="LobbyDiv_0" parent="OpsFloor" instance=ExtResource("int_wall")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0, 100, 1)
+
+[node name="LobbyDiv_1" parent="OpsFloor" instance=ExtResource("int_wall")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0, 100, 5)
+
+[node name="LobbyDiv_2" parent="OpsFloor" instance=ExtResource("int_wall")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0, 100, 9)
+
+[node name="CorridorWalls" type="Node3D" parent="OpsFloor"]
+
+[node name="CorrW_1" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -3, 100, 16)
+
+[node name="CorrW_2" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -3, 100, 24)
+
+[node name="CorrW_3" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -3, 100, 28)
+
+[node name="CorrW_4" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -3, 100, 32)
+
+[node name="CorrW_5" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -3, 100, 36)
+
+[node name="CorrW_6" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -3, 100, 40)
+
+[node name="CorrW_7" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -3, 100, 41)
+
+[node name="CorrE_1" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 3, 100, 16)
+
+[node name="CorrE_2" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 3, 100, 24)
+
+[node name="CorrE_3" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 3, 100, 28)
+
+[node name="CorrE_4" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 3, 100, 32)
+
+[node name="CorrE_5" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 3, 100, 36)
+
+[node name="CorrE_6" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 3, 100, 40)
+
+[node name="CorrE_7" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 3, 100, 41)
+
+[node name="BriefS_0" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -23, 100, 14)
+
+[node name="BriefS_1" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -21, 100, 14)
+
+[node name="BriefS_2" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -17, 100, 14)
+
+[node name="BriefS_3" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -13, 100, 14)
+
+[node name="BriefS_4" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -9, 100, 14)
+
+[node name="BriefS_5" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -5, 100, 14)
+
+[node name="BriefN_0" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -23, 100, 26)
+
+[node name="BriefN_1" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -21, 100, 26)
+
+[node name="BriefN_2" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17, 100, 26)
+
+[node name="BriefN_3" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13, 100, 26)
+
+[node name="BriefN_4" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -9, 100, 26)
+
+[node name="BriefN_5" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 100, 26)
+
+[node name="PortalS_0" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 5, 100, 14)
+
+[node name="PortalS_1" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 9, 100, 14)
+
+[node name="PortalS_2" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 13, 100, 14)
+
+[node name="PortalS_3" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 17, 100, 14)
+
+[node name="PortalS_4" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 21, 100, 14)
+
+[node name="PortalS_5" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 23, 100, 14)
+
+[node name="PortalN_0" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 100, 26)
+
+[node name="PortalN_1" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 100, 26)
+
+[node name="PortalN_2" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13, 100, 26)
+
+[node name="PortalN_3" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17, 100, 26)
+
+[node name="PortalN_4" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 21, 100, 26)
+
+[node name="PortalN_5" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23, 100, 26)
+
+[node name="LockedLftS_0" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -23, 100, 30)
+
+[node name="LockedLftS_1" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -21, 100, 30)
+
+[node name="LockedLftS_2" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -17, 100, 30)
+
+[node name="LockedLftS_3" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -13, 100, 30)
+
+[node name="LockedLftS_4" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -9, 100, 30)
+
+[node name="LockedLftS_5" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -5, 100, 30)
+
+[node name="LockedRgtS_0" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 5, 100, 30)
+
+[node name="LockedRgtS_1" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 9, 100, 30)
+
+[node name="LockedRgtS_2" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 13, 100, 30)
+
+[node name="LockedRgtS_3" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 17, 100, 30)
+
+[node name="LockedRgtS_4" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 21, 100, 30)
+
+[node name="LockedRgtS_5" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 23, 100, 30)
+
+[node name="BackWall_0" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -23, 100, 43)
+
+[node name="BackWall_1" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, 100, 43)
+
+[node name="BackWall_2" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -16, 100, 43)
+
+[node name="BackWall_3" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 100, 43)
+
+[node name="BackWall_4" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 100, 43)
+
+[node name="BackWall_5" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 100, 43)
+
+[node name="BackWall_7" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 100, 43)
+
+[node name="BackWall_8" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 100, 43)
+
+[node name="BackWall_9" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 100, 43)
+
+[node name="BackWall_10" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 100, 43)
+
+[node name="BackWall_11" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 100, 43)
+
+[node name="BackWall_12" parent="OpsFloor/CorridorWalls" instance=ExtResource("int_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23, 100, 43)
+
+[node name="MonitorStation2" parent="OpsFloor/CorridorWalls" instance=ExtResource("monitoring_station")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -14, 100, 14.723833)
 
 [node name="Lights" type="Node3D" parent="."]
 
