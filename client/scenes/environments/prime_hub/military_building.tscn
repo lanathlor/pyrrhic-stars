@@ -1,15 +1,35 @@
-[gd_scene load_steps=79 format=3 uid="uid://dnkrpp0215avx"]
+[gd_scene load_steps=99 format=3 uid="uid://dnkrpp0215avx"]
 
+[ext_resource type="PackedScene" uid="uid://dxpx576j1t04b" path="res://assets/models/environments/hub/vegetation/acer_large_1.glb" id="acer_large_1"]
+[ext_resource type="PackedScene" uid="uid://c03ut2xy785ir" path="res://assets/models/environments/hub/vegetation/acer_large_2.glb" id="acer_large_2"]
+[ext_resource type="PackedScene" uid="uid://onqrlk27e8gy" path="res://assets/models/environments/hub/vegetation/acer_large_3.glb" id="acer_large_3"]
+[ext_resource type="PackedScene" uid="uid://bvgv3g5bynns0" path="res://assets/models/environments/hub/vegetation/acer_medium_1.glb" id="acer_medium_1"]
+[ext_resource type="PackedScene" uid="uid://dp1gfghqpfrva" path="res://assets/models/environments/hub/vegetation/acer_medium_2.glb" id="acer_medium_2"]
+[ext_resource type="PackedScene" uid="uid://dbeaesuv33bjm" path="res://assets/models/environments/hub/vegetation/acer_medium_3.glb" id="acer_medium_3"]
+[ext_resource type="PackedScene" uid="uid://x3aefils81lp" path="res://assets/models/environments/hub/vegetation/acer_sapling_1.glb" id="acer_sapling_1"]
+[ext_resource type="PackedScene" uid="uid://bpkkrlfckxh0m" path="res://assets/models/environments/hub/vegetation/acer_sapling_2.glb" id="acer_sapling_2"]
+[ext_resource type="PackedScene" uid="uid://cuiak15nqpfki" path="res://assets/models/environments/hub/vegetation/acer_sapling_3.glb" id="acer_sapling_3"]
 [ext_resource type="Script" uid="uid://dfad857y14ohw" path="res://scenes/environments/prime_hub/air_traffic.gd" id="air_traffic"]
 [ext_resource type="Script" uid="uid://bstl5p2usn048" path="res://scenes/environments/prime_hub/cityscape.gd" id="cityscape"]
 [ext_resource type="Script" uid="uid://w3hai8aeviob" path="res://scenes/environments/prime_hub/military_building_collision.gd" id="collision_script"]
+[ext_resource type="Texture2D" uid="uid://b6qnc22lsvttb" path="res://assets/textures/environments/hub/concrete_diff.jpg" id="concrete_diff_tex"]
+[ext_resource type="Texture2D" uid="uid://of7lfe5j46v3" path="res://assets/textures/environments/hub/concrete_nor.jpg" id="concrete_nor_tex"]
+[ext_resource type="Texture2D" uid="uid://bhew7nke70cck" path="res://assets/textures/environments/hub/concrete_rough.jpg" id="concrete_rough_tex"]
 [ext_resource type="Script" uid="uid://6b5bfm30vcjl" path="res://scenes/environments/prime_hub/energy_railing.gd" id="energy_railing_script"]
+[ext_resource type="Texture2D" uid="uid://be868corpmrl3" path="res://assets/textures/environments/hub/grass_diff.jpg" id="grass_diff_tex"]
+[ext_resource type="PackedScene" uid="uid://c11syq22id6pr" path="res://assets/models/environments/hub/vegetation/grass_large_a.glb" id="grass_large_a"]
+[ext_resource type="PackedScene" uid="uid://byonxrtfob1q8" path="res://assets/models/environments/hub/vegetation/grass_large_b.glb" id="grass_large_b"]
+[ext_resource type="PackedScene" uid="uid://b8nc8sk6k4l1u" path="res://assets/models/environments/hub/vegetation/grass_mid_a.glb" id="grass_mid_a"]
+[ext_resource type="Texture2D" uid="uid://duo7qobi7clmf" path="res://assets/textures/environments/hub/grass_nor.jpg" id="grass_nor_tex"]
+[ext_resource type="Texture2D" uid="uid://bsmmfdqcwuuoc" path="res://assets/textures/environments/hub/grass_rough.jpg" id="grass_rough_tex"]
+[ext_resource type="PackedScene" uid="uid://dn3a2ahmjbt7j" path="res://assets/models/environments/hub/vegetation/grass_tall_a.glb" id="grass_tall_a"]
 [ext_resource type="PackedScene" uid="uid://bs8the8f3rpcd" path="res://assets/models/environments/hub/i_ship.glb" id="i_ship"]
 [ext_resource type="Script" uid="uid://dqnoccla18mn1" path="res://scenes/environments/prime_hub/lift.gd" id="lift_script"]
 [ext_resource type="Script" uid="uid://b3huk1xasp25j" path="res://scenes/environments/prime_hub/lower_district_collision.gd" id="lower_district_col"]
 [ext_resource type="Script" uid="uid://ckiwr37mpuu63" path="res://scenes/environments/prime_hub/plaza_collision.gd" id="plaza_collision"]
 [ext_resource type="Script" uid="uid://kbpeuaeo3xjf" path="res://scenes/environments/prime_hub/portal_trail.gd" id="portal_trail_script"]
 [ext_resource type="Script" uid="uid://c386sk1pcnsfk" path="res://scenes/environments/prime_hub/public_lift.gd" id="public_lift_script"]
+[ext_resource type="PackedScene" uid="uid://cragq7udglbkx" path="res://assets/models/environments/hub/vegetation/shrub_sorrel.glb" id="shrub_sorrel"]
 [ext_resource type="Script" uid="uid://cyx3c8meitqfi" path="res://scenes/environments/prime_hub/starfield.gd" id="starfield"]
 [ext_resource type="Script" uid="uid://baf6uscr5nvkw" path="res://scenes/environments/prime_hub/underground_building.gd" id="underground_building"]
 
@@ -102,8 +122,14 @@ metallic = 0.05
 roughness = 0.5
 
 [sub_resource type="StandardMaterial3D" id="grass_mat"]
-albedo_color = Color(0.25, 0.42, 0.2, 1)
+albedo_color = Color(0.4, 0.55, 0.3, 1)
+albedo_texture = ExtResource("grass_diff_tex")
 roughness = 0.95
+roughness_texture = ExtResource("grass_rough_tex")
+normal_enabled = true
+normal_texture = ExtResource("grass_nor_tex")
+uv1_scale = Vector3(0.15, 0.15, 0.15)
+uv1_triplanar = true
 
 [sub_resource type="StandardMaterial3D" id="city_bld_mat"]
 albedo_color = Color(0.35, 0.36, 0.38, 1)
@@ -115,12 +141,24 @@ metallic = 0.2
 roughness = 0.4
 
 [sub_resource type="StandardMaterial3D" id="plaza_mat"]
-albedo_color = Color(0.72, 0.71, 0.7, 1)
-roughness = 0.8
+albedo_color = Color(0.88, 0.88, 0.9, 1)
+albedo_texture = ExtResource("concrete_diff_tex")
+roughness = 0.7
+roughness_texture = ExtResource("concrete_rough_tex")
+normal_enabled = true
+normal_texture = ExtResource("concrete_nor_tex")
+uv1_scale = Vector3(0.25, 0.25, 0.25)
+uv1_triplanar = true
 
 [sub_resource type="StandardMaterial3D" id="path_mat"]
-albedo_color = Color(0.78, 0.76, 0.73, 1)
-roughness = 0.7
+albedo_color = Color(0.9, 0.9, 0.92, 1)
+albedo_texture = ExtResource("concrete_diff_tex")
+roughness = 0.65
+roughness_texture = ExtResource("concrete_rough_tex")
+normal_enabled = true
+normal_texture = ExtResource("concrete_nor_tex")
+uv1_scale = Vector3(0.25, 0.25, 0.25)
+uv1_triplanar = true
 
 [sub_resource type="StandardMaterial3D" id="planter_mat"]
 albedo_color = Color(0.6, 0.58, 0.55, 1)
@@ -858,48 +896,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, -25)
 size = Vector3(8.4, 0.12, 6.4)
 material = SubResource("planter_mat")
 
-[node name="PlazaPlanterL" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 0.25, -18)
-size = Vector3(3, 0.5, 3)
-material = SubResource("planter_mat")
-
-[node name="PlazaPlanterLGrass" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 0.55, -18)
-size = Vector3(2.6, 0.1, 2.6)
-material = SubResource("grass_mat")
-
-[node name="PlazaPlanterR" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0.25, -18)
-size = Vector3(3, 0.5, 3)
-material = SubResource("planter_mat")
-
-[node name="PlazaPlanterRGrass" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0.55, -18)
-size = Vector3(2.6, 0.1, 2.6)
-material = SubResource("grass_mat")
-
-[node name="PlazaTreeLTrunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 1.8, -18)
-radius = 0.15
-height = 3.0
-material = SubResource("planter_mat")
-
-[node name="PlazaTreeLCanopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 3.8, -18)
-radius = 1.8
-material = SubResource("grass_mat")
-
-[node name="PlazaTreeRTrunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 1.8, -18)
-radius = 0.15
-height = 3.0
-material = SubResource("planter_mat")
-
-[node name="PlazaTreeRCanopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 3.8, -18)
-radius = 1.8
-material = SubResource("grass_mat")
-
 [node name="WalkNorth" type="CSGBox3D" parent="Plaza"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.08, -3)
 size = Vector3(54, 0.05, 4)
@@ -1072,931 +1068,6 @@ light_color = Color(0.95, 0.88, 0.7, 1)
 light_energy = 2.0
 omni_range = 6.0
 
-[node name="HedgeNW_PlazaEdge" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -28, 0.35, -20)
-size = Vector3(1, 0.7, 38)
-material = SubResource("grass_mat")
-
-[node name="TreeNW1Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -35, 3, -15)
-radius = 0.25
-height = 6.0
-material = SubResource("planter_mat")
-
-[node name="TreeNW1Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -35, 7, -15)
-radius = 3.5
-material = SubResource("grass_mat")
-
-[node name="TreeNW2Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -50, 3.5, -25)
-radius = 0.3
-height = 7.0
-material = SubResource("planter_mat")
-
-[node name="TreeNW2Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -50, 8, -25)
-radius = 4.0
-material = SubResource("grass_mat")
-
-[node name="TreeNW3Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -42, 2.5, -5)
-radius = 0.2
-height = 5.0
-material = SubResource("planter_mat")
-
-[node name="TreeNW3Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -42, 5.5, -5)
-radius = 2.5
-material = SubResource("grass_mat")
-
-[node name="TreeNW4Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -65, 3, -40)
-radius = 0.3
-height = 6.0
-material = SubResource("planter_mat")
-
-[node name="TreeNW4Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -65, 7, -40)
-radius = 3.5
-material = SubResource("grass_mat")
-
-[node name="TreeNW5Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -80, 4, -60)
-radius = 0.35
-height = 8.0
-material = SubResource("planter_mat")
-
-[node name="TreeNW5Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -80, 9, -60)
-radius = 4.5
-material = SubResource("grass_mat")
-
-[node name="TreeNW6Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -95, 3, -80)
-radius = 0.25
-height = 6.0
-material = SubResource("planter_mat")
-
-[node name="TreeNW6Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -95, 7, -80)
-radius = 3.0
-material = SubResource("grass_mat")
-
-[node name="HedgeNW1" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -45, 0.6, -30)
-size = Vector3(12, 1.2, 1.5)
-material = SubResource("grass_mat")
-
-[node name="HedgeNW2" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -70, 0.5, -15)
-size = Vector3(1.5, 1, 18)
-material = SubResource("grass_mat")
-
-[node name="HedgeNW3" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -55, 0.5, -55)
-size = Vector3(15, 1, 1.5)
-material = SubResource("grass_mat")
-
-[node name="ShrubNW1" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -35, 0.6, -8)
-radius = 0.8
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubNW2" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -38, 0.5, -22)
-radius = 0.6
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubNW3" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -58, 0.7, -10)
-radius = 0.9
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubNW4" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -75, 0.6, -45)
-radius = 0.8
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubNW5" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -100, 0.5, -50)
-radius = 0.7
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="FlowerNW1" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40, 0.12, -12)
-size = Vector3(4, 0.24, 3)
-material = SubResource("planter_mat")
-
-[node name="FlowerNW2" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60, 0.12, -35)
-size = Vector3(5, 0.24, 4)
-material = SubResource("planter_mat")
-
-[node name="FlowerNW3" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -85, 0.12, -70)
-size = Vector3(6, 0.24, 4)
-material = SubResource("planter_mat")
-
-[node name="HedgeNE_PlazaEdge" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28, 0.35, -20)
-size = Vector3(1, 0.7, 38)
-material = SubResource("grass_mat")
-
-[node name="TreeNE1Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 3, -10)
-radius = 0.25
-height = 6.0
-material = SubResource("planter_mat")
-
-[node name="TreeNE1Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 7, -10)
-radius = 3.0
-material = SubResource("grass_mat")
-
-[node name="TreeNE2Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55, 3.5, -30)
-radius = 0.3
-height = 7.0
-material = SubResource("planter_mat")
-
-[node name="TreeNE2Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55, 8, -30)
-radius = 4.0
-material = SubResource("grass_mat")
-
-[node name="TreeNE3Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45, 2.5, -5)
-radius = 0.2
-height = 5.0
-material = SubResource("planter_mat")
-
-[node name="TreeNE3Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45, 5.5, -5)
-radius = 2.5
-material = SubResource("grass_mat")
-
-[node name="TreeNE4Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 70, 3, -50)
-radius = 0.3
-height = 6.0
-material = SubResource("planter_mat")
-
-[node name="TreeNE4Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 70, 7, -50)
-radius = 3.5
-material = SubResource("grass_mat")
-
-[node name="TreeNE5Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 90, 4, -70)
-radius = 0.35
-height = 8.0
-material = SubResource("planter_mat")
-
-[node name="TreeNE5Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 90, 9, -70)
-radius = 4.5
-material = SubResource("grass_mat")
-
-[node name="HedgeNE1" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50, 0.6, -18)
-size = Vector3(14, 1.2, 1.5)
-material = SubResource("grass_mat")
-
-[node name="HedgeNE2" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 75, 0.5, -20)
-size = Vector3(1.5, 1, 20)
-material = SubResource("grass_mat")
-
-[node name="ShrubNE1" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 33, 0.6, -20)
-radius = 0.8
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubNE2" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 0.7, -8)
-radius = 0.9
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubNE3" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 80, 0.6, -40)
-radius = 0.8
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubNE4" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 105, 0.5, -60)
-radius = 0.7
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="FlowerNE1" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 42, 0.12, -25)
-size = Vector3(4, 0.24, 3)
-material = SubResource("planter_mat")
-
-[node name="FlowerNE2" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 65, 0.12, -15)
-size = Vector3(5, 0.24, 4)
-material = SubResource("planter_mat")
-
-[node name="TreeW1Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -38, 3, 17)
-radius = 0.25
-height = 6.0
-material = SubResource("planter_mat")
-
-[node name="TreeW1Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -38, 7, 17)
-radius = 3.0
-material = SubResource("grass_mat")
-
-[node name="TreeW2Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -45, 3.5, 18)
-radius = 0.3
-height = 7.0
-material = SubResource("planter_mat")
-
-[node name="TreeW2Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -45, 8, 18)
-radius = 3.5
-material = SubResource("grass_mat")
-
-[node name="TreeW3Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60, 3, 15)
-radius = 0.25
-height = 6.0
-material = SubResource("planter_mat")
-
-[node name="TreeW3Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60, 7, 17)
-radius = 3.0
-material = SubResource("grass_mat")
-
-[node name="TreeW4Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -90, 4, 19)
-radius = 0.35
-height = 8.0
-material = SubResource("planter_mat")
-
-[node name="TreeW4Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -90, 9, 19)
-radius = 4.5
-material = SubResource("grass_mat")
-
-[node name="HedgeW1" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -35, 0.5, 3)
-size = Vector3(10, 1, 1.5)
-material = SubResource("grass_mat")
-
-[node name="ShrubW1" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 0.6, 3)
-radius = 0.8
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubW2" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 0.6, 17)
-radius = 0.7
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubW3" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -55, 0.7, 18)
-radius = 0.9
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="FlowerW1" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -50, 0.12, 15)
-size = Vector3(5, 0.24, 3)
-material = SubResource("planter_mat")
-
-[node name="TreeE1Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 3, 17)
-radius = 0.25
-height = 6.0
-material = SubResource("planter_mat")
-
-[node name="TreeE1Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 7, 17)
-radius = 3.0
-material = SubResource("grass_mat")
-
-[node name="TreeE2Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50, 3.5, 17)
-radius = 0.3
-height = 7.0
-material = SubResource("planter_mat")
-
-[node name="TreeE2Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50, 8, 17)
-radius = 3.5
-material = SubResource("grass_mat")
-
-[node name="TreeE3Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 75, 3, 3)
-radius = 0.25
-height = 6.0
-material = SubResource("planter_mat")
-
-[node name="TreeE3Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 75, 7, 18)
-radius = 3.5
-material = SubResource("grass_mat")
-
-[node name="TreeE4Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 4, 18)
-radius = 0.35
-height = 8.0
-material = SubResource("planter_mat")
-
-[node name="TreeE4Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 9, 18)
-radius = 4.0
-material = SubResource("grass_mat")
-
-[node name="HedgeE1" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40, 0.5, 18)
-size = Vector3(12, 1, 1.5)
-material = SubResource("grass_mat")
-
-[node name="ShrubE1" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 0.6, 5)
-radius = 0.8
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubE2" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 0.7, 15)
-radius = 0.9
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="FlowerE1" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 0.12, 5)
-size = Vector3(4, 0.24, 3)
-material = SubResource("planter_mat")
-
-[node name="TreeSW1Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 3, 57)
-radius = 0.25
-height = 6.0
-material = SubResource("planter_mat")
-
-[node name="TreeSW1Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 7, 57)
-radius = 3.5
-material = SubResource("grass_mat")
-
-[node name="TreeSW2Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -50, 3.5, 72)
-radius = 0.3
-height = 7.0
-material = SubResource("planter_mat")
-
-[node name="TreeSW2Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -50, 8, 72)
-radius = 4.0
-material = SubResource("grass_mat")
-
-[node name="TreeSW3Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -70, 4, 92)
-radius = 0.35
-height = 8.0
-material = SubResource("planter_mat")
-
-[node name="TreeSW3Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -70, 9, 92)
-radius = 4.5
-material = SubResource("grass_mat")
-
-[node name="TreeSW4Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40, 3, 102)
-radius = 0.25
-height = 6.0
-material = SubResource("planter_mat")
-
-[node name="TreeSW4Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40, 7, 102)
-radius = 3.0
-material = SubResource("grass_mat")
-
-[node name="TreeSW5Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -90, 3.5, 122)
-radius = 0.3
-height = 7.0
-material = SubResource("planter_mat")
-
-[node name="TreeSW5Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -90, 8, 122)
-radius = 4.0
-material = SubResource("grass_mat")
-
-[node name="HedgeSW1" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -35, 0.6, 67)
-size = Vector3(15, 1.2, 1.5)
-material = SubResource("grass_mat")
-
-[node name="HedgeSW2" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60, 0.5, 82)
-size = Vector3(1.5, 1, 16)
-material = SubResource("grass_mat")
-
-[node name="ShrubSW1" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 0.6, 54)
-radius = 0.8
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubSW2" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -55, 0.7, 62)
-radius = 0.9
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubSW3" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -80, 0.6, 77)
-radius = 0.8
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubSW4" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -100, 0.5, 107)
-radius = 0.7
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="FlowerSW1" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -45, 0.12, 82)
-size = Vector3(5, 0.24, 4)
-material = SubResource("planter_mat")
-
-[node name="FlowerSW2" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -75, 0.12, 112)
-size = Vector3(6, 0.24, 4)
-material = SubResource("planter_mat")
-
-[node name="TreeSE1Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 3, 57)
-radius = 0.25
-height = 6.0
-material = SubResource("planter_mat")
-
-[node name="TreeSE1Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 7, 57)
-radius = 3.0
-material = SubResource("grass_mat")
-
-[node name="TreeSE2Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55, 3.5, 77)
-radius = 0.3
-height = 7.0
-material = SubResource("planter_mat")
-
-[node name="TreeSE2Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55, 8, 77)
-radius = 4.0
-material = SubResource("grass_mat")
-
-[node name="TreeSE3Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 80, 4, 97)
-radius = 0.35
-height = 8.0
-material = SubResource("planter_mat")
-
-[node name="TreeSE3Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 80, 9, 97)
-radius = 4.5
-material = SubResource("grass_mat")
-
-[node name="TreeSE4Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45, 3, 112)
-radius = 0.25
-height = 6.0
-material = SubResource("planter_mat")
-
-[node name="TreeSE4Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45, 7, 112)
-radius = 3.5
-material = SubResource("grass_mat")
-
-[node name="TreeSE5Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 3.5, 132)
-radius = 0.3
-height = 7.0
-material = SubResource("planter_mat")
-
-[node name="TreeSE5Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 8, 132)
-radius = 3.5
-material = SubResource("grass_mat")
-
-[node name="HedgeSE1" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40, 0.6, 72)
-size = Vector3(14, 1.2, 1.5)
-material = SubResource("grass_mat")
-
-[node name="HedgeSE2" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 65, 0.5, 87)
-size = Vector3(1.5, 1, 18)
-material = SubResource("grass_mat")
-
-[node name="ShrubSE1" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 0.6, 54)
-radius = 0.8
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubSE2" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 0.7, 64)
-radius = 0.9
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubSE3" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 90, 0.6, 82)
-radius = 0.8
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubSE4" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 110, 0.5, 117)
-radius = 0.7
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="FlowerSE1" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50, 0.12, 62)
-size = Vector3(5, 0.24, 4)
-material = SubResource("planter_mat")
-
-[node name="FlowerSE2" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 85, 0.12, 117)
-size = Vector3(6, 0.24, 4)
-material = SubResource("planter_mat")
-
-[node name="TreeSC1Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 3, 57)
-radius = 0.3
-height = 6.0
-material = SubResource("planter_mat")
-
-[node name="TreeSC1Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 7, 57)
-radius = 3.5
-material = SubResource("grass_mat")
-
-[node name="TreeSC2Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 3, 62)
-radius = 0.25
-height = 6.0
-material = SubResource("planter_mat")
-
-[node name="TreeSC2Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 7, 62)
-radius = 3.0
-material = SubResource("grass_mat")
-
-[node name="TreeSC3Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 3.5, 87)
-radius = 0.3
-height = 7.0
-material = SubResource("planter_mat")
-
-[node name="TreeSC3Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 8, 87)
-radius = 4.0
-material = SubResource("grass_mat")
-
-[node name="TreeSC4Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 4, 117)
-radius = 0.35
-height = 8.0
-material = SubResource("planter_mat")
-
-[node name="TreeSC4Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 9, 117)
-radius = 4.5
-material = SubResource("grass_mat")
-
-[node name="HedgeSC1" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0.6, 52)
-size = Vector3(24, 1.2, 1.5)
-material = SubResource("grass_mat")
-
-[node name="ShrubSC1" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0.7, 72)
-radius = 0.9
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubSC2" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0.6, 77)
-radius = 0.8
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="FlowerSC1" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0.12, 67)
-size = Vector3(5, 0.24, 4)
-material = SubResource("planter_mat")
-
-[node name="TreeFarNW1Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -110, 4, -95)
-radius = 0.4
-height = 8.0
-material = SubResource("planter_mat")
-
-[node name="TreeFarNW1Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -110, 9.5, -95)
-radius = 5.0
-material = SubResource("grass_mat")
-
-[node name="TreeFarNW2Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -95, 3.5, -105)
-radius = 0.35
-height = 7.0
-material = SubResource("planter_mat")
-
-[node name="TreeFarNW2Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -95, 8.5, -105)
-radius = 4.5
-material = SubResource("grass_mat")
-
-[node name="TreeFarNE1Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 110, 4, -95)
-radius = 0.4
-height = 8.0
-material = SubResource("planter_mat")
-
-[node name="TreeFarNE1Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 110, 9.5, -95)
-radius = 5.0
-material = SubResource("grass_mat")
-
-[node name="TreeFarNE2Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 3.5, -100)
-radius = 0.35
-height = 7.0
-material = SubResource("planter_mat")
-
-[node name="TreeFarNE2Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 8.5, -100)
-radius = 4.5
-material = SubResource("grass_mat")
-
-[node name="TreeFarSW1Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -110, 4, 142)
-radius = 0.4
-height = 8.0
-material = SubResource("planter_mat")
-
-[node name="TreeFarSW1Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -110, 9.5, 142)
-radius = 5.0
-material = SubResource("grass_mat")
-
-[node name="TreeFarSW2Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -100, 3.5, 147)
-radius = 0.35
-height = 7.0
-material = SubResource("planter_mat")
-
-[node name="TreeFarSW2Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -100, 8.5, 147)
-radius = 4.5
-material = SubResource("grass_mat")
-
-[node name="TreeFarSE1Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 110, 4, 142)
-radius = 0.4
-height = 8.0
-material = SubResource("planter_mat")
-
-[node name="TreeFarSE1Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 110, 9.5, 142)
-radius = 5.0
-material = SubResource("grass_mat")
-
-[node name="TreeFarSE2Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 3.5, 147)
-radius = 0.35
-height = 7.0
-material = SubResource("planter_mat")
-
-[node name="TreeFarSE2Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 8.5, 147)
-radius = 4.5
-material = SubResource("grass_mat")
-
-[node name="TreeFarN1Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 3.5, -90)
-radius = 0.3
-height = 7.0
-material = SubResource("planter_mat")
-
-[node name="TreeFarN1Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 8, -90)
-radius = 4.0
-material = SubResource("grass_mat")
-
-[node name="TreeFarN2Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 3.5, -95)
-radius = 0.3
-height = 7.0
-material = SubResource("planter_mat")
-
-[node name="TreeFarN2Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 8, -95)
-radius = 4.0
-material = SubResource("grass_mat")
-
-[node name="TreeFarS1Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 4, 137)
-radius = 0.35
-height = 8.0
-material = SubResource("planter_mat")
-
-[node name="TreeFarS1Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 9.5, 137)
-radius = 5.0
-material = SubResource("grass_mat")
-
-[node name="TreeFarS2Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 4, 142)
-radius = 0.35
-height = 8.0
-material = SubResource("planter_mat")
-
-[node name="TreeFarS2Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 9.5, 142)
-radius = 5.0
-material = SubResource("grass_mat")
-
-[node name="TreeFarW1Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -115, 3.5, 20)
-radius = 0.35
-height = 7.0
-material = SubResource("planter_mat")
-
-[node name="TreeFarW1Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -115, 8.5, 20)
-radius = 5.0
-material = SubResource("grass_mat")
-
-[node name="TreeFarE1Trunk" type="CSGCylinder3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 115, 3.5, 20)
-radius = 0.35
-height = 7.0
-material = SubResource("planter_mat")
-
-[node name="TreeFarE1Canopy" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 115, 8.5, 20)
-radius = 5.0
-material = SubResource("grass_mat")
-
-[node name="HedgeFarNL" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -22, 0.5, -75)
-size = Vector3(17, 1, 1.5)
-material = SubResource("grass_mat")
-
-[node name="HedgeFarNR" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0.5, -75)
-size = Vector3(17, 1, 1.5)
-material = SubResource("grass_mat")
-
-[node name="HedgeFarSL" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -22, 0.5, 107)
-size = Vector3(17, 1, 1.5)
-material = SubResource("grass_mat")
-
-[node name="HedgeFarSR" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0.5, 107)
-size = Vector3(17, 1, 1.5)
-material = SubResource("grass_mat")
-
-[node name="HedgeFarWN" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -80, 0.5, -5)
-size = Vector3(1.5, 1, 12)
-material = SubResource("grass_mat")
-
-[node name="HedgeFarWS" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -80, 0.5, 47)
-size = Vector3(1.5, 1, 12)
-material = SubResource("grass_mat")
-
-[node name="HedgeFarEN" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 80, 0.5, -5)
-size = Vector3(1.5, 1, 12)
-material = SubResource("grass_mat")
-
-[node name="HedgeFarES" type="CSGBox3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 80, 0.5, 47)
-size = Vector3(1.5, 1, 12)
-material = SubResource("grass_mat")
-
-[node name="ShrubFar1" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -50, 0.8, -80)
-radius = 1.0
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubFar2" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50, 0.8, -85)
-radius = 1.0
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubFar3" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -70, 0.9, 62)
-radius = 1.1
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubFar4" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 70, 0.9, 67)
-radius = 1.1
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubFar5" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 0.7, -60)
-radius = 0.9
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubFar6" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 0.7, -65)
-radius = 0.9
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubFar7" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -105, 0.8, -20)
-radius = 1.0
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubFar8" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 105, 0.8, -25)
-radius = 1.0
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubFar9" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -105, 0.8, 72)
-radius = 1.0
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
-[node name="ShrubFar10" type="CSGSphere3D" parent="Plaza"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 105, 0.8, 77)
-radius = 1.0
-radial_segments = 8
-rings = 4
-material = SubResource("grass_mat")
-
 [node name="PlazaLights" type="Node3D" parent="Plaza"]
 
 [node name="PlazaLight1" type="OmniLight3D" parent="Plaza/PlazaLights"]
@@ -2117,6 +1188,1298 @@ shape = SubResource("BoxShape3D_dtux5")
 [node name="EdgeEShape" type="CollisionShape3D" parent="Plaza/PlazaCollision"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 125, 1.5, 21)
 shape = SubResource("BoxShape3D_leyq7")
+
+[node name="Vegetation" type="Node3D" parent="Plaza"]
+
+[node name="LargeTrees" type="Node3D" parent="Plaza/Vegetation"]
+
+[node name="LargeTree_0" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_3")]
+transform = Transform3D(-0.872944, 0, -5.504988, 0, 5.573771, 0, 5.504988, 0, -0.872944, -80, 0, -60)
+
+[node name="LargeTree_1" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_3")]
+transform = Transform3D(4.635957, 0, -3.480555, 0, 5.797099, 0, 3.480555, 0, 4.635957, -110, 0, -95)
+
+[node name="LargeTree_2" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_2")]
+transform = Transform3D(6.543778, 0, -1.324422, 0, 6.67646, 0, 1.324422, 0, 6.543778, -95, 0, -105)
+
+[node name="LargeTree_3" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_3")]
+transform = Transform3D(-5.947975, 0, 0.200215, 0, 5.951344, 0, -0.200215, 0, -5.947975, 90, 0, -70)
+
+[node name="LargeTree_4" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_2")]
+transform = Transform3D(-1.402569, 0, 6.469129, 0, 6.619428, 0, -6.469129, 0, -1.402569, 110, 0, -95)
+
+[node name="LargeTree_5" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_2")]
+transform = Transform3D(-5.042522, 0, 3.167542, 0, 5.954859, 0, -3.167542, 0, -5.042522, 100, 0, -100)
+
+[node name="LargeTree_6" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_1")]
+transform = Transform3D(3.765944, 0, -5.906194, 0, 7.004674, 0, 5.906194, 0, 3.765944, -90, 0, 19)
+
+[node name="LargeTree_7" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_3")]
+transform = Transform3D(3.46301, 0, -5.128835, 0, 6.188489, 0, 5.128835, 0, 3.46301, 100, 0, 18)
+
+[node name="LargeTree_8" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_2")]
+transform = Transform3D(-4.171052, 0, -3.920466, 0, 5.72431, 0, 3.920466, 0, -4.171052, -70, 0, 92)
+
+[node name="LargeTree_9" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_2")]
+transform = Transform3D(-5.706459, 0, 4.353672, 0, 7.177614, 0, -4.353672, 0, -5.706459, 80, 0, 97)
+
+[node name="LargeTree_10" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_2")]
+transform = Transform3D(-6.76875, 0, 1.56793, 0, 6.947977, 0, -1.56793, 0, -6.76875, 8, 0, 117)
+
+[node name="LargeTree_11" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_1")]
+transform = Transform3D(-1.521775, 0, -5.470958, 0, 5.67866, 0, 5.470958, 0, -1.521775, -110, 0, 142)
+
+[node name="LargeTree_12" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_2")]
+transform = Transform3D(-1.872699, 0, 6.381742, 0, 6.650837, 0, -6.381742, 0, -1.872699, -100, 0, 147)
+
+[node name="LargeTree_13" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_2")]
+transform = Transform3D(0.984252, 0, 6.743008, 0, 6.814463, 0, -6.743008, 0, 0.984252, 110, 0, 142)
+
+[node name="LargeTree_14" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_2")]
+transform = Transform3D(4.80682, 0, 5.350874, 0, 7.19287, 0, -5.350874, 0, 4.80682, 100, 0, 147)
+
+[node name="LargeTree_15" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_2")]
+transform = Transform3D(-3.992603, 0, 4.568173, 0, 6.067049, 0, -4.568173, 0, -3.992603, -50, 0, -25)
+
+[node name="LargeTree_16" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_1")]
+transform = Transform3D(-3.588557, 0, -4.610127, 0, 5.842175, 0, 4.610127, 0, -3.588557, 55, 0, -30)
+
+[node name="LargeTree_17" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_2")]
+transform = Transform3D(-2.795376, 0, 6.301341, 0, 6.89355, 0, -6.301341, 0, -2.795376, -50, 0, 72)
+
+[node name="LargeTree_18" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_3")]
+transform = Transform3D(3.191751, 0, -5.905462, 0, 6.712805, 0, 5.905462, 0, 3.191751, 55, 0, 77)
+
+[node name="LargeTree_19" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_2")]
+transform = Transform3D(-4.246115, 0, -4.014795, 0, 5.843635, 0, 4.014795, 0, -4.246115, -90, 0, 122)
+
+[node name="LargeTree_20" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_3")]
+transform = Transform3D(3.778964, 0, 5.725295, 0, 6.859998, 0, -5.725295, 0, 3.778964, 70, 0, -50)
+
+[node name="LargeTree_21" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_1")]
+transform = Transform3D(5.850593, 0, -1.196282, 0, 5.971644, 0, 1.196282, 0, 5.850593, -8, 0, 87)
+
+[node name="LargeTree_22" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_1")]
+transform = Transform3D(5.769659, 0, -2.548079, 0, 6.307271, 0, 2.548079, 0, 5.769659, 8, 0, 117)
+
+[node name="LargeTree_23" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_3")]
+transform = Transform3D(-5.939552, 0, -0.028689, 0, 5.939622, 0, 0.028689, 0, -5.939552, 80, 0, 97)
+
+[node name="LargeTree_24" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_3")]
+transform = Transform3D(3.70973, 0, -4.463146, 0, 5.8036, 0, 4.463146, 0, 3.70973, 115, 0, 20)
+
+[node name="LargeTree_25" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_1")]
+transform = Transform3D(-6.287652, 0, -3.034673, 0, 6.981677, 0, 3.034673, 0, -6.287652, -115, 0, 20)
+
+[node name="LargeTree_26" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_3")]
+transform = Transform3D(6.230014, 0, 0.10469, 0, 6.230893, 0, -0.10469, 0, 6.230014, -15, 0, -90)
+
+[node name="LargeTree_27" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_1")]
+transform = Transform3D(5.483768, 0, -3.524219, 0, 6.518576, 0, 3.524219, 0, 5.483768, 15, 0, -95)
+
+[node name="LargeTree_28" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_2")]
+transform = Transform3D(4.129775, 0, -5.902944, 0, 7.204151, 0, 5.902944, 0, 4.129775, -12, 0, 137)
+
+[node name="LargeTree_29" parent="Plaza/Vegetation/LargeTrees" instance=ExtResource("acer_large_1")]
+transform = Transform3D(-6.240748, 0, -3.321396, 0, 7.069555, 0, 3.321396, 0, -6.240748, 12, 0, 142)
+
+[node name="MediumTrees" type="Node3D" parent="Plaza/Vegetation"]
+
+[node name="MediumTree_0" parent="Plaza/Vegetation/MediumTrees" instance=ExtResource("acer_medium_1")]
+transform = Transform3D(-4.374958, 0, 3.009056, 0, 5.309866, 0, -3.009056, 0, -4.374958, -29.505842, -0.4109006, -21.487946)
+
+[node name="MediumTree_1" parent="Plaza/Vegetation/MediumTrees" instance=ExtResource("acer_medium_2")]
+transform = Transform3D(5.456686, 0, 1.002649, 0, 5.548039, 0, -1.002649, 0, 5.456686, 29.430658, 0, -18)
+
+[node name="MediumTree_2" parent="Plaza/Vegetation/MediumTrees" instance=ExtResource("acer_medium_2")]
+transform = Transform3D(4.359526, 0, -3.821671, 0, 5.797468, 0, 3.821671, 0, 4.359526, -35, 0, -15)
+
+[node name="MediumTree_4" parent="Plaza/Vegetation/MediumTrees" instance=ExtResource("acer_medium_2")]
+transform = Transform3D(-5.166021, 0, -1.545898, 0, 5.392363, 0, 1.545898, 0, -5.166021, -95, 0, -80)
+
+[node name="MediumTree_6" parent="Plaza/Vegetation/MediumTrees" instance=ExtResource("acer_medium_1")]
+transform = Transform3D(-1.831628, 0, -5.830421, 0, 6.111356, 0, 5.830421, 0, -1.831628, 45, 0, -5)
+
+[node name="MediumTree_7" parent="Plaza/Vegetation/MediumTrees" instance=ExtResource("acer_medium_1")]
+transform = Transform3D(0.386916, 0, 4.91197, 0, 4.927185, 0, -4.91197, 0, 0.386916, -65, 0, -40)
+
+[node name="MediumTree_8" parent="Plaza/Vegetation/MediumTrees" instance=ExtResource("acer_medium_3")]
+transform = Transform3D(-5.648751, 0, -0.4051, 0, 5.663259, 0, 0.4051, 0, -5.648751, -38, 0, 17)
+
+[node name="MediumTree_9" parent="Plaza/Vegetation/MediumTrees" instance=ExtResource("acer_medium_1")]
+transform = Transform3D(4.491173, 0, 4.285882, 0, 6.208013, 0, -4.285882, 0, 4.491173, -45, 0, 18)
+
+[node name="MediumTree_10" parent="Plaza/Vegetation/MediumTrees" instance=ExtResource("acer_medium_2")]
+transform = Transform3D(0.290638, 0, -5.061759, 0, 5.070096, 0, 5.061759, 0, 0.290638, -60, 0, 15)
+
+[node name="MediumTree_11" parent="Plaza/Vegetation/MediumTrees" instance=ExtResource("acer_medium_3")]
+transform = Transform3D(-4.797681, 0, -0.423408, 0, 4.816328, 0, 0.423408, 0, -4.797681, 30, 0, 17)
+
+[node name="MediumTree_12" parent="Plaza/Vegetation/MediumTrees" instance=ExtResource("acer_medium_2")]
+transform = Transform3D(-6.156356, 0, 1.283239, 0, 6.288674, 0, -1.283239, 0, -6.156356, 50, 0, 17)
+
+[node name="MediumTree_13" parent="Plaza/Vegetation/MediumTrees" instance=ExtResource("acer_medium_2")]
+transform = Transform3D(-4.828029, 0, -0.755906, 0, 4.886846, 0, 0.755906, 0, -4.828029, 75, 0, 3)
+
+[node name="MediumTree_14" parent="Plaza/Vegetation/MediumTrees" instance=ExtResource("acer_medium_3")]
+transform = Transform3D(3.5562, 0, 3.672805, 0, 5.112343, 0, -3.672805, 0, 3.5562, -30, 0, 57)
+
+[node name="MediumTree_15" parent="Plaza/Vegetation/MediumTrees" instance=ExtResource("acer_medium_3")]
+transform = Transform3D(5.65148, 0, 2.706662, 0, 6.266199, 0, -2.706662, 0, 5.65148, -40, 0, 102)
+
+[node name="MediumTree_16" parent="Plaza/Vegetation/MediumTrees" instance=ExtResource("acer_medium_2")]
+transform = Transform3D(-4.711983, 0, -3.46925, 0, 5.851366, 0, 3.46925, 0, -4.711983, 30, 0, 57)
+
+[node name="MediumTree_17" parent="Plaza/Vegetation/MediumTrees" instance=ExtResource("acer_medium_2")]
+transform = Transform3D(-5.364984, 0, 0.594888, 0, 5.397865, 0, -0.594888, 0, -5.364984, 45, 0, 112)
+
+[node name="MediumTree_18" parent="Plaza/Vegetation/MediumTrees" instance=ExtResource("acer_medium_3")]
+transform = Transform3D(4.678176, 0, -1.990522, 0, 5.084044, 0, 1.990522, 0, 4.678176, 100, 0, 132)
+
+[node name="MediumTree_19" parent="Plaza/Vegetation/MediumTrees" instance=ExtResource("acer_medium_3")]
+transform = Transform3D(0.703557, 0, -5.6017, 0, 5.645709, 0, 5.6017, 0, 0.703557, -8, 0, 57)
+
+[node name="MediumTree_20" parent="Plaza/Vegetation/MediumTrees" instance=ExtResource("acer_medium_2")]
+transform = Transform3D(-1.22705, 0, 4.523389, 0, 4.686865, 0, -4.523389, 0, -1.22705, 8, 0, 62)
+
+[node name="Hedges" type="Node3D" parent="Plaza/Vegetation"]
+
+[node name="Hedge_0_0" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -38.47222)
+
+[node name="Hedge_0_1" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -37.416668)
+
+[node name="Hedge_0_2" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -36.36111)
+
+[node name="Hedge_0_3" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -35.305557)
+
+[node name="Hedge_0_4" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -34.25)
+
+[node name="Hedge_0_5" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -33.194443)
+
+[node name="Hedge_0_6" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -32.13889)
+
+[node name="Hedge_0_7" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -31.083334)
+
+[node name="Hedge_0_8" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -30.027779)
+
+[node name="Hedge_0_9" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -28.972221)
+
+[node name="Hedge_0_10" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -27.916666)
+
+[node name="Hedge_0_11" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -26.86111)
+
+[node name="Hedge_0_12" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -25.805555)
+
+[node name="Hedge_0_13" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -24.75)
+
+[node name="Hedge_0_14" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -23.694445)
+
+[node name="Hedge_0_15" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -22.63889)
+
+[node name="Hedge_0_16" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -21.583334)
+
+[node name="Hedge_0_17" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -20.527779)
+
+[node name="Hedge_0_18" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -19.472221)
+
+[node name="Hedge_0_19" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -18.416666)
+
+[node name="Hedge_0_20" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -17.36111)
+
+[node name="Hedge_0_21" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -16.305555)
+
+[node name="Hedge_0_22" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -15.25)
+
+[node name="Hedge_0_23" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -14.194445)
+
+[node name="Hedge_0_24" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -13.138889)
+
+[node name="Hedge_0_25" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -12.083333)
+
+[node name="Hedge_0_26" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -11.027778)
+
+[node name="Hedge_0_27" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -9.972222)
+
+[node name="Hedge_0_28" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -8.916667)
+
+[node name="Hedge_0_29" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -7.861111)
+
+[node name="Hedge_0_30" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -6.8055553)
+
+[node name="Hedge_0_31" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -5.75)
+
+[node name="Hedge_0_32" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -4.6944447)
+
+[node name="Hedge_0_33" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -3.6388888)
+
+[node name="Hedge_0_34" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -2.5833333)
+
+[node name="Hedge_0_35" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, -28, 0, -1.5277778)
+
+[node name="Hedge_1_0" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, -50.142857, 0, -30)
+
+[node name="Hedge_1_1" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, -48.42857, 0, -30)
+
+[node name="Hedge_1_2" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, -46.714287, 0, -30)
+
+[node name="Hedge_1_3" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, -45, 0, -30)
+
+[node name="Hedge_1_4" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, -43.285713, 0, -30)
+
+[node name="Hedge_1_5" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, -41.57143, 0, -30)
+
+[node name="Hedge_1_6" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, -39.857143, 0, -30)
+
+[node name="Hedge_2_0" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -70, 0, -23.25)
+
+[node name="Hedge_2_1" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -70, 0, -21.75)
+
+[node name="Hedge_2_2" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -70, 0, -20.25)
+
+[node name="Hedge_2_3" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -70, 0, -18.75)
+
+[node name="Hedge_2_4" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -70, 0, -17.25)
+
+[node name="Hedge_2_5" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -70, 0, -15.75)
+
+[node name="Hedge_2_6" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -70, 0, -14.25)
+
+[node name="Hedge_2_7" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -70, 0, -12.75)
+
+[node name="Hedge_2_8" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -70, 0, -11.25)
+
+[node name="Hedge_2_9" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -70, 0, -9.75)
+
+[node name="Hedge_2_10" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -70, 0, -8.25)
+
+[node name="Hedge_2_11" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -70, 0, -6.75)
+
+[node name="Hedge_3_0" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -61.75, 0, -55)
+
+[node name="Hedge_3_1" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60.25, 0, -55)
+
+[node name="Hedge_3_2" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -58.75, 0, -55)
+
+[node name="Hedge_3_3" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -57.25, 0, -55)
+
+[node name="Hedge_3_4" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -55.75, 0, -55)
+
+[node name="Hedge_3_5" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -54.25, 0, -55)
+
+[node name="Hedge_3_6" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -52.75, 0, -55)
+
+[node name="Hedge_3_7" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -51.25, 0, -55)
+
+[node name="Hedge_3_8" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -49.75, 0, -55)
+
+[node name="Hedge_3_9" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -48.25, 0, -55)
+
+[node name="Hedge_4_0" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -38.47222)
+
+[node name="Hedge_4_1" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -37.416668)
+
+[node name="Hedge_4_2" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -36.36111)
+
+[node name="Hedge_4_3" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -35.305557)
+
+[node name="Hedge_4_4" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -34.25)
+
+[node name="Hedge_4_5" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -33.194443)
+
+[node name="Hedge_4_6" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -32.13889)
+
+[node name="Hedge_4_7" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -31.083334)
+
+[node name="Hedge_4_8" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -30.027779)
+
+[node name="Hedge_4_9" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -28.972221)
+
+[node name="Hedge_4_10" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -27.916666)
+
+[node name="Hedge_4_11" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -26.86111)
+
+[node name="Hedge_4_12" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -25.805555)
+
+[node name="Hedge_4_13" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -24.75)
+
+[node name="Hedge_4_14" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -23.694445)
+
+[node name="Hedge_4_15" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -22.63889)
+
+[node name="Hedge_4_16" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -21.583334)
+
+[node name="Hedge_4_17" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -20.527779)
+
+[node name="Hedge_4_18" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -19.472221)
+
+[node name="Hedge_4_19" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -18.416666)
+
+[node name="Hedge_4_20" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -17.36111)
+
+[node name="Hedge_4_21" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -16.305555)
+
+[node name="Hedge_4_22" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -15.25)
+
+[node name="Hedge_4_23" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -14.194445)
+
+[node name="Hedge_4_24" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -13.138889)
+
+[node name="Hedge_4_25" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -12.083333)
+
+[node name="Hedge_4_26" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -11.027778)
+
+[node name="Hedge_4_27" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -9.972222)
+
+[node name="Hedge_4_28" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -8.916667)
+
+[node name="Hedge_4_29" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -7.861111)
+
+[node name="Hedge_4_30" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -6.8055553)
+
+[node name="Hedge_4_31" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -5.75)
+
+[node name="Hedge_4_32" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -4.6944447)
+
+[node name="Hedge_4_33" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -3.6388888)
+
+[node name="Hedge_4_34" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -2.5833333)
+
+[node name="Hedge_4_35" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -0.7, 0, 0.7, 0, 0.7, 0, 0, 28, 0, -1.5277778)
+
+[node name="Hedge_5_0" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 43.875, 0, -18)
+
+[node name="Hedge_5_1" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 45.625, 0, -18)
+
+[node name="Hedge_5_2" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 47.375, 0, -18)
+
+[node name="Hedge_5_3" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 49.125, 0, -18)
+
+[node name="Hedge_5_4" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 50.875, 0, -18)
+
+[node name="Hedge_5_5" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 52.625, 0, -18)
+
+[node name="Hedge_5_6" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 54.375, 0, -18)
+
+[node name="Hedge_5_7" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 56.125, 0, -18)
+
+[node name="Hedge_6_0" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 75, 0, -29.23077)
+
+[node name="Hedge_6_1" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 75, 0, -27.692308)
+
+[node name="Hedge_6_2" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 75, 0, -26.153847)
+
+[node name="Hedge_6_3" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 75, 0, -24.615385)
+
+[node name="Hedge_6_4" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 75, 0, -23.076923)
+
+[node name="Hedge_6_5" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 75, 0, -21.538462)
+
+[node name="Hedge_6_6" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 75, 0, -20)
+
+[node name="Hedge_6_7" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 75, 0, -18.461538)
+
+[node name="Hedge_6_8" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 75, 0, -16.923077)
+
+[node name="Hedge_6_9" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 75, 0, -15.384615)
+
+[node name="Hedge_6_10" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 75, 0, -13.846154)
+
+[node name="Hedge_6_11" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 75, 0, -12.307693)
+
+[node name="Hedge_6_12" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 75, 0, -10.769231)
+
+[node name="Hedge_7_0" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -39.285713, 0, 3)
+
+[node name="Hedge_7_1" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -37.857143, 0, 3)
+
+[node name="Hedge_7_2" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -36.42857, 0, 3)
+
+[node name="Hedge_7_3" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -35, 0, 3)
+
+[node name="Hedge_7_4" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -33.57143, 0, 3)
+
+[node name="Hedge_7_5" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -32.142857, 0, 3)
+
+[node name="Hedge_7_6" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30.714285, 0, 3)
+
+[node name="Hedge_8_0" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 34.75, 0, 18)
+
+[node name="Hedge_8_1" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 36.25, 0, 18)
+
+[node name="Hedge_8_2" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 37.75, 0, 18)
+
+[node name="Hedge_8_3" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 39.25, 0, 18)
+
+[node name="Hedge_8_4" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40.75, 0, 18)
+
+[node name="Hedge_8_5" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 42.25, 0, 18)
+
+[node name="Hedge_8_6" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 43.75, 0, 18)
+
+[node name="Hedge_8_7" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45.25, 0, 18)
+
+[node name="Hedge_9_0" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, -41.5625, 0, 67)
+
+[node name="Hedge_9_1" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, -39.6875, 0, 67)
+
+[node name="Hedge_9_2" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, -37.8125, 0, 67)
+
+[node name="Hedge_9_3" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, -35.9375, 0, 67)
+
+[node name="Hedge_9_4" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, -34.0625, 0, 67)
+
+[node name="Hedge_9_5" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, -32.1875, 0, 67)
+
+[node name="Hedge_9_6" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, -30.3125, 0, 67)
+
+[node name="Hedge_9_7" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, -28.4375, 0, 67)
+
+[node name="Hedge_10_0" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -60, 0, 74.72727)
+
+[node name="Hedge_10_1" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -60, 0, 76.181816)
+
+[node name="Hedge_10_2" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -60, 0, 77.63636)
+
+[node name="Hedge_10_3" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -60, 0, 79.09091)
+
+[node name="Hedge_10_4" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -60, 0, 80.545456)
+
+[node name="Hedge_10_5" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -60, 0, 82)
+
+[node name="Hedge_10_6" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -60, 0, 83.454544)
+
+[node name="Hedge_10_7" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -60, 0, 84.90909)
+
+[node name="Hedge_10_8" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -60, 0, 86.36364)
+
+[node name="Hedge_10_9" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -60, 0, 87.818184)
+
+[node name="Hedge_10_10" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -60, 0, 89.27273)
+
+[node name="Hedge_11_0" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 33.875, 0, 72)
+
+[node name="Hedge_11_1" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 35.625, 0, 72)
+
+[node name="Hedge_11_2" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 37.375, 0, 72)
+
+[node name="Hedge_11_3" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 39.125, 0, 72)
+
+[node name="Hedge_11_4" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 40.875, 0, 72)
+
+[node name="Hedge_11_5" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 42.625, 0, 72)
+
+[node name="Hedge_11_6" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 44.375, 0, 72)
+
+[node name="Hedge_11_7" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 46.125, 0, 72)
+
+[node name="Hedge_12_0" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 65, 0, 78.75)
+
+[node name="Hedge_12_1" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 65, 0, 80.25)
+
+[node name="Hedge_12_2" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 65, 0, 81.75)
+
+[node name="Hedge_12_3" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 65, 0, 83.25)
+
+[node name="Hedge_12_4" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 65, 0, 84.75)
+
+[node name="Hedge_12_5" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 65, 0, 86.25)
+
+[node name="Hedge_12_6" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 65, 0, 87.75)
+
+[node name="Hedge_12_7" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 65, 0, 89.25)
+
+[node name="Hedge_12_8" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 65, 0, 90.75)
+
+[node name="Hedge_12_9" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 65, 0, 92.25)
+
+[node name="Hedge_12_10" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 65, 0, 93.75)
+
+[node name="Hedge_12_11" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 65, 0, 95.25)
+
+[node name="Hedge_13_0" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 4.923077, 0, 52)
+
+[node name="Hedge_13_1" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 6.769231, 0, 52)
+
+[node name="Hedge_13_2" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 8.615385, 0, 52)
+
+[node name="Hedge_13_3" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 10.461538, 0, 52)
+
+[node name="Hedge_13_4" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 12.307693, 0, 52)
+
+[node name="Hedge_13_5" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 14.153846, 0, 52)
+
+[node name="Hedge_13_6" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 16, 0, 52)
+
+[node name="Hedge_13_7" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 17.846153, 0, 52)
+
+[node name="Hedge_13_8" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 19.692308, 0, 52)
+
+[node name="Hedge_13_9" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 21.538462, 0, 52)
+
+[node name="Hedge_13_10" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 23.384615, 0, 52)
+
+[node name="Hedge_13_11" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 25.23077, 0, 52)
+
+[node name="Hedge_13_12" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 27.076923, 0, 52)
+
+[node name="Hedge_14_0" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -29.727272, 0, -75)
+
+[node name="Hedge_14_1" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -28.181818, 0, -75)
+
+[node name="Hedge_14_2" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -26.636364, 0, -75)
+
+[node name="Hedge_14_3" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -25.09091, 0, -75)
+
+[node name="Hedge_14_4" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -23.545454, 0, -75)
+
+[node name="Hedge_14_5" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -22, 0, -75)
+
+[node name="Hedge_14_6" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20.454546, 0, -75)
+
+[node name="Hedge_14_7" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18.90909, 0, -75)
+
+[node name="Hedge_14_8" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17.363636, 0, -75)
+
+[node name="Hedge_14_9" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15.818182, 0, -75)
+
+[node name="Hedge_14_10" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14.272727, 0, -75)
+
+[node name="Hedge_15_0" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14.272727, 0, -75)
+
+[node name="Hedge_15_1" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15.818182, 0, -75)
+
+[node name="Hedge_15_2" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17.363636, 0, -75)
+
+[node name="Hedge_15_3" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18.90909, 0, -75)
+
+[node name="Hedge_15_4" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.454546, 0, -75)
+
+[node name="Hedge_15_5" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, -75)
+
+[node name="Hedge_15_6" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23.545454, 0, -75)
+
+[node name="Hedge_15_7" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25.09091, 0, -75)
+
+[node name="Hedge_15_8" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26.636364, 0, -75)
+
+[node name="Hedge_15_9" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28.181818, 0, -75)
+
+[node name="Hedge_15_10" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 29.727272, 0, -75)
+
+[node name="Hedge_16_0" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -29.727272, 0, 107)
+
+[node name="Hedge_16_1" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -28.181818, 0, 107)
+
+[node name="Hedge_16_2" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -26.636364, 0, 107)
+
+[node name="Hedge_16_3" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -25.09091, 0, 107)
+
+[node name="Hedge_16_4" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -23.545454, 0, 107)
+
+[node name="Hedge_16_5" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -22, 0, 107)
+
+[node name="Hedge_16_6" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20.454546, 0, 107)
+
+[node name="Hedge_16_7" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18.90909, 0, 107)
+
+[node name="Hedge_16_8" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17.363636, 0, 107)
+
+[node name="Hedge_16_9" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15.818182, 0, 107)
+
+[node name="Hedge_16_10" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14.272727, 0, 107)
+
+[node name="Hedge_17_0" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14.272727, 0, 107)
+
+[node name="Hedge_17_1" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15.818182, 0, 107)
+
+[node name="Hedge_17_2" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17.363636, 0, 107)
+
+[node name="Hedge_17_3" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18.90909, 0, 107)
+
+[node name="Hedge_17_4" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.454546, 0, 107)
+
+[node name="Hedge_17_5" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, 107)
+
+[node name="Hedge_17_6" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23.545454, 0, 107)
+
+[node name="Hedge_17_7" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25.09091, 0, 107)
+
+[node name="Hedge_17_8" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26.636364, 0, 107)
+
+[node name="Hedge_17_9" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28.181818, 0, 107)
+
+[node name="Hedge_17_10" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 29.727272, 0, 107)
+
+[node name="Hedge_18_0" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -80, 0, -10.25)
+
+[node name="Hedge_18_1" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -80, 0, -8.75)
+
+[node name="Hedge_18_2" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -80, 0, -7.25)
+
+[node name="Hedge_18_3" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -80, 0, -5.75)
+
+[node name="Hedge_18_4" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -80, 0, -4.25)
+
+[node name="Hedge_18_5" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -80, 0, -2.75)
+
+[node name="Hedge_18_6" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -80, 0, -1.25)
+
+[node name="Hedge_18_7" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -80, 0, 0.25)
+
+[node name="Hedge_19_0" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -80, 0, 41.75)
+
+[node name="Hedge_19_1" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -80, 0, 43.25)
+
+[node name="Hedge_19_2" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -80, 0, 44.75)
+
+[node name="Hedge_19_3" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -80, 0, 46.25)
+
+[node name="Hedge_19_4" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -80, 0, 47.75)
+
+[node name="Hedge_19_5" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -80, 0, 49.25)
+
+[node name="Hedge_19_6" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -80, 0, 50.75)
+
+[node name="Hedge_19_7" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -80, 0, 52.25)
+
+[node name="Hedge_20_0" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 80, 0, -10.25)
+
+[node name="Hedge_20_1" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 80, 0, -8.75)
+
+[node name="Hedge_20_2" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 80, 0, -7.25)
+
+[node name="Hedge_20_3" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 80, 0, -5.75)
+
+[node name="Hedge_20_4" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 80, 0, -4.25)
+
+[node name="Hedge_20_5" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 80, 0, -2.75)
+
+[node name="Hedge_20_6" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 80, 0, -1.25)
+
+[node name="Hedge_20_7" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 80, 0, 0.25)
+
+[node name="Hedge_21_0" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 80, 0, 41.75)
+
+[node name="Hedge_21_1" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 80, 0, 43.25)
+
+[node name="Hedge_21_2" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 80, 0, 44.75)
+
+[node name="Hedge_21_3" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 80, 0, 46.25)
+
+[node name="Hedge_21_4" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 80, 0, 47.75)
+
+[node name="Hedge_21_5" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 80, 0, 49.25)
+
+[node name="Hedge_21_6" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 80, 0, 50.75)
+
+[node name="Hedge_21_7" parent="Plaza/Vegetation/Hedges" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 80, 0, 52.25)
+
+[node name="Shrubs" type="Node3D" parent="Plaza/Vegetation"]
+
+[node name="Shrub_0" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1.421164, 0, -0.640609, 0, 1.558874, 0, 0.640609, 0, 1.421164, -35, 0, -8)
+
+[node name="Shrub_1" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(-0.741374, 0, -1.339996, 0, 1.531413, 0, 1.339996, 0, -0.741374, -38, 0, -22)
+
+[node name="Shrub_2" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(-0.358469, 0, -1.982, 0, 2.014156, 0, 1.982, 0, -0.358469, -58, 0, -10)
+
+[node name="Shrub_3" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(-1.925393, 0, 0.484491, 0, 1.985414, 0, -0.484491, 0, -1.925393, -75, 0, -45)
+
+[node name="Shrub_4" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1.643361, 0, 1.497552, 0, 2.223353, 0, -1.497552, 0, 1.643361, -100, 0, -50)
+
+[node name="Shrub_5" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0.091323, 0, -2.074202, 0, 2.076212, 0, 2.074202, 0, 0.091323, 33, 0, -20)
+
+[node name="Shrub_6" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(-1.646024, 0, -1.087762, 0, 1.972973, 0, 1.087762, 0, -1.646024, 60, 0, -8)
+
+[node name="Shrub_7" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(-0.862869, 0, 1.340646, 0, 1.594326, 0, -1.340646, 0, -0.862869, 80, 0, -40)
+
+[node name="Shrub_8" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(-1.572479, 0, -0.982715, 0, 1.854298, 0, 0.982715, 0, -1.572479, 105, 0, -60)
+
+[node name="Shrub_9" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(2.228228, 0, -0.789128, 0, 2.363837, 0, 0.789128, 0, 2.228228, -30, 0, 3)
+
+[node name="Shrub_10" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(-1.307219, 0, 1.7113, 0, 2.153455, 0, -1.7113, 0, -1.307219, -30, 0, 17)
+
+[node name="Shrub_11" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(-0.212963, 0, 1.546014, 0, 1.560613, 0, -1.546014, 0, -0.212963, -55, 0, 18)
+
+[node name="Shrub_12" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1.779353, 0, -1.458296, 0, 2.300593, 0, 1.458296, 0, 1.779353, 30, 0, 5)
+
+[node name="Shrub_13" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(-1.647816, 0, 0.382333, 0, 1.69159, 0, -0.382333, 0, -1.647816, 60, 0, 15)
+
+[node name="Shrub_14" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0.665665, 0, -1.499029, 0, 1.640182, 0, 1.499029, 0, 0.665665, -30, 0, 54)
+
+[node name="Shrub_15" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1.383298, 0, 1.392263, 0, 1.962628, 0, -1.392263, 0, 1.383298, -55, 0, 62)
+
+[node name="Shrub_16" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0.561692, 0, 1.471849, 0, 1.575385, 0, -1.471849, 0, 0.561692, -80, 0, 77)
+
+[node name="Shrub_17" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1.924048, 0, -1.359639, 0, 2.355967, 0, 1.359639, 0, 1.924048, -100, 0, 107)
+
+[node name="Shrub_18" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(-2.08254, 0, 0.542914, 0, 2.152145, 0, -0.542914, 0, -2.08254, 30, 0, 54)
+
+[node name="Shrub_19" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1.262045, 0, -0.837695, 0, 1.514758, 0, 0.837695, 0, 1.262045, 60, 0, 64)
+
+[node name="Shrub_20" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(0.192625, 0, -2.245318, 0, 2.253566, 0, 2.245318, 0, 0.192625, 90, 0, 82)
+
+[node name="Shrub_21" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(-1.893352, 0, -0.222785, 0, 1.906414, 0, 0.222785, 0, -1.893352, 110, 0, 117)
+
+[node name="Shrub_22" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1.93415, 0, 1.360381, 0, 2.36465, 0, -1.360381, 0, 1.93415, -10, 0, 72)
+
+[node name="Shrub_23" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1.664484, 0, -0.022543, 0, 1.664637, 0, 0.022543, 0, 1.664484, 10, 0, 77)
+
+[node name="Shrub_24" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1.692487, 0, 0.842129, 0, 1.890422, 0, -0.842129, 0, 1.692487, -50, 0, -80)
+
+[node name="Shrub_25" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(-0.501977, 0, -2.229313, 0, 2.285129, 0, 2.229313, 0, -0.501977, 50, 0, -85)
+
+[node name="Shrub_26" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(-0.268385, 0, 2.180134, 0, 2.196592, 0, -2.180134, 0, -0.268385, -70, 0, 62)
+
+[node name="Shrub_27" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(-1.200734, 0, 1.942158, 0, 2.283362, 0, -1.942158, 0, -1.200734, 70, 0, 67)
+
+[node name="Shrub_28" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(0.732528, 0, -1.846691, 0, 1.986671, 0, 1.846691, 0, 0.732528, -30, 0, -60)
+
+[node name="Shrub_29" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1.603031, 0, -0.61708, 0, 1.717701, 0, 0.61708, 0, 1.603031, 30, 0, -65)
+
+[node name="Shrub_30" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(2.073746, 0, -0.835522, 0, 2.235737, 0, 0.835522, 0, 2.073746, -105, 0, -20)
+
+[node name="Shrub_31" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_2")]
+transform = Transform3D(1.724339, 0, -0.561977, 0, 1.813605, 0, 0.561977, 0, 1.724339, 105, 0, -25)
+
+[node name="Shrub_32" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_3")]
+transform = Transform3D(1.728593, 0, 0.958989, 0, 1.976789, 0, -0.958989, 0, 1.728593, -105, 0, 72)
+
+[node name="Shrub_33" parent="Plaza/Vegetation/Shrubs" instance=ExtResource("acer_sapling_1")]
+transform = Transform3D(1.902789, 0, -0.71054, 0, 2.031126, 0, 0.71054, 0, 1.902789, 105, 0, 77)
+
+[node name="Flowers" type="Node3D" parent="Plaza/Vegetation"]
+
+[node name="Flower_0" parent="Plaza/Vegetation/Flowers" instance=ExtResource("shrub_sorrel")]
+transform = Transform3D(8.939777, 0, 12.088775, 0, 15.035228, 0, -12.088775, 0, 8.939777, -40, 0, -12)
+
+[node name="FlowerGrass_0_0" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_large_a")]
+transform = Transform3D(2.436673, 0, 2.008393, 0, 3.157691, 0, -2.008393, 0, 2.436673, -41.588776, 0, -14.280681)
+
+[node name="FlowerGrass_0_1" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_large_a")]
+transform = Transform3D(-1.688109, 0, 2.565443, 0, 3.071027, 0, -2.565443, 0, -1.688109, -42.76155, 0, -14.5081)
+
+[node name="Flower_1" parent="Plaza/Vegetation/Flowers" instance=ExtResource("shrub_sorrel")]
+transform = Transform3D(-6.194368, 0, -13.982903, 0, 15.293521, 0, 13.982903, 0, -6.194368, -60, 0, -35)
+
+[node name="FlowerGrass_1_0" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_large_a")]
+transform = Transform3D(2.145493, 0, -2.310133, 0, 3.152753, 0, 2.310133, 0, 2.145493, -61.1149, 0, -36.40631)
+
+[node name="FlowerGrass_1_1" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_large_b")]
+transform = Transform3D(2.956431, 0, -0.17324, 0, 2.961502, 0, 0.17324, 0, 2.956431, -57.42589, 0, -32.385593)
+
+[node name="FlowerGrass_1_2" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_mid_a")]
+transform = Transform3D(2.389281, 0, 1.065107, 0, 2.615935, 0, -1.065107, 0, 2.389281, -61.721073, 0, -36.4088)
+
+[node name="Flower_2" parent="Plaza/Vegetation/Flowers" instance=ExtResource("shrub_sorrel")]
+transform = Transform3D(12.131311, 0, 11.497189, 0, 16.713888, 0, -11.497189, 0, 12.131311, -85, 0, -70)
+
+[node name="FlowerGrass_2_0" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_large_b")]
+transform = Transform3D(-2.055996, 0, 1.737698, 0, 2.691972, 0, -1.737698, 0, -2.055996, -82.99753, 0, -68.77876)
+
+[node name="FlowerGrass_2_1" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_large_a")]
+transform = Transform3D(2.506893, 0, -1.909128, 0, 3.151077, 0, 1.909128, 0, 2.506893, -84.672386, 0, -67.40946)
+
+[node name="FlowerGrass_2_2" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_tall_a")]
+transform = Transform3D(1.560604, 0, -2.310318, 0, 2.788019, 0, 2.310318, 0, 1.560604, -82.66172, 0, -68.5455)
+
+[node name="Flower_3" parent="Plaza/Vegetation/Flowers" instance=ExtResource("shrub_sorrel")]
+transform = Transform3D(3.432368, 0, -13.591191, 0, 14.017903, 0, 13.591191, 0, 3.432368, 42, 0, -25)
+
+[node name="FlowerGrass_3_0" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_tall_a")]
+transform = Transform3D(-0.022324, 0, -3.168669, 0, 3.168747, 0, 3.168669, 0, -0.022324, 44.117477, 0, -24.967546)
+
+[node name="FlowerGrass_3_1" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_tall_a")]
+transform = Transform3D(2.632415, 0, -0.058655, 0, 2.633069, 0, 0.058655, 0, 2.632415, 41.541454, 0, -26.339918)
+
+[node name="FlowerGrass_3_2" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_large_a")]
+transform = Transform3D(-2.960176, 0, 0.996494, 0, 3.123402, 0, -0.996494, 0, -2.960176, 40.57173, 0, -23.552614)
+
+[node name="Flower_4" parent="Plaza/Vegetation/Flowers" instance=ExtResource("shrub_sorrel")]
+transform = Transform3D(14.647515, 0, -0.891029, 0, 14.674591, 0, 0.891029, 0, 14.647515, 65, 0, -15)
+
+[node name="FlowerGrass_4_0" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_tall_a")]
+transform = Transform3D(1.816811, 0, -2.438661, 0, 3.041031, 0, 2.438661, 0, 1.816811, 67.00757, 0, -14.504943)
+
+[node name="FlowerGrass_4_1" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_large_b")]
+transform = Transform3D(2.54826, 0, 0.449756, 0, 2.587646, 0, -0.449756, 0, 2.54826, 64.18791, 0, -12.401472)
+
+[node name="Flower_5" parent="Plaza/Vegetation/Flowers" instance=ExtResource("shrub_sorrel")]
+transform = Transform3D(-8.103682, 0, -10.07487, 0, 12.929527, 0, 10.07487, 0, -8.103682, -50, 0, 15)
+
+[node name="FlowerGrass_5_0" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_tall_a")]
+transform = Transform3D(2.829643, 0, 0.469392, 0, 2.868311, 0, -0.469392, 0, 2.829643, -49.640697, 0, 17.248276)
+
+[node name="FlowerGrass_5_1" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_mid_a")]
+transform = Transform3D(1.043178, 0, 3.218344, 0, 3.383187, 0, -3.218344, 0, 1.043178, -51.579575, 0, 12.975011)
+
+[node name="Flower_6" parent="Plaza/Vegetation/Flowers" instance=ExtResource("shrub_sorrel")]
+transform = Transform3D(-11.541338, 0, -7.093064, 0, 13.546736, 0, 7.093064, 0, -11.541338, 35, 0, 5)
+
+[node name="FlowerGrass_6_0" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_large_b")]
+transform = Transform3D(-0.305071, 0, 3.239816, 0, 3.254148, 0, -3.239816, 0, -0.305071, 34.47028, 0, 6.0194426)
+
+[node name="FlowerGrass_6_1" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_large_b")]
+transform = Transform3D(1.937485, 0, 2.007723, 0, 2.790125, 0, -2.007723, 0, 1.937485, 36.724247, 0, 2.6485739)
+
+[node name="Flower_7" parent="Plaza/Vegetation/Flowers" instance=ExtResource("shrub_sorrel")]
+transform = Transform3D(2.863189, 0, -16.36509, 0, 16.61367, 0, 16.36509, 0, 2.863189, -45, 0, 82)
+
+[node name="FlowerGrass_7_0" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_tall_a")]
+transform = Transform3D(2.793505, 0, -0.418449, 0, 2.824672, 0, 0.418449, 0, 2.793505, -43.22793, 0, 80.36557)
+
+[node name="FlowerGrass_7_1" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_tall_a")]
+transform = Transform3D(0.424779, 0, 2.877435, 0, 2.908619, 0, -2.877435, 0, 0.424779, -46.32838, 0, 79.41653)
+
+[node name="FlowerGrass_7_2" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_mid_a")]
+transform = Transform3D(-3.046717, 0, 0.7055, 0, 3.127334, 0, -0.7055, 0, -3.046717, -45.60193, 0, 84.8869)
+
+[node name="Flower_8" parent="Plaza/Vegetation/Flowers" instance=ExtResource("shrub_sorrel")]
+transform = Transform3D(12.710174, 0, -11.254124, 0, 16.976566, 0, 11.254124, 0, 12.710174, -75, 0, 112)
+
+[node name="FlowerGrass_8_0" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_tall_a")]
+transform = Transform3D(-2.524057, 0, 1.752022, 0, 3.072531, 0, -1.752022, 0, -2.524057, -72.098694, 0, 109.229546)
+
+[node name="FlowerGrass_8_1" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_large_a")]
+transform = Transform3D(-3.197437, 0, 0.229885, 0, 3.205691, 0, -0.229885, 0, -3.197437, -76.117935, 0, 112.63725)
+
+[node name="FlowerGrass_8_2" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_tall_a")]
+transform = Transform3D(-3.092044, 0, -1.313724, 0, 3.359554, 0, 1.313724, 0, -3.092044, -76.85953, 0, 109.26632)
+
+[node name="Flower_9" parent="Plaza/Vegetation/Flowers" instance=ExtResource("shrub_sorrel")]
+transform = Transform3D(5.24598, 0, 14.148391, 0, 15.089642, 0, -14.148391, 0, 5.24598, 50, 0, 62)
+
+[node name="FlowerGrass_9_0" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_large_b")]
+transform = Transform3D(-2.101537, 0, 2.05338, 0, 2.938168, 0, -2.05338, 0, -2.101537, 52.69325, 0, 64.52463)
+
+[node name="FlowerGrass_9_1" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_large_b")]
+transform = Transform3D(-2.682535, 0, -1.740631, 0, 3.197779, 0, 1.740631, 0, -2.682535, 48.801933, 0, 60.85571)
+
+[node name="Flower_10" parent="Plaza/Vegetation/Flowers" instance=ExtResource("shrub_sorrel")]
+transform = Transform3D(-4.119863, 0, -13.965804, 0, 14.560802, 0, 13.965804, 0, -4.119863, 85, 0, 117)
+
+[node name="FlowerGrass_10_0" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_large_b")]
+transform = Transform3D(2.399099, 0, 1.679244, 0, 2.928402, 0, -1.679244, 0, 2.399099, 87.64218, 0, 118.06391)
+
+[node name="FlowerGrass_10_1" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_large_b")]
+transform = Transform3D(0.721805, 0, -2.824703, 0, 2.915468, 0, 2.824703, 0, 0.721805, 87.00235, 0, 115.82325)
+
+[node name="Flower_11" parent="Plaza/Vegetation/Flowers" instance=ExtResource("shrub_sorrel")]
+transform = Transform3D(-12.763489, 0, 10.115551, 0, 16.285915, 0, -10.115551, 0, -12.763489, 6, 0, 67)
+
+[node name="FlowerGrass_11_0" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_mid_a")]
+transform = Transform3D(0.79984, 0, 2.837014, 0, 2.947607, 0, -2.837014, 0, 0.79984, 7.0537634, 0, 67.06705)
+
+[node name="FlowerGrass_11_1" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_mid_a")]
+transform = Transform3D(-2.301091, 0, 2.140844, 0, 3.142966, 0, -2.140844, 0, -2.301091, 4.7027183, 0, 67.98312)
+
+[node name="FlowerGrass_11_2" parent="Plaza/Vegetation/Flowers" instance=ExtResource("grass_large_b")]
+transform = Transform3D(0.521462, 0, -3.244949, 0, 3.286581, 0, 3.244949, 0, 0.521462, 7.506829, 0, 68.03677)
+
+[node name="GrassClumps" type="Node3D" parent="Plaza/Vegetation"]
+
+[node name="Grass_0" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_tall_a")]
+transform = Transform3D(0.359341, 0, 3.07925, 0, 3.100147, 0, -3.07925, 0, 0.359341, -102.47, 0, 52.31)
+
+[node name="Grass_1" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_large_a")]
+transform = Transform3D(-2.384121, 0, -2.129237, 0, 3.196511, 0, 2.129237, 0, -2.384121, -79.77, 0, -45.17)
+
+[node name="Grass_2" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_tall_a")]
+transform = Transform3D(2.144678, 0, 2.577907, 0, 3.353394, 0, -2.577907, 0, 2.144678, -94.26, 0, 19.84)
+
+[node name="Grass_3" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_large_b")]
+transform = Transform3D(0.013073, 0, -2.595164, 0, 2.595197, 0, 2.595164, 0, 0.013073, 96.17, 0, 110.94)
+
+[node name="Grass_4" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_large_b")]
+transform = Transform3D(2.642965, 0, 2.146859, 0, 3.405036, 0, -2.146859, 0, 2.642965, -76.2, 0, 90.07)
+
+[node name="Grass_5" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_large_a")]
+transform = Transform3D(-3.178618, 0, -0.510111, 0, 3.21929, 0, 0.510111, 0, -3.178618, 33.06, 0, -61.65)
+
+[node name="Grass_6" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_large_b")]
+transform = Transform3D(-3.210267, 0, 0.432216, 0, 3.239232, 0, -0.432216, 0, -3.210267, -51.1, 0, 22.6)
+
+[node name="Grass_7" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_mid_a")]
+transform = Transform3D(-1.418122, 0, -2.369029, 0, 2.761044, 0, 2.369029, 0, -1.418122, -22.54, 0, 64.65)
+
+[node name="Grass_8" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_large_b")]
+transform = Transform3D(2.929858, 0, -1.251043, 0, 3.185777, 0, 1.251043, 0, 2.929858, -103.24, 0, 13.47)
+
+[node name="Grass_9" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_large_a")]
+transform = Transform3D(-2.398895, 0, -1.315988, 0, 2.736151, 0, 1.315988, 0, -2.398895, -86.88, 0, 123.3)
+
+[node name="Grass_10" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_large_a")]
+transform = Transform3D(2.788547, 0, 1.048868, 0, 2.979282, 0, -1.048868, 0, 2.788547, 102.82, 0, 21.48)
+
+[node name="Grass_11" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_mid_a")]
+transform = Transform3D(-0.292507, 0, 3.020267, 0, 3.034399, 0, -3.020267, 0, -0.292507, -50.95, 0, 92.67)
+
+[node name="Grass_12" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_tall_a")]
+transform = Transform3D(-1.327057, 0, -2.208014, 0, 2.576122, 0, 2.208014, 0, -1.327057, -1.18, 0, -80.89)
+
+[node name="Grass_13" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_tall_a")]
+transform = Transform3D(-3.354053, 0, 0.730352, 0, 3.43265, 0, -0.730352, 0, -3.354053, 91.56, 0, 142.03)
+
+[node name="Grass_14" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_mid_a")]
+transform = Transform3D(2.058564, 0, -2.355774, 0, 3.128475, 0, 2.355774, 0, 2.058564, -64.69, 0, 83.15)
+
+[node name="Grass_15" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_large_a")]
+transform = Transform3D(-1.272393, 0, -2.427205, 0, 2.740494, 0, 2.427205, 0, -1.272393, -99.55, 0, 13.9)
+
+[node name="Grass_16" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_mid_a")]
+transform = Transform3D(2.417345, 0, -1.366902, 0, 2.777044, 0, 1.366902, 0, 2.417345, -91.35, 0, 97.56)
+
+[node name="Grass_17" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_tall_a")]
+transform = Transform3D(2.49998, 0, -1.150001, 0, 2.7518, 0, 1.150001, 0, 2.49998, 24.9, 0, -96.35)
+
+[node name="Grass_18" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_mid_a")]
+transform = Transform3D(-2.390391, 0, 2.282778, 0, 3.305306, 0, -2.282778, 0, -2.390391, 25.42, 0, -33.53)
+
+[node name="Grass_19" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_tall_a")]
+transform = Transform3D(-0.116426, 0, -2.966247, 0, 2.968531, 0, 2.966247, 0, -0.116426, -104.27, 0, 83.47)
+
+[node name="Grass_20" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_tall_a")]
+transform = Transform3D(1.676034, 0, -2.784509, 0, 3.250013, 0, 2.784509, 0, 1.676034, -100.74, 0, 19.11)
+
+[node name="Grass_21" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_tall_a")]
+transform = Transform3D(2.569993, 0, 1.676034, 0, 3.068217, 0, -1.676034, 0, 2.569993, -105.81, 0, -102.56)
+
+[node name="Grass_22" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_large_b")]
+transform = Transform3D(1.494886, 0, 2.696204, 0, 3.082888, 0, -2.696204, 0, 1.494886, 63.72, 0, -35.65)
+
+[node name="Grass_23" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_mid_a")]
+transform = Transform3D(-2.990288, 0, 1.314869, 0, 3.266604, 0, -1.314869, 0, -2.990288, -106.34, 0, 21.59)
+
+[node name="Grass_24" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_tall_a")]
+transform = Transform3D(-1.567767, 0, 2.089251, 0, 2.612061, 0, -2.089251, 0, -1.567767, -85.49, 0, -64.3)
+
+[node name="Grass_25" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_tall_a")]
+transform = Transform3D(-1.905102, 0, -2.239462, 0, 2.940171, 0, 2.239462, 0, -1.905102, -42.79, 0, 141.12)
+
+[node name="Grass_26" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_large_b")]
+transform = Transform3D(2.716737, 0, 1.502049, 0, 3.104321, 0, -1.502049, 0, 2.716737, -54.88, 0, 16.53)
+
+[node name="Grass_27" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_tall_a")]
+transform = Transform3D(0.080377, 0, -2.838937, 0, 2.840074, 0, 2.838937, 0, 0.080377, 69.51, 0, -25.68)
+
+[node name="Grass_28" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_mid_a")]
+transform = Transform3D(-1.506, 0, 2.66704, 0, 3.062865, 0, -2.66704, 0, -1.506, -91.29, 0, 122.54)
+
+[node name="Grass_29" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_tall_a")]
+transform = Transform3D(-1.829255, 0, -2.363624, 0, 2.988795, 0, 2.363624, 0, -1.829255, -47.13, 0, 111.06)
+
+[node name="Grass_30" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_mid_a")]
+transform = Transform3D(-3.033581, 0, 0.318083, 0, 3.050212, 0, -0.318083, 0, -3.033581, 58.93, 0, -20.77)
+
+[node name="Grass_31" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_large_a")]
+transform = Transform3D(0.185294, 0, -3.044024, 0, 3.049659, 0, 3.044024, 0, 0.185294, -41.44, 0, -49.59)
+
+[node name="Grass_32" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_mid_a")]
+transform = Transform3D(0.467541, 0, -2.591917, 0, 2.633748, 0, 2.591917, 0, 0.467541, -60.1, 0, -58.37)
+
+[node name="Grass_33" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_tall_a")]
+transform = Transform3D(-1.693566, 0, -2.534345, 0, 3.048126, 0, 2.534345, 0, -1.693566, 56.03, 0, 79.08)
+
+[node name="Grass_34" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_tall_a")]
+transform = Transform3D(2.01596, 0, -1.908807, 0, 2.776263, 0, 1.908807, 0, 2.01596, 59.9, 0, 122.69)
+
+[node name="Grass_35" parent="Plaza/Vegetation/GrassClumps" instance=ExtResource("grass_large_b")]
+transform = Transform3D(-0.194754, 0, 2.715412, 0, 2.722387, 0, -2.715412, 0, -0.194754, 56.82, 0, -33.14)
 
 [node name="BuildingCollision" type="StaticBody3D" parent="."]
 collision_mask = 0
