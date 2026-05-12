@@ -61,7 +61,7 @@ const CLASS_INFO := {
 		"desc": "5 configurations, 4 spells each.\nHighest skill ceiling."
 	},
 }
-const SERVER_ADDRESS := "90.29.175.30"
+const SERVER_ADDRESS := "90.29.26.144"
 const USERNAME_SAVE_PATH := "user://username.txt"
 const UI_SURFACE := Color(0.035, 0.045, 0.065, 0.88)
 const UI_SURFACE_ALT := Color(0.05, 0.06, 0.085, 0.92)

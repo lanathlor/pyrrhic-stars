@@ -5,7 +5,7 @@ extends Node
 signal instances_loaded(data: Array)
 signal replay_loaded(replay: Variant)
 
-const BASE_URL := "http://90.29.175.30:7777"
+const BASE_URL := "http://90.29.26.144:7777"
 const ReplayDataScript := preload("res://scripts/replay/replay_data.gd")
 
 var _instances_http: HTTPRequest
