@@ -100,17 +100,28 @@ func (g *gateway) handleGroupMessage(sess *session.Session, opcode uint16, paylo
 			sendGroupError(sess.Conn, "can only enter portal from hub")
 			return
 		}
+		// Determine target zone from portal definitions, fallback to "arena"
+		targetZone := "arena"
+		g.mu.Lock()
+		if zi, ok := g.zones[sess.ZoneID]; ok {
+			portals := zi.zone.Portals()
+			if len(portals) > 0 {
+				targetZone = portals[0].TargetZone
+			}
+		}
+		g.mu.Unlock()
+
 		grp := g.groups.GetGroup(sess.ID)
-		var arenaID string
+		var instanceID string
 		groupSize := 1
 		if grp != nil {
-			arenaID = fmt.Sprintf("arena_g%d", grp.ID)
+			instanceID = fmt.Sprintf("%s_g%d", targetZone, grp.ID)
 			groupSize = len(grp.Members)
 		} else {
-			arenaID = fmt.Sprintf("arena_s%d", sess.ID)
+			instanceID = fmt.Sprintf("%s_s%d", targetZone, sess.ID)
 		}
-		slog.Info("player entering portal", "player_id", sess.ID, "arena", arenaID, "group_size", groupSize)
-		g.transferPlayer(sess, arenaID, zone.ZoneTypeInstanced, groupSize)
+		slog.Info("player entering portal", "player_id", sess.ID, "target_zone", targetZone, "instance", instanceID, "group_size", groupSize)
+		g.transferPlayer(sess, instanceID, zone.ZoneTypeInstanced, groupSize)
 		if grp != nil {
 			g.broadcastGroupState(grp)
 		}

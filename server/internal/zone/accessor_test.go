@@ -12,7 +12,7 @@ func minimalLevel() *level.Level {
 	return &level.Level{
 		PlayerBoundsMinX: -10, PlayerBoundsMaxX: 10,
 		PlayerBoundsMinZ: -10, PlayerBoundsMaxZ: 10,
-		PlayerSpawns: []entity.Vec3{{X: 0, Y: 0.1, Z: 0}},
+		PlayerSpawns: []level.PlayerSpawn{{Position: entity.Vec3{X: 0, Y: 0.1, Z: 0}}},
 	}
 }
 

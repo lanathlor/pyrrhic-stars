@@ -1,4 +1,4 @@
-[gd_scene load_steps=107 format=3 uid="uid://dnkrpp0215avx"]
+[gd_scene load_steps=115 format=3 uid="uid://dnkrpp0215avx"]
 
 [ext_resource type="PackedScene" uid="uid://dxpx576j1t04b" path="res://assets/models/environments/hub/vegetation/acer_large_1.glb" id="acer_large_1"]
 [ext_resource type="PackedScene" uid="uid://c03ut2xy785ir" path="res://assets/models/environments/hub/vegetation/acer_large_2.glb" id="acer_large_2"]
@@ -322,6 +322,62 @@ size = Vector3(0.5, 44, 200)
 [sub_resource type="BoxShape3D" id="BoxShape3D_co3d3"]
 size = Vector3(0.5, 44, 200)
 
+[sub_resource type="Curve3D" id="npc_path_citizen1"]
+_data = {
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 40, 0, 0, 0, 0, 0, 0, -20, 0, 40, 0, 0, 0, 0, 0, 0, -20, 0, 0),
+"tilts": PackedFloat32Array(0, 0, 0, 0)
+}
+point_count = 4
+
+[sub_resource type="Curve3D" id="npc_path_citizen2"]
+_data = {
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -22, 0, 0, 0, 0, 0, 0, 35, 0, -22, 0, 0, 0, 0, 0, 0, 35, 0, 0),
+"tilts": PackedFloat32Array(0, 0, 0, 0)
+}
+point_count = 4
+
+[sub_resource type="Curve3D" id="npc_path_citizen3"]
+_data = {
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 30, 0, 0),
+"tilts": PackedFloat32Array(0, 0)
+}
+point_count = 2
+
+[sub_resource type="Curve3D" id="npc_path_merchant"]
+_data = {
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 0, 0, 0),
+"tilts": PackedFloat32Array(0)
+}
+point_count = 1
+
+[sub_resource type="Curve3D" id="npc_path_citizen4"]
+_data = {
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -40, 0, 0, 0, 0, 0, 0, 35, 0, -40, 0, 0, 0, 0, 0, 0, 35, 0, 0),
+"tilts": PackedFloat32Array(0, 0, 0, 0)
+}
+point_count = 4
+
+[sub_resource type="Curve3D" id="npc_path_guard"]
+_data = {
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0),
+"tilts": PackedFloat32Array(0, 0)
+}
+point_count = 2
+
+[sub_resource type="Curve3D" id="npc_path_citizen5"]
+_data = {
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, -20, 0, 0, 0, 0, 0, 0, 0, 0, -20),
+"tilts": PackedFloat32Array(0, 0, 0, 0)
+}
+point_count = 4
+
+[sub_resource type="Curve3D" id="npc_path_citizen6"]
+_data = {
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -35, 0, 0, 0, 0, 0, 0, 12, 0, -35),
+"tilts": PackedFloat32Array(0, 0, 0)
+}
+point_count = 3
+
 [node name="MilitaryBuilding" type="Node3D"]
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
@@ -424,8 +480,8 @@ transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -25, 65, 21)
 transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 25, 65, 21)
 
 [node name="BackingFrontBelow" type="CSGBox3D" parent="TowerExterior"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 49.925, -0.5)
-size = Vector3(50, 99.85, 0.1)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 52.46704, -0.5)
+size = Vector3(50, 94.765915, 0.1)
 material = SubResource("slab_backing_mat")
 
 [node name="BackingFrontAbove" type="CSGBox3D" parent="TowerExterior"]
@@ -874,10 +930,15 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 50, 40)
 light_color = Color(0.3, 0.6, 1, 1)
 light_energy = 1.5
 
-[node name="ElevatorCab" type="AnimatableBody3D" parent="."]
+[node name="ElevatorCab" type="AnimatableBody3D" parent="." groups=["server_elevator"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 45)
 collision_mask = 0
 script = ExtResource("lift_script")
+metadata/half_x = 2.0
+metadata/half_z = 2.0
+metadata/bottom_y = 0.0
+metadata/top_y = 100.0
+metadata/speed = 12.5
 
 [node name="CabFloor" type="CollisionShape3D" parent="ElevatorCab"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
@@ -1208,10 +1269,15 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.25, -0.08, -55)
 size = Vector3(4.5, 0.05, 3)
 material = SubResource("path_mat")
 
-[node name="PublicLift" type="AnimatableBody3D" parent="Plaza"]
+[node name="PublicLift" type="AnimatableBody3D" parent="Plaza" groups=["server_elevator"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0, -55)
 collision_mask = 0
 script = ExtResource("public_lift_script")
+metadata/half_x = 4.0
+metadata/half_z = 4.0
+metadata/bottom_y = -200.0
+metadata/top_y = 0.0
+metadata/speed = 10.0
 
 [node name="PlatformShape" type="CollisionShape3D" parent="Plaza/PublicLift"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0)
@@ -2764,10 +2830,12 @@ shape = SubResource("BoxShape3D_olews")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 102.5, 4.5)
 shape = SubResource("BoxShape3D_p7mdb")
 
-[node name="PortalArea" type="Area3D" parent="."]
+[node name="PortalArea" type="Area3D" parent="." groups=["server_portal"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 33, 102, 5.5)
 collision_layer = 0
 collision_mask = 2
+metadata/target_zone = "arena"
+metadata/interaction_radius = 4.0
 
 [node name="PortalShape" type="CollisionShape3D" parent="PortalArea"]
 shape = SubResource("portal_shape")
@@ -3259,3 +3327,100 @@ script = ExtResource("air_traffic")
 [node name="PortalTrail" type="Node3D" parent="."]
 visible = false
 script = ExtResource("portal_trail_script")
+
+[node name="LevelData" type="Node3D" parent="."]
+
+[node name="SpawnPlayer1" type="Node3D" parent="LevelData" groups=["server_spawn_player"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 33, 100.15, 4)
+
+[node name="SpawnPlayer2" type="Node3D" parent="LevelData" groups=["server_spawn_player"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31, 100.15, 4)
+
+[node name="SpawnPlayer3" type="Node3D" parent="LevelData" groups=["server_spawn_player"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 100.15, 4)
+
+[node name="SpawnPlayer4" type="Node3D" parent="LevelData" groups=["server_spawn_player"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 33, 100.15, 6)
+
+[node name="SpawnPlayer5" type="Node3D" parent="LevelData" groups=["server_spawn_player"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 33, 100.15, 2)
+
+[node name="Bounds" type="Node3D" parent="LevelData" groups=["server_bounds"]]
+metadata/min_x = -125.0
+metadata/max_x = 125.0
+metadata/min_y = -210.0
+metadata/max_y = 110.0
+metadata/min_z = -160.0
+metadata/max_z = 160.0
+
+[node name="NPCCitizen1" type="Node3D" parent="LevelData" groups=["server_spawn_npc"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, -199.95, -70)
+metadata/def_name = "citizen"
+metadata/speed = 1.8
+metadata/idle_duration = 4.0
+
+[node name="NPCCitizen1Path" type="Path3D" parent="LevelData/NPCCitizen1"]
+curve = SubResource("npc_path_citizen1")
+
+[node name="NPCCitizen2" type="Node3D" parent="LevelData" groups=["server_spawn_npc"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13, -199.95, -70)
+metadata/def_name = "citizen"
+metadata/speed = 1.4
+metadata/idle_duration = 6.0
+
+[node name="NPCCitizen2Path" type="Path3D" parent="LevelData/NPCCitizen2"]
+curve = SubResource("npc_path_citizen2")
+
+[node name="NPCCitizen3" type="Node3D" parent="LevelData" groups=["server_spawn_npc"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60, -199.95, -100)
+metadata/def_name = "citizen"
+metadata/speed = 2.0
+metadata/idle_duration = 3.0
+
+[node name="NPCCitizen3Path" type="Path3D" parent="LevelData/NPCCitizen3"]
+curve = SubResource("npc_path_citizen3")
+
+[node name="NPCMerchant" type="Node3D" parent="LevelData" groups=["server_spawn_npc"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, -199.95, -45)
+metadata/def_name = "merchant"
+metadata/speed = 0.0
+metadata/idle_duration = 999.0
+
+[node name="NPCMerchantPath" type="Path3D" parent="LevelData/NPCMerchant"]
+curve = SubResource("npc_path_merchant")
+
+[node name="NPCCitizen4" type="Node3D" parent="LevelData" groups=["server_spawn_npc"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -38, -199.95, -110)
+metadata/def_name = "citizen"
+metadata/speed = 1.6
+metadata/idle_duration = 5.0
+
+[node name="NPCCitizen4Path" type="Path3D" parent="LevelData/NPCCitizen4"]
+curve = SubResource("npc_path_citizen4")
+
+[node name="NPCGuard" type="Node3D" parent="LevelData" groups=["server_spawn_npc"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, -199.95, -48)
+metadata/def_name = "guard"
+metadata/speed = 1.0
+metadata/idle_duration = 8.0
+
+[node name="NPCGuardPath" type="Path3D" parent="LevelData/NPCGuard"]
+curve = SubResource("npc_path_guard")
+
+[node name="NPCCitizen5" type="Node3D" parent="LevelData" groups=["server_spawn_npc"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, -199.95, -90)
+metadata/def_name = "citizen"
+metadata/speed = 1.5
+metadata/idle_duration = 3.5
+
+[node name="NPCCitizen5Path" type="Path3D" parent="LevelData/NPCCitizen5"]
+curve = SubResource("npc_path_citizen5")
+
+[node name="NPCCitizen6" type="Node3D" parent="LevelData" groups=["server_spawn_npc"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, -199.95, -115)
+metadata/def_name = "citizen"
+metadata/speed = 1.3
+metadata/idle_duration = 7.0
+
+[node name="NPCCitizen6Path" type="Path3D" parent="LevelData/NPCCitizen6"]
+curve = SubResource("npc_path_citizen6")

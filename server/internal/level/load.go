@@ -9,7 +9,7 @@ import (
 	"codex-online/server/internal/entity"
 )
 
-const currentVersion = 2
+const currentVersion = 3
 
 type boundsJSON struct {
 	MinX float32 `json:"min_x"`
@@ -43,17 +43,43 @@ type vec3JSON struct {
 	Z float32 `json:"z"`
 }
 
+type playerSpawnJSON struct {
+	X         float32 `json:"x"`
+	Y         float32 `json:"y"`
+	Z         float32 `json:"z"`
+	Condition string  `json:"condition,omitempty"`
+}
+
 type enemySpawnJSON struct {
-	X           float32  `json:"x"`
-	Y           float32  `json:"y"`
-	Z           float32  `json:"z"`
-	DefName     string   `json:"def_name"`
-	IsBoss      bool     `json:"is_boss,omitempty"`
-	PatrolA     vec3JSON `json:"patrol_a"`
-	PatrolB     vec3JSON `json:"patrol_b"`
-	AggroRadius float32  `json:"aggro_radius"`
-	LeashRadius float32  `json:"leash_radius"`
-	GroupID     int      `json:"group_id,omitempty"`
+	X               float32    `json:"x"`
+	Y               float32    `json:"y"`
+	Z               float32    `json:"z"`
+	DefName         string     `json:"def_name"`
+	IsBoss          bool       `json:"is_boss,omitempty"`
+	PatrolA         vec3JSON   `json:"patrol_a"`
+	PatrolB         vec3JSON   `json:"patrol_b"`
+	PatrolWaypoints []vec3JSON `json:"patrol_waypoints,omitempty"`
+	AggroRadius     float32    `json:"aggro_radius"`
+	LeashRadius     float32    `json:"leash_radius"`
+	GroupID         int        `json:"group_id,omitempty"`
+	Condition       string     `json:"condition,omitempty"`
+}
+
+type portalJSON struct {
+	Name              string  `json:"name"`
+	X                 float32 `json:"x"`
+	Y                 float32 `json:"y"`
+	Z                 float32 `json:"z"`
+	TargetZone        string  `json:"target_zone"`
+	InteractionRadius float32 `json:"interaction_radius"`
+	Condition         string  `json:"condition,omitempty"`
+}
+
+type zoneTriggerJSON struct {
+	Name      string  `json:"name"`
+	TriggerID string  `json:"trigger_id"`
+	Axis      string  `json:"axis"`
+	Threshold float32 `json:"threshold"`
 }
 
 type npcSpawnJSON struct {
@@ -64,16 +90,18 @@ type npcSpawnJSON struct {
 }
 
 type levelDataJSON struct {
-	Version      int              `json:"version"`
-	Zone         string           `json:"zone"`
-	SourceScene  string           `json:"source_scene"`
-	Bounds       boundsJSON       `json:"bounds"`
-	Obstacles    []obstacleJSON   `json:"obstacles"`
-	Elevators    []elevatorJSON   `json:"elevators,omitempty"`
-	PlayerSpawns []vec3JSON       `json:"player_spawns"`
-	SpawnYaw     float32          `json:"spawn_yaw,omitempty"`
-	EnemySpawns  []enemySpawnJSON `json:"enemy_spawns,omitempty"`
-	NPCSpawns    []npcSpawnJSON   `json:"npc_spawns,omitempty"`
+	Version      int                `json:"version"`
+	Zone         string             `json:"zone"`
+	SourceScene  string             `json:"source_scene"`
+	Bounds       boundsJSON         `json:"bounds"`
+	Obstacles    []obstacleJSON     `json:"obstacles"`
+	Elevators    []elevatorJSON     `json:"elevators,omitempty"`
+	PlayerSpawns []playerSpawnJSON  `json:"player_spawns"`
+	SpawnYaw     float32            `json:"spawn_yaw,omitempty"`
+	EnemySpawns  []enemySpawnJSON   `json:"enemy_spawns,omitempty"`
+	NPCSpawns    []npcSpawnJSON     `json:"npc_spawns,omitempty"`
+	Portals      []portalJSON       `json:"portals,omitempty"`
+	ZoneTriggers []zoneTriggerJSON  `json:"zone_triggers,omitempty"`
 }
 
 // loadLevelData reads a JSON level file and applies its geometry to l.
@@ -87,8 +115,8 @@ func loadLevelData(path string, l *Level) error {
 	if err := json.Unmarshal(raw, &ld); err != nil {
 		return fmt.Errorf("level parse %q: %w", path, err)
 	}
-	if ld.Version != currentVersion {
-		return fmt.Errorf("level %q: version %d (want %d)", path, ld.Version, currentVersion)
+	if ld.Version < 2 || ld.Version > currentVersion {
+		return fmt.Errorf("level %q: version %d (want 2-%d)", path, ld.Version, currentVersion)
 	}
 
 	// Bounds
@@ -130,16 +158,20 @@ func loadLevelData(path string, l *Level) error {
 		}
 	}
 
-	// Spawns
-	l.PlayerSpawns = make([]entity.Vec3, len(ld.PlayerSpawns))
+	// Player spawns
+	l.PlayerSpawns = make([]PlayerSpawn, len(ld.PlayerSpawns))
 	for i, s := range ld.PlayerSpawns {
-		l.PlayerSpawns[i] = entity.Vec3{X: s.X, Y: s.Y, Z: s.Z}
+		l.PlayerSpawns[i] = PlayerSpawn{
+			Position:  entity.Vec3{X: s.X, Y: s.Y, Z: s.Z},
+			Condition: s.Condition,
+		}
 	}
 	l.SpawnYaw = ld.SpawnYaw
 
+	// Enemy spawns
 	l.EnemySpawns = make([]EnemySpawnPoint, len(ld.EnemySpawns))
 	for i, s := range ld.EnemySpawns {
-		l.EnemySpawns[i] = EnemySpawnPoint{
+		esp := EnemySpawnPoint{
 			Position:    entity.Vec3{X: s.X, Y: s.Y, Z: s.Z},
 			DefName:     s.DefName,
 			IsBoss:      s.IsBoss,
@@ -148,7 +180,18 @@ func loadLevelData(path string, l *Level) error {
 			AggroRadius: s.AggroRadius,
 			LeashRadius: s.LeashRadius,
 			GroupID:     s.GroupID,
+			Condition:   s.Condition,
 		}
+		if len(s.PatrolWaypoints) >= 2 {
+			esp.PatrolWaypoints = make([]entity.Vec3, len(s.PatrolWaypoints))
+			for j, w := range s.PatrolWaypoints {
+				esp.PatrolWaypoints[j] = entity.Vec3{X: w.X, Y: w.Y, Z: w.Z}
+			}
+			// Override A/B with first/last for backward compat with 2-point patrol
+			esp.PatrolA = esp.PatrolWaypoints[0]
+			esp.PatrolB = esp.PatrolWaypoints[len(esp.PatrolWaypoints)-1]
+		}
+		l.EnemySpawns[i] = esp
 	}
 
 	// NPC spawns (hub)
@@ -163,6 +206,28 @@ func loadLevelData(path string, l *Level) error {
 			Speed:        s.Speed,
 			IdleDuration: s.IdleDuration,
 			Waypoints:    wps,
+		}
+	}
+
+	// Portals
+	l.Portals = make([]PortalDef, len(ld.Portals))
+	for i, p := range ld.Portals {
+		l.Portals[i] = PortalDef{
+			Name:              p.Name,
+			Position:          entity.Vec3{X: p.X, Y: p.Y, Z: p.Z},
+			TargetZone:        p.TargetZone,
+			InteractionRadius: p.InteractionRadius,
+			Condition:         p.Condition,
+		}
+	}
+
+	// Zone triggers → map well-known trigger IDs to Level fields
+	for _, zt := range ld.ZoneTriggers {
+		switch zt.TriggerID {
+		case "arena_entry":
+			l.ArenaEntryZ = zt.Threshold
+		case "boss_room_entry":
+			l.BossRoomEntryZ = zt.Threshold
 		}
 	}
 

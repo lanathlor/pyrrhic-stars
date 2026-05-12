@@ -45,12 +45,12 @@ func hardcodedHubLevel() *Level {
 		},
 
 		SpawnYaw: 3.1416, // face south (toward portal at z=5.5)
-		PlayerSpawns: []entity.Vec3{
-			{X: 33.0, Y: 100.15, Z: 4.0},
-			{X: 31.0, Y: 100.15, Z: 4.0},
-			{X: 35.0, Y: 100.15, Z: 4.0},
-			{X: 33.0, Y: 100.15, Z: 6.0},
-			{X: 33.0, Y: 100.15, Z: 2.0},
+		PlayerSpawns: []PlayerSpawn{
+			{Position: entity.Vec3{X: 33.0, Y: 100.15, Z: 4.0}},
+			{Position: entity.Vec3{X: 31.0, Y: 100.15, Z: 4.0}},
+			{Position: entity.Vec3{X: 35.0, Y: 100.15, Z: 4.0}},
+			{Position: entity.Vec3{X: 33.0, Y: 100.15, Z: 6.0}},
+			{Position: entity.Vec3{X: 33.0, Y: 100.15, Z: 2.0}},
 		},
 	}
 }

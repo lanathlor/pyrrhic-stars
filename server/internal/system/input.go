@@ -6,6 +6,7 @@ import (
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/combatlog"
 	"codex-online/server/internal/entity"
+	"codex-online/server/internal/level"
 	"codex-online/server/internal/message"
 )
 
@@ -272,7 +273,8 @@ func handleRespawnRequest(w *World, peerID uint16, payload []byte) {
 			player.Alive = true
 			player.Health = player.MaxHealth
 			player.State = entity.PlayerStateMove
-			player.Position = entity.Vec3{X: 0, Y: 0.1, Z: 48}
+			deadGroups := w.DeadGroupIDs()
+			player.Position = pickSpawnPoint(w.Level.PlayerSpawns, level.ZoneState{BossDefeated: w.BossDefeated, DeadGroupIDs: deadGroups}, 0)
 		}
 	}
 }

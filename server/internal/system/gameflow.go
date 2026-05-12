@@ -5,6 +5,7 @@ import (
 
 	"codex-online/server/internal/combatlog"
 	"codex-online/server/internal/entity"
+	"codex-online/server/internal/level"
 	"codex-online/server/internal/message"
 )
 
@@ -211,14 +212,17 @@ func returnToLobby(w *World) {
 	w.State = StateSpawned
 	w.Projectiles = nil
 
-	// Reset players to warmup
+	// Reset players to warmup — use conditional spawn points
+	deadGroups := w.DeadGroupIDs()
+	idx := 0
 	for _, p := range w.Players {
 		p.Ready = false
 		p.Alive = true
 		p.Health = p.MaxHealth
 		p.State = entity.PlayerStateMove
-		p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 48.0}
+		p.Position = pickSpawnPoint(w.Level.PlayerSpawns, level.ZoneState{BossDefeated: w.BossDefeated, DeadGroupIDs: deadGroups}, idx)
 		p.Velocity = entity.Vec3{}
+		idx++
 	}
 
 	// Reset alive enemies to patrol — dead ones stay dead
@@ -229,11 +233,43 @@ func returnToLobby(w *World) {
 	})
 }
 
+// pickSpawnPoint selects the best spawn point for a player given the current zone state.
+// It picks the highest-progression checkpoint whose condition is satisfied,
+// then round-robins among spawns at that tier.
+func pickSpawnPoint(spawns []level.PlayerSpawn, state level.ZoneState, idx int) entity.Vec3 {
+	if len(spawns) == 0 {
+		return entity.Vec3{Y: 0.1}
+	}
+	// Find the highest priority among satisfied conditions
+	bestPriority := -1
+	for _, s := range spawns {
+		if level.EvalCondition(s.Condition, state) {
+			if p := level.ConditionPriority(s.Condition); p > bestPriority {
+				bestPriority = p
+			}
+		}
+	}
+	if bestPriority < 0 {
+		// Nothing satisfied — fall back to first spawn
+		return spawns[0].Position
+	}
+	// Collect spawns at best tier
+	var eligible []level.PlayerSpawn
+	for _, s := range spawns {
+		if level.EvalCondition(s.Condition, state) &&
+			level.ConditionPriority(s.Condition) == bestPriority {
+			eligible = append(eligible, s)
+		}
+	}
+	return eligible[idx%len(eligible)].Position
+}
+
 // SpawnPlayers initializes all players at spawn points.
 func SpawnPlayers(w *World) {
+	deadGroups := w.DeadGroupIDs()
 	idx := 0
 	for _, p := range w.Players {
-		spawnPos := w.Level.PlayerSpawns[idx%len(w.Level.PlayerSpawns)]
+		spawnPos := pickSpawnPoint(w.Level.PlayerSpawns, level.ZoneState{BossDefeated: w.BossDefeated, DeadGroupIDs: deadGroups}, idx)
 		p.Position = spawnPos
 		p.RotationY = w.Level.SpawnYaw
 		p.Health = p.MaxHealth
@@ -256,7 +292,8 @@ func SpawnPlayer(w *World, peerID uint16) {
 		return
 	}
 	idx := len(w.Players) - 1
-	spawnPos := w.Level.PlayerSpawns[idx%len(w.Level.PlayerSpawns)]
+	deadGroups := w.DeadGroupIDs()
+	spawnPos := pickSpawnPoint(w.Level.PlayerSpawns, level.ZoneState{BossDefeated: w.BossDefeated, DeadGroupIDs: deadGroups}, idx)
 	p.Position = spawnPos
 	p.RotationY = w.Level.SpawnYaw
 	p.Health = p.MaxHealth

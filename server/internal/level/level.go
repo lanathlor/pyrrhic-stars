@@ -5,16 +5,33 @@ import (
 	"codex-online/server/internal/entity"
 )
 
+// PlayerSpawn defines a player spawn point with an optional condition.
+type PlayerSpawn struct {
+	Position  entity.Vec3
+	Condition string // "", "boss_dead", "pack_N_cleared" — empty means always active
+}
+
 // EnemySpawnPoint defines where and what enemy spawns in a level.
 type EnemySpawnPoint struct {
-	Position    entity.Vec3
-	DefName     string // maps to enemyai.DefRegistry key
-	IsBoss      bool
-	PatrolA     entity.Vec3 // first patrol waypoint
-	PatrolB     entity.Vec3 // second patrol waypoint
-	AggroRadius float32     // detection distance
-	LeashRadius float32     // max distance from spawn before reset
-	GroupID     int         // mobs with the same GroupID aggro together (0 = no group)
+	Position        entity.Vec3
+	DefName         string // maps to enemyai.DefRegistry key
+	IsBoss          bool
+	PatrolA         entity.Vec3   // first patrol waypoint
+	PatrolB         entity.Vec3   // second patrol waypoint
+	PatrolWaypoints []entity.Vec3 // multi-point patrol (overrides A/B when len >= 2)
+	AggroRadius     float32       // detection distance
+	LeashRadius     float32       // max distance from spawn before reset
+	GroupID         int           // mobs with the same GroupID aggro together (0 = no group)
+	Condition       string        // spawn condition (empty = always active)
+}
+
+// PortalDef defines a zone transition point.
+type PortalDef struct {
+	Name              string
+	Position          entity.Vec3
+	TargetZone        string
+	InteractionRadius float32
+	Condition         string // empty = always active
 }
 
 // ElevatorVolume describes a moving platform that allows vertical player movement.
@@ -44,7 +61,7 @@ type Level struct {
 	Elevators []ElevatorVolume
 
 	// Spawn points
-	PlayerSpawns []entity.Vec3
+	PlayerSpawns []PlayerSpawn
 	SpawnYaw     float32 // initial facing direction (radians) for spawned players
 	EnemySpawns  []EnemySpawnPoint
 
@@ -59,6 +76,9 @@ type Level struct {
 
 	// NPC spawn points (hub only)
 	NPCSpawns []NPCSpawnPoint
+
+	// Portals (zone transition points)
+	Portals []PortalDef
 }
 
 // NPCSpawnPoint defines a hub NPC with patrol waypoints.

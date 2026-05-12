@@ -441,7 +441,7 @@ func TestHandleRespawnRequest(t *testing.T) {
 			respawnType:     0,
 			wantAlive:       true,
 			wantHealthReset: true,
-			wantPosition:    &entity.Vec3{X: 0, Y: 0.1, Z: 48},
+			wantPosition:    &entity.Vec3{X: -2, Y: 0.1, Z: 48},
 		},
 		{
 			name:        "arena respawn rejected during fight",

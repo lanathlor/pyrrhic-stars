@@ -144,6 +144,27 @@ type World struct {
 	castPatternFn func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3)
 }
 
+// DeadGroupIDs returns a set of enemy GroupIDs where all members are dead.
+func (w *World) DeadGroupIDs() map[int]bool {
+	groups := make(map[int]int)
+	dead := make(map[int]int)
+	for _, e := range w.Enemies {
+		if e.GroupID > 0 {
+			groups[e.GroupID]++
+			if !e.Alive {
+				dead[e.GroupID]++
+			}
+		}
+	}
+	result := make(map[int]bool)
+	for gid, total := range groups {
+		if dead[gid] == total {
+			result[gid] = true
+		}
+	}
+	return result
+}
+
 // EnemyDmgMult returns the enemy damage multiplier, defaulting to 1.0 if unset.
 func (w *World) EnemyDmgMult() float32 {
 	if w.EnemyDamageMult == 0 {

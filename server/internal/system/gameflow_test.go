@@ -1002,3 +1002,51 @@ func TestReturnToLobby_ResetsPlayerState(t *testing.T) {
 		t.Error("dead enemy should remain dead")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// pickSpawnPoint — conditional spawn selection
+// ---------------------------------------------------------------------------
+
+func TestPickSpawnPoint(t *testing.T) {
+	spawns := []level.PlayerSpawn{
+		{Position: entity.Vec3{X: 0, Y: 0.1, Z: 48}, Condition: ""},
+		{Position: entity.Vec3{X: 1, Y: 0.1, Z: 48}, Condition: ""},
+		{Position: entity.Vec3{X: 0, Y: 0.1, Z: 26}, Condition: "pack_1_cleared"},
+		{Position: entity.Vec3{X: 0, Y: 0.1, Z: 0}, Condition: "boss_dead"},
+	}
+
+	t.Run("default_no_progress", func(t *testing.T) {
+		pos := pickSpawnPoint(spawns, level.ZoneState{}, 0)
+		if pos.Z != 48 {
+			t.Errorf("Z = %f, want 48 (default spawn)", pos.Z)
+		}
+	})
+
+	t.Run("default_round_robin", func(t *testing.T) {
+		pos := pickSpawnPoint(spawns, level.ZoneState{}, 1)
+		if pos.X != 1 {
+			t.Errorf("X = %f, want 1 (second default spawn)", pos.X)
+		}
+	})
+
+	t.Run("pack1_cleared", func(t *testing.T) {
+		pos := pickSpawnPoint(spawns, level.ZoneState{DeadGroupIDs: map[int]bool{1: true}}, 0)
+		if pos.Z != 26 {
+			t.Errorf("Z = %f, want 26 (pack_1_cleared checkpoint)", pos.Z)
+		}
+	})
+
+	t.Run("boss_dead_highest_priority", func(t *testing.T) {
+		pos := pickSpawnPoint(spawns, level.ZoneState{BossDefeated: true, DeadGroupIDs: map[int]bool{1: true, 2: true}}, 0)
+		if pos.Z != 0 {
+			t.Errorf("Z = %f, want 0 (boss_dead checkpoint)", pos.Z)
+		}
+	})
+
+	t.Run("empty_spawns", func(t *testing.T) {
+		pos := pickSpawnPoint(nil, level.ZoneState{}, 0)
+		if pos.Y != 0.1 {
+			t.Errorf("Y = %f, want 0.1 (fallback)", pos.Y)
+		}
+	})
+}

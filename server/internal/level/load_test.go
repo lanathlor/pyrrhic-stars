@@ -69,7 +69,7 @@ func TestLoadLevelData_Valid(t *testing.T) {
 	}
 
 	// Spawns
-	if len(l.PlayerSpawns) != 1 || l.PlayerSpawns[0].X != 0 {
+	if len(l.PlayerSpawns) != 1 || l.PlayerSpawns[0].Position.X != 0 {
 		t.Errorf("player spawns = %+v", l.PlayerSpawns)
 	}
 	if len(l.EnemySpawns) != 1 || l.EnemySpawns[0].DefName != "mob" {
@@ -196,6 +196,125 @@ func TestLoadHubJSON(t *testing.T) {
 	}
 	if l.Elevators[0].BottomY != -200 {
 		t.Errorf("public lift bottom_y = %f, want -200", l.Elevators[0].BottomY)
+	}
+}
+
+func TestLoadLevelData_V3Features(t *testing.T) {
+	p := writeTempJSON(t, `{
+		"version": 3,
+		"zone": "test",
+		"source_scene": "res://test.tscn",
+		"bounds": { "min_x": -10, "max_x": 10, "min_y": -1, "max_y": 5, "min_z": -10, "max_z": 10 },
+		"obstacles": [],
+		"player_spawns": [
+			{ "x": 0, "y": 0.1, "z": 48 },
+			{ "x": 0, "y": 0.1, "z": 20, "condition": "pack_1_cleared" },
+			{ "x": 0, "y": 0.1, "z": 0, "condition": "boss_dead" }
+		],
+		"enemy_spawns": [
+			{
+				"x": 0, "y": 0.1, "z": 32, "def_name": "mob",
+				"patrol_a": { "x": -5, "y": 0.1, "z": 32 },
+				"patrol_b": { "x": 5, "y": 0.1, "z": 32 },
+				"patrol_waypoints": [
+					{ "x": -5, "y": 0.1, "z": 32 },
+					{ "x": 0, "y": 0.1, "z": 30 },
+					{ "x": 5, "y": 0.1, "z": 32 }
+				],
+				"aggro_radius": 10, "leash_radius": 30,
+				"condition": "default"
+			}
+		],
+		"portals": [
+			{ "name": "Portal1", "x": 33, "y": 102, "z": 5.5, "target_zone": "arena", "interaction_radius": 4.0 }
+		],
+		"zone_triggers": [
+			{ "name": "Entry", "trigger_id": "arena_entry", "axis": "z", "threshold": 40 },
+			{ "name": "BossGate", "trigger_id": "boss_room_entry", "axis": "z", "threshold": 12 }
+		]
+	}`)
+
+	l := &Level{ArenaEntryZ: 99, BossRoomEntryZ: 99} // will be overwritten by zone_triggers
+	if err := loadLevelData(p, l); err != nil {
+		t.Fatal(err)
+	}
+
+	// Player spawns with conditions
+	if len(l.PlayerSpawns) != 3 {
+		t.Fatalf("player spawns = %d, want 3", len(l.PlayerSpawns))
+	}
+	if l.PlayerSpawns[1].Condition != "pack_1_cleared" {
+		t.Errorf("spawn[1] condition = %q, want pack_1_cleared", l.PlayerSpawns[1].Condition)
+	}
+	if l.PlayerSpawns[2].Condition != "boss_dead" {
+		t.Errorf("spawn[2] condition = %q, want boss_dead", l.PlayerSpawns[2].Condition)
+	}
+
+	// Enemy spawn with patrol waypoints
+	if len(l.EnemySpawns) != 1 {
+		t.Fatalf("enemy spawns = %d, want 1", len(l.EnemySpawns))
+	}
+	es := l.EnemySpawns[0]
+	if len(es.PatrolWaypoints) != 3 {
+		t.Errorf("patrol waypoints = %d, want 3", len(es.PatrolWaypoints))
+	}
+	// PatrolA/B should be overridden by first/last waypoint
+	if es.PatrolA.X != -5 {
+		t.Errorf("PatrolA.X = %f, want -5 (first waypoint)", es.PatrolA.X)
+	}
+	if es.PatrolB.X != 5 {
+		t.Errorf("PatrolB.X = %f, want 5 (last waypoint)", es.PatrolB.X)
+	}
+	if es.Condition != "default" {
+		t.Errorf("enemy condition = %q, want default", es.Condition)
+	}
+
+	// Portals
+	if len(l.Portals) != 1 {
+		t.Fatalf("portals = %d, want 1", len(l.Portals))
+	}
+	portal := l.Portals[0]
+	if portal.Name != "Portal1" || portal.TargetZone != "arena" {
+		t.Errorf("portal = %+v", portal)
+	}
+	if portal.InteractionRadius != 4.0 {
+		t.Errorf("portal radius = %f, want 4", portal.InteractionRadius)
+	}
+
+	// Zone triggers override existing values
+	if l.ArenaEntryZ != 40 {
+		t.Errorf("ArenaEntryZ = %f, want 40", l.ArenaEntryZ)
+	}
+	if l.BossRoomEntryZ != 12 {
+		t.Errorf("BossRoomEntryZ = %f, want 12", l.BossRoomEntryZ)
+	}
+}
+
+func TestLoadLevelData_V2BackwardCompat(t *testing.T) {
+	// v2 JSON should still load without errors — no new fields present
+	p := writeTempJSON(t, `{
+		"version": 2,
+		"zone": "test",
+		"source_scene": "res://test.tscn",
+		"bounds": { "min_x": -10, "max_x": 10, "min_y": -1, "max_y": 5, "min_z": -10, "max_z": 10 },
+		"obstacles": [],
+		"player_spawns": [ { "x": 0, "y": 0.1, "z": 5 } ]
+	}`)
+	l := &Level{ArenaEntryZ: 40.0}
+	if err := loadLevelData(p, l); err != nil {
+		t.Fatal(err)
+	}
+	// v2 spawns should have empty condition
+	if l.PlayerSpawns[0].Condition != "" {
+		t.Errorf("v2 spawn condition = %q, want empty", l.PlayerSpawns[0].Condition)
+	}
+	// No portals or zone triggers
+	if len(l.Portals) != 0 {
+		t.Errorf("v2 portals = %d, want 0", len(l.Portals))
+	}
+	// ArenaEntryZ should be untouched (no zone_triggers in v2 JSON)
+	if l.ArenaEntryZ != 40.0 {
+		t.Errorf("ArenaEntryZ = %f, want 40 (preserved)", l.ArenaEntryZ)
 	}
 }
 

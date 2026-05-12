@@ -1,25 +1,7 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3 uid="uid://owdspxx3egli"]
 
-[ext_resource type="Script" path="res://scenes/environments/arena/arena_buildings.gd" id="arena_buildings"]
-[ext_resource type="Script" path="res://scenes/environments/arena/dungeon_atmosphere.gd" id="dungeon_atmo"]
-
-[sub_resource type="StandardMaterial3D" id="mat_floor"]
-albedo_color = Color(0.15, 0.15, 0.18, 1)
-roughness = 0.6
-metallic = 0.15
-
-[sub_resource type="StandardMaterial3D" id="mat_wall"]
-albedo_color = Color(0.2, 0.2, 0.24, 1)
-roughness = 0.75
-
-[sub_resource type="StandardMaterial3D" id="mat_pillar"]
-albedo_color = Color(0.25, 0.25, 0.3, 1)
-roughness = 0.65
-metallic = 0.1
-
-[sub_resource type="StandardMaterial3D" id="mat_cover"]
-albedo_color = Color(0.18, 0.2, 0.24, 1)
-roughness = 0.7
+[ext_resource type="Script" uid="uid://bro1l2q2xbxa" path="res://scenes/environments/arena/arena_buildings.gd" id="arena_buildings"]
+[ext_resource type="Script" uid="uid://bw6hj1k8d7sth" path="res://scenes/environments/arena/dungeon_atmosphere.gd" id="dungeon_atmo"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 sky_top_color = Color(0.01, 0.01, 0.04, 1)
@@ -48,13 +30,31 @@ fog_density = 0.005
 
 [sub_resource type="StandardMaterial3D" id="mat_wet_floor"]
 albedo_color = Color(0.18, 0.18, 0.22, 1)
-roughness = 0.25
 metallic = 0.3
+roughness = 0.25
+
+[sub_resource type="StandardMaterial3D" id="mat_wall"]
+albedo_color = Color(0.2, 0.2, 0.24, 1)
+roughness = 0.75
+
+[sub_resource type="StandardMaterial3D" id="mat_pillar"]
+albedo_color = Color(0.25, 0.25, 0.3, 1)
+metallic = 0.1
+roughness = 0.65
+
+[sub_resource type="StandardMaterial3D" id="mat_cover"]
+albedo_color = Color(0.18, 0.2, 0.24, 1)
+roughness = 0.7
+
+[sub_resource type="StandardMaterial3D" id="mat_floor"]
+albedo_color = Color(0.15, 0.15, 0.18, 1)
+metallic = 0.15
+roughness = 0.6
 
 [sub_resource type="StandardMaterial3D" id="mat_hallway_floor"]
 albedo_color = Color(0.12, 0.12, 0.15, 1)
-roughness = 0.3
 metallic = 0.25
+roughness = 0.3
 
 [sub_resource type="StandardMaterial3D" id="mat_gate"]
 albedo_color = Color(0.6, 0.15, 0.15, 1)
@@ -81,132 +81,118 @@ light_color = Color(0.25, 0.25, 0.4, 1)
 light_energy = 1.2
 
 [node name="Floor" type="CSGBox3D" parent="."]
-size = Vector3(40, 0.5, 27)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, -1.5)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(40, 0.5, 27)
 material = SubResource("mat_wet_floor")
 
 [node name="WallNorth" type="CSGBox3D" parent="."]
-size = Vector3(40, 5, 0.5)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, -15)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(40, 5, 0.5)
 material = SubResource("mat_wall")
 
 [node name="WallEast" type="CSGBox3D" parent="."]
-size = Vector3(0.5, 5, 27)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 2.5, -1.5)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(0.5, 5, 27)
 material = SubResource("mat_wall")
 
 [node name="WallWest" type="CSGBox3D" parent="."]
-size = Vector3(0.5, 5, 27)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, 2.5, -1.5)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(0.5, 5, 27)
 material = SubResource("mat_wall")
 
 [node name="Pillar1" type="CSGBox3D" parent="."]
-size = Vector3(1.5, 4, 1.5)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 2, -6)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(1.5, 4, 1.5)
 material = SubResource("mat_pillar")
 
 [node name="Pillar2" type="CSGBox3D" parent="."]
-size = Vector3(1.5, 4, 1.5)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 2, -6)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(1.5, 4, 1.5)
 material = SubResource("mat_pillar")
 
 [node name="Pillar3" type="CSGBox3D" parent="."]
-size = Vector3(1.5, 4, 1.5)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 2, 6)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(1.5, 4, 1.5)
 material = SubResource("mat_pillar")
 
 [node name="Pillar4" type="CSGBox3D" parent="."]
-size = Vector3(1.5, 4, 1.5)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 2, 6)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(1.5, 4, 1.5)
 material = SubResource("mat_pillar")
 
 [node name="Pillar5" type="CSGBox3D" parent="."]
-size = Vector3(1.5, 4, 1.5)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -10)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(1.5, 4, 1.5)
 material = SubResource("mat_pillar")
 
 [node name="Pillar6" type="CSGBox3D" parent="."]
-size = Vector3(1.5, 4, 1.5)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 10)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(1.5, 4, 1.5)
 material = SubResource("mat_pillar")
 
 [node name="Cover1" type="CSGBox3D" parent="."]
-size = Vector3(3, 1.2, 1)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 0.6, -2)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(3, 1.2, 1)
 material = SubResource("mat_cover")
 
 [node name="Cover2" type="CSGBox3D" parent="."]
-size = Vector3(3, 1.2, 1)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0.6, 2)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(3, 1.2, 1)
 material = SubResource("mat_cover")
 
 [node name="Cover3" type="CSGBox3D" parent="."]
-size = Vector3(1, 1.2, 3)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0.6, 0)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(1, 1.2, 3)
 material = SubResource("mat_cover")
 
 [node name="Cover4" type="CSGBox3D" parent="."]
-size = Vector3(1, 1.2, 3)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0.6, 0)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(1, 1.2, 3)
 material = SubResource("mat_cover")
 
 [node name="AlienSpotLeft" type="SpotLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, -10, 4.5, -8)
 light_color = Color(0.3, 0.15, 0.7, 1)
 light_energy = 6.0
+shadow_enabled = true
 spot_range = 14.0
 spot_angle = 35.0
-shadow_enabled = true
 
 [node name="AlienSpotRight" type="SpotLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 10, 4.5, 8)
 light_color = Color(0.7, 0.25, 0.1, 1)
 light_energy = 5.0
+shadow_enabled = true
 spot_range = 14.0
 spot_angle = 35.0
-shadow_enabled = true
 
 [node name="CenterLight" type="OmniLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, -1.5)
@@ -239,35 +225,31 @@ light_energy = 2.5
 omni_range = 16.0
 
 [node name="LobbyFloor" type="CSGBox3D" parent="."]
-size = Vector3(16, 0.5, 12)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 46)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(16, 0.5, 12)
 material = SubResource("mat_floor")
 
 [node name="LobbyWallLeft" type="CSGBox3D" parent="."]
-size = Vector3(0.5, 5, 12)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 2.5, 46)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(0.5, 5, 12)
 material = SubResource("mat_wall")
 
 [node name="LobbyWallRight" type="CSGBox3D" parent="."]
-size = Vector3(0.5, 5, 12)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 2.5, 46)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(0.5, 5, 12)
 material = SubResource("mat_wall")
 
 [node name="LobbyWallBack" type="CSGBox3D" parent="."]
-size = Vector3(16, 5, 0.5)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 52)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(16, 5, 0.5)
 material = SubResource("mat_wall")
 
 [node name="LobbyLight" type="OmniLight3D" parent="."]
@@ -277,85 +259,190 @@ light_energy = 2.5
 omni_range = 12.0
 
 [node name="HallwayFloor" type="CSGBox3D" parent="."]
-size = Vector3(16, 0.5, 28)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 26)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(16, 0.5, 28)
 material = SubResource("mat_hallway_floor")
 
 [node name="HallwayWallLeft" type="CSGBox3D" parent="."]
-size = Vector3(0.5, 5, 28)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 2.5, 26)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(0.5, 5, 28)
 material = SubResource("mat_wall")
 
 [node name="HallwayWallRight" type="CSGBox3D" parent="."]
-size = Vector3(0.5, 5, 28)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 2.5, 26)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(0.5, 5, 28)
 material = SubResource("mat_wall")
 
 [node name="ConnectorWallLeft" type="CSGBox3D" parent="."]
-size = Vector3(12, 5, 0.5)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14, 2.5, 11.6)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(12, 5, 0.5)
 material = SubResource("mat_wall")
 
 [node name="ConnectorWallRight" type="CSGBox3D" parent="."]
-size = Vector3(12, 5, 0.5)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 2.5, 11.6)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(12, 5, 0.5)
 material = SubResource("mat_wall")
 
 [node name="HallwayCover0" type="CSGBox3D" parent="."]
-size = Vector3(2, 1.2, 1)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0.6, 27)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(2, 1.2, 1)
 material = SubResource("mat_cover")
 
 [node name="HallwayCover1" type="CSGBox3D" parent="."]
-size = Vector3(2, 1.2, 1)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0.6, 27)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(2, 1.2, 1)
 material = SubResource("mat_cover")
 
 [node name="HallwayCover2" type="CSGBox3D" parent="."]
-size = Vector3(2, 1.2, 1)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0.6, 17)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(2, 1.2, 1)
 material = SubResource("mat_cover")
 
 [node name="HallwayCover3" type="CSGBox3D" parent="."]
-size = Vector3(2, 1.2, 1)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0.6, 17)
 use_collision = true
-collision_layer = 1
 collision_mask = 0
+size = Vector3(2, 1.2, 1)
 material = SubResource("mat_cover")
 
 [node name="BossGate" type="CSGBox3D" parent="."]
-size = Vector3(40, 5, 0.5)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 12)
 visible = false
-use_collision = false
-collision_layer = 1
 collision_mask = 0
+size = Vector3(40, 5, 0.5)
 material = SubResource("mat_gate")
+
+[node name="LevelData" type="Node3D" parent="."]
+
+[node name="SpawnPlayer1" type="Node3D" parent="LevelData" groups=["server_spawn_player"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0.1, 48)
+
+[node name="SpawnPlayer2" type="Node3D" parent="LevelData" groups=["server_spawn_player"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 48)
+
+[node name="SpawnPlayer3" type="Node3D" parent="LevelData" groups=["server_spawn_player"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0.1, 48)
+
+[node name="SpawnPlayer4" type="Node3D" parent="LevelData" groups=["server_spawn_player"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 0.1, 49)
+
+[node name="SpawnPlayer5" type="Node3D" parent="LevelData" groups=["server_spawn_player"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0.1, 49)
+
+[node name="ArenaEntry" type="Node3D" parent="LevelData" groups=["server_zone_trigger"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 40)
+metadata/trigger_id = "arena_entry"
+metadata/axis = "z"
+
+[node name="BossRoomEntry" type="Node3D" parent="LevelData" groups=["server_zone_trigger"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 12)
+metadata/trigger_id = "boss_room_entry"
+metadata/axis = "z"
+
+[node name="Bounds" type="Node3D" parent="LevelData" groups=["server_bounds"]]
+metadata/min_x = -19.5
+metadata/max_x = 19.5
+metadata/min_y = -1.0
+metadata/max_y = 6.0
+metadata/min_z = -14.5
+metadata/max_z = 52.0
+
+[node name="EnemyMelee1" type="Node3D" parent="LevelData" groups=["server_spawn_enemy"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0.1, 32)
+metadata/def_name = "hallway_melee"
+metadata/patrol_a = Vector3(-6, 0.1, 32)
+metadata/patrol_b = Vector3(6, 0.1, 32)
+metadata/aggro_radius = 10.0
+metadata/leash_radius = 40.0
+metadata/group_id = 1
+
+[node name="EnemyMelee2" type="Node3D" parent="LevelData" groups=["server_spawn_enemy"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0.1, 32)
+metadata/def_name = "hallway_melee"
+metadata/patrol_a = Vector3(6, 0.1, 32)
+metadata/patrol_b = Vector3(-6, 0.1, 32)
+metadata/aggro_radius = 10.0
+metadata/leash_radius = 40.0
+metadata/group_id = 1
+
+[node name="EnemyRanged1" type="Node3D" parent="LevelData" groups=["server_spawn_enemy"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 0.1, 34)
+metadata/def_name = "hallway_ranged"
+metadata/patrol_a = Vector3(-6, 0.1, 34)
+metadata/patrol_b = Vector3(6, 0.1, 34)
+metadata/aggro_radius = 12.0
+metadata/leash_radius = 40.0
+metadata/group_id = 1
+
+[node name="EnemyRanged2" type="Node3D" parent="LevelData" groups=["server_spawn_enemy"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0.1, 34)
+metadata/def_name = "hallway_ranged"
+metadata/patrol_a = Vector3(6, 0.1, 34)
+metadata/patrol_b = Vector3(-6, 0.1, 34)
+metadata/aggro_radius = 12.0
+metadata/leash_radius = 40.0
+metadata/group_id = 1
+
+[node name="EnemyMelee3" type="Node3D" parent="LevelData" groups=["server_spawn_enemy"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0.1, 22)
+metadata/def_name = "hallway_melee"
+metadata/patrol_a = Vector3(-6, 0.1, 22)
+metadata/patrol_b = Vector3(6, 0.1, 22)
+metadata/aggro_radius = 10.0
+metadata/leash_radius = 40.0
+metadata/group_id = 2
+
+[node name="EnemyMelee4" type="Node3D" parent="LevelData" groups=["server_spawn_enemy"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0.1, 22)
+metadata/def_name = "hallway_melee"
+metadata/patrol_a = Vector3(6, 0.1, 22)
+metadata/patrol_b = Vector3(-6, 0.1, 22)
+metadata/aggro_radius = 10.0
+metadata/leash_radius = 40.0
+metadata/group_id = 2
+
+[node name="EnemyRanged3" type="Node3D" parent="LevelData" groups=["server_spawn_enemy"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 0.1, 24)
+metadata/def_name = "hallway_ranged"
+metadata/patrol_a = Vector3(-6, 0.1, 24)
+metadata/patrol_b = Vector3(6, 0.1, 24)
+metadata/aggro_radius = 12.0
+metadata/leash_radius = 40.0
+metadata/group_id = 2
+
+[node name="EnemyRanged4" type="Node3D" parent="LevelData" groups=["server_spawn_enemy"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0.1, 24)
+metadata/def_name = "hallway_ranged"
+metadata/patrol_a = Vector3(6, 0.1, 24)
+metadata/patrol_b = Vector3(-6, 0.1, 24)
+metadata/aggro_radius = 12.0
+metadata/leash_radius = 40.0
+metadata/group_id = 2
+
+[node name="BossSpawn" type="Node3D" parent="LevelData" groups=["server_spawn_enemy"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
+metadata/def_name = "guard_captain"
+metadata/is_boss = true
+metadata/patrol_a = Vector3(-5, 0.1, 0)
+metadata/patrol_b = Vector3(5, 0.1, 0)
+metadata/aggro_radius = 10.0
+metadata/leash_radius = 30.0
 
 [node name="ArenaBuildings" type="Node3D" parent="."]
 script = ExtResource("arena_buildings")

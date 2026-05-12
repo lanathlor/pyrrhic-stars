@@ -1,5 +1,5 @@
 {
-	"version": 2,
+	"version": 3,
 	"zone": "hub",
 	"source_scene": "res://scenes/environments/prime_hub/military_building.tscn",
 	"bounds": {

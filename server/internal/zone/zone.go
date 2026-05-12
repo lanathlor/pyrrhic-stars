@@ -194,7 +194,7 @@ func (z *Zone) AddClient(c *Client) {
 		// Set spawn position immediately so the tick loop never sees origin
 		if len(z.world.Level.PlayerSpawns) > 0 {
 			idx := len(z.world.Players) % len(z.world.Level.PlayerSpawns)
-			np.Position = z.world.Level.PlayerSpawns[idx]
+			np.Position = z.world.Level.PlayerSpawns[idx].Position
 			np.RotationY = z.world.Level.SpawnYaw
 		}
 		z.world.Players[c.PeerID] = np
@@ -329,6 +329,11 @@ func (z *Zone) GetPlayer(peerID uint16) *entity.Player {
 	z.mu.Lock()
 	defer z.mu.Unlock()
 	return z.world.Players[peerID]
+}
+
+// Portals returns the level's portal definitions.
+func (z *Zone) Portals() []level.PortalDef {
+	return z.world.Level.Portals
 }
 
 // SetPlayerPosition overrides a player's position and rotation.

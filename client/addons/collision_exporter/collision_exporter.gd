@@ -7,15 +7,20 @@ extends EditorScript
 ##   2. File > Run Script > select this script.
 ##
 ## Tag scene nodes with groups to control what gets exported:
-##   - server_collision   — CSGBox3D or StaticBody3D with BoxShape3D children → obstacles
-##   - server_elevator    — Node3D with metadata: bottom_y, top_y, half_x, half_z, speed
-##   - server_spawn_player — Node3D → player spawn position
+##   - server_collision    — CSGBox3D or StaticBody3D with BoxShape3D children → obstacles
+##   - server_elevator     — Node3D with metadata: bottom_y, top_y, half_x, half_z, speed
+##   - server_spawn_player — Node3D → player spawn position (optional meta: condition)
 ##   - server_spawn_enemy  — Node3D with metadata: def_name, is_boss, patrol_a, patrol_b,
-##                           aggro_radius, leash_radius, group_id
-##   - server_bounds      — Node3D with metadata: min_x, max_x, min_y, max_y, min_z, max_z
-##   - server_navmesh     — Reserved for Option C (navmesh export). Skipped for now.
+##                           aggro_radius, leash_radius, group_id, condition
+##                           Optional Path3D child for patrol_waypoints
+##   - server_spawn_npc    — Node3D with metadata: def_name, speed, idle_duration
+##                           Optional Path3D child for waypoints (falls back to node position)
+##   - server_portal       — Node3D with metadata: target_zone, interaction_radius, condition
+##   - server_zone_trigger — Node3D with metadata: trigger_id, axis
+##   - server_bounds       — Node3D with metadata: min_x, max_x, min_y, max_y, min_z, max_z
+##   - server_navmesh      — Reserved for Option C (navmesh export). Skipped for now.
 
-const VERSION := 2
+const VERSION := 3
 
 
 func _run() -> void:
@@ -36,9 +41,12 @@ func _run() -> void:
 	var elevators: Array = []
 	var player_spawns: Array = []
 	var enemy_spawns: Array = []
+	var npc_spawns: Array = []
+	var portals: Array = []
+	var zone_triggers: Array = []
 	var bounds_override: Dictionary = {}
 
-	_walk_tree(root, obstacles, elevators, player_spawns, enemy_spawns, bounds_override)
+	_walk_tree(root, obstacles, elevators, player_spawns, enemy_spawns, npc_spawns, portals, zone_triggers, bounds_override)
 
 	# Compute bounds from obstacles if no override
 	var bounds: Dictionary
@@ -56,6 +64,9 @@ func _run() -> void:
 		"elevators": elevators,
 		"player_spawns": player_spawns,
 		"enemy_spawns": enemy_spawns,
+		"npc_spawns": npc_spawns,
+		"portals": portals,
+		"zone_triggers": zone_triggers,
 	}
 
 	var output_dir := ProjectSettings.globalize_path("res://") + "../../shared/levels/"
@@ -71,8 +82,9 @@ func _run() -> void:
 	f.store_string("\n")
 	f.close()
 
-	print("collision_exporter: wrote %s (%d obstacles, %d elevators, %d player spawns, %d enemy spawns)" % [
-		output_path, obstacles.size(), elevators.size(), player_spawns.size(), enemy_spawns.size()
+	print("collision_exporter: wrote %s (%d obstacles, %d elevators, %d player spawns, %d enemy spawns, %d npc spawns, %d portals, %d zone triggers)" % [
+		output_path, obstacles.size(), elevators.size(), player_spawns.size(), enemy_spawns.size(),
+		npc_spawns.size(), portals.size(), zone_triggers.size(),
 	])
 
 
@@ -82,6 +94,9 @@ func _walk_tree(
 	elevators: Array,
 	player_spawns: Array,
 	enemy_spawns: Array,
+	npc_spawns: Array,
+	portals: Array,
+	zone_triggers: Array,
 	bounds_override: Dictionary,
 ) -> void:
 	if node.is_in_group("server_collision"):
@@ -89,17 +104,22 @@ func _walk_tree(
 	if node.is_in_group("server_elevator"):
 		_extract_elevator(node, elevators)
 	if node.is_in_group("server_spawn_player"):
-		var pos := (node as Node3D).global_position
-		player_spawns.append({"x": snapf(pos.x, 0.01), "y": snapf(pos.y, 0.01), "z": snapf(pos.z, 0.01)})
+		_extract_player_spawn(node, player_spawns)
 	if node.is_in_group("server_spawn_enemy"):
 		_extract_enemy_spawn(node, enemy_spawns)
+	if node.is_in_group("server_spawn_npc"):
+		_extract_npc_spawn(node, npc_spawns)
+	if node.is_in_group("server_portal"):
+		_extract_portal(node, portals)
+	if node.is_in_group("server_zone_trigger"):
+		_extract_zone_trigger(node, zone_triggers)
 	if node.is_in_group("server_bounds"):
 		_extract_bounds(node, bounds_override)
 	if node.is_in_group("server_navmesh"):
 		print("collision_exporter: skipping server_navmesh node '%s' (reserved for Option C)" % node.name)
 
 	for child in node.get_children():
-		_walk_tree(child, obstacles, elevators, player_spawns, enemy_spawns, bounds_override)
+		_walk_tree(child, obstacles, elevators, player_spawns, enemy_spawns, npc_spawns, portals, zone_triggers, bounds_override)
 
 
 func _extract_collision(node: Node, obstacles: Array) -> void:
@@ -145,6 +165,20 @@ func _extract_elevator(node: Node, elevators: Array) -> void:
 	})
 
 
+func _extract_player_spawn(node: Node, player_spawns: Array) -> void:
+	var n := node as Node3D
+	var pos := n.global_position
+	var spawn: Dictionary = {
+		"x": snapf(pos.x, 0.01),
+		"y": snapf(pos.y, 0.01),
+		"z": snapf(pos.z, 0.01),
+	}
+	var cond: String = str(n.get_meta("condition", ""))
+	if cond != "":
+		spawn["condition"] = cond
+	player_spawns.append(spawn)
+
+
 func _extract_enemy_spawn(node: Node, enemy_spawns: Array) -> void:
 	var n := node as Node3D
 	var pos := n.global_position
@@ -165,7 +199,88 @@ func _extract_enemy_spawn(node: Node, enemy_spawns: Array) -> void:
 	var gid: int = n.get_meta("group_id", 0)
 	if gid > 0:
 		spawn["group_id"] = gid
+	var cond: String = str(n.get_meta("condition", ""))
+	if cond != "":
+		spawn["condition"] = cond
+	# Check for Path3D child for waypoint-based patrol
+	var path_child: Path3D = null
+	for child in n.get_children():
+		if child is Path3D:
+			path_child = child
+			break
+	if path_child:
+		var waypoints: Array = []
+		var curve: Curve3D = path_child.curve
+		for i in range(curve.point_count):
+			var p: Vector3 = path_child.global_transform * curve.get_point_position(i)
+			waypoints.append({"x": snapf(p.x, 0.01), "y": snapf(p.y, 0.01), "z": snapf(p.z, 0.01)})
+		if waypoints.size() >= 2:
+			spawn["patrol_waypoints"] = waypoints
 	enemy_spawns.append(spawn)
+
+
+func _extract_npc_spawn(node: Node, npc_spawns: Array) -> void:
+	var n := node as Node3D
+	var pos := n.global_position
+	var spawn: Dictionary = {
+		"def_name": str(n.get_meta("def_name", "")),
+		"speed": float(n.get_meta("speed", 1.5)),
+		"idle_duration": float(n.get_meta("idle_duration", 4.0)),
+	}
+	# Check for Path3D child for waypoints
+	var path_child: Path3D = null
+	for child in n.get_children():
+		if child is Path3D:
+			path_child = child
+			break
+	var waypoints: Array = []
+	if path_child:
+		var curve: Curve3D = path_child.curve
+		for i in range(curve.point_count):
+			var p: Vector3 = path_child.global_transform * curve.get_point_position(i)
+			waypoints.append({"x": snapf(p.x, 0.01), "y": snapf(p.y, 0.01), "z": snapf(p.z, 0.01)})
+	if waypoints.is_empty():
+		# Fall back to node position as single waypoint
+		waypoints.append({"x": snapf(pos.x, 0.01), "y": snapf(pos.y, 0.01), "z": snapf(pos.z, 0.01)})
+	spawn["waypoints"] = waypoints
+	npc_spawns.append(spawn)
+
+
+func _extract_portal(node: Node, portals: Array) -> void:
+	var n := node as Node3D
+	var pos := n.global_position
+	var portal: Dictionary = {
+		"name": str(n.name),
+		"x": snapf(pos.x, 0.01),
+		"y": snapf(pos.y, 0.01),
+		"z": snapf(pos.z, 0.01),
+		"target_zone": str(n.get_meta("target_zone", "")),
+		"interaction_radius": float(n.get_meta("interaction_radius", 4.0)),
+	}
+	var cond: String = str(n.get_meta("condition", ""))
+	if cond != "":
+		portal["condition"] = cond
+	portals.append(portal)
+
+
+func _extract_zone_trigger(node: Node, zone_triggers: Array) -> void:
+	var n := node as Node3D
+	var pos := n.global_position
+	var axis: String = str(n.get_meta("axis", "z"))
+	var threshold: float = 0.0
+	match axis:
+		"x":
+			threshold = pos.x
+		"y":
+			threshold = pos.y
+		_:
+			threshold = pos.z
+	zone_triggers.append({
+		"name": str(n.name),
+		"trigger_id": str(n.get_meta("trigger_id", "")),
+		"axis": axis,
+		"threshold": snapf(threshold, 0.01),
+	})
 
 
 func _extract_bounds(node: Node, bounds: Dictionary) -> void:

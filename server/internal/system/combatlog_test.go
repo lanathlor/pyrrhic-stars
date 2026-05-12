@@ -186,7 +186,7 @@ func TestCombatLog_FightLifecycle_BossKill(t *testing.T) {
 		AbilityEngine: ability.NewEngine(nil),
 		CombatLogSink: sink,
 	}
-	p.Position = w.Level.PlayerSpawns[0]
+	p.Position = w.Level.PlayerSpawns[0].Position
 
 	// tickSpawned transitions to fight
 	gf := &GameFlowSystem{}
@@ -244,7 +244,7 @@ func TestCombatLog_FightLifecycle_Wipe(t *testing.T) {
 		AbilityEngine: ability.NewEngine(nil),
 		CombatLogSink: sink,
 	}
-	p.Position = w.Level.PlayerSpawns[0]
+	p.Position = w.Level.PlayerSpawns[0].Position
 
 	// Start fight
 	gf := &GameFlowSystem{}
@@ -293,7 +293,7 @@ func TestCombatLog_SoloBoss_NegativeKey(t *testing.T) {
 		AbilityEngine: ability.NewEngine(nil),
 		CombatLogSink: sink,
 	}
-	p.Position = w.Level.PlayerSpawns[0]
+	p.Position = w.Level.PlayerSpawns[0].Position
 
 	// Aggro → should use synthetic key -1000
 	w.AggroEnemy(e, 1)
@@ -541,7 +541,7 @@ func TestCombatLog_DamageAggroAlsoWorks(t *testing.T) {
 		AbilityEngine: ability.NewEngine(nil),
 		CombatLogSink: sink,
 	}
-	p.Position = w.Level.PlayerSpawns[0]
+	p.Position = w.Level.PlayerSpawns[0].Position
 
 	// Direct AggroEnemy (simulates player hitting boss while still patrolling)
 	w.AggroEnemy(e, 1)

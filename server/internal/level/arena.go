@@ -75,12 +75,12 @@ func hardcodedArenaLevel() *Level {
 			{CX: 4, CZ: 20, HX: 0.5, HZ: 0.5, Height: 1.2},
 		},
 
-		PlayerSpawns: []entity.Vec3{
-			{X: -2.0, Y: 0.1, Z: 48.0},
-			{X: 0.0, Y: 0.1, Z: 48.0},
-			{X: 2.0, Y: 0.1, Z: 48.0},
-			{X: -1.0, Y: 0.1, Z: 49.0},
-			{X: 1.0, Y: 0.1, Z: 49.0},
+		PlayerSpawns: []PlayerSpawn{
+			{Position: entity.Vec3{X: -2.0, Y: 0.1, Z: 48.0}},
+			{Position: entity.Vec3{X: 0.0, Y: 0.1, Z: 48.0}},
+			{Position: entity.Vec3{X: 2.0, Y: 0.1, Z: 48.0}},
+			{Position: entity.Vec3{X: -1.0, Y: 0.1, Z: 49.0}},
+			{Position: entity.Vec3{X: 1.0, Y: 0.1, Z: 49.0}},
 		},
 
 		EnemySpawns: []EnemySpawnPoint{
