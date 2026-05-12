@@ -37,7 +37,7 @@ display_server/driver.linuxbsd="wayland"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/gdUnit4/plugin.cfg")
+enabled=PackedStringArray("res://addons/collision_exporter/plugin.cfg", "res://addons/gdUnit4/plugin.cfg")
 
 [input]
 

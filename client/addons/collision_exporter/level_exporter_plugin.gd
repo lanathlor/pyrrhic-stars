@@ -1,0 +1,353 @@
+@tool
+extends EditorPlugin
+## Auto-exports level data to JSON for the Go server whenever a scene is saved.
+##
+## Listens for scene_saved and checks if the scene contains any server_* group
+## nodes. If so, exports to shared/levels/<zone_name>.json.
+##
+## Enable in Project > Project Settings > Plugins.
+##
+## Supported groups (see collision_exporter.gd header for full docs):
+##   server_collision, server_elevator, server_spawn_player, server_spawn_enemy,
+##   server_spawn_npc, server_portal, server_zone_trigger, server_bounds
+
+const VERSION := 3
+
+var _gizmo_plugin: EditorNode3DGizmoPlugin
+
+
+func _enter_tree() -> void:
+	_gizmo_plugin = preload("res://addons/collision_exporter/level_marker_gizmo.gd").new()
+	add_node_3d_gizmo_plugin(_gizmo_plugin)
+	scene_saved.connect(_on_scene_saved)
+	print("LevelExporter: plugin loaded — gizmos + auto-export on save")
+
+
+func _exit_tree() -> void:
+	scene_saved.disconnect(_on_scene_saved)
+	remove_node_3d_gizmo_plugin(_gizmo_plugin)
+
+
+func _on_scene_saved(path: String) -> void:
+	if not _is_level_scene(path):
+		return
+
+	var root := get_editor_interface().get_edited_scene_root()
+	if root == null:
+		return
+	if root.scene_file_path != path:
+		return
+	if not _has_server_nodes(root):
+		return
+
+	_export_level(root)
+
+
+func _is_level_scene(path: String) -> bool:
+	return "arena" in path or "hub" in path or "prime_hub" in path or "dungeon" in path
+
+
+func _has_server_nodes(node: Node) -> bool:
+	for g in node.get_groups():
+		if str(g).begins_with("server_"):
+			return true
+	for child in node.get_children():
+		if _has_server_nodes(child):
+			return true
+	return false
+
+
+# --- Export pipeline ---
+
+func _export_level(root: Node) -> void:
+	var scene_path: String = root.scene_file_path
+	var zone_name: String = scene_path.get_file().get_basename()
+	if zone_name != "arena" and zone_name != "hub":
+		zone_name = _infer_zone_name(scene_path)
+
+	var obstacles: Array = []
+	var elevators: Array = []
+	var player_spawns: Array = []
+	var enemy_spawns: Array = []
+	var npc_spawns: Array = []
+	var portals: Array = []
+	var zone_triggers: Array = []
+	var bounds_override: Dictionary = {}
+
+	_walk_tree(root, obstacles, elevators, player_spawns, enemy_spawns, npc_spawns, portals, zone_triggers, bounds_override)
+
+	var bounds: Dictionary
+	if bounds_override.size() > 0:
+		bounds = bounds_override
+	else:
+		bounds = _compute_bounds(obstacles)
+
+	var data: Dictionary = {
+		"version": VERSION,
+		"zone": zone_name,
+		"source_scene": scene_path,
+		"bounds": bounds,
+		"obstacles": obstacles,
+		"elevators": elevators,
+		"player_spawns": player_spawns,
+		"enemy_spawns": enemy_spawns,
+		"npc_spawns": npc_spawns,
+		"portals": portals,
+		"zone_triggers": zone_triggers,
+	}
+
+	var output_dir := ProjectSettings.globalize_path("res://") + "../../shared/levels/"
+	DirAccess.make_dir_recursive_absolute(output_dir)
+	var output_path := output_dir + zone_name + ".json"
+
+	var json_str := JSON.stringify(data, "\t")
+	var f := FileAccess.open(output_path, FileAccess.WRITE)
+	if f == null:
+		printerr("LevelExporter: cannot open %s for writing" % output_path)
+		return
+	f.store_string(json_str)
+	f.store_string("\n")
+	f.close()
+
+	print("LevelExporter: exported %s (%d obstacles, %d elevators, %d spawns, %d enemies, %d npcs, %d portals, %d triggers)" % [
+		output_path, obstacles.size(), elevators.size(), player_spawns.size(), enemy_spawns.size(),
+		npc_spawns.size(), portals.size(), zone_triggers.size(),
+	])
+
+
+# --- Tree walker ---
+
+func _walk_tree(
+	node: Node,
+	obstacles: Array,
+	elevators: Array,
+	player_spawns: Array,
+	enemy_spawns: Array,
+	npc_spawns: Array,
+	portals: Array,
+	zone_triggers: Array,
+	bounds_override: Dictionary,
+) -> void:
+	if node.is_in_group("server_collision"):
+		_extract_collision(node, obstacles)
+	if node.is_in_group("server_elevator"):
+		_extract_elevator(node, elevators)
+	if node.is_in_group("server_spawn_player"):
+		_extract_player_spawn(node, player_spawns)
+	if node.is_in_group("server_spawn_enemy"):
+		_extract_enemy_spawn(node, enemy_spawns)
+	if node.is_in_group("server_spawn_npc"):
+		_extract_npc_spawn(node, npc_spawns)
+	if node.is_in_group("server_portal"):
+		_extract_portal(node, portals)
+	if node.is_in_group("server_zone_trigger"):
+		_extract_zone_trigger(node, zone_triggers)
+	if node.is_in_group("server_bounds"):
+		_extract_bounds(node, bounds_override)
+
+	for child in node.get_children():
+		_walk_tree(child, obstacles, elevators, player_spawns, enemy_spawns, npc_spawns, portals, zone_triggers, bounds_override)
+
+
+# --- Extractors ---
+
+func _extract_collision(node: Node, obstacles: Array) -> void:
+	if node is CSGBox3D:
+		var box := node as CSGBox3D
+		var pos := box.global_position
+		var half := box.size / 2.0
+		obstacles.append({
+			"name": box.name,
+			"center": [snapped(pos.x, 0.01), snapped(pos.y, 0.01), snapped(pos.z, 0.01)],
+			"half_extents": [snapped(half.x, 0.01), snapped(half.y, 0.01), snapped(half.z, 0.01)],
+		})
+	elif node is StaticBody3D:
+		for child in node.get_children():
+			if child is CollisionShape3D:
+				var col := child as CollisionShape3D
+				var shape := col.shape
+				if shape is BoxShape3D:
+					var box_shape := shape as BoxShape3D
+					var pos := col.global_position
+					var half := box_shape.size / 2.0
+					obstacles.append({
+						"name": node.name + "/" + col.name,
+						"center": [snapped(pos.x, 0.01), snapped(pos.y, 0.01), snapped(pos.z, 0.01)],
+						"half_extents": [snapped(half.x, 0.01), snapped(half.y, 0.01), snapped(half.z, 0.01)],
+					})
+
+
+func _extract_elevator(node: Node, elevators: Array) -> void:
+	var n := node as Node3D
+	var pos := n.global_position
+	elevators.append({
+		"name": str(n.name),
+		"center_x": snapped(pos.x + float(n.get_meta("offset_x", 0.0)), 0.01),
+		"center_z": snapped(pos.z + float(n.get_meta("offset_z", 0.0)), 0.01),
+		"half_x": float(n.get_meta("half_x", 4.0)),
+		"half_z": float(n.get_meta("half_z", 4.0)),
+		"bottom_y": float(n.get_meta("bottom_y", -200.0)),
+		"top_y": float(n.get_meta("top_y", 0.0)),
+		"speed": float(n.get_meta("speed", 10.0)),
+	})
+
+
+func _extract_player_spawn(node: Node, player_spawns: Array) -> void:
+	var n := node as Node3D
+	var pos := n.global_position
+	var spawn: Dictionary = {
+		"x": snapped(pos.x, 0.01),
+		"y": snapped(pos.y, 0.01),
+		"z": snapped(pos.z, 0.01),
+	}
+	var cond: String = str(n.get_meta("condition", ""))
+	if cond != "":
+		spawn["condition"] = cond
+	player_spawns.append(spawn)
+
+
+func _extract_enemy_spawn(node: Node, enemy_spawns: Array) -> void:
+	var n := node as Node3D
+	var pos := n.global_position
+	var patrol_a: Vector3 = n.get_meta("patrol_a", pos)
+	var patrol_b: Vector3 = n.get_meta("patrol_b", pos)
+	var spawn: Dictionary = {
+		"x": snapped(pos.x, 0.01),
+		"y": snapped(pos.y, 0.01),
+		"z": snapped(pos.z, 0.01),
+		"def_name": str(n.get_meta("def_name", "")),
+		"patrol_a": {"x": snapped(patrol_a.x, 0.01), "y": snapped(patrol_a.y, 0.01), "z": snapped(patrol_a.z, 0.01)},
+		"patrol_b": {"x": snapped(patrol_b.x, 0.01), "y": snapped(patrol_b.y, 0.01), "z": snapped(patrol_b.z, 0.01)},
+		"aggro_radius": float(n.get_meta("aggro_radius", 10.0)),
+		"leash_radius": float(n.get_meta("leash_radius", 30.0)),
+	}
+	if n.get_meta("is_boss", false):
+		spawn["is_boss"] = true
+	var gid: int = n.get_meta("group_id", 0)
+	if gid > 0:
+		spawn["group_id"] = gid
+	var cond: String = str(n.get_meta("condition", ""))
+	if cond != "":
+		spawn["condition"] = cond
+	var path_child: Path3D = null
+	for child in n.get_children():
+		if child is Path3D:
+			path_child = child
+			break
+	if path_child:
+		var waypoints: Array = []
+		var curve: Curve3D = path_child.curve
+		for i in range(curve.point_count):
+			var p: Vector3 = path_child.global_transform * curve.get_point_position(i)
+			waypoints.append({"x": snapped(p.x, 0.01), "y": snapped(p.y, 0.01), "z": snapped(p.z, 0.01)})
+		if waypoints.size() >= 2:
+			spawn["patrol_waypoints"] = waypoints
+	enemy_spawns.append(spawn)
+
+
+func _extract_npc_spawn(node: Node, npc_spawns: Array) -> void:
+	var n := node as Node3D
+	var pos := n.global_position
+	var spawn: Dictionary = {
+		"def_name": str(n.get_meta("def_name", "")),
+		"speed": float(n.get_meta("speed", 1.5)),
+		"idle_duration": float(n.get_meta("idle_duration", 4.0)),
+	}
+	var path_child: Path3D = null
+	for child in n.get_children():
+		if child is Path3D:
+			path_child = child
+			break
+	var waypoints: Array = []
+	if path_child:
+		var curve: Curve3D = path_child.curve
+		for i in range(curve.point_count):
+			var p: Vector3 = path_child.global_transform * curve.get_point_position(i)
+			waypoints.append({"x": snapped(p.x, 0.01), "y": snapped(p.y, 0.01), "z": snapped(p.z, 0.01)})
+	if waypoints.is_empty():
+		waypoints.append({"x": snapped(pos.x, 0.01), "y": snapped(pos.y, 0.01), "z": snapped(pos.z, 0.01)})
+	spawn["waypoints"] = waypoints
+	npc_spawns.append(spawn)
+
+
+func _extract_portal(node: Node, portals: Array) -> void:
+	var n := node as Node3D
+	var pos := n.global_position
+	var portal: Dictionary = {
+		"name": str(n.name),
+		"x": snapped(pos.x, 0.01),
+		"y": snapped(pos.y, 0.01),
+		"z": snapped(pos.z, 0.01),
+		"target_zone": str(n.get_meta("target_zone", "")),
+		"interaction_radius": float(n.get_meta("interaction_radius", 4.0)),
+	}
+	var cond: String = str(n.get_meta("condition", ""))
+	if cond != "":
+		portal["condition"] = cond
+	portals.append(portal)
+
+
+func _extract_zone_trigger(node: Node, zone_triggers: Array) -> void:
+	var n := node as Node3D
+	var pos := n.global_position
+	var axis: String = str(n.get_meta("axis", "z"))
+	var threshold: float = 0.0
+	match axis:
+		"x":
+			threshold = pos.x
+		"y":
+			threshold = pos.y
+		_:
+			threshold = pos.z
+	zone_triggers.append({
+		"name": str(n.name),
+		"trigger_id": str(n.get_meta("trigger_id", "")),
+		"axis": axis,
+		"threshold": snapped(threshold, 0.01),
+	})
+
+
+func _extract_bounds(node: Node, bounds: Dictionary) -> void:
+	var n := node as Node3D
+	bounds["min_x"] = float(n.get_meta("min_x", -20.0))
+	bounds["max_x"] = float(n.get_meta("max_x", 20.0))
+	bounds["min_y"] = float(n.get_meta("min_y", -1.0))
+	bounds["max_y"] = float(n.get_meta("max_y", 6.0))
+	bounds["min_z"] = float(n.get_meta("min_z", -15.0))
+	bounds["max_z"] = float(n.get_meta("max_z", 52.0))
+
+
+func _compute_bounds(obstacles: Array) -> Dictionary:
+	if obstacles.is_empty():
+		return {"min_x": -10.0, "max_x": 10.0, "min_y": -1.0, "max_y": 5.0, "min_z": -10.0, "max_z": 10.0}
+	var min_x := INF
+	var max_x := -INF
+	var min_y := INF
+	var max_y := -INF
+	var min_z := INF
+	var max_z := -INF
+	for obs in obstacles:
+		var c: Array = obs["center"]
+		var h: Array = obs["half_extents"]
+		min_x = minf(min_x, c[0] - h[0])
+		max_x = maxf(max_x, c[0] + h[0])
+		min_y = minf(min_y, c[1] - h[1])
+		max_y = maxf(max_y, c[1] + h[1])
+		min_z = minf(min_z, c[2] - h[2])
+		max_z = maxf(max_z, c[2] + h[2])
+	return {
+		"min_x": snapped(min_x - 1.0, 0.01),
+		"max_x": snapped(max_x + 1.0, 0.01),
+		"min_y": snapped(min_y - 1.0, 0.01),
+		"max_y": snapped(max_y + 1.0, 0.01),
+		"min_z": snapped(min_z - 1.0, 0.01),
+		"max_z": snapped(max_z + 1.0, 0.01),
+	}
+
+
+func _infer_zone_name(scene_path: String) -> String:
+	if "hub" in scene_path or "prime_hub" in scene_path:
+		return "hub"
+	if "arena" in scene_path:
+		return "arena"
+	return scene_path.get_base_dir().get_file()
