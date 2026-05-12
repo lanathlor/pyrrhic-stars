@@ -1,5 +1,12 @@
 [gd_scene load_steps=99 format=3 uid="uid://dnkrpp0215avx"]
 
+[ext_resource type="PackedScene" path="res://assets/models/environments/hub/building/wall_front.glb" id="wall_front"]
+[ext_resource type="PackedScene" path="res://assets/models/environments/hub/building/wall_back.glb" id="wall_back"]
+[ext_resource type="PackedScene" path="res://assets/models/environments/hub/building/wall_back_mid.glb" id="wall_back_mid"]
+[ext_resource type="PackedScene" path="res://assets/models/environments/hub/building/wall_back_top.glb" id="wall_back_top"]
+[ext_resource type="PackedScene" path="res://assets/models/environments/hub/building/wall_side.glb" id="wall_side"]
+[ext_resource type="PackedScene" path="res://assets/models/environments/hub/building/wall_east_below.glb" id="wall_east_below"]
+[ext_resource type="PackedScene" path="res://assets/models/environments/hub/building/wall_east_above.glb" id="wall_east_above"]
 [ext_resource type="PackedScene" uid="uid://dxpx576j1t04b" path="res://assets/models/environments/hub/vegetation/acer_large_1.glb" id="acer_large_1"]
 [ext_resource type="PackedScene" uid="uid://c03ut2xy785ir" path="res://assets/models/environments/hub/vegetation/acer_large_2.glb" id="acer_large_2"]
 [ext_resource type="PackedScene" uid="uid://onqrlk27e8gy" path="res://assets/models/environments/hub/vegetation/acer_large_3.glb" id="acer_large_3"]
@@ -322,16 +329,6 @@ environment = SubResource("env")
 
 [node name="TowerExterior" type="Node3D" parent="."]
 
-[node name="FrontWallLeft" type="CSGBox3D" parent="TowerExterior"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17, 65, -1)
-size = Vector3(16, 130, 0.4)
-material = SubResource("tower_ext_mat")
-
-[node name="FrontWallRight" type="CSGBox3D" parent="TowerExterior"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17, 65, -1)
-size = Vector3(16, 130, 0.4)
-material = SubResource("tower_ext_mat")
-
 [node name="FrontLintel" type="CSGBox3D" parent="TowerExterior"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.5, -1)
 size = Vector3(18, 1, 0.4)
@@ -341,41 +338,6 @@ material = SubResource("tower_ext_mat")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 68, -1)
 size = Vector3(18, 124, 0.05)
 material = SubResource("glass_mat")
-
-[node name="BackWallLeft" type="CSGBox3D" parent="TowerExterior"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13.5, 65, 43)
-size = Vector3(23, 130, 0.4)
-material = SubResource("tower_ext_mat")
-
-[node name="BackWallRight" type="CSGBox3D" parent="TowerExterior"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13.5, 65, 43)
-size = Vector3(23, 130, 0.4)
-material = SubResource("tower_ext_mat")
-
-[node name="BackWallMid" type="CSGBox3D" parent="TowerExterior"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 51.5, 43)
-size = Vector3(4, 97, 0.4)
-material = SubResource("tower_ext_mat")
-
-[node name="BackWallTop" type="CSGBox3D" parent="TowerExterior"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 116.5, 43)
-size = Vector3(4, 27, 0.4)
-material = SubResource("tower_ext_mat")
-
-[node name="WestWallSolid" type="CSGBox3D" parent="TowerExterior"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -25, 65, 21)
-size = Vector3(0.4, 130, 44)
-material = SubResource("tower_ext_mat")
-
-[node name="EastWallBelow" type="CSGBox3D" parent="TowerExterior"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25, 50, 21)
-size = Vector3(0.4, 100, 44)
-material = SubResource("tower_ext_mat")
-
-[node name="EastWallAbove" type="CSGBox3D" parent="TowerExterior"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25, 117, 21)
-size = Vector3(0.4, 26, 44)
-material = SubResource("tower_ext_mat")
 
 [node name="EastWallLeftOfPad" type="CSGBox3D" parent="TowerExterior"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25, 102, -0.5)
@@ -446,6 +408,33 @@ material = SubResource("trim_mat")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.05, 2.5, -1.05)
 size = Vector3(0.1, 5, 0.1)
 material = SubResource("trim_mat")
+
+[node name="SlabFrontLeft" parent="TowerExterior" instance=ExtResource("wall_front")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -17, 65, -1)
+
+[node name="SlabFrontRight" parent="TowerExterior" instance=ExtResource("wall_front")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, -1, 17, 65, -1)
+
+[node name="SlabBackLeft" parent="TowerExterior" instance=ExtResource("wall_back")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, 1, -13.5, 65, 43)
+
+[node name="SlabBackRight" parent="TowerExterior" instance=ExtResource("wall_back")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13.5, 65, 43)
+
+[node name="SlabBackMid" parent="TowerExterior" instance=ExtResource("wall_back_mid")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 51.5, 43)
+
+[node name="SlabBackTop" parent="TowerExterior" instance=ExtResource("wall_back_top")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 116.5, 43)
+
+[node name="SlabWest" parent="TowerExterior" instance=ExtResource("wall_side")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -25, 65, 21)
+
+[node name="SlabEastBelow" parent="TowerExterior" instance=ExtResource("wall_east_below")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 25, 50, 21)
+
+[node name="SlabEastAbove" parent="TowerExterior" instance=ExtResource("wall_east_above")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 25, 117, 21)
 
 [node name="GroundFloor" type="Node3D" parent="."]
 
