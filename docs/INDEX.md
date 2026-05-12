@@ -48,6 +48,7 @@ TTRPG source material: https://github.com/lanathlor/rpg
 
 - [Asset Pipeline](pipeline/assets.md) — Blender, CC0 packs, Mixamo, workflow, art direction
 - [Testing Strategy](pipeline/testing.md) — Go tests, GdUnit, integration tests, navmesh validation
+- [Level Markers Guide](pipeline/level-markers-guide.md) — Godot node groups/metadata → JSON for Go server
 
 ## Project
 

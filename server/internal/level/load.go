@@ -90,18 +90,18 @@ type npcSpawnJSON struct {
 }
 
 type levelDataJSON struct {
-	Version      int                `json:"version"`
-	Zone         string             `json:"zone"`
-	SourceScene  string             `json:"source_scene"`
-	Bounds       boundsJSON         `json:"bounds"`
-	Obstacles    []obstacleJSON     `json:"obstacles"`
-	Elevators    []elevatorJSON     `json:"elevators,omitempty"`
-	PlayerSpawns []playerSpawnJSON  `json:"player_spawns"`
-	SpawnYaw     float32            `json:"spawn_yaw,omitempty"`
-	EnemySpawns  []enemySpawnJSON   `json:"enemy_spawns,omitempty"`
-	NPCSpawns    []npcSpawnJSON     `json:"npc_spawns,omitempty"`
-	Portals      []portalJSON       `json:"portals,omitempty"`
-	ZoneTriggers []zoneTriggerJSON  `json:"zone_triggers,omitempty"`
+	Version      int               `json:"version"`
+	Zone         string            `json:"zone"`
+	SourceScene  string            `json:"source_scene"`
+	Bounds       boundsJSON        `json:"bounds"`
+	Obstacles    []obstacleJSON    `json:"obstacles"`
+	Elevators    []elevatorJSON    `json:"elevators,omitempty"`
+	PlayerSpawns []playerSpawnJSON `json:"player_spawns"`
+	SpawnYaw     float32           `json:"spawn_yaw,omitempty"`
+	EnemySpawns  []enemySpawnJSON  `json:"enemy_spawns,omitempty"`
+	NPCSpawns    []npcSpawnJSON    `json:"npc_spawns,omitempty"`
+	Portals      []portalJSON      `json:"portals,omitempty"`
+	ZoneTriggers []zoneTriggerJSON `json:"zone_triggers,omitempty"`
 }
 
 // loadLevelData reads a JSON level file and applies its geometry to l.
