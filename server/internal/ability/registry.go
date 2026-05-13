@@ -16,6 +16,7 @@ func registerAbilities(eng *Engine) {
 	eng.Register(&meleeLightDef)
 	eng.Register(&meleeHeavyDef)
 	eng.Register(&vgBlockDef)
+	eng.Register(&vgBlockStopDef)
 	eng.Register(&bladeSwirlDef)
 	eng.Register(&groundSlamDef)
 
@@ -32,11 +33,13 @@ func registerHandlers(eng *Engine) {
 	eng.RegisterHandler("overclock", overclockHandler)
 	eng.RegisterHandler("blade_swirl", bladeSwirlHandler)
 	eng.RegisterHandler("vg_block", vgBlockHandler)
+	eng.RegisterHandler("vg_block_stop", vgBlockStopHandler)
 	eng.RegisterHandler("melee_light_vg", meleeLightVGHandler)
 	eng.RegisterHandler("melee_heavy_vg", meleeHeavyVGHandler)
 
 	eng.RegisterTickHandler("rechamber", rechamberTick)
 	eng.RegisterTickHandler("blade_swirl", bladeSwirlTick)
+	eng.RegisterTickHandler("vg_block", vgBlockTick)
 }
 
 // ApplyThreat adds threat for all damage results to any Threateable target.

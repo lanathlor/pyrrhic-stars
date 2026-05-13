@@ -88,7 +88,7 @@ const VfxScript := preload("res://scenes/controllers/vanguard/vfx/vanguard_vfx.g
 @export var attack_move_speed_mult: float = 0.55
 
 # Block / parry
-@export var block_damage_reduction: float = 0.7
+@export var block_damage_reduction: float = 0.8
 @export var parry_window: float = 0.15
 @export var block_stamina_drain: float = 15.0
 
@@ -117,6 +117,7 @@ var cam: Node
 var anim: Node
 var vfx: Node
 
+var _block_cooldown: float = 0.0
 var _state_timer: float = 0.0
 var _combo_window_timer: float = 0.0
 var _is_invincible: bool = false
@@ -286,6 +287,7 @@ func _physics_process(delta: float) -> void:
 	cam.update_camera()
 	movement.update_stamina(delta)
 	_update_parry(delta)
+	_block_cooldown = maxf(_block_cooldown - delta, 0.0)
 	_blade_swirl_cooldown = maxf(_blade_swirl_cooldown - delta, 0.0)
 	_ground_slam_cooldown = maxf(_ground_slam_cooldown - delta, 0.0)
 
@@ -353,9 +355,9 @@ func _physics_process(delta: float) -> void:
 				{
 					name = "Block",
 					keybind = "RMB",
-					desc = "70% DR. 0.15s parry window.",
-					cooldown = 0.0,
-					cooldown_max = 0.0
+					desc = "80→50% DR. 0.15s parry. 3s CD.",
+					cooldown = _block_cooldown,
+					cooldown_max = 3.0
 				},
 				{
 					name = "Dodge",

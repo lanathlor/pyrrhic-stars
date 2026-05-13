@@ -26,11 +26,12 @@ type PlayerInput struct {
 
 // AbilityAction identifies a combat action sent via OpAbilityInput.
 const (
-	ActionShoot uint8 = 0 // gunner: fire weapon
-	ActionMelee uint8 = 1 // vanguard/blade_dancer: light attack
-	ActionHeavy uint8 = 2 // vanguard/blade_dancer: heavy attack
-	ActionDodge uint8 = 3 // any class: dodge roll
-	ActionGuard uint8 = 4 // blade_dancer: guard / barrier
+	ActionShoot     uint8 = 0 // gunner: fire weapon
+	ActionMelee     uint8 = 1 // vanguard/blade_dancer: light attack
+	ActionHeavy     uint8 = 2 // vanguard/blade_dancer: heavy attack
+	ActionDodge     uint8 = 3 // any class: dodge roll
+	ActionGuard     uint8 = 4 // blade_dancer: guard / barrier
+	ActionBlockStop uint8 = 5 // vanguard: release block
 
 	// Gunner abilities
 	ActionOverclock        uint8 = 10
@@ -180,6 +181,16 @@ func (p *Player) GetBuffValue(buffType string) float32 {
 		}
 	}
 	return 1.0
+}
+
+// GetBuff returns a pointer to the first buff with the given ID, or nil.
+func (p *Player) GetBuff(id string) *ActiveBuff {
+	for i := range p.Buffs {
+		if p.Buffs[i].ID == id {
+			return &p.Buffs[i]
+		}
+	}
+	return nil
 }
 
 // DamageReduction returns the product of all active damage_reduction buff values.

@@ -70,7 +70,7 @@ func TestNewEngine_RegistersAllAbilities(t *testing.T) {
 	// Spot-check a few from each class
 	for _, id := range []string{
 		"fire_shot", "overclock", "rechamber", "rechamber_confirm",
-		"melee_light", "melee_heavy", "vg_block", "blade_swirl", "ground_slam",
+		"melee_light", "melee_heavy", "vg_block", "vg_block_stop", "blade_swirl", "ground_slam",
 		"bd_guard",
 		"shielded_sweep", "cleaving_pierce", "decree_strike", "dodge",
 	} {

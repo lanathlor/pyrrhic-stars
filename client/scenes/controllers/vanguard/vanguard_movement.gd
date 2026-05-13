@@ -120,10 +120,16 @@ func process_move(delta: float) -> void:
 	if Input.is_action_just_pressed("heavy_attack") and ctrl.stamina >= ctrl.heavy_stamina_cost:
 		ctrl.combat.start_heavy_attack()
 		return
-	if not cursor_active and Input.is_action_pressed("block"):
+	if (
+		not cursor_active
+		and Input.is_action_just_pressed("block")
+		and ctrl._block_cooldown <= 0.0
+		and ctrl.stamina > 0.0
+	):
 		ctrl._enter_state(ctrl.State.BLOCK)
 		ctrl._parry_timer = ctrl.parry_window
 		ctrl.vfx.show_block_shield()
+		NetworkManager.send_ability(4, 0.0, ctrl.rotation.y)
 		return
 
 	# Jump

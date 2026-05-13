@@ -158,6 +158,11 @@ func (eng *Engine) doCast(abilityID string, def *AbilityDef, ctx *CastContext) C
 			return CastResult{Reason: "cooldown"}
 		}
 
+		// Cancel active block when casting any other ability
+		if abilityID != "vg_block" && abilityID != "vg_block_stop" && p.HasBuff("vg_block") {
+			EndVgBlock(p)
+		}
+
 		if def.OriginConfig >= 0 && def.OriginConfig != p.Config {
 			if eng.logDebug {
 				eng.logger.Debug("ability.cast.rejected",

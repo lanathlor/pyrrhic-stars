@@ -12,7 +12,7 @@ var vanguardDef = ClassDef{
 		"stamina": {Max: 100, Initial: 100, Regen: 30, RegenDelay: 0.6},
 	},
 	Abilities: []string{
-		"melee_light", "melee_heavy", "vg_block",
+		"melee_light", "melee_heavy", "vg_block", "vg_block_stop",
 		"blade_swirl", "ground_slam", "dodge",
 	},
 	ActionMap: map[uint8]string{
@@ -20,6 +20,7 @@ var vanguardDef = ClassDef{
 		2:  "melee_heavy",
 		3:  "dodge",
 		4:  "vg_block",
+		5:  "vg_block_stop",
 		20: "blade_swirl",
 		21: "ground_slam",
 	},

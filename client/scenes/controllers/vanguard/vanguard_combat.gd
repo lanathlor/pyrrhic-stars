@@ -177,6 +177,8 @@ func process_block(delta: float) -> void:
 	ctrl.movement.consume_stamina(ctrl.block_stamina_drain * delta)
 	if not Input.is_action_pressed("block") or ctrl.stamina <= 0.0:
 		ctrl.vfx.hide_block_shield()
+		NetworkManager.send_ability(5, 0.0, ctrl.rotation.y)
+		ctrl._block_cooldown = 3.0
 		ctrl._enter_state(ctrl.State.MOVE)
 
 
