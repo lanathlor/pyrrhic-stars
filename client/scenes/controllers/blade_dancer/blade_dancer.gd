@@ -409,7 +409,7 @@ func apply_server_state(data: Dictionary) -> void:
 
 
 ## Called by main.gd when server confirms this player hit an enemy.
-func on_hit_confirmed(_amount: float) -> void:
+func on_hit_confirmed(_amount: float, _hit_pos: Vector3 = Vector3.ZERO) -> void:
 	hud.show_hit_marker()
 
 

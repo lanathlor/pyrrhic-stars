@@ -48,6 +48,7 @@ const CombatScript := preload("res://scenes/controllers/vanguard/vanguard_combat
 const MovementScript := preload("res://scenes/controllers/vanguard/vanguard_movement.gd")
 const CameraScript := preload("res://scenes/controllers/vanguard/vanguard_camera.gd")
 const AnimScript := preload("res://scenes/controllers/vanguard/vanguard_animation.gd")
+const VfxScript := preload("res://scenes/controllers/vanguard/vfx/vanguard_vfx.gd")
 
 # Movement
 @export var run_speed: float = 5.0
@@ -114,6 +115,7 @@ var combat: Node
 var movement: Node
 var cam: Node
 var anim: Node
+var vfx: Node
 
 var _state_timer: float = 0.0
 var _combo_window_timer: float = 0.0
@@ -144,6 +146,7 @@ var _alive: bool = true
 var _visual_state: int = 0
 var _net_position: Vector3 = Vector3.ZERO
 var _net_rotation_y: float = 0.0
+var _prev_remote_vs: int = -1
 
 @onready var camera: Camera3D = $Camera3D
 @onready var character_model: Node3D = $CharacterModel
@@ -156,6 +159,7 @@ func _ready() -> void:
 	movement = _add_subsystem("Movement", MovementScript)
 	cam = _add_subsystem("Cam", CameraScript)
 	anim = _add_subsystem("Anim", AnimScript)
+	vfx = _add_subsystem("Vfx", VfxScript)
 
 	GameManager.register_player(self)
 	_net_position = global_position
@@ -237,12 +241,16 @@ func apply_server_state(data: Dictionary) -> void:
 
 
 ## Called by main.gd when server confirms this player hit an enemy.
-func on_hit_confirmed(_amount: float) -> void:
+func on_hit_confirmed(_amount: float, hit_pos: Vector3 = Vector3.ZERO) -> void:
 	hud.show_hit_marker()
+	if hit_pos != Vector3.ZERO:
+		vfx.spawn_hit_impact(hit_pos)
 
 
 ## Visual-only damage feedback (called from main.gd on DamageEvent).
 func on_damage_visual(_amount: float, _hit_pos: Vector3) -> void:
+	if _parry_timer > 0.0 and state == State.BLOCK:
+		vfx.spawn_parry_flash()
 	hud.show_damage_flash()
 	anim.show_body_flash()
 
@@ -398,6 +406,13 @@ func take_damage(_amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
 
 
 func _drive_remote_animation(prev_pos: Vector3, delta: float) -> void:
+	var vs_changed: bool = _visual_state != _prev_remote_vs
+
+	# VFX transitions on state change
+	if vs_changed:
+		_drive_remote_vfx(_prev_remote_vs, _visual_state)
+		_prev_remote_vs = _visual_state
+
 	match _visual_state:
 		NetSerializer.VS_DODGE:
 			character_model.travel("dodge")
@@ -426,6 +441,36 @@ func _drive_remote_animation(prev_pos: Vector3, delta: float) -> void:
 				character_model.travel("run", clampf(speed / sprint_speed, 0.5, 1.5))
 			else:
 				character_model.travel("idle")
+
+
+func _drive_remote_vfx(old_vs: int, new_vs: int) -> void:
+	# Stop effects from previous state
+	var attack_states := [
+		NetSerializer.VS_VG_LIGHT_1,
+		NetSerializer.VS_VG_LIGHT_2,
+		NetSerializer.VS_VG_LIGHT_3,
+		NetSerializer.VS_VG_HEAVY_WINDUP,
+		NetSerializer.VS_VG_HEAVY,
+	]
+	if old_vs in attack_states and new_vs not in attack_states:
+		vfx.stop_swing_trail()
+	if old_vs == NetSerializer.VS_VG_BLOCK and new_vs != NetSerializer.VS_VG_BLOCK:
+		vfx.hide_block_shield()
+	if old_vs == NetSerializer.VS_VG_BLADE_SWIRL and new_vs != NetSerializer.VS_VG_BLADE_SWIRL:
+		vfx.stop_blade_swirl()
+
+	# Start effects for new state
+	if new_vs in attack_states and old_vs not in attack_states:
+		vfx.start_swing_trail()
+	if new_vs == NetSerializer.VS_VG_BLOCK and old_vs != NetSerializer.VS_VG_BLOCK:
+		vfx.show_block_shield()
+	if new_vs == NetSerializer.VS_VG_BLADE_SWIRL and old_vs != NetSerializer.VS_VG_BLADE_SWIRL:
+		vfx.start_blade_swirl()
+	if (
+		new_vs == NetSerializer.VS_VG_GROUND_SLAM
+		and old_vs == NetSerializer.VS_VG_GROUND_SLAM_WINDUP
+	):
+		vfx.spawn_ground_slam_shockwave(global_position, rotation.y)
 
 
 # --- State helpers ---

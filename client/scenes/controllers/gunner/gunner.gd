@@ -226,7 +226,7 @@ func _physics_process(delta: float) -> void:
 				},
 				{
 					name = "Overclock",
-					keybind = "Q",
+					keybind = "F",
 					desc = "7s fire rate + speed boost.",
 					cooldown = _overclock_cooldown if not _overclock_active else 0.0,
 					cooldown_max = OVERCLOCK_COOLDOWN,
@@ -296,7 +296,7 @@ func _handle_movement(delta: float) -> void:
 
 
 ## Called by main.gd when server confirms this player hit an enemy.
-func on_hit_confirmed(_amount: float) -> void:
+func on_hit_confirmed(_amount: float, _hit_pos: Vector3 = Vector3.ZERO) -> void:
 	hud.show_hit_marker()
 
 

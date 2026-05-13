@@ -63,6 +63,7 @@ func process_dodge(_delta: float) -> void:
 func start_light_attack(combo_step: int) -> void:
 	_queued_light = false
 	_has_hit_this_attack = false
+	ctrl.vfx.start_swing_trail()
 	if NetworkManager.is_active:
 		NetworkManager.send_ability(1, 0.0, ctrl.rotation.y)
 
@@ -97,6 +98,7 @@ func process_light_attack(delta: float) -> void:
 		if _queued_light and next > 0 and ctrl.stamina >= ctrl.light_stamina_cost:
 			start_light_attack(next)
 		else:
+			ctrl.vfx.stop_swing_trail()
 			ctrl._combo_window_timer = ctrl.light_combo_window
 			ctrl._enter_state(ctrl.State.MOVE)
 
@@ -137,6 +139,7 @@ func get_next_combo_step() -> int:
 
 func start_heavy_attack() -> void:
 	_has_hit_this_attack = false
+	ctrl.vfx.start_swing_trail()
 	if NetworkManager.is_active:
 		NetworkManager.send_ability(2, 0.0, ctrl.rotation.y)
 	ctrl._enter_state(ctrl.State.HEAVY_WINDUP)
@@ -160,6 +163,7 @@ func process_heavy_attack(delta: float) -> void:
 		_has_hit_this_attack = true
 		perform_melee_hit(ctrl.heavy_damage)
 	if ctrl._state_timer <= 0.0:
+		ctrl.vfx.stop_swing_trail()
 		ctrl._enter_state(ctrl.State.MOVE)
 
 
@@ -172,6 +176,7 @@ func process_block(delta: float) -> void:
 	ctrl.movement.face_attack_direction(delta)
 	ctrl.movement.consume_stamina(ctrl.block_stamina_drain * delta)
 	if not Input.is_action_pressed("block") or ctrl.stamina <= 0.0:
+		ctrl.vfx.hide_block_shield()
 		ctrl._enter_state(ctrl.State.MOVE)
 
 
@@ -194,6 +199,7 @@ func start_blade_swirl() -> void:
 	_blade_swirl_tick_timer = 0.0
 	ctrl._enter_state(ctrl.State.BLADE_SWIRL)
 	ctrl._state_timer = ctrl.BLADE_SWIRL_DURATION
+	ctrl.vfx.start_blade_swirl()
 	if NetworkManager.is_active:
 		NetworkManager.send_ability(20, 0.0, ctrl.rotation.y)
 	PlayerTelegraph.spawn_circle(
@@ -222,6 +228,7 @@ func process_blade_swirl(delta: float) -> void:
 		)
 
 	if ctrl._state_timer <= 0.0:
+		ctrl.vfx.stop_blade_swirl()
 		ctrl._enter_state(ctrl.State.MOVE)
 
 
@@ -243,6 +250,7 @@ func process_ground_slam_windup(delta: float) -> void:
 		ctrl._enter_state(ctrl.State.GROUND_SLAM)
 		ctrl._state_timer = ctrl.GROUND_SLAM_HIT_TIME
 		ctrl._ground_slam_cooldown = ctrl.GROUND_SLAM_COOLDOWN
+		ctrl.vfx.spawn_ground_slam_shockwave(ctrl.global_position, ctrl.rotation.y)
 		PlayerTelegraph.spawn_cone(
 			ctrl.get_tree().current_scene,
 			ctrl.global_position,

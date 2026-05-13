@@ -245,6 +245,10 @@ func attach_weapon(
 	offset_pos: Vector3 = Vector3.ZERO,
 	offset_rot: Vector3 = Vector3.ZERO
 ) -> Node3D:
+	# Weapons are purely visual — skip in headless mode (e.g. tests)
+	if DisplayServer.get_name() == "headless":
+		return null
+
 	if not _skeleton:
 		push_warning("CharacterModel: no skeleton to attach weapon to")
 		return null

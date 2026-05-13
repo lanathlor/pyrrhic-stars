@@ -123,6 +123,7 @@ func process_move(delta: float) -> void:
 	if not cursor_active and Input.is_action_pressed("block"):
 		ctrl._enter_state(ctrl.State.BLOCK)
 		ctrl._parry_timer = ctrl.parry_window
+		ctrl.vfx.show_block_shield()
 		return
 
 	# Jump

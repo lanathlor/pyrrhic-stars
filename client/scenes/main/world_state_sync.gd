@@ -155,7 +155,7 @@ func on_damage_event(data: Dictionary) -> void:
 		if source_peer == NetworkManager.get_my_id():
 			var local_player: CharacterBody3D = entity_mgr.spawned_players.get(source_peer)
 			if is_instance_valid(local_player) and local_player.has_method("on_hit_confirmed"):
-				local_player.on_hit_confirmed(amount)
+				local_player.on_hit_confirmed(amount, hit_pos)
 		# Floating damage number
 		spawn_damage_number(amount, hit_pos)
 	elif target_peer in entity_mgr.spawned_players:
