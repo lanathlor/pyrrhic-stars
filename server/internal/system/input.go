@@ -15,6 +15,10 @@ type InputSystem struct{}
 
 func (s *InputSystem) Tick(w *World, _ float32) {
 	for _, inp := range w.InputQueue {
+		if w.DevMode && message.IsDebugInput(inp.Opcode) {
+			handleDebugInput(w, inp.PeerID, inp.Opcode, inp.Payload)
+			continue
+		}
 		switch inp.Opcode {
 		case message.OpPlayerInput:
 			handlePlayerInput(w, inp.PeerID, inp.Payload)

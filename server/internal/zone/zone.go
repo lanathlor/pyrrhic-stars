@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
+	"os"
 	"sync"
 	"time"
 
@@ -96,18 +97,23 @@ func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
 		l = level.NewHubLevel()
 	}
 
+	devMode := os.Getenv("CODEX_DEV") == "1"
 	z.world = system.World{
 		ZoneID:          id,
 		ZoneType:        uint8(zoneType),
 		RunID:           fmt.Sprintf("%s_%d", id, time.Now().UnixMilli()),
 		State:           system.StateLobby,
 		EnemyDamageMult: 1.0,
+		DevMode:         devMode,
 		Players:         make(map[uint16]*entity.Player),
 		Clients:         make(map[uint16]*system.Client),
 		Level:           l,
 		AbilityEngine:   ability.NewEngine(slog.Default().With("zone_id", id)),
 		PatternEngine:   combat.NewPatternEngine(),
 		PatternRng:      rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), 0)),
+	}
+	if devMode {
+		z.world.DebugGodModePeers = make(map[uint16]bool)
 	}
 
 	if zoneType == ZoneTypeInstanced {
@@ -197,6 +203,9 @@ func (z *Zone) AddClient(c *Client) {
 			np.Position = z.world.Level.PlayerSpawns[idx].Position
 			np.RotationY = z.world.Level.SpawnYaw
 		}
+		if z.world.DevMode {
+			np.GodMode = true
+		}
 		z.world.Players[c.PeerID] = np
 	} else {
 		p.Username = c.Username
@@ -283,8 +292,12 @@ func (z *Zone) processTick() {
 	z.mu.Unlock()
 
 	z.world.TickNum++
+	dt := DeltaTime
+	if z.world.DevMode && z.world.TimeScale > 0 {
+		dt *= z.world.TimeScale
+	}
 	for _, sys := range z.systems {
-		sys.Tick(&z.world, DeltaTime)
+		sys.Tick(&z.world, dt)
 	}
 
 	// Record replay frame for every active encounter session.

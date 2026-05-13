@@ -79,6 +79,7 @@ type Player struct {
 	// Invincibility (dodge i-frames)
 	Invincible      bool
 	InvincibleTimer float32
+	GodMode         bool // dev mode: permanent invincibility
 
 	// Generic resources (stamina, shield, etc.)
 	Resources map[string]*Resource
@@ -252,7 +253,7 @@ func (p *Player) ApplyDamage(amount float32) float32 {
 	if p.State == PlayerStateDead || !p.Alive {
 		return 0
 	}
-	if p.Invincible {
+	if p.Invincible || p.GodMode {
 		return 0
 	}
 
@@ -312,9 +313,15 @@ func (p *Player) AimDirection() Vec3 {
 
 // --- Caster interface (overrides for player-specific behavior) ---
 
-func (p *Player) CasterEyePos() Vec3        { return p.EyePosition() }
-func (p *Player) CasterAimDir() Vec3        { return p.AimDirection() }
-func (p *Player) CasterDamageMult() float32 { return p.DamageMult() }
+func (p *Player) CasterEyePos() Vec3 { return p.EyePosition() }
+func (p *Player) CasterAimDir() Vec3 { return p.AimDirection() }
+func (p *Player) CasterDamageMult() float32 {
+	m := p.DamageMult()
+	if p.GodMode {
+		m *= 100
+	}
+	return m
+}
 
 // --- Target interface (overrides for player-specific behavior) ---
 

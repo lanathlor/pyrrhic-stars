@@ -14,4 +14,9 @@ type BrainTicker interface {
 		castPattern func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3),
 	) []combat.DamageEvent
 	Enemy() *entity.Enemy
+
+	// Debug / dev mode methods.
+	ForceCast(abilityID string) bool
+	AbilityIDs() []string
+	DefName() string
 }

@@ -30,6 +30,8 @@ import (
 func main() {
 	ctx := context.Background()
 
+	devMode := os.Getenv("CODEX_DEV") == "1"
+
 	shutdown, err := telemetry.Init(ctx)
 	if err != nil {
 		slog.Error("telemetry init failed", "error", err)
@@ -41,12 +43,15 @@ func main() {
 		}
 	}()
 
-	// Initialize persistence.
+	// Initialize persistence. Dev mode forces SQLite in-memory regardless of env.
 	dbDriver := os.Getenv("DB_DRIVER")
-	if dbDriver == "" {
+	if dbDriver == "" || devMode {
 		dbDriver = "sqlite"
 	}
 	pgDSN := os.Getenv("POSTGRES_DSN")
+	if devMode {
+		pgDSN = ""
+	}
 	repo, err := persistence.NewGormRepo(dbDriver, pgDSN)
 	if err != nil {
 		slog.Error("database init failed", "driver", dbDriver, "error", err)
@@ -64,10 +69,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize combat log sink (ClickHouse or NullSink).
+	// Initialize combat log sink. Dev mode uses in-memory; prod uses ClickHouse.
 	var combatSink combatlog.EventSink = combatlog.NullSink{}
 	var logQueryRepo combatlog.ReadRepository
-	if chAddr := os.Getenv("CLICKHOUSE_ADDR"); chAddr != "" {
+	if devMode {
+		combatSink = combatlog.NewInMemorySink()
+		slog.Info("dev mode: in-memory combat log (no ClickHouse required)")
+	} else if chAddr := os.Getenv("CLICKHOUSE_ADDR"); chAddr != "" {
 		chDB := os.Getenv("CLICKHOUSE_DB")
 		if chDB == "" {
 			chDB = "codex"
@@ -107,6 +115,10 @@ func main() {
 	ctr := container.New(repo)
 	ctr.CombatLogSink = combatSink
 	gw := newGateway(ctr)
+	if devMode {
+		gw.devMode = true
+		slog.Info("dev mode enabled — debug opcodes active, standalone (no external deps)")
+	}
 
 	// Create persistent hub zone at startup.
 	gw.getOrCreateZone(zone.ZoneHub, zone.ZoneTypeOpenWorld, 0)
@@ -215,8 +227,38 @@ func handleConnection(gw *gateway, w http.ResponseWriter, req *http.Request) {
 		sess.Class = allChars[0].ClassName
 	}
 
-	// Send character list for the selection screen.
-	client.Send(encodeCharacterListMsg(username, allChars))
+	// Dev auto-join: skip character select, auto-create character, join zone directly.
+	if gw.devMode && req.URL.Query().Get("dev_auto") == "1" {
+		devClass := req.URL.Query().Get("dev_class")
+		if devClass == "" {
+			devClass = "gunner"
+		}
+		devZone := req.URL.Query().Get("dev_zone")
+		sess.Class = devClass
+
+		// Find existing character of this class, or create one.
+		var devChar *persistence.Character
+		for _, c := range allChars {
+			if c.ClassName == devClass {
+				devChar = c
+				break
+			}
+		}
+		if devChar == nil {
+			devChar, _ = gw.characters.Create(userUUID, devClass, "Dev")
+		}
+		if devChar != nil {
+			sess.CharID = devChar.ID
+			sess.CharName = devChar.Name
+			client.Send(encodeCharacterStateMsg(devChar))
+		}
+
+		gw.devJoinZone(sess, devZone)
+		slog.Info("dev auto-join", "class", devClass, "zone", devZone, "peer_id", sess.PeerID)
+	} else {
+		// Normal flow: send character list for the selection screen.
+		client.Send(encodeCharacterListMsg(username, allChars))
+	}
 	defer func() {
 		// Save character position before cleanup (hub only).
 		if sess.UserUUID != "" && sess.Class != "" && sess.ZoneID == zone.ZoneHub {
@@ -253,7 +295,7 @@ func handleConnection(gw *gateway, w http.ResponseWriter, req *http.Request) {
 			continue
 		}
 
-		if message.IsClientInput(opcode) {
+		if message.IsClientInput(opcode) || (gw.devMode && message.IsDebugInput(opcode)) {
 			// Track class selection in gateway session.
 			if opcode == message.OpInteractInput && len(payload) >= 3 && payload[0] == message.InteractClassSelect {
 				nameLen := int(payload[1])

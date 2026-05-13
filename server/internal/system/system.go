@@ -112,6 +112,12 @@ type World struct {
 	// Reused every tick to avoid per-call allocations.
 	LobbyBuf []byte
 
+	// Dev mode fields (active only when CODEX_DEV=1).
+	DevMode            bool
+	TimeScale          float32         // 0 = use default 1.0
+	DebugRepeatAbility string          // empty = disabled
+	DebugGodModePeers  map[uint16]bool // per-player god mode
+
 	// TestMode enables defensive per-client copies so mock Send can inspect
 	// messages. In production and benchmarks (TestMode=false), the pooled
 	// buffer is passed directly to Send, matching real socket behavior.

@@ -101,6 +101,11 @@ func charToCodec(c *persistence.Character) codec.CharacterInfo {
 	}
 }
 
+// encodeCharacterStateMsg builds a full OpCharacterState wire message from a persistence character.
+func encodeCharacterStateMsg(c *persistence.Character) []byte {
+	return message.Encode(message.OpCharacterState, 0, codec.EncodeCharacterState(charToCodec(c)))
+}
+
 // encodeCharacterListMsg builds a full OpCharacterList wire message from persistence characters.
 func encodeCharacterListMsg(username string, chars []*persistence.Character) []byte {
 	infos := make([]codec.CharacterInfo, len(chars))

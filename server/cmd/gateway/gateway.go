@@ -27,6 +27,7 @@ type gateway struct {
 	users      *user.Service
 	characters *character.Service
 	mu         sync.Mutex // protects zones
+	devMode    bool       // CODEX_DEV=1 enables debug features
 }
 
 type zoneInstance struct {

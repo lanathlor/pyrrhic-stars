@@ -4,6 +4,7 @@ client/.import/
 *.import
 *.translation
 client/reports/
+client/.dev_config.json
 
 # Blender
 *.blend1

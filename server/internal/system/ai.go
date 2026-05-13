@@ -92,6 +92,19 @@ func (s *AISystem) Tick(w *World, dt float32) {
 		combat.PushOutOfObstacles(&e.Position, w.Level.Obstacles, w.Level.EnemyRadius)
 	}
 
+	// Dev mode: auto-repeat a specific ability on the boss.
+	// Only force-cast when the boss is idle (chase state) so the current
+	// ability completes its full commit→execute→cooldown cycle first.
+	if w.DevMode && w.DebugRepeatAbility != "" {
+		for i, brain := range w.Brains {
+			if i < len(w.Enemies) && w.Enemies[i].IsBoss && w.Enemies[i].Alive {
+				if w.Enemies[i].State == entity.EnemyChase {
+					brain.ForceCast(w.DebugRepeatAbility)
+				}
+			}
+		}
+	}
+
 	// Group aggro propagation: if any mob in a group is chasing, wake all
 	// patrol members of that group.
 	propagateGroupAggro(w)

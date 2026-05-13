@@ -75,6 +75,12 @@ const UI_DANGER := Color(0.86, 0.28, 0.28, 0.96)
 
 var state: GameState = GameState.MENU
 var paused: bool = false
+var dev_mode: bool = false
+var _debug_panel: CanvasLayer = null
+var _server_pid: int = -1
+var _dev_class: String = "gunner"
+var _dev_zone: String = "arena"
+var _dev_connected: bool = false
 var _local_class: String = "gunner"
 var _saved_hub_position: Vector3 = Vector3.ZERO
 var _saved_hub_rot_y: float = 0.0
@@ -231,7 +237,27 @@ func _ready() -> void:
 	NetworkManager.character_list_received.connect(_on_character_list)
 	NetworkManager.character_error_received.connect(_on_character_error)
 
-	_enter_menu()
+	# Dev mode: --dev CLI arg enables debug panel + auto-start server
+	var user_args := OS.get_cmdline_user_args()
+	if "--dev" in OS.get_cmdline_args() or "--dev" in user_args:
+		dev_mode = true
+		# Parse optional --class=X and --zone=X overrides
+		for arg in user_args:
+			if arg.begins_with("--class="):
+				_dev_class = arg.split("=")[1]
+			elif arg.begins_with("--zone="):
+				_dev_zone = arg.split("=")[1]
+		# Load editor config (CLI args take priority, already parsed above)
+		_load_dev_config()
+		var DebugPanelScript := preload("res://scenes/ui/debug_panel.gd")
+		_debug_panel = DebugPanelScript.new()
+		add_child(_debug_panel)
+		print("[Main] Dev mode enabled — class=%s zone=%s" % [_dev_class, _dev_zone])
+
+	if dev_mode:
+		_dev_auto_start()
+	else:
+		_enter_menu()
 
 
 func _input(event: InputEvent) -> void:
@@ -267,6 +293,12 @@ func _input(event: InputEvent) -> void:
 			elif event.keycode == KEY_ALT:
 				_alt_held = event.pressed
 				_update_cursor_mode()
+
+	# Debug panel toggle: Ctrl+D
+	if _debug_panel and event is InputEventKey and event.pressed and not event.echo:
+		if event.ctrl_pressed and event.keycode == KEY_D:
+			_debug_panel.toggle()
+			get_viewport().set_input_as_handled()
 
 	# Full map toggle
 	if not paused and state != GameState.MENU:
@@ -397,6 +429,118 @@ func _save_username(uname: String) -> void:
 		return
 	f.store_string(uname)
 	f.close()
+
+
+# =============================================================================
+# Dev Mode: auto-start server + connect
+# =============================================================================
+
+
+## Load .dev_config.json written by the debug_launcher editor plugin.
+## Only sets values not already overridden by CLI args.
+func _load_dev_config() -> void:
+	var config_path: String = ProjectSettings.globalize_path("res://.dev_config.json")
+	if not FileAccess.file_exists(config_path):
+		return
+	var f: FileAccess = FileAccess.open(config_path, FileAccess.READ)
+	if f == null:
+		return
+	var json := JSON.new()
+	if json.parse(f.get_as_text()) != OK:
+		return
+	var data: Dictionary = json.data
+	# CLI args (already parsed) take priority — only apply config if still default
+	var has_class_arg := false
+	var has_zone_arg := false
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--class="):
+			has_class_arg = true
+		elif arg.begins_with("--zone="):
+			has_zone_arg = true
+	if not has_class_arg and data.has("class"):
+		_dev_class = data["class"]
+	if not has_zone_arg and data.has("zone"):
+		_dev_zone = data["zone"]
+
+
+## Start the Go gateway server and connect automatically.
+func _dev_auto_start() -> void:
+	_menu_layer.visible = false
+	_local_class = _dev_class
+
+	# Start server subprocess.
+	# Uses bash to cd into server dir, build (cached), then exec the binary
+	# so the PID points directly to the gateway process.
+	var client_dir: String = ProjectSettings.globalize_path("res://").rstrip("/")
+	var project_root: String = client_dir.get_base_dir()
+	var server_dir: String = project_root + "/server"
+	OS.set_environment("CODEX_DEV", "1")
+	OS.set_environment("GOPATH", project_root + "/.go")
+	print("[Main] Starting dev server from %s..." % server_dir)
+	_server_pid = (
+		OS
+		. create_process(
+			"bash",
+			[
+				"-c",
+				"cd '%s' && go build -o bin/gateway ./cmd/gateway && exec bin/gateway" % server_dir,
+			]
+		)
+	)
+	if _server_pid <= 0:
+		push_error("[Main] Failed to start dev server — falling back to menu")
+		_enter_menu()
+		return
+	print("[Main] Dev server started (PID %d)" % _server_pid)
+
+	# Connect with retries (server needs a moment to build + bind)
+	NetworkManager.username = "Dev"
+	NetworkManager.dev_params = {"class": _dev_class, "zone": _dev_zone}
+	await _dev_connect_with_retry()
+
+
+## Retry connecting to the dev server until it's ready.
+## Waits for zone_transfer_received signal which fires when dev auto-join completes.
+func _dev_connect_with_retry() -> void:
+	_dev_connected = false
+	NetworkManager.zone_transfer_received.connect(_on_dev_zone_transfer, CONNECT_ONE_SHOT)
+
+	var max_attempts: int = 40  # 40 * 0.5s = 20s max wait (build + start)
+	for attempt in range(max_attempts):
+		if _dev_connected:
+			print("[Main] Dev server connected on attempt %d" % (attempt + 1))
+			return
+		# Only initiate a new connection if the previous attempt failed.
+		if not NetworkManager.is_active:
+			NetworkManager.connect_to_server("127.0.0.1")
+		await get_tree().create_timer(0.5).timeout
+
+	# Cleanup
+	if NetworkManager.zone_transfer_received.is_connected(_on_dev_zone_transfer):
+		NetworkManager.zone_transfer_received.disconnect(_on_dev_zone_transfer)
+	push_error("[Main] Could not connect to dev server after %d attempts" % max_attempts)
+	_stop_dev_server()
+	_enter_menu()
+
+
+func _on_dev_zone_transfer(_zone_type: int, _peer_id: int) -> void:
+	_dev_connected = true
+
+
+func _stop_dev_server() -> void:
+	if _server_pid > 0:
+		OS.kill(_server_pid)
+		print("[Main] Dev server stopped (PID %d)" % _server_pid)
+		_server_pid = -1
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_stop_dev_server()
+
+
+func _exit_tree() -> void:
+	_stop_dev_server()
 
 
 # =============================================================================

@@ -117,6 +117,27 @@ func (r *AbilityRunner) Start(ctx *EntityContext, abilityID string) bool {
 	return true
 }
 
+// ForceStart unconditionally resets the runner and starts the given ability.
+// Used by dev mode force-cast: cancels any in-progress ability, clears the
+// ability's cooldown, and initiates the cast.
+func (r *AbilityRunner) ForceStart(ctx *EntityContext, abilityID string) bool {
+	// Reset runner and enemy state unconditionally.
+	r.Phase = RunnerIdle
+	ctx.Enemy.State = entity.EnemyChase
+	ctx.Enemy.Velocity = entity.Vec3{}
+	ctx.Enemy.StateTimer = 0
+
+	// Clear this ability's per-ability cooldown.
+	for i := range ctx.Def.Abilities {
+		if ctx.Def.Abilities[i].ID == abilityID {
+			delete(r.AbilityCDs, i)
+			break
+		}
+	}
+
+	return r.Start(ctx, abilityID)
+}
+
 // Cancel aborts the current ability if in commit phase and the ability is cancellable.
 func (r *AbilityRunner) Cancel(ctx *EntityContext) bool {
 	if r.Phase != RunnerCommit {

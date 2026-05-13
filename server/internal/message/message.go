@@ -60,6 +60,19 @@ const (
 	OpHubState        uint16 = 0x0063
 	OpPlayerNames     uint16 = 0x0064
 
+	// Debug — client → server (dev mode only).
+	OpDebugForceCast     uint16 = 0x00D0 // [str8: ability_id]
+	OpDebugSetPhase      uint16 = 0x00D1 // [uint8: phase]
+	OpDebugGodMode       uint16 = 0x00D2 // [uint8: 0=off, 1=on]
+	OpDebugTimeScale     uint16 = 0x00D3 // [float32: scale, clamped 0.1-2.0]
+	OpDebugResetBoss     uint16 = 0x00D4 // (no payload)
+	OpDebugRepeatAbility uint16 = 0x00D5 // [str8: ability_id, empty=disable]
+	OpDebugReloadYAML    uint16 = 0x00D6 // (no payload)
+	OpDebugRequestInfo   uint16 = 0x00D7 // (no payload)
+
+	// Debug — server → client.
+	OpDebugInfo uint16 = 0x00E0 // [str8: def_name][uint8: n][str8: ability_id]...
+
 	// Zone management — server-handled, never relayed.
 	OpJoinZone            uint16 = 0xFF00
 	OpZoneJoined          uint16 = 0xFF01
@@ -168,6 +181,12 @@ func IsCharacterRelated(opcode uint16) bool {
 // These are routed to the zone simulation, not relayed.
 func IsClientInput(opcode uint16) bool {
 	return opcode >= 0x0030 && opcode <= 0x003F
+}
+
+// IsDebugInput returns true for debug opcodes (0x00D0–0x00DF).
+// These are routed to the zone simulation only in dev mode.
+func IsDebugInput(opcode uint16) bool {
+	return opcode >= 0x00D0 && opcode <= 0x00DF
 }
 
 // Game flow event types sent within OpGameFlowEvent payload.

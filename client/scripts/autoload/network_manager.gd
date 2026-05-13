@@ -25,6 +25,7 @@ signal player_names_received(names: Dictionary)
 signal character_state_received(data: Dictionary)
 signal character_list_received(data: Dictionary)
 signal character_error_received(data: Dictionary)
+signal debug_info_received(def_name: String, abilities: PackedStringArray)
 
 const DEFAULT_PORT := 7777
 
@@ -37,6 +38,8 @@ var current_zone_type: int = NetSerializer.ZONE_TYPE_HUB
 # peer_id -> { "class_name": String, "ready": bool }
 # Populated from OP_LOBBY_STATE; used by lobby UI.
 var player_info: Dictionary = {}
+
+var dev_params: Dictionary = {}  # Set by main.gd in dev mode: {class, zone}
 
 var _ws := WebSocketPeer.new()
 var _my_peer_id: int = 0
@@ -54,6 +57,10 @@ func connect_to_server(address: String = "127.0.0.1") -> Error:
 	var uuid := IdentityManager.get_player_id()
 	var encoded_name := username.uri_encode()
 	var url := "ws://%s:%d/ws?uuid=%s&username=%s" % [address, port, uuid, encoded_name]
+	if dev_params.size() > 0:
+		url += "&dev_auto=1"
+		url += "&dev_class=%s" % dev_params.get("class", "gunner")
+		url += "&dev_zone=%s" % dev_params.get("zone", "arena")
 	print("[Net] Connecting to %s..." % url)
 	var err := _ws.connect_to_url(url)
 	if err != OK:
@@ -230,6 +237,10 @@ func _on_message(data: PackedByteArray) -> void:
 		NetSerializer.OP_GROUP_ERROR:
 			_handle_group_error(payload)
 
+		# -- Debug (dev mode) --
+		NetSerializer.OP_DEBUG_INFO:
+			_handle_debug_info(payload)
+
 		# -- Anything else (legacy or unknown) --
 		_:
 			message_received.emit(opcode, sender_id, payload)
@@ -400,3 +411,46 @@ func send_enter_portal() -> void:
 ## Send a respawn request. type: 0 = arena, 1 = hub.
 func send_respawn_request(type: int) -> void:
 	send_msg(NetSerializer.OP_RESPAWN_REQUEST, PackedByteArray([type]))
+
+
+# =============================================================================
+# Debug send helpers (dev mode)
+# =============================================================================
+
+
+func send_debug_force_cast(ability_id: String) -> void:
+	send_msg(NetSerializer.OP_DEBUG_FORCE_CAST, NetSerializer.encode_debug_str8(ability_id))
+
+
+func send_debug_set_phase(phase: int) -> void:
+	send_msg(NetSerializer.OP_DEBUG_SET_PHASE, NetSerializer.encode_debug_phase(phase))
+
+
+func send_debug_god_mode(enabled: bool) -> void:
+	send_msg(NetSerializer.OP_DEBUG_GOD_MODE, NetSerializer.encode_debug_god_mode(enabled))
+
+
+func send_debug_time_scale(scale: float) -> void:
+	send_msg(NetSerializer.OP_DEBUG_TIME_SCALE, NetSerializer.encode_debug_time_scale(scale))
+
+
+func send_debug_reset_boss() -> void:
+	send_msg(NetSerializer.OP_DEBUG_RESET_BOSS)
+
+
+func send_debug_repeat_ability(ability_id: String) -> void:
+	send_msg(NetSerializer.OP_DEBUG_REPEAT_ABILITY, NetSerializer.encode_debug_str8(ability_id))
+
+
+func send_debug_reload_yaml() -> void:
+	send_msg(NetSerializer.OP_DEBUG_RELOAD_YAML)
+
+
+func send_debug_request_info() -> void:
+	send_msg(NetSerializer.OP_DEBUG_REQUEST_INFO)
+
+
+func _handle_debug_info(payload: PackedByteArray) -> void:
+	var data := NetSerializer.decode_debug_info(payload)
+	print("[Net] Debug info: boss=%s abilities=%s" % [data.def_name, data.abilities])
+	debug_info_received.emit(data.def_name, data.abilities)

@@ -61,6 +61,23 @@ func NewBrainSeeded(def *EnemyDef, enemy *entity.Enemy, engine *ability.Engine, 
 // Enemy returns the brain's enemy.
 func (b *Brain) Enemy() *entity.Enemy { return b.enemy }
 
+// ForceCast unconditionally interrupts any current ability and starts the given one.
+func (b *Brain) ForceCast(abilityID string) bool {
+	return b.ctx.Runner.ForceStart(b.ctx, abilityID)
+}
+
+// AbilityIDs returns the IDs of all abilities in the enemy definition.
+func (b *Brain) AbilityIDs() []string {
+	ids := make([]string, len(b.def.Abilities))
+	for i := range b.def.Abilities {
+		ids[i] = b.def.Abilities[i].ID
+	}
+	return ids
+}
+
+// DefName returns the enemy definition name.
+func (b *Brain) DefName() string { return b.def.Name }
+
 // Tree returns the brain's behavior tree root node.
 func (b *Brain) Tree() bt.Node { return b.tree.Root }
 

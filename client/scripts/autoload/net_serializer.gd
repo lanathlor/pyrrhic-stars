@@ -88,6 +88,19 @@ const VS_BD_CASTING := 20
 const VS_BD_DASH := 21
 const VS_BD_STAGGER := 22
 
+# Debug — client → server (dev mode only)
+const OP_DEBUG_FORCE_CAST := 0x00D0
+const OP_DEBUG_SET_PHASE := 0x00D1
+const OP_DEBUG_GOD_MODE := 0x00D2
+const OP_DEBUG_TIME_SCALE := 0x00D3
+const OP_DEBUG_RESET_BOSS := 0x00D4
+const OP_DEBUG_REPEAT_ABILITY := 0x00D5
+const OP_DEBUG_RELOAD_YAML := 0x00D6
+const OP_DEBUG_REQUEST_INFO := 0x00D7
+
+# Debug — server → client
+const OP_DEBUG_INFO := 0x00E0
+
 const OP_JOIN_ZONE := 0xFF00
 const OP_ZONE_JOINED := 0xFF01
 const OP_PEER_CONNECTED := 0xFF02
@@ -852,6 +865,47 @@ func encode_group_invite_reply(group_id: int, accept: bool) -> PackedByteArray:
 	buf.put_u32(group_id)
 	buf.put_u8(1 if accept else 0)
 	return buf.data_array
+
+
+# =============================================================================
+# Debug (dev mode)
+# =============================================================================
+
+
+## Encode force-cast: [str8: ability_id]
+func encode_debug_str8(s: String) -> PackedByteArray:
+	var buf := StreamPeerBuffer.new()
+	_put_str8(buf, s)
+	return buf.data_array
+
+
+## Encode set-phase: [u8: phase]
+func encode_debug_phase(phase: int) -> PackedByteArray:
+	return PackedByteArray([phase])
+
+
+## Encode god-mode: [u8: 0=off, 1=on]
+func encode_debug_god_mode(enabled: bool) -> PackedByteArray:
+	return PackedByteArray([1 if enabled else 0])
+
+
+## Encode time-scale: [f32 LE: scale]
+func encode_debug_time_scale(scale: float) -> PackedByteArray:
+	var buf := StreamPeerBuffer.new()
+	buf.put_float(scale)
+	return buf.data_array
+
+
+## Decode debug info: [str8: def_name][u8: count][str8: ability_id]...
+func decode_debug_info(data: PackedByteArray) -> Dictionary:
+	var buf := StreamPeerBuffer.new()
+	buf.data_array = data
+	var def_name := _get_str8(buf)
+	var count := buf.get_u8()
+	var abilities: PackedStringArray = []
+	for i in range(count):
+		abilities.append(_get_str8(buf))
+	return {"def_name": def_name, "abilities": abilities}
 
 
 # =============================================================================
