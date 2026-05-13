@@ -37,8 +37,3 @@ func _physics_process(delta: float) -> void:
 	_timer += delta
 	if _timer >= lifetime:
 		queue_free()
-
-
-func _on_body_entered(_body: Node3D) -> void:
-	# Visual: destroy on contact. Server already handled the damage.
-	queue_free()
