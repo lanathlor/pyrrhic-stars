@@ -330,8 +330,11 @@ func _input(event: InputEvent) -> void:
 								)
 					get_viewport().set_input_as_handled()
 
-	# Hub interactions
-	if state == GameState.HUB and not paused:
+	# Hub / arena lobby interactions (portal, lift, invite)
+	if (
+		state in [GameState.HUB, GameState.ARENA_LOBBY, GameState.FIGHT, GameState.FIGHT_OVER]
+		and not paused
+	):
 		if event is InputEventKey and event.pressed:
 			if event.physical_keycode == KEY_E:
 				if hub_interact.near_lift:
@@ -356,12 +359,13 @@ func _input(event: InputEvent) -> void:
 
 
 func _physics_process(_delta: float) -> void:
-	if state == GameState.HUB:
+	if state in [GameState.HUB, GameState.ARENA_LOBBY, GameState.FIGHT, GameState.FIGHT_OVER]:
 		hub_interact.check_portal_proximity()
-		hub_interact.check_lift_proximity()
-		hub_interact.check_aim_at_player()
-	elif state == GameState.FIGHT_OVER:
-		env_builder.check_exit_portal_proximity()
+		if state == GameState.HUB:
+			hub_interact.check_lift_proximity()
+			hub_interact.check_aim_at_player()
+		elif state == GameState.FIGHT_OVER:
+			env_builder.check_exit_portal_proximity()
 
 
 # =============================================================================
@@ -672,6 +676,17 @@ func _on_net_player_disconnected(peer_id: int) -> void:
 # =============================================================================
 
 
+func _show_portal_prompt_only() -> void:
+	_hub_layer.visible = true
+	_hub_class_label.visible = false
+	_hub_status_label.visible = false
+	if _lift_prompt:
+		_lift_prompt.visible = false
+	_group_panel.visible = false
+	_portal_prompt.visible = false
+	hub_interact.near_portal = false
+
+
 func _enter_hub() -> void:
 	state = GameState.HUB
 	get_tree().paused = false
@@ -731,7 +746,7 @@ func _enter_arena_warmup() -> void:
 	_pause_layer.visible = false
 	_menu_layer.visible = false
 	env_builder.remove_exit_portal()
-	_hub_layer.visible = false
+	_show_portal_prompt_only()
 	if _shared_hud:
 		_shared_hud.on_enter_arena()
 	if _map_overlay:
@@ -777,7 +792,7 @@ func _spawn_multiplayer_players() -> void:
 
 func _start_fight() -> void:
 	state = GameState.FIGHT
-	_hub_layer.visible = false
+	_show_portal_prompt_only()
 	_cursor_toggled = false
 	_alt_held = false
 
@@ -828,7 +843,7 @@ func _on_zone_transfer(zone_type: int, _new_peer_id: int) -> void:
 		env_builder.load_environment(ARENA_SCENE)
 		# Spawn local player in warmup room immediately
 		state = GameState.ARENA_LOBBY
-		_hub_layer.visible = false
+		_show_portal_prompt_only()
 		_menu_layer.visible = false
 		if _shared_hud:
 			_shared_hud.on_enter_arena()

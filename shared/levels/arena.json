@@ -32,6 +32,14 @@
 		{ "name": "HallwayCrate5", "center": [-4.0, 0.6, 20.0], "half_extents": [0.5, 0.6, 0.5] },
 		{ "name": "HallwayCrate6", "center": [4.0, 0.6, 20.0], "half_extents": [0.5, 0.6, 0.5] }
 	],
+	"portals": [
+		{
+			"name": "PortalArea",
+			"x": 0.0, "y": 0.0, "z": 58.0,
+			"target_zone": "hub",
+			"interaction_radius": 4.0
+		}
+	],
 	"elevators": [],
 	"player_spawns": [
 		{ "x": -2.0, "y": 0.1, "z": 48.0 },

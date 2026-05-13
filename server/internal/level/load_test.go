@@ -180,6 +180,12 @@ func TestLoadArenaJSON(t *testing.T) {
 	if len(l.EnemySpawns) != 9 {
 		t.Errorf("enemy_spawns len = %d, want 9", len(l.EnemySpawns))
 	}
+	if len(l.Portals) != 1 {
+		t.Fatalf("portals len = %d, want 1", len(l.Portals))
+	}
+	if l.Portals[0].TargetZone != "hub" {
+		t.Errorf("portal target_zone = %q, want %q", l.Portals[0].TargetZone, "hub")
+	}
 }
 
 func TestLoadHubJSON(t *testing.T) {

@@ -18,7 +18,8 @@ func check_portal_proximity() -> void:
 	var my_id: int = NetworkManager.get_my_id()
 	if my_id not in entity_mgr.spawned_players:
 		near_portal = false
-		ctrl._portal_prompt.visible = false
+		if ctrl._portal_prompt:
+			ctrl._portal_prompt.visible = false
 		return
 	var player: CharacterBody3D = entity_mgr.spawned_players[my_id]
 	if not is_instance_valid(player):
@@ -28,11 +29,16 @@ func check_portal_proximity() -> void:
 	var portal_area: Node3D = current_env.get_node_or_null("PortalArea") if current_env else null
 	if not portal_area:
 		near_portal = false
-		ctrl._portal_prompt.visible = false
+		if ctrl._portal_prompt:
+			ctrl._portal_prompt.visible = false
 		return
 	var dist: float = player.global_position.distance_to(portal_area.global_position)
 	near_portal = dist < 4.0
-	ctrl._portal_prompt.visible = near_portal
+	if ctrl._portal_prompt:
+		ctrl._portal_prompt.visible = near_portal
+		if near_portal:
+			var target: String = portal_area.get_meta("target_zone", "Arena")
+			ctrl._portal_prompt.text = "Press [E] to enter %s" % target.capitalize()
 
 
 func check_lift_proximity() -> void:

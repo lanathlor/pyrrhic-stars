@@ -1,6 +1,7 @@
-[gd_scene load_steps=72 format=3 uid="uid://owdspxx3egli"]
+[gd_scene load_steps=74 format=3 uid="uid://owdspxx3egli"]
 
 [ext_resource type="Script" uid="uid://bw6hj1k8d7sth" path="res://scenes/environments/arena/dungeon_atmosphere.gd" id="dungeon_atmo"]
+[ext_resource type="PackedScene" uid="uid://bs8the8f3rpcd" path="res://assets/models/environments/hub/i_ship.glb" id="i_ship"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 sky_top_color = Color(0.01, 0.01, 0.04, 1)
@@ -408,6 +409,10 @@ emission_enabled = true
 emission = Color(0.8, 0.35, 0.05, 1)
 emission_energy_multiplier = 1.5
 
+[sub_resource type="CylinderShape3D" id="portal_shape"]
+height = 4.0
+radius = 2.5
+
 [node name="Arena" type="Node3D"]
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
@@ -571,31 +576,24 @@ light_energy = 2.5
 omni_range = 16.0
 
 [node name="LobbyFloor" type="CSGBox3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 46)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 52)
 use_collision = true
 collision_mask = 0
-size = Vector3(16, 0.5, 12)
+size = Vector3(16, 0.5, 24)
 material = SubResource("mat_floor")
 
 [node name="LobbyWallLeft" type="CSGBox3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 2.5, 46)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 2.5, 52)
 use_collision = true
 collision_mask = 0
-size = Vector3(0.5, 5, 12)
+size = Vector3(0.5, 5, 24)
 material = SubResource("mat_wall")
 
 [node name="LobbyWallRight" type="CSGBox3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 2.5, 46)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 2.5, 52)
 use_collision = true
 collision_mask = 0
-size = Vector3(0.5, 5, 12)
-material = SubResource("mat_wall")
-
-[node name="LobbyWallBack" type="CSGBox3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 52)
-use_collision = true
-collision_mask = 0
-size = Vector3(16, 5, 0.5)
+size = Vector3(0.5, 5, 24)
 material = SubResource("mat_wall")
 
 [node name="LobbyLight" type="OmniLight3D" parent="."]
@@ -2179,15 +2177,15 @@ material = SubResource("StandardMaterial3D_qcu05")
 [node name="LobbyBuilding" type="Node3D" parent="ArenaBuildings"]
 
 [node name="LobbyCeiling" type="CSGBox3D" parent="ArenaBuildings/LobbyBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.25, 46)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.25, 44)
 use_collision = true
 collision_mask = 0
-size = Vector3(16, 1, 12)
+size = Vector3(16, 1, 8)
 material = SubResource("StandardMaterial3D_06b35")
 
 [node name="LobbyUpper" type="CSGBox3D" parent="ArenaBuildings/LobbyBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.75, 46)
-size = Vector3(20, 40, 16)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.75, 44)
+size = Vector3(20, 40, 8)
 material = SubResource("StandardMaterial3D_6v5t7")
 
 [node name="LobbySouthStrip0" type="CSGBox3D" parent="ArenaBuildings/LobbyBuilding"]
@@ -2433,6 +2431,29 @@ draw_pass_1 = SubResource("QuadMesh_pd35q")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 4, 36)
 size = Vector3(3, 6, 0.1)
 material = SubResource("StandardMaterial3D_boj84")
+
+[node name="LobbyWallBack" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 64)
+use_collision = true
+collision_mask = 0
+size = Vector3(16, 5, 0.5)
+material = SubResource("mat_wall")
+
+[node name="DockedShip" type="Node3D" parent="."]
+transform = Transform3D(0.6, 0, 0, 0, 0.6, 0, 0, 0, 0.6, 0, 0.5, 58)
+
+[node name="ShipMesh" parent="DockedShip" instance=ExtResource("i_ship")]
+transform = Transform3D(-0.012478777, 0, 0.999922, 0, 0.99999976, 0, -0.999922, 0, -0.012478777, 0, 0.8172302, 0)
+
+[node name="PortalArea" type="Area3D" parent="." groups=["server_portal"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 58)
+collision_layer = 0
+collision_mask = 2
+metadata/target_zone = "hub"
+metadata/interaction_radius = 4.0
+
+[node name="PortalShape" type="CollisionShape3D" parent="PortalArea"]
+shape = SubResource("portal_shape")
 
 [node name="DungeonAtmosphere" type="Node3D" parent="."]
 script = ExtResource("dungeon_atmo")
