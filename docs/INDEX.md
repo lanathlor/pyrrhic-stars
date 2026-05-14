@@ -16,6 +16,10 @@ TTRPG source material: https://github.com/lanathlor/rpg
 - [Resistance System](design/systems/resistance.md) — RMEC/RRAD/RINT, physical-nature-based damage
 - [Affinity System](design/systems/affinity.md) — general + specific affinities, progression
 - [Defense System](design/systems/defense.md) — Score de Defense formula
+- [Stat System](design/systems/stats.md) — Hull/Output/Plating + Tempo/Identity/Mastery per class
+- [Item System](design/systems/items.md) — 6 slots, 3 stat lines each, deterministic gearing
+- [Overflux System](design/systems/overflux.md) — modular difficulty conditions, player-composed loadouts, reward tiers
+- [Seasonal System](design/systems/seasons.md) — decay, season clock, token economy
 
 ### Classes (each plays a different game genre)
 
@@ -30,7 +34,7 @@ TTRPG source material: https://github.com/lanathlor/rpg
 ### Content
 
 - [Dungeons](design/content/dungeons.md) — handcrafted, modular kits, first dungeon: Derelict City
-- [Mythic+](design/content/mythic-plus.md) — keystone system, affixes, leaderboards
+- [Content Tracks](design/content/tracks.md) — M+, Adventure, Explorer, Raid — universal track pattern
 - [Long-term Vision](design/content/long-term.md) — space, PvP, open world, crafting (NOT phase 0-2)
 
 ## Technical Architecture
@@ -55,6 +59,7 @@ TTRPG source material: https://github.com/lanathlor/rpg
 - [Development Phases](project/phases.md) — Phase 0 checklist, Phase 1-3 roadmap
 - [Monetization](project/monetization.md) — timeline, revenue expectations
 - [Marketing](project/marketing.md) — build in public, key clip, Steam wishlists
+- [Alpha/Beta Wipes](project/wipes.md) — wipe policy, what persists, communication
 
 ## Repo Structure
 
