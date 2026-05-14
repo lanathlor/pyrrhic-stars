@@ -38,7 +38,7 @@ func meleeLightVGHandler(eng *Engine, ctx *CastContext) CastResult {
 	default:
 		damage = 30.0
 	}
-	damage *= p.DamageMult()
+	damage *= p.CasterDamageMult()
 
 	def := eng.abilities["melee_light"]
 	eng.hitBuf = resolveMeleeArc(eng.hitBuf, p, ctx.Targets, ctx.Obstacles, def.Hit, damage, combat.SourcePlayerAttack)

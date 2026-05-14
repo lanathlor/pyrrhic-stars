@@ -25,7 +25,7 @@ func meleeHeavyVGHandler(eng *Engine, ctx *CastContext) CastResult {
 	}
 
 	def := eng.abilities["melee_heavy"]
-	damage := def.BaseDamage * p.DamageMult()
+	damage := def.BaseDamage * p.CasterDamageMult()
 	eng.hitBuf = resolveMeleeArc(eng.hitBuf, p, ctx.Targets, ctx.Obstacles, def.Hit, damage, combat.SourcePlayerAttack)
 
 	p.Cooldowns["melee_heavy"] = 0.8

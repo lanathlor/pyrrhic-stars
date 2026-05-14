@@ -43,7 +43,8 @@ func bladeSwirlHandler(eng *Engine, ctx *CastContext) CastResult {
 		Duration: 1.5,
 	})
 
-	eng.hitBuf = resolveAoECircle(eng.hitBuf, p.Position, p.ID, ctx.Targets, ctx.Obstacles, 6.0, 25.0, combat.SourcePlayerAttack)
+	damage := float32(25.0) * p.CasterDamageMult()
+	eng.hitBuf = resolveAoECircle(eng.hitBuf, p.Position, p.ID, ctx.Targets, ctx.Obstacles, 6.0, damage, combat.SourcePlayerAttack)
 	for i := range eng.hitBuf {
 		if th, ok := eng.hitBuf[i].Target.(entity.Threateable); ok {
 			th.AddThreat(p.ID, eng.hitBuf[i].Amount)
@@ -63,7 +64,8 @@ func bladeSwirlTick(eng *Engine, p *entity.Player, dt float32, ctx *TickContext)
 	var events []DamageResult
 	expectedTicks := int((1.5 - state.Timer) / 0.5)
 	if expectedTicks > state.Ticks && ctx != nil {
-		eng.hitBuf = resolveAoECircle(eng.hitBuf[:0], p.Position, p.ID, ctx.Targets, ctx.Obstacles, 6.0, 25.0, combat.SourcePlayerAttack)
+		tickDmg := float32(25.0) * p.CasterDamageMult()
+		eng.hitBuf = resolveAoECircle(eng.hitBuf[:0], p.Position, p.ID, ctx.Targets, ctx.Obstacles, 6.0, tickDmg, combat.SourcePlayerAttack)
 		for i := range eng.hitBuf {
 			if th, ok := eng.hitBuf[i].Target.(entity.Threateable); ok {
 				th.AddThreat(p.ID, eng.hitBuf[i].Amount)
