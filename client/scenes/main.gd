@@ -81,7 +81,11 @@ var _server_pid: int = -1
 var _dev_class: String = "gunner"
 var _dev_zone: String = "arena"
 var _dev_connected: bool = false
-var _local_class: String = "gunner"
+var _local_class: String = "gunner":
+	set(value):
+		_local_class = value
+		if is_inside_tree():
+			InventoryManager.current_class = value
 var _saved_hub_position: Vector3 = Vector3.ZERO
 var _saved_hub_rot_y: float = 0.0
 var _has_saved_state: bool = false
@@ -150,10 +154,12 @@ var _portal_trail: Node3D:
 @onready var _invite_popup: CanvasLayer = $InvitePopup
 @onready var _shared_hud_layer: CanvasLayer = $SharedHUD
 @onready var _death_overlay_layer: CanvasLayer = $DeathOverlay
+@onready var _inventory_layer: CanvasLayer = $InventoryUI
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	InventoryManager.current_class = _local_class
 
 	# Resolve inner UI element references from static scenes
 	_username_input = _menu_layer.username_input
@@ -209,6 +215,7 @@ func _ready() -> void:
 	_invite_popup.decline_btn.pressed.connect(group_mgr.decline_invite)
 	_respawn_btn.pressed.connect(_on_respawn)
 	_respawn_hub_btn.pressed.connect(_on_respawn_hub)
+	# inventory keybinds handled in _input()
 
 	# Load saved username
 	var saved: String = _load_saved_username()
@@ -330,6 +337,21 @@ func _input(event: InputEvent) -> void:
 								)
 					get_viewport().set_input_as_handled()
 
+	# Inventory: I = equipment, B = bag
+	if (
+		not paused
+		and state != GameState.MENU
+		and state != GameState.CHARACTER_SELECT
+		and state != GameState.CREATE_CHARACTER
+	):
+		if event is InputEventKey and event.pressed and not event.echo:
+			if event.physical_keycode == KEY_I:
+				_toggle_equip_panel()
+				get_viewport().set_input_as_handled()
+			elif event.physical_keycode == KEY_B:
+				_toggle_bag_panel()
+				get_viewport().set_input_as_handled()
+
 	# Hub / arena lobby interactions (portal, lift, invite)
 	if (
 		state in [GameState.HUB, GameState.ARENA_LOBBY, GameState.FIGHT, GameState.FIGHT_OVER]
@@ -381,6 +403,8 @@ func _enter_menu() -> void:
 	_char_select_layer.visible = false
 	_char_create_layer.visible = false
 	_pause_layer.visible = false
+	_inventory_layer.equip_panel.visible = false
+	_inventory_layer.bag_panel.visible = false
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	env_builder.unload_environment()
 	if _enter_world_btn:
@@ -795,6 +819,8 @@ func _start_fight() -> void:
 	_show_portal_prompt_only()
 	_cursor_toggled = false
 	_alt_held = false
+	_inventory_layer.equip_panel.visible = false
+	_inventory_layer.bag_panel.visible = false
 
 	# Enemies are managed dynamically via update_enemies from world state
 	CombatLog.start_fight()
@@ -836,6 +862,8 @@ func _on_zone_transfer(zone_type: int, _new_peer_id: int) -> void:
 	entity_mgr.clear_all_enemies()
 	if _map_overlay:
 		_map_overlay.visible = false
+	_inventory_layer.equip_panel.visible = false
+	_inventory_layer.bag_panel.visible = false
 	entity_mgr.clear_all_npcs()
 
 	if zone_type == NetSerializer.ZONE_TYPE_ARENA:
@@ -903,11 +931,22 @@ func _toggle_pause() -> void:
 ## Show/hide cursor for UI interaction without pausing.
 ## Active when Alt is held or backtick is toggled on.
 func _update_cursor_mode() -> void:
-	var want_cursor: bool = _cursor_toggled or _alt_held
+	var inv_open: bool = _inventory_layer.equip_panel.visible or _inventory_layer.bag_panel.visible
+	var want_cursor: bool = _cursor_toggled or _alt_held or inv_open
 	if want_cursor:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	else:
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
+
+func _toggle_equip_panel() -> void:
+	_inventory_layer.equip_panel.toggle()
+	_update_cursor_mode()
+
+
+func _toggle_bag_panel() -> void:
+	_inventory_layer.bag_panel.toggle()
+	_update_cursor_mode()
 
 
 # =============================================================================
