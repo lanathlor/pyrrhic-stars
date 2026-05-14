@@ -364,6 +364,8 @@ func _draw_group_frames() -> void:
 		var health: float = max_health
 		if _world_players.has(pid):
 			health = _world_players[pid]["health"]
+			if _world_players[pid].has("max_health") and _world_players[pid]["max_health"] > 0.0:
+				max_health = _world_players[pid]["max_health"]
 
 		var ratio := clampf(health / maxf(max_health, 1.0), 0.0, 1.0)
 		var bar_color := HEALTH_GOOD if ratio > 0.3 else HEALTH_BAD

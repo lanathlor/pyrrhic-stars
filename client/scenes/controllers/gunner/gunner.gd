@@ -316,6 +316,8 @@ func on_damage_visual(_amount: float, _hit_pos: Vector3) -> void:
 func apply_server_state(data: Dictionary) -> void:
 	# data has: pos (Vector3), rot_y (float), health (float), state (int),
 	#           visual_state (int)
+	if data.has("max_health") and data["max_health"] > 0.0:
+		max_health = data["max_health"]
 	if _is_local():
 		health = data.health
 		# Sync buff states from server truth

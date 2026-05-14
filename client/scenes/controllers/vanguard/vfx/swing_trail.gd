@@ -83,12 +83,12 @@ func start(player: Node3D) -> void:
 	_light.light_energy = 5.0
 	_light.omni_range = 5.0
 	_light.shadow_enabled = false
+	add_child(_light)
 	var mid_angle: float = _facing_angle
 	_light.global_position = (
 		_origin
 		+ Vector3(sin(mid_angle) * ARC_RADIUS * 0.6, 1.2, -cos(mid_angle) * ARC_RADIUS * 0.6)
 	)
-	add_child(_light)
 
 	_phase = 0
 	_timer = SWEEP_DURATION

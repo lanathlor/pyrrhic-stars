@@ -50,6 +50,13 @@ const OP_GROUP_ERROR := 0x0062
 const OP_HUB_STATE := 0x0063
 const OP_PLAYER_NAMES := 0x0064
 
+# Inventory — client → server
+const OP_EQUIP_ITEM := 0x0070
+const OP_UNEQUIP_ITEM := 0x0071
+
+# Inventory — server → client
+const OP_INVENTORY_STATE := 0x0080
+
 # Game flow event types
 const FLOW_SPAWN_PLAYERS := 1
 const FLOW_FIGHT_START := 2
@@ -453,6 +460,7 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 		var pos := Vector3(buf.get_float(), buf.get_float(), buf.get_float())
 		var rot_y := buf.get_float()
 		var health := buf.get_float()
+		var max_health := buf.get_float()
 		var state := buf.get_u8()
 		var class_name_str := _get_str8(buf)
 		var username := _get_str8(buf)
@@ -471,6 +479,7 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 					"pos": pos,
 					"rot_y": rot_y,
 					"health": health,
+					"max_health": max_health,
 					"state": state,
 					"class_name": class_name_str,
 					"username": username,
@@ -943,3 +952,74 @@ func _get_str8(buf: StreamPeerBuffer) -> String:
 ## Swap bytes of a 16-bit value (native endian <-> big endian).
 func _swap16(v: int) -> int:
 	return ((v & 0xFF) << 8) | ((v >> 8) & 0xFF)
+
+
+# =============================================================================
+# Inventory codec
+# =============================================================================
+
+
+## Decode an OpInventoryState payload into a Dictionary.
+## Format: [equip_count:u8] per: item... [bag_count:u8] per: item... [6x stat:f32]
+func decode_inventory_state(data: PackedByteArray) -> Dictionary:
+	var buf := StreamPeerBuffer.new()
+	buf.data_array = data
+
+	# Equipped items
+	var equip_count := buf.get_u8()
+	var equipped: Array[Dictionary] = []
+	for i in range(equip_count):
+		equipped.append(_decode_inventory_item(buf))
+
+	# Bag items
+	var bag_count := buf.get_u8()
+	var bag: Array[Dictionary] = []
+	for i in range(bag_count):
+		bag.append(_decode_inventory_item(buf))
+
+	# Computed stats (6 floats)
+	var stats := {
+		"hull": buf.get_float(),
+		"output": buf.get_float(),
+		"plating": buf.get_float(),
+		"tempo": buf.get_float(),
+		"identity": buf.get_float(),
+		"mastery": buf.get_float(),
+	}
+
+	return {"equipped": equipped, "bag": bag, "stats": stats}
+
+
+func _decode_inventory_item(buf: StreamPeerBuffer) -> Dictionary:
+	var slot_id := buf.get_u8()
+	var item_id := buf.get_u32()
+	var def_id := _get_str8(buf)
+	var ilvl := buf.get_u16()
+	var item_name := _get_str8(buf)
+	var stat_count := buf.get_u8()
+	var stat_lines: Array[Dictionary] = []
+	for j in range(stat_count):
+		var stat := buf.get_u8()
+		var value := buf.get_float()
+		stat_lines.append({"stat": stat, "value": value})
+	return {
+		"slot_id": slot_id,
+		"item_id": item_id,
+		"def_id": def_id,
+		"ilvl": ilvl,
+		"name": item_name,
+		"stat_lines": stat_lines,
+	}
+
+
+## Encode OpEquipItem payload: [item_id:u32 LE][slot_id:u8]
+func encode_equip_item(item_id: int, slot_id: int) -> PackedByteArray:
+	var buf := StreamPeerBuffer.new()
+	buf.put_u32(item_id)
+	buf.put_u8(slot_id)
+	return buf.data_array
+
+
+## Encode OpUnequipItem payload: [slot_id:u8]
+func encode_unequip_item(slot_id: int) -> PackedByteArray:
+	return PackedByteArray([slot_id])

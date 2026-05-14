@@ -220,6 +220,8 @@ func _is_local() -> bool:
 
 ## Apply authoritative state from the server's WorldState.
 func apply_server_state(data: Dictionary) -> void:
+	if data.has("max_health") and data["max_health"] > 0.0:
+		max_health = data["max_health"]
 	if _is_local():
 		health = data.health
 		var server_stamina: float = data.get("stamina", -1.0)

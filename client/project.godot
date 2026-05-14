@@ -25,6 +25,7 @@ GameManager="*res://scripts/autoload/game_manager.gd"
 NetSerializer="*res://scripts/autoload/net_serializer.gd"
 IdentityManager="*res://scripts/autoload/identity_manager.gd"
 NetworkManager="*res://scripts/autoload/network_manager.gd"
+InventoryManager="*res://scripts/autoload/inventory_manager.gd"
 TestHarness="*res://scripts/autoload/test_harness.gd"
 CombatLog="*res://scripts/autoload/combat_log.gd"
 

@@ -26,6 +26,7 @@ signal character_state_received(data: Dictionary)
 signal character_list_received(data: Dictionary)
 signal character_error_received(data: Dictionary)
 signal debug_info_received(def_name: String, abilities: PackedStringArray)
+signal inventory_state_received(data: Dictionary)
 
 const DEFAULT_PORT := 7777
 
@@ -237,6 +238,10 @@ func _on_message(data: PackedByteArray) -> void:
 		NetSerializer.OP_GROUP_ERROR:
 			_handle_group_error(payload)
 
+		# -- Inventory --
+		NetSerializer.OP_INVENTORY_STATE:
+			_handle_inventory_state(payload)
+
 		# -- Debug (dev mode) --
 		NetSerializer.OP_DEBUG_INFO:
 			_handle_debug_info(payload)
@@ -411,6 +416,25 @@ func send_enter_portal() -> void:
 ## Send a respawn request. type: 0 = arena, 1 = hub.
 func send_respawn_request(type: int) -> void:
 	send_msg(NetSerializer.OP_RESPAWN_REQUEST, PackedByteArray([type]))
+
+
+# =============================================================================
+# Inventory
+# =============================================================================
+
+
+func _handle_inventory_state(payload: PackedByteArray) -> void:
+	var data := NetSerializer.decode_inventory_state(payload)
+	print("[Net] Inventory: %d equipped, %d bag" % [data.equipped.size(), data.bag.size()])
+	inventory_state_received.emit(data)
+
+
+func send_equip_item(item_id: int, slot_id: int) -> void:
+	send_msg(NetSerializer.OP_EQUIP_ITEM, NetSerializer.encode_equip_item(item_id, slot_id))
+
+
+func send_unequip_item(slot_id: int) -> void:
+	send_msg(NetSerializer.OP_UNEQUIP_ITEM, NetSerializer.encode_unequip_item(slot_id))
 
 
 # =============================================================================
