@@ -12,6 +12,8 @@ import (
 	"codex-online/server/internal/container"
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/group"
+	"codex-online/server/internal/inventory"
+	"codex-online/server/internal/item"
 	"codex-online/server/internal/message"
 	"codex-online/server/internal/session"
 	"codex-online/server/internal/user"
@@ -26,6 +28,7 @@ type gateway struct {
 	groups     *group.Manager
 	users      *user.Service
 	characters *character.Service
+	inventory  *inventory.Service
 	mu         sync.Mutex // protects zones
 	devMode    bool       // CODEX_DEV=1 enables debug features
 }
@@ -46,6 +49,7 @@ func newGateway(ctr *container.Container) *gateway {
 		groups:     group.NewManager(),
 		users:      user.NewService(ctr.Repo),
 		characters: character.NewService(ctr.Repo),
+		inventory:  inventory.NewService(ctr.Repo),
 	}
 }
 
@@ -185,7 +189,80 @@ func (g *gateway) joinZone(sess *session.Session, zi *zoneInstance, resp joinRes
 	peerMsg := message.Encode(message.OpPeerConnected, 0, codec.EncodePeerID(peerID))
 	zi.zone.Broadcast(peerMsg, peerID)
 
+	// Load inventory and apply gear stats.
+	if sess.CharID != 0 {
+		g.loadAndApplyGear(sess, zi)
+	}
+
 	slog.Info("peer joined zone", "zone_id", zi.zone.ID, "peer_id", peerID, "username", displayName)
+}
+
+// loadAndApplyGear loads a character's inventory, computes gear stats, applies
+// them to the zone player, and sends the inventory snapshot to the client.
+func (g *gateway) loadAndApplyGear(sess *session.Session, zi *zoneInstance) {
+	equipped, bag, err := g.inventory.LoadInventory(sess.CharID)
+	if err != nil {
+		slog.Error("load inventory", "char_id", sess.CharID, "error", err)
+		return
+	}
+
+	stats := item.ComputeStats(equipped)
+	zi.zone.SetPlayerGear(sess.PeerID, entity.GearStats(stats))
+
+	// Build and send OpInventoryState.
+	sess.Conn.Send(message.Encode(message.OpInventoryState, 0,
+		codec.EncodeInventoryState(
+			buildInventoryInfos(equipped[:]),
+			buildBagInfos(bag),
+			stats,
+		),
+	))
+}
+
+// buildInventoryInfos converts equipped items to codec-compatible structs.
+func buildInventoryInfos(equipped []*item.Item) []codec.InventoryItemInfo {
+	var out []codec.InventoryItemInfo
+	for slot := item.SlotID(0); slot < item.SlotCount; slot++ {
+		it := equipped[slot]
+		if it == nil {
+			continue
+		}
+		out = append(out, itemToCodec(it))
+	}
+	return out
+}
+
+// buildBagInfos converts bag items to codec-compatible structs.
+func buildBagInfos(bag []*item.Item) []codec.InventoryItemInfo {
+	out := make([]codec.InventoryItemInfo, len(bag))
+	for i, it := range bag {
+		out[i] = itemToCodec(it)
+	}
+	return out
+}
+
+// itemToCodec converts an item.Item to a codec.InventoryItemInfo.
+func itemToCodec(it *item.Item) codec.InventoryItemInfo {
+	def := item.DefRegistry[it.DefID]
+	name := it.DefID
+	if def != nil {
+		name = def.Name
+	}
+
+	statLines := item.ComputeStatsForItem(it)
+	codecLines := make([]codec.InventoryStatLine, len(statLines))
+	for i, sl := range statLines {
+		codecLines[i] = codec.InventoryStatLine{Stat: uint8(sl.Stat), Value: sl.Value}
+	}
+
+	return codec.InventoryItemInfo{
+		ItemID:    uint32(it.ID),
+		SlotID:    uint8(it.Slot),
+		DefID:     it.DefID,
+		Name:      name,
+		ILvl:      uint16(it.ILvl),
+		StatLines: codecLines,
+	}
 }
 
 // transferPlayer moves a player from their current zone to a new zone.

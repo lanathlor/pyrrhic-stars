@@ -495,6 +495,7 @@ func decodeWorldState(data []byte) (*WorldState, error) {
 		off += 4
 		p.Health = leF32(data[off:])
 		off += 4
+		off += 4 // max_health
 		p.State = data[off]
 		off++
 

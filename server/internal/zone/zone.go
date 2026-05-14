@@ -359,6 +359,17 @@ func (z *Zone) SetPlayerPosition(peerID uint16, pos entity.Vec3, rotY float32) {
 	}
 }
 
+// SetPlayerGear updates a player's computed gear stats and recalculates derived
+// stats (MaxHealth, etc.). Called by the gateway on join and on equip/unequip.
+func (z *Zone) SetPlayerGear(peerID uint16, stats entity.GearStats) {
+	z.mu.Lock()
+	defer z.mu.Unlock()
+	if p, ok := z.world.Players[peerID]; ok {
+		p.GearStats = stats
+		p.RecalcStats()
+	}
+}
+
 // Broadcast sends a message to all clients except excludePeerID (0 = send to all).
 func (z *Zone) Broadcast(msg []byte, excludePeerID uint16) {
 	z.mu.Lock()

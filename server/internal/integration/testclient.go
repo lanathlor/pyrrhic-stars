@@ -323,8 +323,8 @@ func parsePlayerStateFromWorldState(payload []byte, wantPeer uint16) int {
 		}
 		peerID := binary.LittleEndian.Uint16(payload[off : off+2])
 		off += 2
-		// pos(3*4) + rot_y(4) + health(4) = 20 bytes
-		off += 20
+		// pos(3*4) + rot_y(4) + health(4) + max_health(4) = 24 bytes
+		off += 24
 		if off >= len(payload) {
 			return -1
 		}

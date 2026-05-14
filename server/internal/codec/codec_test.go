@@ -182,9 +182,10 @@ func TestDecodeRespawnRequest(t *testing.T) {
 func TestWorldStateProjectileRoundtrip(t *testing.T) {
 	p := &entity.Player{
 		Combatant: entity.Combatant{
-			ID:       1,
-			Position: entity.Vec3{X: 1.0},
-			Health:   100.0,
+			ID:        1,
+			Position:  entity.Vec3{X: 1.0},
+			Health:    100.0,
+			MaxHealth: 150.0,
 		},
 		ClassID:      entity.ClassGunner,
 		Resources:    make(map[string]*entity.Resource),
@@ -262,6 +263,7 @@ func TestEncodeWorldStateWireFormat(t *testing.T) {
 			Position:  entity.Vec3{X: 1.0, Y: 2.0, Z: 3.0},
 			RotationY: 0.5,
 			Health:    100.0,
+			MaxHealth: 150.0,
 		},
 		State:        entity.PlayerStateAttack,
 		ClassID:      entity.ClassGunner,
@@ -307,6 +309,12 @@ func TestEncodeWorldStateWireFormat(t *testing.T) {
 	off += 4
 	if health != 100.0 {
 		t.Errorf("health = %f, want 100.0", health)
+	}
+	// max_health
+	maxHealth := math.Float32frombits(binary.LittleEndian.Uint32(buf[off:]))
+	off += 4
+	if maxHealth != 150.0 {
+		t.Errorf("max_health = %f, want 150.0", maxHealth)
 	}
 	// state
 	if buf[off] != byte(entity.PlayerStateAttack) {

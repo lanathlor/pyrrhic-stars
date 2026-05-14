@@ -89,6 +89,8 @@ func decodeShooterState(payload []byte, targetPeerID uint16) (state uint8, visua
 		off += 4
 		// health: f32
 		off += 4
+		// max_health: f32
+		off += 4
 		// state: u8
 		if off >= len(payload) {
 			return

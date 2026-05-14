@@ -22,6 +22,10 @@ func handleServerMessage(gw *gateway, sess *session.Session, opcode uint16, payl
 		gw.handleCharacterMessage(sess, opcode, payload)
 		return
 	}
+	if message.IsInventoryRelated(opcode) {
+		gw.handleInventoryMessage(sess, opcode, payload)
+		return
+	}
 
 	switch opcode {
 	case message.OpJoinZone:

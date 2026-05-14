@@ -30,6 +30,14 @@ func TestMain(m *testing.M) {
 type stubRepo struct{ persistence.Repository }
 
 func (stubRepo) GetCharacterByID(uint) (*persistence.Character, error) { return nil, nil }
+func (stubRepo) CreateItem(*persistence.CharacterItem) error           { return nil }
+func (stubRepo) DeleteItem(uint) error                                 { return nil }
+func (stubRepo) GetItemsByCharacterID(uint) ([]*persistence.CharacterItem, error) {
+	return nil, nil
+}
+func (stubRepo) SetEquipment(uint, uint8, uint) error                         { return nil }
+func (stubRepo) ClearEquipment(uint, uint8) error                             { return nil }
+func (stubRepo) GetEquipment(uint) ([]*persistence.CharacterEquipment, error) { return nil, nil }
 
 // posRepo returns a character with a saved position.
 type posRepo struct{ stubRepo }

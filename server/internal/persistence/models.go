@@ -24,3 +24,22 @@ type Character struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
+
+// CharacterItem represents an item instance owned by a character.
+type CharacterItem struct {
+	ID          uint   `gorm:"primaryKey"`
+	CharacterID uint   `gorm:"index"`
+	DefID       string `gorm:"size:40"`
+	ILvl        int
+	Slot        uint8 // item.SlotID — which equipment slot this item fits
+	CreatedAt   time.Time
+}
+
+// CharacterEquipment maps a character's equipment slot to an item.
+// One row per equipped slot. Items not referenced here are in the bag.
+type CharacterEquipment struct {
+	ID          uint  `gorm:"primaryKey"`
+	CharacterID uint  `gorm:"uniqueIndex:idx_char_slot"`
+	SlotID      uint8 `gorm:"uniqueIndex:idx_char_slot"`
+	ItemID      uint  `gorm:"index"`
+}

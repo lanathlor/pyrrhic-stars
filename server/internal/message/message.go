@@ -60,6 +60,13 @@ const (
 	OpHubState        uint16 = 0x0063
 	OpPlayerNames     uint16 = 0x0064
 
+	// Inventory — client → server.
+	OpEquipItem   uint16 = 0x0070 // [itemID:u32][slotID:u8]
+	OpUnequipItem uint16 = 0x0071 // [slotID:u8]
+
+	// Inventory — server → client.
+	OpInventoryState uint16 = 0x0080 // full inventory + equipment snapshot
+
 	// Debug — client → server (dev mode only).
 	OpDebugForceCast     uint16 = 0x00D0 // [str8: ability_id]
 	OpDebugSetPhase      uint16 = 0x00D1 // [uint8: phase]
@@ -155,7 +162,12 @@ func BroadcastExcludeSender(opcode uint16) bool {
 // IsServerHandled returns true for opcodes that the server processes directly
 // and does not relay to other clients.
 func IsServerHandled(opcode uint16) bool {
-	return opcode >= 0xFF00 || IsGroupRelated(opcode)
+	return opcode >= 0xFF00 || IsGroupRelated(opcode) || IsInventoryRelated(opcode)
+}
+
+// IsInventoryRelated returns true for inventory/equipment opcodes (0x0070–0x007F).
+func IsInventoryRelated(opcode uint16) bool {
+	return opcode >= 0x0070 && opcode <= 0x007F
 }
 
 // IsGroupRelated returns true for group/social opcodes (0x0050–0x005F).

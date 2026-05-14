@@ -1,0 +1,76 @@
+items:
+  # --- Equipped starter gear (ilvl 1) ---
+
+  - id: frame_basic
+    name: Standard Frame
+    slot: 0 # Frame
+    stat_lines:
+      - { stat: 0, value: 30 }  # Hull (primary)
+      - { stat: 2, value: 3 }   # Plating (secondary)
+      - { stat: 0, value: 5 }   # Hull (flex)
+
+  - id: core_basic
+    name: Standard Power Core
+    slot: 1 # Power Core
+    stat_lines:
+      - { stat: 1, value: 8 }   # Output (primary)
+      - { stat: 3, value: 3 }   # Tempo (secondary)
+      - { stat: 1, value: 2 }   # Output (flex)
+
+  - id: weapon_basic
+    name: Standard Weapon
+    slot: 2 # Primary Weapon
+    stat_lines:
+      - { stat: 1, value: 10 }  # Output (primary)
+      - { stat: 5, value: 4 }   # Mastery (secondary)
+      - { stat: 1, value: 3 }   # Output (flex)
+
+  - id: tool_basic
+    name: Standard Sidearm
+    slot: 3 # Secondary / Tool
+    stat_lines:
+      - { stat: 1, value: 5 }   # Output (primary, smaller)
+      - { stat: 4, value: 4 }   # Identity (secondary)
+      - { stat: 4, value: 2 }   # Identity (flex)
+
+  - id: augment_basic
+    name: Standard Augment
+    slot: 4 # Augment
+    stat_lines:
+      - { stat: 5, value: 5 }   # Mastery (primary)
+      - { stat: 4, value: 3 }   # Identity (secondary)
+      - { stat: 3, value: 2 }   # Tempo (flex)
+
+  - id: module_basic
+    name: Standard Module
+    slot: 5 # Module
+    stat_lines:
+      - { stat: 0, value: 10 }  # Hull (flex 1)
+      - { stat: 1, value: 3 }   # Output (flex 2)
+      - { stat: 2, value: 2 }   # Plating (flex 3)
+
+  # --- Bag items (ilvl 2-3 alternatives) ---
+
+  - id: frame_reinforced
+    name: Reinforced Frame
+    slot: 0
+    stat_lines:
+      - { stat: 0, value: 35 }  # Hull (primary, higher)
+      - { stat: 2, value: 2 }   # Plating (secondary, lower)
+      - { stat: 2, value: 4 }   # Plating (flex — defensive)
+
+  - id: weapon_sharpened
+    name: Sharpened Weapon
+    slot: 2
+    stat_lines:
+      - { stat: 1, value: 12 }  # Output (primary, higher)
+      - { stat: 5, value: 3 }   # Mastery (secondary)
+      - { stat: 5, value: 3 }   # Mastery (flex — spec-focused)
+
+  - id: module_combat
+    name: Combat Module
+    slot: 5
+    stat_lines:
+      - { stat: 1, value: 5 }   # Output (flex 1)
+      - { stat: 1, value: 4 }   # Output (flex 2)
+      - { stat: 5, value: 3 }   # Mastery (flex 3)

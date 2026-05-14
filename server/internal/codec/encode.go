@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 
 	"codex-online/server/internal/entity"
+	"codex-online/server/internal/item"
 )
 
 var encodeByte = make([]byte, 0, 65536)
@@ -45,6 +46,7 @@ func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.
 		buf = appendF32(buf, p.Position.Z)
 		buf = appendF32(buf, p.RotationY)
 		buf = appendF32(buf, p.Health)
+		buf = appendF32(buf, p.MaxHealth)
 		buf = append(buf, byte(p.State))
 		buf = appendStr8(buf, p.ClassName())
 		buf = appendStr8(buf, p.Username)
@@ -352,4 +354,85 @@ func EncodeGroupInviteRecv(groupID uint32, leaderName string) []byte {
 // Format: [groupID:u32(0)][leaderPeerID:u16(0)][count:u8(0)]
 func EncodeEmptyGroupState() []byte {
 	return make([]byte, 7) // 4 bytes group_id(0) + 2 bytes leader(0) + 1 byte count(0)
+}
+
+// InventoryItemInfo carries item data for inventory encoding (decoupled from persistence).
+type InventoryItemInfo struct {
+	ItemID    uint32
+	SlotID    uint8
+	DefID     string
+	Name      string
+	ILvl      uint16
+	StatLines []InventoryStatLine
+}
+
+// InventoryStatLine carries a single stat line for encoding.
+type InventoryStatLine struct {
+	Stat  uint8
+	Value float32
+}
+
+// EncodeInventoryState builds the payload for OpInventoryState.
+// Format: [equip_count:u8] per: [slotID:u8][itemID:u32][defID:str8][ilvl:u16][name:str8][stat_count:u8][stat_id:u8 + value:f32]...
+//
+//	[bag_count:u8]   per: [slotID:u8][itemID:u32][defID:str8][ilvl:u16][name:str8][stat_count:u8][stat_id:u8 + value:f32]...
+//	[6x computed_stat:f32] (hull, output, plating, tempo, identity, mastery)
+func EncodeInventoryState(equipped []InventoryItemInfo, bag []InventoryItemInfo, stats item.Stats) []byte {
+	buf := make([]byte, 0, 512)
+
+	// Equipped items.
+	buf = append(buf, byte(len(equipped)))
+	for _, it := range equipped {
+		buf = encodeInventoryItem(buf, it)
+	}
+
+	// Bag items.
+	buf = append(buf, byte(len(bag)))
+	for _, it := range bag {
+		buf = encodeInventoryItem(buf, it)
+	}
+
+	// Computed stats (6 floats).
+	buf = appendF32(buf, stats.Hull)
+	buf = appendF32(buf, stats.Output)
+	buf = appendF32(buf, stats.Plating)
+	buf = appendF32(buf, stats.Tempo)
+	buf = appendF32(buf, stats.Identity)
+	buf = appendF32(buf, stats.Mastery)
+
+	return buf
+}
+
+func encodeInventoryItem(buf []byte, it InventoryItemInfo) []byte {
+	buf = append(buf, it.SlotID)
+	buf = appendU32(buf, it.ItemID)
+	buf = appendStr8(buf, it.DefID)
+	buf = appendU16(buf, it.ILvl)
+	buf = appendStr8(buf, it.Name)
+	buf = append(buf, byte(len(it.StatLines)))
+	for _, sl := range it.StatLines {
+		buf = append(buf, sl.Stat)
+		buf = appendF32(buf, sl.Value)
+	}
+	return buf
+}
+
+// DecodeEquipItem decodes the payload for OpEquipItem.
+// Returns itemID and slotID.
+func DecodeEquipItem(payload []byte) (itemID uint32, slotID uint8, ok bool) {
+	if len(payload) < 5 {
+		return 0, 0, false
+	}
+	itemID = binary.LittleEndian.Uint32(payload[0:4])
+	slotID = payload[4]
+	return itemID, slotID, true
+}
+
+// DecodeUnequipItem decodes the payload for OpUnequipItem.
+// Returns slotID.
+func DecodeUnequipItem(payload []byte) (slotID uint8, ok bool) {
+	if len(payload) < 1 {
+		return 0, false
+	}
+	return payload[0], true
 }

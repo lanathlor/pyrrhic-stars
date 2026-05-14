@@ -58,6 +58,11 @@ func (g *gateway) handleCharacterMessage(sess *session.Session, opcode uint16, p
 			return
 		}
 
+		// Spawn starter gear for the new character.
+		if err := g.inventory.SpawnStarterGear(char.ID); err != nil {
+			slog.Error("spawn starter gear", "char_id", char.ID, "error", err)
+		}
+
 		sess.CharID = char.ID
 		sess.Class = char.ClassName
 		sess.CharName = char.Name

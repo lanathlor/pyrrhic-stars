@@ -2,6 +2,16 @@ package entity
 
 import "math"
 
+// GearStats holds aggregated stat bonuses from equipped gear.
+type GearStats struct {
+	Hull     float32
+	Output   float32
+	Plating  float32
+	Tempo    float32
+	Identity float32
+	Mastery  float32
+}
+
 // PlayerState represents the state of a player character.
 type PlayerState uint8
 
@@ -58,8 +68,10 @@ const (
 // Player represents a player entity on the server.
 type Player struct {
 	Combatant
-	Username string // display name
-	ClassID  string // "gunner", "vanguard", "blade_dancer"
+	Username   string    // display name
+	ClassID    string    // "gunner", "vanguard", "blade_dancer"
+	GearStats  GearStats // aggregated stat bonuses from equipped gear
+	BaseHealth float32   // class base HP (from ClassDef, before gear)
 
 	// Spatial (player-specific)
 	AimPitch float32 // for gunner hitscan
@@ -120,17 +132,18 @@ func NewPlayer(peerID uint16, className string) *Player {
 
 	p := &Player{
 		Combatant: Combatant{
-			ID:        peerID,
-			MaxHealth: classDef.MaxHealth,
-			Alive:     true,
+			ID:    peerID,
+			Alive: true,
 		},
 		ClassID:      className,
+		BaseHealth:   classDef.MaxHealth,
 		OnGround:     true,
 		Resources:    make(map[string]*Resource, len(classDef.Resources)),
 		Cooldowns:    make(map[string]float32),
 		ActionMap:    classDef.ActionMap,
 		AbilityState: make(map[string]any),
 	}
+	p.RecalcStats()
 	p.Health = p.MaxHealth
 
 	for name, tmpl := range classDef.Resources {
@@ -149,6 +162,15 @@ func NewPlayer(peerID uint16, className string) *Player {
 func NewPlayerNoPTR(peerID uint16, className string) Player {
 	p := NewPlayer(peerID, className)
 	return *p
+}
+
+// RecalcStats recomputes derived stats from GearStats.
+// Must be called whenever equipment changes.
+func (p *Player) RecalcStats() {
+	p.MaxHealth = p.BaseHealth + p.GearStats.Hull
+	if p.Health > p.MaxHealth {
+		p.Health = p.MaxHealth
+	}
 }
 
 // ClassName returns the class identifier.
@@ -268,6 +290,12 @@ func (p *Player) ApplyDamage(amount float32) float32 {
 		return 0
 	}
 
+	// Plating: flat damage reduction (applied before percentage buffs).
+	amount -= p.GearStats.Plating
+	if amount <= 0 {
+		return 0
+	}
+
 	// Apply all damage_reduction buffs
 	amount *= p.DamageReduction()
 	if amount <= 0 {
@@ -328,6 +356,8 @@ func (p *Player) CasterEyePos() Vec3 { return p.EyePosition() }
 func (p *Player) CasterAimDir() Vec3 { return p.AimDirection() }
 func (p *Player) CasterDamageMult() float32 {
 	m := p.DamageMult()
+	// Output: additive percentage. 0 Output = 1.0x, 100 Output = 2.0x.
+	m *= (1.0 + p.GearStats.Output/100.0)
 	if p.GodMode {
 		m *= 100
 	}

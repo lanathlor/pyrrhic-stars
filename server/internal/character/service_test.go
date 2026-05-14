@@ -54,6 +54,14 @@ func (r *stubRepo) CreateCharacter(c *persistence.Character) error {
 	return nil
 }
 
+// Inventory stubs (not used by character service tests).
+func (r *stubRepo) CreateItem(*persistence.CharacterItem) error                      { return nil }
+func (r *stubRepo) DeleteItem(uint) error                                            { return nil }
+func (r *stubRepo) GetItemsByCharacterID(uint) ([]*persistence.CharacterItem, error) { return nil, nil }
+func (r *stubRepo) SetEquipment(uint, uint8, uint) error                             { return nil }
+func (r *stubRepo) ClearEquipment(uint, uint8) error                                 { return nil }
+func (r *stubRepo) GetEquipment(uint) ([]*persistence.CharacterEquipment, error)     { return nil, nil }
+
 func TestSelect(t *testing.T) {
 	repo := newStubRepo()
 	repo.chars[1] = &persistence.Character{ID: 1, UserID: "player-1", ClassName: "gunner", Name: "Hero"}

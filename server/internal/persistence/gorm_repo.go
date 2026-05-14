@@ -45,7 +45,7 @@ func NewGormRepo(driver, dsn string) (*GormRepo, error) {
 		return nil, fmt.Errorf("persistence open: %w", err)
 	}
 
-	if err := db.AutoMigrate(&User{}, &Character{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &Character{}, &CharacterItem{}, &CharacterEquipment{}); err != nil {
 		return nil, fmt.Errorf("persistence migrate: %w", err)
 	}
 
@@ -118,4 +118,37 @@ func (r *GormRepo) CountCharacters(userID string) (int64, error) {
 	var count int64
 	result := r.db.Model(&Character{}).Where("user_id = ?", userID).Count(&count)
 	return count, result.Error
+}
+
+func (r *GormRepo) CreateItem(item *CharacterItem) error {
+	return r.db.Create(item).Error
+}
+
+func (r *GormRepo) DeleteItem(itemID uint) error {
+	return r.db.Delete(&CharacterItem{}, itemID).Error
+}
+
+func (r *GormRepo) GetItemsByCharacterID(charID uint) ([]*CharacterItem, error) {
+	var items []*CharacterItem
+	result := r.db.Where("character_id = ?", charID).Find(&items)
+	return items, result.Error
+}
+
+func (r *GormRepo) SetEquipment(charID uint, slotID uint8, itemID uint) error {
+	eq := CharacterEquipment{CharacterID: charID, SlotID: slotID, ItemID: itemID}
+	return r.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "character_id"}, {Name: "slot_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"item_id"}),
+	}).Create(&eq).Error
+}
+
+func (r *GormRepo) ClearEquipment(charID uint, slotID uint8) error {
+	return r.db.Where("character_id = ? AND slot_id = ?", charID, slotID).
+		Delete(&CharacterEquipment{}).Error
+}
+
+func (r *GormRepo) GetEquipment(charID uint) ([]*CharacterEquipment, error) {
+	var eqs []*CharacterEquipment
+	result := r.db.Where("character_id = ?", charID).Find(&eqs)
+	return eqs, result.Error
 }

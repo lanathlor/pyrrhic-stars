@@ -14,6 +14,7 @@ import (
 	chrepo "codex-online/server/internal/combatlog/clickhouse"
 	"codex-online/server/internal/container"
 	"codex-online/server/internal/enemyai"
+	"codex-online/server/internal/item"
 	"codex-online/server/internal/message"
 	"codex-online/server/internal/network"
 	"codex-online/server/internal/persistence"
@@ -59,13 +60,17 @@ func main() {
 	}
 	slog.Info("database initialized", "driver", dbDriver)
 
-	// Load data-driven mob definitions from YAML.
+	// Load data-driven definitions from YAML.
 	if err := enemyai.LoadMobs(enemyai.MobsDir()); err != nil {
 		slog.Error("load mobs failed", "error", err)
 		os.Exit(1)
 	}
 	if err := enemyai.LoadEncounters(enemyai.EncountersDir()); err != nil {
 		slog.Error("load encounters failed", "error", err)
+		os.Exit(1)
+	}
+	if err := item.LoadItems(item.ItemsDir()); err != nil {
+		slog.Error("load items failed", "error", err)
 		os.Exit(1)
 	}
 
@@ -246,6 +251,9 @@ func handleConnection(gw *gateway, w http.ResponseWriter, req *http.Request) {
 		}
 		if devChar == nil {
 			devChar, _ = gw.characters.Create(userUUID, devClass, "Dev")
+			if devChar != nil {
+				_ = gw.inventory.SpawnStarterGear(devChar.ID)
+			}
 		}
 		if devChar != nil {
 			sess.CharID = devChar.ID

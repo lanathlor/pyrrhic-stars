@@ -14,6 +14,7 @@ type DecodedPlayer struct {
 	PosX, PosY, PosZ  float32
 	RotY              float32
 	Health            float32
+	MaxHealth         float32
 	State             uint8
 	Class             string
 	Username          string
@@ -64,7 +65,7 @@ func DecodeWorldState(buf []byte) (DecodedWorldState, bool) {
 	off++
 	ws.Players = make([]DecodedPlayer, playerCount)
 	for i := range playerCount {
-		if off+23 > len(buf) { // minimum: u16 + 3*f32 + f32 + f32 + u8 = 23
+		if off+27 > len(buf) { // minimum: u16 + 3*f32 + f32 + f32 + f32 + u8 = 27
 			return ws, false
 		}
 		p := &ws.Players[i]
@@ -79,6 +80,8 @@ func DecodeWorldState(buf []byte) (DecodedWorldState, bool) {
 		p.RotY = getF32(buf[off:])
 		off += 4
 		p.Health = getF32(buf[off:])
+		off += 4
+		p.MaxHealth = getF32(buf[off:])
 		off += 4
 		p.State = buf[off]
 		off++
