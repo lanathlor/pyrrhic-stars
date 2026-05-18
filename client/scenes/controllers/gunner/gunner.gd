@@ -86,6 +86,10 @@ var _rechamber_timer: float = 0.0
 var _rechamber_buff: bool = false
 var _rechamber_buff_timer: float = 0.0
 
+# Munitions (enhanced rounds)
+var _munitions: float = 5.0
+var _max_munitions: float = 5.0
+
 # Network sync
 var _visual_state: int = 0
 var _net_position: Vector3 = Vector3.ZERO
@@ -248,6 +252,7 @@ func _physics_process(delta: float) -> void:
 			]
 		)
 	)
+	hud.update_munitions(_munitions, _max_munitions)
 
 	# Send position + visual state to server
 	if NetworkManager.is_active:
@@ -326,6 +331,7 @@ func apply_server_state(data: Dictionary) -> void:
 		var server_phase: int = data.get("rechamber_phase", 0)
 		if server_phase != _rechamber_phase and server_phase == 0:
 			_rechamber_phase = 0  # server reset overrides client
+		_munitions = data.get("munitions", 0.0)
 		if health <= 0.0 and _alive:
 			_alive = false
 			died.emit()

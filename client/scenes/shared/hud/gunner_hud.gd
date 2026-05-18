@@ -10,6 +10,8 @@ const GUNNER_COLOR := Color(0.24, 0.62, 0.95)
 var _hit_marker_timer: float = 0.0
 var _damage_flash_timer: float = 0.0
 var _recoil_timer: float = 0.0
+var _munitions: float = 0.0
+var _max_munitions: float = 5.0
 
 @onready var crosshair: Control = $Crosshair
 @onready var damage_overlay: ColorRect = $DamageOverlay
@@ -44,6 +46,11 @@ func show_damage_flash() -> void:
 	_damage_flash_timer = DAMAGE_FLASH_DURATION
 
 
+func update_munitions(current: float, max_val: float) -> void:
+	_munitions = current
+	_max_munitions = max_val
+
+
 func on_shoot() -> void:
 	_recoil_timer = RECOIL_DURATION
 
@@ -52,6 +59,7 @@ func on_shoot() -> void:
 func draw_crosshair(canvas: Control) -> void:
 	var center := canvas.size / 2.0
 	_draw_crosshair_lines(canvas, center)
+	_draw_munitions_pips(canvas, center)
 
 
 func _draw_crosshair_lines(canvas: Control, center: Vector2) -> void:
@@ -115,3 +123,28 @@ func _draw_crosshair_lines(canvas: Control, center: Vector2) -> void:
 			x_thick,
 			true
 		)
+
+
+func _draw_munitions_pips(canvas: Control, center: Vector2) -> void:
+	var pip_count := int(_max_munitions)
+	if pip_count <= 0:
+		return
+	var radius := 3.0
+	var spacing := 10.0
+	var total_w := (pip_count - 1) * spacing
+	var start_x := center.x - total_w / 2.0
+	var y := center.y + 28.0
+	var dim := Color(0.3, 0.3, 0.35, 0.4)
+
+	for i in pip_count:
+		var cx := start_x + float(i) * spacing
+		var fill := clampf(_munitions - float(i), 0.0, 1.0)
+		if fill >= 1.0:
+			canvas.draw_circle(Vector2(cx, y), radius, GUNNER_COLOR)
+		elif fill > 0.0:
+			canvas.draw_circle(Vector2(cx, y), radius, dim)
+			var partial_color := GUNNER_COLOR
+			partial_color.a = fill
+			canvas.draw_circle(Vector2(cx, y), radius * fill, partial_color)
+		else:
+			canvas.draw_circle(Vector2(cx, y), radius, dim)

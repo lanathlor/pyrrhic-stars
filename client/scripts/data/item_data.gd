@@ -51,19 +51,19 @@ const CLASS_STAT_INFO := {
 	"gunner":
 	{
 		"tempo": ["Action", "fire rate, ADS speed"],
-		"identity": ["Steadiness", "recoil, sway reduction"],
+		"identity": ["Munitions", "enhanced round reserve, regen"],
 		"mastery": ["Pressure", "dmg per consecutive hit"],
 	},
 	"vanguard":
 	{
-		"tempo": ["Recovery", "parry window, stamina regen"],
-		"identity": ["Stance", "combo window, stamina cost"],
+		"tempo": ["Recovery", "parry, dodge, combo windows"],
+		"identity": ["Tenacity", "stamina pool, efficiency, regen"],
 		"mastery": ["Onslaught", "dmg on hit streaks"],
 	},
 	"blade_dancer":
 	{
 		"tempo": ["Transition", "config change speed"],
-		"identity": ["Resonance", "chain bonus, burst bonus"],
+		"identity": ["Resonance", "charge capacity, gain, retention"],
 		"mastery": ["Flow", "transition chain bonus"],
 	},
 }
@@ -88,6 +88,9 @@ static func stat_effect_desc(stat_id: int, value: float, cls: String) -> String:
 			return "+%.0f%% damage" % value
 		Stat.PLATING:
 			return "-%.0f per hit" % value
+		Stat.TEMPO:
+			var pct := 100.0 * value / (100.0 + value)
+			return "-%.0f%% cooldowns" % pct
 		_:
 			var key: String = ["tempo", "identity", "mastery"][stat_id - 3]
 			var info: Dictionary = CLASS_STAT_INFO.get(cls, {})

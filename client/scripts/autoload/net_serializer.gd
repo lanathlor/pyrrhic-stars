@@ -471,6 +471,8 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 		var config := buf.get_u8() if buf.get_position() < buf.get_size() else 0
 		var server_stamina := buf.get_float() if buf.get_position() + 4 <= buf.get_size() else -1.0
 		var shield_hp := buf.get_float() if buf.get_position() + 4 <= buf.get_size() else 0.0
+		var munitions := buf.get_float() if buf.get_position() + 4 <= buf.get_size() else 0.0
+		var resonance := buf.get_float() if buf.get_position() + 4 <= buf.get_size() else 0.0
 		(
 			players
 			. append(
@@ -493,6 +495,8 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 					"config": config,
 					"stamina": server_stamina,
 					"shield_hp": shield_hp,
+					"munitions": munitions,
+					"resonance": resonance,
 				}
 			)
 		)
