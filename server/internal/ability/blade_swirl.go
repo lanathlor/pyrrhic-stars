@@ -24,7 +24,7 @@ func bladeSwirlHandler(eng *Engine, ctx *CastContext) CastResult {
 	if p.Cooldowns["blade_swirl"] > 0 || p.GCDTimer > 0 {
 		return CastResult{Reason: "cooldown"}
 	}
-	if !p.SpendResource("stamina", 25) {
+	if !p.SpendResource("stamina", 25*p.TenacityEfficiency()) {
 		return CastResult{Reason: ReasonInsufficientStamina}
 	}
 

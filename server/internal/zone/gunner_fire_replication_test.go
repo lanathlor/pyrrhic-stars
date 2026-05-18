@@ -121,8 +121,8 @@ func decodeShooterState(payload []byte, targetPeerID uint16) (state uint8, visua
 		}
 		ap := math.Float32frombits(binary.LittleEndian.Uint32(payload[off:]))
 		off += 4
-		// buff_flags: u8, config: u8, stamina: f32, shield_hp: f32
-		off += 1 + 1 + 4 + 4
+		// buff_flags: u8, config: u8, stamina: f32, shield_hp: f32, munitions: f32, resonance: f32
+		off += 1 + 1 + 4 + 4 + 4 + 4
 
 		if peerID == targetPeerID {
 			return st, vs, ap, true

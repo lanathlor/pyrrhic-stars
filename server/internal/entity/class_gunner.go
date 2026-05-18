@@ -8,7 +8,9 @@ var gunnerDef = ClassDef{
 		GroundAccel: 25.0, GroundDecel: 18.0, AirAccel: 2.5, AirDecel: 1.0,
 		RollSpeed: 14.0, RollDur: 0.3, RollCD: 2.5,
 	},
-	Resources: map[string]ResourceTemplate{},
+	Resources: map[string]ResourceTemplate{
+		"munitions": {Max: 5, Initial: 5, Regen: 0.10, RegenDelay: 0},
+	},
 	Abilities: []string{"fire_shot", "overclock", "rechamber", "rechamber_confirm", "dodge"},
 	ActionMap: map[uint8]string{
 		0:  "fire_shot",

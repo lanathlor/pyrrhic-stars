@@ -51,7 +51,7 @@ func vgBlockHandler(_ *Engine, ctx *CastContext) CastResult {
 		ID:       "vg_parry",
 		Type:     entity.BuffDamageReduction,
 		Value:    0.0,
-		Duration: blockParryTime,
+		Duration: blockParryTime * p.TempoMult(),
 	})
 	p.AddBuff(entity.ActiveBuff{
 		ID:       "vg_block",
@@ -101,7 +101,7 @@ func vgBlockTick(_ *Engine, p *entity.Player, dt float32, _ *TickContext) []Dama
 		EndVgBlock(p)
 		return nil
 	}
-	stamina.Current -= blockDrainPerSec * dt
+	stamina.Current -= blockDrainPerSec * dt * p.TenacityEfficiency()
 	stamina.DelayTimer = stamina.RegenDelay
 	if stamina.Current <= 0 {
 		stamina.Current = 0

@@ -370,6 +370,16 @@ func TestEncodeWorldStateWireFormat(t *testing.T) {
 	if shieldVal != 0.0 {
 		t.Errorf("shield = %f, want 0.0", shieldVal)
 	}
+	munitionsVal := math.Float32frombits(binary.LittleEndian.Uint32(buf[off:]))
+	off += 4
+	if munitionsVal != 0.0 {
+		t.Errorf("munitions = %f, want 0.0", munitionsVal)
+	}
+	resonanceVal := math.Float32frombits(binary.LittleEndian.Uint32(buf[off:]))
+	off += 4
+	if resonanceVal != 0.0 {
+		t.Errorf("resonance = %f, want 0.0", resonanceVal)
+	}
 
 	// enemy count
 	if buf[off] != 1 {

@@ -182,11 +182,15 @@ func (eng *Engine) doCast(abilityID string, def *AbilityDef, ctx *CastContext) C
 				}
 				return CastResult{Reason: "insufficient " + cost.Resource}
 			}
-			if r.Current < cost.Amount {
+			effectiveCost := cost.Amount
+			if cost.Resource == "stamina" {
+				effectiveCost *= p.TenacityEfficiency()
+			}
+			if r.Current < effectiveCost {
 				if eng.logDebug {
 					eng.logger.Debug("ability.cast.rejected",
 						"ability", abilityID, "id", caster.CasterID(),
-						"reason", "insufficient "+cost.Resource, "need", cost.Amount, "have", r.Current)
+						"reason", "insufficient "+cost.Resource, "need", effectiveCost, "have", r.Current)
 				}
 				return CastResult{Reason: "insufficient " + cost.Resource}
 			}
@@ -224,13 +228,61 @@ func (eng *Engine) doCast(abilityID string, def *AbilityDef, ctx *CastContext) C
 	// Spend resources (player only)
 	if isPlayer {
 		for _, cost := range def.Costs {
-			p.SpendResource(cost.Resource, cost.Amount)
+			effectiveCost := cost.Amount
+			if cost.Resource == "stamina" {
+				effectiveCost *= p.TenacityEfficiency()
+			}
+			p.SpendResource(cost.Resource, effectiveCost)
+		}
+	}
+
+	// BD Resonance: check threshold for damage amplification (before hit)
+	var resonanceAmpFactor float32
+	if isPlayer && p.ClassID == entity.ClassBladeDancer && def.DestConfig >= 0 {
+		if res := p.Resources["resonance"]; res != nil && res.Current >= 50 {
+			if res.Current >= 100 {
+				resonanceAmpFactor = 0.5
+			} else {
+				resonanceAmpFactor = 0.25
+			}
 		}
 	}
 
 	// Resolve hit
 	eng.hitBuf = resolveHit(eng.hitBuf, def, caster, ctx.Targets, ctx.Obstacles, ctx.SourceType)
 	events := eng.hitBuf
+
+	// BD Resonance: apply bonus damage and consume charge
+	if resonanceAmpFactor > 0 {
+		if res := p.Resources["resonance"]; res != nil {
+			res.Current = 0
+			for i := range eng.hitBuf {
+				bonus := eng.hitBuf[i].Amount * resonanceAmpFactor
+				if t := eng.hitBuf[i].Target; t != nil && t.TargetAlive() {
+					if dealt := t.TargetApplyDamage(bonus); dealt > 0 {
+						eng.hitBuf[i].Amount += dealt
+					}
+				}
+			}
+		}
+	}
+
+	// Gunner enhanced round proc
+	if isPlayer && abilityID == "fire_shot" && len(events) > 0 {
+		state := getFireShotState(p)
+		state.HitCount++
+		if state.HitCount >= enhancedRoundProcEvery {
+			state.HitCount = 0
+			if p.SpendResource("munitions", 1) {
+				bonus := float32(enhancedRoundBaseDmg) * (1.0 + p.GearStats.Identity/100.0) * p.CasterDamageMult()
+				if t := events[0].Target; t != nil && t.TargetAlive() {
+					if dealt := t.TargetApplyDamage(bonus); dealt > 0 {
+						events[0].Amount += dealt
+					}
+				}
+			}
+		}
+	}
 
 	// Player-specific post-cast effects
 	if isPlayer {
@@ -270,6 +322,16 @@ func (eng *Engine) doCast(abilityID string, def *AbilityDef, ctx *CastContext) C
 
 		if def.DestConfig >= 0 {
 			p.Config = def.DestConfig
+			// BD Resonance: gain charge on configuration transition
+			if p.ClassID == entity.ClassBladeDancer {
+				if res := p.Resources["resonance"]; res != nil {
+					gain := float32(10.0) * (1.0 + p.GearStats.Identity/100.0)
+					res.Current += gain
+					if res.Current > res.Max {
+						res.Current = res.Max
+					}
+				}
+			}
 		}
 
 		if def.Cooldown > 0 {
@@ -317,9 +379,12 @@ func (eng *Engine) TickPlayer(p *entity.Player, dt float32, ctx *TickContext) []
 
 	eng.tickBuf = eng.tickBuf[:0]
 
+	// Tempo: cooldowns drain faster, GCD resolves faster, regen is faster
+	tempoMult := p.TempoMult()
+
 	// Tick cooldowns
 	for id, cd := range p.Cooldowns {
-		cd -= dt
+		cd -= dt * tempoMult
 		if cd <= 0 {
 			delete(p.Cooldowns, id)
 		} else {
@@ -329,7 +394,7 @@ func (eng *Engine) TickPlayer(p *entity.Player, dt float32, ctx *TickContext) []
 
 	// Tick GCD
 	if p.GCDTimer > 0 {
-		p.GCDTimer -= dt
+		p.GCDTimer -= dt * tempoMult
 		if p.GCDTimer < 0 {
 			p.GCDTimer = 0
 		}
@@ -392,7 +457,7 @@ func (eng *Engine) TickPlayer(p *entity.Player, dt float32, ctx *TickContext) []
 			r.DelayTimer -= dt
 			if r.DelayTimer < 0 {
 				if r.Regen > 0 {
-					r.Current += r.Regen * (-r.DelayTimer)
+					r.Current += r.Regen * (-r.DelayTimer) * tempoMult
 					if r.Current > r.Max {
 						r.Current = r.Max
 					}
@@ -402,7 +467,7 @@ func (eng *Engine) TickPlayer(p *entity.Player, dt float32, ctx *TickContext) []
 			continue
 		}
 		if r.Regen != 0 {
-			r.Current += r.Regen * dt
+			r.Current += r.Regen * dt * tempoMult
 			if r.Current > r.Max {
 				r.Current = r.Max
 			}

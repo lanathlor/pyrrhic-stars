@@ -279,3 +279,61 @@ func TestMovementUnknownFallsBackToGunner(t *testing.T) {
 		t.Errorf("unknown class movement = %+v, want gunner defaults", m)
 	}
 }
+
+// --- ApplyDamage Plating floor ---
+
+func TestApplyDamage_PlatingFloor(t *testing.T) {
+	tests := []struct {
+		name     string
+		plating  float32
+		damage   float32
+		wantDealt float32
+	}{
+		{"no plating", 0, 50, 50},
+		{"plating partial, above floor", 10, 50, 40},
+		{"plating exceeds 80%, clamped to floor", 45, 50, 10},
+		{"plating exceeds damage, clamped to floor", 100, 50, 10},
+		{"small hit, above floor", 5, 10, 5},
+		{"small hit, below floor, clamped", 9, 10, 2},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			p := NewPlayer(1, ClassGunner)
+			p.GearStats.Plating = tc.plating
+			startHP := p.Health
+			dealt := p.ApplyDamage(tc.damage)
+			if dealt != tc.wantDealt {
+				t.Errorf("dealt = %f, want %f", dealt, tc.wantDealt)
+			}
+			wantHP := startHP - tc.wantDealt
+			if p.Health != wantHP {
+				t.Errorf("health = %f, want %f", p.Health, wantHP)
+			}
+		})
+	}
+}
+
+// --- TempoMult ---
+
+func TestTempoMult(t *testing.T) {
+	tests := []struct {
+		name  string
+		tempo float32
+		want  float32
+	}{
+		{"zero tempo", 0, 1.0},
+		{"50 tempo", 50, 1.5},
+		{"100 tempo", 100, 2.0},
+		{"12.5 tempo", 12.5, 1.125},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			p := NewPlayer(1, ClassGunner)
+			p.GearStats.Tempo = tc.tempo
+			got := p.TempoMult()
+			if got != tc.want {
+				t.Errorf("TempoMult() = %f, want %f", got, tc.want)
+			}
+		})
+	}
+}

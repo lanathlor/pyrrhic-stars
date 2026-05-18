@@ -64,7 +64,7 @@ func rechamberTick(_ *Engine, p *entity.Player, dt float32, _ *TickContext) []Da
 	if state.Phase == 0 {
 		return nil
 	}
-	state.Timer -= dt
+	state.Timer -= dt * p.TempoMult()
 	switch state.Phase {
 	case 1:
 		if state.Timer <= 0 {

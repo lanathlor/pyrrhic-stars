@@ -24,7 +24,7 @@ func meleeLightVGHandler(eng *Engine, ctx *CastContext) CastResult {
 	if p.Cooldowns["melee_light"] > 0 {
 		return CastResult{Reason: "cooldown"}
 	}
-	if !p.SpendResource("stamina", 10) {
+	if !p.SpendResource("stamina", 10*p.TenacityEfficiency()) {
 		return CastResult{Reason: ReasonInsufficientStamina}
 	}
 

@@ -20,7 +20,7 @@ func meleeHeavyVGHandler(eng *Engine, ctx *CastContext) CastResult {
 	if p.Cooldowns["melee_heavy"] > 0 {
 		return CastResult{Reason: "cooldown"}
 	}
-	if !p.SpendResource("stamina", 20) {
+	if !p.SpendResource("stamina", 20*p.TenacityEfficiency()) {
 		return CastResult{Reason: ReasonInsufficientStamina}
 	}
 

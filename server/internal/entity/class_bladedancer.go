@@ -9,7 +9,8 @@ var bladeDancerDef = ClassDef{
 		RollSpeed: 15.0, RollDur: 0.2, RollCD: 0.5,
 	},
 	Resources: map[string]ResourceTemplate{
-		"shield": {Max: 25, Initial: 0, Regen: -5, RegenDelay: 0},
+		"shield":    {Max: 25, Initial: 0, Regen: -5, RegenDelay: 0},
+		"resonance": {Max: 100, Initial: 0, Regen: -2, RegenDelay: 0},
 	},
 	Abilities: []string{
 		"bd_guard", "dodge",

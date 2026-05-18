@@ -70,6 +70,8 @@ func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.
 		buf = append(buf, byte(p.Config))
 		buf = appendF32(buf, p.GetResource("stamina"))
 		buf = appendF32(buf, p.GetResource("shield"))
+		buf = appendF32(buf, p.GetResource("munitions"))
+		buf = appendF32(buf, p.GetResource("resonance"))
 	}
 
 	buf = append(buf, byte(len(enemies)))

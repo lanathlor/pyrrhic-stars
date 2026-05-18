@@ -534,13 +534,17 @@ func TestGunner_FullRotation_Fire_Rechamber_Fire(t *testing.T) {
 	}
 
 	// 5. Fire buffed shots
+	// Shot 4 (buffed): 10*1.8 = 18
+	// Shot 5 (buffed + enhanced round proc): 18 + 10*1.0*1.8 = 36
+	// Shot 6 (buffed): 18
+	wantDmg := []float32{18, 36, 18}
 	for i := 0; i < 3; i++ {
 		r = eng.Cast("fire_shot", castCtx(p, e))
 		if !r.OK {
 			t.Fatalf("buffed shot %d failed: %s", i+1, r.Reason)
 		}
-		if len(r.Events) == 1 && r.Events[0].Amount != 18 {
-			t.Errorf("buffed shot %d: damage = %f, want 18", i+1, r.Events[0].Amount)
+		if len(r.Events) == 1 && r.Events[0].Amount != wantDmg[i] {
+			t.Errorf("buffed shot %d: damage = %f, want %f", i+1, r.Events[0].Amount, wantDmg[i])
 		}
 		eng.TickPlayer(p, 0.2, tickCtx())
 	}

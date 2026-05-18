@@ -708,6 +708,8 @@ func extractPlayerState(msg []byte, wantPeer uint16) int {
 		off++    // config
 		off += 4 // stamina
 		off += 4 // bdShieldHP
+		off += 4 // munitions
+		off += 4 // resonance
 		if peerID == wantPeer {
 			return state
 		}

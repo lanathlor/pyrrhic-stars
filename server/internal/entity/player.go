@@ -2,6 +2,10 @@ package entity
 
 import "math"
 
+// platingMinDamageFraction is the minimum fraction of original damage that
+// always passes through Plating. Plating can never reduce a hit below this.
+const platingMinDamageFraction float32 = 0.2
+
 // GearStats holds aggregated stat bonuses from equipped gear.
 type GearStats struct {
 	Hull     float32
@@ -143,8 +147,6 @@ func NewPlayer(peerID uint16, className string) *Player {
 		ActionMap:    classDef.ActionMap,
 		AbilityState: make(map[string]any),
 	}
-	p.RecalcStats()
-	p.Health = p.MaxHealth
 
 	for name, tmpl := range classDef.Resources {
 		p.Resources[name] = &Resource{
@@ -154,6 +156,9 @@ func NewPlayer(peerID uint16, className string) *Player {
 			RegenDelay: tmpl.RegenDelay,
 		}
 	}
+
+	p.RecalcStats()
+	p.Health = p.MaxHealth
 
 	return p
 }
@@ -171,6 +176,37 @@ func (p *Player) RecalcStats() {
 	if p.Health > p.MaxHealth {
 		p.Health = p.MaxHealth
 	}
+
+	identity := p.GearStats.Identity
+	switch p.ClassID {
+	case ClassVanguard:
+		if r := p.Resources["stamina"]; r != nil {
+			tmpl := Classes[ClassVanguard].Resources["stamina"]
+			r.Max = tmpl.Max + identity
+			r.Regen = tmpl.Regen * (1.0 + identity/100.0)
+		}
+	case ClassGunner:
+		if r := p.Resources["munitions"]; r != nil {
+			tmpl := Classes[ClassGunner].Resources["munitions"]
+			r.Max = tmpl.Max + identity*0.1
+			r.Regen = tmpl.Regen * (1.0 + identity/100.0)
+		}
+	case ClassBladeDancer:
+		if r := p.Resources["resonance"]; r != nil {
+			tmpl := Classes[ClassBladeDancer].Resources["resonance"]
+			r.Max = tmpl.Max + identity
+			r.Regen = tmpl.Regen * (1.0 / (1.0 + identity/100.0))
+		}
+	}
+}
+
+// TenacityEfficiency returns the stamina cost multiplier from the Identity
+// stat for vanguard. 0 Identity = 1.0 (no reduction), higher = cheaper costs.
+func (p *Player) TenacityEfficiency() float32 {
+	if p.ClassID != ClassVanguard {
+		return 1.0
+	}
+	return 1.0 / (1.0 + p.GearStats.Identity/200.0)
 }
 
 // ClassName returns the class identifier.
@@ -290,10 +326,11 @@ func (p *Player) ApplyDamage(amount float32) float32 {
 		return 0
 	}
 
-	// Plating: flat damage reduction (applied before percentage buffs).
+	// Plating: flat damage reduction, min 20% of original damage passes through.
+	original := amount
 	amount -= p.GearStats.Plating
-	if amount <= 0 {
-		return 0
+	if floor := original * platingMinDamageFraction; amount < floor {
+		amount = floor
 	}
 
 	// Apply all damage_reduction buffs
@@ -354,6 +391,12 @@ func (p *Player) AimDirection() Vec3 {
 
 func (p *Player) CasterEyePos() Vec3 { return p.EyePosition() }
 func (p *Player) CasterAimDir() Vec3 { return p.AimDirection() }
+// TempoMult returns the speed multiplier from the Tempo gear stat.
+// 0 Tempo = 1.0x, 100 Tempo = 2.0x.
+func (p *Player) TempoMult() float32 {
+	return 1.0 + p.GearStats.Tempo/100.0
+}
+
 func (p *Player) CasterDamageMult() float32 {
 	m := p.DamageMult()
 	// Output: additive percentage. 0 Output = 1.0x, 100 Output = 2.0x.

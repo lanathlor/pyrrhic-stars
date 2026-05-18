@@ -520,6 +520,8 @@ func decodeWorldState(data []byte) (*WorldState, error) {
 		p.Stamina = leF32(data[off:])
 		off += 4 // stamina
 		off += 4 // BD shield HP
+		off += 4 // munitions
+		off += 4 // resonance
 
 		ws.Players = append(ws.Players, p)
 	}
