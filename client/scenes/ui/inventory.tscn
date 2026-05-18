@@ -1,8 +1,9 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scenes/ui/inventory_layer.gd" id="layer"]
 [ext_resource type="Script" path="res://scenes/ui/inventory_panel.gd" id="equip"]
 [ext_resource type="Script" path="res://scenes/ui/bag_panel.gd" id="bag"]
+[ext_resource type="Script" path="res://scenes/ui/toolbar_panel.gd" id="toolbar"]
 
 [node name="InventoryUI" type="CanvasLayer"]
 layer = 16
@@ -25,3 +26,11 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 script = ExtResource("bag")
+
+[node name="ToolbarPanel" type="Control" parent="."]
+unique_name_in_owner = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("toolbar")

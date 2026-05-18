@@ -216,6 +216,8 @@ func _ready() -> void:
 	_respawn_btn.pressed.connect(_on_respawn)
 	_respawn_hub_btn.pressed.connect(_on_respawn_hub)
 	# inventory keybinds handled in _input()
+	_inventory_layer.toolbar_panel.equip_pressed.connect(_toggle_equip_panel)
+	_inventory_layer.toolbar_panel.bag_pressed.connect(_toggle_bag_panel)
 
 	# Load saved username
 	var saved: String = _load_saved_username()
@@ -405,6 +407,8 @@ func _enter_menu() -> void:
 	_pause_layer.visible = false
 	_inventory_layer.equip_panel.visible = false
 	_inventory_layer.bag_panel.visible = false
+	_inventory_layer.toolbar_panel.visible = false
+	_sync_toolbar_active()
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	env_builder.unload_environment()
 	if _enter_world_btn:
@@ -720,6 +724,7 @@ func _enter_hub() -> void:
 	_char_select_layer.visible = false
 	_char_create_layer.visible = false
 	_hub_layer.visible = true
+	_inventory_layer.toolbar_panel.visible = true
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	hub_interact.near_portal = false
 	_portal_prompt.visible = false
@@ -821,6 +826,7 @@ func _start_fight() -> void:
 	_alt_held = false
 	_inventory_layer.equip_panel.visible = false
 	_inventory_layer.bag_panel.visible = false
+	_sync_toolbar_active()
 
 	# Enemies are managed dynamically via update_enemies from world state
 	CombatLog.start_fight()
@@ -864,6 +870,7 @@ func _on_zone_transfer(zone_type: int, _new_peer_id: int) -> void:
 		_map_overlay.visible = false
 	_inventory_layer.equip_panel.visible = false
 	_inventory_layer.bag_panel.visible = false
+	_sync_toolbar_active()
 	entity_mgr.clear_all_npcs()
 
 	if zone_type == NetSerializer.ZONE_TYPE_ARENA:
@@ -942,11 +949,19 @@ func _update_cursor_mode() -> void:
 func _toggle_equip_panel() -> void:
 	_inventory_layer.equip_panel.toggle()
 	_update_cursor_mode()
+	_sync_toolbar_active()
 
 
 func _toggle_bag_panel() -> void:
 	_inventory_layer.bag_panel.toggle()
 	_update_cursor_mode()
+	_sync_toolbar_active()
+
+
+func _sync_toolbar_active() -> void:
+	_inventory_layer.toolbar_panel.update_active_state(
+		_inventory_layer.equip_panel.visible, _inventory_layer.bag_panel.visible
+	)
 
 
 # =============================================================================
@@ -960,6 +975,7 @@ func _enter_character_select() -> void:
 	_hub_layer.visible = false
 	_char_create_layer.visible = false
 	_char_select_layer.visible = true
+	_inventory_layer.toolbar_panel.visible = false
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	ui_ctrl.populate_char_select()
 
@@ -992,6 +1008,7 @@ func _enter_create_character() -> void:
 	state = GameState.CREATE_CHARACTER
 	_char_select_layer.visible = false
 	_char_create_layer.visible = true
+	_inventory_layer.toolbar_panel.visible = false
 	_char_create_error_label.visible = false
 	_char_name_input.text = ""
 	_char_create_btn.disabled = false
