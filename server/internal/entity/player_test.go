@@ -284,9 +284,9 @@ func TestMovementUnknownFallsBackToGunner(t *testing.T) {
 
 func TestApplyDamage_PlatingFloor(t *testing.T) {
 	tests := []struct {
-		name     string
-		plating  float32
-		damage   float32
+		name      string
+		plating   float32
+		damage    float32
 		wantDealt float32
 	}{
 		{"no plating", 0, 50, 50},

@@ -391,6 +391,7 @@ func (p *Player) AimDirection() Vec3 {
 
 func (p *Player) CasterEyePos() Vec3 { return p.EyePosition() }
 func (p *Player) CasterAimDir() Vec3 { return p.AimDirection() }
+
 // TempoMult returns the speed multiplier from the Tempo gear stat.
 // 0 Tempo = 1.0x, 100 Tempo = 2.0x.
 func (p *Player) TempoMult() float32 {

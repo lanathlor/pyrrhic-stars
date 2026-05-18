@@ -11,7 +11,7 @@ var fireShotDef = AbilityDef{
 
 // Enhanced round constants.
 const (
-	enhancedRoundProcEvery = 5   // proc on every Nth fire_shot hit
+	enhancedRoundProcEvery = 5    // proc on every Nth fire_shot hit
 	enhancedRoundBaseDmg   = 10.0 // base bonus damage at Identity=0
 )
 

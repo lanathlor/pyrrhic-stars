@@ -173,8 +173,8 @@ func TestIdentity_Vanguard_TenacityEfficiency(t *testing.T) {
 		want     float32
 	}{
 		{0, 1.0},
-		{100, 1.0 / 1.5},   // 0.6667
-		{200, 1.0 / 2.0},   // 0.5
+		{100, 1.0 / 1.5}, // 0.6667
+		{200, 1.0 / 2.0}, // 0.5
 	}
 	for _, tt := range tests {
 		p := newVanguard()
