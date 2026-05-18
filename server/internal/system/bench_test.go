@@ -11,6 +11,7 @@ import (
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/enemyai"
 	"codex-online/server/internal/entity"
+	"codex-online/server/internal/item"
 	"codex-online/server/internal/level"
 	"codex-online/server/internal/message"
 )
@@ -421,15 +422,15 @@ func benchArenaInstance(instanceID uint16) *World {
 			20, 15, 5.0)
 	}
 
-	// Clients for network broadcast
+	// Clients for network broadcast — no-op Send to avoid harness allocations
+	// polluting benchmark results. The full encode + broadcast path still runs;
+	// only the test-side accumulation buffer is removed.
 	clients := make(map[uint16]*Client, 5)
-	sentBytes := make([][]byte, 5)
 	for i := uint16(0); i < 5; i++ {
 		peerID := instanceID*10 + i + 1
-		idx := i
 		clients[peerID] = &Client{
 			PeerID: peerID,
-			Send:   func(b []byte) { sentBytes[idx] = append(sentBytes[idx], b...) },
+			Send:   func([]byte) {},
 		}
 	}
 
@@ -862,6 +863,176 @@ func BenchmarkPhysicsWithPatterns_10Active_32Count(b *testing.B) {
 			ap.WaveIdx = 1 // prevent completion
 		}
 		sys.Tick(w, 0.05)
+	}
+}
+
+// --- Gear/Stat hot-path benchmarks ---
+// These measure the impact of gear stats on the tick pipeline.
+// Players have full gear kits applied so TempoMult, CasterDamageMult,
+// Plating, and Identity scaling are exercised every frame.
+
+// applyGear sets gear stats on all players in the world, simulating
+// a fully equipped party. This is not called per-tick — it's setup.
+func applyGear(w *World) {
+	for _, p := range w.Players {
+		p.GearStats = entity.GearStats{
+			Hull:     80,
+			Output:   55,
+			Plating:  15,
+			Tempo:    20,
+			Identity: 12,
+			Mastery:  8,
+		}
+		p.RecalcStats()
+		p.Health = p.MaxHealth * 0.8
+	}
+}
+
+// BenchmarkCombatSystemTick_WithGear measures CombatSystem.Tick when all
+// players have gear stats. Exercises TempoMult (cooldown scaling),
+// CasterDamageMult (Output), and Identity scaling in ability ticks.
+func BenchmarkCombatSystemTick_WithGear(b *testing.B) {
+	w := benchWorld()
+	applyGear(w)
+	sys := CombatSystem{}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		w.DamageEvents = w.DamageEvents[:0]
+		sys.Tick(w, 0.05)
+	}
+}
+
+// BenchmarkFullTickPipeline_WithGear measures the full tick pipeline
+// with gear stats active on all players. This is the primary hot-path
+// benchmark for stat/gear regression detection.
+func BenchmarkFullTickPipeline_WithGear(b *testing.B) {
+	w := benchWorld()
+	applyGear(w)
+	inputSys := InputSystem{}
+	combatSys := CombatSystem{}
+	aiSys := AISystem{}
+	physicsSys := PhysicsSystem{}
+
+	inputs := make([]InputMsg, 5)
+	for i := uint16(1); i <= 5; i++ {
+		inputs[i-1] = InputMsg{
+			PeerID:  i,
+			Opcode:  0x0030,
+			Payload: codec.EncodePlayerInput(nil, float32(i)*2, 0.1, 5, 0, 100, 0, 0),
+		}
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		w.InputQueue = inputs
+		w.DamageEvents = w.DamageEvents[:0]
+		w.GameFlowEvents = w.GameFlowEvents[:0]
+
+		inputSys.Tick(w, 0.05)
+		combatSys.Tick(w, 0.05)
+		aiSys.Tick(w, 0.05)
+		physicsSys.Tick(w, 0.05)
+	}
+}
+
+// BenchmarkMultiInstance100_WithGear is BenchmarkMultiInstance100 but with
+// all players equipped. Detects per-tick allocation regressions from stats.
+func BenchmarkMultiInstance100_WithGear(b *testing.B) {
+	instances := make([]*World, 100)
+	allInputs := make([][]InputMsg, 100)
+	for i := range instances {
+		instances[i] = benchArenaInstance(uint16(i))
+		applyGear(instances[i])
+		allInputs[i] = buildInputs(uint16(i))
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		for j := range instances {
+			instances[j].InputQueue = allInputs[j]
+			tickInstance(instances[j], allInputs[j])
+		}
+	}
+}
+
+// --- ComputeStats integration benchmark ---
+// Measures the cost of recomputing stats from equipped gear.
+// This runs on gear change (equip/unequip), not per-tick.
+
+func BenchmarkComputeStatsAndRecalc(b *testing.B) {
+	// Seed item defs
+	item.DefRegistry["bench_frame"] = &item.ItemDef{
+		ID: "bench_frame", Slot: item.SlotFrame,
+		StatLines: []item.StatLine{
+			{Stat: item.StatHull, Value: 90},
+			{Stat: item.StatPlating, Value: 12},
+			{Stat: item.StatMastery, Value: 5},
+		},
+	}
+	item.DefRegistry["bench_core"] = &item.ItemDef{
+		ID: "bench_core", Slot: item.SlotPowerCore,
+		StatLines: []item.StatLine{
+			{Stat: item.StatHull, Value: 20},
+			{Stat: item.StatOutput, Value: 22},
+			{Stat: item.StatTempo, Value: 8},
+		},
+	}
+	item.DefRegistry["bench_weapon"] = &item.ItemDef{
+		ID: "bench_weapon", Slot: item.SlotPrimaryWeapon,
+		StatLines: []item.StatLine{
+			{Stat: item.StatOutput, Value: 25},
+			{Stat: item.StatIdentity, Value: 10},
+		},
+	}
+	item.DefRegistry["bench_tool"] = &item.ItemDef{
+		ID: "bench_tool", Slot: item.SlotSecondaryTool,
+		StatLines: []item.StatLine{
+			{Stat: item.StatOutput, Value: 8},
+			{Stat: item.StatTempo, Value: 8},
+		},
+	}
+	item.DefRegistry["bench_aug"] = &item.ItemDef{
+		ID: "bench_aug", Slot: item.SlotAugment,
+		StatLines: []item.StatLine{
+			{Stat: item.StatOutput, Value: 12},
+			{Stat: item.StatIdentity, Value: 8},
+		},
+	}
+	item.DefRegistry["bench_mod"] = &item.ItemDef{
+		ID: "bench_mod", Slot: item.SlotModule,
+		StatLines: []item.StatLine{
+			{Stat: item.StatHull, Value: 40},
+			{Stat: item.StatOutput, Value: 8},
+		},
+	}
+
+	equipped := [item.SlotCount]*item.Item{
+		{DefID: "bench_frame", ILvl: 35, Slot: item.SlotFrame},
+		{DefID: "bench_core", ILvl: 35, Slot: item.SlotPowerCore},
+		{DefID: "bench_weapon", ILvl: 35, Slot: item.SlotPrimaryWeapon},
+		{DefID: "bench_tool", ILvl: 30, Slot: item.SlotSecondaryTool},
+		{DefID: "bench_aug", ILvl: 32, Slot: item.SlotAugment},
+		{DefID: "bench_mod", ILvl: 28, Slot: item.SlotModule},
+	}
+
+	p := entity.NewPlayer(1, entity.ClassGunner)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		stats := item.ComputeStats(equipped)
+		p.GearStats = entity.GearStats{
+			Hull:     stats.Hull,
+			Output:   stats.Output,
+			Plating:  stats.Plating,
+			Tempo:    stats.Tempo,
+			Identity: stats.Identity,
+			Mastery:  stats.Mastery,
+		}
+		p.RecalcStats()
 	}
 }
 
