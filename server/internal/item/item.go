@@ -67,7 +67,7 @@ func StatName(s StatID) string {
 }
 
 // StatLine is a single stat contribution on an item.
-// Value is the base value at ilvl 1; it scales with ilvl via a per-stat power curve.
+// Value is the stat at ilvl 50 (BiS reference); it scales with ilvl via a per-stat power curve.
 type StatLine struct {
 	Stat  StatID  `yaml:"stat"`
 	Value float32 `yaml:"value"`

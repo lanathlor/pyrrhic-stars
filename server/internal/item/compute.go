@@ -2,31 +2,37 @@ package item
 
 import "math"
 
-// scalingCoeffs maps each stat to its quadratic-curve coefficient.
-// Formula: scalingFactor = 1.0 + coeff * pow(ilvl-1, 2)
-// Coefficients derived so that scalingFactor(50) hits design targets
-// (ilvl 1→50 ratios from stats.md):
+// scalingPowers maps each stat to its power-curve exponent.
+// Formula: scalingFactor = (ilvl / 50)^power
 //
-//	Hull=3.0x, Output=2.25x, secondaries=1.75x
+// Item definition values represent the stat at ilvl 50 (BiS reference).
+// At ilvl 1 the factor is near zero (nearly naked).
+// At ilvl 50 the factor is exactly 1.0.
 //
-// Since pow(49, 2) = 2401, coeff = (target - 1) / 2401.
-var scalingCoeffs = [StatCount]float64{
-	StatHull:     2.0 / 2401.0,  // target 3.0x at ilvl 50
-	StatOutput:   1.25 / 2401.0, // target 2.25x at ilvl 50
-	StatPlating:  0.75 / 2401.0, // target 1.75x at ilvl 50
-	StatTempo:    0.75 / 2401.0, // target 1.75x at ilvl 50
-	StatIdentity: 0.75 / 2401.0, // target 1.75x at ilvl 50
-	StatMastery:  0.75 / 2401.0, // target 1.75x at ilvl 50
+// Powers derived so factor(50)/factor(15) matches design targets
+// (heritage-floor → BiS ratios from stats.md):
+//
+//	Hull ≈ 3.0x, Output ≈ 2.25x, secondaries ≈ 1.75x
+//
+// power = ln(ratio) / ln(50/15)
+var scalingPowers = [StatCount]float64{
+	StatHull:     0.912, // 3.0x  from ilvl 15→50
+	StatOutput:   0.674, // 2.25x from ilvl 15→50
+	StatPlating:  0.465, // 1.75x from ilvl 15→50
+	StatTempo:    0.465, // 1.75x from ilvl 15→50
+	StatIdentity: 0.465, // 1.75x from ilvl 15→50
+	StatMastery:  0.465, // 1.75x from ilvl 15→50
 }
 
 // scalingFactor returns the multiplicative scaling factor for a stat at
-// a given item level. At ilvl 1 the factor is exactly 1.0 (baseline).
+// a given item level. At ilvl 50 the factor is 1.0 (BiS reference).
+// At ilvl 1 the factor is near zero (nearly naked).
 func scalingFactor(stat StatID, ilvl int) float32 {
-	if ilvl <= 1 {
-		return 1.0
+	if ilvl <= 0 {
+		return 0
 	}
-	coeff := scalingCoeffs[stat]
-	return float32(1.0 + coeff*math.Pow(float64(ilvl-1), 2))
+	power := scalingPowers[stat]
+	return float32(math.Pow(float64(ilvl)/50.0, power))
 }
 
 // ScaleStatLine returns the scaled stat value for a given ilvl.

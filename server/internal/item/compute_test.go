@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestScalingFactor_BaselinePreserved(t *testing.T) {
+func TestScalingFactor_Ilvl50IsUnity(t *testing.T) {
 	stats := []struct {
 		stat StatID
 		name string
@@ -19,15 +19,54 @@ func TestScalingFactor_BaselinePreserved(t *testing.T) {
 	}
 	for _, tc := range stats {
 		t.Run(tc.name, func(t *testing.T) {
-			got := scalingFactor(tc.stat, 1)
-			if got != 1.0 {
-				t.Errorf("scalingFactor(%s, 1) = %f, want 1.0", tc.name, got)
+			got := scalingFactor(tc.stat, 50)
+			if math.Abs(float64(got)-1.0) > 0.001 {
+				t.Errorf("scalingFactor(%s, 50) = %f, want 1.0", tc.name, got)
 			}
 		})
 	}
 }
 
-func TestScalingFactor_TargetRatiosAtIlvl50(t *testing.T) {
+func TestScalingFactor_Ilvl1NearlyNaked(t *testing.T) {
+	// At ilvl 1 all factors should be very small (< 15% of BiS).
+	stats := []struct {
+		stat   StatID
+		name   string
+		maxPct float64
+	}{
+		{StatHull, "Hull", 0.04},         // ~2.5%
+		{StatOutput, "Output", 0.08},     // ~6.1%
+		{StatPlating, "Plating", 0.17},   // ~16.2%
+		{StatTempo, "Tempo", 0.17},       // ~16.2%
+		{StatIdentity, "Identity", 0.17}, // ~16.2%
+		{StatMastery, "Mastery", 0.17},   // ~16.2%
+	}
+	for _, tc := range stats {
+		t.Run(tc.name, func(t *testing.T) {
+			got := float64(scalingFactor(tc.stat, 1))
+			if got > tc.maxPct {
+				t.Errorf("scalingFactor(%s, 1) = %.4f, want < %.3f (nearly naked)", tc.name, got, tc.maxPct)
+			}
+			if got <= 0 {
+				t.Errorf("scalingFactor(%s, 1) = %.4f, want > 0", tc.name, got)
+			}
+		})
+	}
+}
+
+func TestScalingFactor_Ilvl0IsZero(t *testing.T) {
+	got := scalingFactor(StatHull, 0)
+	if got != 0 {
+		t.Errorf("scalingFactor(Hull, 0) = %f, want 0", got)
+	}
+	got = scalingFactor(StatHull, -1)
+	if got != 0 {
+		t.Errorf("scalingFactor(Hull, -1) = %f, want 0", got)
+	}
+}
+
+func TestScalingFactor_HeritageToMaxRatios(t *testing.T) {
+	// The design target ratios from stats.md: factor(50)/factor(15).
 	tests := []struct {
 		stat   StatID
 		name   string
@@ -40,14 +79,16 @@ func TestScalingFactor_TargetRatiosAtIlvl50(t *testing.T) {
 		{StatIdentity, "Identity", 1.75},
 		{StatMastery, "Mastery", 1.75},
 	}
-	const tolerance = 0.05 // 5%
+	const tolerance = 0.02
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := float64(scalingFactor(tc.stat, 50))
-			ratio := math.Abs(got-tc.target) / tc.target
-			if ratio > tolerance {
-				t.Errorf("scalingFactor(%s, 50) = %.4f, want ~%.1f (off by %.1f%%)",
-					tc.name, got, tc.target, ratio*100)
+			f50 := float64(scalingFactor(tc.stat, 50))
+			f15 := float64(scalingFactor(tc.stat, 15))
+			ratio := f50 / f15
+			off := math.Abs(ratio-tc.target) / tc.target
+			if off > tolerance {
+				t.Errorf("factor(50)/factor(15) for %s = %.4f, want ~%.2f (off by %.1f%%)",
+					tc.name, ratio, tc.target, off*100)
 			}
 		})
 	}
@@ -79,60 +120,31 @@ func TestScalingFactor_Monotonicity(t *testing.T) {
 	}
 }
 
-func TestScaleStatLine_FullKitTotalsAtIlvl50(t *testing.T) {
-	// Starter gear base values (sum across all 6 items at ilvl 1):
-	//   Hull:  30 + 5 + 10 = 45
-	//   Output: 8 + 2 + 10 + 3 + 5 + 3 = 31
-	//   Plating: 3 + 2 = 5
-	// At ilvl 50, expected totals = base * scalingFactor(stat, 50).
+func TestScaleStatLine_FullKitAtKeyIlvls(t *testing.T) {
+	// Starter gear ilvl 50 totals (sum across all 6 items):
+	//   Hull:     90 + 20 + 40 = 150
+	//   Output:   22 + 8 + 25 + 8 + 12 + 8 = 83
+	//   Plating:  12 + 8 = 20
 	tests := []struct {
-		name       string
-		stat       StatID
-		baseTotal  float32
-		wantScaled float64
+		name  string
+		stat  StatID
+		total float32
+		ilvl  int
 	}{
-		{"Hull", StatHull, 45, 45 * 3.0},
-		{"Output", StatOutput, 31, 31 * 2.25},
-		{"Plating", StatPlating, 5, 5 * 1.75},
+		// At ilvl 50, factor = 1.0 → full budget
+		{"Hull@50", StatHull, 150, 50},
+		{"Output@50", StatOutput, 83, 50},
+		{"Plating@50", StatPlating, 20, 50},
 	}
-	const tolerance = 0.05
+	const tolerance = 0.02
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			line := StatLine{Stat: tc.stat, Value: tc.baseTotal}
-			got := float64(ScaleStatLine(line, 50))
-			ratio := math.Abs(got-tc.wantScaled) / tc.wantScaled
-			if ratio > tolerance {
-				t.Errorf("ScaleStatLine(%s, base=%.1f, ilvl=50) = %.2f, want ~%.1f (off by %.1f%%)",
-					tc.name, tc.baseTotal, got, tc.wantScaled, ratio*100)
-			}
-		})
-	}
-}
-
-func TestScalingFactor_HeritageFloorIlvl15(t *testing.T) {
-	// At ilvl 15, values should be meaningfully above baseline but well
-	// below the ilvl-50 targets, confirming the curve is neither too flat
-	// nor too steep at mid-range.
-	// pow(14, 2) = 196
-	tests := []struct {
-		stat    StatID
-		name    string
-		wantMin float64
-		wantMax float64
-	}{
-		// Hull: 1 + (2/2401)*196 = 1.163
-		{StatHull, "Hull", 1.1, 1.5},
-		// Output: 1 + (1.25/2401)*196 = 1.102
-		{StatOutput, "Output", 1.05, 1.3},
-		// Plating: 1 + (0.75/2401)*196 = 1.061
-		{StatPlating, "Plating", 1.02, 1.2},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got := float64(scalingFactor(tc.stat, 15))
-			if got < tc.wantMin || got > tc.wantMax {
-				t.Errorf("scalingFactor(%s, 15) = %.4f, want in [%.1f, %.1f]",
-					tc.name, got, tc.wantMin, tc.wantMax)
+			line := StatLine{Stat: tc.stat, Value: tc.total}
+			got := float64(ScaleStatLine(line, tc.ilvl))
+			want := float64(tc.total) * float64(scalingFactor(tc.stat, tc.ilvl))
+			off := math.Abs(got-want) / want
+			if off > tolerance {
+				t.Errorf("ScaleStatLine(%s, ilvl=%d) = %.2f, want ~%.2f", tc.name, tc.ilvl, got, want)
 			}
 		})
 	}
