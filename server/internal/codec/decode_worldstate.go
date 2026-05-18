@@ -10,19 +10,19 @@ type DecodedWorldState struct {
 
 // DecodedPlayer holds per-player fields from a WorldState frame.
 type DecodedPlayer struct {
-	PeerID            uint16
-	PosX, PosY, PosZ  float32
-	RotY              float32
-	Health            float32
-	MaxHealth         float32
-	State             uint8
-	Class             string
-	Username          string
-	VisualState       uint8
-	AimPitch          float32
-	BuffFlags, Config              uint8
-	Stamina, ShieldHP              float32
-	Munitions, Resonance           float32
+	PeerID               uint16
+	PosX, PosY, PosZ     float32
+	RotY                 float32
+	Health               float32
+	MaxHealth            float32
+	State                uint8
+	Class                string
+	Username             string
+	VisualState          uint8
+	AimPitch             float32
+	BuffFlags, Config    uint8
+	Stamina, ShieldHP    float32
+	Munitions, Resonance float32
 }
 
 // DecodedEnemy holds per-enemy fields from a WorldState frame.
