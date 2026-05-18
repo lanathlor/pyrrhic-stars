@@ -21,7 +21,7 @@ The rhythm stat. Controls how fast or fluidly the class operates.
 | Class        | Name       | Effect                                                  |
 | ------------ | ---------- | ------------------------------------------------------- |
 | Gunner       | Action     | Fire rate, ADS speed, weapon swap speed                 |
-| Vanguard     | Recovery   | Parry window duration, stamina regen rate               |
+| Vanguard     | Recovery   | Parry window duration, dodge i-frame duration, combo input window, recovery frame speed |
 | Arcanist     | Channel    | Cast speed, channel speed                               |
 | Engineer     | Deploy     | Deployable cooldown reduction, drone reactivation speed |
 | Blade Dancer | Transition | GCD on configuration/position changes                   |
@@ -33,12 +33,12 @@ The class signature stat. Defines the core resource or mechanical identity of th
 
 | Class        | Name       | Effect                                                        |
 | ------------ | ---------- | ------------------------------------------------------------- |
-| Gunner       | Steadiness | Recoil reduction, sway reduction, sight stability             |
-| Vanguard     | Stance     | Combo window duration, stamina cost reduction while attacking |
+| Gunner       | Munitions  | Enhanced round reserve size, passive regen rate, enhanced round potency. Standard shots unlimited; enhanced rounds are a finite secondary resource that procs via spec-specific triggers. |
+| Vanguard     | Tenacity   | Maximum stamina pool, stamina cost efficiency on all actions, stamina recovery rate. The core stamina resource stat. |
 | Arcanist     | Flux       | Maximum Flux pool + Flux regen rate                           |
-| Engineer     | Grid       | Deployable count + total HP budget across all deployables     |
-| Blade Dancer | Resonance  | Chain bonus, burst bonus                                      |
-| Tutelaire    | Reach      | Aura radius                                                   |
+| Engineer     | Grid       | Total grid capacity, grid recharge rate, power efficiency per deployable. Deployables draw from a shared power budget — run more at lower power or fewer at full power. |
+| Blade Dancer | Resonance  | Resonance charge capacity, charge gain per action, charge retention. Dual Blade: scales convergence burst system. Multi Blade: transitions build Resonance, thresholds amplify next transition. |
+| Tutelaire    | Presence   | Aura radius, simultaneous light projection count, aura linger duration (brief persistence in areas you've left). |
 
 ## Spec-Specific Stat
 
