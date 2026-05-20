@@ -13,7 +13,7 @@ const CONFIG_COLORS: Array[Color] = [
 	Color(0.6, 0.2, 0.9, 1.0),  # Scatter -- purple
 	Color(1.0, 0.85, 0.3, 1.0),  # Crown -- gold
 ]
-const ABILITY_KEYBINDS: Array[String] = ["LMB", "R", "RMB", "T"]
+const ABILITY_KEYBINDS: Array[String] = ["LMB", "RMB", "R", "T"]
 const PANEL_BG := Color(0.02, 0.025, 0.035, 0.82)
 const PANEL_FILL := Color(0.04, 0.05, 0.07, 0.45)
 const PANEL_INSET := Color(0.11, 0.12, 0.15, 0.3)

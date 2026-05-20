@@ -20,8 +20,8 @@ const TELEGRAPH_COLOR := Color(0.2, 0.75, 0.9, 0.4)
 # Input actions mapped to spell slots 0-3
 const SPELL_SLOT_ACTIONS: Array[StringName] = [
 	&"light_attack",  # slot 0 -- LMB
-	&"heavy_attack",  # slot 1 -- R
-	&"block",  # slot 2 -- RMB
+	&"block",  # slot 1 -- RMB
+	&"heavy_attack",  # slot 2 -- R
 	&"ability_2",  # slot 3 -- T
 ]
 
@@ -41,20 +41,20 @@ const SPELL_TABLE := {
 			desc = "8 dmg AoE (4m). 15% DR for 2s."
 		},
 		{
-			name = "Guarded Thrust",
-			dest = Config.LANCE,
-			dur = 0.3,
-			action_id = 31,
-			telegraph = "none",
-			desc = "25 dmg single. +8 shield."
-		},
-		{
 			name = "Protected Scatter",
 			dest = Config.SCATTER,
 			dur = 0.4,
 			action_id = 32,
 			telegraph = "none",
 			desc = "5 dmg x3 nearest. 1.5/tick DoT 12s. 10% DR."
+		},
+		{
+			name = "Guarded Thrust",
+			dest = Config.LANCE,
+			dur = 0.3,
+			action_id = 31,
+			telegraph = "none",
+			desc = "25 dmg single. +8 shield."
 		},
 		{
 			name = "Fortified Command",
@@ -78,14 +78,6 @@ const SPELL_TABLE := {
 			desc = "8 dmg AoE (3m). +12 shield."
 		},
 		{
-			name = "Cleaving Pierce",
-			dest = Config.LANCE,
-			dur = 0.3,
-			action_id = 35,
-			telegraph = "none",
-			desc = "30 dmg single target."
-		},
-		{
 			name = "Slashing Spread",
 			dest = Config.SCATTER,
 			dur = 0.4,
@@ -93,6 +85,14 @@ const SPELL_TABLE := {
 			telegraph = "circle_target",
 			radius = 5.0,
 			desc = "8 dmg AoE at target (5m). 1.5/tick DoT 10s."
+		},
+		{
+			name = "Cleaving Pierce",
+			dest = Config.LANCE,
+			dur = 0.3,
+			action_id = 35,
+			telegraph = "none",
+			desc = "30 dmg single target."
 		},
 		{
 			name = "Sweeping Hex",
@@ -115,6 +115,14 @@ const SPELL_TABLE := {
 			desc = "18 dmg single. +15 shield."
 		},
 		{
+			name = "Targeted Spread",
+			dest = Config.SCATTER,
+			dur = 0.4,
+			action_id = 40,
+			telegraph = "none",
+			desc = "12 dmg single. 2.0/tick DoT 15s."
+		},
+		{
 			name = "Focused Slash",
 			dest = Config.FAN,
 			dur = 0.3,
@@ -122,14 +130,6 @@ const SPELL_TABLE := {
 			telegraph = "circle_target",
 			radius = 4.0,
 			desc = "15 dmg AoE at target (4m)."
-		},
-		{
-			name = "Targeted Spread",
-			dest = Config.SCATTER,
-			dur = 0.4,
-			action_id = 40,
-			telegraph = "none",
-			desc = "12 dmg single. 2.0/tick DoT 15s."
 		},
 		{
 			name = "Pinning Strike",
@@ -151,6 +151,14 @@ const SPELL_TABLE := {
 			desc = "+18 shield. 15% DR for 2s."
 		},
 		{
+			name = "Converging Strike",
+			dest = Config.LANCE,
+			dur = 0.3,
+			action_id = 44,
+			telegraph = "none",
+			desc = "32 dmg single. 1.5/tick DoT 10s."
+		},
+		{
 			name = "Rain of Blades",
 			dest = Config.FAN,
 			dur = 0.4,
@@ -158,14 +166,6 @@ const SPELL_TABLE := {
 			telegraph = "circle_target",
 			radius = 5.0,
 			desc = "15 dmg AoE at target (5m). 1.0/tick DoT 10s."
-		},
-		{
-			name = "Converging Strike",
-			dest = Config.LANCE,
-			dur = 0.3,
-			action_id = 44,
-			telegraph = "none",
-			desc = "32 dmg single. 1.5/tick DoT 10s."
 		},
 		{
 			name = "Chaos Bind",
@@ -187,6 +187,14 @@ const SPELL_TABLE := {
 			desc = "+20 shield."
 		},
 		{
+			name = "Decree Strike",
+			dest = Config.LANCE,
+			dur = 0.3,
+			action_id = 48,
+			telegraph = "none",
+			desc = "28 dmg single target."
+		},
+		{
 			name = "Royal Cleave",
 			dest = Config.FAN,
 			dur = 0.3,
@@ -194,14 +202,6 @@ const SPELL_TABLE := {
 			telegraph = "circle",
 			radius = 5.0,
 			desc = "12 dmg AoE (5m)."
-		},
-		{
-			name = "Decree Strike",
-			dest = Config.LANCE,
-			dur = 0.3,
-			action_id = 48,
-			telegraph = "none",
-			desc = "28 dmg single target."
 		},
 		{
 			name = "Sovereign Scatter",

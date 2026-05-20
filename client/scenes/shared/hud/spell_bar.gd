@@ -72,7 +72,7 @@ func _draw() -> void:
 			Vector2(x + 5.0, y + 12.0),
 			keybind,
 			HORIZONTAL_ALIGNMENT_LEFT,
-			14.0,
+			SLOT_SIZE - 10.0,
 			9,
 			keybind_color
 		)
