@@ -2,9 +2,11 @@ class: gunner
 bosses: [guard_captain]
 profiles: [bad]
 
-# Bad gunner: slow reactions, no cooldown usage, no projectile awareness.
+# Bad gunner: slow reactions, no projectile awareness.
 # But still has basic gamer instinct: backpedals and shoots when boss is close.
 # 1.0s reaction time means most telegraphs are already executing before noticing.
+# Rotation is near-perfect — overclock + fire_shot is trivial to execute.
+# DPS loss comes from mechanic disruption, not rotation quality.
 
 tree:
   reactive_selector:
@@ -18,6 +20,9 @@ tree:
     - sequence: [too_close, kite_and_shoot]
     # Positioning: walk toward boss when too far
     - sequence: [too_far, advance]
-    # No overclock — forgets to use cooldowns
+    # Rotation: overclock on cooldown (single button, easy)
+    - sequence: ["can_cast(overclock)", "cast(overclock)"]
+    # Tactical reload when magazine is low
+    - sequence: [should_reload, "cast(reload)"]
     # Filler: hold M1
     - "cast(fire_shot)"

@@ -10,9 +10,9 @@ profiles: [average]
 tree:
   reactive_selector:
     # Charge: strafe while mashing attack (melee instinct)
-    - sequence: [has_reacted_quick, in_charge_path, "strafe_charge(melee_light)"]
+    - sequence: [has_reacted_quick, in_charge_path, "strafe_charge(cleave)"]
     # AoE: flee while mashing
-    - sequence: [has_reacted_quick, in_aoe_danger, "flee_aoe(melee_light)"]
+    - sequence: [has_reacted_quick, in_aoe_danger, "flee_aoe(cleave)"]
     # No melee cone dodge — doesn't know to circle behind boss
     # No block — doesn't think to use defensives proactively
     # No ranged target awareness — doesn't predict who boss targets
@@ -21,8 +21,8 @@ tree:
     # Positioning: get into melee range
     - sequence: [out_of_melee, advance]
     # Full rotation (CooldownWaste=0.20 handles quality degradation)
-    - sequence: ["can_cast(blade_swirl)", "cast(blade_swirl)"]
-    - sequence: ["can_cast(ground_slam)", "cast(ground_slam)"]
-    - sequence: ["can_cast(melee_heavy)", "cast(melee_heavy)"]
-    # Filler: melee_light spam
-    - "cast(melee_light)"
+    - sequence: ["can_cast(vortex)", "cast(vortex)"]
+    - sequence: ["can_cast(execution)", "cast(execution)"]
+    - sequence: ["can_cast(upheaval)", "cast(upheaval)"]
+    # Filler: cleave spam
+    - "cast(cleave)"

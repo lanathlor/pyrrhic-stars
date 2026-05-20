@@ -25,6 +25,7 @@ type EncounterSpec struct {
 type CompSpec struct {
 	Name     string   `yaml:"name"`
 	Classes  []string `yaml:"classes"`
+	Specs    []string `yaml:"specs"`    // spec IDs (empty string = class default)
 	Profiles []string `yaml:"profiles"`
 }
 
@@ -92,8 +93,13 @@ func (cs CompSpec) ToPartyConfigs() []PuppetConfig {
 		if i < len(cs.Profiles) {
 			profile = BotProfile(cs.Profiles[i])
 		}
+		var spec string
+		if i < len(cs.Specs) {
+			spec = cs.Specs[i]
+		}
 		configs[i] = PuppetConfig{
 			Class:   cs.Classes[i],
+			Spec:    spec,
 			Profile: profile,
 		}
 	}

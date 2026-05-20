@@ -40,9 +40,11 @@ type ProfileParams struct {
 }
 
 var profileTable = map[BotProfile]ProfileParams{
+	// Rotation is near-perfect for all profiles — even bad players press buttons correctly.
+	// Skill gap comes from mechanics: reaction time, dodge direction, defensive usage.
 	ProfileSweaty:  {ReactionTime: 0.15, SafetyMargin: 1.5, MechanicIQ: 0.95, DodgeGreed: 0.70, RotationDelay: 0, CooldownWaste: 0.02, DefensiveUse: 0.9},
-	ProfileAverage: {ReactionTime: 0.40, SafetyMargin: 0.5, MechanicIQ: 0.60, DodgeGreed: 0.35, RotationDelay: 0.15, CooldownWaste: 0.20, DefensiveUse: 0.5},
-	ProfileBad:     {ReactionTime: 1.00, SafetyMargin: 0.0, MechanicIQ: 0.20, DodgeGreed: 0, RotationDelay: 0.30, CooldownWaste: 0.40, DefensiveUse: 0.1},
+	ProfileAverage: {ReactionTime: 0.40, SafetyMargin: 0.5, MechanicIQ: 0.60, DodgeGreed: 0.35, RotationDelay: 0.02, CooldownWaste: 0.04, DefensiveUse: 0.5},
+	ProfileBad:     {ReactionTime: 1.00, SafetyMargin: 0.0, MechanicIQ: 0.20, DodgeGreed: 0, RotationDelay: 0.04, CooldownWaste: 0.06, DefensiveUse: 0.1},
 }
 
 // Preferred range per class (how far the puppet wants to stand from the boss).
@@ -90,10 +92,16 @@ type PlayerPuppet struct {
 }
 
 // NewPuppet creates a player puppet with the given profile and seeded RNG.
+// If spec is empty, the class default spec is used.
 // If reg is non-nil, it attempts to resolve a YAML-defined behavior tree
 // for the (class, boss, profile) triple before falling back to the hardcoded Go tree.
-func NewPuppet(id uint16, class string, profile BotProfile, seed uint64, boss string, reg *PuppetTreeRegistry) *PlayerPuppet {
-	p := entity.NewPlayer(id, class)
+func NewPuppet(id uint16, class, spec string, profile BotProfile, seed uint64, boss string, reg *PuppetTreeRegistry) *PlayerPuppet {
+	var p *entity.Player
+	if spec != "" {
+		p = entity.NewPlayerWithSpec(id, class, spec)
+	} else {
+		p = entity.NewPlayer(id, class)
+	}
 	p.Health = p.MaxHealth
 	p.Alive = true
 	p.Position = entity.Vec3{X: float32(id)*2 - 4, Y: 0.1, Z: 5}
@@ -107,9 +115,8 @@ func NewPuppet(id uint16, class string, profile BotProfile, seed uint64, boss st
 		params.DodgeGreed = 0
 	}
 	if params.MoveSpeed == 0 {
-		if cd, ok := entity.Classes[class]; ok {
-			params.MoveSpeed = cd.Movement.WalkSpeed
-		} else {
+		params.MoveSpeed = p.Movement().WalkSpeed
+		if params.MoveSpeed == 0 {
 			params.MoveSpeed = 5.0
 		}
 	}

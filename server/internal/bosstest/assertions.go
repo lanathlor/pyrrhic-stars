@@ -69,10 +69,13 @@ type compStats struct {
 
 // compDetailReport holds per-composition ability damage and class balance for the report.
 type compDetailReport struct {
-	Name            string
-	TotalBossDamage float64
-	AbilityShares   []nameShare // sorted by damage desc
-	ClassShares     []nameShare // sorted alphabetically
+	Name              string
+	TotalBossDamage   float64     // boss damage dealt to players
+	TotalPlayerDamage float64     // player damage dealt to boss
+	TotalDurationSec  float64     // sum of all run durations
+	Runs              int
+	AbilityShares     []nameShare // sorted by damage desc
+	ClassShares       []nameShare // sorted alphabetically
 }
 
 type nameShare struct {
@@ -147,12 +150,15 @@ func (r *FuzzReport) PrintReport(t *testing.T) {
 		}
 	}
 
-	// Per-composition boss damage + class balance
+	// Per-composition boss damage + class balance + DPS
 	if len(r.CompDetails) > 0 {
 		sb.WriteString(fmt.Sprintf("\n  %s\n", strings.Repeat("─", 58)))
 		sb.WriteString("  Per-Composition Breakdown\n")
 		for _, cd := range r.CompDetails {
-			sb.WriteString(fmt.Sprintf("\n    %s (boss dmg: %.0f)\n", cd.Name, cd.TotalBossDamage))
+			avgDur := cd.TotalDurationSec / float64(cd.Runs)
+			partyDPS := cd.TotalPlayerDamage / cd.TotalDurationSec
+			sb.WriteString(fmt.Sprintf("\n    %s (boss dmg: %.0f | party DPS: %.1f/s | avg %.1fs)\n",
+				cd.Name, cd.TotalBossDamage, partyDPS, avgDur))
 			// Ability damage shares
 			sb.WriteString("      ability:  ")
 			for i, a := range cd.AbilityShares {
@@ -162,7 +168,7 @@ func (r *FuzzReport) PrintReport(t *testing.T) {
 				sb.WriteString(fmt.Sprintf("%s %.1f%%", a.Name, a.Share))
 			}
 			sb.WriteString("\n")
-			// Class balance
+			// Class balance (shares)
 			sb.WriteString("      class:    ")
 			for i, c := range cd.ClassShares {
 				if i > 0 {
@@ -171,6 +177,18 @@ func (r *FuzzReport) PrintReport(t *testing.T) {
 				sb.WriteString(fmt.Sprintf("%s %.1f%%", c.Name, c.Share))
 			}
 			sb.WriteString("\n")
+			// Per-class DPS
+			if cd.TotalDurationSec > 0 {
+				sb.WriteString("      dps:      ")
+				for i, c := range cd.ClassShares {
+					if i > 0 {
+						sb.WriteString("  ")
+					}
+					classDPS := c.RawDmg / cd.TotalDurationSec
+					sb.WriteString(fmt.Sprintf("%s %.1f/s", c.Name, classDPS))
+				}
+				sb.WriteString("\n")
+			}
 		}
 	}
 
@@ -355,7 +373,12 @@ func (fr *FuzzResults) computePerCompDetails(report *FuzzReport) {
 	// Build details in the same order as CompBreakdown (already sorted by win% desc).
 	for _, cs := range report.CompBreakdown {
 		results := byComp[cs.Name]
-		detail := compDetailReport{Name: cs.Name}
+		detail := compDetailReport{Name: cs.Name, Runs: len(results)}
+
+		// Total duration across all runs.
+		for _, r := range results {
+			detail.TotalDurationSec += r.Duration.Seconds()
+		}
 
 		// Ability damage aggregation.
 		abilDmg := make(map[string]float64)
@@ -389,6 +412,7 @@ func (fr *FuzzResults) computePerCompDetails(report *FuzzReport) {
 				totalClassDmg += float64(d)
 			}
 		}
+		detail.TotalPlayerDamage = totalClassDmg
 		classes := make([]string, 0, len(classDmg))
 		for class := range classDmg {
 			classes = append(classes, class)
@@ -399,7 +423,7 @@ func (fr *FuzzResults) computePerCompDetails(report *FuzzReport) {
 			if totalClassDmg > 0 {
 				pct = classDmg[class] / totalClassDmg * 100
 			}
-			detail.ClassShares = append(detail.ClassShares, nameShare{Name: class, Share: pct})
+			detail.ClassShares = append(detail.ClassShares, nameShare{Name: class, Share: pct, RawDmg: classDmg[class]})
 		}
 
 		report.CompDetails = append(report.CompDetails, detail)

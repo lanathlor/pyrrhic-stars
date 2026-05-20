@@ -58,6 +58,11 @@ func gunnerTree() *bt.Tree {
 			bt.NewCondition(canCastAbility("overclock")),
 			bt.NewAction(castAbilityAction("overclock")),
 		),
+		// Tactical reload when magazine is low (1.5s vs 2.2s empty)
+		bt.NewSequence(
+			bt.NewCondition(condShouldReload),
+			bt.NewAction(castAbilityAction("reload")),
+		),
 		// Filler: spam fire_shot
 		bt.NewAction(castAbilityAction("fire_shot")),
 	))

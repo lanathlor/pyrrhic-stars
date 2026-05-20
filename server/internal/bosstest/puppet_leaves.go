@@ -483,6 +483,19 @@ func actionCastBestTransition(v any) bt.Result {
 	return bt.Failure
 }
 
+// condShouldReload checks if the gunner magazine is low enough for a tactical reload.
+// Tactical reload (1.5s) is much faster than empty auto-reload (2.2s).
+func condShouldReload(v any) bool {
+	c := pctx(v)
+	p := c.Puppet.Player
+	state, ok := p.AbilityState["gunner_assault"].(*ability.GunnerAssaultState)
+	if !ok || state == nil {
+		return false
+	}
+	return !state.Reloading && !state.MagDumpActive &&
+		state.MagCurrent > 0 && state.MagCurrent <= 5 && state.EnhancedLoaded <= 0
+}
+
 // actionCastBlock casts vanguard block.
 func actionCastBlock(v any) bt.Result {
 	c := pctx(v)

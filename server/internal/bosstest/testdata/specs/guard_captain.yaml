@@ -4,12 +4,15 @@ runs: 500
 compositions:
   - name: mixed_average
     classes: [gunner, vanguard, blade_dancer]
+    specs: [assault, blade, multi_blade]
     profiles: [average, average, average]
   - name: all_sweaty
     classes: [gunner, vanguard, blade_dancer]
+    specs: [assault, blade, multi_blade]
     profiles: [sweaty, sweaty, sweaty]
   - name: all_bad
     classes: [gunner, vanguard, blade_dancer]
+    specs: [assault, blade, multi_blade]
     profiles: [bad, bad, bad]
 
 # NOTE: 100% win rate reflects boss being undertuned for real ability DPS.

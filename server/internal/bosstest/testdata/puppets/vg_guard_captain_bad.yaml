@@ -5,23 +5,24 @@ profiles: [bad]
 # Bad vanguard: face-tanks most things. 1.0s reaction means most telegraphs
 # land before any response. Never blocks. Doesn't dodge melee cone, projectiles,
 # or ranged attacks. Still mashes attack while fleeing big mechanics.
-# Skips ground_slam from rotation. CooldownWaste=0.40 skips many casts.
+# Rotation is near-perfect — vanguard buttons are easy to press.
+# DPS loss comes from eating mechanics and dying, not rotation quality.
 
 tree:
   reactive_selector:
     # Charge: late reaction, mash attack while dodging
-    - sequence: [has_reacted, in_charge_path, "strafe_charge(melee_light)"]
+    - sequence: [has_reacted, in_charge_path, "strafe_charge(cleave)"]
     # AoE: late reaction, mash attack while fleeing
-    - sequence: [has_reacted, in_aoe_danger, "flee_aoe(melee_light)"]
+    - sequence: [has_reacted, in_aoe_danger, "flee_aoe(cleave)"]
     # No melee cone dodge — doesn't circle behind boss
     # No block — doesn't know to use defensives
     # No ranged dodge — doesn't notice
     # No projectile dodge
     # Positioning: walk back into melee range
     - sequence: [out_of_melee, advance]
-    # Rotation: blade_swirl when available (CooldownWaste skips often)
-    - sequence: ["can_cast(blade_swirl)", "cast(blade_swirl)"]
-    # Rotation: melee_heavy
-    - sequence: ["can_cast(melee_heavy)", "cast(melee_heavy)"]
-    # Filler: melee_light spam
-    - "cast(melee_light)"
+    # Full rotation — even bad players press their cooldowns
+    - sequence: ["can_cast(vortex)", "cast(vortex)"]
+    - sequence: ["can_cast(execution)", "cast(execution)"]
+    - sequence: ["can_cast(upheaval)", "cast(upheaval)"]
+    # Filler: cleave spam
+    - "cast(cleave)"

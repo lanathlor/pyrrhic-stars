@@ -23,6 +23,7 @@ const (
 // PuppetConfig defines a single player in a simulation party.
 type PuppetConfig struct {
 	Class   string
+	Spec    string // spec ID (empty = class default)
 	Profile BotProfile
 }
 
@@ -100,7 +101,7 @@ func RunSimulation(cfg SimConfig) SimResult {
 	puppets := make([]*PlayerPuppet, len(cfg.Party))
 	playerMap := make(map[uint16]*entity.Player, len(cfg.Party))
 	for i, pc := range cfg.Party {
-		pp := NewPuppet(uint16(i+1), pc.Class, pc.Profile, cfg.Seed+uint64(i)*100, cfg.Boss, cfg.PuppetTrees)
+		pp := NewPuppet(uint16(i+1), pc.Class, pc.Spec, pc.Profile, cfg.Seed+uint64(i)*100, cfg.Boss, cfg.PuppetTrees)
 		pp.Player.SpawnTick = 0 // no spawn grace period
 		puppets[i] = pp
 		playerMap[pp.Player.ID] = pp.Player
@@ -151,7 +152,7 @@ func RunSimulation(cfg SimConfig) SimResult {
 	for _, pp := range puppets {
 		session.AddParticipant(combatlog.ParticipantLog{
 			EntityID:   combatlog.FormatPlayerID(pp.Player.ID),
-			Name:       fmt.Sprintf("%s_%s", pp.Profile, pp.Player.ClassID),
+			Name:       fmt.Sprintf("%s_%s_%s", pp.Profile, pp.Player.ClassID, pp.Player.SpecID),
 			Class:      pp.Player.ClassID,
 			IsBot:      true,
 			BotProfile: string(pp.Profile),

@@ -37,6 +37,7 @@ var puppetLeafRegistry = map[string]puppetLeafEntry{
 	// Conditions — abilities
 	"should_use_defensive": {isCond: true, cond: condShouldUseDefensive},
 	"can_transition":       {isCond: true, cond: condCanTransition},
+	"should_reload":        {isCond: true, cond: condShouldReload},
 
 	// Actions — movement (no cast)
 	"strafe_charge":       {action: actionStrafeCharge},
