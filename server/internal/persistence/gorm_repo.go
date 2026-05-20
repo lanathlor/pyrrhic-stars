@@ -93,6 +93,10 @@ func (r *GormRepo) UpdateCharacterPosition(charID uint, posX, posY, posZ, rotY f
 	}).Error
 }
 
+func (r *GormRepo) UpdateCharacterSpec(charID uint, specID string) error {
+	return r.db.Model(&Character{}).Where("id = ?", charID).Update("spec_id", specID).Error
+}
+
 func (r *GormRepo) GetCharacterByID(id uint) (*Character, error) {
 	var c Character
 	result := r.db.First(&c, id)

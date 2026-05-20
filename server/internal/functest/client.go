@@ -529,6 +529,7 @@ func decodeWorldState(data []byte) (*WorldState, error) {
 		off += 4 // resonance
 		off++    // onslaught_stacks
 		off += 7 // gunner assault state
+		off++    // speed_mult
 
 		ws.Players = append(ws.Players, p)
 	}

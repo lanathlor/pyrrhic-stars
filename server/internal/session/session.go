@@ -11,6 +11,7 @@ type Session struct {
 	ZoneID   string // current zone
 	PeerID   uint16 // current zone peer ID
 	Class    string // selected class
+	Spec     string // selected spec within class
 	CharID   uint   // selected character ID (persistence primary key)
 	CharName string // character display name (shown overhead)
 }

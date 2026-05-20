@@ -31,7 +31,7 @@ var vanguardShieldSpec = SpecDef{
 	Name:        "Shield",
 	Description: "Directional block, absorbs for allies.\nMonster Hunter lance — slow, unbreakable.",
 	Role:        "Tank",
-	Implemented: false,
+	Implemented: true,
 	MaxHealth:   280,
 	Movement: ClassMovement{
 		WalkSpeed: 4.0, SprintSpeed: 5.5, JumpVel: 3.0,
@@ -40,6 +40,19 @@ var vanguardShieldSpec = SpecDef{
 	},
 	Resources: map[string]ResourceTemplate{
 		"stamina": {Max: 120, Initial: 120, Regen: 25, RegenDelay: 0.8},
+	},
+	Abilities: []string{
+		"shield_bash", "bull_rush", "vg_shield_block", "vg_shield_block_stop",
+		"brace", "retaliate", "dodge",
+	},
+	ActionMap: map[uint8]string{
+		1:  "shield_bash",
+		2:  "bull_rush",
+		3:  "dodge",
+		4:  "vg_shield_block",
+		5:  "vg_shield_block_stop",
+		20: "brace",
+		21: "retaliate",
 	},
 }
 

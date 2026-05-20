@@ -1,7 +1,8 @@
 extends CharacterBody3D
 
-## Vanguard — Souls-like third-person melee controller (Blade spec).
-## Onslaught momentum system: build stacks on hits, lose on damage.
+## Vanguard — Souls-like third-person melee controller.
+## Blade spec: Onslaught momentum — build stacks on hits, lose on damage.
+## Shield spec: Devotion mastery — build charges from blocked damage, burst with Retaliate.
 ## Sub-systems: combat, movement, cam, anim (child nodes).
 
 signal died
@@ -9,6 +10,7 @@ signal died
 enum State {
 	MOVE,
 	DODGE,
+	# Blade states
 	CLEAVE,
 	UPHEAVAL_WINDUP,
 	UPHEAVAL,
@@ -17,7 +19,15 @@ enum State {
 	DEAD,
 	VORTEX,
 	EXECUTION_WINDUP,
-	EXECUTION
+	EXECUTION,
+	# Shield states
+	SHIELD_BLOCK,
+	SHIELD_BASH,
+	BULL_RUSH,
+	BRACE,
+	RETALIATE_WINDUP,
+	RETALIATE,
+	GUARD_BREAK,
 }
 
 const PlayerTelegraph := preload("res://scenes/shared/telegraph/player_telegraph.gd")
@@ -45,6 +55,33 @@ const EXECUTION_STAMINA: float = 30.0
 const EXECUTION_WINDUP_TIME: float = 0.8
 const EXECUTION_HIT_TIME: float = 0.15
 
+# Shield Bash (LMB) — quick bash, works during block
+const SHIELD_BASH_DAMAGE: float = 15.0
+const SHIELD_BASH_DURATION: float = 0.35
+const SHIELD_BASH_STAMINA: float = 8.0
+
+# Bull Rush (R) — charge forward + AoE
+const BULL_RUSH_DAMAGE: float = 60.0
+const BULL_RUSH_SPEED: float = 12.0
+const BULL_RUSH_DISTANCE: float = 12.0
+const BULL_RUSH_DURATION: float = 0.6
+const BULL_RUSH_COOLDOWN: float = 8.0
+const BULL_RUSH_STAMINA: float = 20.0
+
+# Shield Block (RMB) — sustained block, stamina drain on damage
+const SHIELD_BLOCK_COOLDOWN: float = 1.5
+const SHIELD_PARRY_WINDOW: float = 0.12
+
+# Brace (F) — plant feet during block, reduced stamina drain
+const BRACE_DURATION: float = 3.5
+const BRACE_COOLDOWN: float = 12.0
+
+# Retaliate (T) — consume Devotion, frontal slam
+const RETALIATE_DAMAGE: float = 30.0
+const RETALIATE_WINDUP_TIME: float = 0.5
+const RETALIATE_HIT_TIME: float = 0.2
+const RETALIATE_COOLDOWN: float = 1.5
+
 # Telegraph color
 const VANGUARD_TELEGRAPH_COLOR := Color(0.9, 0.6, 0.3, 0.4)
 
@@ -54,6 +91,7 @@ const NET_INTERP_SPEED := 15.0
 const WEAPON_SCENE := "res://assets/models/weapons/weapon_longsword.glb"
 
 const CombatScript := preload("res://scenes/controllers/vanguard/vanguard_combat.gd")
+const ShieldCombatScript := preload("res://scenes/controllers/vanguard/vanguard_shield_combat.gd")
 const MovementScript := preload("res://scenes/controllers/vanguard/vanguard_movement.gd")
 const CameraScript := preload("res://scenes/controllers/vanguard/vanguard_camera.gd")
 const AnimScript := preload("res://scenes/controllers/vanguard/vanguard_animation.gd")
@@ -110,21 +148,41 @@ var cam: Node
 var anim: Node
 var vfx: Node
 
+var spec_id: String = "blade"
+var _spec_grace: float = 0.0  # prevents server revert during client-initiated spec change
+var _server_speed_mult: float = 1.0  # server-authoritative movement speed multiplier
+
 var _block_cooldown: float = 0.0
 var _state_timer: float = 0.0
 var _is_invincible: bool = false
 var _parry_timer: float = 0.0
 var _stagger_duration: float = 0.3
 
-# Onslaught — read from server state
+# Onslaught (Blade) — read from server state
 var _onslaught_tier: int = 0
 var _onslaught_stacks: int = 0
 
-# Vortex (F)
+# Devotion (Shield) — read from server state (same wire bytes as onslaught)
+var _devotion_tier: int = 0
+var _devotion_stacks: int = 0
+
+# Vortex (F) — Blade
 var _vortex_cooldown: float = 0.0
 
-# Execution (T)
+# Execution (T) — Blade
 var _execution_cooldown: float = 0.0
+
+# Bull Rush (R) — Shield
+var _bull_rush_cooldown: float = 0.0
+
+# Brace (F) — Shield
+var _brace_cooldown: float = 0.0
+
+# Retaliate (T) — Shield
+var _retaliate_cooldown: float = 0.0
+
+# Shield Block (RMB) — Shield
+var _shield_block_cooldown: float = 0.0
 
 # Camera
 var _camera_yaw: float = 0.0
@@ -149,8 +207,11 @@ var _prev_remote_vs: int = -1
 
 
 func _ready() -> void:
-	# Create sub-systems
-	combat = _add_subsystem("Combat", CombatScript)
+	# Create sub-systems — spec determines which combat script
+	if spec_id == "shield":
+		combat = _add_subsystem("Combat", ShieldCombatScript)
+	else:
+		combat = _add_subsystem("Combat", CombatScript)
 	movement = _add_subsystem("Movement", MovementScript)
 	cam = _add_subsystem("Cam", CameraScript)
 	anim = _add_subsystem("Anim", AnimScript)
@@ -214,8 +275,18 @@ func _is_local() -> bool:
 func apply_server_state(data: Dictionary) -> void:
 	if data.has("max_health") and data["max_health"] > 0.0:
 		max_health = data["max_health"]
-	_onslaught_tier = data.get("onslaught_tier", 0)
-	_onslaught_stacks = data.get("onslaught_stacks", 0)
+	# Detect spec from server (same wire bytes carry Onslaught or Devotion).
+	# Grace timer prevents stale world state from reverting a client-initiated change.
+	var server_spec: String = data.get("spec_name", "")
+	if server_spec != "" and server_spec != spec_id and _spec_grace <= 0.0:
+		_switch_spec(server_spec)
+	if spec_id == "shield":
+		_devotion_tier = data.get("onslaught_tier", 0)
+		_devotion_stacks = data.get("onslaught_stacks", 0)
+	else:
+		_onslaught_tier = data.get("onslaught_tier", 0)
+		_onslaught_stacks = data.get("onslaught_stacks", 0)
+	_server_speed_mult = data.get("speed_mult", 1.0)
 	if _is_local():
 		health = data.health
 		var server_stamina: float = data.get("stamina", -1.0)
@@ -237,6 +308,28 @@ func apply_server_state(data: Dictionary) -> void:
 		_visual_state = data.get("visual_state", 0)
 
 
+## Hot-swap combat subsystem when spec changes.
+## Set from_client=true when the switch is initiated by the user (spec panel),
+## which sets a grace timer to prevent stale server state from reverting it.
+func _switch_spec(new_spec: String, from_client: bool = false) -> void:
+	if new_spec == spec_id:
+		return
+	spec_id = new_spec
+	if from_client:
+		_spec_grace = 0.5  # ignore server spec for 500ms
+	# Reset to safe state — old combat node's states aren't valid for new spec
+	if state != State.MOVE and state != State.DEAD:
+		state = State.MOVE
+		_state_timer = 0.0
+	# Replace combat subsystem
+	if combat:
+		combat.queue_free()
+	if spec_id == "shield":
+		combat = _add_subsystem("Combat", ShieldCombatScript)
+	else:
+		combat = _add_subsystem("Combat", CombatScript)
+
+
 ## Called by main.gd when server confirms this player hit an enemy.
 func on_hit_confirmed(_amount: float, hit_pos: Vector3 = Vector3.ZERO) -> void:
 	hud.show_hit_marker()
@@ -246,7 +339,7 @@ func on_hit_confirmed(_amount: float, hit_pos: Vector3 = Vector3.ZERO) -> void:
 
 ## Visual-only damage feedback (called from main.gd on DamageEvent).
 func on_damage_visual(_amount: float, _hit_pos: Vector3) -> void:
-	if _parry_timer > 0.0 and state == State.BLOCK:
+	if _parry_timer > 0.0 and (state == State.BLOCK or state == State.SHIELD_BLOCK):
 		vfx.spawn_parry_flash()
 	hud.show_damage_flash()
 	anim.show_body_flash()
@@ -286,12 +379,18 @@ func _physics_process(delta: float) -> void:
 	_block_cooldown = maxf(_block_cooldown - delta, 0.0)
 	_vortex_cooldown = maxf(_vortex_cooldown - delta, 0.0)
 	_execution_cooldown = maxf(_execution_cooldown - delta, 0.0)
+	_bull_rush_cooldown = maxf(_bull_rush_cooldown - delta, 0.0)
+	_brace_cooldown = maxf(_brace_cooldown - delta, 0.0)
+	_spec_grace = maxf(_spec_grace - delta, 0.0)
+	_retaliate_cooldown = maxf(_retaliate_cooldown - delta, 0.0)
+	_shield_block_cooldown = maxf(_shield_block_cooldown - delta, 0.0)
 
 	match state:
 		State.MOVE:
 			movement.process_move(delta)
 		State.DODGE:
 			combat.process_dodge(delta)
+		# Blade states
 		State.CLEAVE:
 			combat.process_cleave(delta)
 		State.UPHEAVAL_WINDUP:
@@ -308,6 +407,21 @@ func _physics_process(delta: float) -> void:
 			combat.process_execution_windup(delta)
 		State.EXECUTION:
 			combat.process_execution(delta)
+		# Shield states
+		State.SHIELD_BLOCK:
+			combat.process_shield_block(delta)
+		State.SHIELD_BASH:
+			combat.process_shield_bash(delta)
+		State.BULL_RUSH:
+			combat.process_bull_rush(delta)
+		State.BRACE:
+			combat.process_brace(delta)
+		State.RETALIATE_WINDUP:
+			combat.process_retaliate_windup(delta)
+		State.RETALIATE:
+			combat.process_retaliate(delta)
+		State.GUARD_BREAK:
+			combat.process_guard_break()
 		State.DEAD:
 			velocity.x = 0.0
 			velocity.z = 0.0
@@ -329,68 +443,121 @@ func _physics_process(delta: float) -> void:
 	if _lock_on_active and _lock_target:
 		hud.update_lock_on(_lock_target, camera)
 
-	hud.update_onslaught(_onslaught_tier, _onslaught_stacks)
-
-	var tier_suffix: String = ""
-	if _onslaught_tier == 1:
-		tier_suffix = "+"
-	elif _onslaught_tier == 2:
-		tier_suffix = "++"
-
-	(
-		hud
-		. update_spells(
-			[
-				{
-					name = "Cleave" + tier_suffix,
-					keybind = "LMB",
-					desc = "Fast sweep. Arc widens with Onslaught.",
-					cooldown = 0.0,
-					cooldown_max = 0.0,
-					stamina_cost = CLEAVE_STAMINA
-				},
-				{
-					name = "Upheaval" + tier_suffix,
-					keybind = "R",
-					desc = "Cone slam. Wider at empowered, DoT at max.",
-					cooldown = 0.0,
-					cooldown_max = 0.0,
-					stamina_cost = UPHEAVAL_STAMINA
-				},
-				{
-					name = "Block",
-					keybind = "RMB",
-					desc = "Parry counter-swing builds Onslaught.",
-					cooldown = _block_cooldown,
-					cooldown_max = 3.0
-				},
-				{
-					name = "Dodge",
-					keybind = "Space",
-					desc = "I-frame dodge. Preserves Onslaught.",
-					cooldown = 0.0,
-					cooldown_max = 0.0,
-					stamina_cost = dodge_stamina_cost
-				},
-				{
-					name = "Vortex" + tier_suffix,
-					keybind = "F",
-					desc = "Forward spin dash. More hits at higher tier.",
-					cooldown = _vortex_cooldown,
-					cooldown_max = VORTEX_COOLDOWN,
-					stamina_cost = VORTEX_STAMINA
-				},
-				{
-					name = "Execution" + tier_suffix,
-					keybind = "T",
-					desc = "Devastating chop. Shockwave at empowered+.",
-					cooldown = _execution_cooldown,
-					cooldown_max = EXECUTION_COOLDOWN,
-					stamina_cost = EXECUTION_STAMINA
-				},
-			]
+	if spec_id == "shield":
+		hud.update_devotion(_devotion_tier, _devotion_stacks)
+		(
+			hud
+			. update_spells(
+				[
+					{
+						name = "Shield Bash",
+						keybind = "LMB",
+						desc = "Quick bash. Works during block.",
+						cooldown = 0.0,
+						cooldown_max = 0.0,
+						stamina_cost = SHIELD_BASH_STAMINA
+					},
+					{
+						name = "Shield Block",
+						keybind = "RMB",
+						desc = "Block damage. Drain stamina on hit.",
+						cooldown = _shield_block_cooldown,
+						cooldown_max = SHIELD_BLOCK_COOLDOWN
+					},
+					{
+						name = "Bull Rush",
+						keybind = "R",
+						desc = "Charge forward. AoE at end.",
+						cooldown = _bull_rush_cooldown,
+						cooldown_max = BULL_RUSH_COOLDOWN,
+						stamina_cost = BULL_RUSH_STAMINA
+					},
+					{
+						name = "Dodge",
+						keybind = "C",
+						desc = "I-frame dodge.",
+						cooldown = 0.0,
+						cooldown_max = 0.0,
+						stamina_cost = dodge_stamina_cost
+					},
+					{
+						name = "Brace",
+						keybind = "F",
+						desc = "Plant feet. Reduces stamina drain while blocking.",
+						cooldown = _brace_cooldown,
+						cooldown_max = BRACE_COOLDOWN
+					},
+					{
+						name = "Retaliate",
+						keybind = "T",
+						desc = "Consume Devotion. Massive frontal slam.",
+						cooldown = _retaliate_cooldown,
+						cooldown_max = RETALIATE_COOLDOWN
+					},
+				]
+			)
 		)
-	)
+	else:
+		hud.update_onslaught(_onslaught_tier, _onslaught_stacks)
+		var tier_suffix: String = ""
+		if _onslaught_tier == 1:
+			tier_suffix = "+"
+		elif _onslaught_tier == 2:
+			tier_suffix = "++"
+		(
+			hud
+			. update_spells(
+				[
+					{
+						name = "Cleave" + tier_suffix,
+						keybind = "LMB",
+						desc = "Fast sweep. Arc widens with Onslaught.",
+						cooldown = 0.0,
+						cooldown_max = 0.0,
+						stamina_cost = CLEAVE_STAMINA
+					},
+					{
+						name = "Block",
+						keybind = "RMB",
+						desc = "Parry counter-swing builds Onslaught.",
+						cooldown = _block_cooldown,
+						cooldown_max = 3.0
+					},
+					{
+						name = "Upheaval" + tier_suffix,
+						keybind = "R",
+						desc = "Cone slam. Wider at empowered, DoT at max.",
+						cooldown = 0.0,
+						cooldown_max = 0.0,
+						stamina_cost = UPHEAVAL_STAMINA
+					},
+					{
+						name = "Dodge",
+						keybind = "C",
+						desc = "I-frame dodge. Preserves Onslaught.",
+						cooldown = 0.0,
+						cooldown_max = 0.0,
+						stamina_cost = dodge_stamina_cost
+					},
+					{
+						name = "Vortex" + tier_suffix,
+						keybind = "F",
+						desc = "Forward spin dash. More hits at higher tier.",
+						cooldown = _vortex_cooldown,
+						cooldown_max = VORTEX_COOLDOWN,
+						stamina_cost = VORTEX_STAMINA
+					},
+					{
+						name = "Execution" + tier_suffix,
+						keybind = "T",
+						desc = "Devastating chop. Shockwave at empowered+.",
+						cooldown = _execution_cooldown,
+						cooldown_max = EXECUTION_COOLDOWN,
+						stamina_cost = EXECUTION_STAMINA
+					},
+				]
+			)
+		)
 
 	# Send position + visual state to server
 	if NetworkManager.is_active:
@@ -460,7 +627,10 @@ func _drive_remote_vfx(old_vs: int, new_vs: int) -> void:
 	if old_vs in attack_states and new_vs not in attack_states:
 		vfx.stop_swing_trail()
 	if old_vs == NetSerializer.VS_VG_BLOCK and new_vs != NetSerializer.VS_VG_BLOCK:
-		vfx.hide_block_shield()
+		if spec_id == "shield":
+			vfx.hide_tower_shield()
+		else:
+			vfx.hide_block_shield()
 	if old_vs == NetSerializer.VS_VG_VORTEX and new_vs != NetSerializer.VS_VG_VORTEX:
 		vfx.stop_vortex()
 
@@ -468,14 +638,20 @@ func _drive_remote_vfx(old_vs: int, new_vs: int) -> void:
 	if new_vs in attack_states and old_vs not in attack_states:
 		vfx.start_swing_trail()
 	if new_vs == NetSerializer.VS_VG_BLOCK and old_vs != NetSerializer.VS_VG_BLOCK:
-		vfx.show_block_shield()
+		if spec_id == "shield":
+			vfx.show_tower_shield()
+		else:
+			vfx.show_block_shield()
 	if new_vs == NetSerializer.VS_VG_VORTEX and old_vs != NetSerializer.VS_VG_VORTEX:
 		vfx.start_vortex()
 	if (
 		new_vs == NetSerializer.VS_VG_EXECUTION
 		and old_vs == NetSerializer.VS_VG_EXECUTION_WINDUP
 	):
-		vfx.spawn_execution_shockwave(global_position, rotation.y)
+		if spec_id == "shield":
+			vfx.spawn_retaliate_slam(global_position, rotation.y)
+		else:
+			vfx.spawn_execution_shockwave(global_position, rotation.y)
 
 
 # --- State helpers ---
@@ -486,7 +662,8 @@ func _enter_state(new_state: State) -> void:
 		State.DODGE:
 			_is_invincible = false
 	state = new_state
-	combat._has_hit_this_attack = false
+	if "_has_hit_this_attack" in combat:
+		combat._has_hit_this_attack = false
 
 
 # --- Delegate wrappers for test/bot compatibility ---

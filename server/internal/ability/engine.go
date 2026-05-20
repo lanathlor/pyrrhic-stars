@@ -158,9 +158,15 @@ func (eng *Engine) doCast(abilityID string, def *AbilityDef, ctx *CastContext) C
 			return CastResult{Reason: "cooldown"}
 		}
 
-		// Cancel active block when casting any other ability
+		// Cancel active Blade block when casting any other ability
 		if abilityID != "vg_block" && abilityID != "vg_block_stop" && p.HasBuff("vg_block") {
 			EndVgBlock(p)
+		}
+		// Cancel active Shield block (except Shield Bash and Brace which work during block)
+		if abilityID != "vg_shield_block" && abilityID != "vg_shield_block_stop" &&
+			abilityID != "shield_bash" && abilityID != "brace" &&
+			p.HasBuff("vg_shield_block") {
+			EndVgShieldBlock(p)
 		}
 
 		if def.OriginConfig >= 0 && def.OriginConfig != p.Config {

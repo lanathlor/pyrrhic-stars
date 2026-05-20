@@ -1,6 +1,8 @@
 package system
 
 import (
+	"math"
+
 	"codex-online/server/internal/ability"
 	"codex-online/server/internal/codec"
 	"codex-online/server/internal/combat"
@@ -90,6 +92,32 @@ func handlePlayerInput(w *World, peerID uint16, payload []byte) {
 		}
 		if deltaY > maxUp+0.1 {
 			newPos.Y = p.Position.Y
+		}
+	}
+
+	// Enforce server-authoritative speed multiplier (shield block / brace).
+	speedMult := float32(1.0)
+	if p.HasBuff("brace") {
+		speedMult = 0.0
+	} else if p.HasBuff("vg_shield_block") {
+		speedMult = 0.4
+	}
+	if speedMult < 1.0 {
+		hDx := newPos.X - p.Position.X
+		hDz := newPos.Z - p.Position.Z
+		hDistSq := hDx*hDx + hDz*hDz
+		mv := p.Movement()
+		maxSpd := mv.SprintSpeed * speedMult
+		maxDist := maxSpd * tickDt * 1.5 // 50% tolerance
+		if hDistSq > maxDist*maxDist {
+			if speedMult == 0 {
+				newPos.X = p.Position.X
+				newPos.Z = p.Position.Z
+			} else {
+				scale := maxDist / float32(math.Sqrt(float64(hDistSq)))
+				newPos.X = p.Position.X + hDx*scale
+				newPos.Z = p.Position.Z + hDz*scale
+			}
 		}
 	}
 

@@ -281,6 +281,7 @@ func _build_column(spec: Dictionary, is_current: bool) -> void:
 		hover_btn.add_theme_stylebox_override("hover", empty_style)
 		hover_btn.add_theme_stylebox_override("pressed", empty_style)
 		hover_btn.add_theme_stylebox_override("focus", empty_style)
+		hover_btn.pressed.connect(_on_card_pressed.bind(spec_id))
 		hover_btn.mouse_entered.connect(_on_column_hover_enter.bind(column))
 		hover_btn.mouse_exited.connect(_on_column_hover_exit.bind(column, bg_color, border_color, border_width))
 		column.add_child(hover_btn)

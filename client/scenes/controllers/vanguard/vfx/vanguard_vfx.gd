@@ -17,6 +17,7 @@ var ctrl: Node
 
 # Active looping effects
 var _active_block_shield: Node3D = null
+var _active_tower_shield: Node3D = null
 var _active_vortex: Node3D = null
 
 
@@ -118,3 +119,39 @@ func spawn_execution_shockwave(pos: Vector3, rot_y: float) -> void:
 	root.add_child(shockwave)
 	shockwave.global_position = pos + Vector3(0.0, 0.05, 0.0)
 	shockwave.rotation.y = rot_y
+
+
+# --- Shield Spec VFX ---
+
+
+## Tower shield — reuse block_shield at larger scale
+func show_tower_shield() -> void:
+	if _active_tower_shield and is_instance_valid(_active_tower_shield):
+		return
+	_active_tower_shield = BlockShieldScene.instantiate()
+	ctrl.add_child(_active_tower_shield)
+	_active_tower_shield.position = Vector3(0.0, 1.0, -0.5)
+	_active_tower_shield.scale = Vector3(1.5, 1.5, 1.5)
+
+
+func hide_tower_shield() -> void:
+	if _active_tower_shield and is_instance_valid(_active_tower_shield):
+		_active_tower_shield.fade_out()
+		_active_tower_shield = null
+
+
+## Guard break flash — reuse parry flash with red tint
+func spawn_guard_break_flash() -> void:
+	var root := _scene_root()
+	if not root:
+		return
+	var flash: Node3D = ParryFlashScene.instantiate()
+	root.add_child(flash)
+	flash.global_position = (
+		ctrl.global_position + Vector3(0.0, 1.0, 0.0) + (-ctrl.transform.basis.z * 0.5)
+	)
+
+
+## Retaliate slam — reuse ground_slam_shockwave
+func spawn_retaliate_slam(pos: Vector3, rot_y: float) -> void:
+	spawn_execution_shockwave(pos, rot_y)

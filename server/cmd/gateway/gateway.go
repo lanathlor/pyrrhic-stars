@@ -152,6 +152,12 @@ func (g *gateway) joinZone(sess *session.Session, zi *zoneInstance, resp joinRes
 			codec.EncodeInteractInput(message.InteractClassSelect, sess.Class))
 	}
 
+	// Queue spec selection if non-default.
+	if sess.Spec != "" {
+		zi.zone.QueueInput(peerID, message.OpInteractInput,
+			codec.EncodeInteractInput(message.InteractSpecSelect, sess.Spec))
+	}
+
 	// Restore saved position for hub zones.
 	if zi.zoneType == zone.ZoneTypeOpenWorld && sess.CharID != 0 {
 		if ch, _ := g.container.Repo.GetCharacterByID(sess.CharID); ch != nil && (ch.PosX != 0 || ch.PosY != 0 || ch.PosZ != 0) {

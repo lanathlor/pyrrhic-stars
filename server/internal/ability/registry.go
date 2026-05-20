@@ -15,13 +15,21 @@ func registerAbilities(eng *Engine) {
 	eng.Register(&loadEnhancedDef)
 	eng.Register(&magDumpDef)
 
-	// Vanguard
+	// Vanguard — Blade
 	eng.Register(&meleeLightDef)  // Cleave
 	eng.Register(&meleeHeavyDef)  // Upheaval
 	eng.Register(&vgBlockDef)     // Blade Parry
 	eng.Register(&vgBlockStopDef)
 	eng.Register(&bladeSwirlDef)  // Vortex
 	eng.Register(&groundSlamDef)  // Execution
+
+	// Vanguard — Shield
+	eng.Register(&vgShieldBlockDef)
+	eng.Register(&vgShieldBlockStopDef)
+	eng.Register(&shieldBashDef)
+	eng.Register(&bullRushDef)
+	eng.Register(&braceDef)
+	eng.Register(&retaliateDef)
 
 	// Blade Dancer
 	eng.Register(&bdGuardDef)
@@ -41,6 +49,12 @@ func registerHandlers(eng *Engine) {
 	eng.RegisterHandler("vortex", vortexHandler)
 	eng.RegisterHandler("vg_block", vgBlockHandler)
 	eng.RegisterHandler("vg_block_stop", vgBlockStopHandler)
+	eng.RegisterHandler("vg_shield_block", vgShieldBlockHandler)
+	eng.RegisterHandler("vg_shield_block_stop", vgShieldBlockStopHandler)
+	eng.RegisterHandler("shield_bash", shieldBashHandler)
+	eng.RegisterHandler("bull_rush", bullRushHandler)
+	eng.RegisterHandler("brace", braceHandler)
+	eng.RegisterHandler("retaliate", retaliateHandler)
 	eng.RegisterHandler("cleave_vg", cleaveHandler)
 	eng.RegisterHandler("upheaval_vg", upheavalHandler)
 	eng.RegisterHandler("execution_vg", executionVGHandler)
@@ -48,6 +62,7 @@ func registerHandlers(eng *Engine) {
 	eng.RegisterTickHandler("rechamber", rechamberTick)
 	eng.RegisterTickHandler("vortex", vortexTick)
 	eng.RegisterTickHandler("vg_block", vgBlockTick)
+	eng.RegisterTickHandler("vg_shield_block", vgShieldBlockTick)
 	eng.RegisterTickHandler("gunner_assault", gunnerAssaultTick)
 	eng.RegisterTickHandler("bd_flow", bdFlowTick)
 }

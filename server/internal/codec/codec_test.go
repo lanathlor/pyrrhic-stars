@@ -400,6 +400,11 @@ func TestEncodeWorldStateWireFormat(t *testing.T) {
 		}
 	}
 	off += 7
+	// speed_mult (1 byte, 255 = 1.0 for non-blocking player)
+	if buf[off] != 255 {
+		t.Errorf("speed_mult = %d, want 255", buf[off])
+	}
+	off++
 
 	// enemy count
 	if buf[off] != 1 {

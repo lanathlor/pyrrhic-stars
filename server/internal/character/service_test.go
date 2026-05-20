@@ -27,6 +27,7 @@ func (r *stubRepo) GetUser(string) (*persistence.User, error) { return nil, nil 
 func (r *stubRepo) UpdateCharacterPosition(uint, float64, float64, float64, float64) error {
 	return nil
 }
+func (r *stubRepo) UpdateCharacterSpec(uint, string) error                  { return nil }
 func (r *stubRepo) GetCharacters(string) ([]*persistence.Character, error) { return nil, nil }
 
 func (r *stubRepo) GetCharacterByID(id uint) (*persistence.Character, error) {

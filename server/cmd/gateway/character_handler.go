@@ -29,6 +29,7 @@ func (g *gateway) handleCharacterMessage(sess *session.Session, opcode uint16, p
 
 		sess.CharID = char.ID
 		sess.Class = char.ClassName
+		sess.Spec = char.SpecID
 		sess.CharName = char.Name
 		sess.Conn.Send(message.Encode(message.OpCharacterState, 0, codec.EncodeCharacterState(charToCodec(char))))
 

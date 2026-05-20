@@ -36,6 +36,7 @@ func update_animation() -> void:
 			ctrl._visual_state = NetSerializer.VS_DODGE
 			ctrl.character_model.travel_timed("dodge", ctrl.dodge_duration)
 			return
+		# Blade states
 		ctrl.State.CLEAVE:
 			ctrl._visual_state = NetSerializer.VS_VG_LIGHT_1
 			ctrl.character_model.travel_timed("cleave", ctrl.CLEAVE_DURATION)
@@ -71,6 +72,37 @@ func update_animation() -> void:
 		ctrl.State.EXECUTION:
 			ctrl._visual_state = NetSerializer.VS_VG_EXECUTION
 			ctrl.character_model.set_animation_speed(3.0)
+			return
+		# Shield states — reuse Blade animations for Phase 0
+		ctrl.State.SHIELD_BLOCK:
+			ctrl._visual_state = NetSerializer.VS_VG_BLOCK
+			ctrl.character_model.travel("block")
+			return
+		ctrl.State.SHIELD_BASH:
+			ctrl._visual_state = NetSerializer.VS_VG_LIGHT_1
+			ctrl.character_model.travel_timed("cleave", ctrl.SHIELD_BASH_DURATION)
+			return
+		ctrl.State.BULL_RUSH:
+			ctrl._visual_state = NetSerializer.VS_VG_VORTEX
+			ctrl.character_model.travel("run", 2.0)
+			return
+		ctrl.State.BRACE:
+			ctrl._visual_state = NetSerializer.VS_VG_BLOCK
+			ctrl.character_model.travel("block")
+			return
+		ctrl.State.RETALIATE_WINDUP:
+			ctrl._visual_state = NetSerializer.VS_VG_EXECUTION_WINDUP
+			ctrl.character_model.travel_timed(
+				"execution", ctrl.RETALIATE_WINDUP_TIME + ctrl.RETALIATE_HIT_TIME
+			)
+			return
+		ctrl.State.RETALIATE:
+			ctrl._visual_state = NetSerializer.VS_VG_EXECUTION
+			ctrl.character_model.set_animation_speed(3.0)
+			return
+		ctrl.State.GUARD_BREAK:
+			ctrl._visual_state = NetSerializer.VS_VG_STAGGER
+			ctrl.character_model.travel("stagger")
 			return
 		ctrl.State.DEAD:
 			ctrl._visual_state = NetSerializer.VS_DEAD

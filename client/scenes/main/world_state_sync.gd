@@ -30,7 +30,14 @@ func on_world_state(data: Dictionary) -> void:
 		# Spawn remote player if needed
 		if pid != my_id and pid not in entity_mgr.spawned_players:
 			var cls: String = p_data.get("class_name", "gunner")
-			entity_mgr.spawn_player(pid, cls, p_data["pos"])
+			var spec: String = p_data.get("spec_name", "")
+			entity_mgr.spawn_player(pid, cls, p_data["pos"], spec)
+
+		# Sync local spec from server (handles reconnect with persisted spec)
+		if pid == my_id:
+			var server_spec: String = p_data.get("spec_name", "")
+			if server_spec != "" and server_spec != ctrl._local_spec:
+				ctrl._local_spec = server_spec
 
 		if pid not in entity_mgr.spawned_players:
 			continue

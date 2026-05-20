@@ -25,7 +25,7 @@ func _ready() -> void:
 	ctrl = get_parent()
 
 
-func spawn_player(peer_id: int, class_name_str: String, spawn_pos: Vector3) -> void:
+func spawn_player(peer_id: int, class_name_str: String, spawn_pos: Vector3, spec_id: String = "") -> void:
 	if peer_id in spawned_players:
 		return
 	if not CLASS_SCENES.has(class_name_str):
@@ -34,6 +34,9 @@ func spawn_player(peer_id: int, class_name_str: String, spawn_pos: Vector3) -> v
 	var player: CharacterBody3D = scene.instantiate() as CharacterBody3D
 	player.name = "Player_%d" % peer_id
 	player.peer_id = peer_id
+	# Set spec before add_child so _ready() creates the correct combat subsystem
+	if spec_id != "" and "spec_id" in player:
+		player.spec_id = spec_id
 	_players_node.add_child(player)
 	player.add_to_group("players")
 	player.global_position = spawn_pos

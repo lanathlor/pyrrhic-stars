@@ -84,7 +84,7 @@ const SPEC_INFO := {
 		{"id": "shield", "name": "Shield", "role": "Tank", "target": "", "damage": "",
 		 "desc": "Directional block, absorbs for allies.\nMonster Hunter lance — slow, unbreakable.",
 		 "mastery": "Devotion — absorb ally damage, charges your next ability.",
-		 "implemented": false},
+		 "implemented": true},
 		{"id": "shadow", "name": "Shadow", "role": "DPS", "target": "Monotarget", "damage": "Constant",
 		 "desc": "Counters, flanking, sustained stealth pressure.\nSekiro — dodge, punish, repeat.",
 		 "mastery": "Afterimage — dodging an attack grants bonus damage on next hit.",
@@ -804,7 +804,7 @@ func _enter_hub() -> void:
 		if _has_saved_state:
 			spawn_pos = _saved_hub_position
 			_has_saved_state = false
-		entity_mgr.spawn_player(my_id, _local_class, spawn_pos)
+		entity_mgr.spawn_player(my_id, _local_class, spawn_pos, _local_spec)
 		if _saved_hub_rot_y != 0.0:
 			var player: CharacterBody3D = entity_mgr.spawned_players.get(my_id)
 			if player:
@@ -866,6 +866,12 @@ func _on_spec_selected(spec_id: String) -> void:
 		NetworkManager.set_player_spec(spec_id)
 	_spec_panel.set_specs(SPEC_INFO.get(_local_class, []), _local_spec)
 	hub_interact.update_hub_display()
+	# Immediately switch the live player's spec (don't wait for server round-trip).
+	var my_id: int = NetworkManager.get_my_id()
+	if my_id in entity_mgr.spawned_players:
+		var player: CharacterBody3D = entity_mgr.spawned_players[my_id]
+		if is_instance_valid(player) and "spec_id" in player:
+			player._switch_spec(spec_id, true)
 
 
 # =============================================================================
@@ -882,7 +888,8 @@ func _spawn_multiplayer_players() -> void:
 			push_error("[Main] Unknown class: %s" % class_name_str)
 			continue
 		var spawn_pos: Vector3 = PLAYER_SPAWNS[spawn_idx % PLAYER_SPAWNS.size()]
-		entity_mgr.spawn_player(pid, class_name_str, spawn_pos)
+		var spec: String = _local_spec if pid == NetworkManager.get_my_id() else ""
+		entity_mgr.spawn_player(pid, class_name_str, spawn_pos, spec)
 		spawn_idx += 1
 
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
@@ -959,7 +966,7 @@ func _on_zone_transfer(zone_type: int, _new_peer_id: int) -> void:
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		var my_id: int = NetworkManager.get_my_id()
 		if my_id > 0:
-			entity_mgr.spawn_player(my_id, _local_class, LOBBY_SPAWN)
+			entity_mgr.spawn_player(my_id, _local_class, LOBBY_SPAWN, _local_spec)
 	else:
 		env_builder.unload_environment()
 		env_builder.load_environment(HUB_SCENE)

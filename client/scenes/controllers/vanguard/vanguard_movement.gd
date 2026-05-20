@@ -104,6 +104,13 @@ func apply_attack_movement(delta: float) -> void:
 func process_move(delta: float) -> void:
 	var cursor_active := Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED
 
+	if ctrl.spec_id == "shield":
+		_process_move_shield(delta, cursor_active)
+	else:
+		_process_move_blade(delta, cursor_active)
+
+
+func _process_move_blade(delta: float, cursor_active: bool) -> void:
 	# Attack inputs (disabled when cursor is visible)
 	if (
 		not cursor_active
@@ -160,6 +167,74 @@ func process_move(delta: float) -> void:
 		ctrl.combat.start_execution()
 		return
 
+	_apply_movement(delta)
+
+
+func _process_move_shield(delta: float, cursor_active: bool) -> void:
+	# Shield Bash (LMB)
+	if (
+		not cursor_active
+		and Input.is_action_just_pressed("light_attack")
+		and ctrl.stamina >= ctrl.SHIELD_BASH_STAMINA
+	):
+		ctrl.combat.start_shield_bash()
+		return
+
+	# Bull Rush (R)
+	if (
+		Input.is_action_just_pressed("heavy_attack")
+		and ctrl.stamina >= ctrl.BULL_RUSH_STAMINA
+		and ctrl._bull_rush_cooldown <= 0.0
+	):
+		ctrl.combat.start_bull_rush()
+		return
+
+	# Shield Block (RMB)
+	if (
+		not cursor_active
+		and Input.is_action_just_pressed("block")
+		and ctrl._shield_block_cooldown <= 0.0
+		and ctrl.stamina > 0.0
+	):
+		ctrl.combat.start_shield_block()
+		return
+
+	# Jump
+	if Input.is_action_just_pressed("jump") and ctrl.is_on_floor():
+		ctrl.velocity.y = 3.5
+
+	# Dodge
+	if (
+		Input.is_action_just_pressed("dodge")
+		and ctrl.is_on_floor()
+		and ctrl.stamina >= ctrl.dodge_stamina_cost
+	):
+		ctrl.combat.start_dodge()
+		return
+
+	# Brace (F) — only while blocking (server validates, but feels better with client check)
+	if (
+		not cursor_active
+		and Input.is_action_just_pressed("ability_1")
+		and ctrl._brace_cooldown <= 0.0
+		and ctrl.state == ctrl.State.SHIELD_BLOCK
+	):
+		ctrl.combat.start_brace()
+		return
+
+	# Retaliate (T)
+	if (
+		not cursor_active
+		and Input.is_action_just_pressed("ability_2")
+		and ctrl._retaliate_cooldown <= 0.0
+	):
+		ctrl.combat.start_retaliate()
+		return
+
+	_apply_movement(delta)
+
+
+func _apply_movement(delta: float) -> void:
 	# Movement
 	var speed: float = ctrl.sprint_speed if Input.is_action_pressed("sprint") else ctrl.run_speed
 	var wish_dir := get_camera_wish_dir()

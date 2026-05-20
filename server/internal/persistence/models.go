@@ -16,6 +16,7 @@ type Character struct {
 	ID        uint   `gorm:"primaryKey"`
 	UserID    string `gorm:"size:36;index"`
 	ClassName string `gorm:"size:20"`
+	SpecID    string `gorm:"size:20"`
 	Name      string `gorm:"size:20;uniqueIndex"`
 	PosX      float64
 	PosY      float64

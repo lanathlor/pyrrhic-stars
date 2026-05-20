@@ -483,6 +483,7 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 		var pressure_stacks := buf.get_u8() if buf.get_position() < buf.get_size() else 0
 		var enhanced_loaded := buf.get_u8() if buf.get_position() < buf.get_size() else 0
 		var assault_flags := buf.get_u8() if buf.get_position() < buf.get_size() else 0
+		var speed_mult_q := buf.get_u8() if buf.get_position() < buf.get_size() else 255
 		(
 			players
 			. append(
@@ -520,6 +521,7 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 					"enhanced_loaded": enhanced_loaded,
 					"reloading": bool(assault_flags & 0x01),
 					"mag_dump_active": bool(assault_flags & 0x02),
+					"speed_mult": float(speed_mult_q) / 255.0,
 				}
 			)
 		)

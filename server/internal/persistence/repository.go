@@ -14,6 +14,9 @@ type Repository interface {
 	// UpdateCharacterPosition updates position fields by character ID.
 	UpdateCharacterPosition(charID uint, posX, posY, posZ, rotY float64) error
 
+	// UpdateCharacterSpec updates the spec for a character.
+	UpdateCharacterSpec(charID uint, specID string) error
+
 	// GetCharacterByID returns a character by ID, or nil if not found.
 	GetCharacterByID(id uint) (*Character, error)
 

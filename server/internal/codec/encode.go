@@ -23,8 +23,8 @@ func EncodeWorldState(tick uint32, players map[uint16]*entity.Player, enemies []
 // Pass a pooled buffer to avoid per-call allocations in hot paths.
 func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.Player, enemies []*entity.Enemy, projectiles []*entity.Projectile, npcs []*entity.NPC) []byte {
 	// Estimate needed capacity and grow if needed.
-	// Per player: ~50 bytes. Per enemy: ~60 bytes. Per projectile: ~28 bytes.
-	estCap := 512 + len(players)*50 + len(enemies)*60 + len(projectiles)*28
+	// Per player: ~80 bytes. Per enemy: ~60 bytes. Per projectile: ~28 bytes.
+	estCap := 512 + len(players)*80 + len(enemies)*60 + len(projectiles)*28
 	if cap(buf) < estCap {
 		newCap := cap(buf) * 2
 		if newCap < estCap {
@@ -64,14 +64,19 @@ func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.
 		if p.HasBuff("vortex") {
 			flags |= 0x10
 		}
-		if p.HasBuff("guard") || p.HasBuff("vg_parry") || p.HasBuff("vg_block") {
+		if p.HasBuff("guard") || p.HasBuff("vg_parry") || p.HasBuff("vg_block") ||
+			p.HasBuff("vg_shield_parry") || p.HasBuff("vg_shield_block") {
 			flags |= 0x20
 		}
-		// Bits 6-7: class-specific mastery tier (Vanguard=onslaught, BD=flow).
+		// Bits 6-7: class-specific mastery tier (Vanguard=onslaught/devotion, BD=flow).
 		switch p.ClassID {
 		case entity.ClassVanguard:
 			type tiered interface{ Tier() uint8 }
-			if s, ok := p.AbilityState["onslaught"]; ok {
+			masteryKey := "onslaught"
+			if p.SpecID == "shield" {
+				masteryKey = "devotion"
+			}
+			if s, ok := p.AbilityState[masteryKey]; ok {
 				if t, ok := s.(tiered); ok {
 					flags |= (t.Tier() & 0x03) << 6
 				}
@@ -90,12 +95,16 @@ func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.
 		buf = appendF32(buf, p.GetResource("shield"))
 		buf = appendF32(buf, p.GetResource("munitions"))
 		buf = appendF32(buf, p.GetResource("resonance"))
-		// Class-specific mastery stacks (1 byte: VG=onslaught, BD=flow, others=0).
+		// Class-specific mastery stacks (1 byte: VG=onslaught/devotion, BD=flow, others=0).
 		var masteryStacks uint8
 		switch p.ClassID {
 		case entity.ClassVanguard:
 			type stacker interface{ StackCount() int }
-			if s, ok := p.AbilityState["onslaught"]; ok {
+			stackKey := "onslaught"
+			if p.SpecID == "shield" {
+				stackKey = "devotion"
+			}
+			if s, ok := p.AbilityState[stackKey]; ok {
 				if st, ok := s.(stacker); ok {
 					masteryStacks = uint8(min(st.StackCount(), 255))
 				}
@@ -119,6 +128,16 @@ func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.
 			magCur, magMax, stabilityQ, steadinessQ, pressureStacks, enhancedLoaded, assaultFlags = gs.GunnerWireState()
 		}
 		buf = append(buf, magCur, magMax, stabilityQ, steadinessQ, pressureStacks, enhancedLoaded, assaultFlags)
+
+		// Speed multiplier (1 byte, quantized 0-255 → 0.0-1.0).
+		// Derived from active buffs: brace=0, shield_block=0.4, default=1.0.
+		var speedMult float32 = 1.0
+		if p.HasBuff("brace") {
+			speedMult = 0.0
+		} else if p.HasBuff("vg_shield_block") {
+			speedMult = 0.4
+		}
+		buf = append(buf, byte(speedMult*255.0+0.5))
 	}
 
 	buf = append(buf, byte(len(enemies)))

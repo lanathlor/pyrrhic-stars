@@ -27,6 +27,7 @@ type DecodedPlayer struct {
 	OnslaughtStacks      uint8
 	// Gunner Assault state
 	Magazine, MagMax, StabilityQ, SteadinessQ, PressureStacks, EnhancedLoaded, AssaultFlags uint8
+	SpeedMultQ uint8 // quantized 0-255 → 0.0-1.0
 }
 
 // DecodedEnemy holds per-enemy fields from a WorldState frame.
@@ -161,6 +162,12 @@ func DecodeWorldState(buf []byte) (DecodedWorldState, bool) {
 		p.EnhancedLoaded = buf[off+5]
 		p.AssaultFlags = buf[off+6]
 		off += 7
+		// Speed multiplier (1 byte)
+		if off >= len(buf) {
+			return ws, false
+		}
+		p.SpeedMultQ = buf[off]
+		off++
 	}
 
 	// Enemies

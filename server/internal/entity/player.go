@@ -383,6 +383,63 @@ func (p *Player) ApplyDamage(amount float32) float32 {
 		amount = floor
 	}
 
+	// Vanguard parry/block: check BEFORE DR application so parries see the
+	// pre-DR amount (for reflect damage, Devotion generation, stamina drain).
+	preDR := amount
+	parried := false
+
+	// Blade Parry: flag counter-swing pending (builds Onslaught instead of resetting it).
+	if p.ClassID == ClassVanguard && p.SpecID != "shield" && p.HasBuff("vg_parry") {
+		type parrySetter interface{ SetParryPending() }
+		if s, ok := p.AbilityState["vg_block"]; ok {
+			if ps, ok := s.(parrySetter); ok {
+				ps.SetParryPending()
+				parried = true
+			}
+		}
+	}
+
+	// Shield Guard Parry: zero stamina drain, reflect damage pending, bonus Devotion.
+	if p.ClassID == ClassVanguard && p.SpecID == "shield" && p.HasBuff("vg_shield_parry") {
+		type parryReflector interface{ SetParryReflectPending(dmg float32) }
+		if s, ok := p.AbilityState["vg_shield_block"]; ok {
+			if pr, ok := s.(parryReflector); ok {
+				pr.SetParryReflectPending(preDR)
+				// Bonus Devotion from parry (2x rate)
+				type devotionAdder interface{ AddCharges(absorbed, mastery float32) }
+				if d, ok := p.AbilityState["devotion"]; ok {
+					if da, ok := d.(devotionAdder); ok {
+						da.AddCharges(preDR*2.0, p.GearStats.Mastery)
+					}
+				}
+				parried = true
+			}
+		}
+	}
+
+	// Shield Block (non-parry): drain stamina proportional to pre-DR damage, generate Devotion.
+	if p.ClassID == ClassVanguard && p.SpecID == "shield" && p.HasBuff("vg_shield_block") && !parried {
+		drainFraction := float32(0.5) // 50% of incoming damage → stamina drain
+		if p.HasBuff("brace") {
+			drainFraction *= 0.2 // Brace reduces drain to 20% of normal
+		}
+		staminaDrain := preDR * drainFraction * p.TenacityEfficiency()
+		if stamina := p.Resources["stamina"]; stamina != nil {
+			stamina.Current -= staminaDrain
+			if stamina.Current < 0 {
+				stamina.Current = 0
+			}
+			stamina.DelayTimer = stamina.RegenDelay
+		}
+		// Devotion generation from blocked damage
+		type devotionAdder interface{ AddCharges(absorbed, mastery float32) }
+		if d, ok := p.AbilityState["devotion"]; ok {
+			if da, ok := d.(devotionAdder); ok {
+				da.AddCharges(preDR, p.GearStats.Mastery)
+			}
+		}
+	}
+
 	// Apply all damage_reduction buffs
 	amount *= p.DamageReduction()
 	if amount <= 0 {
@@ -397,19 +454,6 @@ func (p *Player) ApplyDamage(amount float32) float32 {
 		}
 		amount -= shield.Current
 		shield.Current = 0
-	}
-
-	// Vanguard Blade Parry: if vg_parry is active, flag counter-swing pending.
-	// The parry counter builds Onslaught instead of resetting it.
-	parried := false
-	if p.ClassID == ClassVanguard && p.HasBuff("vg_parry") {
-		type parrySetter interface{ SetParryPending() }
-		if s, ok := p.AbilityState["vg_block"]; ok {
-			if ps, ok := s.(parrySetter); ok {
-				ps.SetParryPending()
-				parried = true
-			}
-		}
 	}
 
 	p.Health -= amount
@@ -429,7 +473,8 @@ func (p *Player) ApplyDamage(amount float32) float32 {
 	}
 
 	// Vanguard Onslaught: reset stacks on damage taken (unless parried).
-	if p.ClassID == ClassVanguard && !parried {
+	// Shield spec doesn't use Onslaught.
+	if p.ClassID == ClassVanguard && p.SpecID != "shield" && !parried {
 		type resettable interface{ Reset() }
 		if s, ok := p.AbilityState["onslaught"]; ok {
 			if r, ok := s.(resettable); ok {

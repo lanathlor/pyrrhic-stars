@@ -258,6 +258,7 @@ func handleConnection(gw *gateway, w http.ResponseWriter, req *http.Request) {
 		if devChar != nil {
 			sess.CharID = devChar.ID
 			sess.CharName = devChar.Name
+			sess.Spec = devChar.SpecID
 			client.Send(encodeCharacterStateMsg(devChar))
 		}
 
@@ -304,11 +305,25 @@ func handleConnection(gw *gateway, w http.ResponseWriter, req *http.Request) {
 		}
 
 		if message.IsClientInput(opcode) || (gw.devMode && message.IsDebugInput(opcode)) {
-			// Track class selection in gateway session.
-			if opcode == message.OpInteractInput && len(payload) >= 3 && payload[0] == message.InteractClassSelect {
-				nameLen := int(payload[1])
-				if len(payload) >= 2+nameLen {
-					sess.Class = string(payload[2 : 2+nameLen])
+			// Track class/spec selection in gateway session.
+			if opcode == message.OpInteractInput && len(payload) >= 3 {
+				switch payload[0] {
+				case message.InteractClassSelect:
+					nameLen := int(payload[1])
+					if len(payload) >= 2+nameLen {
+						sess.Class = string(payload[2 : 2+nameLen])
+					}
+					sess.Spec = "" // reset spec when class changes
+				case message.InteractSpecSelect:
+					nameLen := int(payload[1])
+					if len(payload) >= 2+nameLen {
+						sess.Spec = string(payload[2 : 2+nameLen])
+						if sess.CharID != 0 {
+							if err := gw.container.Repo.UpdateCharacterSpec(sess.CharID, sess.Spec); err != nil {
+								slog.Error("persist spec", "char_id", sess.CharID, "spec", sess.Spec, "error", err)
+							}
+						}
+					}
 				}
 			}
 			if sess.ZoneID != "" {

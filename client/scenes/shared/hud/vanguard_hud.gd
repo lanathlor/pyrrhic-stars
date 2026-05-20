@@ -10,11 +10,18 @@ const ONSLAUGHT_DIM := Color(0.25, 0.18, 0.12, 0.4)
 const ONSLAUGHT_EMPOWERED := Color(0.82, 0.44, 0.24, 0.95)
 const ONSLAUGHT_MAXIMUM := Color(1.0, 0.35, 0.15, 1.0)
 
+const DEVOTION_DIM := Color(0.15, 0.22, 0.30, 0.4)
+const DEVOTION_EMPOWERED := Color(0.3, 0.6, 0.9, 0.95)
+const DEVOTION_MAXIMUM := Color(0.4, 0.8, 1.0, 1.0)
+
 var _damage_flash_timer: float = 0.0
 var _parry_flash_timer: float = 0.0
 var _hit_marker_timer: float = 0.0
 var _onslaught_tier: int = 0
 var _onslaught_stacks: int = 0
+var _devotion_tier: int = 0
+var _devotion_stacks: int = 0
+var _showing_devotion: bool = false
 
 @onready var damage_overlay: ColorRect = $DamageOverlay
 @onready var lock_on_reticle: Control = $LockOnReticle
@@ -47,7 +54,10 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	_draw_hit_marker()
-	_draw_onslaught()
+	if _showing_devotion:
+		_draw_devotion()
+	else:
+		_draw_onslaught()
 
 
 func _draw_hit_marker() -> void:
@@ -157,8 +167,93 @@ func _draw_onslaught() -> void:
 
 
 func update_onslaught(tier: int, stacks: int) -> void:
+	_showing_devotion = false
 	_onslaught_tier = tier
 	_onslaught_stacks = stacks
+
+
+func update_devotion(tier: int, stacks: int) -> void:
+	_showing_devotion = true
+	_devotion_tier = tier
+	_devotion_stacks = stacks
+
+
+func _draw_devotion() -> void:
+	var font := ThemeDB.fallback_font
+	var center_x := size.x / 2.0
+	var y := size.y - 160.0
+
+	# --- Stack counter ---
+	var count_text := "%d" % _devotion_stacks
+	var count_color: Color
+	if _devotion_tier >= 2:
+		count_color = DEVOTION_MAXIMUM
+		count_color.a = 0.7 + 0.3 * absf(sin(float(Time.get_ticks_msec()) / 300.0))
+	elif _devotion_tier == 1:
+		count_color = DEVOTION_EMPOWERED
+	else:
+		count_color = Color(0.3, 0.45, 0.55, 0.6) if _devotion_stacks > 0 else DEVOTION_DIM
+
+	draw_string(
+		font,
+		Vector2(center_x - 10.0, y + 6.0),
+		count_text,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		20.0,
+		24,
+		count_color
+	)
+
+	# --- Tier label ---
+	var label := "DEVOTION"
+	var label_color := DEVOTION_DIM
+	if _devotion_tier == 1:
+		label_color = DEVOTION_EMPOWERED
+	elif _devotion_tier >= 2:
+		label_color = DEVOTION_MAXIMUM
+		label_color.a = 0.7 + 0.3 * absf(sin(float(Time.get_ticks_msec()) / 300.0))
+	elif _devotion_stacks > 0:
+		label_color = Color(0.3, 0.45, 0.55, 0.6)
+
+	draw_string(
+		font,
+		Vector2(center_x + 14.0, y - 6.0),
+		label,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		90.0,
+		11,
+		label_color
+	)
+
+	# --- Tier pips (3 bars) ---
+	var pip_w := 14.0
+	var pip_h := 3.0
+	var pip_gap := 4.0
+	var total_w := pip_w * 3.0 + pip_gap * 2.0
+	var pip_x := center_x - total_w / 2.0
+	var pip_y := y + 12.0
+
+	for i in 3:
+		var px := pip_x + i * (pip_w + pip_gap)
+		var pip_rect := Rect2(px, pip_y, pip_w, pip_h)
+		var lit: bool
+		if _devotion_tier == 0:
+			lit = false
+		elif _devotion_tier == 1:
+			lit = i < 2
+		else:
+			lit = true
+
+		if lit:
+			var pip_color: Color
+			if _devotion_tier >= 2:
+				pip_color = DEVOTION_MAXIMUM
+				pip_color.a = 0.7 + 0.3 * absf(sin(float(Time.get_ticks_msec()) / 300.0))
+			else:
+				pip_color = DEVOTION_EMPOWERED
+			draw_rect(pip_rect, pip_color)
+		else:
+			draw_rect(pip_rect, DEVOTION_DIM)
 
 
 func update_spells(spells: Array) -> void:
