@@ -13,7 +13,6 @@ Three values define a character's Flux capability:
 - If Afflux per Tick >= spell cost: spell is instant
 - If Afflux per Tick < spell cost: spell requires channeling over multiple ticks. Channeling is visible to all players and interruptible by damage or CC
 - On interruption: half accumulated Flux is lost
-- On Flux overload (exceeding Afflux capacity): instability effects (stat debuffs, internal damage, spell failure)
 
 ## Flux Commitment System
 
