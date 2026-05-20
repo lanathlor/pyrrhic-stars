@@ -17,7 +17,7 @@ Three values define a character's Flux capability:
 
 ## Flux Commitment System
 
-Before entering combat (or at rest areas), Flux-using classes commit percentages of their Flux Reserve and Regeneration to specific schools. Example: an Arcanist might go 60% Givre / 40% Feu.
+Before entering combat (or at rest areas), Flux-using classes commit percentages of their Flux Reserve and Regeneration to specific schools. Example: an Arcanotechnicien might go 60% Givre / 40% Feu.
 
 - Committed percentage determines max Flux available for that school
 - Committed percentage determines regen rate for that school

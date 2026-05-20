@@ -22,7 +22,7 @@ The rhythm stat. Controls how fast or fluidly the class operates.
 | ------------ | ---------- | ------------------------------------------------------- |
 | Gunner       | Action     | Fire rate, ADS speed, weapon swap speed                 |
 | Vanguard     | Recovery   | Parry window duration, dodge i-frame duration, combo input window, recovery frame speed |
-| Arcanist     | Channel    | Cast speed, channel speed                               |
+| Arcanotechnicien | Channel    | Cast speed, channel speed                               |
 | Engineer     | Deploy     | Deployable cooldown reduction, drone reactivation speed |
 | Blade Dancer | Transition | GCD on configuration/position changes                   |
 | Tutelaire    | Pulse      | Aura tick rate, beacon recharge speed                   |
@@ -35,7 +35,7 @@ The class signature stat. Defines the core resource or mechanical identity of th
 | ------------ | ---------- | ------------------------------------------------------------- |
 | Gunner       | Munitions  | Enhanced round reserve size, passive regen rate, enhanced round potency. Standard shots unlimited; enhanced rounds are a finite secondary resource that procs via spec-specific triggers. |
 | Vanguard     | Tenacity   | Maximum stamina pool, stamina cost efficiency on all actions, stamina recovery rate. The core stamina resource stat. |
-| Arcanist     | Flux       | Maximum Flux pool + Flux regen rate                           |
+| Arcanotechnicien | Flux       | Maximum Flux pool + Flux regen rate                           |
 | Engineer     | Grid       | Total grid capacity, grid recharge rate, power efficiency per deployable. Deployables draw from a shared power budget — run more at lower power or fewer at full power. |
 | Blade Dancer | Resonance  | Resonance charge capacity, charge gain per action, charge retention. Dual Blade: scales convergence burst system. Multi Blade: transitions build Resonance, thresholds amplify next transition. |
 | Tutelaire    | Presence   | Aura radius, simultaneous light projection count, aura linger duration (brief persistence in areas you've left). |
@@ -62,7 +62,7 @@ Named per spec. The build-defining stat — its effect changes based on the char
 | Shield | Devotion — absorb a percentage of damage taken by nearby allies. Each absorption charges your next ability's damage.                                           |
 | Shadow | Afterimage — dodging an attack grants bonus damage on next hit. Consecutive dodge→hit chains amplify the bonus. Resets on taking damage or missing the window. |
 
-#### Arcanist
+#### Arcanotechnicien
 
 | Spec       | Mastery Effect                                                                                                                                                                                  |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

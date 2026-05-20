@@ -364,7 +364,7 @@ Threat is one input signal among many. A boss tree might use it, ignore it, or c
 | Gunner       | Pure YAML data            | Skillshots are data-driven projectiles.       |
 | Vanguard     | Pure YAML data            | Melee actions are data-driven effects.        |
 | Blade Dancer | Go actions (existing)     | Already implemented, performance-sensitive.   |
-| Arcanist     | YAML + Go lifecycle hooks | Flux commitment, channeling, evolving spells. |
+| Arcanotechnicien | YAML + Go lifecycle hooks | Flux commitment, channeling, evolving spells. |
 | Engineer     | YAML + spawned entity AI  | Deployables use shared BT leaves.             |
 | Tutelaire    | YAML, minimal Go hooks    | Aura positioning logic.                       |
 
@@ -372,7 +372,7 @@ Threat is one input signal among many. A boss tree might use it, ignore it, or c
 
 ```yaml
 spell: flux_bolt
-class: arcanist
+class: arcanotechnicien
 cast_time: 1.2
 cooldown: 0
 range: 30
@@ -441,9 +441,9 @@ safe_zones:
 
 Patterns can be dynamically modified mid-flight via `ctx.ModifyActivePattern()`. The same pattern engine powers both boss bullet-hell attacks and player spell effects.
 
-### 6.5 Lifecycle Hooks (Arcanist)
+### 6.5 Lifecycle Hooks (Arcanotechnicien)
 
-Arcanist spells with Flux commitment, channeling, or evolving behavior use Go lifecycle hooks (`OnCastStart`, `OnCastComplete`, `OnChannelTick`, `OnHit`, `OnProc`, etc.). Most spells implement zero hooks. The hooks are optional methods on a `SpellController` interface.
+Arcanotechnicien spells with Flux commitment, channeling, or evolving behavior use Go lifecycle hooks (`OnCastStart`, `OnCastComplete`, `OnChannelTick`, `OnHit`, `OnProc`, etc.). Most spells implement zero hooks. The hooks are optional methods on a `SpellController` interface.
 
 ---
 
@@ -569,7 +569,7 @@ patrol:
 | -------- | ------------------------------- | -------------------------------------------------------------------- |
 | **1**    | **BT executor + leaf registry** | Port existing boss from FSM to BT. Highest-leverage change.         |
 | **2**    | **Tier 1 data-driven mobs**     | Express existing mobs as YAML. Prove the system.                     |
-| **3**    | **Pattern engine**              | Bullet-hell patterns for bosses and Arcanist. Core differentiator.   |
+| **3**    | **Pattern engine**              | Bullet-hell patterns for bosses and Arcanotechnicien. Core differentiator.   |
 | **4**    | **TDD scenarios**               | Write tests for existing boss behavior. Build confidence.            |
 | **5**    | **Combat logger**               | Start writing events. Simplest version, no API yet.                  |
 | **6**    | **Fuzz tests + specs**          | Balance testing. Useful once 2+ encounters exist.                    |

@@ -26,7 +26,7 @@ TTRPG source material: https://github.com/lanathlor/rpg
 - [Overview](design/classes/README.md) — 6 classes summary table
 - [Gunner](design/classes/gunner.md) — FPS (Assault / Marksman / Chasseur)
 - [Vanguard](design/classes/vanguard.md) — Souls-like (Blade / Shield / Shadow)
-- [Arcanist](design/classes/arcanist.md) — Tactical caster (Destroyer / Battlemage / Harmonist)
+- [Arcanotechnicien](design/classes/arcanotechnicien.md) — Tactical caster (Destroyer / Battlemage / Harmonist)
 - [Engineer](design/classes/engineer.md) — Deployables (Architect / Pilot / Saboteur)
 - [Blade Dancer](design/classes/blade-dancer.md) — State machine (Single / Multi Blade)
 - [Tutelaire](design/classes/tutelaire.md) — Aura positioning (Guardian / Adjudicator)

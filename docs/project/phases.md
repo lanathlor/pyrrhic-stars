@@ -51,7 +51,7 @@ NOT included: progression, loot, specs, Flux commitment UI, Mythic+.
 
 Deliverables:
 
-- Add Arcanist class (Destroyer spec) with Flux commitment UI
+- Add Arcanotechnicien class (Destroyer spec) with Flux commitment UI
 - Character progression via affinity growth
 - Loot system (drops from bosses and trash)
 - 2 additional dungeons (different themes/kits)

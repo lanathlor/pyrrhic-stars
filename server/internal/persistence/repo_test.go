@@ -151,7 +151,7 @@ func TestGetCharacterByID(t *testing.T) {
 		t.Fatalf("UpsertUser: %v", err)
 	}
 
-	c := &Character{UserID: userID, ClassName: "arcanist", Name: "FindMe"}
+	c := &Character{UserID: userID, ClassName: "arcanotechnicien", Name: "FindMe"}
 	if err := repo.CreateCharacter(c); err != nil {
 		t.Fatalf("CreateCharacter: %v", err)
 	}

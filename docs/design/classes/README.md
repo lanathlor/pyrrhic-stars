@@ -6,7 +6,7 @@
 | ------------------------------- | --------------------------- | ---------- |
 | [Gunner](gunner.md)             | First-Person Shooter        | Minimal    |
 | [Vanguard](vanguard.md)         | Souls-like Action Melee     | Minimal    |
-| [Arcanist](arcanist.md)         | Tactical Flux Channeling    | Primary    |
+| [Arcanotechnicien](arcanotechnicien.md) | Tactical Flux Channeling    | Primary    |
 | [Engineer](engineer.md)         | Deployable Management       | Moderate   |
 | [Blade Dancer](blade-dancer.md) | Positional State Machine    | Moderate   |
 | [Tutelaire](tutelaire.md)       | Aura Positioning and Triage | Heavy      |
@@ -32,7 +32,7 @@ Every DPS spec is positioned on two axes: **monotarget vs AoE** and **burst vs c
 | **Vanguard**     | Blade        | DPS    | AoE    | Burst    | Blade swirl, ground slam, commit-to-cleave     |
 |                  | Shield       | Tank   | —      | —        | Directional block, absorbs for allies          |
 |                  | Shadow       | DPS    | Mono   | Constant | Counters, flanking, sustained stealth pressure |
-| **Arcanist**     | Destroyer    | DPS    | AoE    | Burst    | Massive spells, long channels, huge payoff     |
+| **Arcanotechnicien** | Destroyer    | DPS    | AoE    | Burst    | Massive spells, long channels, huge payoff     |
 |                  | Battlemage   | DPS    | Mono   | Constant | Melee hybrid, weaving strikes with spells      |
 |                  | Harmonist    | Healer | —      | —        | Channeled healing zones and beams              |
 | **Engineer**     | Architect    | DPS    | AoE    | Constant | Turrets, barricades, zone control              |

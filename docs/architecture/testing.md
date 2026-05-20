@@ -54,7 +54,7 @@ func TestHollowSovereign_PunishesStacking(t *testing.T) {
         WithCooldownReady("bullet_hell").
         WithPlayers(
             FakePlayer{Pos: Vec3{20, 0, 20}, Class: "gunner"},
-            FakePlayer{Pos: Vec3{20, 0, 21}, Class: "arcanist"},
+            FakePlayer{Pos: Vec3{20, 0, 21}, Class: "arcanotechnicien"},
             FakePlayer{Pos: Vec3{21, 0, 20}, Class: "vanguard"},
         ).Build()
 

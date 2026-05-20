@@ -115,7 +115,7 @@ Status: **BLOCKED** (waiting on Phase 0 completion)
 
 Status: **BLOCKED** (waiting on Phase 1)
 
--   [ ] Arcanist class (Destroyer spec) with Flux commitment UI
+-   [ ] Arcanotechnicien class (Destroyer spec) with Flux commitment UI
 -   [ ] Character progression (affinity growth)
 -   [ ] Loot system (boss + trash drops)
 -   [ ] 2 additional dungeons (new themes/kits)
