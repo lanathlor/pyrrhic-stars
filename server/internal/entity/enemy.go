@@ -53,6 +53,9 @@ type Enemy struct {
 	// Threat table — tracks which players are engaged (peerID → threat)
 	ThreatTable map[uint16]float32
 
+	// Debuffs — active status effects applied by player abilities
+	Debuffs []ActiveDebuff
+
 	// Patrol — trash mobs patrol between two waypoints
 	PatrolA      Vec3
 	PatrolB      Vec3
@@ -107,6 +110,7 @@ func (e *Enemy) Reset(spawnPos Vec3, initialState ...EnemyState) {
 	e.ChargeHitPlayers = []uint16{}
 	e.ChargeDistance = 0
 	e.ThreatTable = make(map[uint16]float32)
+	e.Debuffs = e.Debuffs[:0]
 }
 
 // ApplyDamage reduces enemy health and checks phase transitions.
@@ -225,6 +229,63 @@ func (e *Enemy) CasterDamageMult() float32 { return 1.0 }
 
 func (e *Enemy) TargetAlive() bool { return e.Alive && e.State != EnemyDead }
 func (e *Enemy) TargetApplyDamage(a float32) float32 {
+	if vuln := e.GetDebuffValue(DebuffVulnerability); vuln > 0 {
+		a *= (1.0 + vuln)
+	}
 	dealt, _ := e.ApplyDamage(a)
 	return dealt
+}
+
+// AddDebuff adds or replaces a debuff by ID.
+func (e *Enemy) AddDebuff(d ActiveDebuff) {
+	for i := range e.Debuffs {
+		if e.Debuffs[i].ID == d.ID {
+			e.Debuffs[i] = d
+			return
+		}
+	}
+	e.Debuffs = append(e.Debuffs, d)
+}
+
+// RemoveDebuff removes a debuff by ID.
+func (e *Enemy) RemoveDebuff(id string) {
+	for i := range e.Debuffs {
+		if e.Debuffs[i].ID == id {
+			e.Debuffs = slices.Delete(e.Debuffs, i, i+1)
+			return
+		}
+	}
+}
+
+// HasDebuff returns true if any active debuff of the given type exists.
+func (e *Enemy) HasDebuff(debuffType string) bool {
+	for i := range e.Debuffs {
+		if e.Debuffs[i].Type == debuffType {
+			return true
+		}
+	}
+	return false
+}
+
+// GetDebuffValue returns the strongest (highest) value for a debuff type, or 0.
+func (e *Enemy) GetDebuffValue(debuffType string) float32 {
+	var best float32
+	for i := range e.Debuffs {
+		if e.Debuffs[i].Type == debuffType && e.Debuffs[i].Value > best {
+			best = e.Debuffs[i].Value
+		}
+	}
+	return best
+}
+
+// TickDebuffs decrements durations and removes expired debuffs.
+func (e *Enemy) TickDebuffs(dt float32) {
+	alive := e.Debuffs[:0]
+	for i := range e.Debuffs {
+		e.Debuffs[i].Duration -= dt
+		if e.Debuffs[i].Duration > 0 {
+			alive = append(alive, e.Debuffs[i])
+		}
+	}
+	e.Debuffs = alive
 }

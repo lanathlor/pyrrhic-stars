@@ -70,7 +70,8 @@ func TestNewEngine_RegistersAllAbilities(t *testing.T) {
 	// Spot-check a few from each class
 	for _, id := range []string{
 		"fire_shot", "overclock", "rechamber", "rechamber_confirm",
-		"melee_light", "melee_heavy", "vg_block", "vg_block_stop", "blade_swirl", "ground_slam",
+		"reload", "load_enhanced", "mag_dump",
+		"cleave", "upheaval", "vg_block", "vg_block_stop", "vortex", "execution",
 		"bd_guard",
 		"shielded_sweep", "cleaving_pierce", "decree_strike", "dodge",
 	} {
@@ -151,7 +152,7 @@ func TestCast_Validation(t *testing.T) {
 				p.Resources["stamina"].Current = 0
 				return p, nil
 			},
-			ability: "ground_slam", // costs 20 stamina
+			ability: "execution", // costs 20 stamina
 			reason:  ReasonInsufficientStamina,
 		},
 	}
@@ -188,9 +189,8 @@ func TestCast_FireShot_HitsEnemy(t *testing.T) {
 	if result.Events[0].TargetID != 100 {
 		t.Errorf("targetID = %d, want 100", result.Events[0].TargetID)
 	}
-	if result.Events[0].Amount != 10 {
-		t.Errorf("damage = %f, want 10", result.Events[0].Amount)
-	}
+	// 10 base + ~0.3 pressure bonus
+	assertDmgNear(t, result.Events[0].Amount, 10.3, "fire_shot damage")
 	if p.Cooldowns["fire_shot"] == 0 {
 		t.Error("fire_shot cooldown not set")
 	}
@@ -229,20 +229,17 @@ func TestCast_FireShot_ObstacleBlocksLOS(t *testing.T) {
 	}
 }
 
-func TestCast_GroundSlam_AoECone(t *testing.T) {
+func TestCast_Execution_AoECone(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard()
-	// Two enemies in front, one behind
+	// Enemy in front, one behind
 	e1 := enemyInFront(100, 200)
-	e2 := enemyInFront(101, 200)
-	e2.Position.X = 2
 	e3 := enemyBehind(102, 200)
 
-	result := eng.Cast("ground_slam", castCtx(p, e1, e2, e3))
+	result := eng.Cast("execution", castCtx(p, e1, e3))
 	if !result.OK {
 		t.Fatalf("cast failed: %s", result.Reason)
 	}
-	// e1 and e2 should be hit, e3 behind should not
 	hitIDs := map[uint16]bool{}
 	for _, ev := range result.Events {
 		hitIDs[ev.TargetID] = true
@@ -250,15 +247,14 @@ func TestCast_GroundSlam_AoECone(t *testing.T) {
 	if !hitIDs[100] {
 		t.Error("e1 in front should be hit")
 	}
-	// e3 behind should not be hit
 	if hitIDs[102] {
 		t.Error("e3 behind should not be hit")
 	}
-	// Stamina should be spent (was 100, cost 20)
-	if p.GetResource("stamina") != 80 {
-		t.Errorf("stamina = %f, want 80", p.GetResource("stamina"))
+	// Stamina spent: 30 (execution cost)
+	if p.GetResource("stamina") != 70 {
+		t.Errorf("stamina = %f, want 70", p.GetResource("stamina"))
 	}
-	// Lockout sets GCDTimer
+	// Standard tier lockout = 1.2
 	if p.GCDTimer != 1.2 {
 		t.Errorf("GCDTimer = %f, want 1.2 (lockout)", p.GCDTimer)
 	}
@@ -299,10 +295,8 @@ func TestCast_DamageMult_Applied(t *testing.T) {
 	if len(result.Events) != 1 {
 		t.Fatal("expected 1 event")
 	}
-	// fire_shot base = 10, * 2.0 buff = 20
-	if result.Events[0].Amount != 20 {
-		t.Errorf("damage = %f, want 20 (10 base * 2.0 buff)", result.Events[0].Amount)
-	}
+	// fire_shot base = 10 * 2.0 buff = 20, + pressure bonus ~0.6
+	assertDmgNear(t, result.Events[0].Amount, 20.6, "2x buff damage")
 }
 
 func TestCast_SetsAttackState(t *testing.T) {
@@ -532,43 +526,44 @@ func TestVGBlock_ParryAndBlock(t *testing.T) {
 	}
 }
 
-func TestMeleeLightVG_Combo(t *testing.T) {
+func TestCleaveVG_Repeatable(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard()
-	e := enemyInFront(100, 1000)
+	e := enemyInFront(100, 1e6)
 
-	damages := make([]float32, 3)
-	for i := range 3 {
-		hpBefore := e.Health
-		p.Cooldowns = make(map[string]float32) // reset cooldown
-		r := eng.Cast("melee_light", castCtx(p, e))
-		if !r.OK {
-			t.Fatalf("combo step %d failed: %s", i, r.Reason)
-		}
-		if len(r.Events) == 1 {
-			damages[i] = r.Events[0].Amount
-		} else {
-			damages[i] = hpBefore - e.Health
-		}
+	// Cast cleave twice — same damage each time, no combo escalation
+	r1 := eng.Cast("cleave", castCtx(p, e))
+	if !r1.OK {
+		t.Fatalf("cleave 1 failed: %s", r1.Reason)
 	}
+	dmg1 := r1.Events[0].Amount
 
-	// Combo: 30, 35, 55
-	expected := [3]float32{30, 35, 55}
-	for i, want := range expected {
-		if damages[i] != want {
-			t.Errorf("combo step %d: damage = %f, want %f", i, damages[i], want)
-		}
+	p.Cooldowns["cleave"] = 0
+	p.GCDTimer = 0
+
+	r2 := eng.Cast("cleave", castCtx(p, e))
+	if !r2.OK {
+		t.Fatalf("cleave 2 failed: %s", r2.Reason)
+	}
+	dmg2 := r2.Events[0].Amount
+
+	// Both hits should deal 30 base (standard tier, 0 onslaught)
+	if dmg1 != 30 {
+		t.Errorf("cleave 1 damage = %f, want 30", dmg1)
+	}
+	if math.Abs(float64(dmg2-dmg1)) > 1 {
+		t.Errorf("cleave 2 damage = %f, should match cleave 1 = %f (no combo)", dmg2, dmg1)
 	}
 }
 
-func TestMeleeHeavyVG(t *testing.T) {
+func TestUpheavalVG(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 500)
 
-	r := eng.Cast("melee_heavy", castCtx(p, e))
+	r := eng.Cast("upheaval", castCtx(p, e))
 	if !r.OK {
-		t.Fatalf("melee_heavy failed: %s", r.Reason)
+		t.Fatalf("upheaval failed: %s", r.Reason)
 	}
 	if p.GetResource("stamina") != 80 {
 		t.Errorf("stamina = %f, want 80 (100 - 20)", p.GetResource("stamina"))
@@ -576,29 +571,31 @@ func TestMeleeHeavyVG(t *testing.T) {
 	if len(r.Events) != 1 {
 		t.Fatalf("events = %d, want 1", len(r.Events))
 	}
-	if r.Events[0].Amount != 45 {
-		t.Errorf("damage = %f, want 45", r.Events[0].Amount)
+	// Standard tier upheaval: 55 base damage
+	if r.Events[0].Amount != 55 {
+		t.Errorf("damage = %f, want 55", r.Events[0].Amount)
 	}
 }
 
-func TestBladeSwirl_Handler(t *testing.T) {
+func TestVortex_Handler(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 1000)
-	e.Position = entity.Vec3{X: 0, Y: 0, Z: -3} // within 6 radius
+	e.Position = entity.Vec3{X: 0, Y: 0, Z: -3} // within 4 radius
 
-	r := eng.Cast("blade_swirl", castCtx(p, e))
+	r := eng.Cast("vortex", castCtx(p, e))
 	if !r.OK {
-		t.Fatalf("blade_swirl failed: %s", r.Reason)
+		t.Fatalf("vortex failed: %s", r.Reason)
 	}
-	if !p.HasBuff("blade_swirl") {
-		t.Error("blade_swirl DR buff not applied")
+	if !p.HasBuff("vortex") {
+		t.Error("vortex DR buff not applied")
 	}
 	if p.GetResource("stamina") != 75 {
 		t.Errorf("stamina = %f, want 75 (100-25)", p.GetResource("stamina"))
 	}
-	if p.GCDTimer != 1.5 {
-		t.Errorf("GCDTimer = %f, want 1.5", p.GCDTimer)
+	// Standard tier: GCD = duration = 0.6s
+	if p.GCDTimer != 0.6 {
+		t.Errorf("GCDTimer = %f, want 0.6", p.GCDTimer)
 	}
 	// Immediate first AoE tick should have hit
 	if len(r.Events) == 0 {
@@ -606,19 +603,19 @@ func TestBladeSwirl_Handler(t *testing.T) {
 	}
 }
 
-func TestBladeSwirl_TickDamage(t *testing.T) {
+func TestVortex_TickDamage(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard()
 	e := enemyInFront(100, 1000)
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -3}
 
-	eng.Cast("blade_swirl", castCtx(p, e))
+	eng.Cast("vortex", castCtx(p, e))
 	hpAfterCast := e.Health
 
-	// Tick 0.5s to trigger second AoE tick
-	events := eng.TickPlayer(p, 0.5, tickCtx(e))
+	// Standard tier: 2 hits, interval = 0.6/2 = 0.3s. Tick past 0.3s.
+	events := eng.TickPlayer(p, 0.35, tickCtx(e))
 	if len(events) == 0 {
-		t.Error("expected AoE tick at 0.5s")
+		t.Error("expected AoE tick at 0.3s")
 	}
 	if e.Health >= hpAfterCast {
 		t.Error("enemy should take tick damage")
@@ -809,7 +806,7 @@ func TestTickPlayer_AttackStatePersistsDuringLockout(t *testing.T) {
 	p := newVanguard()
 	e := enemyInFront(100, 500)
 
-	eng.Cast("ground_slam", castCtx(p, e))
+	eng.Cast("execution", castCtx(p, e))
 	if p.State != entity.PlayerStateAttack {
 		t.Fatal("expected attack state")
 	}
@@ -966,11 +963,15 @@ func BenchmarkCast_FireShot(b *testing.B) {
 	p := newGunner()
 	e := enemyInFront(100, 1e9) // huge HP so it never dies
 	ctx := castCtx(p, e)
+	as := getGunnerAssaultState(p)
 
 	b.ResetTimer()
 	for b.Loop() {
 		clear(p.Cooldowns)
 		p.GCDTimer = 0
+		as.MagCurrent = as.MagMax
+		as.Reloading = false
+		as.MagDumpActive = false
 		eng.Cast("fire_shot", ctx)
 	}
 }
@@ -990,7 +991,7 @@ func BenchmarkCast_GroundSlam(b *testing.B) {
 		clear(p.Cooldowns)
 		p.GCDTimer = 0
 		p.Resources["stamina"].Current = 100
-		eng.Cast("ground_slam", ctx)
+		eng.Cast("execution", ctx)
 	}
 }
 
@@ -1029,8 +1030,8 @@ func BenchmarkTickPlayer_Full(b *testing.B) {
 	tctx := tickCtx(e)
 
 	// Set up realistic state: cooldowns, buffs, resources, a DoT
-	p.Cooldowns["melee_light"] = 0.55
-	p.Cooldowns["blade_swirl"] = 10.0
+	p.Cooldowns["cleave"] = 0.55
+	p.Cooldowns["vortex"] = 10.0
 	p.GCDTimer = 0.3
 	p.AddBuff(entity.ActiveBuff{ID: "test_buff", Type: entity.BuffDamageMult, Value: 1.5, Duration: 5.0})
 	p.Resources["stamina"].Current = 60
@@ -1040,8 +1041,8 @@ func BenchmarkTickPlayer_Full(b *testing.B) {
 	for b.Loop() {
 		// Reset state each iteration to avoid drift — reuse existing slice backing arrays
 		p.Alive = true
-		p.Cooldowns["melee_light"] = 0.55
-		p.Cooldowns["blade_swirl"] = 10.0
+		p.Cooldowns["cleave"] = 0.55
+		p.Cooldowns["vortex"] = 10.0
 		p.GCDTimer = 0.3
 		p.Resources["stamina"].Current = 60
 		p.Buffs = p.Buffs[:0]

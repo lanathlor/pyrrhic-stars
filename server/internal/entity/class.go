@@ -29,14 +29,53 @@ type ResourceTemplate struct {
 	RegenDelay float32 // seconds after spending before regen starts
 }
 
+// SpecDef describes a specialization within a class.
+type SpecDef struct {
+	ID          string
+	Name        string                      // display name: "Assault"
+	Description string                      // short UI blurb
+	Role        string                      // "DPS", "Tank", "Healer"
+	Implemented bool                        // false = coming soon
+	MaxHealth   float32
+	Movement    ClassMovement
+	Resources   map[string]ResourceTemplate
+	Abilities   []string
+	ActionMap   map[uint8]string
+}
+
 // ClassDef describes a playable class: stats, resources, and available abilities.
 type ClassDef struct {
-	ID        string
-	MaxHealth float32
-	Movement  ClassMovement
-	Resources map[string]ResourceTemplate // resource_name -> template
-	Abilities []string                    // available ability IDs
-	ActionMap map[uint8]string            // wire action_id -> ability_id
+	ID          string
+	MaxHealth   float32
+	Movement    ClassMovement
+	Resources   map[string]ResourceTemplate // resource_name -> template
+	Abilities   []string                    // available ability IDs
+	ActionMap   map[uint8]string            // wire action_id -> ability_id
+	Specs       []*SpecDef                  // specializations (first is default)
+	DefaultSpec string                      // default spec ID
+}
+
+// GetSpec returns the spec with the given ID, or nil if not found.
+func (c *ClassDef) GetSpec(id string) *SpecDef {
+	for _, s := range c.Specs {
+		if s.ID == id {
+			return s
+		}
+	}
+	return nil
+}
+
+// FirstSpec returns the default spec (first in the list).
+func (c *ClassDef) FirstSpec() *SpecDef {
+	if len(c.Specs) == 0 {
+		return nil
+	}
+	if c.DefaultSpec != "" {
+		if s := c.GetSpec(c.DefaultSpec); s != nil {
+			return s
+		}
+	}
+	return c.Specs[0]
 }
 
 // Classes is the global class registry.

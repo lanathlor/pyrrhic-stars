@@ -220,4 +220,5 @@ const (
 	InteractClassSelect uint8 = 0
 	InteractReadyToggle uint8 = 1
 	InteractExitPortal  uint8 = 2
+	InteractSpecSelect  uint8 = 3
 )

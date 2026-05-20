@@ -11,14 +11,17 @@ func registerAbilities(eng *Engine) {
 	eng.Register(&overclockDef)
 	eng.Register(&rechamberDef)
 	eng.Register(&rechamberConfirmDef)
+	eng.Register(&reloadDef)
+	eng.Register(&loadEnhancedDef)
+	eng.Register(&magDumpDef)
 
 	// Vanguard
-	eng.Register(&meleeLightDef)
-	eng.Register(&meleeHeavyDef)
-	eng.Register(&vgBlockDef)
+	eng.Register(&meleeLightDef)  // Cleave
+	eng.Register(&meleeHeavyDef)  // Upheaval
+	eng.Register(&vgBlockDef)     // Blade Parry
 	eng.Register(&vgBlockStopDef)
-	eng.Register(&bladeSwirlDef)
-	eng.Register(&groundSlamDef)
+	eng.Register(&bladeSwirlDef)  // Vortex
+	eng.Register(&groundSlamDef)  // Execution
 
 	// Blade Dancer
 	eng.Register(&bdGuardDef)
@@ -31,15 +34,22 @@ func registerHandlers(eng *Engine) {
 	eng.RegisterHandler("rechamber", rechamberHandler)
 	eng.RegisterHandler("rechamber_confirm", rechamberConfirmHandler)
 	eng.RegisterHandler("overclock", overclockHandler)
-	eng.RegisterHandler("blade_swirl", bladeSwirlHandler)
+	eng.RegisterHandler("fire_shot_assault", fireShotAssaultHandler)
+	eng.RegisterHandler("reload_assault", reloadAssaultHandler)
+	eng.RegisterHandler("load_enhanced_assault", loadEnhancedHandler)
+	eng.RegisterHandler("mag_dump_assault", magDumpHandler)
+	eng.RegisterHandler("vortex", vortexHandler)
 	eng.RegisterHandler("vg_block", vgBlockHandler)
 	eng.RegisterHandler("vg_block_stop", vgBlockStopHandler)
-	eng.RegisterHandler("melee_light_vg", meleeLightVGHandler)
-	eng.RegisterHandler("melee_heavy_vg", meleeHeavyVGHandler)
+	eng.RegisterHandler("cleave_vg", cleaveHandler)
+	eng.RegisterHandler("upheaval_vg", upheavalHandler)
+	eng.RegisterHandler("execution_vg", executionVGHandler)
 
 	eng.RegisterTickHandler("rechamber", rechamberTick)
-	eng.RegisterTickHandler("blade_swirl", bladeSwirlTick)
+	eng.RegisterTickHandler("vortex", vortexTick)
 	eng.RegisterTickHandler("vg_block", vgBlockTick)
+	eng.RegisterTickHandler("gunner_assault", gunnerAssaultTick)
+	eng.RegisterTickHandler("bd_flow", bdFlowTick)
 }
 
 // ApplyThreat adds threat for all damage results to any Threateable target.

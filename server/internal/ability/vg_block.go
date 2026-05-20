@@ -1,6 +1,9 @@
 package ability
 
-import "codex-online/server/internal/entity"
+import (
+	"codex-online/server/internal/combat"
+	"codex-online/server/internal/entity"
+)
 
 // Block constants
 const (
@@ -10,10 +13,14 @@ const (
 	blockDecayTime   float32 = 1.5  // seconds to reach full decay
 	blockCooldown    float32 = 3.0  // cooldown after block ends
 	blockParryTime   float32 = 0.15 // perfect-block parry window
+
+	parryCounterDamage float32 = 40.0 // damage dealt by parry counter-swing
+	parryCounterArc    float32 = 120.0
+	parryCounterRange  float32 = 6.0
 )
 
 var vgBlockDef = AbilityDef{
-	ID: "vg_block", Name: "Block",
+	ID: "vg_block", Name: "Blade Parry",
 	Handler: "vg_block",
 }
 
@@ -24,8 +31,14 @@ var vgBlockStopDef = AbilityDef{
 
 // VgBlockState tracks sustained block for the tick handler.
 type VgBlockState struct {
-	Active  bool
-	Elapsed float32
+	Active              bool
+	Elapsed             float32
+	ParryCounterPending bool // set when parry absorbs a hit — resolved on next tick
+}
+
+// SetParryPending marks a counter-swing as pending (called from player.ApplyDamage).
+func (s *VgBlockState) SetParryPending() {
+	s.ParryCounterPending = true
 }
 
 func vgBlockHandler(_ *Engine, ctx *CastContext) CastResult {
@@ -46,6 +59,7 @@ func vgBlockHandler(_ *Engine, ctx *CastContext) CastResult {
 
 	state.Active = true
 	state.Elapsed = 0
+	state.ParryCounterPending = false
 
 	p.AddBuff(entity.ActiveBuff{
 		ID:       "vg_parry",
@@ -81,6 +95,7 @@ func EndVgBlock(p *entity.Player) {
 	}
 	state.Active = false
 	state.Elapsed = 0
+	state.ParryCounterPending = false
 	p.RemoveBuff("vg_block")
 	p.RemoveBuff("vg_parry")
 	p.Cooldowns["vg_block"] = blockCooldown
@@ -89,24 +104,47 @@ func EndVgBlock(p *entity.Player) {
 	}
 }
 
-func vgBlockTick(_ *Engine, p *entity.Player, dt float32, _ *TickContext) []DamageResult {
+func vgBlockTick(eng *Engine, p *entity.Player, dt float32, ctx *TickContext) []DamageResult {
 	state := getVgBlockState(p)
 	if !state.Active {
 		return nil
+	}
+
+	var events []DamageResult
+
+	// Blade Parry counter-swing: resolve pending parry hit
+	if state.ParryCounterPending && ctx != nil {
+		state.ParryCounterPending = false
+		damage := parryCounterDamage * p.CasterDamageMult()
+		hit := HitDef{Type: HitMeleeArc, Range: parryCounterRange, ArcDegrees: parryCounterArc}
+		eng.hitBuf = resolveMeleeArc(eng.hitBuf[:0], p, ctx.Targets, ctx.Obstacles, hit, damage, combat.SourcePlayerAttack)
+
+		// Parry counter-swing builds Onslaught stacks
+		if len(eng.hitBuf) > 0 {
+			ons := getOnslaughtState(p)
+			ons.Increment(len(eng.hitBuf))
+		}
+
+		for i := range eng.hitBuf {
+			if th, ok := eng.hitBuf[i].Target.(entity.Threateable); ok {
+				th.AddThreat(p.ID, eng.hitBuf[i].Amount)
+			}
+		}
+		events = append(events, eng.hitBuf...)
 	}
 
 	// Drain stamina
 	stamina := p.Resources["stamina"]
 	if stamina == nil || stamina.Current <= 0 {
 		EndVgBlock(p)
-		return nil
+		return events
 	}
 	stamina.Current -= blockDrainPerSec * dt * p.TenacityEfficiency()
 	stamina.DelayTimer = stamina.RegenDelay
 	if stamina.Current <= 0 {
 		stamina.Current = 0
 		EndVgBlock(p)
-		return nil
+		return events
 	}
 
 	// Advance elapsed and decay DR
@@ -119,7 +157,7 @@ func vgBlockTick(_ *Engine, p *entity.Player, dt float32, _ *TickContext) []Dama
 		b.Value = v
 	}
 
-	return nil
+	return events
 }
 
 func getVgBlockState(p *entity.Player) *VgBlockState {

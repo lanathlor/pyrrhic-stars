@@ -79,30 +79,30 @@ func vanguardTree() *bt.Tree {
 		bt.NewSequence(
 			bt.NewCondition(condHasReactedQuick),
 			bt.NewCondition(condInMeleeDanger),
-			bt.NewAction(withCast(actionStrafeMeleeCone, "melee_light")),
+			bt.NewAction(withCast(actionStrafeMeleeCone, "cleave")),
 		),
 		// AoE: flee radius while attacking
 		bt.NewSequence(
 			bt.NewCondition(condHasReactedQuick),
 			bt.NewCondition(condInAoEDanger),
-			bt.NewAction(withCast(actionFleeAoE, "melee_light")),
+			bt.NewAction(withCast(actionFleeAoE, "cleave")),
 		),
 		// Charge: strafe out of path while attacking
 		bt.NewSequence(
 			bt.NewCondition(condHasReactedQuick),
 			bt.NewCondition(condInChargePath),
-			bt.NewAction(withCast(actionStrafeCharge, "melee_light")),
+			bt.NewAction(withCast(actionStrafeCharge, "cleave")),
 		),
 		// Ranged telegraph: strafe while attacking
 		bt.NewSequence(
 			bt.NewCondition(condHasReactedQuick),
 			bt.NewCondition(condTargetedByRanged),
-			bt.NewAction(withCast(actionStrafeRanged, "melee_light")),
+			bt.NewAction(withCast(actionStrafeRanged, "cleave")),
 		),
 		// Projectile dodge: sidestep while attacking (immediate, no reaction gate)
 		bt.NewSequence(
 			bt.NewCondition(condProjectileIncoming),
-			bt.NewAction(withCast(actionSidestepProjectile, "melee_light")),
+			bt.NewAction(withCast(actionSidestepProjectile, "cleave")),
 		),
 		// Positioning: get into melee range
 		bt.NewSequence(
@@ -111,19 +111,19 @@ func vanguardTree() *bt.Tree {
 		),
 		// Rotation: big cooldowns first
 		bt.NewSequence(
-			bt.NewCondition(canCastAbility("blade_swirl")),
-			bt.NewAction(castAbilityAction("blade_swirl")),
+			bt.NewCondition(canCastAbility("vortex")),
+			bt.NewAction(castAbilityAction("vortex")),
 		),
 		bt.NewSequence(
-			bt.NewCondition(canCastAbility("ground_slam")),
-			bt.NewAction(castAbilityAction("ground_slam")),
+			bt.NewCondition(canCastAbility("execution")),
+			bt.NewAction(castAbilityAction("execution")),
 		),
 		bt.NewSequence(
-			bt.NewCondition(canCastAbility("melee_heavy")),
-			bt.NewAction(castAbilityAction("melee_heavy")),
+			bt.NewCondition(canCastAbility("upheaval")),
+			bt.NewAction(castAbilityAction("upheaval")),
 		),
 		// Filler: light combo
-		bt.NewAction(castAbilityAction("melee_light")),
+		bt.NewAction(castAbilityAction("cleave")),
 	))
 }
 

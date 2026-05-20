@@ -66,6 +66,12 @@ Across a full 6-piece kit (18 stat lines):
 
 The 6 flex lines are where gearing gets interesting. A player can stack one stat, spread evenly, or target specific breakpoints.
 
+## Spec Swapping and Gear
+
+All 6 gear pieces are universal within a class. Changing spec does not require changing equipment. Stats remain identical — Mastery already morphs its effect per spec (e.g., Vanguard Mastery applies as Onslaught in Blade, Devotion in Shield, Afterimage in Shadow).
+
+Weapons visually adapt to the active spec (Vanguard greatsword becomes a tower shield or twin daggers, Gunner rifle becomes a sniper or tactical kit) but remain a single item. No separate farming, no ilvl mismatches, no inventory bloat.
+
 ## Open Design Questions
 
 -   **Engineer/Pilot drone stat budget**: does the drone inherit only from Pilot's Mastery + Grid, or from the full kit? Affects how Pilot gear differs from Architect.

@@ -132,8 +132,9 @@ func TestPlayerDamageEventsSurviveTick(t *testing.T) {
 
 			if targetPeer >= 1000 && sourcePeer == peerID && sourceType == 0 {
 				foundDamageEvent = true
-				if amount != 10.0 {
-					t.Errorf("damage amount = %f, want 10.0", amount)
+				// Pressure system adds a small bonus on first hit (~0.3)
+				if amount < 10.0 || amount > 11.0 {
+					t.Errorf("damage amount = %f, want ~10.3", amount)
 				}
 				t.Logf("DamageEvent OK: target=%d source=%d amount=%.1f", targetPeer, sourcePeer, amount)
 			}
@@ -694,6 +695,13 @@ func extractPlayerState(msg []byte, wantPeer uint16) int {
 		classLen := int(payload[off])
 		off++ // class_len
 		off += classLen
+		// spec:str8
+		if off >= len(payload) {
+			return -1
+		}
+		specLen := int(payload[off])
+		off++ // spec_len
+		off += specLen
 		// name:str8
 		if off >= len(payload) {
 			return -1
@@ -710,6 +718,8 @@ func extractPlayerState(msg []byte, wantPeer uint16) int {
 		off += 4 // bdShieldHP
 		off += 4 // munitions
 		off += 4 // resonance
+		off++    // onslaught_stacks
+		off += 7 // gunner assault state
 		if peerID == wantPeer {
 			return state
 		}

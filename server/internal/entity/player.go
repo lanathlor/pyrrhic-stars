@@ -74,8 +74,9 @@ type Player struct {
 	Combatant
 	Username   string    // display name
 	ClassID    string    // "gunner", "vanguard", "blade_dancer"
+	SpecID     string    // "assault", "blade", "multi_blade", etc.
 	GearStats  GearStats // aggregated stat bonuses from equipped gear
-	BaseHealth float32   // class base HP (from ClassDef, before gear)
+	BaseHealth float32   // spec base HP (from SpecDef, before gear)
 
 	// Spatial (player-specific)
 	AimPitch float32 // for gunner hitscan
@@ -126,12 +127,41 @@ type Player struct {
 	Ready bool
 }
 
-// NewPlayer creates a player with class defaults.
+// NewPlayer creates a player with class defaults (default spec).
 func NewPlayer(peerID uint16, className string) *Player {
 	classDef, ok := Classes[className]
 	if !ok {
 		classDef = Classes[ClassGunner]
 		className = ClassGunner
+	}
+	return NewPlayerWithSpec(peerID, className, classDef.DefaultSpec)
+}
+
+// NewPlayerWithSpec creates a player with a specific specialization.
+func NewPlayerWithSpec(peerID uint16, className, specID string) *Player {
+	classDef, ok := Classes[className]
+	if !ok {
+		classDef = Classes[ClassGunner]
+		className = ClassGunner
+	}
+
+	spec := classDef.GetSpec(specID)
+	if spec == nil {
+		spec = classDef.FirstSpec()
+	}
+
+	// Fall back to ClassDef root values if spec has no data (should not happen).
+	maxHealth := spec.MaxHealth
+	resources := spec.Resources
+	actionMap := spec.ActionMap
+	if maxHealth == 0 {
+		maxHealth = classDef.MaxHealth
+	}
+	if resources == nil {
+		resources = classDef.Resources
+	}
+	if actionMap == nil {
+		actionMap = classDef.ActionMap
 	}
 
 	p := &Player{
@@ -140,15 +170,16 @@ func NewPlayer(peerID uint16, className string) *Player {
 			Alive: true,
 		},
 		ClassID:      className,
-		BaseHealth:   classDef.MaxHealth,
+		SpecID:       spec.ID,
+		BaseHealth:   maxHealth,
 		OnGround:     true,
-		Resources:    make(map[string]*Resource, len(classDef.Resources)),
+		Resources:    make(map[string]*Resource, len(resources)),
 		Cooldowns:    make(map[string]float32),
-		ActionMap:    classDef.ActionMap,
+		ActionMap:    actionMap,
 		AbilityState: make(map[string]any),
 	}
 
-	for name, tmpl := range classDef.Resources {
+	for name, tmpl := range resources {
 		p.Resources[name] = &Resource{
 			Current:    tmpl.Initial,
 			Max:        tmpl.Max,
@@ -169,6 +200,18 @@ func NewPlayerNoPTR(peerID uint16, className string) Player {
 	return *p
 }
 
+// specResources returns the resource templates for the player's active spec,
+// falling back to the class-level resources.
+func (p *Player) specResources() map[string]ResourceTemplate {
+	if cd, ok := Classes[p.ClassID]; ok {
+		if s := cd.GetSpec(p.SpecID); s != nil && s.Resources != nil {
+			return s.Resources
+		}
+		return cd.Resources
+	}
+	return nil
+}
+
 // RecalcStats recomputes derived stats from GearStats.
 // Must be called whenever equipment changes.
 func (p *Player) RecalcStats() {
@@ -177,23 +220,24 @@ func (p *Player) RecalcStats() {
 		p.Health = p.MaxHealth
 	}
 
+	res := p.specResources()
 	identity := p.GearStats.Identity
 	switch p.ClassID {
 	case ClassVanguard:
 		if r := p.Resources["stamina"]; r != nil {
-			tmpl := Classes[ClassVanguard].Resources["stamina"]
+			tmpl := res["stamina"]
 			r.Max = tmpl.Max + identity
 			r.Regen = tmpl.Regen * (1.0 + identity/100.0)
 		}
 	case ClassGunner:
 		if r := p.Resources["munitions"]; r != nil {
-			tmpl := Classes[ClassGunner].Resources["munitions"]
+			tmpl := res["munitions"]
 			r.Max = tmpl.Max + identity*0.1
 			r.Regen = tmpl.Regen * (1.0 + identity/100.0)
 		}
 	case ClassBladeDancer:
 		if r := p.Resources["resonance"]; r != nil {
-			tmpl := Classes[ClassBladeDancer].Resources["resonance"]
+			tmpl := res["resonance"]
 			r.Max = tmpl.Max + identity
 			r.Regen = tmpl.Regen * (1.0 / (1.0 + identity/100.0))
 		}
@@ -212,9 +256,15 @@ func (p *Player) TenacityEfficiency() float32 {
 // ClassName returns the class identifier.
 func (p *Player) ClassName() string { return p.ClassID }
 
-// Movement returns the class movement stats.
+// SpecName returns the spec identifier.
+func (p *Player) SpecName() string { return p.SpecID }
+
+// Movement returns the spec movement stats.
 func (p *Player) Movement() ClassMovement {
 	if cd, ok := Classes[p.ClassID]; ok {
+		if s := cd.GetSpec(p.SpecID); s != nil {
+			return s.Movement
+		}
 		return cd.Movement
 	}
 	return Classes[ClassGunner].Movement
@@ -349,12 +399,45 @@ func (p *Player) ApplyDamage(amount float32) float32 {
 		shield.Current = 0
 	}
 
+	// Vanguard Blade Parry: if vg_parry is active, flag counter-swing pending.
+	// The parry counter builds Onslaught instead of resetting it.
+	parried := false
+	if p.ClassID == ClassVanguard && p.HasBuff("vg_parry") {
+		type parrySetter interface{ SetParryPending() }
+		if s, ok := p.AbilityState["vg_block"]; ok {
+			if ps, ok := s.(parrySetter); ok {
+				ps.SetParryPending()
+				parried = true
+			}
+		}
+	}
+
 	p.Health -= amount
 	if p.Health <= 0 {
 		p.Health = 0
 		p.State = PlayerStateDead
 		p.Alive = false
+		// BD Flow: reset chain on death.
+		if p.ClassID == ClassBladeDancer {
+			type resettable interface{ Reset() }
+			if s, ok := p.AbilityState["flow"]; ok {
+				if r, ok := s.(resettable); ok {
+					r.Reset()
+				}
+			}
+		}
 	}
+
+	// Vanguard Onslaught: reset stacks on damage taken (unless parried).
+	if p.ClassID == ClassVanguard && !parried {
+		type resettable interface{ Reset() }
+		if s, ok := p.AbilityState["onslaught"]; ok {
+			if r, ok := s.(resettable); ok {
+				r.Reset()
+			}
+		}
+	}
+
 	return amount
 }
 

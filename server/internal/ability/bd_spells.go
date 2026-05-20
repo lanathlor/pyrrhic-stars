@@ -22,34 +22,39 @@ func bdTransitionSpells() []*AbilityDef {
 		dotDamage   float32
 		dotDuration float32
 		dotInterval float32
+
+		debuffID       string
+		debuffType     string
+		debuffValue    float32
+		debuffDuration float32
 	}
 
 	spells := []bdSpell{
 		// From Orbit (Defense)
-		{"shielded_sweep", "Shielded Sweep", 0, 1, HitAoECircle, 8, 4, 0, 0, 0.85, 2.0, 0, 0, 0},
-		{"guarded_thrust", "Guarded Thrust", 0, 2, HitHitscan, 25, 0, 0, 8, 0, 0, 0, 0, 0},
-		{"protected_scatter", "Protected Scatter", 0, 3, HitNearestN, 5, 0, 3, 0, 0.9, 1.5, 1.5, 12, 1},
-		{"fortified_command", "Fortified Command", 0, 4, HitAoECircleTarget, 5, 5, 0, 0, 0.8, 2.0, 0, 0, 0},
+		{"shielded_sweep", "Shielded Sweep", 0, 1, HitAoECircle, 8, 4, 0, 0, 0.85, 2.0, 0, 0, 0, "", "", 0, 0},
+		{"guarded_thrust", "Guarded Thrust", 0, 2, HitHitscan, 25, 0, 0, 8, 0, 0, 0, 0, 0, "", "", 0, 0},
+		{"protected_scatter", "Protected Scatter", 0, 3, HitNearestN, 5, 0, 3, 0, 0.9, 1.5, 1.5, 12, 1, "", "", 0, 0},
+		{"fortified_command", "Fortified Command", 0, 4, HitAoECircleTarget, 5, 5, 0, 0, 0.8, 2.0, 0, 0, 0, "bd_slow", entity.DebuffSlow, 0.3, 2.0},
 		// From Fan (AoE Damage)
-		{"reaping_guard", "Reaping Guard", 1, 0, HitAoECircle, 8, 3, 0, 12, 0, 0, 0, 0, 0},
-		{"cleaving_pierce", "Cleaving Pierce", 1, 2, HitHitscan, 30, 0, 0, 0, 0, 0, 0, 0, 0},
-		{"slashing_spread", "Slashing Spread", 1, 3, HitAoECircleTarget, 8, 5, 0, 0, 0, 0, 1.5, 10, 1},
-		{"sweeping_hex", "Sweeping Hex", 1, 4, HitAoECircleTarget, 10, 5, 0, 0, 0, 0, 0, 0, 0},
+		{"reaping_guard", "Reaping Guard", 1, 0, HitAoECircle, 8, 3, 0, 12, 0, 0, 0, 0, 0, "", "", 0, 0},
+		{"cleaving_pierce", "Cleaving Pierce", 1, 2, HitHitscan, 30, 0, 0, 0, 0, 0, 0, 0, 0, "", "", 0, 0},
+		{"slashing_spread", "Slashing Spread", 1, 3, HitAoECircleTarget, 8, 5, 0, 0, 0, 0, 1.5, 10, 1, "", "", 0, 0},
+		{"sweeping_hex", "Sweeping Hex", 1, 4, HitAoECircleTarget, 10, 5, 0, 0, 0, 0, 0, 0, 0, "bd_vuln", entity.DebuffVulnerability, 0.2, 3.0},
 		// From Lance (Single-target Damage)
-		{"piercing_barrier", "Piercing Barrier", 2, 0, HitHitscan, 18, 0, 0, 15, 0, 0, 0, 0, 0},
-		{"focused_slash", "Focused Slash", 2, 1, HitAoECircleTarget, 15, 4, 0, 0, 0, 0, 0, 0, 0},
-		{"targeted_spread", "Targeted Spread", 2, 3, HitHitscan, 12, 0, 0, 0, 0, 0, 2.0, 15, 1},
-		{"pinning_strike", "Pinning Strike", 2, 4, HitHitscan, 25, 0, 0, 0, 0, 0, 0, 0, 0},
+		{"piercing_barrier", "Piercing Barrier", 2, 0, HitHitscan, 18, 0, 0, 0, 0, 0, 0, 0, 0, "", "", 0, 0},
+		{"focused_slash", "Focused Slash", 2, 1, HitAoECircleTarget, 15, 4, 0, 0, 0, 0, 0, 0, 0, "", "", 0, 0},
+		{"targeted_spread", "Targeted Spread", 2, 3, HitHitscan, 12, 0, 0, 0, 0, 0, 2.0, 15, 1, "", "", 0, 0},
+		{"pinning_strike", "Pinning Strike", 2, 4, HitHitscan, 25, 0, 0, 0, 0, 0, 0, 0, 0, "bd_root", entity.DebuffRoot, 1.0, 1.5},
 		// From Scatter (Multi-target DoT)
-		{"dispersed_shield", "Dispersed Shield", 3, 0, HitNone, 0, 0, 0, 18, 0.85, 2.0, 0, 0, 0},
-		{"rain_of_blades", "Rain of Blades", 3, 1, HitAoECircleTarget, 15, 5, 0, 0, 0, 0, 1.0, 10, 1},
-		{"converging_strike", "Converging Strike", 3, 2, HitHitscan, 32, 0, 0, 0, 0, 0, 1.5, 10, 1},
-		{"chaos_bind", "Chaos Bind", 3, 4, HitNearestN, 8, 0, 4, 0, 0, 0, 0, 0, 0},
+		{"dispersed_shield", "Dispersed Shield", 3, 0, HitNone, 0, 0, 0, 18, 0.85, 2.0, 0, 0, 0, "", "", 0, 0},
+		{"rain_of_blades", "Rain of Blades", 3, 1, HitAoECircleTarget, 15, 5, 0, 0, 0, 0, 1.0, 10, 1, "", "", 0, 0},
+		{"converging_strike", "Converging Strike", 3, 2, HitHitscan, 32, 0, 0, 0, 0, 0, 1.5, 10, 1, "", "", 0, 0},
+		{"chaos_bind", "Chaos Bind", 3, 4, HitNearestN, 8, 0, 4, 0, 0, 0, 0, 0, 0, "bd_snare", entity.DebuffSlow, 0.4, 1.5},
 		// From Crown (Utility/Control)
-		{"commanding_ward", "Commanding Ward", 4, 0, HitNone, 0, 0, 0, 20, 0, 0, 0, 0, 0},
-		{"royal_cleave", "Royal Cleave", 4, 1, HitAoECircle, 12, 5, 0, 0, 0, 0, 0, 0, 0},
-		{"decree_strike", "Decree Strike", 4, 2, HitHitscan, 28, 0, 0, 0, 0, 0, 0, 0, 0},
-		{"sovereign_scatter", "Sovereign Scatter", 4, 3, HitNearestN, 5, 0, 3, 0, 0, 0, 1.5, 12, 1},
+		{"commanding_ward", "Commanding Ward", 4, 0, HitNone, 0, 0, 0, 20, 0, 0, 0, 0, 0, "", "", 0, 0},
+		{"royal_cleave", "Royal Cleave", 4, 1, HitAoECircle, 12, 5, 0, 0, 0, 0, 0, 0, 0, "bd_slow_rc", entity.DebuffSlow, 0.25, 1.5},
+		{"decree_strike", "Decree Strike", 4, 2, HitHitscan, 28, 0, 0, 0, 0, 0, 0, 0, 0, "bd_vuln_ds", entity.DebuffVulnerability, 0.15, 4.0},
+		{"sovereign_scatter", "Sovereign Scatter", 4, 3, HitNearestN, 5, 0, 3, 0, 0, 0, 1.5, 12, 1, "bd_slow_ss", entity.DebuffSlow, 0.3, 2.0},
 	}
 
 	result := make([]*AbilityDef, 0, len(spells))
@@ -87,7 +92,56 @@ func bdTransitionSpells() []*AbilityDef {
 			})
 		}
 
+		if s.debuffType != "" {
+			def.TargetDebuffs = append(def.TargetDebuffs, DebuffEffect{
+				ID:       s.debuffID,
+				Type:     s.debuffType,
+				Value:    s.debuffValue,
+				Duration: s.debuffDuration,
+			})
+		}
+
 		result = append(result, def)
 	}
+
+	// Post-loop fixups for special mechanics that don't fit the table pattern.
+
+	for _, def := range result {
+		switch def.ID {
+		case "cleaving_pierce":
+			// Splash: adjacent enemies take minor splash damage
+			def.SplashRadius = 3.0
+			def.SplashDamageFraction = 0.3
+
+		case "piercing_barrier":
+			// Shield scales with damage dealt (replaces flat grant)
+			def.ShieldGrant = 0
+			def.ShieldScalesWithDamage = true
+			def.ShieldPerDamage = 0.8
+
+		case "commanding_ward":
+			// Cleanse one debuff from caster (stub — players can't receive debuffs yet)
+			def.Cleanse = 1
+
+		case "fortified_command":
+			// CC immunity self-buff (stub — enemies can't CC players yet)
+			def.SelfBuffs = append(def.SelfBuffs, BuffEffect{
+				ID:       "bd_cc_immune",
+				Type:     entity.BuffCCImmunity,
+				Value:    1.0,
+				Duration: 2.0,
+			})
+
+		case "dispersed_shield":
+			// Thorns self-buff (stub — no reverse-damage path yet)
+			def.SelfBuffs = append(def.SelfBuffs, BuffEffect{
+				ID:       "bd_thorns",
+				Type:     entity.BuffThorns,
+				Value:    5.0,
+				Duration: 3.0,
+			})
+		}
+	}
+
 	return result
 }

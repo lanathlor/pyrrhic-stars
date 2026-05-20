@@ -505,6 +505,11 @@ func decodeWorldState(data []byte) (*WorldState, error) {
 		p.ClassName = string(data[off : off+classLen])
 		off += classLen
 
+		// spec name (str8)
+		specLen := int(data[off])
+		off++
+		off += specLen
+
 		// username (str8)
 		nameLen := int(data[off])
 		off++
@@ -522,6 +527,8 @@ func decodeWorldState(data []byte) (*WorldState, error) {
 		off += 4 // BD shield HP
 		off += 4 // munitions
 		off += 4 // resonance
+		off++    // onslaught_stacks
+		off += 7 // gunner assault state
 
 		ws.Players = append(ws.Players, p)
 	}

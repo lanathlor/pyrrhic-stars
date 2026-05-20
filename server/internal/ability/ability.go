@@ -84,6 +84,14 @@ type DoTEffect struct {
 	Interval float32 `yaml:"interval"`
 }
 
+// DebuffEffect describes a debuff applied to hit enemy targets on cast.
+type DebuffEffect struct {
+	ID       string  `yaml:"id"`
+	Type     string  `yaml:"type"`     // entity.DebuffSlow, DebuffRoot, DebuffVulnerability
+	Value    float32 `yaml:"value"`    // magnitude (e.g. 0.3 for 30% slow)
+	Duration float32 `yaml:"duration"` // seconds
+}
+
 // AbilityDef describes a single ability.
 type AbilityDef struct {
 	ID   string `yaml:"id"`
@@ -107,7 +115,19 @@ type AbilityDef struct {
 	ShieldGrant float32      `yaml:"shield_grant"` // added to "shield" resource
 
 	// Target effects
-	TargetDoTs []DoTEffect `yaml:"target_dots"`
+	TargetDoTs    []DoTEffect    `yaml:"target_dots"`
+	TargetDebuffs []DebuffEffect `yaml:"target_debuffs"`
+
+	// Splash damage (secondary AoE around primary hit target)
+	SplashRadius         float32 `yaml:"splash_radius"`
+	SplashDamageFraction float32 `yaml:"splash_damage_fraction"`
+
+	// Shield scaling: grant shield proportional to damage dealt instead of flat
+	ShieldScalesWithDamage bool    `yaml:"shield_scales_with_damage"`
+	ShieldPerDamage        float32 `yaml:"shield_per_damage"`
+
+	// Cleanse: number of debuffs to remove from caster (0 = none, stub for future)
+	Cleanse int `yaml:"cleanse"`
 
 	// Complex behavior (overrides data-driven resolution)
 	Handler string `yaml:"handler"`

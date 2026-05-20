@@ -17,12 +17,16 @@ type DecodedPlayer struct {
 	MaxHealth            float32
 	State                uint8
 	Class                string
+	SpecName             string
 	Username             string
 	VisualState          uint8
 	AimPitch             float32
 	BuffFlags, Config    uint8
 	Stamina, ShieldHP    float32
 	Munitions, Resonance float32
+	OnslaughtStacks      uint8
+	// Gunner Assault state
+	Magazine, MagMax, StabilityQ, SteadinessQ, PressureStacks, EnhancedLoaded, AssaultFlags uint8
 }
 
 // DecodedEnemy holds per-enemy fields from a WorldState frame.
@@ -97,6 +101,17 @@ func DecodeWorldState(buf []byte) (DecodedWorldState, bool) {
 		}
 		p.Class = string(buf[off : off+sLen])
 		off += sLen
+		// spec: str8
+		if off >= len(buf) {
+			return ws, false
+		}
+		sLen = int(buf[off])
+		off++
+		if off+sLen > len(buf) {
+			return ws, false
+		}
+		p.SpecName = string(buf[off : off+sLen])
+		off += sLen
 		// username: str8
 		if off >= len(buf) {
 			return ws, false
@@ -114,8 +129,8 @@ func DecodeWorldState(buf []byte) (DecodedWorldState, bool) {
 		}
 		p.VisualState = buf[off]
 		off++
-		// aim_pitch, buff_flags, config, stamina, shield_hp
-		if off+22 > len(buf) {
+		// aim_pitch, buff_flags, config, stamina, shield_hp, munitions, resonance, onslaught_stacks
+		if off+23 > len(buf) {
 			return ws, false
 		}
 		p.AimPitch = getF32(buf[off:])
@@ -132,6 +147,20 @@ func DecodeWorldState(buf []byte) (DecodedWorldState, bool) {
 		off += 4
 		p.Resonance = getF32(buf[off:])
 		off += 4
+		p.OnslaughtStacks = buf[off]
+		off++
+		// Gunner Assault state (7 bytes)
+		if off+7 > len(buf) {
+			return ws, false
+		}
+		p.Magazine = buf[off]
+		p.MagMax = buf[off+1]
+		p.StabilityQ = buf[off+2]
+		p.SteadinessQ = buf[off+3]
+		p.PressureStacks = buf[off+4]
+		p.EnhancedLoaded = buf[off+5]
+		p.AssaultFlags = buf[off+6]
+		off += 7
 	}
 
 	// Enemies

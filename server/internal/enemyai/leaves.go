@@ -206,6 +206,12 @@ func actionPatrol(v any) bt.Result {
 	c := ctx(v)
 	e := c.Enemy
 
+	// If externally aggroed (e.g., by taking damage via AggroEnemy), abort
+	// patrol so the BT falls through to the chase branch.
+	if e.State != entity.EnemyPatrol {
+		return bt.Failure
+	}
+
 	// Check aggro: if any alive player within AggroRadius, switch to Chase
 	for _, p := range c.Players {
 		if !p.Alive {
@@ -233,8 +239,15 @@ func actionPatrol(v any) bt.Result {
 		e.Velocity = entity.Vec3{}
 		return bt.Running
 	}
+	if e.HasDebuff(entity.DebuffRoot) {
+		e.Velocity = entity.Vec3{}
+		return bt.Running
+	}
 	dir := toTarget.Normalized()
 	spd := c.Def.MoveSpeed * 0.5
+	if slow := e.GetDebuffValue(entity.DebuffSlow); slow > 0 {
+		spd *= (1.0 - slow)
+	}
 	e.Velocity = entity.Vec3{X: dir.X * spd, Z: dir.Z * spd}
 	e.RotationY = float32(math.Atan2(float64(-dir.X), float64(-dir.Z)))
 	return bt.Running
@@ -268,7 +281,17 @@ func actionChase(v any) bt.Result {
 		e.RotationY = float32(math.Atan2(float64(-dir.X), float64(-dir.Z)))
 	}
 
-	spd := def.CurrentMoveSpeed(e.Phase)
+	// Debuff checks: root freezes movement, slow reduces speed
+	if e.HasDebuff(entity.DebuffRoot) {
+		e.Velocity = entity.Vec3{}
+		return bt.Running
+	}
+	slowMult := float32(1.0)
+	if slow := e.GetDebuffValue(entity.DebuffSlow); slow > 0 {
+		slowMult = 1.0 - slow
+	}
+
+	spd := def.CurrentMoveSpeed(e.Phase) * slowMult
 	preferred := def.PreferredRange
 
 	if preferred <= 0 {
@@ -282,7 +305,7 @@ func actionChase(v any) bt.Result {
 	} else {
 		margin := preferred * 0.2
 		if distance < preferred-margin {
-			bspd := def.CurrentBackpedalSpeed(e.Phase)
+			bspd := def.CurrentBackpedalSpeed(e.Phase) * slowMult
 			dir := toTarget.Normalized().Neg().Flat()
 			e.Velocity = entity.Vec3{X: dir.X * bspd, Z: dir.Z * bspd}
 		} else if distance > preferred+margin {

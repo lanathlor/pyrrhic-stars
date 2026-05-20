@@ -699,6 +699,148 @@ func TestFight_SelectAbilityAntiRepeat(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Damage-triggered aggro (reproduces gunner-at-range bug)
+// ---------------------------------------------------------------------------
+
+// TestFight_DamageAggroFromRange verifies that simulating AggroEnemy (the path
+// taken by InputSystem when a player ability hits a patrolling mob) causes the
+// mob to immediately chase — even when the player is outside both
+// player_nearby(8) and the mob's AggroRadius.
+func TestFight_DamageAggroFromRange(t *testing.T) {
+	b, e := testBrain(DefRegistry["hallway_melee"])
+	e.Alive = true
+	e.State = entity.EnemyPatrol
+	e.PatrolA = entity.Vec3{X: -5}
+	e.PatrolB = entity.Vec3{X: 5}
+	e.AggroRadius = 10.0
+	e.LeashRadius = 40.0
+	e.LeashOrigin = entity.Vec3{}
+
+	// Player at 20 units — well beyond AggroRadius (10) and player_nearby(8).
+	p := testPlayer(1, entity.Vec3{X: 0, Z: 20})
+	players := testPlayers(p)
+
+	// Let the mob patrol for a few ticks so the BT builds up running state.
+	tickN(b, 10, 0.05, players, nil, noSpawn)
+	if e.State != entity.EnemyPatrol {
+		t.Fatalf("should be patrolling, got state %d", e.State)
+	}
+
+	// Simulate what InputSystem does when a gunner hitscan damages this enemy:
+	// enemy.AddThreat + AggroEnemy → state=Chase, target=gunner.
+	e.AddThreat(p.ID, 10)
+	e.State = entity.EnemyChase
+	e.ChaseTimer = 0
+	e.TargetPlayerID = p.ID
+
+	// One BT tick — the mob should be chasing, not patrolling.
+	b.Tick(0.05, players, nil, noSpawn, nil)
+
+	if e.State != entity.EnemyChase {
+		t.Errorf("after damage aggro, state = %d, want EnemyChase (%d)", e.State, entity.EnemyChase)
+	}
+	// Player is at Z=20, enemy near Z≈0, so chase velocity.Z must be positive.
+	if e.Velocity.Z <= 0 {
+		t.Errorf("after damage aggro, enemy should chase toward player (positive Z), got velocity.Z=%f", e.Velocity.Z)
+	}
+}
+
+// TestFight_GroupAggroFromDamage verifies that when one mob in a group is
+// aggroed via damage, all other patrol members of the same group also start
+// chasing immediately (not stuck in patrol BT state).
+func TestFight_GroupAggroFromDamage(t *testing.T) {
+	// Create two melee mobs in the same group.
+	b1, e1 := testBrain(DefRegistry["hallway_melee"])
+	e1.Alive = true
+	e1.State = entity.EnemyPatrol
+	e1.PatrolA = entity.Vec3{X: -5}
+	e1.PatrolB = entity.Vec3{X: 5}
+	e1.AggroRadius = 10.0
+	e1.LeashRadius = 40.0
+	e1.LeashOrigin = entity.Vec3{}
+	e1.GroupID = 1
+
+	b2, e2 := testBrain(DefRegistry["hallway_melee"])
+	e2.ID = 2
+	e2.Alive = true
+	e2.State = entity.EnemyPatrol
+	e2.PatrolA = entity.Vec3{X: -5, Z: 2}
+	e2.PatrolB = entity.Vec3{X: 5, Z: 2}
+	e2.AggroRadius = 10.0
+	e2.LeashRadius = 40.0
+	e2.LeashOrigin = entity.Vec3{Z: 2}
+	e2.GroupID = 1
+
+	p := testPlayer(1, entity.Vec3{X: 0, Z: 20})
+	players := testPlayers(p)
+
+	// Both patrol for a few ticks.
+	tickN(b1, 10, 0.05, players, nil, noSpawn)
+	tickN(b2, 10, 0.05, players, nil, noSpawn)
+
+	// Simulate AggroEnemy on e1 + group propagation to e2
+	// (this is what system.AggroEnemy does).
+	e1.State = entity.EnemyChase
+	e1.ChaseTimer = 0
+	e1.TargetPlayerID = p.ID
+	e1.AddThreat(p.ID, 10)
+
+	e2.State = entity.EnemyChase
+	e2.ChaseTimer = 0
+	e2.TargetPlayerID = p.ID
+
+	// Tick both — both should be chasing.
+	b1.Tick(0.05, players, nil, noSpawn, nil)
+	b2.Tick(0.05, players, nil, noSpawn, nil)
+
+	if e1.State != entity.EnemyChase {
+		t.Errorf("e1 state = %d, want EnemyChase", e1.State)
+	}
+	if e2.State != entity.EnemyChase {
+		t.Errorf("e2 (group member) state = %d, want EnemyChase", e2.State)
+	}
+	// Player is at Z=20, e2 near Z≈2, so chase velocity.Z must be positive.
+	if e2.Velocity.Z <= 0 {
+		t.Errorf("group member should chase toward player (positive Z), got velocity.Z=%f", e2.Velocity.Z)
+	}
+}
+
+// TestFight_NoDelayAfterDamageAggro verifies there is no multi-tick pause
+// between damage-triggered aggro and the enemy actually moving.
+func TestFight_NoDelayAfterDamageAggro(t *testing.T) {
+	b, e := testBrain(DefRegistry["hallway_melee"])
+	e.Alive = true
+	e.State = entity.EnemyPatrol
+	e.PatrolA = entity.Vec3{X: -5}
+	e.PatrolB = entity.Vec3{X: 5}
+	e.AggroRadius = 10.0
+	e.LeashRadius = 40.0
+	e.LeashOrigin = entity.Vec3{}
+
+	p := testPlayer(1, entity.Vec3{X: 0, Z: 20})
+	players := testPlayers(p)
+
+	// Patrol to build BT state.
+	tickN(b, 10, 0.05, players, nil, noSpawn)
+
+	// Damage aggro.
+	e.AddThreat(p.ID, 10)
+	e.State = entity.EnemyChase
+	e.ChaseTimer = 0
+	e.TargetPlayerID = p.ID
+
+	// Record position, then tick 3 times (150ms = well under the reported 3s).
+	startPos := e.Position
+	tickN(b, 3, 0.05, players, nil, noSpawn)
+
+	// Enemy should move toward player (positive Z direction).
+	dz := e.Position.Z - startPos.Z
+	if dz <= 0.1 {
+		t.Errorf("enemy moved dZ=%.3f in 3 ticks after aggro — should be chasing toward Z=20 at speed 5.0", dz)
+	}
+}
+
 // --- Benchmarks ---
 
 func BenchmarkBrainTick_Patrol(b *testing.B) {

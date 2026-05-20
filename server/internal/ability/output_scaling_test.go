@@ -24,7 +24,7 @@ func TestBladeSwirl_OutputScalesCastDamage(t *testing.T) {
 
 	// Cast with 0 Output — should deal base 25 damage
 	p0 := newVanguard()
-	r0 := eng.Cast("blade_swirl", castCtx(p0, e))
+	r0 := eng.Cast("vortex", castCtx(p0, e))
 	if !r0.OK || len(r0.Events) == 0 {
 		t.Fatal("base cast failed or missed")
 	}
@@ -35,7 +35,7 @@ func TestBladeSwirl_OutputScalesCastDamage(t *testing.T) {
 
 	// Cast with 100 Output — should deal 25 * 2.0 = 50 damage
 	p100 := vanguardWithOutput(100)
-	r100 := eng.Cast("blade_swirl", castCtx(p100, e))
+	r100 := eng.Cast("vortex", castCtx(p100, e))
 	if !r100.OK || len(r100.Events) == 0 {
 		t.Fatal("output cast failed or missed")
 	}
@@ -47,17 +47,17 @@ func TestBladeSwirl_OutputScalesCastDamage(t *testing.T) {
 	}
 }
 
-func TestBladeSwirl_OutputScalesTickDamage(t *testing.T) {
+func TestVortex_OutputScalesTickDamage(t *testing.T) {
 	eng := NewEngine(nil)
 	p := vanguardWithOutput(100) // 2.0x multiplier
 	e := enemyInFront(100, 1e6)
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -3}
 
-	eng.Cast("blade_swirl", castCtx(p, e))
+	eng.Cast("vortex", castCtx(p, e))
 	hpAfterCast := e.Health
 
-	// First tick at 0.5s
-	events := eng.TickPlayer(p, 0.5, tickCtx(e))
+	// Standard tier: interval = 0.3s. Tick past it.
+	events := eng.TickPlayer(p, 0.35, tickCtx(e))
 	if len(events) == 0 {
 		t.Fatal("expected tick damage")
 	}
@@ -65,7 +65,7 @@ func TestBladeSwirl_OutputScalesTickDamage(t *testing.T) {
 
 	// With 100 Output, tick damage should be 25 * 2.0 = 50, not base 25
 	if tickDmg < 40 {
-		t.Errorf("blade_swirl tick damage not scaled by Output: got %.1f, want ~50 (base 25 * 2.0x)", tickDmg)
+		t.Errorf("vortex tick damage not scaled by Output: got %.1f, want ~50 (base 25 * 2.0x)", tickDmg)
 	}
 }
 
@@ -75,7 +75,7 @@ func TestMeleeLight_OutputScalesDamage(t *testing.T) {
 	// Base damage (combo step 0 = 30)
 	p0 := newVanguard()
 	e := enemyInFront(100, 1e6)
-	r0 := eng.Cast("melee_light", castCtx(p0, e))
+	r0 := eng.Cast("cleave", castCtx(p0, e))
 	if !r0.OK || len(r0.Events) == 0 {
 		t.Fatal("base cast failed or missed")
 	}
@@ -84,7 +84,7 @@ func TestMeleeLight_OutputScalesDamage(t *testing.T) {
 	// With 100 Output (2.0x multiplier)
 	e.Health = 1e6
 	p100 := vanguardWithOutput(100)
-	r100 := eng.Cast("melee_light", castCtx(p100, e))
+	r100 := eng.Cast("cleave", castCtx(p100, e))
 	if !r100.OK || len(r100.Events) == 0 {
 		t.Fatal("output cast failed or missed")
 	}
@@ -102,7 +102,7 @@ func TestMeleeHeavy_OutputScalesDamage(t *testing.T) {
 	// Base damage = 45
 	p0 := newVanguard()
 	e := enemyInFront(100, 1e6)
-	r0 := eng.Cast("melee_heavy", castCtx(p0, e))
+	r0 := eng.Cast("upheaval", castCtx(p0, e))
 	if !r0.OK || len(r0.Events) == 0 {
 		t.Fatal("base cast failed or missed")
 	}
@@ -111,8 +111,8 @@ func TestMeleeHeavy_OutputScalesDamage(t *testing.T) {
 	// With 100 Output (2.0x multiplier)
 	e.Health = 1e6
 	p100 := vanguardWithOutput(100)
-	p100.Cooldowns["melee_heavy"] = 0
-	r100 := eng.Cast("melee_heavy", castCtx(p100, e))
+	p100.Cooldowns["upheaval"] = 0
+	r100 := eng.Cast("upheaval", castCtx(p100, e))
 	if !r100.OK || len(r100.Events) == 0 {
 		t.Fatal("output cast failed or missed")
 	}

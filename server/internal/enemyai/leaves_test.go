@@ -512,6 +512,7 @@ func TestAction_LeashReset(t *testing.T) {
 func TestAction_Patrol_Movement(t *testing.T) {
 	def := simpleMeleeDef()
 	e := entity.NewEnemy(0, 500, "test")
+	e.State = entity.EnemyPatrol
 	e.Position = entity.Vec3{X: 0, Z: 0}
 	e.PatrolA = entity.Vec3{X: -10, Z: 0}
 	e.PatrolB = entity.Vec3{X: 10, Z: 0}
@@ -531,6 +532,7 @@ func TestAction_Patrol_Movement(t *testing.T) {
 func TestAction_Patrol_FlipsAtWaypoint(t *testing.T) {
 	def := simpleMeleeDef()
 	e := entity.NewEnemy(0, 500, "test")
+	e.State = entity.EnemyPatrol
 	e.PatrolA = entity.Vec3{X: -10, Z: 0}
 	e.PatrolB = entity.Vec3{X: 10, Z: 0}
 	e.PatrolTarget = 0
@@ -549,6 +551,7 @@ func TestAction_Patrol_FlipsAtWaypoint(t *testing.T) {
 func TestAction_Patrol_Aggro(t *testing.T) {
 	def := simpleMeleeDef()
 	e := entity.NewEnemy(0, 500, "test")
+	e.State = entity.EnemyPatrol
 	e.Position = entity.Vec3{X: 0, Z: 0}
 	e.PatrolA = entity.Vec3{X: -10, Z: 0}
 	e.PatrolB = entity.Vec3{X: 10, Z: 0}
@@ -571,6 +574,7 @@ func TestAction_Patrol_Aggro(t *testing.T) {
 func TestAction_Patrol_IgnoresDeadPlayers(t *testing.T) {
 	def := simpleMeleeDef()
 	e := entity.NewEnemy(0, 500, "test")
+	e.State = entity.EnemyPatrol
 	e.Position = entity.Vec3{X: 0, Z: 0}
 	e.PatrolA = entity.Vec3{X: -10, Z: 0}
 	e.PatrolB = entity.Vec3{X: 10, Z: 0}

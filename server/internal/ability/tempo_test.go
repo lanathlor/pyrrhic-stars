@@ -55,25 +55,25 @@ func TestTempo_GCDDrainsFaster(t *testing.T) {
 	eng := NewEngine(nil)
 
 	// Vanguard with Tempo 100 => 2x speed
-	// blade_swirl sets GCD to 1.5
+	// vortex (blade_swirl) sets GCD to 0.6 (standard tier)
 	pFast := newVanguard()
 	pFast.GearStats.Tempo = 100
 	eFast := enemyInFront(100, 1000)
 	eFast.Position.Z = -3
 
-	r := eng.Cast("blade_swirl", castCtx(pFast, eFast))
+	r := eng.Cast("vortex", castCtx(pFast, eFast))
 	if !r.OK {
 		t.Fatalf("blade_swirl failed: %s", r.Reason)
 	}
-	if pFast.GCDTimer != 1.5 {
-		t.Fatalf("GCD after cast = %f, want 1.5", pFast.GCDTimer)
+	if pFast.GCDTimer != 0.6 {
+		t.Fatalf("GCD after cast = %f, want 0.6", pFast.GCDTimer)
 	}
 
-	eng.TickPlayer(pFast, 0.5, tickCtx(eFast))
-	// With Tempo 100 (2x), 0.5s tick drains 1.0s of GCD
-	// Remaining: 1.5 - 1.0 = 0.5
-	if math.Abs(float64(pFast.GCDTimer-0.5)) > 0.02 {
-		t.Errorf("fast GCD = %f, want ~0.5", pFast.GCDTimer)
+	eng.TickPlayer(pFast, 0.2, tickCtx(eFast))
+	// With Tempo 100 (2x), 0.2s tick drains 0.4s of GCD
+	// Remaining: 0.6 - 0.4 = 0.2
+	if math.Abs(float64(pFast.GCDTimer-0.2)) > 0.02 {
+		t.Errorf("fast GCD = %f, want ~0.2", pFast.GCDTimer)
 	}
 
 	// Vanguard with Tempo 0 => 1x speed (baseline)
@@ -81,12 +81,12 @@ func TestTempo_GCDDrainsFaster(t *testing.T) {
 	eSlow := enemyInFront(101, 1000)
 	eSlow.Position.Z = -3
 
-	eng.Cast("blade_swirl", castCtx(pSlow, eSlow))
-	eng.TickPlayer(pSlow, 0.5, tickCtx(eSlow))
-	// Without Tempo, 0.5s tick drains 0.5s of GCD
-	// Remaining: 1.5 - 0.5 = 1.0
-	if math.Abs(float64(pSlow.GCDTimer-1.0)) > 0.02 {
-		t.Errorf("slow GCD = %f, want ~1.0", pSlow.GCDTimer)
+	eng.Cast("vortex", castCtx(pSlow, eSlow))
+	eng.TickPlayer(pSlow, 0.2, tickCtx(eSlow))
+	// Without Tempo, 0.2s tick drains 0.2s of GCD
+	// Remaining: 0.6 - 0.2 = 0.4
+	if math.Abs(float64(pSlow.GCDTimer-0.4)) > 0.02 {
+		t.Errorf("slow GCD = %f, want ~0.4", pSlow.GCDTimer)
 	}
 
 	if pFast.GCDTimer >= pSlow.GCDTimer {

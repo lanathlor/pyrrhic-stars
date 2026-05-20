@@ -126,7 +126,7 @@ func TestApplyDamageVanguardBlock(t *testing.T) {
 func TestApplyDamageVanguardBladeSwirl(t *testing.T) {
 	p := NewPlayer(1, ClassVanguard)
 	// Blade swirl: 20% damage reduction (Value=0.8 means 80% damage passes through)
-	p.AddBuff(ActiveBuff{ID: "blade_swirl", Type: BuffDamageReduction, Value: 0.8, Duration: 1.5})
+	p.AddBuff(ActiveBuff{ID: "vortex", Type: BuffDamageReduction, Value: 0.8, Duration: 1.5})
 	dealt := p.ApplyDamage(100)
 	expected := float32(80.0) // 100 * 0.8
 	if dealt != expected {
@@ -191,7 +191,7 @@ func TestApplyDamageVanguardBlockPlusSwirl(t *testing.T) {
 	p := NewPlayer(1, ClassVanguard)
 	// Both block (0.3) and swirl (0.8) stack multiplicatively
 	p.AddBuff(ActiveBuff{ID: "vg_block", Type: BuffDamageReduction, Value: 0.3, Duration: 1.5})
-	p.AddBuff(ActiveBuff{ID: "blade_swirl", Type: BuffDamageReduction, Value: 0.8, Duration: 1.5})
+	p.AddBuff(ActiveBuff{ID: "vortex", Type: BuffDamageReduction, Value: 0.8, Duration: 1.5})
 	dealt := p.ApplyDamage(100)
 	expected := float32(100 * 0.3 * 0.8) // 24
 	if dealt < expected-0.1 || dealt > expected+0.1 {

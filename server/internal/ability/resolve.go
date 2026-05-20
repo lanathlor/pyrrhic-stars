@@ -46,9 +46,13 @@ func resolveHit(dst []DamageResult, def *AbilityDef, caster entity.Caster, targe
 }
 
 func resolveHitscan(dst []DamageResult, caster entity.Caster, targets []entity.Target, obstacles []combat.Obstacle, damage float32, sourceType uint8) []DamageResult {
-	origin := caster.CasterEyePos()
-	direction := caster.CasterAimDir()
+	return resolveHitscanDir(dst, caster.CasterEyePos(), caster.CasterAimDir(), targets, obstacles, damage, sourceType, caster.CasterID())
+}
 
+// resolveHitscanDir fires a hitscan ray from origin in direction and returns
+// damage results for the nearest hit. Used by the gunner assault handler to
+// inject stability-cone-offset directions.
+func resolveHitscanDir(dst []DamageResult, origin, direction entity.Vec3, targets []entity.Target, obstacles []combat.Obstacle, damage float32, sourceType uint8, sourceID uint16) []DamageResult {
 	var best entity.Target
 	bestDistSq := float32(1e18)
 
@@ -60,7 +64,7 @@ func resolveHitscan(dst []DamageResult, caster entity.Caster, targets []entity.T
 		if !combat.CheckHitscan(origin, direction, targetCenter, 1.2, 100.0, obstacles) {
 			continue
 		}
-		distSq := t.TargetPos().DistanceToSq(caster.CasterPos())
+		distSq := t.TargetPos().Sub(origin).LengthSq()
 		if distSq < bestDistSq {
 			bestDistSq = distSq
 			best = t
@@ -76,7 +80,7 @@ func resolveHitscan(dst []DamageResult, caster entity.Caster, targets []entity.T
 	}
 	return append(dst, DamageResult{
 		TargetID:   best.TargetID(),
-		SourceID:   caster.CasterID(),
+		SourceID:   sourceID,
 		Amount:     dealt,
 		HitPos:     best.TargetPos().Add(entity.Vec3{Y: 1.0}),
 		SourceType: sourceType,

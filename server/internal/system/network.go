@@ -41,6 +41,7 @@ func broadcastLobbyState(w *World) {
 		infos = append(infos, codec.LobbyPlayerInfo{
 			PeerID:    p.ID,
 			ClassName: p.ClassName(),
+			SpecName:  p.SpecID,
 			Username:  p.Username,
 			Ready:     p.Ready,
 		})

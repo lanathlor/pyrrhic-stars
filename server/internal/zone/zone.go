@@ -155,17 +155,17 @@ func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
 	// Build system pipeline based on zone type.
 	if zoneType == ZoneTypeOpenWorld {
 		z.systems = []system.System{
+			&system.CombatSystem{},
 			&system.InputSystem{},
 			&system.NPCSystem{},
-			&system.CombatSystem{},
 			&system.NetworkSystem{},
 		}
 	} else {
 		z.systems = []system.System{
+			&system.CombatSystem{},
 			&system.InputSystem{},
 			&system.GameFlowSystem{},
 			&system.AISystem{},
-			&system.CombatSystem{},
 			&system.PhysicsSystem{},
 			&system.NetworkSystem{},
 		}

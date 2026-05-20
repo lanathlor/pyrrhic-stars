@@ -121,7 +121,12 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 	// Dodge is special: it doesn't go through the engine (client-authoritative movement)
 	// but we still need to check/spend stamina for vanguard
 	if inp.Action == entity.ActionDodge {
-		p.SpendResource("stamina", 20)
+		if !p.SpendResource("stamina", 20) {
+			return
+		}
+		// Server-side i-frames: prevent damage (and Onslaught reset) during dodge
+		p.Invincible = true
+		p.InvincibleTimer = 0.15
 		w.logCombatEvent(combatlog.LogEntry{
 			EventType:    combatlog.EventDodge,
 			SourceEntity: combatlog.FormatPlayerID(peerID),
@@ -254,6 +259,26 @@ func handleInteractInput(w *World, peerID uint16, payload []byte) {
 				w.OnPlayerRespawnHub(peerID)
 			}
 		}
+	case message.InteractSpecSelect:
+		specID := inp.ClassName // reuse the string field
+		classDef, ok := entity.Classes[p.ClassID]
+		if !ok {
+			return
+		}
+		spec := classDef.GetSpec(specID)
+		if spec == nil || !spec.Implemented {
+			return
+		}
+		if p.SpecID == specID {
+			return // already on this spec
+		}
+		np := entity.NewPlayerWithSpec(peerID, p.ClassID, specID)
+		np.Username = p.Username
+		np.Position = p.Position
+		np.RotationY = p.RotationY
+		np.VisualState = p.VisualState
+		np.SpawnTick = p.SpawnTick
+		*p = *np
 	}
 }
 

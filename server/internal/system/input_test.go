@@ -58,6 +58,9 @@ func TestDodge_BlockedWhenInsufficientStamina(t *testing.T) {
 	if p.Resources["stamina"].Current != 10.0 {
 		t.Errorf("stamina = %f, want 10.0 (insufficient stamina)", p.Resources["stamina"].Current)
 	}
+	if p.Invincible {
+		t.Error("should not grant i-frames with insufficient stamina")
+	}
 }
 
 func TestDodge_RepeatedDrainsStamina(t *testing.T) {
@@ -74,12 +77,162 @@ func TestDodge_RepeatedDrainsStamina(t *testing.T) {
 		t.Errorf("stamina = %f after 5 dodges, want 0.0", p.Resources["stamina"].Current)
 	}
 
-	// 6th should be blocked
+	// 6th should be blocked — no stamina, no i-frames
+	p.Invincible = false // reset from previous dodge
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionDodge)}}
 	is.Tick(w, 0.05)
 
 	if p.Resources["stamina"].Current != 0.0 {
 		t.Errorf("stamina = %f after 6th dodge, want 0.0", p.Resources["stamina"].Current)
+	}
+	if p.Invincible {
+		t.Error("6th dodge should not grant i-frames (no stamina)")
+	}
+}
+
+func TestDodge_DoesNotIncrementOnslaught(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassVanguard)
+	// Enemy in front of player (player faces -Z by default)
+	e := entity.NewEnemy(0, 2000.0, "guard_captain")
+	e.Alive = true
+	e.Position = entity.Vec3{X: 0, Y: 0, Z: -2.0}
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	is := &InputSystem{}
+
+	// Build onslaught via melee hit, then reset to 0
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionMelee)}}
+	is.Tick(w, 0.05)
+
+	type resettable interface{ Reset() }
+	if r, ok := p.AbilityState["onslaught"].(resettable); ok {
+		r.Reset()
+	}
+	// Clear cooldown so state is clean
+	delete(p.Cooldowns, "cleave")
+
+	// Dodge — should NOT increment onslaught
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionDodge)}}
+	is.Tick(w, 0.05)
+
+	type stacker interface{ StackCount() int }
+	if s, ok := p.AbilityState["onslaught"].(stacker); ok {
+		if s.StackCount() != 0 {
+			t.Errorf("onslaught stacks = %d after dodge, want 0 (dodge should not build onslaught)", s.StackCount())
+		}
+	}
+}
+
+func TestDodge_PreservesOnslaughtStacks(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassVanguard)
+	// Enemy in front of player (player faces -Z by default)
+	e := entity.NewEnemy(0, 2000.0, "guard_captain")
+	e.Alive = true
+	e.Position = entity.Vec3{X: 0, Y: 0, Z: -2.0}
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	is := &InputSystem{}
+
+	// Build onslaught via melee hit
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionMelee)}}
+	is.Tick(w, 0.05)
+
+	type stacker interface{ StackCount() int }
+	ons, ok := p.AbilityState["onslaught"].(stacker)
+	if !ok || ons.StackCount() == 0 {
+		t.Fatal("melee should have built onslaught stacks")
+	}
+	stacksBefore := ons.StackCount()
+
+	// Dodge — stacks should be preserved (not reset, not incremented)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionDodge)}}
+	is.Tick(w, 0.05)
+
+	if ons.StackCount() != stacksBefore {
+		t.Errorf("onslaught stacks = %d after dodge, want %d (dodge should preserve stacks)", ons.StackCount(), stacksBefore)
+	}
+
+	// Take damage during i-frames — stacks should still be preserved
+	p.ApplyDamage(50)
+	if ons.StackCount() != stacksBefore {
+		t.Errorf("onslaught stacks = %d after damage during i-frames, want %d", ons.StackCount(), stacksBefore)
+	}
+}
+
+func TestDodge_GrantsIFrames(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassVanguard)
+	w := makeHubWorld(map[uint16]*entity.Player{1: p})
+
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionDodge)}}
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if !p.Invincible {
+		t.Error("dodge should grant i-frames")
+	}
+	if p.InvincibleTimer != 0.15 {
+		t.Errorf("invincible timer = %f, want 0.15", p.InvincibleTimer)
+	}
+}
+
+func TestDodge_IFramesBlockDamage(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassVanguard)
+	w := makeHubWorld(map[uint16]*entity.Player{1: p})
+
+	// Dodge to get i-frames
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionDodge)}}
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// Damage should be absorbed during i-frames
+	dmg := p.ApplyDamage(50)
+	if dmg != 0 {
+		t.Errorf("damage during i-frames = %f, want 0", dmg)
+	}
+	if p.Health != p.MaxHealth {
+		t.Errorf("health = %f, want %f (no damage during i-frames)", p.Health, p.MaxHealth)
+	}
+}
+
+func TestDodge_IFramesExpireAfterTimer(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassVanguard)
+	w := makeHubWorld(map[uint16]*entity.Player{1: p})
+
+	// Dodge to get i-frames
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionDodge)}}
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// Tick past the i-frame duration (0.15s = 3 ticks at 0.05s)
+	for i := 0; i < 4; i++ {
+		w.AbilityEngine.TickPlayer(p, 0.05, nil)
+	}
+
+	if p.Invincible {
+		t.Error("i-frames should expire after 0.15s")
+	}
+
+	// Damage should now go through
+	dmg := p.ApplyDamage(50)
+	if dmg == 0 {
+		t.Error("damage after i-frames expired should not be 0")
+	}
+}
+
+func TestDodge_DeadPlayerCannotDodge(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassVanguard)
+	p.Alive = false
+	w := makeHubWorld(map[uint16]*entity.Player{1: p})
+
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionDodge)}}
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if p.Resources["stamina"].Current != 100.0 {
+		t.Errorf("dead player stamina = %f, want 100 (no cost)", p.Resources["stamina"].Current)
+	}
+	if p.Invincible {
+		t.Error("dead player should not get i-frames")
 	}
 }
 
@@ -99,7 +252,7 @@ func TestMelee_ConsumesStamina_InHub(t *testing.T) {
 	if p.Resources["stamina"].Current != before-10.0 {
 		t.Errorf("stamina = %f, want %f (melee costs 10 in hub)", p.Resources["stamina"].Current, before-10.0)
 	}
-	if p.Cooldowns["melee_light"] <= 0 {
+	if p.Cooldowns["cleave"] <= 0 {
 		t.Error("melee cooldown should be set after melee in hub")
 	}
 }

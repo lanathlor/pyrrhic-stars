@@ -49,6 +49,7 @@ func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.
 		buf = appendF32(buf, p.MaxHealth)
 		buf = append(buf, byte(p.State))
 		buf = appendStr8(buf, p.ClassName())
+		buf = appendStr8(buf, p.SpecName())
 		buf = appendStr8(buf, p.Username)
 		buf = append(buf, p.VisualState)
 		buf = appendF32(buf, p.AimPitch)
@@ -60,11 +61,28 @@ func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.
 			flags |= 0x02
 		}
 		flags |= (p.GetAbilityPhase("rechamber") & 0x03) << 2
-		if p.HasBuff("blade_swirl") {
+		if p.HasBuff("vortex") {
 			flags |= 0x10
 		}
 		if p.HasBuff("guard") || p.HasBuff("vg_parry") || p.HasBuff("vg_block") {
 			flags |= 0x20
+		}
+		// Bits 6-7: class-specific mastery tier (Vanguard=onslaught, BD=flow).
+		switch p.ClassID {
+		case entity.ClassVanguard:
+			type tiered interface{ Tier() uint8 }
+			if s, ok := p.AbilityState["onslaught"]; ok {
+				if t, ok := s.(tiered); ok {
+					flags |= (t.Tier() & 0x03) << 6
+				}
+			}
+		case entity.ClassBladeDancer:
+			type tiered interface{ Tier() uint8 }
+			if s, ok := p.AbilityState["flow"]; ok {
+				if t, ok := s.(tiered); ok {
+					flags |= (t.Tier() & 0x03) << 6
+				}
+			}
 		}
 		buf = append(buf, flags)
 		buf = append(buf, byte(p.Config))
@@ -72,6 +90,35 @@ func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.
 		buf = appendF32(buf, p.GetResource("shield"))
 		buf = appendF32(buf, p.GetResource("munitions"))
 		buf = appendF32(buf, p.GetResource("resonance"))
+		// Class-specific mastery stacks (1 byte: VG=onslaught, BD=flow, others=0).
+		var masteryStacks uint8
+		switch p.ClassID {
+		case entity.ClassVanguard:
+			type stacker interface{ StackCount() int }
+			if s, ok := p.AbilityState["onslaught"]; ok {
+				if st, ok := s.(stacker); ok {
+					masteryStacks = uint8(min(st.StackCount(), 255))
+				}
+			}
+		case entity.ClassBladeDancer:
+			type stacker interface{ StackCount() int }
+			if s, ok := p.AbilityState["flow"]; ok {
+				if st, ok := s.(stacker); ok {
+					masteryStacks = uint8(min(st.StackCount(), 255))
+				}
+			}
+		}
+		buf = append(buf, masteryStacks)
+
+		// Gunner Assault state (7 bytes — zeroed for non-gunner classes).
+		var magCur, magMax, stabilityQ, steadinessQ, pressureStacks, enhancedLoaded, assaultFlags uint8
+		type gunnerStater interface {
+			GunnerWireState() (mag, magMax, stab, steadiness, pressure, enhanced, flags uint8)
+		}
+		if gs, ok := p.AbilityState["gunner_assault"].(gunnerStater); ok {
+			magCur, magMax, stabilityQ, steadinessQ, pressureStacks, enhancedLoaded, assaultFlags = gs.GunnerWireState()
+		}
+		buf = append(buf, magCur, magMax, stabilityQ, steadinessQ, pressureStacks, enhancedLoaded, assaultFlags)
 	}
 
 	buf = append(buf, byte(len(enemies)))
@@ -142,6 +189,7 @@ func EncodeLobbyState(players []LobbyPlayerInfo) []byte {
 	for _, p := range players {
 		buf = appendU16(buf, p.PeerID)
 		buf = appendStr8(buf, p.ClassName)
+		buf = appendStr8(buf, p.SpecName)
 		buf = appendStr8(buf, p.Username)
 		if p.Ready {
 			buf = append(buf, 1)

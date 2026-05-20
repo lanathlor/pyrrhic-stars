@@ -250,6 +250,39 @@ func (eng *Engine) doCast(abilityID string, def *AbilityDef, ctx *CastContext) C
 
 	// Resolve hit
 	eng.hitBuf = resolveHit(eng.hitBuf, def, caster, ctx.Targets, ctx.Obstacles, ctx.SourceType)
+
+	// Splash damage: AoE around primary hit target (excluding primary)
+	if def.SplashRadius > 0 && def.SplashDamageFraction > 0 && len(eng.hitBuf) > 0 {
+		primaryID := eng.hitBuf[0].TargetID
+		splashDmg := def.BaseDamage * caster.CasterDamageMult() * def.SplashDamageFraction
+		// Build target list excluding primary to avoid double-damage
+		splashTargets := make([]entity.Target, 0, len(ctx.Targets))
+		for _, t := range ctx.Targets {
+			if t != nil && t.TargetID() != primaryID {
+				splashTargets = append(splashTargets, t)
+			}
+		}
+		eng.hitBuf = resolveAoECircle(eng.hitBuf, eng.hitBuf[0].Target.TargetPos(),
+			caster.CasterID(), splashTargets, ctx.Obstacles,
+			def.SplashRadius, splashDmg, ctx.SourceType)
+	}
+
+	// BD Flow: track transition and apply damage bonus
+	if isPlayer && p.ClassID == entity.ClassBladeDancer && def.OriginConfig >= 0 && def.DestConfig >= 0 {
+		flow := getFlowState(p)
+		flowMult := flow.RecordTransition(def.OriginConfig, def.DestConfig, p.GearStats.Mastery)
+		if flowMult > 1.0 {
+			for i := range eng.hitBuf {
+				bonus := eng.hitBuf[i].Amount * (flowMult - 1.0)
+				if t := eng.hitBuf[i].Target; t != nil && t.TargetAlive() {
+					if dealt := t.TargetApplyDamage(bonus); dealt > 0 {
+						eng.hitBuf[i].Amount += dealt
+					}
+				}
+			}
+		}
+	}
+
 	events := eng.hitBuf
 
 	// BD Resonance: apply bonus damage and consume charge
@@ -267,23 +300,6 @@ func (eng *Engine) doCast(abilityID string, def *AbilityDef, ctx *CastContext) C
 		}
 	}
 
-	// Gunner enhanced round proc
-	if isPlayer && abilityID == "fire_shot" && len(events) > 0 {
-		state := getFireShotState(p)
-		state.HitCount++
-		if state.HitCount >= enhancedRoundProcEvery {
-			state.HitCount = 0
-			if p.SpendResource("munitions", 1) {
-				bonus := float32(enhancedRoundBaseDmg) * (1.0 + p.GearStats.Identity/100.0) * p.CasterDamageMult()
-				if t := events[0].Target; t != nil && t.TargetAlive() {
-					if dealt := t.TargetApplyDamage(bonus); dealt > 0 {
-						events[0].Amount += dealt
-					}
-				}
-			}
-		}
-	}
-
 	// Player-specific post-cast effects
 	if isPlayer {
 		for _, buff := range def.SelfBuffs {
@@ -295,9 +311,17 @@ func (eng *Engine) doCast(abilityID string, def *AbilityDef, ctx *CastContext) C
 			})
 		}
 
-		if def.ShieldGrant > 0 {
+		if def.ShieldGrant > 0 || def.ShieldScalesWithDamage {
 			if shield, ok := p.Resources["shield"]; ok {
-				shield.Current += def.ShieldGrant
+				grant := def.ShieldGrant
+				if def.ShieldScalesWithDamage {
+					var totalDmg float32
+					for _, ev := range events {
+						totalDmg += ev.Amount
+					}
+					grant = totalDmg * def.ShieldPerDamage
+				}
+				shield.Current += grant
 				if def.ShieldCap > 0 && shield.Current > def.ShieldCap {
 					shield.Current = def.ShieldCap
 				} else if shield.Current > shield.Max {
@@ -317,6 +341,20 @@ func (eng *Engine) doCast(abilityID string, def *AbilityDef, ctx *CastContext) C
 					Interval:   dot.Interval,
 					TickTimer:  dot.Interval,
 				})
+			}
+		}
+
+		for _, debuff := range def.TargetDebuffs {
+			for _, evt := range events {
+				if enemy, ok := evt.Target.(*entity.Enemy); ok && enemy.Alive {
+					enemy.AddDebuff(entity.ActiveDebuff{
+						ID:       debuff.ID,
+						Type:     debuff.Type,
+						Value:    debuff.Value,
+						Duration: debuff.Duration,
+						SourceID: p.ID,
+					})
+				}
 			}
 		}
 
@@ -379,6 +417,15 @@ func (eng *Engine) TickPlayer(p *entity.Player, dt float32, ctx *TickContext) []
 
 	eng.tickBuf = eng.tickBuf[:0]
 
+	// Tick invincibility timer (dodge i-frames)
+	if p.Invincible && p.InvincibleTimer > 0 {
+		p.InvincibleTimer -= dt
+		if p.InvincibleTimer <= 0 {
+			p.Invincible = false
+			p.InvincibleTimer = 0
+		}
+	}
+
 	// Tempo: cooldowns drain faster, GCD resolves faster, regen is faster
 	tempoMult := p.TempoMult()
 
@@ -420,15 +467,13 @@ func (eng *Engine) TickPlayer(p *entity.Player, dt float32, ctx *TickContext) []
 
 	// Tick custom handlers
 	for name, fn := range eng.tickHandlers {
-		if _, ok := p.AbilityState[name]; ok {
-			results := fn(eng, p, dt, ctx)
-			for i := range results {
-				if results[i].AbilityID == "" {
-					results[i].AbilityID = name
-				}
+		results := fn(eng, p, dt, ctx)
+		for i := range results {
+			if results[i].AbilityID == "" {
+				results[i].AbilityID = name
 			}
-			eng.tickBuf = append(eng.tickBuf, results...)
 		}
+		eng.tickBuf = append(eng.tickBuf, results...)
 	}
 
 	// Tick buffs

@@ -47,58 +47,44 @@ func TestIdentity_Gunner_RecalcStats_ScalesMunitions(t *testing.T) {
 	}
 }
 
-func TestIdentity_Gunner_EnhancedRound_ProcsOn5thHit(t *testing.T) {
+func TestIdentity_Gunner_EnhancedRound_PressureGeneratesBatch(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 1e6)
+	as := getGunnerAssaultState(p)
 
-	// Fire 4 shots — no proc
-	for i := 0; i < 4; i++ {
-		eng.Cast("fire_shot", castCtx(p, e))
+	// Build pressure to max by consecutive hits on same target.
+	for i := 0; i < assaultPressureMax; i++ {
+		r := eng.Cast("fire_shot", castCtx(p, e))
+		if !r.OK {
+			t.Fatalf("shot %d failed: %s", i+1, r.Reason)
+		}
 		eng.TickPlayer(p, 0.2, tickCtx())
 	}
-	munsBefore := p.GetResource("munitions")
 
-	// 5th shot procs enhanced round
-	r := eng.Cast("fire_shot", castCtx(p, e))
-	if !r.OK {
-		t.Fatalf("5th fire_shot failed: %s", r.Reason)
-	}
-	// Base damage = 10, enhanced round bonus = 10 * 1.0 * 1.0 = 10
-	// Total = 20
-	if len(r.Events) != 1 {
-		t.Fatalf("events = %d, want 1", len(r.Events))
-	}
-	if r.Events[0].Amount != 20 {
-		t.Errorf("damage = %f, want 20 (10 base + 10 enhanced)", r.Events[0].Amount)
-	}
-	// Should have consumed 1 munition
-	munsAfter := p.GetResource("munitions")
-	if munsAfter != munsBefore-1 {
-		t.Errorf("munitions = %f, want %f (consumed 1)", munsAfter, munsBefore-1)
+	// At max pressure, a batch of enhanced rounds should have been generated.
+	if as.EnhancedReserve != assaultEnhancedBatch {
+		t.Errorf("enhanced reserve = %d, want %d", as.EnhancedReserve, assaultEnhancedBatch)
 	}
 }
 
-func TestIdentity_Gunner_EnhancedRound_NoMunitions(t *testing.T) {
+func TestIdentity_Gunner_EnhancedRound_NoEnhancedNoBonusDamage(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 1e6)
+	as := getGunnerAssaultState(p)
+	as.EnhancedLoaded = 0
 
-	// Drain munitions pool
-	p.Resources["munitions"].Current = 0
-
-	// Fire 5 shots — 5th should NOT get bonus (no munitions)
-	for i := 0; i < 4; i++ {
-		eng.Cast("fire_shot", castCtx(p, e))
-		eng.TickPlayer(p, 0.2, tickCtx())
-	}
+	// Fire one shot — no enhanced loaded, should deal base + small pressure bonus only.
 	r := eng.Cast("fire_shot", castCtx(p, e))
 	if !r.OK {
 		t.Fatalf("fire_shot failed: %s", r.Reason)
 	}
-	if len(r.Events) == 1 && r.Events[0].Amount != 10 {
-		t.Errorf("damage = %f, want 10 (no enhanced round, no munitions)", r.Events[0].Amount)
+	if len(r.Events) != 1 {
+		t.Fatalf("events = %d, want 1", len(r.Events))
 	}
+	// First shot on target = pressure stack 1 → bonus = 10 * 1 * 0.03 = 0.3
+	assertDmgNear(t, r.Events[0].Amount, 10.3, "no enhanced loaded")
 }
 
 func TestIdentity_Gunner_EnhancedRound_IdentityScalesDamage(t *testing.T) {
@@ -107,41 +93,57 @@ func TestIdentity_Gunner_EnhancedRound_IdentityScalesDamage(t *testing.T) {
 	p.GearStats.Identity = 100
 	p.RecalcStats()
 	e := enemyInFront(100, 1e6)
+	as := getGunnerAssaultState(p)
 
-	for i := 0; i < 4; i++ {
-		eng.Cast("fire_shot", castCtx(p, e))
-		eng.TickPlayer(p, 0.2, tickCtx())
-	}
+	// Manually load enhanced rounds and set pressure stacks for deterministic test.
+	as.EnhancedLoaded = 1
+	as.PressureStacks = 5
+	as.PressureTarget = e.ID
+
 	r := eng.Cast("fire_shot", castCtx(p, e))
 	if !r.OK {
 		t.Fatalf("fire_shot failed: %s", r.Reason)
 	}
-	// Base = 10, enhanced = 10 * (1+100/100) * 1.0 = 20
-	// Total = 10 + 20 = 30
-	if len(r.Events) == 1 && r.Events[0].Amount != 30 {
-		t.Errorf("damage = %f, want 30 (10 base + 20 enhanced at Identity=100)", r.Events[0].Amount)
+	if len(r.Events) != 1 {
+		t.Fatalf("events = %d, want 1", len(r.Events))
 	}
+	// Base hit = 10 + pressure bonus (10 * 6stacks * 0.03 = 1.8) = 11.8
+	// Enhanced bonus = (15 + 1.5*6) * (1+100/100) * 1.0 = 24 * 2 = 48
+	// Total ≈ 59.8
+	wantBase := float32(10.0) + 10.0*6*assaultPressureBonus
+	wantEnhanced := (float32(assaultEnhancedBase) + float32(assaultEnhancedPerStack)*6) * 2.0
+	assertDmgNear(t, r.Events[0].Amount, wantBase+wantEnhanced, "enhanced + identity=100")
 }
 
-func TestIdentity_Gunner_EnhancedRound_CounterResets(t *testing.T) {
+func TestIdentity_Gunner_EnhancedRound_ConsumedPerShot(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 1e6)
+	as := getGunnerAssaultState(p)
 
-	procs := 0
-	for i := 0; i < 10; i++ {
+	// Load 3 enhanced rounds
+	as.EnhancedLoaded = 3
+
+	for i := 0; i < 3; i++ {
 		r := eng.Cast("fire_shot", castCtx(p, e))
 		if !r.OK {
 			t.Fatalf("shot %d failed: %s", i+1, r.Reason)
 		}
-		if len(r.Events) == 1 && r.Events[0].Amount > 10 {
-			procs++
-		}
 		eng.TickPlayer(p, 0.2, tickCtx())
 	}
-	if procs != 2 {
-		t.Errorf("enhanced round procs = %d, want 2 (at shots 5 and 10)", procs)
+	if as.EnhancedLoaded != 0 {
+		t.Errorf("enhanced loaded = %d, want 0 after 3 shots", as.EnhancedLoaded)
 	}
+	// 4th shot should come from magazine, not enhanced
+	magBefore := as.MagCurrent
+	r := eng.Cast("fire_shot", castCtx(p, e))
+	if !r.OK {
+		t.Fatalf("4th shot failed: %s", r.Reason)
+	}
+	if as.MagCurrent != magBefore-1 {
+		t.Errorf("mag = %d, want %d (consumed from magazine, not enhanced)", as.MagCurrent, magBefore-1)
+	}
+	_ = r
 }
 
 // =============================================================================
@@ -203,7 +205,7 @@ func TestIdentity_Vanguard_MeleeLightReducedCost(t *testing.T) {
 	e := enemyInFront(100, 1000)
 
 	staminaBefore := p.GetResource("stamina")
-	eng.Cast("melee_light", castCtx(p, e))
+	eng.Cast("cleave", castCtx(p, e))
 	staminaAfter := p.GetResource("stamina")
 
 	// Cost = 10 * TenacityEfficiency(100) = 10 * 0.6667 ≈ 6.667

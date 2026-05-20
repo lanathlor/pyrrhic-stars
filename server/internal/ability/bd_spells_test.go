@@ -220,6 +220,136 @@ func TestBDSpells_DoTAppliedAndTicks(t *testing.T) {
 	}
 }
 
+func TestBDSpells_SlowApplied(t *testing.T) {
+	eng := NewEngine(nil)
+	p := newBladeDancer()
+	p.Config = entity.ConfigOrbit
+	e := enemyInFront(100, 500)
+
+	// fortified_command (Orbit→Crown) applies slow debuff
+	r := eng.Cast("fortified_command", castCtx(p, e))
+	if !r.OK {
+		t.Fatalf("cast failed: %s", r.Reason)
+	}
+	if !e.HasDebuff(entity.DebuffSlow) {
+		t.Error("enemy should have slow debuff")
+	}
+	if got := e.GetDebuffValue(entity.DebuffSlow); got < 0.29 || got > 0.31 {
+		t.Errorf("slow value = %f, want ~0.3", got)
+	}
+}
+
+func TestBDSpells_RootApplied(t *testing.T) {
+	eng := NewEngine(nil)
+	p := newBladeDancer()
+	p.Config = entity.ConfigLance
+	e := enemyInFront(100, 500)
+
+	// pinning_strike (Lance→Crown) applies root debuff
+	r := eng.Cast("pinning_strike", castCtx(p, e))
+	if !r.OK {
+		t.Fatalf("cast failed: %s", r.Reason)
+	}
+	if !e.HasDebuff(entity.DebuffRoot) {
+		t.Error("enemy should have root debuff")
+	}
+}
+
+func TestBDSpells_VulnerabilityApplied(t *testing.T) {
+	eng := NewEngine(nil)
+	p := newBladeDancer()
+	p.Config = entity.ConfigFan
+	e := enemyInFront(100, 500)
+
+	// sweeping_hex (Fan→Crown) applies vulnerability debuff
+	eng.Cast("sweeping_hex", castCtx(p, e))
+	if !e.HasDebuff(entity.DebuffVulnerability) {
+		t.Fatal("enemy should have vulnerability debuff")
+	}
+
+	// Subsequent damage should be amplified by 20%
+	hpBefore := e.Health
+	e.TargetApplyDamage(100)
+	dealt := hpBefore - e.Health
+	if dealt < 119.9 || dealt > 120.1 {
+		t.Errorf("dealt = %f, want ~120 with 20%% vulnerability", dealt)
+	}
+}
+
+func TestBDSpells_CleavingPierceSplash(t *testing.T) {
+	eng := NewEngine(nil)
+	p := newBladeDancer()
+	p.Config = entity.ConfigFan
+
+	primary := enemyInFront(100, 500)
+	// Place secondary enemy 2 units from primary (within 3.0 splash radius)
+	secondary := entity.NewEnemy(101, 500, "mob2")
+	secondary.Position = entity.Vec3{X: 2, Y: 0, Z: -5}
+
+	r := eng.Cast("cleaving_pierce", castCtx(p, primary, secondary))
+	if !r.OK {
+		t.Fatalf("cast failed: %s", r.Reason)
+	}
+
+	hitIDs := map[uint16]float32{}
+	for _, ev := range r.Events {
+		hitIDs[ev.TargetID] += ev.Amount
+	}
+	if _, ok := hitIDs[100]; !ok {
+		t.Error("primary target should be hit")
+	}
+	if _, ok := hitIDs[101]; !ok {
+		t.Error("secondary target should take splash damage")
+	}
+	if hitIDs[101] >= hitIDs[100] {
+		t.Errorf("splash (%f) should be less than primary (%f)", hitIDs[101], hitIDs[100])
+	}
+}
+
+func TestBDSpells_PiercingBarrierShieldScales(t *testing.T) {
+	eng := NewEngine(nil)
+	p := newBladeDancer()
+	p.Config = entity.ConfigLance
+	e := enemyInFront(100, 500)
+
+	r := eng.Cast("piercing_barrier", castCtx(p, e))
+	if !r.OK {
+		t.Fatalf("cast failed: %s", r.Reason)
+	}
+
+	shield := p.GetResource("shield")
+	if shield < 1.0 {
+		t.Error("should have granted shield from damage dealt")
+	}
+	// BaseDamage 18 * ShieldPerDamage 0.8 = ~14.4
+	if shield < 14.0 || shield > 15.0 {
+		t.Errorf("shield = %f, want ~14.4 (18 * 0.8)", shield)
+	}
+}
+
+func TestBDSpells_CCImmunityBuffApplied(t *testing.T) {
+	eng := NewEngine(nil)
+	p := newBladeDancer()
+	p.Config = entity.ConfigOrbit
+	e := enemyInFront(100, 500)
+
+	eng.Cast("fortified_command", castCtx(p, e))
+	if !p.HasBuff("bd_cc_immune") {
+		t.Error("should have CC immunity buff")
+	}
+}
+
+func TestBDSpells_ThornsBuffApplied(t *testing.T) {
+	eng := NewEngine(nil)
+	p := newBladeDancer()
+	p.Config = entity.ConfigScatter
+
+	eng.Cast("dispersed_shield", castCtx(p))
+	if !p.HasBuff("bd_thorns") {
+		t.Error("should have thorns buff")
+	}
+}
+
 func TestBDSpells_NearestNTargeting(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newBladeDancer()

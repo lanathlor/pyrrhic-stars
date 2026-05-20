@@ -337,6 +337,13 @@ func parsePlayerStateFromWorldState(payload []byte, wantPeer uint16) int {
 		classLen := int(payload[off])
 		off++ // class_len
 		off += classLen
+		// spec:str8
+		if off >= len(payload) {
+			return -1
+		}
+		specLen := int(payload[off])
+		off++ // spec_len
+		off += specLen
 		// name:str8
 		if off >= len(payload) {
 			return -1

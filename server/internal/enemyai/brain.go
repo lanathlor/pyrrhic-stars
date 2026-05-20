@@ -93,6 +93,7 @@ func (b *Brain) Tick(dt float32, players []*entity.Player,
 	e := b.enemy
 
 	e.StateTimer -= dt
+	e.TickDebuffs(dt)
 	b.events = b.events[:0]
 	b.bb.TickTimers(dt)
 	b.ctx.Logger = b.Logger

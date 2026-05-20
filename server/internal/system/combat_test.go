@@ -367,47 +367,39 @@ func TestRechamberBlockedDuringFireCooldown(t *testing.T) {
 	}
 }
 
-// --- Vanguard: Blade Swirl tests ---
+// --- Vanguard: Vortex (blade_swirl) tests ---
 
-func TestBladeSwirlMultiTick(t *testing.T) {
+func TestVortexMultiTick(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
-	// Set up blade swirl state directly (as if ability was cast)
-	p.AbilityState["blade_swirl"] = &ability.BladeSwirlState{Timer: 1.5, Ticks: 0}
-	p.AddBuff(entity.ActiveBuff{ID: "blade_swirl", Type: entity.BuffDamageReduction, Value: 0.8, Duration: 1.5})
+	// Set up vortex state directly (standard tier: 0.6s duration, 2 total hits).
+	// HitsDone=1 because the initial cast already delivered the first hit.
+	p.AbilityState["vortex"] = &ability.VortexState{Timer: 0.6, Duration: 0.6, TotalHits: 2, HitsDone: 1}
+	p.AddBuff(entity.ActiveBuff{ID: "vortex", Type: entity.BuffDamageReduction, Value: 0.8, Duration: 0.6})
 
 	e := entity.NewEnemy(0, 2000.0, "guard_captain")
 	e.Alive = true
-	e.Position = entity.Vec3{X: 2, Y: 0.1, Z: 0} // within 6.0 radius
+	e.Position = entity.Vec3{X: 2, Y: 0.1, Z: 0} // within 4.0 radius
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
 	sys := CombatSystem{}
 
-	// After 0.55s: (1.5-0.95)/0.5 = 1.1 -> expectedTicks=1, should deliver 1 tick
-	sys.Tick(w, 0.55)
-	state, ok := p.AbilityState["blade_swirl"].(*ability.BladeSwirlState)
+	// After 0.35s: elapsed > interval (0.3s), should deliver second hit
+	sys.Tick(w, 0.35)
+	state, ok := p.AbilityState["vortex"].(*ability.VortexState)
 	if !ok {
 		t.Fatal("blade_swirl state not set")
 	}
-	if state.Ticks != 1 {
-		t.Errorf("after 0.55s: BladeSwirlTicks = %d, want 1", state.Ticks)
+	if state.HitsDone != 2 {
+		t.Errorf("after 0.35s: HitsDone = %d, want 2", state.HitsDone)
 	}
 	if len(w.DamageEvents) != 1 {
-		t.Errorf("after 0.55s: DamageEvents = %d, want 1", len(w.DamageEvents))
+		t.Errorf("after 0.35s: DamageEvents = %d, want 1", len(w.DamageEvents))
 	}
 
-	// After another 0.5s (1.05s total): (1.5-0.45)/0.5 = 2.1 -> expectedTicks=2
-	sys.Tick(w, 0.5)
-	if state.Ticks != 2 {
-		t.Errorf("after 1.05s: BladeSwirlTicks = %d, want 2", state.Ticks)
-	}
-	if len(w.DamageEvents) != 2 {
-		t.Errorf("after 1.05s: DamageEvents = %d, want 2", len(w.DamageEvents))
-	}
-
-	// After another 0.5s (1.55s total): timer expired, swirl should end
-	sys.Tick(w, 0.5)
-	if p.HasBuff("blade_swirl") {
+	// After another 0.3s (0.65s total): timer expired, vortex should end
+	sys.Tick(w, 0.3)
+	if p.HasBuff("vortex") {
 		t.Error("blade_swirl buff should be expired after timer expires")
 	}
 }
@@ -415,7 +407,7 @@ func TestBladeSwirlMultiTick(t *testing.T) {
 func TestBladeSwirlCooldownPreventsReuse(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.Resources["stamina"].Current = 100.0
-	p.Cooldowns["blade_swirl"] = 5.0
+	p.Cooldowns["vortex"] = 5.0
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 	payload := []byte{entity.ActionBladeSwirl, 0, 0, 0, 0}
@@ -423,7 +415,7 @@ func TestBladeSwirlCooldownPreventsReuse(t *testing.T) {
 	inputSys := InputSystem{}
 	inputSys.Tick(w, 0.05)
 
-	if p.HasBuff("blade_swirl") {
+	if p.HasBuff("vortex") {
 		t.Error("BladeSwirl should not activate during cooldown")
 	}
 	if p.Resources["stamina"].Current != 100.0 {
@@ -434,7 +426,7 @@ func TestBladeSwirlCooldownPreventsReuse(t *testing.T) {
 func TestGroundSlamCooldownPreventsReuse(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.Resources["stamina"].Current = 100.0
-	p.Cooldowns["ground_slam"] = 3.0
+	p.Cooldowns["execution"] = 3.0
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 	payload := []byte{entity.ActionGroundSlam, 0, 0, 0, 0}
@@ -442,8 +434,8 @@ func TestGroundSlamCooldownPreventsReuse(t *testing.T) {
 	inputSys := InputSystem{}
 	inputSys.Tick(w, 0.05)
 
-	if p.Cooldowns["ground_slam"] < 3.0 {
-		t.Errorf("GroundSlamCooldown should remain >= 3.0, got %f", p.Cooldowns["ground_slam"])
+	if p.Cooldowns["execution"] < 3.0 {
+		t.Errorf("GroundSlamCooldown should remain >= 3.0, got %f", p.Cooldowns["execution"])
 	}
 	if p.Resources["stamina"].Current != 100.0 {
 		t.Errorf("stamina should be unchanged at 100.0, got %f", p.Resources["stamina"].Current)
@@ -461,11 +453,11 @@ func TestGroundSlamConsumesStamina(t *testing.T) {
 	inputSys := InputSystem{}
 	inputSys.Tick(w, 0.05)
 
-	if p.Resources["stamina"].Current != 80.0 {
-		t.Errorf("stamina = %f, want 80.0 (100 - 20)", p.Resources["stamina"].Current)
+	if p.Resources["stamina"].Current != 70.0 {
+		t.Errorf("stamina = %f, want 70.0 (100 - 30)", p.Resources["stamina"].Current)
 	}
-	if p.Cooldowns["ground_slam"] != 8.0 {
-		t.Errorf("GroundSlamCooldown = %f, want 8.0", p.Cooldowns["ground_slam"])
+	if p.Cooldowns["execution"] != 8.0 {
+		t.Errorf("GroundSlamCooldown = %f, want 8.0", p.Cooldowns["execution"])
 	}
 	if p.GCDTimer != 1.2 {
 		t.Errorf("GCDTimer = %f, want 1.2 (lockout)", p.GCDTimer)
@@ -474,36 +466,36 @@ func TestGroundSlamConsumesStamina(t *testing.T) {
 
 func TestBladeSwirlCooldownTicksDown(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
-	p.Cooldowns["blade_swirl"] = 10.0
+	p.Cooldowns["vortex"] = 10.0
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 	sys := CombatSystem{}
 
 	sys.Tick(w, 4.0)
-	if cd := p.Cooldowns["blade_swirl"]; cd < 5.9 || cd > 6.1 {
+	if cd := p.Cooldowns["vortex"]; cd < 5.9 || cd > 6.1 {
 		t.Errorf("BladeSwirlCooldown = %f, want ~6.0", cd)
 	}
 
 	sys.Tick(w, 7.0)
-	if cd := p.Cooldowns["blade_swirl"]; cd != 0.0 {
+	if cd := p.Cooldowns["vortex"]; cd != 0.0 {
 		t.Errorf("BladeSwirlCooldown = %f, want 0.0 (expired)", cd)
 	}
 }
 
 func TestGroundSlamCooldownTicksDown(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
-	p.Cooldowns["ground_slam"] = 8.0
+	p.Cooldowns["execution"] = 8.0
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 	sys := CombatSystem{}
 
 	sys.Tick(w, 3.0)
-	if cd := p.Cooldowns["ground_slam"]; cd < 4.9 || cd > 5.1 {
+	if cd := p.Cooldowns["execution"]; cd < 4.9 || cd > 5.1 {
 		t.Errorf("GroundSlamCooldown = %f, want ~5.0", cd)
 	}
 
 	sys.Tick(w, 6.0)
-	if cd := p.Cooldowns["ground_slam"]; cd != 0.0 {
+	if cd := p.Cooldowns["execution"]; cd != 0.0 {
 		t.Errorf("GroundSlamCooldown = %f, want 0.0 (expired)", cd)
 	}
 }
@@ -518,7 +510,7 @@ func TestBladeSwirlBlockedByInsufficientStamina(t *testing.T) {
 	inputSys := InputSystem{}
 	inputSys.Tick(w, 0.05)
 
-	if p.HasBuff("blade_swirl") {
+	if p.HasBuff("vortex") {
 		t.Error("BladeSwirl should not activate with insufficient stamina")
 	}
 	if p.Resources["stamina"].Current != 20.0 {
@@ -557,13 +549,13 @@ func TestBladeSwirl3xIntegration(t *testing.T) {
 		w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: payload}}
 		inputSys.Tick(w, 0.05)
 
-		if !p.HasBuff("blade_swirl") {
+		if !p.HasBuff("vortex") {
 			t.Fatalf("swirl %d: BladeSwirl should be active", swirl+1)
 		}
 
 		eventsFromInput := len(w.DamageEvents)
 		t.Logf("swirl %d: immediate hits=%d, enemy HP=%.0f, stamina=%.0f, swirl_cd=%.2f",
-			swirl+1, eventsFromInput, e.Health, p.Resources["stamina"].Current, p.Cooldowns["blade_swirl"])
+			swirl+1, eventsFromInput, e.Health, p.Resources["stamina"].Current, p.Cooldowns["vortex"])
 		totalDamageEvents += eventsFromInput
 
 		// Tick combat system for the full 1.5s duration + 1 extra tick for float rounding
@@ -574,9 +566,9 @@ func TestBladeSwirl3xIntegration(t *testing.T) {
 		}
 
 		t.Logf("swirl %d after ticks: enemy HP=%.0f, blade_swirl=%v, swirl_cd=%.2f",
-			swirl+1, e.Health, p.HasBuff("blade_swirl"), p.Cooldowns["blade_swirl"])
+			swirl+1, e.Health, p.HasBuff("vortex"), p.Cooldowns["vortex"])
 
-		if p.HasBuff("blade_swirl") {
+		if p.HasBuff("vortex") {
 			t.Errorf("swirl %d: BladeSwirl should have ended after 1.5s", swirl+1)
 		}
 
@@ -586,7 +578,7 @@ func TestBladeSwirl3xIntegration(t *testing.T) {
 		}
 
 		t.Logf("swirl %d after cooldown: swirl_cd=%.2f, stamina=%.0f",
-			swirl+1, p.Cooldowns["blade_swirl"], p.Resources["stamina"].Current)
+			swirl+1, p.Cooldowns["vortex"], p.Resources["stamina"].Current)
 	}
 
 	totalDamage := startHP - e.Health
@@ -653,11 +645,11 @@ func TestSwirlSlamSwirlSlamIntegration(t *testing.T) {
 		totalEvents += eventsFromInput
 
 		isSwirl := s.payload[0] == entity.ActionBladeSwirl
-		isSwirlActive := p.HasBuff("blade_swirl")
+		isSwirlActive := p.HasBuff("vortex")
 
 		t.Logf("step %d [%s]: input_hits=%d, HP=%.0f->%.0f, swirl=%v, swirl_cd=%.2f, slam_cd=%.2f, stamina=%.0f",
 			i+1, s.name, eventsFromInput, hpBefore, e.Health, isSwirlActive,
-			p.Cooldowns["blade_swirl"], p.Cooldowns["ground_slam"], p.Resources["stamina"].Current)
+			p.Cooldowns["vortex"], p.Cooldowns["execution"], p.Resources["stamina"].Current)
 
 		if isSwirl && !isSwirlActive {
 			t.Errorf("step %d [%s]: BladeSwirl should be active", i+1, s.name)
@@ -673,7 +665,7 @@ func TestSwirlSlamSwirlSlamIntegration(t *testing.T) {
 				combatSys.Tick(w, 0.05)
 				totalEvents += len(w.DamageEvents)
 			}
-			if p.HasBuff("blade_swirl") {
+			if p.HasBuff("vortex") {
 				t.Errorf("step %d [%s]: BladeSwirl should have ended", i+1, s.name)
 			}
 		}
@@ -685,13 +677,13 @@ func TestSwirlSlamSwirlSlamIntegration(t *testing.T) {
 		}
 
 		t.Logf("step %d [%s] after cooldown: swirl_cd=%.2f, slam_cd=%.2f",
-			i+1, s.name, p.Cooldowns["blade_swirl"], p.Cooldowns["ground_slam"])
+			i+1, s.name, p.Cooldowns["vortex"], p.Cooldowns["execution"])
 
-		if p.Cooldowns["blade_swirl"] > 0 {
-			t.Errorf("step %d: BladeSwirlCooldown should be 0 after 11s, got %.2f", i+1, p.Cooldowns["blade_swirl"])
+		if p.Cooldowns["vortex"] > 0 {
+			t.Errorf("step %d: BladeSwirlCooldown should be 0 after 11s, got %.2f", i+1, p.Cooldowns["vortex"])
 		}
-		if p.Cooldowns["ground_slam"] > 0 {
-			t.Errorf("step %d: GroundSlamCooldown should be 0 after 11s, got %.2f", i+1, p.Cooldowns["ground_slam"])
+		if p.Cooldowns["execution"] > 0 {
+			t.Errorf("step %d: GroundSlamCooldown should be 0 after 11s, got %.2f", i+1, p.Cooldowns["execution"])
 		}
 	}
 
@@ -817,11 +809,11 @@ func TestAllBladeDancerSpells(t *testing.T) {
 		{3, "Fortified Command", 0, 4, 5, 5, 5, 0, 0, true, false, 0, 0, 0},
 		// From Fan (config 1)
 		{4, "Reaping Guard", 1, 0, 8, 0, 8, 0, 12, false, false, 0, 0, 0},
-		{5, "Cleaving Pierce", 1, 2, 30, 0, 0, 0, 0, false, false, 0, 0, 0},
+		{5, "Cleaving Pierce", 1, 2, 30, 9, 0, 0, 0, false, false, 0, 0, 0}, // 9 = splash (30 * 0.3)
 		{6, "Slashing Spread", 1, 3, 8, 8, 8, 0, 0, false, true, 1.5, 9, 3},
 		{7, "Sweeping Hex", 1, 4, 10, 10, 10, 0, 0, false, false, 0, 0, 0},
 		// From Lance (config 2)
-		{8, "Piercing Barrier", 2, 0, 18, 0, 0, 0, 15, false, false, 0, 0, 0},
+		{8, "Piercing Barrier", 2, 0, 18, 0, 0, 0, 14.4, false, false, 0, 0, 0}, // 18 * 0.8 ShieldPerDamage
 		{9, "Focused Slash", 2, 1, 15, 15, 0, 0, 0, false, false, 0, 0, 0},
 		{10, "Targeted Spread", 2, 3, 12, 0, 0, 0, 0, false, true, 2.0, 14, 1},
 		{11, "Pinning Strike", 2, 4, 25, 0, 0, 0, 0, false, false, 0, 0, 0},
@@ -910,8 +902,8 @@ func TestAllBladeDancerSpells(t *testing.T) {
 					expected = 25.0
 				}
 				shieldHP := p.GetResource("shield")
-				if shieldHP != expected {
-					t.Errorf("shield = %.0f, want %.0f", shieldHP, expected)
+				if diff := shieldHP - expected; diff < -0.5 || diff > 0.5 {
+					t.Errorf("shield = %.1f, want %.1f", shieldHP, expected)
 				}
 			} else if p.GetResource("shield") != 0 {
 				t.Errorf("shield = %.0f, want 0", p.GetResource("shield"))

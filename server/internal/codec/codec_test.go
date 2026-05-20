@@ -329,6 +329,14 @@ func TestEncodeWorldStateWireFormat(t *testing.T) {
 	if className != entity.ClassGunner {
 		t.Errorf("class = %q, want %q", className, entity.ClassGunner)
 	}
+	// spec:str8
+	specLen := int(buf[off])
+	off++
+	specName := string(buf[off : off+specLen])
+	off += specLen
+	if specName != "" {
+		t.Errorf("spec = %q, want %q", specName, "")
+	}
 	// name:str8
 	nameLen := int(buf[off])
 	off++
@@ -380,6 +388,18 @@ func TestEncodeWorldStateWireFormat(t *testing.T) {
 	if resonanceVal != 0.0 {
 		t.Errorf("resonance = %f, want 0.0", resonanceVal)
 	}
+	// onslaught_stacks (1 byte)
+	if buf[off] != 0 {
+		t.Errorf("onslaught_stacks = %d, want 0 (gunner)", buf[off])
+	}
+	off++
+	// Gunner assault state (7 bytes — all zero, no assault state initialized)
+	for i := range 7 {
+		if buf[off+i] != 0 {
+			t.Errorf("assault_byte[%d] = %d, want 0", i, buf[off+i])
+		}
+	}
+	off += 7
 
 	// enemy count
 	if buf[off] != 1 {
@@ -479,6 +499,13 @@ func TestEncodeLobbyStateWireFormat(t *testing.T) {
 	if class != entity.ClassGunner {
 		t.Errorf("p1 class = %q, want %q", class, entity.ClassGunner)
 	}
+	specLen := int(buf[off])
+	off++
+	spec := string(buf[off : off+specLen])
+	off += specLen
+	if spec != "" {
+		t.Errorf("p1 spec = %q, want %q", spec, "")
+	}
 	nameLen := int(buf[off])
 	off++
 	name := string(buf[off : off+nameLen])
@@ -502,6 +529,13 @@ func TestEncodeLobbyStateWireFormat(t *testing.T) {
 	off += classLen
 	if class != entity.ClassVanguard {
 		t.Errorf("p2 class = %q, want %q", class, entity.ClassVanguard)
+	}
+	specLen = int(buf[off])
+	off++
+	spec = string(buf[off : off+specLen])
+	off += specLen
+	if spec != "" {
+		t.Errorf("p2 spec = %q, want %q", spec, "")
 	}
 	nameLen = int(buf[off])
 	off++
