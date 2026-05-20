@@ -109,66 +109,38 @@ func test_dodge_bleeds_velocity() -> void:
 	assert_float(speed).is_less(_vanguard.dodge_speed * 0.5)
 
 
-# --- Light Attack Combo ---
+# --- Cleave (single repeatable sweep, no combo) ---
 
 
-func test_light_attack_1_state() -> void:
-	_vanguard._start_light_attack(1)
-	assert_int(_vanguard.state).is_equal(_vanguard.State.LIGHT_1)
+func test_cleave_sets_state() -> void:
+	_vanguard._start_cleave()
+	assert_int(_vanguard.state).is_equal(_vanguard.State.CLEAVE)
 
 
-func test_light_attack_2_state() -> void:
-	_vanguard._start_light_attack(2)
-	assert_int(_vanguard.state).is_equal(_vanguard.State.LIGHT_2)
-
-
-func test_light_attack_3_state() -> void:
-	_vanguard._start_light_attack(3)
-	assert_int(_vanguard.state).is_equal(_vanguard.State.LIGHT_3)
-
-
-func test_light_combo_step_progression() -> void:
-	_vanguard._start_light_attack(1)
-	assert_int(_vanguard._get_next_combo_step()).is_equal(2)
-	_vanguard._start_light_attack(2)
-	assert_int(_vanguard._get_next_combo_step()).is_equal(3)
-	_vanguard._start_light_attack(3)
-	assert_int(_vanguard._get_next_combo_step()).is_equal(0)
-
-
-func test_light_damage_values_escalate() -> void:
-	assert_float(_vanguard.light_damage_1).is_less(_vanguard.light_damage_2)
-	assert_float(_vanguard.light_damage_2).is_less(_vanguard.light_damage_3)
-
-
-func test_light_attack_returns_to_move() -> void:
-	_vanguard._start_light_attack(1)
-	var frames := ceili(_vanguard.light_duration_1 / DELTA) + 2
+func test_cleave_returns_to_move() -> void:
+	_vanguard._start_cleave()
+	var frames := ceili(_vanguard.CLEAVE_DURATION / DELTA) + 2
 	for i in frames:
 		_vanguard._state_timer -= DELTA
-		_vanguard._process_light_attack(DELTA)
+		_vanguard._process_cleave(DELTA)
 	assert_int(_vanguard.state).is_equal(_vanguard.State.MOVE)
 
 
-# --- Heavy Attack ---
+# --- Upheaval ---
 
 
-func test_heavy_starts_windup() -> void:
-	_vanguard._start_heavy_attack()
-	assert_int(_vanguard.state).is_equal(_vanguard.State.HEAVY_WINDUP)
+func test_upheaval_starts_windup() -> void:
+	_vanguard._start_upheaval()
+	assert_int(_vanguard.state).is_equal(_vanguard.State.UPHEAVAL_WINDUP)
 
 
-func test_heavy_windup_transitions() -> void:
-	_vanguard._start_heavy_attack()
-	var frames := ceili(_vanguard.heavy_windup_time / DELTA) + 2
+func test_upheaval_windup_transitions() -> void:
+	_vanguard._start_upheaval()
+	var frames := ceili(_vanguard.UPHEAVAL_WINDUP_TIME / DELTA) + 2
 	for i in frames:
 		_vanguard._state_timer -= DELTA
-		_vanguard._process_heavy_windup(DELTA)
-	assert_int(_vanguard.state).is_equal(_vanguard.State.HEAVY)
-
-
-func test_heavy_damage_higher_than_light() -> void:
-	assert_float(_vanguard.heavy_damage).is_greater(_vanguard.light_damage_3)
+		_vanguard._process_upheaval_windup(DELTA)
+	assert_int(_vanguard.state).is_equal(_vanguard.State.UPHEAVAL)
 
 
 # --- Block & Parry ---
@@ -182,10 +154,15 @@ func test_block_state_sets_block() -> void:
 func test_block_drains_stamina() -> void:
 	_vanguard.state = _vanguard.State.BLOCK
 	var before := _vanguard.stamina
-	# Simulate block drain — call _process_block manually
-	# (need to hold block input for it to stay in BLOCK)
 	_vanguard._consume_stamina(_vanguard.block_stamina_drain * DELTA)
 	assert_float(_vanguard.stamina).is_less(before)
+
+
+# --- Onslaught ---
+
+
+func test_onslaught_tier_default() -> void:
+	assert_int(_vanguard._onslaught_tier).is_equal(0)
 
 
 # --- Lock-on ---

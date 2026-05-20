@@ -1,7 +1,7 @@
 extends CharacterBody3D
 
 ## Vanguard — Souls-like third-person melee controller (Blade spec).
-## Combo chains, dodge rolls with i-frames, block/parry, stamina, lock-on.
+## Onslaught momentum system: build stacks on hits, lose on damage.
 ## Sub-systems: combat, movement, cam, anim (child nodes).
 
 signal died
@@ -9,32 +9,41 @@ signal died
 enum State {
 	MOVE,
 	DODGE,
-	LIGHT_1,
-	LIGHT_2,
-	LIGHT_3,
-	HEAVY_WINDUP,
-	HEAVY,
+	CLEAVE,
+	UPHEAVAL_WINDUP,
+	UPHEAVAL,
 	BLOCK,
 	STAGGER,
 	DEAD,
-	BLADE_SWIRL,
-	GROUND_SLAM_WINDUP,
-	GROUND_SLAM
+	VORTEX,
+	EXECUTION_WINDUP,
+	EXECUTION
 }
 
 const PlayerTelegraph := preload("res://scenes/shared/telegraph/player_telegraph.gd")
 
-# Blade Swirl (Q)
-const BLADE_SWIRL_DURATION: float = 1.5
-const BLADE_SWIRL_COOLDOWN: float = 10.0
-const BLADE_SWIRL_STAMINA: float = 25.0
-const BLADE_SWIRL_SPEED_MULT: float = 0.8
+# Cleave (LMB) — fast repeatable sweep
+const CLEAVE_DAMAGE: float = 30.0
+const CLEAVE_DURATION: float = 0.45
+const CLEAVE_STAMINA: float = 10.0
 
-# Ground Slam (E)
-const GROUND_SLAM_COOLDOWN: float = 8.0
-const GROUND_SLAM_STAMINA: float = 20.0
-const GROUND_SLAM_WINDUP_TIME: float = 0.3
-const GROUND_SLAM_HIT_TIME: float = 0.1
+# Upheaval (R) — cone slam
+const UPHEAVAL_DAMAGE: float = 55.0
+const UPHEAVAL_WINDUP_TIME: float = 0.3
+const UPHEAVAL_HIT_TIME: float = 0.3
+const UPHEAVAL_STAMINA: float = 20.0
+
+# Vortex (F) — forward advancing spin
+const VORTEX_COOLDOWN: float = 10.0
+const VORTEX_STAMINA: float = 25.0
+const VORTEX_SPEED: float = 10.0
+const VORTEX_DURATIONS: Array[float] = [0.6, 0.8, 1.0]  # by onslaught tier
+
+# Execution (T) — slow windup + devastating overhead chop
+const EXECUTION_COOLDOWN: float = 8.0
+const EXECUTION_STAMINA: float = 30.0
+const EXECUTION_WINDUP_TIME: float = 0.8
+const EXECUTION_HIT_TIME: float = 0.15
 
 # Telegraph color
 const VANGUARD_TELEGRAPH_COLOR := Color(0.9, 0.6, 0.3, 0.4)
@@ -65,22 +74,6 @@ const VfxScript := preload("res://scenes/controllers/vanguard/vfx/vanguard_vfx.g
 @export var dodge_duration: float = 0.4
 @export var dodge_iframe_duration: float = 0.15
 @export var dodge_stamina_cost: float = 20.0
-
-# Combat — light attacks (3-hit combo, escalating damage)
-@export var light_damage_1: float = 30.0
-@export var light_damage_2: float = 35.0
-@export var light_damage_3: float = 55.0
-@export var light_duration_1: float = 0.55
-@export var light_duration_2: float = 0.65
-@export var light_duration_3: float = 0.75
-@export var light_combo_window: float = 0.4
-@export var light_stamina_cost: float = 10.0
-
-# Combat — heavy attack
-@export var heavy_damage: float = 75.0
-@export var heavy_windup_time: float = 0.5
-@export var heavy_attack_duration: float = 0.3
-@export var heavy_stamina_cost: float = 20.0
 
 # Melee hit detection
 @export var melee_range: float = 3.0
@@ -119,18 +112,19 @@ var vfx: Node
 
 var _block_cooldown: float = 0.0
 var _state_timer: float = 0.0
-var _combo_window_timer: float = 0.0
 var _is_invincible: bool = false
 var _parry_timer: float = 0.0
-var _queued_light: bool = false
 var _stagger_duration: float = 0.3
 
-# Blade Swirl (Q)
-var _blade_swirl_timer: float = 0.0
-var _blade_swirl_cooldown: float = 0.0
+# Onslaught — read from server state
+var _onslaught_tier: int = 0
+var _onslaught_stacks: int = 0
 
-# Ground Slam (E)
-var _ground_slam_cooldown: float = 0.0
+# Vortex (F)
+var _vortex_cooldown: float = 0.0
+
+# Execution (T)
+var _execution_cooldown: float = 0.0
 
 # Camera
 var _camera_yaw: float = 0.0
@@ -176,14 +170,12 @@ func _ready() -> void:
 				"run": "sword_run",
 				"jump": "sword_jump",
 				"dodge": "roll",
-				"light_1": "sword_slash_1",
-				"light_2": "sword_slash_2",
-				"light_3": "sword_slash_3",
-				"heavy": "sword_heavy",
+				"cleave": "sword_slash_1",
+				"upheaval": "sword_heavy",
 				"block": "sword_block",
 				"stagger": "sword_impact",
-				"blade_swirl": "sword_heavy",
-				"ground_slam": "sword_heavy",
+				"vortex": "sword_heavy",
+				"execution": "sword_heavy",
 				"dead": "sword_idle",
 			}
 		)
@@ -222,6 +214,8 @@ func _is_local() -> bool:
 func apply_server_state(data: Dictionary) -> void:
 	if data.has("max_health") and data["max_health"] > 0.0:
 		max_health = data["max_health"]
+	_onslaught_tier = data.get("onslaught_tier", 0)
+	_onslaught_stacks = data.get("onslaught_stacks", 0)
 	if _is_local():
 		health = data.health
 		var server_stamina: float = data.get("stamina", -1.0)
@@ -290,30 +284,30 @@ func _physics_process(delta: float) -> void:
 	movement.update_stamina(delta)
 	_update_parry(delta)
 	_block_cooldown = maxf(_block_cooldown - delta, 0.0)
-	_blade_swirl_cooldown = maxf(_blade_swirl_cooldown - delta, 0.0)
-	_ground_slam_cooldown = maxf(_ground_slam_cooldown - delta, 0.0)
+	_vortex_cooldown = maxf(_vortex_cooldown - delta, 0.0)
+	_execution_cooldown = maxf(_execution_cooldown - delta, 0.0)
 
 	match state:
 		State.MOVE:
 			movement.process_move(delta)
 		State.DODGE:
 			combat.process_dodge(delta)
-		State.LIGHT_1, State.LIGHT_2, State.LIGHT_3:
-			combat.process_light_attack(delta)
-		State.HEAVY_WINDUP:
-			combat.process_heavy_windup(delta)
-		State.HEAVY:
-			combat.process_heavy_attack(delta)
+		State.CLEAVE:
+			combat.process_cleave(delta)
+		State.UPHEAVAL_WINDUP:
+			combat.process_upheaval_windup(delta)
+		State.UPHEAVAL:
+			combat.process_upheaval(delta)
 		State.BLOCK:
 			combat.process_block(delta)
 		State.STAGGER:
 			combat.process_stagger()
-		State.BLADE_SWIRL:
-			combat.process_blade_swirl(delta)
-		State.GROUND_SLAM_WINDUP:
-			combat.process_ground_slam_windup(delta)
-		State.GROUND_SLAM:
-			combat.process_ground_slam(delta)
+		State.VORTEX:
+			combat.process_vortex(delta)
+		State.EXECUTION_WINDUP:
+			combat.process_execution_windup(delta)
+		State.EXECUTION:
+			combat.process_execution(delta)
 		State.DEAD:
 			velocity.x = 0.0
 			velocity.z = 0.0
@@ -334,56 +328,65 @@ func _physics_process(delta: float) -> void:
 			_toggle_lock_on()
 	if _lock_on_active and _lock_target:
 		hud.update_lock_on(_lock_target, camera)
+
+	hud.update_onslaught(_onslaught_tier, _onslaught_stacks)
+
+	var tier_suffix: String = ""
+	if _onslaught_tier == 1:
+		tier_suffix = "+"
+	elif _onslaught_tier == 2:
+		tier_suffix = "++"
+
 	(
 		hud
 		. update_spells(
 			[
 				{
-					name = "Light Attack",
+					name = "Cleave" + tier_suffix,
 					keybind = "LMB",
-					desc = "3-hit combo. 30/35/55 dmg.",
+					desc = "Fast sweep. Arc widens with Onslaught.",
 					cooldown = 0.0,
 					cooldown_max = 0.0,
-					stamina_cost = light_stamina_cost
+					stamina_cost = CLEAVE_STAMINA
 				},
 				{
-					name = "Heavy Attack",
+					name = "Upheaval" + tier_suffix,
 					keybind = "R",
-					desc = "75 dmg. 0.5s windup.",
+					desc = "Cone slam. Wider at empowered, DoT at max.",
 					cooldown = 0.0,
 					cooldown_max = 0.0,
-					stamina_cost = heavy_stamina_cost
+					stamina_cost = UPHEAVAL_STAMINA
 				},
 				{
 					name = "Block",
 					keybind = "RMB",
-					desc = "80→50% DR. 0.15s parry. 3s CD.",
+					desc = "Parry counter-swing builds Onslaught.",
 					cooldown = _block_cooldown,
 					cooldown_max = 3.0
 				},
 				{
 					name = "Dodge",
 					keybind = "Space",
-					desc = "I-frame dodge.",
+					desc = "I-frame dodge. Preserves Onslaught.",
 					cooldown = 0.0,
 					cooldown_max = 0.0,
 					stamina_cost = dodge_stamina_cost
 				},
 				{
-					name = "Blade Swirl",
+					name = "Vortex" + tier_suffix,
 					keybind = "F",
-					desc = "AoE spinning attack. 10s CD.",
-					cooldown = _blade_swirl_cooldown,
-					cooldown_max = BLADE_SWIRL_COOLDOWN,
-					stamina_cost = BLADE_SWIRL_STAMINA
+					desc = "Forward spin dash. More hits at higher tier.",
+					cooldown = _vortex_cooldown,
+					cooldown_max = VORTEX_COOLDOWN,
+					stamina_cost = VORTEX_STAMINA
 				},
 				{
-					name = "Ground Slam",
+					name = "Execution" + tier_suffix,
 					keybind = "T",
-					desc = "Cone AoE slam. 8s CD.",
-					cooldown = _ground_slam_cooldown,
-					cooldown_max = GROUND_SLAM_COOLDOWN,
-					stamina_cost = GROUND_SLAM_STAMINA
+					desc = "Devastating chop. Shockwave at empowered+.",
+					cooldown = _execution_cooldown,
+					cooldown_max = EXECUTION_COOLDOWN,
+					stamina_cost = EXECUTION_STAMINA
 				},
 			]
 		)
@@ -421,21 +424,19 @@ func _drive_remote_animation(prev_pos: Vector3, delta: float) -> void:
 		NetSerializer.VS_DODGE:
 			character_model.travel("dodge")
 		NetSerializer.VS_VG_LIGHT_1:
-			character_model.travel("light_1")
-		NetSerializer.VS_VG_LIGHT_2:
-			character_model.travel("light_2")
-		NetSerializer.VS_VG_LIGHT_3:
-			character_model.travel("light_3")
+			character_model.travel("cleave")
+		NetSerializer.VS_VG_LIGHT_2, NetSerializer.VS_VG_LIGHT_3:
+			character_model.travel("cleave")
 		NetSerializer.VS_VG_HEAVY_WINDUP, NetSerializer.VS_VG_HEAVY:
-			character_model.travel("heavy")
+			character_model.travel("upheaval")
 		NetSerializer.VS_VG_BLOCK:
 			character_model.travel("block")
 		NetSerializer.VS_VG_STAGGER:
 			character_model.travel("stagger")
-		NetSerializer.VS_VG_BLADE_SWIRL:
-			character_model.travel("blade_swirl", 2.0)
-		NetSerializer.VS_VG_GROUND_SLAM_WINDUP, NetSerializer.VS_VG_GROUND_SLAM:
-			character_model.travel("ground_slam")
+		NetSerializer.VS_VG_VORTEX:
+			character_model.travel("vortex", 2.0)
+		NetSerializer.VS_VG_EXECUTION_WINDUP, NetSerializer.VS_VG_EXECUTION:
+			character_model.travel("execution")
 		NetSerializer.VS_DEAD:
 			character_model.travel("dead")
 		_:  # VS_MOVE or unknown — derive from velocity
@@ -460,21 +461,21 @@ func _drive_remote_vfx(old_vs: int, new_vs: int) -> void:
 		vfx.stop_swing_trail()
 	if old_vs == NetSerializer.VS_VG_BLOCK and new_vs != NetSerializer.VS_VG_BLOCK:
 		vfx.hide_block_shield()
-	if old_vs == NetSerializer.VS_VG_BLADE_SWIRL and new_vs != NetSerializer.VS_VG_BLADE_SWIRL:
-		vfx.stop_blade_swirl()
+	if old_vs == NetSerializer.VS_VG_VORTEX and new_vs != NetSerializer.VS_VG_VORTEX:
+		vfx.stop_vortex()
 
 	# Start effects for new state
 	if new_vs in attack_states and old_vs not in attack_states:
 		vfx.start_swing_trail()
 	if new_vs == NetSerializer.VS_VG_BLOCK and old_vs != NetSerializer.VS_VG_BLOCK:
 		vfx.show_block_shield()
-	if new_vs == NetSerializer.VS_VG_BLADE_SWIRL and old_vs != NetSerializer.VS_VG_BLADE_SWIRL:
-		vfx.start_blade_swirl()
+	if new_vs == NetSerializer.VS_VG_VORTEX and old_vs != NetSerializer.VS_VG_VORTEX:
+		vfx.start_vortex()
 	if (
-		new_vs == NetSerializer.VS_VG_GROUND_SLAM
-		and old_vs == NetSerializer.VS_VG_GROUND_SLAM_WINDUP
+		new_vs == NetSerializer.VS_VG_EXECUTION
+		and old_vs == NetSerializer.VS_VG_EXECUTION_WINDUP
 	):
-		vfx.spawn_ground_slam_shockwave(global_position, rotation.y)
+		vfx.spawn_execution_shockwave(global_position, rotation.y)
 
 
 # --- State helpers ---
@@ -503,36 +504,24 @@ func _process_dodge(delta: float) -> void:
 	combat.process_dodge(delta)
 
 
-func _start_light_attack(combo_step: int) -> void:
-	combat.start_light_attack(combo_step)
+func _start_cleave() -> void:
+	combat.start_cleave()
 
 
-func _process_light_attack(delta: float) -> void:
-	combat.process_light_attack(delta)
+func _process_cleave(delta: float) -> void:
+	combat.process_cleave(delta)
 
 
-func _get_current_light_damage() -> float:
-	return combat.get_current_light_damage()
+func _start_upheaval() -> void:
+	combat.start_upheaval()
 
 
-func _get_current_light_duration() -> float:
-	return combat.get_current_light_duration()
+func _process_upheaval_windup(delta: float) -> void:
+	combat.process_upheaval_windup(delta)
 
 
-func _get_next_combo_step() -> int:
-	return combat.get_next_combo_step()
-
-
-func _start_heavy_attack() -> void:
-	combat.start_heavy_attack()
-
-
-func _process_heavy_windup(delta: float) -> void:
-	combat.process_heavy_windup(delta)
-
-
-func _process_heavy_attack(delta: float) -> void:
-	combat.process_heavy_attack(delta)
+func _process_upheaval(delta: float) -> void:
+	combat.process_upheaval(delta)
 
 
 func _process_block(delta: float) -> void:
@@ -543,24 +532,24 @@ func _process_stagger() -> void:
 	combat.process_stagger()
 
 
-func _start_blade_swirl() -> void:
-	combat.start_blade_swirl()
+func _start_vortex() -> void:
+	combat.start_vortex()
 
 
-func _process_blade_swirl(delta: float) -> void:
-	combat.process_blade_swirl(delta)
+func _process_vortex(delta: float) -> void:
+	combat.process_vortex(delta)
 
 
-func _start_ground_slam() -> void:
-	combat.start_ground_slam()
+func _start_execution() -> void:
+	combat.start_execution()
 
 
-func _process_ground_slam_windup(delta: float) -> void:
-	combat.process_ground_slam_windup(delta)
+func _process_execution_windup(delta: float) -> void:
+	combat.process_execution_windup(delta)
 
 
-func _process_ground_slam(delta: float) -> void:
-	combat.process_ground_slam(delta)
+func _process_execution(delta: float) -> void:
+	combat.process_execution(delta)
 
 
 func _perform_melee_hit(damage: float) -> void:

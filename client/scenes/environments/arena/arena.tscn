@@ -30,7 +30,7 @@ fog_density = 0.005
 
 [sub_resource type="StandardMaterial3D" id="mat_wet_floor"]
 albedo_color = Color(0.18, 0.18, 0.22, 1)
-metallic = 0.3
+metallic_specular = 0.15
 roughness = 0.25
 
 [sub_resource type="StandardMaterial3D" id="mat_wall"]
@@ -53,7 +53,7 @@ roughness = 0.6
 
 [sub_resource type="StandardMaterial3D" id="mat_hallway_floor"]
 albedo_color = Color(0.12, 0.12, 0.15, 1)
-metallic = 0.25
+metallic_specular = 0.15
 roughness = 0.3
 
 [sub_resource type="StandardMaterial3D" id="mat_gate"]

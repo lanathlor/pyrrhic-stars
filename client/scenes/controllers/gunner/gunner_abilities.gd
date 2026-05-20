@@ -1,6 +1,9 @@
 extends Node
 
-## Gunner abilities: overclock, rechamber, dodge roll.
+## Gunner abilities: overclock, rechamber, dodge roll, reload, load enhanced, mag dump.
+
+const TACTICAL_RELOAD_TIME: float = 1.5
+const EMPTY_RELOAD_TIME: float = 2.2
 
 var ctrl: Node
 
@@ -118,3 +121,64 @@ func handle_rechamber(delta: float) -> void:
 		ctrl._fire_cooldown = ctrl.RECHAMBER_WINDUP  # lock out shooting during windup
 		if NetworkManager.is_active:
 			NetworkManager.send_ability(11, ctrl.head.rotation.x, ctrl.rotation.y)
+
+
+# --- Reload ---
+
+
+func handle_reload() -> void:
+	if not Input.is_action_just_pressed("reload"):
+		return
+	if ctrl._reloading or ctrl._mag_dump_active:
+		return
+	if ctrl._magazine >= ctrl._mag_max:
+		return
+	_start_reload()
+
+
+func _start_reload() -> void:
+	var raw_dur: float = EMPTY_RELOAD_TIME if ctrl._magazine <= 0 else TACTICAL_RELOAD_TIME
+	ctrl._reloading = true
+	ctrl._reload_timer = raw_dur
+	ctrl._reload_total = raw_dur
+	ctrl._reload_server_acked = false
+	# _fire_cooldown ticks without Tempo scaling, so pre-scale it to match
+	# the Tempo-scaled reload timer drain rate.
+	var tempo_mult: float = 1.0 + InventoryManager.get_stat("tempo") / 100.0
+	ctrl._fire_cooldown = raw_dur / tempo_mult
+	if NetworkManager.is_active:
+		NetworkManager.send_ability(13, ctrl.head.rotation.x, ctrl.rotation.y)
+
+
+# --- Load Enhanced ---
+
+
+func handle_load_enhanced() -> void:
+	if not Input.is_action_just_pressed("load_enhanced"):
+		return
+	if ctrl._munitions <= 0.0 or ctrl._enhanced_loaded > 0:
+		return
+	# Client prediction: move reserve to loaded
+	ctrl._enhanced_loaded = int(ctrl._munitions)
+	ctrl._munitions = 0.0
+	if NetworkManager.is_active:
+		NetworkManager.send_ability(14, ctrl.head.rotation.x, ctrl.rotation.y)
+
+
+# --- Mag Dump ---
+
+
+func handle_mag_dump() -> void:
+	if not Input.is_action_just_pressed("mag_dump"):
+		return
+	if ctrl._reloading or ctrl._mag_dump_active:
+		return
+	if ctrl._magazine <= 0 and ctrl._enhanced_loaded <= 0:
+		return
+	if ctrl._mag_dump_cooldown > 0.0:
+		return
+	# Client prediction
+	ctrl._mag_dump_active = true
+	ctrl._mag_dump_cooldown = 12.0
+	if NetworkManager.is_active:
+		NetworkManager.send_ability(15, ctrl.head.rotation.x, ctrl.rotation.y)

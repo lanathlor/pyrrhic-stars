@@ -48,14 +48,15 @@ func _physics_process(delta: float) -> void:
 	if _player.state in [_player.State.DODGE, _player.State.STAGGER]:
 		return
 
-	# Queue combo continuation during light attacks
-	if _player.state in [_player.State.LIGHT_1, _player.State.LIGHT_2]:
-		if _player.stamina >= _player.light_stamina_cost:
-			_player._queued_light = true
+	# Let cleave play out
+	if _player.state == _player.State.CLEAVE:
 		return
 
-	# Let heavy windup / heavy / light_3 play out
-	if _player.state in [_player.State.HEAVY_WINDUP, _player.State.HEAVY, _player.State.LIGHT_3]:
+	# Let upheaval windup / upheaval / vortex / execution play out
+	if _player.state in [
+		_player.State.UPHEAVAL_WINDUP, _player.State.UPHEAVAL,
+		_player.State.VORTEX, _player.State.EXECUTION_WINDUP, _player.State.EXECUTION
+	]:
 		return
 
 	var melee_range: float = _player.melee_range
@@ -137,12 +138,12 @@ func _physics_process(delta: float) -> void:
 			# Heavy during enemy cooldown (big punish window)
 			if (
 				_is_enemy_state(target, "COOLDOWN")
-				and _player.stamina >= _player.heavy_stamina_cost
+				and _player.stamina >= _player.UPHEAVAL_STAMINA
 			):
-				_player._start_heavy_attack()
+				_player._start_upheaval()
 				_attack_timer = 1.0
-			elif _player.stamina >= _player.light_stamina_cost:
-				_player._start_light_attack(1)
+			elif _player.stamina >= _player.CLEAVE_STAMINA:
+				_player._start_cleave()
 				_attack_timer = 0.15
 		return
 

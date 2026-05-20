@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource type="Script" path="res://scenes/main.gd" id="4"]
 [ext_resource type="Script" path="res://scenes/main/entity_manager.gd" id="entity_mgr"]
@@ -16,6 +16,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/shared_hud.tscn" id="shared_hud"]
 [ext_resource type="PackedScene" path="res://scenes/ui/death_overlay.tscn" id="death_overlay"]
 [ext_resource type="PackedScene" path="res://scenes/ui/inventory.tscn" id="inventory"]
+[ext_resource type="Script" path="res://scenes/ui/spec_panel.gd" id="spec_panel"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("4")
@@ -59,3 +60,6 @@ script = ExtResource("ui_ctrl")
 [node name="DeathOverlay" parent="." instance=ExtResource("death_overlay")]
 
 [node name="InventoryUI" parent="." instance=ExtResource("inventory")]
+
+[node name="SpecPanel" type="CanvasLayer" parent="."]
+script = ExtResource("spec_panel")

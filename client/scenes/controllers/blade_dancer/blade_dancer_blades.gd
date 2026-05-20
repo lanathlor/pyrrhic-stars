@@ -65,7 +65,7 @@ func _setup_blades() -> void:
 	if not blade_scene:
 		push_warning("BladeDancer: could not load blade model %s" % BLADE_SCENE)
 		return
-	for i in 3:
+	for i in 6:
 		var blade := blade_scene.instantiate()
 		ctrl.blade_pivot.add_child(blade)
 		_blade_nodes.append(blade)
@@ -98,8 +98,8 @@ func update_blade_visual(delta: float) -> void:
 			if progress < 0.5:
 				var sweep: float = progress * 2.0  # 0->1 in first half
 				var sweep_angle: float = lerpf(-60.0, 60.0, sweep)
-				for i in 3:
-					var a: float = deg_to_rad(sweep_angle + (i - 1) * 25.0)
+				for i in _blade_nodes.size():
+					var a: float = deg_to_rad(sweep_angle + (i - 2.5) * 12.0)
 					var r: float = 1.8
 					targets.append(Vector3(sin(a) * r, 0.9, -cos(a) * r))
 					target_rots.append(a)
@@ -107,8 +107,8 @@ func update_blade_visual(delta: float) -> void:
 				var settle: float = (progress - 0.5) * 2.0  # 0->1 in second half
 				var dest_targets: Array[Vector3] = _get_formation_positions(dest_cfg)
 				var dest_rots: Array[float] = _get_formation_rotations(dest_cfg)
-				for i in 3:
-					var sweep_a: float = deg_to_rad(60.0 + (i - 1) * 25.0)
+				for i in _blade_nodes.size():
+					var sweep_a: float = deg_to_rad(60.0 + (i - 2.5) * 12.0)
 					var sweep_pos := Vector3(sin(sweep_a) * 1.8, 0.9, -cos(sweep_a) * 1.8)
 					targets.append(sweep_pos.lerp(dest_targets[i], settle))
 					target_rots.append(lerp_angle(sweep_a, dest_rots[i], settle))
@@ -116,8 +116,8 @@ func update_blade_visual(delta: float) -> void:
 		ctrl.State.DASH:
 			mat = get_config_material(ctrl.config)
 			lerp_speed = 15.0
-			for i in 3:
-				var spread: float = (i - 1) * 0.5
+			for i in _blade_nodes.size():
+				var spread: float = (i - 2.5) * 0.4
 				targets.append(Vector3(spread, 0.9, 1.5))
 				target_rots.append(PI)
 
@@ -127,7 +127,7 @@ func update_blade_visual(delta: float) -> void:
 			targets = _get_formation_positions(ctrl.config)
 			target_rots = _get_formation_rotations(ctrl.config)
 
-	for i in 3:
+	for i in _blade_nodes.size():
 		if i >= targets.size():
 			break
 		_blade_nodes[i].position = _blade_nodes[i].position.lerp(targets[i], lerp_speed * delta)
@@ -143,17 +143,17 @@ func _get_formation_positions(cfg: int) -> Array[Vector3]:
 	var positions: Array[Vector3] = []
 	match cfg:
 		ctrl.Config.ORBIT:
-			# Circular orbit around player
-			for i in 3:
-				var angle: float = deg_to_rad(_blade_orbit_angle + i * 120.0)
+			# Circular orbit around player -- 6 blades, 60 deg spacing
+			for i in 6:
+				var angle: float = deg_to_rad(_blade_orbit_angle + i * 60.0)
 				positions.append(Vector3(cos(angle) * 1.0, 0.9, sin(angle) * 1.0))
 		ctrl.Config.FAN:
-			# Arc spread in front of player
-			for i in 3:
-				var angle: float = deg_to_rad(-30.0 + i * 30.0)
+			# Arc spread in front of player -- 6 blades, 20 deg spacing (-50 to +50)
+			for i in 6:
+				var angle: float = deg_to_rad(-50.0 + i * 20.0)
 				positions.append(Vector3(sin(angle) * 1.5, 0.9, -cos(angle) * 1.5))
 		ctrl.Config.LANCE:
-			# Tight line aimed forward
+			# Staggered double line aimed forward
 			var local_dir: Vector3
 			if ctrl._lock_on_active and ctrl._lock_target and is_instance_valid(ctrl._lock_target):
 				var to_target: Vector3 = ctrl._lock_target.global_position - ctrl.global_position
@@ -161,19 +161,30 @@ func _get_formation_positions(cfg: int) -> Array[Vector3]:
 				local_dir = ctrl.transform.basis.inverse() * to_target.normalized()
 			else:
 				local_dir = Vector3(0.0, 0.0, -1.0)
+			# Inner 3 blades in center line
 			for i in 3:
 				var d: float = 2.0 + i * 0.4
 				positions.append(Vector3(local_dir.x * d, 0.9, local_dir.z * d))
+			# Outer 3 blades offset sideways
+			var side := Vector3(-local_dir.z, 0.0, local_dir.x)
+			for i in 3:
+				var d: float = 2.1 + i * 0.4
+				var offset: float = 0.2 if i % 2 == 0 else -0.2
+				positions.append(Vector3(
+					local_dir.x * d + side.x * offset,
+					0.9,
+					local_dir.z * d + side.z * offset
+				))
 		ctrl.Config.SCATTER:
-			# Blades spread outward in different directions
-			for i in 3:
-				var angle: float = deg_to_rad(_blade_orbit_angle * 0.7 + i * 120.0)
+			# Blades spread outward in different directions -- 6 blades, staggered heights
+			for i in 6:
+				var angle: float = deg_to_rad(_blade_orbit_angle * 0.7 + i * 60.0)
 				var r: float = 1.8
-				positions.append(Vector3(cos(angle) * r, 0.6 + i * 0.3, sin(angle) * r))
+				positions.append(Vector3(cos(angle) * r, 0.6 + (i % 3) * 0.3, sin(angle) * r))
 		ctrl.Config.CROWN:
-			# Hover above head in a halo
-			for i in 3:
-				var angle: float = deg_to_rad(_blade_orbit_angle * 0.5 + i * 120.0)
+			# Hover above head in a halo -- 6 blades, 60 deg spacing
+			for i in 6:
+				var angle: float = deg_to_rad(_blade_orbit_angle * 0.5 + i * 60.0)
 				var r: float = 0.6
 				positions.append(Vector3(cos(angle) * r, 1.8, sin(angle) * r))
 	return positions
@@ -184,12 +195,12 @@ func _get_formation_rotations(cfg: int) -> Array[float]:
 	var rotations: Array[float] = []
 	match cfg:
 		ctrl.Config.ORBIT:
-			for i in 3:
-				var angle: float = deg_to_rad(_blade_orbit_angle + i * 120.0)
+			for i in 6:
+				var angle: float = deg_to_rad(_blade_orbit_angle + i * 60.0)
 				rotations.append(angle + PI / 2.0)
 		ctrl.Config.FAN:
-			for i in 3:
-				var angle: float = deg_to_rad(-30.0 + i * 30.0)
+			for i in 6:
+				var angle: float = deg_to_rad(-50.0 + i * 20.0)
 				rotations.append(angle)
 		ctrl.Config.LANCE:
 			var local_dir: Vector3
@@ -199,15 +210,15 @@ func _get_formation_rotations(cfg: int) -> Array[float]:
 				local_dir = ctrl.transform.basis.inverse() * to_target.normalized()
 			else:
 				local_dir = Vector3(0.0, 0.0, -1.0)
-			for i in 3:
+			for i in 6:
 				rotations.append(atan2(local_dir.x, local_dir.z))
 		ctrl.Config.SCATTER:
-			for i in 3:
-				var angle: float = deg_to_rad(_blade_orbit_angle * 0.7 + i * 120.0)
+			for i in 6:
+				var angle: float = deg_to_rad(_blade_orbit_angle * 0.7 + i * 60.0)
 				rotations.append(angle + PI / 4.0)
 		ctrl.Config.CROWN:
-			for i in 3:
-				var angle: float = deg_to_rad(_blade_orbit_angle * 0.5 + i * 120.0)
+			for i in 6:
+				var angle: float = deg_to_rad(_blade_orbit_angle * 0.5 + i * 60.0)
 				rotations.append(angle)
 	return rotations
 

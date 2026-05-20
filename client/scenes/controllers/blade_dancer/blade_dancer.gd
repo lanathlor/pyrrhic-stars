@@ -265,6 +265,10 @@ var _state_timer: float = 0.0
 var _gcd_timer: float = 0.0
 var _is_invincible: bool = false
 
+# Flow mastery (server-authoritative)
+var _flow_tier: int = 0
+var _flow_stacks: int = 0
+
 # Camera
 var _camera_yaw: float = 0.0
 var _camera_pitch: float = -0.3
@@ -392,6 +396,8 @@ func apply_server_state(data: Dictionary) -> void:
 				hud.update_spells(SPELL_TABLE[config])
 		var server_shield: float = data.get("shield_hp", 0.0)
 		hud.update_shield(server_shield)
+		_flow_tier = data.get("flow_tier", 0)
+		_flow_stacks = data.get("flow_stacks", 0)
 		if health <= 0.0 and _alive:
 			_alive = false
 			_enter_state(State.DEAD)
@@ -481,6 +487,7 @@ func _physics_process(delta: float) -> void:
 	if _lock_on_active and _lock_target:
 		hud.update_lock_on(_lock_target, camera)
 	hud.update_gcd(_gcd_timer / gcd_duration if _gcd_timer > 0.0 else 0.0)
+	hud.update_flow(_flow_tier, _flow_stacks)
 
 	if NetworkManager.is_active:
 		NetworkManager.send_player_position(global_position, rotation.y, _visual_state)

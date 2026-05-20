@@ -91,11 +91,23 @@ static func stat_effect_desc(stat_id: int, value: float, cls: String) -> String:
 		Stat.TEMPO:
 			var pct := 100.0 * value / (100.0 + value)
 			return "-%.0f%% cooldowns" % pct
+		Stat.MASTERY:
+			if cls == "gunner":
+				# Pressure: 10 base × 3% per stack × (1 + mastery/100)
+				var per_stack := 0.3 * (1.0 + value / 100.0)
+				return "+%.1f dmg/stack" % per_stack
+			if cls == "vanguard":
+				return "+%.0f%% streak dmg" % value
+			return _static_desc(stat_id, cls)
 		_:
-			var key: String = ["tempo", "identity", "mastery"][stat_id - 3]
-			var info: Dictionary = CLASS_STAT_INFO.get(cls, {})
-			var entry: Array = info.get(key, [])
-			return entry[1] if entry.size() > 1 else ""
+			return _static_desc(stat_id, cls)
+
+
+static func _static_desc(stat_id: int, cls: String) -> String:
+	var key: String = ["tempo", "identity", "mastery"][stat_id - 3]
+	var info: Dictionary = CLASS_STAT_INFO.get(cls, {})
+	var entry: Array = info.get(key, [])
+	return entry[1] if entry.size() > 1 else ""
 
 
 ## Merge duplicate stat lines and split into [primary, secondary].

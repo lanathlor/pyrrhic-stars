@@ -13,12 +13,15 @@ const CONFIG_COLORS: Array[Color] = [
 	Color(0.6, 0.2, 0.9, 1.0),  # Scatter -- purple
 	Color(1.0, 0.85, 0.3, 1.0),  # Crown -- gold
 ]
-const ABILITY_KEYBINDS: Array[String] = ["LMB", "R", "RMB", "E"]
+const ABILITY_KEYBINDS: Array[String] = ["LMB", "R", "RMB", "T"]
 const PANEL_BG := Color(0.02, 0.025, 0.035, 0.82)
 const PANEL_FILL := Color(0.04, 0.05, 0.07, 0.45)
 const PANEL_INSET := Color(0.11, 0.12, 0.15, 0.3)
 const PANEL_BORDER := Color(0.28, 0.3, 0.36, 0.85)
 const TEXT_MUTED := Color(0.66, 0.7, 0.77, 0.9)
+const FLOW_DIM := Color(0.15, 0.2, 0.25, 0.4)
+const FLOW_EMPOWERED := Color(0.2, 0.75, 0.9, 0.95)
+const FLOW_MAXIMUM := Color(0.4, 0.95, 1.0, 1.0)
 
 var _damage_flash_timer: float = 0.0
 var _hit_marker_timer: float = 0.0
@@ -26,6 +29,8 @@ var _current_config: int = 0
 var _gcd_ratio: float = 0.0
 var _current_spells: Array = []
 var _shield_hp: float = 0.0
+var _flow_tier: int = 0
+var _flow_stacks: int = 0
 
 @onready var damage_overlay: ColorRect = $DamageOverlay
 @onready var lock_on_reticle: Control = $LockOnReticle
@@ -109,6 +114,8 @@ func _draw() -> void:
 			true
 		)
 
+	_draw_flow()
+
 	# Shield bar — shown above ability bar when shield > 0
 	if _shield_hp > 0.1:
 		var bar_w := 120.0
@@ -157,6 +164,11 @@ func update_shield(shield_value: float) -> void:
 	_shield_hp = maxf(shield_value, 0.0)
 
 
+func update_flow(tier: int, stacks: int) -> void:
+	_flow_tier = tier
+	_flow_stacks = stacks
+
+
 func show_damage_flash() -> void:
 	damage_overlay.color = Color(0.8, 0.0, 0.0, 1.0)
 	_damage_flash_timer = DAMAGE_FLASH_DURATION
@@ -198,6 +210,90 @@ func _get_config_name(cfg: int) -> String:
 	if cfg >= 0 and cfg < CONFIG_NAMES.size():
 		return CONFIG_NAMES[cfg]
 	return CONFIG_NAMES[0]
+
+
+# --- Flow mastery display (chain counter + tier pips) ---
+
+
+func _draw_flow() -> void:
+	var font := ThemeDB.fallback_font
+	var center_x := size.x / 2.0
+	# Position above shield bar / ability bar area
+	var y := size.y - 160.0
+
+	# --- Stack counter (big number) ---
+	var count_text := "%d" % _flow_stacks
+	var count_color: Color
+	if _flow_tier >= 2:
+		count_color = FLOW_MAXIMUM
+		count_color.a = 0.7 + 0.3 * absf(sin(float(Time.get_ticks_msec()) / 250.0))
+	elif _flow_tier == 1:
+		count_color = FLOW_EMPOWERED
+	else:
+		count_color = Color(0.3, 0.45, 0.5, 0.6) if _flow_stacks > 0 else FLOW_DIM
+
+	draw_string(
+		font,
+		Vector2(center_x - 10.0, y + 6.0),
+		count_text,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		20.0,
+		24,
+		count_color
+	)
+
+	# --- Label (right of number) ---
+	var label := "FLOW"
+	var label_color: Color
+	if _flow_tier >= 2:
+		label_color = FLOW_MAXIMUM
+		label_color.a = 0.7 + 0.3 * absf(sin(float(Time.get_ticks_msec()) / 250.0))
+	elif _flow_tier == 1:
+		label_color = FLOW_EMPOWERED
+	elif _flow_stacks > 0:
+		label_color = Color(0.3, 0.45, 0.5, 0.6)
+	else:
+		label_color = FLOW_DIM
+
+	draw_string(
+		font,
+		Vector2(center_x + 14.0, y - 6.0),
+		label,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		90.0,
+		11,
+		label_color
+	)
+
+	# --- Tier pips (3 bars below the number) ---
+	var pip_w := 14.0
+	var pip_h := 3.0
+	var pip_gap := 4.0
+	var total_w := pip_w * 3.0 + pip_gap * 2.0
+	var pip_x := center_x - total_w / 2.0
+	var pip_y := y + 12.0
+
+	for i in 3:
+		var px := pip_x + i * (pip_w + pip_gap)
+		var pip_rect := Rect2(px, pip_y, pip_w, pip_h)
+		var lit: bool
+		if _flow_tier == 0:
+			lit = false
+		elif _flow_tier == 1:
+			lit = i < 2
+		else:
+			lit = true
+
+		if lit:
+			var pip_color: Color
+			if _flow_tier >= 2:
+				pip_color = FLOW_MAXIMUM
+				pip_color.a = 0.7 + 0.3 * absf(sin(float(Time.get_ticks_msec()) / 250.0))
+			else:
+				pip_color = FLOW_EMPOWERED
+			draw_rect(pip_rect, pip_color)
+		else:
+			draw_rect(pip_rect, FLOW_DIM)
 
 
 # --- Config display (drawn on ConfigDisplay control) ---

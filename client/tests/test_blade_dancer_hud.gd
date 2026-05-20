@@ -200,3 +200,35 @@ func test_config_colors_has_five_entries() -> void:
 
 func test_ability_keybinds_has_four_entries() -> void:
 	assert_int(_hud.ABILITY_KEYBINDS.size()).is_equal(4)
+
+
+# --- Flow mastery ---
+
+
+func test_update_flow_stores_tier_and_stacks() -> void:
+	_hud.update_flow(1, 5)
+	assert_int(_hud._flow_tier).is_equal(1)
+	assert_int(_hud._flow_stacks).is_equal(5)
+
+
+func test_update_flow_defaults_to_zero() -> void:
+	assert_int(_hud._flow_tier).is_equal(0)
+	assert_int(_hud._flow_stacks).is_equal(0)
+
+
+func test_update_flow_overwrites_previous() -> void:
+	_hud.update_flow(2, 10)
+	_hud.update_flow(1, 3)
+	assert_int(_hud._flow_tier).is_equal(1)
+	assert_int(_hud._flow_stacks).is_equal(3)
+
+
+func test_flow_color_constants_exist() -> void:
+	assert_float(_hud.FLOW_DIM.a).is_equal_approx(0.4, 0.01)
+	assert_float(_hud.FLOW_EMPOWERED.a).is_equal_approx(0.95, 0.01)
+	assert_float(_hud.FLOW_MAXIMUM.a).is_equal_approx(1.0, 0.01)
+
+
+func test_controller_flow_state_defaults() -> void:
+	assert_int(_bd._flow_tier).is_equal(0)
+	assert_int(_bd._flow_stacks).is_equal(0)

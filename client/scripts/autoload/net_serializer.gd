@@ -87,9 +87,9 @@ const VS_VG_HEAVY_WINDUP := 13
 const VS_VG_HEAVY := 14
 const VS_VG_BLOCK := 15
 const VS_VG_STAGGER := 16
-const VS_VG_BLADE_SWIRL := 17
-const VS_VG_GROUND_SLAM_WINDUP := 18
-const VS_VG_GROUND_SLAM := 19
+const VS_VG_VORTEX := 17
+const VS_VG_EXECUTION_WINDUP := 18
+const VS_VG_EXECUTION := 19
 # Blade Dancer-specific (20-29):
 const VS_BD_CASTING := 20
 const VS_BD_DASH := 21
@@ -463,6 +463,7 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 		var max_health := buf.get_float()
 		var state := buf.get_u8()
 		var class_name_str := _get_str8(buf)
+		var spec_name_str := _get_str8(buf)
 		var username := _get_str8(buf)
 		var visual_state := buf.get_u8()
 		var aim_pitch := buf.get_float()
@@ -473,6 +474,15 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 		var shield_hp := buf.get_float() if buf.get_position() + 4 <= buf.get_size() else 0.0
 		var munitions := buf.get_float() if buf.get_position() + 4 <= buf.get_size() else 0.0
 		var resonance := buf.get_float() if buf.get_position() + 4 <= buf.get_size() else 0.0
+		var onslaught_stacks := buf.get_u8() if buf.get_position() < buf.get_size() else 0
+		# Gunner Assault state (7 bytes)
+		var magazine := buf.get_u8() if buf.get_position() < buf.get_size() else 0
+		var mag_max := buf.get_u8() if buf.get_position() < buf.get_size() else 0
+		var stability_q := buf.get_u8() if buf.get_position() < buf.get_size() else 255
+		var steadiness_q := buf.get_u8() if buf.get_position() < buf.get_size() else 255
+		var pressure_stacks := buf.get_u8() if buf.get_position() < buf.get_size() else 0
+		var enhanced_loaded := buf.get_u8() if buf.get_position() < buf.get_size() else 0
+		var assault_flags := buf.get_u8() if buf.get_position() < buf.get_size() else 0
 		(
 			players
 			. append(
@@ -484,19 +494,32 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 					"max_health": max_health,
 					"state": state,
 					"class_name": class_name_str,
+					"spec_name": spec_name_str,
 					"username": username,
 					"visual_state": visual_state,
 					"aim_pitch": aim_pitch,
 					"overclock_active": bool(buff_flags & 0x01),
 					"rechamber_buff": bool(buff_flags & 0x02),
 					"rechamber_phase": (buff_flags >> 2) & 0x03,
-					"blade_swirl": bool(buff_flags & 0x10),
+					"vortex": bool(buff_flags & 0x10),
 					"guard_active": bool(buff_flags & 0x20),
+					"onslaught_tier": (buff_flags >> 6) & 0x03,
+					"onslaught_stacks": onslaught_stacks,
+					"flow_tier": (buff_flags >> 6) & 0x03 if class_name_str == "blade_dancer" else 0,
+					"flow_stacks": onslaught_stacks if class_name_str == "blade_dancer" else 0,
 					"config": config,
 					"stamina": server_stamina,
 					"shield_hp": shield_hp,
 					"munitions": munitions,
 					"resonance": resonance,
+					"magazine": magazine,
+					"mag_max": mag_max,
+					"stability": float(stability_q) / 255.0,
+					"steadiness": float(steadiness_q) / 255.0,
+					"pressure_stacks": pressure_stacks,
+					"enhanced_loaded": enhanced_loaded,
+					"reloading": bool(assault_flags & 0x01),
+					"mag_dump_active": bool(assault_flags & 0x02),
 				}
 			)
 		)
@@ -667,6 +690,7 @@ func decode_lobby_state(data: PackedByteArray) -> Dictionary:
 	for i in range(player_count):
 		var peer_id := buf.get_u16()
 		var class_name_str := _get_str8(buf)
+		var spec_name_str := _get_str8(buf)
 		var username := _get_str8(buf)
 		var is_ready := buf.get_u8() == 1
 		(
@@ -675,6 +699,7 @@ func decode_lobby_state(data: PackedByteArray) -> Dictionary:
 				{
 					"peer_id": peer_id,
 					"class_name": class_name_str,
+					"spec_name": spec_name_str,
 					"username": username,
 					"is_ready": is_ready,
 				}

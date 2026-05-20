@@ -166,7 +166,8 @@ func check_aim_at_player() -> void:
 
 func update_hub_display() -> void:
 	if ctrl._hub_class_label:
-		ctrl._hub_class_label.text = "Class: %s" % ctrl._local_class.to_upper()
+		var spec_display: String = ctrl._local_spec.replace("_", " ").capitalize()
+		ctrl._hub_class_label.text = "Class: %s — %s" % [ctrl._local_class.replace("_", " ").capitalize(), spec_display]
 
 	if ctrl._hub_status_label:
 		if aimed_peer_id > 0 and not near_portal:

@@ -61,6 +61,51 @@ const CLASS_INFO := {
 		"desc": "5 configurations, 4 spells each.\nHighest skill ceiling."
 	},
 }
+const SPEC_INFO := {
+	"gunner": [
+		{"id": "assault", "name": "Assault", "role": "DPS", "target": "Monotarget", "damage": "Constant",
+		 "desc": "High fire rate, aggressive repositioning.\nRelentless aggression with movement mastery.",
+		 "mastery": "Pressure — consecutive hits stack damage (max 10). Resets on miss or swap.",
+		 "implemented": true},
+		{"id": "marksman", "name": "Marksman", "role": "DPS", "target": "Monotarget", "damage": "Burst",
+		 "desc": "Slow, deliberate, perfect shots.\nSniper Elite — hold breath, one shot.",
+		 "mastery": "Patience — next shot bonus scales with time since last shot (caps 5s).",
+		 "implemented": false},
+		{"id": "chasseur", "name": "Chasseur", "role": "DPS", "target": "AoE", "damage": "Burst",
+		 "desc": "Grenades, EMP, area denial.\nRainbow Six tactical disruption.",
+		 "mastery": "Quarry — disrupting a target's ability grants a damage bonus window.",
+		 "implemented": false},
+	],
+	"vanguard": [
+		{"id": "blade", "name": "Blade", "role": "DPS", "target": "AoE", "damage": "Burst",
+		 "desc": "Blade swirl, ground slam, commit-to-cleave.\nAoE burst damage, Dynasty Warriors meets Dark Souls.",
+		 "mastery": "Onslaught — successive hits without taking damage stack bonus damage.",
+		 "implemented": true},
+		{"id": "shield", "name": "Shield", "role": "Tank", "target": "", "damage": "",
+		 "desc": "Directional block, absorbs for allies.\nMonster Hunter lance — slow, unbreakable.",
+		 "mastery": "Devotion — absorb ally damage, charges your next ability.",
+		 "implemented": false},
+		{"id": "shadow", "name": "Shadow", "role": "DPS", "target": "Monotarget", "damage": "Constant",
+		 "desc": "Counters, flanking, sustained stealth pressure.\nSekiro — dodge, punish, repeat.",
+		 "mastery": "Afterimage — dodging an attack grants bonus damage on next hit.",
+		 "implemented": false},
+	],
+	"blade_dancer": [
+		{"id": "multi_blade", "name": "Multi Blade", "role": "DPS", "target": "AoE", "damage": "Constant",
+		 "desc": "4-6 blades, scattered multi-target sustained.\nFlowing between 5 configurations.",
+		 "mastery": "Flow — unique config transitions extend and amplify the chain.",
+		 "implemented": true},
+		{"id": "dual_blade", "name": "Dual Blade", "role": "DPS", "target": "Monotarget", "damage": "Burst",
+		 "desc": "2 blades, separate GCDs, piano burst combos.\nHighest skill ceiling in the game.",
+		 "mastery": "Convergence — staying in one config builds energy for a burst.",
+		 "implemented": false},
+	],
+}
+const DEFAULT_SPECS := {
+	"gunner": "assault",
+	"vanguard": "blade",
+	"blade_dancer": "multi_blade",
+}
 const SERVER_ADDRESS := "90.29.26.144"
 const USERNAME_SAVE_PATH := "user://username.txt"
 const UI_SURFACE := Color(0.035, 0.045, 0.065, 0.88)
@@ -86,6 +131,8 @@ var _local_class: String = "gunner":
 		_local_class = value
 		if is_inside_tree():
 			InventoryManager.current_class = value
+		_local_spec = DEFAULT_SPECS.get(value, "")
+var _local_spec: String = "assault"
 var _saved_hub_position: Vector3 = Vector3.ZERO
 var _saved_hub_rot_y: float = 0.0
 var _has_saved_state: bool = false
@@ -155,6 +202,7 @@ var _portal_trail: Node3D:
 @onready var _shared_hud_layer: CanvasLayer = $SharedHUD
 @onready var _death_overlay_layer: CanvasLayer = $DeathOverlay
 @onready var _inventory_layer: CanvasLayer = $InventoryUI
+@onready var _spec_panel: CanvasLayer = $SpecPanel
 
 
 func _ready() -> void:
@@ -216,8 +264,13 @@ func _ready() -> void:
 	_respawn_btn.pressed.connect(_on_respawn)
 	_respawn_hub_btn.pressed.connect(_on_respawn_hub)
 	# inventory keybinds handled in _input()
+	_inventory_layer.toolbar_panel.spec_pressed.connect(_toggle_spec_panel)
 	_inventory_layer.toolbar_panel.equip_pressed.connect(_toggle_equip_panel)
 	_inventory_layer.toolbar_panel.bag_pressed.connect(_toggle_bag_panel)
+	# spec panel
+	_spec_panel.spec_selected.connect(_on_spec_selected)
+	_spec_panel.closed.connect(_update_cursor_mode)
+	_spec_panel.closed.connect(_sync_toolbar_active)
 
 	# Load saved username
 	var saved: String = _load_saved_username()
@@ -353,6 +406,9 @@ func _input(event: InputEvent) -> void:
 			elif event.physical_keycode == KEY_B:
 				_toggle_bag_panel()
 				get_viewport().set_input_as_handled()
+			elif event.physical_keycode == KEY_N:
+				_toggle_spec_panel()
+				get_viewport().set_input_as_handled()
 
 	# Hub / arena lobby interactions (portal, lift, invite)
 	if (
@@ -408,6 +464,7 @@ func _enter_menu() -> void:
 	_inventory_layer.equip_panel.visible = false
 	_inventory_layer.bag_panel.visible = false
 	_inventory_layer.toolbar_panel.visible = false
+	_spec_panel.visible = false
 	_sync_toolbar_active()
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	env_builder.unload_environment()
@@ -794,6 +851,23 @@ func _select_class(class_name_str: String) -> void:
 	hub_interact.update_hub_display()
 
 
+func _toggle_spec_panel() -> void:
+	_spec_panel.set_specs(SPEC_INFO.get(_local_class, []), _local_spec)
+	_spec_panel.toggle()
+	_update_cursor_mode()
+	_sync_toolbar_active()
+
+
+func _on_spec_selected(spec_id: String) -> void:
+	if spec_id == _local_spec:
+		return
+	_local_spec = spec_id
+	if NetworkManager.is_active:
+		NetworkManager.set_player_spec(spec_id)
+	_spec_panel.set_specs(SPEC_INFO.get(_local_class, []), _local_spec)
+	hub_interact.update_hub_display()
+
+
 # =============================================================================
 # Spawning
 # =============================================================================
@@ -939,7 +1013,8 @@ func _toggle_pause() -> void:
 ## Active when Alt is held or backtick is toggled on.
 func _update_cursor_mode() -> void:
 	var inv_open: bool = _inventory_layer.equip_panel.visible or _inventory_layer.bag_panel.visible
-	var want_cursor: bool = _cursor_toggled or _alt_held or inv_open
+	var spec_open: bool = _spec_panel.visible
+	var want_cursor: bool = _cursor_toggled or _alt_held or inv_open or spec_open
 	if want_cursor:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	else:
@@ -960,7 +1035,9 @@ func _toggle_bag_panel() -> void:
 
 func _sync_toolbar_active() -> void:
 	_inventory_layer.toolbar_panel.update_active_state(
-		_inventory_layer.equip_panel.visible, _inventory_layer.bag_panel.visible
+		_spec_panel.visible,
+		_inventory_layer.equip_panel.visible,
+		_inventory_layer.bag_panel.visible,
 	)
 
 

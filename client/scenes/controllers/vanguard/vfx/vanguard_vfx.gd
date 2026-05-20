@@ -8,8 +8,8 @@ const SwingTrailScene := preload("res://scenes/controllers/vanguard/vfx/swing_tr
 const HitImpactScene := preload("res://scenes/controllers/vanguard/vfx/hit_impact.tscn")
 const BlockShieldScene := preload("res://scenes/controllers/vanguard/vfx/block_shield.tscn")
 const ParryFlashScene := preload("res://scenes/controllers/vanguard/vfx/parry_flash.tscn")
-const BladeSwirlAuraScene := preload("res://scenes/controllers/vanguard/vfx/blade_swirl_aura.tscn")
-const GroundSlamShockwaveScene := preload(
+const VortexAuraScene := preload("res://scenes/controllers/vanguard/vfx/blade_swirl_aura.tscn")
+const ExecutionShockwaveScene := preload(
 	"res://scenes/controllers/vanguard/vfx/ground_slam_shockwave.tscn"
 )
 
@@ -17,7 +17,7 @@ var ctrl: Node
 
 # Active looping effects
 var _active_block_shield: Node3D = null
-var _active_blade_swirl: Node3D = null
+var _active_vortex: Node3D = null
 
 
 func _ready() -> void:
@@ -88,33 +88,33 @@ func spawn_parry_flash() -> void:
 	)
 
 
-# --- Blade Swirl Aura ---
+# --- Vortex Aura ---
 
 
-func start_blade_swirl() -> void:
-	stop_blade_swirl()
+func start_vortex() -> void:
+	stop_vortex()
 	var root := _scene_root()
 	if not root:
 		return
-	_active_blade_swirl = BladeSwirlAuraScene.instantiate()
-	root.add_child(_active_blade_swirl)
-	_active_blade_swirl.start(ctrl)
+	_active_vortex = VortexAuraScene.instantiate()
+	root.add_child(_active_vortex)
+	_active_vortex.start(ctrl)
 
 
-func stop_blade_swirl() -> void:
-	if _active_blade_swirl and is_instance_valid(_active_blade_swirl):
-		_active_blade_swirl.stop()
-		_active_blade_swirl = null
+func stop_vortex() -> void:
+	if _active_vortex and is_instance_valid(_active_vortex):
+		_active_vortex.stop()
+		_active_vortex = null
 
 
-# --- Ground Slam Shockwave ---
+# --- Execution Shockwave ---
 
 
-func spawn_ground_slam_shockwave(pos: Vector3, rot_y: float) -> void:
+func spawn_execution_shockwave(pos: Vector3, rot_y: float) -> void:
 	var root := _scene_root()
 	if not root:
 		return
-	var shockwave: Node3D = GroundSlamShockwaveScene.instantiate()
+	var shockwave: Node3D = ExecutionShockwaveScene.instantiate()
 	root.add_child(shockwave)
 	shockwave.global_position = pos + Vector3(0.0, 0.05, 0.0)
 	shockwave.rotation.y = rot_y

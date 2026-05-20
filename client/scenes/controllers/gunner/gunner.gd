@@ -86,9 +86,38 @@ var _rechamber_timer: float = 0.0
 var _rechamber_buff: bool = false
 var _rechamber_buff_timer: float = 0.0
 
-# Munitions (enhanced rounds)
-var _munitions: float = 5.0
-var _max_munitions: float = 5.0
+# Munitions (enhanced rounds reserve)
+var _munitions: float = 0.0
+var _max_munitions: float = 10.0
+
+# Magazine
+var _magazine: int = 30
+var _mag_max: int = 30
+var _reloading: bool = false
+var _reload_timer: float = 0.0
+var _reload_total: float = 0.0
+var _reload_server_acked: bool = false  # server confirmed our reload
+
+# Stability (client-optimistic bloom)
+const STABILITY_DECAY: float = 0.08
+const STABILITY_RATE: float = 2.0
+const STABILITY_DELAY: float = 0.15
+const STABILITY_OVERCLOCK_MULT: float = 1.5
+var _stability: float = 1.0
+var _stability_timer: float = 10.0  # start recovered
+
+# Steadiness (movement-based accuracy, server-authoritative)
+var _steadiness: float = 1.0
+
+# Pressure
+var _pressure_stacks: int = 0
+
+# Enhanced rounds
+var _enhanced_loaded: int = 0
+
+# Mag dump
+var _mag_dump_active: bool = false
+var _mag_dump_cooldown: float = 0.0
 
 # Network sync
 var _visual_state: int = 0
@@ -191,7 +220,28 @@ func _physics_process(delta: float) -> void:
 		return
 
 	_roll_cooldown_timer = maxf(_roll_cooldown_timer - delta, 0.0)
+	_mag_dump_cooldown = maxf(_mag_dump_cooldown - delta, 0.0)
 	_apply_gravity(delta)
+
+	# Stability recovery (client-optimistic prediction)
+	_stability_timer += delta
+	if _stability_timer > STABILITY_DELAY and _stability < 1.0:
+		var rate: float = STABILITY_RATE
+		if _overclock_active:
+			rate *= STABILITY_OVERCLOCK_MULT
+		_stability = minf(_stability + rate * delta, 1.0)
+
+	# Reload tick (client-side prediction, Tempo-scaled to match server)
+	if _reloading:
+		var tempo_mult: float = 1.0 + InventoryManager.get_stat("tempo") / 100.0
+		_reload_timer -= delta * tempo_mult
+		if _reload_timer <= 0.0:
+			_magazine = _mag_max
+			_reloading = false
+			_reload_timer = 0.0
+			_reload_total = 0.0
+			# Mark as acked so server completion doesn't re-trigger reload
+			_reload_server_acked = true
 
 	if _is_rolling:
 		abilities.process_roll(delta)
@@ -202,10 +252,13 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 
-	if not _is_rolling and not Input.is_action_pressed("sprint"):
+	if not _is_rolling and not Input.is_action_pressed("sprint") and not _mag_dump_active:
 		weapon.handle_shooting(delta)
 		abilities.handle_overclock(delta)
 		abilities.handle_rechamber(delta)
+		abilities.handle_reload()
+		abilities.handle_load_enhanced()
+		abilities.handle_mag_dump()
 
 	weapon.update_muzzle_flash(delta)
 	weapon.update_viewmodel(delta)
@@ -217,7 +270,7 @@ func _physics_process(delta: float) -> void:
 				{
 					name = "Shoot",
 					keybind = "LMB",
-					desc = "10 dmg hitscan. 0.18s fire rate.",
+					desc = "Hitscan. Builds Pressure.",
 					cooldown = 0.0,
 					cooldown_max = 0.0
 				},
@@ -241,7 +294,7 @@ func _physics_process(delta: float) -> void:
 				{
 					name = "Rechamber",
 					keybind = "T",
-					desc = "Timed reload. Perfect timing = dmg buff.",
+					desc = "Timed dmg buff.",
 					cooldown = 0.0,
 					cooldown_max = 0.0,
 					active = _rechamber_buff,
@@ -249,10 +302,31 @@ func _physics_process(delta: float) -> void:
 					active_max = RECHAMBER_BUFF_DURATION,
 					status_text = _get_rechamber_status()
 				},
+				{
+					name = "Mag Dump",
+					keybind = "V",
+					desc = "Empty magazine in burst.",
+					cooldown = _mag_dump_cooldown,
+					cooldown_max = 12.0
+				},
+				{
+					name = "Enhanced",
+					keybind = "Q",
+					desc = "Load enhanced rounds.",
+					cooldown = 0.0,
+					cooldown_max = 0.0,
+					active = _enhanced_loaded > 0,
+					active_remaining = float(_enhanced_loaded),
+					active_max = float(_max_munitions)
+				},
 			]
 		)
 	)
-	hud.update_munitions(_munitions, _max_munitions)
+	hud.update_assault_state(
+		_magazine, _mag_max, _stability, _steadiness, _pressure_stacks,
+		_munitions, _enhanced_loaded, _reloading,
+		(1.0 - _reload_timer / _reload_total) if _reload_total > 0.0 else 0.0
+	)
 
 	# Send position + visual state to server
 	if NetworkManager.is_active:
@@ -332,6 +406,52 @@ func apply_server_state(data: Dictionary) -> void:
 		if server_phase != _rechamber_phase and server_phase == 0:
 			_rechamber_phase = 0  # server reset overrides client
 		_munitions = data.get("munitions", 0.0)
+		# Assault state — server authoritative with client prediction
+		var server_mag: int = data.get("magazine", _magazine)
+		_mag_max = data.get("mag_max", _mag_max)
+		var server_reloading: bool = data.get("reloading", false)
+		# Reload sync: _reload_server_acked tracks whether the server has
+		# confirmed our client-predicted reload. Without this, stale server
+		# state (reloading=false from before it saw our request) would cancel
+		# the client reload immediately.
+		if _reloading and server_reloading:
+			# Server confirms our reload — track ack
+			_reload_server_acked = true
+		elif _reloading and not server_reloading and _reload_server_acked:
+			# Server confirmed reload then said done — accept completion
+			_magazine = server_mag
+			_reloading = false
+			_reload_timer = 0.0
+			_reload_total = 0.0
+			_reload_server_acked = false
+		elif not _reloading and server_reloading and not _reload_server_acked:
+			# Server started reload we didn't predict (and we didn't just finish one)
+			_reloading = true
+			_reload_server_acked = true
+			_magazine = server_mag
+		elif not _reloading and server_reloading and _reload_server_acked:
+			# Client already completed, server still catching up — ignore stale state
+			pass
+		elif not _reloading and not server_reloading:
+			# Both agree: not reloading. Clear ack flag for next reload cycle.
+			_reload_server_acked = false
+			if server_mag < _magazine:
+				print("[misfire] server correction: client=%d server=%d" % [_magazine, server_mag])
+				_magazine = server_mag
+		elif server_mag < _magazine:
+			# Server has fewer rounds — genuine correction
+			print("[misfire] server correction: client=%d server=%d" % [_magazine, server_mag])
+			_magazine = server_mag
+		# else: server_mag >= _magazine — server behind due to latency, keep prediction
+		_pressure_stacks = data.get("pressure_stacks", 0)
+		_enhanced_loaded = data.get("enhanced_loaded", 0)
+		_mag_dump_active = data.get("mag_dump_active", false)
+		# Stability: lerp toward server value for smooth correction
+		var server_stability: float = data.get("stability", 1.0)
+		_stability = lerpf(_stability, server_stability, 0.3)
+		# Steadiness: server-authoritative, lerp for smooth visual
+		var server_steadiness: float = data.get("steadiness", 1.0)
+		_steadiness = lerpf(_steadiness, server_steadiness, 0.3)
 		if health <= 0.0 and _alive:
 			_alive = false
 			died.emit()

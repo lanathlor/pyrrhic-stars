@@ -5,6 +5,7 @@ extends Control
 
 signal equip_pressed
 signal bag_pressed
+signal spec_pressed
 
 const HUD_BG := Color(0.02, 0.025, 0.035, 0.82)
 const HUD_BORDER := Color(0.28, 0.3, 0.36, 0.85)
@@ -21,6 +22,7 @@ const SPELL_SLOT_SIZE := 58.0
 const SPELL_BOTTOM_MARGIN := 14.0
 
 const BUTTONS := [
+	{"label": "N", "tooltip": "Spec [N]"},
 	{"label": "I", "tooltip": "Character [I]"},
 	{"label": "B", "tooltip": "Bag [B]"},
 ]
@@ -28,7 +30,7 @@ const BUTTONS := [
 var _hovered_btn: int = -1
 var _btn_rects: Array[Rect2] = []
 var _bar_rect := Rect2()
-var _active: Array[bool] = [false, false]
+var _active: Array[bool] = [false, false, false]
 
 
 func _ready() -> void:
@@ -139,9 +141,12 @@ func _input(event: InputEvent) -> void:
 	):
 		var hit := _hit_test(event.position)
 		if hit == 0:
-			equip_pressed.emit()
+			spec_pressed.emit()
 			get_viewport().set_input_as_handled()
 		elif hit == 1:
+			equip_pressed.emit()
+			get_viewport().set_input_as_handled()
+		elif hit == 2:
 			bag_pressed.emit()
 			get_viewport().set_input_as_handled()
 
@@ -153,5 +158,5 @@ func _hit_test(pos: Vector2) -> int:
 	return -1
 
 
-func update_active_state(equip_open: bool, bag_open: bool) -> void:
-	_active = [equip_open, bag_open]
+func update_active_state(spec_open: bool, equip_open: bool, bag_open: bool) -> void:
+	_active = [spec_open, equip_open, bag_open]

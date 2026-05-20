@@ -84,6 +84,9 @@ func handle_shooting(delta: float) -> void:
 	# Normal shooting — can't shoot during rechamber windup or lockout
 	if rechamber_phase != 0:
 		return
+	# Can't shoot while reloading or magazine empty
+	if ctrl._reloading or (ctrl._magazine <= 0 and ctrl._enhanced_loaded <= 0):
+		return
 	var overclock_active: bool = ctrl._overclock_active
 	var current_fire_rate: float = ctrl.OVERCLOCK_FIRE_RATE if overclock_active else ctrl.fire_rate
 	if (
@@ -96,6 +99,14 @@ func handle_shooting(delta: float) -> void:
 
 
 func _shoot() -> void:
+	# Client-optimistic magazine consumption
+	if ctrl._enhanced_loaded > 0:
+		ctrl._enhanced_loaded -= 1
+	else:
+		ctrl._magazine -= 1
+	# Client-optimistic stability decay
+	ctrl._stability = maxf(ctrl._stability - ctrl.STABILITY_DECAY, 0.0)
+	ctrl._stability_timer = 0.0
 	ctrl.gun_ray.force_raycast_update()
 	_muzzle_flash_timer = 0.05
 	ctrl.muzzle_light.visible = true
@@ -113,9 +124,14 @@ func _shoot() -> void:
 		)
 	spawn_tracer(tracer_from, tracer_to)
 
-	# Tell server we fired
+	# Tell server we fired — MUST be sent before auto-reload so the server
+	# processes the shot first (same WebSocket, FIFO order)
 	if NetworkManager.is_active:
 		NetworkManager.send_ability(0, ctrl.head.rotation.x, ctrl.rotation.y)
+
+	# Auto-reload on empty (after sending fire_shot so server sees correct order)
+	if ctrl._magazine <= 0 and ctrl._enhanced_loaded <= 0:
+		ctrl.abilities._start_reload()
 
 
 func update_muzzle_flash(delta: float) -> void:

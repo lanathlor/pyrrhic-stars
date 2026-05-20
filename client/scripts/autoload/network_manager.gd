@@ -139,6 +139,12 @@ func set_player_class(class_name_str: String) -> void:
 	send_interact(0, class_name_str)  # InteractClassSelect = 0
 
 
+func set_player_spec(spec_name: String) -> void:
+	if not is_active:
+		return
+	send_interact(3, spec_name)  # InteractSpecSelect = 3
+
+
 func set_player_ready(_is_ready: bool) -> void:
 	if not is_active:
 		return

@@ -1,8 +1,8 @@
 extends Node3D
 
-## Blade Swirl aura — spinning red arc ribbons around the player.
+## Vortex aura — spinning red arc ribbons around the player during forward dash.
 ## Multiple curved mesh strips at different heights/radii orbit the character,
-## creating the WoW Whirlwind / Wukong spiral look.
+## creating the WoW Whirlwind / Wukong spiral look. Radius matches 4.0 hit area.
 
 const TRAIL_SHADER := preload("res://scenes/controllers/vanguard/vfx/swing_trail.gdshader")
 const FADE_OUT_TIME: float = 0.3
@@ -29,17 +29,17 @@ func start(target: Node3D) -> void:
 
 	# Define arc layers: each has a radius, height, arc span, width, speed multiplier
 	var arc_defs: Array[Dictionary] = [
-		# Big outer ground ring — like the WoW ground swirl
-		{radius = 5.5, y = 0.15, arc_deg = 300.0, height = 0.25, speed_mult = 1.0, phase = 0.0},
-		{radius = 5.0, y = 0.15, arc_deg = 240.0, height = 0.2, speed_mult = -0.8, phase = 2.0},
+		# Outer ground ring — radius matches 4.0 server hit area
+		{radius = 3.8, y = 0.15, arc_deg = 300.0, height = 0.25, speed_mult = 1.0, phase = 0.0},
+		{radius = 3.5, y = 0.15, arc_deg = 240.0, height = 0.2, speed_mult = -0.8, phase = 2.0},
 		# Mid-height arcs
-		{radius = 3.5, y = 0.7, arc_deg = 270.0, height = 0.4, speed_mult = 1.3, phase = 1.0},
-		{radius = 3.0, y = 1.0, arc_deg = 200.0, height = 0.35, speed_mult = -1.1, phase = 3.5},
+		{radius = 2.8, y = 0.7, arc_deg = 270.0, height = 0.4, speed_mult = 1.3, phase = 1.0},
+		{radius = 2.4, y = 1.0, arc_deg = 200.0, height = 0.35, speed_mult = -1.1, phase = 3.5},
 		# Upper arcs — smaller, faster
-		{radius = 2.0, y = 1.5, arc_deg = 220.0, height = 0.3, speed_mult = 1.6, phase = 0.5},
-		{radius = 2.5, y = 1.8, arc_deg = 180.0, height = 0.3, speed_mult = -1.4, phase = 4.0},
+		{radius = 1.8, y = 1.5, arc_deg = 220.0, height = 0.3, speed_mult = 1.6, phase = 0.5},
+		{radius = 2.0, y = 1.8, arc_deg = 180.0, height = 0.3, speed_mult = -1.4, phase = 4.0},
 		# Tight inner accent
-		{radius = 1.5, y = 1.2, arc_deg = 160.0, height = 0.3, speed_mult = 2.0, phase = 2.5},
+		{radius = 1.2, y = 1.2, arc_deg = 160.0, height = 0.3, speed_mult = 2.0, phase = 2.5},
 	]
 
 	for def in arc_defs:
@@ -51,7 +51,7 @@ func start(target: Node3D) -> void:
 		var mat := ShaderMaterial.new()
 		mat.shader = TRAIL_SHADER
 		# Inner arcs are brighter, outer arcs deeper red
-		var brightness: float = 1.0 - (def.radius / 6.0) * 0.4
+		var brightness: float = 1.0 - (def.radius / 4.0) * 0.4
 		mat.set_shader_parameter("core_color", Color(1.0, 0.4 * brightness, 0.2 * brightness, 1.0))
 		mat.set_shader_parameter(
 			"trail_color", Color(0.9, 0.15 * brightness, 0.1 * brightness, 0.9)

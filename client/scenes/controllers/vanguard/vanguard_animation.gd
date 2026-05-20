@@ -36,25 +36,17 @@ func update_animation() -> void:
 			ctrl._visual_state = NetSerializer.VS_DODGE
 			ctrl.character_model.travel_timed("dodge", ctrl.dodge_duration)
 			return
-		ctrl.State.LIGHT_1:
+		ctrl.State.CLEAVE:
 			ctrl._visual_state = NetSerializer.VS_VG_LIGHT_1
-			ctrl.character_model.travel_timed("light_1", ctrl.light_duration_1)
+			ctrl.character_model.travel_timed("cleave", ctrl.CLEAVE_DURATION)
 			return
-		ctrl.State.LIGHT_2:
-			ctrl._visual_state = NetSerializer.VS_VG_LIGHT_2
-			ctrl.character_model.travel_timed("light_2", ctrl.light_duration_2)
-			return
-		ctrl.State.LIGHT_3:
-			ctrl._visual_state = NetSerializer.VS_VG_LIGHT_3
-			ctrl.character_model.travel_timed("light_3", ctrl.light_duration_3)
-			return
-		ctrl.State.HEAVY_WINDUP:
+		ctrl.State.UPHEAVAL_WINDUP:
 			ctrl._visual_state = NetSerializer.VS_VG_HEAVY_WINDUP
 			ctrl.character_model.travel_timed(
-				"heavy", ctrl.heavy_windup_time + ctrl.heavy_attack_duration
+				"upheaval", ctrl.UPHEAVAL_WINDUP_TIME + ctrl.UPHEAVAL_HIT_TIME
 			)
 			return
-		ctrl.State.HEAVY:
+		ctrl.State.UPHEAVAL:
 			ctrl._visual_state = NetSerializer.VS_VG_HEAVY
 			ctrl.character_model.set_animation_speed(3.0)
 			return
@@ -66,18 +58,18 @@ func update_animation() -> void:
 			ctrl._visual_state = NetSerializer.VS_VG_STAGGER
 			ctrl.character_model.travel("stagger")
 			return
-		ctrl.State.BLADE_SWIRL:
-			ctrl._visual_state = NetSerializer.VS_VG_BLADE_SWIRL
-			ctrl.character_model.travel("blade_swirl", 2.0)
+		ctrl.State.VORTEX:
+			ctrl._visual_state = NetSerializer.VS_VG_VORTEX
+			ctrl.character_model.travel("vortex", 2.0)
 			return
-		ctrl.State.GROUND_SLAM_WINDUP:
-			ctrl._visual_state = NetSerializer.VS_VG_GROUND_SLAM_WINDUP
+		ctrl.State.EXECUTION_WINDUP:
+			ctrl._visual_state = NetSerializer.VS_VG_EXECUTION_WINDUP
 			ctrl.character_model.travel_timed(
-				"ground_slam", ctrl.GROUND_SLAM_WINDUP_TIME + ctrl.GROUND_SLAM_HIT_TIME
+				"execution", ctrl.EXECUTION_WINDUP_TIME + ctrl.EXECUTION_HIT_TIME
 			)
 			return
-		ctrl.State.GROUND_SLAM:
-			ctrl._visual_state = NetSerializer.VS_VG_GROUND_SLAM
+		ctrl.State.EXECUTION:
+			ctrl._visual_state = NetSerializer.VS_VG_EXECUTION
 			ctrl.character_model.set_animation_speed(3.0)
 			return
 		ctrl.State.DEAD:

@@ -102,23 +102,18 @@ func apply_attack_movement(delta: float) -> void:
 
 
 func process_move(delta: float) -> void:
-	if ctrl._combo_window_timer > 0.0:
-		ctrl._combo_window_timer -= delta
-		if ctrl._combo_window_timer <= 0.0:
-			ctrl._queued_light = false
-
 	var cursor_active := Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED
 
 	# Attack inputs (disabled when cursor is visible)
 	if (
 		not cursor_active
 		and Input.is_action_just_pressed("light_attack")
-		and ctrl.stamina >= ctrl.light_stamina_cost
+		and ctrl.stamina >= ctrl.CLEAVE_STAMINA
 	):
-		ctrl.combat.start_light_attack(1)
+		ctrl.combat.start_cleave()
 		return
-	if Input.is_action_just_pressed("heavy_attack") and ctrl.stamina >= ctrl.heavy_stamina_cost:
-		ctrl.combat.start_heavy_attack()
+	if Input.is_action_just_pressed("heavy_attack") and ctrl.stamina >= ctrl.UPHEAVAL_STAMINA:
+		ctrl.combat.start_upheaval()
 		return
 	if (
 		not cursor_active
@@ -145,24 +140,24 @@ func process_move(delta: float) -> void:
 		ctrl.combat.start_dodge()
 		return
 
-	# Blade Swirl (F)
+	# Vortex (F)
 	if (
 		not cursor_active
 		and Input.is_action_just_pressed("ability_1")
-		and ctrl.stamina >= ctrl.BLADE_SWIRL_STAMINA
-		and ctrl._blade_swirl_cooldown <= 0.0
+		and ctrl.stamina >= ctrl.VORTEX_STAMINA
+		and ctrl._vortex_cooldown <= 0.0
 	):
-		ctrl.combat.start_blade_swirl()
+		ctrl.combat.start_vortex()
 		return
 
-	# Ground Slam (E)
+	# Execution (T)
 	if (
 		not cursor_active
 		and Input.is_action_just_pressed("ability_2")
-		and ctrl.stamina >= ctrl.GROUND_SLAM_STAMINA
-		and ctrl._ground_slam_cooldown <= 0.0
+		and ctrl.stamina >= ctrl.EXECUTION_STAMINA
+		and ctrl._execution_cooldown <= 0.0
 	):
-		ctrl.combat.start_ground_slam()
+		ctrl.combat.start_execution()
 		return
 
 	# Movement

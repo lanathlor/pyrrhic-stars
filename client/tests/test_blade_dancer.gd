@@ -245,8 +245,8 @@ func test_stagger_state_completes_to_move() -> void:
 # --- Blade Visuals ---
 
 
-func test_three_blades_spawned() -> void:
-	assert_int(_bd._blade_nodes.size()).is_equal(3)
+func test_six_blades_spawned() -> void:
+	assert_int(_bd._blade_nodes.size()).is_equal(6)
 
 
 func test_blades_are_children_of_pivot() -> void:
