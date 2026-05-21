@@ -154,6 +154,38 @@ func (s *CombatSystem) Tick(w *World, dt float32) {
 		}
 	}
 
+	// Tick healing zones
+	aliveZones := w.HealingZones[:0]
+	for _, zone := range w.HealingZones {
+		if zone.Tick(dt) {
+			continue // expired
+		}
+		if zone.ShouldTick(dt) {
+			for _, p := range w.Players {
+				if !p.Alive || !zone.ContainsPoint(p.Position) {
+					continue
+				}
+				before := p.Health
+				p.Health += zone.HealPerTick
+				if p.Health > p.MaxHealth {
+					p.Health = p.MaxHealth
+				}
+				actual := p.Health - before
+				if actual > 0 {
+					w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
+						TargetPeerID: p.ID,
+						SourcePeerID: zone.OwnerID,
+						Amount:       actual,
+						HitPos:       p.Position.Add(entity.Vec3{Y: 1.0}),
+						SourceType:   combat.SourcePlayerHeal,
+					})
+				}
+			}
+		}
+		aliveZones = append(aliveZones, zone)
+	}
+	w.HealingZones = aliveZones
+
 	// Update combat state per player
 	for _, p := range w.Players {
 		if !p.Alive {

@@ -72,11 +72,13 @@ type World struct {
 	EnemyDamageMult float32
 
 	// Entities
-	Players     map[uint16]*entity.Player
-	Enemies     []*entity.Enemy
-	Projectiles []*entity.Projectile
-	NPCs        []*entity.NPC
-	NextProjID  uint32
+	Players      map[uint16]*entity.Player
+	Enemies      []*entity.Enemy
+	Projectiles  []*entity.Projectile
+	NPCs         []*entity.NPC
+	HealingZones []*entity.HealingZone
+	NextProjID   uint32
+	NextZoneID   uint32
 
 	// AI brains (parallel to Enemies)
 	Brains []enemyai.BrainTicker
