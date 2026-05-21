@@ -34,6 +34,19 @@ var arcanotechnicienBattlemageSpec = SpecDef{
 	},
 }
 
+// harmonistDefaultLoadout is the default spellbook for the Harmonist spec.
+// Players can customize this by swapping abilities from the class codex.
+var harmonistDefaultLoadout = Spellbook{
+	Slots: [6]string{
+		"mending_surge",
+		"mending_beam",
+		"vital_bloom",
+		"restoration_matrix",
+		"life_swap",
+		"transfusion",
+	},
+}
+
 var arcanotechnicienHarmonistSpec = SpecDef{
 	ID:          "harmonist",
 	Name:        "Harmonist",
@@ -51,13 +64,7 @@ var arcanotechnicienHarmonistSpec = SpecDef{
 	},
 	Abilities: []string{"mending_surge", "mending_beam", "vital_bloom", "restoration_matrix", "life_swap", "transfusion", "dodge"},
 	ActionMap: map[uint8]string{
-		3:  "dodge",
-		50: "mending_surge",
-		51: "mending_beam",
-		52: "vital_bloom",
-		53: "restoration_matrix",
-		54: "life_swap",
-		55: "transfusion",
+		3: "dodge",
 	},
 }
 

@@ -140,6 +140,12 @@ const (
 	ConfigCrown   = 4
 )
 
+// Spellbook holds the 6 spell slots for classes with selectable loadouts
+// (e.g. Arcanotechnicien). Each slot maps to an ability ID from the class codex.
+type Spellbook struct {
+	Slots [6]string
+}
+
 // Player represents a player entity on the server.
 type Player struct {
 	Combatant
@@ -178,6 +184,7 @@ type Player struct {
 	GCDTimer     float32            // global cooldown timer
 	ActionMap    map[uint8]string   // wire action_id → ability_id
 	AbilityState map[string]any     // ability_id → custom handler state
+	Spellbook    *Spellbook         // selectable loadout (Arcanotechnicien)
 
 	// Active buffs
 	Buffs []ActiveBuff
@@ -255,6 +262,14 @@ func NewPlayerWithSpec(peerID uint16, className, specID string) *Player {
 		actionMap = classDef.ActionMap
 	}
 
+	// Copy the ActionMap so each player has an independent map.
+	// The spec/class ActionMap is shared, and per-player mutations (e.g.
+	// spellbook) must not affect other players.
+	ownMap := make(map[uint8]string, len(actionMap))
+	for k, v := range actionMap {
+		ownMap[k] = v
+	}
+
 	p := &Player{
 		Combatant: Combatant{
 			ID:    peerID,
@@ -266,7 +281,7 @@ func NewPlayerWithSpec(peerID uint16, className, specID string) *Player {
 		OnGround:     true,
 		Resources:    make(map[string]*Resource, len(resources)),
 		Cooldowns:    make(map[string]float32),
-		ActionMap:    actionMap,
+		ActionMap:    ownMap,
 		AbilityState: make(map[string]any),
 	}
 
@@ -283,6 +298,9 @@ func NewPlayerWithSpec(peerID uint16, className, specID string) *Player {
 		p.Confluence = &ConfluenceState{MaxStacks: 5, DecayRate: 1.0}
 		if spec.ID == "harmonist" {
 			p.Harmony = &HarmonyState{LastDelivery: make(map[uint16]DeliveryMethod)}
+			loadout := harmonistDefaultLoadout // copy so each player owns its spellbook
+			p.Spellbook = &loadout
+			p.ApplySpellbook()
 		}
 
 		// Initialize flux commitment: distribute total flux across schools.
@@ -312,6 +330,19 @@ func NewPlayerWithSpec(peerID uint16, className, specID string) *Player {
 func NewPlayerNoPTR(peerID uint16, className string) Player {
 	p := NewPlayer(peerID, className)
 	return *p
+}
+
+// ApplySpellbook writes the spellbook slots into the player's ActionMap.
+// Slot i maps to action ID 50+i. Empty slots are skipped.
+func (p *Player) ApplySpellbook() {
+	if p.Spellbook == nil {
+		return
+	}
+	for i, abilityID := range p.Spellbook.Slots {
+		if abilityID != "" {
+			p.ActionMap[uint8(50+i)] = abilityID
+		}
+	}
 }
 
 // specResources returns the resource templates for the player's active spec,
