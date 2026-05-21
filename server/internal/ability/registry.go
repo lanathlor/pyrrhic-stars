@@ -36,6 +36,9 @@ func registerAbilities(eng *Engine) {
 	for _, def := range bdTransitionSpells() {
 		eng.Register(def)
 	}
+
+	// Arcanotechnicien — Harmonist
+	eng.Register(&mendingSurgeDef)
 }
 
 func registerHandlers(eng *Engine) {
@@ -58,6 +61,8 @@ func registerHandlers(eng *Engine) {
 	eng.RegisterHandler("cleave_vg", cleaveHandler)
 	eng.RegisterHandler("upheaval_vg", upheavalHandler)
 	eng.RegisterHandler("execution_vg", executionVGHandler)
+
+	eng.RegisterHandler("mending_surge", mendingSurgeHandler)
 
 	eng.RegisterTickHandler("rechamber", rechamberTick)
 	eng.RegisterTickHandler("vortex", vortexTick)

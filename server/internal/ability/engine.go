@@ -28,6 +28,10 @@ type CastContext struct {
 	Targets    []entity.Target
 	Obstacles  []combat.Obstacle
 	SourceType uint8 // combat.SourcePlayerAttack, SourceEnemyMelee, etc.
+
+	// Heal targeting
+	Allies       map[uint16]*entity.Player // all players in zone (for heal targeting)
+	TargetPeerID uint16                    // client-specified ally target
 }
 
 // TickContext carries the state needed for per-tick ability updates.
