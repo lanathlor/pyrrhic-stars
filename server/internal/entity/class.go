@@ -2,9 +2,10 @@ package entity
 
 // Class name constants.
 const (
-	ClassGunner      = "gunner"
-	ClassVanguard    = "vanguard"
-	ClassBladeDancer = "blade_dancer"
+	ClassGunner           = "gunner"
+	ClassVanguard         = "vanguard"
+	ClassBladeDancer      = "blade_dancer"
+	ClassArcanotechnicien = "arcanotechnicien"
 )
 
 // ClassMovement holds per-class movement tuning.
@@ -80,7 +81,8 @@ func (c *ClassDef) FirstSpec() *SpecDef {
 
 // Classes is the global class registry.
 var Classes = map[string]*ClassDef{
-	ClassGunner:      &gunnerDef,
-	ClassVanguard:    &vanguardDef,
-	ClassBladeDancer: &bladeDancerDef,
+	ClassGunner:           &gunnerDef,
+	ClassVanguard:         &vanguardDef,
+	ClassBladeDancer:      &bladeDancerDef,
+	ClassArcanotechnicien: &arcanotechnicienDef,
 }

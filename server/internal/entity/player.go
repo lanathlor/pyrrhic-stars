@@ -241,6 +241,12 @@ func (p *Player) RecalcStats() {
 			r.Max = tmpl.Max + identity
 			r.Regen = tmpl.Regen * (1.0 / (1.0 + identity/100.0))
 		}
+	case ClassArcanotechnicien:
+		if r := p.Resources["flux"]; r != nil {
+			tmpl := res["flux"]
+			r.Max = tmpl.Max * (1.0 + identity/100.0)
+			r.Regen = tmpl.Regen * (1.0 + identity/200.0)
+		}
 	}
 }
 

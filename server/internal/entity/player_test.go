@@ -37,6 +37,45 @@ func TestNewPlayerBladeDancer(t *testing.T) {
 	}
 }
 
+func TestNewPlayerArcanotechnicien(t *testing.T) {
+	p := NewPlayer(1, ClassArcanotechnicien)
+	if p.MaxHealth != 170 {
+		t.Errorf("arcanotechnicien max health = %f, want 170", p.MaxHealth)
+	}
+	if p.SpecID != "harmonist" {
+		t.Errorf("default spec = %q, want harmonist", p.SpecID)
+	}
+	if p.GetResource("flux") != 160 {
+		t.Errorf("flux = %f, want 160", p.GetResource("flux"))
+	}
+}
+
+func TestNewPlayerArcanotechnicienDestroyer(t *testing.T) {
+	p := NewPlayerWithSpec(1, ClassArcanotechnicien, "destroyer")
+	if p.MaxHealth != 130 {
+		t.Errorf("destroyer max health = %f, want 130", p.MaxHealth)
+	}
+	if p.SpecID != "destroyer" {
+		t.Errorf("spec = %q, want destroyer", p.SpecID)
+	}
+	if p.GetResource("flux") != 200 {
+		t.Errorf("flux = %f, want 200", p.GetResource("flux"))
+	}
+}
+
+func TestNewPlayerArcanotechnicienBattlemage(t *testing.T) {
+	p := NewPlayerWithSpec(1, ClassArcanotechnicien, "battlemage")
+	if p.MaxHealth != 160 {
+		t.Errorf("battlemage max health = %f, want 160", p.MaxHealth)
+	}
+	if p.SpecID != "battlemage" {
+		t.Errorf("spec = %q, want battlemage", p.SpecID)
+	}
+	if p.GetResource("flux") != 120 {
+		t.Errorf("flux = %f, want 120", p.GetResource("flux"))
+	}
+}
+
 func TestNewPlayerUnknownClass(t *testing.T) {
 	p := NewPlayer(1, "unknown")
 	if p.MaxHealth != 150 {
@@ -310,6 +349,89 @@ func TestApplyDamage_PlatingFloor(t *testing.T) {
 				t.Errorf("health = %f, want %f", p.Health, wantHP)
 			}
 		})
+	}
+}
+
+// --- Arcanotechnicien Movement ---
+
+func TestMovementArcanotechnicien(t *testing.T) {
+	p := NewPlayer(1, ClassArcanotechnicien)
+	m := p.Movement()
+	if m.WalkSpeed != 4.5 {
+		t.Errorf("arcanotechnicien walk speed = %f, want 4.5", m.WalkSpeed)
+	}
+}
+
+func TestMovementArcanotechnicienDestroyer(t *testing.T) {
+	p := NewPlayerWithSpec(1, ClassArcanotechnicien, "destroyer")
+	m := p.Movement()
+	if m.WalkSpeed != 4.0 {
+		t.Errorf("destroyer walk speed = %f, want 4.0", m.WalkSpeed)
+	}
+}
+
+// --- Arcanotechnicien Identity Scaling ---
+
+func TestRecalcStatsArcanotechnicienFlux(t *testing.T) {
+	tests := []struct {
+		name     string
+		spec     string
+		identity float32
+		wantMax  float32
+		wantReg  float32
+	}{
+		{"harmonist zero identity", "harmonist", 0, 160, 7},
+		{"harmonist 100 identity", "harmonist", 100, 320, 10.5},
+		{"destroyer zero identity", "destroyer", 0, 200, 8},
+		{"destroyer 100 identity", "destroyer", 100, 400, 12},
+		{"battlemage 50 identity", "battlemage", 50, 180, 7.5},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			p := NewPlayerWithSpec(1, ClassArcanotechnicien, tc.spec)
+			p.GearStats.Identity = tc.identity
+			p.RecalcStats()
+			r := p.Resources["flux"]
+			if r == nil {
+				t.Fatal("flux resource not found")
+			}
+			if r.Max != tc.wantMax {
+				t.Errorf("flux max = %f, want %f", r.Max, tc.wantMax)
+			}
+			if r.Regen != tc.wantReg {
+				t.Errorf("flux regen = %f, want %f", r.Regen, tc.wantReg)
+			}
+		})
+	}
+}
+
+// --- Arcanotechnicien ClassDef ---
+
+func TestArcanotechnicienSpecs(t *testing.T) {
+	cd := Classes[ClassArcanotechnicien]
+	if cd == nil {
+		t.Fatal("arcanotechnicien not in Classes map")
+	}
+	if len(cd.Specs) != 3 {
+		t.Fatalf("specs count = %d, want 3", len(cd.Specs))
+	}
+	if cd.DefaultSpec != "harmonist" {
+		t.Errorf("default spec = %q, want harmonist", cd.DefaultSpec)
+	}
+	if cd.GetSpec("destroyer") == nil {
+		t.Error("destroyer spec not found")
+	}
+	if cd.GetSpec("battlemage") == nil {
+		t.Error("battlemage spec not found")
+	}
+	if cd.GetSpec("harmonist") == nil {
+		t.Error("harmonist spec not found")
+	}
+	if cd.GetSpec("harmonist").Implemented != true {
+		t.Error("harmonist should be implemented")
+	}
+	if cd.GetSpec("destroyer").Implemented != false {
+		t.Error("destroyer should not be implemented")
 	}
 }
 
