@@ -56,6 +56,11 @@ func resolveHeal(def *AbilityDef, caster *entity.Player, allies map[uint16]*enti
 	heal := def.BaseHeal
 	heal *= (1.0 + caster.GearStats.Identity/100.0)
 
+	// Confluence: Arcanotechnicien class-wide spell power bonus.
+	if caster.Confluence != nil {
+		heal *= caster.Confluence.SpellPowerMult()
+	}
+
 	before := target.Health
 	target.Health += heal
 	if target.Health > target.MaxHealth {

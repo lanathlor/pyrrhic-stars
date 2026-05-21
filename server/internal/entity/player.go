@@ -23,6 +23,60 @@ type HarmonyState struct {
 	LastDelivery map[uint16]DeliveryMethod
 }
 
+// ConfluenceState tracks the Arcanotechnicien class-wide Confluence mechanic.
+// Each completed spell adds 1 stack (max 5). Per stack: +8% spell power.
+// No cast for 4s triggers decay at 1 stack/sec. Interrupt drops all stacks.
+type ConfluenceState struct {
+	Stacks     int
+	MaxStacks  int
+	IdleTimer  float32
+	DecayRate  float32
+	DecayTimer float32
+}
+
+// SpellPowerMult returns the spell power multiplier from Confluence stacks.
+func (c *ConfluenceState) SpellPowerMult() float32 {
+	return 1.0 + float32(c.Stacks)*0.08
+}
+
+// OnSpellComplete adds a stack and resets the idle timer.
+func (c *ConfluenceState) OnSpellComplete() {
+	if c.Stacks < c.MaxStacks {
+		c.Stacks++
+	}
+	c.IdleTimer = 0
+	c.DecayTimer = 0
+}
+
+// OnInterrupt drops all stacks and resets timers.
+func (c *ConfluenceState) OnInterrupt() {
+	c.Stacks = 0
+	c.IdleTimer = 0
+	c.DecayTimer = 0
+}
+
+// Tick advances the idle and decay timers by dt seconds.
+// Decay starts after 4s idle, removing 1 stack per second.
+func (c *ConfluenceState) Tick(dt float32) {
+	if c.Stacks == 0 {
+		return
+	}
+	wasDecaying := c.IdleTimer >= 4.0
+	c.IdleTimer += dt
+	if c.IdleTimer >= 4.0 {
+		// Only count time spent past the 4s threshold toward decay.
+		decayDt := dt
+		if !wasDecaying {
+			decayDt = c.IdleTimer - 4.0
+		}
+		c.DecayTimer += decayDt
+		for c.DecayTimer >= 1.0 && c.Stacks > 0 {
+			c.DecayTimer -= 1.0
+			c.Stacks--
+		}
+	}
+}
+
 // GearStats holds aggregated stat bonuses from equipped gear.
 type GearStats struct {
 	Hull     float32
@@ -140,6 +194,9 @@ type Player struct {
 	// Harmony state (Harmonist spec only)
 	Harmony *HarmonyState
 
+	// Confluence state (all Arcanotechnicien specs)
+	Confluence *ConfluenceState
+
 	// Blade Dancer config (visual state for client)
 	Config int // 0=orbit, 1=fan, 2=lance, 3=scatter, 4=crown
 
@@ -214,8 +271,11 @@ func NewPlayerWithSpec(peerID uint16, className, specID string) *Player {
 		}
 	}
 
-	if className == ClassArcanotechnicien && spec.ID == "harmonist" {
-		p.Harmony = &HarmonyState{LastDelivery: make(map[uint16]DeliveryMethod)}
+	if className == ClassArcanotechnicien {
+		p.Confluence = &ConfluenceState{MaxStacks: 5, DecayRate: 1.0}
+		if spec.ID == "harmonist" {
+			p.Harmony = &HarmonyState{LastDelivery: make(map[uint16]DeliveryMethod)}
+		}
 	}
 
 	p.RecalcStats()

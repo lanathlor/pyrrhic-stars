@@ -51,6 +51,11 @@ func vitalBloomHandler(_ *Engine, ctx *CastContext) CastResult {
 	p.Health -= sacrifice
 	p.SpendResource("flux", vitalBloomDef.Costs[0].Amount)
 
+	// Confluence: grant stack on spell completion.
+	if p.Confluence != nil {
+		p.Confluence.OnSpellComplete()
+	}
+
 	healPerTick := sacrifice * 0.3
 
 	zonePos := p.Position
@@ -79,6 +84,11 @@ func restorationMatrixHandler(_ *Engine, ctx *CastContext) CastResult {
 	}
 
 	p.SpendResource("flux", restorationMatrixDef.Costs[0].Amount)
+
+	// Confluence: grant stack on spell completion.
+	if p.Confluence != nil {
+		p.Confluence.OnSpellComplete()
+	}
 
 	zonePos := p.Position
 

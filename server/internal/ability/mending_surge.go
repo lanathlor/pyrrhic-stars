@@ -34,6 +34,11 @@ func mendingSurgeHandler(_ *Engine, ctx *CastContext) CastResult {
 		p.Cooldowns["mending_surge"] = mendingSurgeDef.Cooldown
 	}
 
+	// Confluence: grant stack on spell completion.
+	if p.Confluence != nil {
+		p.Confluence.OnSpellComplete()
+	}
+
 	if result == nil {
 		// Everyone at full HP -- cast succeeds, flux spent, no heal emitted.
 		return CastResult{OK: true}

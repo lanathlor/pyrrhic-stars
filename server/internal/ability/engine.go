@@ -521,6 +521,11 @@ func (eng *Engine) TickPlayer(p *entity.Player, dt float32, ctx *TickContext) []
 	}
 	p.Buffs = alive
 
+	// Tick Confluence (Arcanotechnicien class mechanic)
+	if p.Confluence != nil {
+		p.Confluence.Tick(dt)
+	}
+
 	// Tick resources
 	for _, r := range p.Resources {
 		if r.DelayTimer > 0 {
