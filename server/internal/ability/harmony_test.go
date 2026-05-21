@@ -171,7 +171,7 @@ func TestResolveHealHarmonyIntegration(t *testing.T) {
 			targetPeerID:      2,
 			wantHarmonyProc:   []bool{false},
 			wantHarmonyAmount: []float32{0},
-			wantTotalHeal:     []float32{40},
+			wantTotalHeal:     []float32{46}, // 40 * 1.15 (Sympathetic Field)
 		},
 		{
 			name: "different delivery triggers Harmony bonus",
@@ -189,7 +189,7 @@ func TestResolveHealHarmonyIntegration(t *testing.T) {
 			targetPeerID:      2,
 			wantHarmonyProc:   []bool{false, true},
 			wantHarmonyAmount: []float32{0, 20},
-			wantTotalHeal:     []float32{40, 60}, // 40 base + 20 Harmony
+			wantTotalHeal:     []float32{46, 66}, // 40*1.15=46 base + 20 Harmony = 66
 		},
 		{
 			name: "Harmony bonus capped by MaxHealth",
@@ -206,9 +206,9 @@ func TestResolveHealHarmonyIntegration(t *testing.T) {
 			},
 			targetPeerID:    2,
 			wantHarmonyProc: []bool{false, true},
-			// After first heal: 140/150. Second: base heals 10 (capped), Harmony bonus = 0 (already full).
+			// After first heal: 100 + 46 = 146/150. Second: base 46 capped to 4, Harmony bonus = 0 (already full).
 			wantHarmonyAmount: []float32{0, 0},
-			wantTotalHeal:     []float32{40, 10},
+			wantTotalHeal:     []float32{46, 4}, // 40*1.15=46; then capped to 150-146=4
 		},
 		{
 			name: "same delivery twice no Harmony",
@@ -226,7 +226,7 @@ func TestResolveHealHarmonyIntegration(t *testing.T) {
 			targetPeerID:      2,
 			wantHarmonyProc:   []bool{false, false},
 			wantHarmonyAmount: []float32{0, 0},
-			wantTotalHeal:     []float32{40, 40},
+			wantTotalHeal:     []float32{46, 46}, // 40 * 1.15 each (Sympathetic Field, no Harmony)
 		},
 	}
 

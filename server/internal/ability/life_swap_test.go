@@ -223,10 +223,11 @@ func TestVitalChargeEmpowersMendingSurge(t *testing.T) {
 
 	// Base heal = 80, confluence gives +8% (1 stack from life swap), so 80*1.08=86.4
 	// Plus vital charge (20 from 100*0.20)
-	// Total = 86.4 + 20 = 106.4
+	// Sympathetic Field: Harmonist caster, target at same pos, +15%
+	// Total = (86.4 + 20) * 1.15 = 122.36
 	baseHeal := float32(80)
 	confluenceMult := float32(1.08) // 1 stack from Life Swap
-	expectedHeal := baseHeal*confluenceMult + charge
+	expectedHeal := (baseHeal*confluenceMult + charge) * 1.15
 
 	actualHeal := healResult.Heals[0].Amount
 	if math.Abs(float64(actualHeal-expectedHeal)) > 0.5 {

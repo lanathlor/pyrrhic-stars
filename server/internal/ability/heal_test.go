@@ -42,7 +42,7 @@ func TestResolveHeal(t *testing.T) {
 			targetPeerID: 2,
 			wantNil:      false,
 			wantTargetID: 2,
-			wantAmount:   50,
+			wantAmount:   57.5, // 50 * 1.15 (Sympathetic Field: Harmonist caster, target at same pos)
 			wantSource:   combat.SourcePlayerHeal,
 		},
 		{
@@ -61,7 +61,7 @@ func TestResolveHeal(t *testing.T) {
 			targetPeerID: 99, // does not exist
 			wantNil:      false,
 			wantTargetID: 1,
-			wantAmount:   30,
+			wantAmount:   34.5, // 30 * 1.15 (Sympathetic Field: self-heal, dist=0)
 			wantSource:   combat.SourcePlayerHeal,
 		},
 		{
@@ -86,7 +86,7 @@ func TestResolveHeal(t *testing.T) {
 			targetPeerID: 0,
 			wantNil:      false,
 			wantTargetID: 3,
-			wantAmount:   40,
+			wantAmount:   46, // 40 * 1.15 (Sympathetic Field: Harmonist, same pos)
 			wantSource:   combat.SourcePlayerHeal,
 		},
 		{
@@ -107,7 +107,7 @@ func TestResolveHeal(t *testing.T) {
 			targetPeerID: 0,
 			wantNil:      false,
 			wantTargetID: 2,
-			wantAmount:   25,
+			wantAmount:   28.75, // 25 * 1.15 (Sympathetic Field: Harmonist, same pos)
 			wantSource:   combat.SourcePlayerHeal,
 		},
 		{
@@ -187,7 +187,7 @@ func TestResolveHeal(t *testing.T) {
 			casterID: 1,
 			allies: func() map[uint16]*entity.Player {
 				caster := newHealer(1)
-				caster.GearStats.Identity = 100 // +100% heal
+				caster.GearStats.Identity = 100 // +100% heal, also scales SF radius to 12
 				target := newHealer(2)
 				target.Health = 20
 				target.MaxHealth = 170
@@ -196,7 +196,96 @@ func TestResolveHeal(t *testing.T) {
 			targetPeerID: 2,
 			wantNil:      false,
 			wantTargetID: 2,
-			wantAmount:   100, // 50 * (1 + 100/100) = 100
+			wantAmount:   115, // 50 * 2.0 (identity) * 1.15 (Sympathetic Field) = 115
+			wantSource:   combat.SourcePlayerHeal,
+		},
+		{
+			name: "Sympathetic Field amplifies heal when target is in range",
+			def: &AbilityDef{
+				Hit:      HitDef{Type: HitAllyTarget},
+				BaseHeal: 100,
+			},
+			casterID: 1,
+			allies: func() map[uint16]*entity.Player {
+				caster := newHealer(1)
+				caster.Position = entity.Vec3{X: 0, Y: 0, Z: 0}
+				target := newHealer(2)
+				target.Position = entity.Vec3{X: 3, Y: 0, Z: 4} // dist = 5, within radius 8
+				target.Health = 20
+				target.MaxHealth = 500
+				return map[uint16]*entity.Player{1: caster, 2: target}
+			},
+			targetPeerID: 2,
+			wantNil:      false,
+			wantTargetID: 2,
+			wantAmount:   115, // 100 * 1.15
+			wantSource:   combat.SourcePlayerHeal,
+		},
+		{
+			name: "Sympathetic Field does not amplify when target is out of range",
+			def: &AbilityDef{
+				Hit:      HitDef{Type: HitAllyTarget},
+				BaseHeal: 100,
+			},
+			casterID: 1,
+			allies: func() map[uint16]*entity.Player {
+				caster := newHealer(1)
+				caster.Position = entity.Vec3{X: 0, Y: 0, Z: 0}
+				target := newHealer(2)
+				target.Position = entity.Vec3{X: 6, Y: 0, Z: 7} // dist ~9.22, outside radius 8
+				target.Health = 20
+				target.MaxHealth = 500
+				return map[uint16]*entity.Player{1: caster, 2: target}
+			},
+			targetPeerID: 2,
+			wantNil:      false,
+			wantTargetID: 2,
+			wantAmount:   100, // no amplification
+			wantSource:   combat.SourcePlayerHeal,
+		},
+		{
+			name: "Sympathetic Field radius scales with Identity",
+			def: &AbilityDef{
+				Hit:      HitDef{Type: HitAllyTarget},
+				BaseHeal: 100,
+			},
+			casterID: 1,
+			allies: func() map[uint16]*entity.Player {
+				caster := newHealer(1)
+				caster.GearStats.Identity = 100 // radius = 8 * (1 + 100/200) = 12
+				caster.Position = entity.Vec3{X: 0, Y: 0, Z: 0}
+				target := newHealer(2)
+				target.Position = entity.Vec3{X: 7, Y: 0, Z: 8} // dist ~10.63, within 12
+				target.Health = 20
+				target.MaxHealth = 1000
+				return map[uint16]*entity.Player{1: caster, 2: target}
+			},
+			targetPeerID: 2,
+			wantNil:      false,
+			wantTargetID: 2,
+			wantAmount:   230, // 100 * (1 + 100/100) * 1.15 = 230
+			wantSource:   combat.SourcePlayerHeal,
+		},
+		{
+			name: "non-Harmonist caster does not amplify",
+			def: &AbilityDef{
+				Hit:      HitDef{Type: HitAllyTarget},
+				BaseHeal: 100,
+			},
+			casterID: 1,
+			allies: func() map[uint16]*entity.Player {
+				caster := entity.NewPlayerWithSpec(1, entity.ClassArcanotechnicien, "destroyer")
+				caster.Position = entity.Vec3{X: 0, Y: 0, Z: 0}
+				target := entity.NewPlayerWithSpec(2, entity.ClassArcanotechnicien, "destroyer")
+				target.Position = entity.Vec3{X: 1, Y: 0, Z: 0} // very close
+				target.Health = 20
+				target.MaxHealth = 500
+				return map[uint16]*entity.Player{1: caster, 2: target}
+			},
+			targetPeerID: 2,
+			wantNil:      false,
+			wantTargetID: 2,
+			wantAmount:   100, // no amplification (not Harmonist)
 			wantSource:   combat.SourcePlayerHeal,
 		},
 	}

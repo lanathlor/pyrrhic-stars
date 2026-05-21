@@ -459,3 +459,35 @@ func TestTempoMult(t *testing.T) {
 		})
 	}
 }
+
+// --- SympatheticFieldRadius ---
+
+func TestSympatheticFieldRadius(t *testing.T) {
+	tests := []struct {
+		name     string
+		class    string
+		spec     string
+		identity float32
+		want     float32
+	}{
+		{"gunner returns 0", ClassGunner, "assault", 0, 0},
+		{"vanguard returns 0", ClassVanguard, "blade", 0, 0},
+		{"blade dancer returns 0", ClassBladeDancer, "multi_blade", 0, 0},
+		{"arcanotechnicien destroyer returns 0", ClassArcanotechnicien, "destroyer", 0, 0},
+		{"arcanotechnicien battlemage returns 0", ClassArcanotechnicien, "battlemage", 0, 0},
+		{"harmonist zero identity", ClassArcanotechnicien, "harmonist", 0, 8.0},
+		{"harmonist 100 identity", ClassArcanotechnicien, "harmonist", 100, 12.0},
+		{"harmonist 200 identity", ClassArcanotechnicien, "harmonist", 200, 16.0},
+		{"harmonist 50 identity", ClassArcanotechnicien, "harmonist", 50, 10.0},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			p := NewPlayerWithSpec(1, tc.class, tc.spec)
+			p.GearStats.Identity = tc.identity
+			got := p.SympatheticFieldRadius()
+			if got != tc.want {
+				t.Errorf("SympatheticFieldRadius() = %f, want %f", got, tc.want)
+			}
+		})
+	}
+}

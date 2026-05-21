@@ -395,6 +395,16 @@ func (p *Player) RecalcStats() {
 	}
 }
 
+// SympatheticFieldRadius returns the horizontal radius of the Harmonist's
+// passive aura (Sympathetic Field). Non-Harmonist players return 0.
+// Base radius is 8 units, scaled by Identity (identity/200 additive).
+func (p *Player) SympatheticFieldRadius() float32 {
+	if p.ClassID != ClassArcanotechnicien || p.SpecID != "harmonist" {
+		return 0
+	}
+	return 8.0 * (1.0 + p.GearStats.Identity/200.0)
+}
+
 // TenacityEfficiency returns the stamina cost multiplier from the Identity
 // stat for vanguard. 0 Identity = 1.0 (no reduction), higher = cheaper costs.
 func (p *Player) TenacityEfficiency() float32 {

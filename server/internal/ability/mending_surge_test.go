@@ -34,7 +34,7 @@ func TestMendingSurge(t *testing.T) {
 			wantOK:         true,
 			wantHealCount:  1,
 			wantHealTarget: 2,
-			wantHealAmount: 80,
+			wantHealAmount: 92, // 80 * 1.15 (Sympathetic Field: Harmonist, same pos)
 			wantFlux:       120, // 160 - 40
 			wantCooldown:   true,
 			wantGCD:        true,
@@ -50,7 +50,7 @@ func TestMendingSurge(t *testing.T) {
 			wantOK:         true,
 			wantHealCount:  1,
 			wantHealTarget: 1,
-			wantHealAmount: 80,
+			wantHealAmount: 92, // 80 * 1.15 (Sympathetic Field: self-heal, dist=0)
 			wantFlux:       120,
 			wantCooldown:   true,
 			wantGCD:        true,
@@ -88,7 +88,7 @@ func TestMendingSurge(t *testing.T) {
 			name: "identity stat scales heal",
 			setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 				caster := entity.NewPlayer(1, entity.ClassArcanotechnicien)
-				caster.GearStats.Identity = 50 // +50% heal
+				caster.GearStats.Identity = 50 // +50% heal, also scales SF radius
 				caster.RecalcStats()
 				// Current stays at initial (160), RecalcStats only changes Max.
 				ally := entity.NewPlayer(2, entity.ClassArcanotechnicien)
@@ -99,7 +99,7 @@ func TestMendingSurge(t *testing.T) {
 			wantOK:         true,
 			wantHealCount:  1,
 			wantHealTarget: 2,
-			wantHealAmount: 120, // 80 * (1 + 50/100) = 120
+			wantHealAmount: 138, // 80 * 1.5 (identity) * 1.15 (Sympathetic Field) = 138
 			wantFlux:       120, // 160 (initial current) - 40 (cost) = 120
 			wantCooldown:   true,
 			wantGCD:        true,

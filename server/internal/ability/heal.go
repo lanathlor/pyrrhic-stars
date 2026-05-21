@@ -68,6 +68,16 @@ func resolveHeal(def *AbilityDef, caster *entity.Player, allies map[uint16]*enti
 		caster.VitalChargeTimer = 0
 	}
 
+	// Sympathetic Field: Harmonist passive aura amplifies healing for
+	// allies inside the field radius (15% bonus).
+	if r := caster.SympatheticFieldRadius(); r > 0 {
+		dx := caster.Position.X - target.Position.X
+		dz := caster.Position.Z - target.Position.Z
+		if dx*dx+dz*dz <= r*r {
+			heal *= 1.15
+		}
+	}
+
 	before := target.Health
 	target.Health += heal
 	if target.Health > target.MaxHealth {

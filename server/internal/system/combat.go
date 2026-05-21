@@ -165,8 +165,20 @@ func (s *CombatSystem) Tick(w *World, dt float32) {
 				if !p.Alive || !zone.ContainsPoint(p.Position) {
 					continue
 				}
+				healAmount := zone.HealPerTick
+				// Sympathetic Field: amplify zone heal if the target is
+				// inside the zone owner's aura radius.
+				if owner, ok := w.Players[zone.OwnerID]; ok {
+					if r := owner.SympatheticFieldRadius(); r > 0 {
+						dx := owner.Position.X - p.Position.X
+						dz := owner.Position.Z - p.Position.Z
+						if dx*dx+dz*dz <= r*r {
+							healAmount *= 1.15
+						}
+					}
+				}
 				before := p.Health
-				p.Health += zone.HealPerTick
+				p.Health += healAmount
 				if p.Health > p.MaxHealth {
 					p.Health = p.MaxHealth
 				}
