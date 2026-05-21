@@ -839,14 +839,16 @@ func TestHandleRespawnRequest_HubRespawn(t *testing.T) {
 
 func TestHandleRespawnRequest_ArenaRespawn(t *testing.T) {
 	tests := []struct {
-		name      string
-		state     GameFlowState
-		wantAlive bool
+		name           string
+		state          GameFlowState
+		bossGateActive bool
+		wantAlive      bool
 	}{
-		{"in StateFightOver", StateFightOver, true},
-		{"in StateLobby", StateLobby, true},
-		{"in StateSpawned", StateSpawned, true},
-		{"in StateFight blocked", StateFight, false},
+		{"in StateFightOver", StateFightOver, false, true},
+		{"in StateLobby", StateLobby, false, true},
+		{"in StateSpawned", StateSpawned, false, true},
+		{"in StateFight boss gate active", StateFight, true, false},
+		{"in StateFight trash (no boss gate)", StateFight, false, true},
 	}
 
 	for _, tc := range tests {
@@ -857,11 +859,12 @@ func TestHandleRespawnRequest_ArenaRespawn(t *testing.T) {
 
 			lvl := level.NewArenaLevel()
 			w := &World{
-				ZoneType: 1,
-				TickNum:  100,
-				State:    tc.state,
-				Players:  map[uint16]*entity.Player{1: p},
-				Level:    lvl,
+				ZoneType:       1,
+				TickNum:        100,
+				State:          tc.state,
+				BossGateActive: tc.bossGateActive,
+				Players:        map[uint16]*entity.Player{1: p},
+				Level:          lvl,
 			}
 
 			payload := codec.EncodeRespawnRequest(0) // 0 = arena

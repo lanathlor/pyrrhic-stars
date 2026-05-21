@@ -113,6 +113,24 @@ func TestRetaliate_ZeroChargesStillDealsBaseDamage(t *testing.T) {
 	}
 }
 
+func TestRetaliate_PerChargeDamageValue(t *testing.T) {
+	eng := NewEngine(nil)
+	p := newShieldVanguard()
+	enemy := enemyInFront(100, 10000)
+
+	dev := getDevotionState(p)
+	dev.Charges = 50
+
+	eng.Cast("retaliate", castCtx(p, enemy))
+	dmg := float32(10000) - enemy.Health
+
+	// Expected: (50 base + 50 charges * 4.5 per-charge * 1.0 mastery_mult) * 1.0 CasterDamageMult = 275
+	expected := (retaliateBaseDamage + 50*retaliatePerCharge) * p.CasterDamageMult()
+	if dmg < expected-1 || dmg > expected+1 {
+		t.Errorf("Retaliate damage with 50 charges = %f, want ~%f", dmg, expected)
+	}
+}
+
 func TestRetaliate_HitsWideArc(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()

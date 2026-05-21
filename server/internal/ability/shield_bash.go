@@ -7,12 +7,14 @@ import (
 
 // Shield Bash — quick strike without dropping guard.
 const (
-	shieldBashDamage     float32 = 15
+	shieldBashDamage     float32 = 40
 	shieldBashArc        float32 = 90
 	shieldBashRange      float32 = 4
-	shieldBashStamina    float32 = 8
-	shieldBashGCD        float32 = 0.4
-	shieldBashThreatMult float32 = 1.5
+	shieldBashStamina        float32 = 8
+	shieldBashGCD            float32 = 0.4
+	shieldBashBlockedStamina float32 = 14  // higher cost while blocking
+	shieldBashBlockedGCD     float32 = 0.7 // slower while blocking
+	shieldBashThreatMult     float32 = 1.5
 )
 
 var shieldBashDef = AbilityDef{
@@ -29,7 +31,16 @@ func shieldBashHandler(eng *Engine, ctx *CastContext) CastResult {
 	if p.GCDTimer > 0 {
 		return CastResult{Reason: "gcd"}
 	}
-	cost := shieldBashStamina * p.TenacityEfficiency()
+
+	// Higher cost and slower GCD while blocking
+	staminaCost := shieldBashStamina
+	gcd := shieldBashGCD
+	if p.HasBuff("vg_shield_block") {
+		staminaCost = shieldBashBlockedStamina
+		gcd = shieldBashBlockedGCD
+	}
+
+	cost := staminaCost * p.TenacityEfficiency()
 	if !p.SpendResource("stamina", cost) {
 		return CastResult{Reason: ReasonInsufficientStamina}
 	}
@@ -57,10 +68,10 @@ func shieldBashHandler(eng *Engine, ctx *CastContext) CastResult {
 	// Small Devotion generation per hit
 	if len(eng.hitBuf) > 0 {
 		dev := getDevotionState(p)
-		dev.AddCharges(float32(len(eng.hitBuf))*5.0, p.GearStats.Mastery)
+		dev.AddCharges(float32(len(eng.hitBuf))*8.0, p.GearStats.Mastery)
 	}
 
-	p.GCDTimer = shieldBashGCD
+	p.GCDTimer = gcd
 	p.State = entity.PlayerStateAttack
 
 	return CastResult{OK: true, Events: eng.hitBuf}

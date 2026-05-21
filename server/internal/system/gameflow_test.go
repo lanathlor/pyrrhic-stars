@@ -261,6 +261,56 @@ func TestCheckFightEnd(t *testing.T) {
 			wantTransition: false,
 		},
 		{
+			name: "human dead but bot alive no wipe",
+			setupEnemies: func() []*entity.Enemy {
+				e := entity.NewEnemy(0, 2000, "guard_captain")
+				e.IsBoss = true
+				e.Alive = true
+				e.State = entity.EnemyChase
+				return []*entity.Enemy{e}
+			},
+			setupPlayers: func() map[uint16]*entity.Player {
+				human := entity.NewPlayer(1, entity.ClassGunner)
+				human.Alive = false
+				human.Health = 0
+				human.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5}
+				bot := entity.NewPlayer(entity.BotIDBase, entity.ClassVanguard)
+				bot.Alive = true
+				bot.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5}
+				return map[uint16]*entity.Player{1: human, entity.BotIDBase: bot}
+			},
+			bossGateActive: true,
+			wantState:      StateFight,
+			wantDefeated:   false,
+			wantTransition: false,
+		},
+		{
+			name: "human dead and bot dead triggers wipe",
+			setupEnemies: func() []*entity.Enemy {
+				e := entity.NewEnemy(0, 2000, "guard_captain")
+				e.IsBoss = true
+				e.Alive = true
+				e.State = entity.EnemyChase
+				return []*entity.Enemy{e}
+			},
+			setupPlayers: func() map[uint16]*entity.Player {
+				human := entity.NewPlayer(1, entity.ClassGunner)
+				human.Alive = false
+				human.Health = 0
+				human.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5}
+				bot := entity.NewPlayer(entity.BotIDBase, entity.ClassVanguard)
+				bot.Alive = false
+				bot.Health = 0
+				bot.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5}
+				return map[uint16]*entity.Player{1: human, entity.BotIDBase: bot}
+			},
+			bossGateActive: true,
+			wantState:      StateFightOver,
+			wantDefeated:   false,
+			wantFlowType:   message.FlowAllDead,
+			wantTransition: true,
+		},
+		{
 			name: "boss alive players alive no transition",
 			setupEnemies: func() []*entity.Enemy {
 				e := entity.NewEnemy(0, 2000, "guard_captain")

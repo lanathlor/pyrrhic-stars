@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"codex-online/server/internal/ability"
+	"codex-online/server/internal/bot"
 	"codex-online/server/internal/codec"
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/combatlog"
@@ -75,6 +76,9 @@ type Zone struct {
 	// replayBuf is a reusable buffer for encoding WorldState frames.
 	// Shared across all active replay recorders to avoid redundant encoding.
 	replayBuf []byte
+
+	// botMgr manages dev-mode bot spawning and behavior. Nil when not in dev mode.
+	botMgr *bot.Manager
 }
 
 // New creates a zone ready to run. The level defines geometry, spawns, and
@@ -114,6 +118,10 @@ func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
 	}
 	if devMode {
 		z.world.DebugGodModePeers = make(map[uint16]bool)
+		z.botMgr = bot.NewManager("")
+		z.botMgr.OnRescale = func(totalPlayers int) {
+			z.RescaleForPlayerCount(totalPlayers)
+		}
 	}
 
 	if zoneType == ZoneTypeInstanced {
@@ -153,8 +161,15 @@ func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
 	}
 
 	// Build system pipeline based on zone type.
+	// BotSystem runs first: it intercepts spawn/dismiss opcodes and generates
+	// bot movement/ability inputs before InputSystem processes them.
+	var botSys system.System = &system.NoOpSystem{}
+	if z.botMgr != nil {
+		botSys = &bot.System{Manager: z.botMgr}
+	}
 	if zoneType == ZoneTypeOpenWorld {
 		z.systems = []system.System{
+			botSys,
 			&system.CombatSystem{},
 			&system.InputSystem{},
 			&system.NPCSystem{},
@@ -162,6 +177,7 @@ func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
 		}
 	} else {
 		z.systems = []system.System{
+			botSys,
 			&system.CombatSystem{},
 			&system.InputSystem{},
 			&system.GameFlowSystem{},
@@ -178,15 +194,36 @@ func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
 // HP scales from 1x (solo) to 4x (5 players), damage from 1x to 2x.
 // Must be called before the fight starts.
 func (z *Zone) SetGroupSize(n int) {
-	if n <= 1 {
-		return
+	z.rescaleEnemies(n)
+}
+
+// RescaleForPlayerCount adjusts enemy HP and damage scaling for the current
+// total player count (humans + bots). Safe to call mid-fight: preserves each
+// enemy's current HP percentage.
+func (z *Zone) RescaleForPlayerCount(n int) {
+	z.rescaleEnemies(n)
+}
+
+func (z *Zone) rescaleEnemies(n int) {
+	if n < 1 {
+		n = 1
 	}
-	hpMult := 1.0 + 0.75*float64(n-1)
-	dmgMult := 1.0 + 0.25*float64(n-1)
-	z.world.EnemyDamageMult = float32(dmgMult)
+	hpMult := float32(1.0 + 0.75*float64(n-1))
+	dmgMult := float32(1.0 + 0.25*float64(n-1))
+	z.world.EnemyDamageMult = dmgMult
 	for _, e := range z.world.Enemies {
-		e.MaxHealth *= float32(hpMult)
-		e.Health = e.MaxHealth
+		if e.BaseMaxHealth == 0 {
+			e.BaseMaxHealth = e.MaxHealth
+		}
+		newMax := e.BaseMaxHealth * hpMult
+		if e.MaxHealth > 0 {
+			ratio := e.Health / e.MaxHealth
+			e.MaxHealth = newMax
+			e.Health = newMax * ratio
+		} else {
+			e.MaxHealth = newMax
+			e.Health = newMax
+		}
 	}
 }
 
@@ -232,6 +269,11 @@ func (z *Zone) AddClient(c *Client) {
 			}
 		}
 	}
+
+	// Rescale instance for new player count.
+	if z.Type == ZoneTypeInstanced {
+		z.RescaleForPlayerCount(len(z.world.Players))
+	}
 	z.mu.Unlock()
 
 	// Send catch-up to the joining client (and broadcast if we just changed state)
@@ -242,12 +284,18 @@ func (z *Zone) AddClient(c *Client) {
 	}
 }
 
-// RemoveClient removes a disconnected client.
+// RemoveClient removes a disconnected client and any bots they owned.
 func (z *Zone) RemoveClient(peerID uint16) {
 	z.mu.Lock()
 	defer z.mu.Unlock()
+	if z.botMgr != nil {
+		z.botMgr.DismissAllForOwner(peerID, &z.world)
+	}
 	delete(z.world.Clients, peerID)
 	delete(z.world.Players, peerID)
+	if z.Type == ZoneTypeInstanced {
+		z.RescaleForPlayerCount(len(z.world.Players))
+	}
 }
 
 // QueueInput adds a client message to the input queue for processing on the next tick.

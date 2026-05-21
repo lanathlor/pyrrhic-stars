@@ -7,7 +7,9 @@ import (
 
 // Shield Block constants.
 const (
-	shieldBlockDR              float32 = 0.15  // damage passthrough (85% DR, constant)
+	shieldBlockDRStart         float32 = 0.10  // damage passthrough at block start (90% DR)
+	shieldBlockDREnd           float32 = 0.25  // damage passthrough at full decay (75% DR)
+	shieldBlockDRDecayTime     float32 = 1.0   // seconds to reach full DR decay
 	shieldBlockCooldown        float32 = 1.5   // cooldown after block ends
 	shieldGuardParryWindow     float32 = 0.12  // tighter than Blade's 0.15
 	guardParryReflectFraction  float32 = 0.3   // 30% of blocked damage reflected
@@ -15,7 +17,12 @@ const (
 	guardParryReflectArc       float32 = 120.0
 	guardBreakVulnMult         float32 = 1.25  // 25% increased damage taken
 	guardBreakDuration         float32 = 1.5
-	ShieldStaminaDrainFraction float32 = 0.5 // 50% of pre-DR damage drains stamina (exported for entity pkg)
+	ShieldStaminaDrainFraction float32 = 0.65 // 65% of pre-DR damage drains stamina (exported for entity pkg)
+
+	// Devotion generation decay while blocking.
+	devotionMultStart float32 = 1.0  // full Devotion generation at block start
+	devotionMultEnd   float32 = 0.25 // 25% generation at full decay
+	devotionDecayTime float32 = 1.0  // seconds to reach full Devotion decay (after parry window)
 )
 
 var vgShieldBlockDef = AbilityDef{
@@ -34,12 +41,19 @@ type VgShieldBlockState struct {
 	Elapsed             float32
 	ParryReflectPending bool
 	ParryReflectDamage  float32 // damage to reflect on next tick
+	DevotionMult        float32 // decays from 1.0 to 0.25 over time; read by ApplyDamage
 }
 
 // SetParryReflectPending marks a reflect as pending (called from player.ApplyDamage).
 func (s *VgShieldBlockState) SetParryReflectPending(dmg float32) {
 	s.ParryReflectPending = true
 	s.ParryReflectDamage += dmg
+}
+
+// GetDevotionMult returns the current Devotion generation multiplier.
+// Called from player.ApplyDamage via interface assertion.
+func (s *VgShieldBlockState) GetDevotionMult() float32 {
+	return s.DevotionMult
 }
 
 func vgShieldBlockHandler(_ *Engine, ctx *CastContext) CastResult {
@@ -62,6 +76,7 @@ func vgShieldBlockHandler(_ *Engine, ctx *CastContext) CastResult {
 	state.Elapsed = 0
 	state.ParryReflectPending = false
 	state.ParryReflectDamage = 0
+	state.DevotionMult = devotionMultStart
 
 	// Ensure Devotion state exists for ApplyDamage integration
 	getDevotionState(p)
@@ -73,11 +88,11 @@ func vgShieldBlockHandler(_ *Engine, ctx *CastContext) CastResult {
 		Value:    0.0,
 		Duration: shieldGuardParryWindow * p.TempoMult(),
 	})
-	// Sustained block DR — constant, does not decay
+	// Sustained block DR — starts high, decays over time
 	p.AddBuff(entity.ActiveBuff{
 		ID:       "vg_shield_block",
 		Type:     entity.BuffDamageReduction,
-		Value:    shieldBlockDR,
+		Value:    shieldBlockDRStart,
 		Duration: 0, // permanent — managed by tick handler
 	})
 	p.State = entity.PlayerStateBlock
@@ -101,6 +116,7 @@ func EndVgShieldBlock(p *entity.Player) {
 	}
 	state.Active = false
 	state.Elapsed = 0
+	state.DevotionMult = 0
 	state.ParryReflectPending = false
 	state.ParryReflectDamage = 0
 	p.RemoveBuff("vg_shield_block")
@@ -147,7 +163,30 @@ func vgShieldBlockTick(eng *Engine, p *entity.Player, dt float32, ctx *TickConte
 	// No per-second stamina drain for Shield block (unlike Blade).
 	// Stamina is drained proportionally to damage absorbed in ApplyDamage.
 
-	state.Elapsed += dt
+	// Brace freezes DR decay and Devotion decay
+	if !p.HasBuff("brace") {
+		state.Elapsed += dt
+	}
+
+	// Decay DR over time (mirrors Blade Block pattern)
+	if b := p.GetBuff("vg_shield_block"); b != nil {
+		v := shieldBlockDRStart + (shieldBlockDREnd-shieldBlockDRStart)*(state.Elapsed/shieldBlockDRDecayTime)
+		if v > shieldBlockDREnd {
+			v = shieldBlockDREnd
+		}
+		b.Value = v
+	}
+
+	// Decay Devotion multiplier (starts after parry window)
+	parryElapsed := state.Elapsed - shieldGuardParryWindow
+	if parryElapsed < 0 {
+		parryElapsed = 0
+	}
+	state.DevotionMult = devotionMultStart - (devotionMultStart-devotionMultEnd)*(parryElapsed/devotionDecayTime)
+	if state.DevotionMult < devotionMultEnd {
+		state.DevotionMult = devotionMultEnd
+	}
+
 	return events
 }
 

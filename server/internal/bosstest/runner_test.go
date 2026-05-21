@@ -241,6 +241,8 @@ func runFuzzTests(t *testing.T, spec *bosstest.EncounterSpec) {
 		sink = &combatlog.InMemorySink{}
 	}
 
+	spec.ExpandVariants()
+
 	var allResults []bosstest.SimResult
 	groupID := fmt.Sprintf("fuzz_%s_%d", spec.Boss, os.Getpid())
 

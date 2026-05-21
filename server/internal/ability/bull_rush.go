@@ -7,7 +7,7 @@ import (
 
 // Bull Rush — charge forward with shield, push enemies.
 const (
-	bullRushDamage     float32 = 60
+	bullRushDamage     float32 = 80
 	bullRushRange      float32 = 5
 	bullRushStamina    float32 = 20
 	bullRushCooldown   float32 = 8

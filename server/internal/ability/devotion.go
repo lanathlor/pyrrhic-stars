@@ -33,7 +33,7 @@ func (s *DevotionState) Tier() uint8 {
 // AddCharges converts absorbed damage into Devotion charges.
 // Mastery stat governs the conversion rate.
 func (s *DevotionState) AddCharges(absorbed, mastery float32) {
-	s.Charges += absorbed * (0.1 + mastery/500.0)
+	s.Charges += absorbed * (0.15 + mastery/500.0)
 }
 
 // ConsumeAll returns all accumulated charges and zeroes the pool.

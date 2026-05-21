@@ -3,6 +3,7 @@ package bosstest
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -17,16 +18,17 @@ type EncounterSpec struct {
 	Duration     DurationSpec   `yaml:"duration"`
 	PhaseReach   []PhaseSpec    `yaml:"phase_reach"`
 	TreeHealth   TreeHealthSpec `yaml:"tree_health"`
-	ClassBalance *BalanceSpec   `yaml:"class_balance"`
+	SpecBalance  *BalanceSpec   `yaml:"spec_balance"`
 	AbilityStats []AbilitySpec  `yaml:"ability_stats"`
 }
 
 // CompSpec defines a party composition for testing.
 type CompSpec struct {
-	Name     string   `yaml:"name"`
-	Classes  []string `yaml:"classes"`
-	Specs    []string `yaml:"specs"`    // spec IDs (empty string = class default)
-	Profiles []string `yaml:"profiles"`
+	Name     string     `yaml:"name"`
+	Classes  []string   `yaml:"classes"`
+	Specs    []string   `yaml:"specs"`    // spec IDs (empty string = class default)
+	Profiles []string   `yaml:"profiles"`
+	WinRate  *RangeSpec `yaml:"win_rate"` // optional per-comp win rate assertion
 }
 
 // RangeSpec is a min/max float range.
@@ -104,4 +106,46 @@ func (cs CompSpec) ToPartyConfigs() []PuppetConfig {
 		}
 	}
 	return configs
+}
+
+// ExpandVariants expands pipe-separated specs into multiple compositions.
+// e.g., specs: [assault, blade|shield, multi_blade] produces two CompSpecs
+// with the same Name (so reporting groups them), one with blade, one with shield.
+func (es *EncounterSpec) ExpandVariants() {
+	var expanded []CompSpec
+	for _, cs := range es.Compositions {
+		expanded = append(expanded, cs.expandSpecs()...)
+	}
+	es.Compositions = expanded
+}
+
+func (cs CompSpec) expandSpecs() []CompSpec {
+	slotOptions := make([][]string, len(cs.Specs))
+	for i, s := range cs.Specs {
+		slotOptions[i] = strings.Split(s, "|")
+	}
+	// Cartesian product of all slot options.
+	combos := [][]string{{}}
+	for _, opts := range slotOptions {
+		var next [][]string
+		for _, existing := range combos {
+			for _, o := range opts {
+				c := make([]string, len(existing), len(existing)+1)
+				copy(c, existing)
+				next = append(next, append(c, o))
+			}
+		}
+		combos = next
+	}
+	results := make([]CompSpec, len(combos))
+	for i, specs := range combos {
+		results[i] = CompSpec{
+			Name:     cs.Name,
+			Classes:  cs.Classes,
+			Specs:    specs,
+			Profiles: cs.Profiles,
+			WinRate:  cs.WinRate,
+		}
+	}
+	return results
 }

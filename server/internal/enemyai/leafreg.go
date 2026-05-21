@@ -33,8 +33,11 @@ var leafRegistry = map[string]leafEntry{
 	"can_move":                 {isCond: true, cond: condCanMove},
 
 	// Actions
-	"stop":            {action: actionStop},
-	"aggro_nearest":   {action: actionAggroNearest},
+	"stop":                 {action: actionStop},
+	"aggro_nearest":        {action: actionAggroNearest},
+	"set_target_clustered": {action: actionSetTargetClustered},
+	"set_target_lowest_hp": {action: actionSetTargetLowestHP},
+	"set_target_nearest":   {action: actionSetTargetNearest},
 	"wait_transition": {action: actionWaitTransition},
 	"leash_reset":     {action: actionLeashReset},
 	"patrol":          {action: actionPatrol},
@@ -79,6 +82,20 @@ var paramFactories = map[string]func(string) (leafEntry, error){
 			return leafEntry{}, fmt.Errorf("players_in_aoe: invalid radius %q: %w", arg, err)
 		}
 		return leafEntry{isCond: true, cond: condPlayersInAoE(float32(v))}, nil
+	},
+	"n_players_clustered": func(arg string) (leafEntry, error) {
+		v, err := strconv.Atoi(arg)
+		if err != nil {
+			return leafEntry{}, fmt.Errorf("n_players_clustered: invalid count %q: %w", arg, err)
+		}
+		return leafEntry{isCond: true, cond: condNPlayersClustered(v)}, nil
+	},
+	"any_below_hp_pct": func(arg string) (leafEntry, error) {
+		v, err := strconv.ParseFloat(arg, 32)
+		if err != nil {
+			return leafEntry{}, fmt.Errorf("any_below_hp_pct: invalid pct %q: %w", arg, err)
+		}
+		return leafEntry{isCond: true, cond: condAnyBelowHPPct(float32(v))}, nil
 	},
 	"cast": func(arg string) (leafEntry, error) {
 		if arg == "" {

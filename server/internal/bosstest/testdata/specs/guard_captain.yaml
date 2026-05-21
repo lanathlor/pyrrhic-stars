@@ -1,25 +1,32 @@
 boss: guard_captain
-runs: 500
+runs: 600
 
 compositions:
-  - name: mixed_average
-    classes: [gunner, vanguard, blade_dancer]
-    specs: [assault, blade, multi_blade]
-    profiles: [average, average, average]
   - name: all_sweaty
-    classes: [gunner, vanguard, blade_dancer]
-    specs: [assault, blade, multi_blade]
-    profiles: [sweaty, sweaty, sweaty]
+    classes: [gunner, vanguard, vanguard, blade_dancer, blade_dancer]
+    specs: [assault, shield, blade, multi_blade, multi_blade]
+    profiles: [sweaty, sweaty, sweaty, sweaty, sweaty]
+    win_rate:
+      min: 0.60
+      max: 0.95
+  - name: mixed_average
+    classes: [gunner, vanguard, vanguard, blade_dancer, blade_dancer]
+    specs: [assault, shield, blade, multi_blade, multi_blade]
+    profiles: [average, average, average, average, average]
+    win_rate:
+      min: 0.25
+      max: 0.85
   - name: all_bad
-    classes: [gunner, vanguard, blade_dancer]
-    specs: [assault, blade, multi_blade]
-    profiles: [bad, bad, bad]
+    classes: [gunner, vanguard, vanguard, blade_dancer, blade_dancer]
+    specs: [assault, shield, blade, multi_blade, multi_blade]
+    profiles: [bad, bad, bad, bad, bad]
+    win_rate:
+      min: 0.0
+      max: 0.50
 
-# NOTE: 100% win rate reflects boss being undertuned for real ability DPS.
-# Boss HP (2000) needs rebalancing for party DPS (~200+/s). Tighten after.
 win_rate:
-  min: 0.05
-  max: 1.00
+  min: 0.15
+  max: 0.90
 
 duration:
   min_seconds: 15
@@ -35,7 +42,7 @@ tree_health:
   max_dead_nodes: 10
   max_cold_nodes: 20
 
-class_balance:
+spec_balance:
   max_damage_share_sigma: 0.30
 
 ability_stats:

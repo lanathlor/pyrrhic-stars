@@ -99,7 +99,7 @@ func checkBossGate(w *World) {
 	}
 
 	if w.BossGateActive {
-		// Check if any alive player is in the boss room (Z < BossRoomEntryZ)
+		// Check if any alive player (human or bot) is in the boss room (Z < BossRoomEntryZ)
 		anyPlayerInBossRoom := false
 		for _, p := range w.Players {
 			if p.Alive && p.Position.Z < w.Level.BossRoomEntryZ {
@@ -163,15 +163,20 @@ func checkFightEnd(w *World) {
 		return
 	}
 
-	// Check all players dead → wipe
+	// Check all players dead → wipe. Bots are players: alive bots prevent
+	// wipes. humanCount ensures an empty-of-humans room doesn't wipe.
 	allDead := true
+	humanCount := 0
 	for _, p := range w.Players {
+		if !entity.IsBotID(p.ID) {
+			humanCount++
+		}
 		if p.Alive {
 			allDead = false
 			break
 		}
 	}
-	if allDead && len(w.Players) > 0 {
+	if allDead && humanCount > 0 {
 		finalizeAllCombatLogs(w, combatlog.OutcomeBossWin)
 		w.State = StateFightOver
 		w.BossDefeated = false
@@ -193,16 +198,22 @@ func checkFightEnd(w *World) {
 }
 
 func tickFightOver(w *World, _ float32) {
-	// After a wipe, transition back to lobby once all players have respawned
+	// After a wipe, transition back to lobby once all human players have respawned.
+	// Bots are auto-respawned by BotSystem — don't let them block the transition.
 	if !w.BossDefeated {
 		allAlive := true
+		humanCount := 0
 		for _, p := range w.Players {
+			if entity.IsBotID(p.ID) {
+				continue
+			}
+			humanCount++
 			if !p.Alive {
 				allAlive = false
 				break
 			}
 		}
-		if allAlive && len(w.Players) > 0 {
+		if allAlive && humanCount > 0 {
 			returnToLobby(w)
 		}
 	}

@@ -1,0 +1,24 @@
+class: vanguard
+spec: shield
+bosses: [guard_captain]
+profiles: [bad]
+preferred_range: 2.0
+
+# Beginner Shield: holds block permanently, never drops guard.
+# Gets Guard Broken from cumulative stamina drain on big hits.
+# Very late reaction (1.0s) — most telegraphs resolve before response.
+# Never uses Brace, Retaliate, or Bull Rush. Just blocks and bashes.
+# DPS loss comes from guard break stagger + deaths, not rotation.
+
+tree:
+  reactive_selector:
+    # AoE: very late flee (1.0s reaction)
+    - sequence: [has_reacted, in_aoe_danger, flee_aoe]
+    # Charge: very late strafe
+    - sequence: [has_reacted, in_charge_path, strafe_charge]
+    # Start blocking if not already (and never stop)
+    - sequence: ["!is_blocking", "cast(vg_shield_block)"]
+    # Get into melee range
+    - sequence: [out_of_melee, advance]
+    # Shield bash filler while blocking
+    - "cast(shield_bash)"

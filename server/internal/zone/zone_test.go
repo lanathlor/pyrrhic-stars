@@ -428,6 +428,7 @@ func TestHandleRespawnRequest(t *testing.T) {
 	tests := []struct {
 		name            string
 		state           GameFlowState
+		bossGateActive  bool
 		playerAlive     bool
 		respawnType     byte // 0 = arena, 1 = hub
 		wantAlive       bool
@@ -445,11 +446,22 @@ func TestHandleRespawnRequest(t *testing.T) {
 			wantPosition:    &entity.Vec3{X: -2, Y: 0.1, Z: 48},
 		},
 		{
-			name:        "arena respawn rejected during fight",
-			state:       StateFight,
-			playerAlive: false,
-			respawnType: 0,
-			wantAlive:   false,
+			name:          "arena respawn rejected during boss fight",
+			state:         StateFight,
+			bossGateActive: true,
+			playerAlive:   false,
+			respawnType:   0,
+			wantAlive:     false,
+		},
+		{
+			name:          "arena respawn allowed during trash fight",
+			state:         StateFight,
+			bossGateActive: false,
+			playerAlive:   false,
+			respawnType:   0,
+			wantAlive:     true,
+			wantHealthReset: true,
+			wantPosition:  &entity.Vec3{X: -2, Y: 0.1, Z: 48},
 		},
 		{
 			name:         "hub respawn calls callback",
@@ -472,6 +484,7 @@ func TestHandleRespawnRequest(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			z, peerID := setupFightZone(t)
 			z.world.State = tc.state
+			z.world.BossGateActive = tc.bossGateActive
 
 			p := z.world.Players[peerID]
 			p.Alive = tc.playerAlive
@@ -720,6 +733,7 @@ func extractPlayerState(msg []byte, wantPeer uint16) int {
 		off += 4 // resonance
 		off++    // onslaught_stacks
 		off += 7 // gunner assault state
+		off++    // speedMult
 		if peerID == wantPeer {
 			return state
 		}

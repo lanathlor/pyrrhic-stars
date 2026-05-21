@@ -76,6 +76,8 @@ const (
 	OpDebugRepeatAbility uint16 = 0x00D5 // [str8: ability_id, empty=disable]
 	OpDebugReloadYAML    uint16 = 0x00D6 // (no payload)
 	OpDebugRequestInfo   uint16 = 0x00D7 // (no payload)
+	OpDebugSpawnBot      uint16 = 0x00D8 // [str8: class][str8: spec]
+	OpDebugDismissBot    uint16 = 0x00D9 // [u16: botID, 0=dismiss all]
 
 	// Debug — server → client.
 	OpDebugInfo uint16 = 0x00E0 // [str8: def_name][uint8: n][str8: ability_id]...

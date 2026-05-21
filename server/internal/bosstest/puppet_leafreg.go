@@ -34,10 +34,14 @@ var puppetLeafRegistry = map[string]puppetLeafEntry{
 	"too_far":      {isCond: true, cond: condTooFar},
 	"out_of_melee": {isCond: true, cond: condOutOfMelee},
 
-	// Conditions — abilities
+	// Conditions — abilities & resources
 	"should_use_defensive": {isCond: true, cond: condShouldUseDefensive},
 	"can_transition":       {isCond: true, cond: condCanTransition},
 	"should_reload":        {isCond: true, cond: condShouldReload},
+	"is_blocking":          {isCond: true, cond: condIsBlocking},
+	"block_stale":          {isCond: true, cond: condBlockStale},
+	"has_devotion":         {isCond: true, cond: condHasDevotion},
+	"stamina_low":          {isCond: true, cond: condStaminaLow},
 
 	// Actions — movement (no cast)
 	"strafe_charge":       {action: actionStrafeCharge},

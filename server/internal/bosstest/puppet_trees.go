@@ -5,11 +5,16 @@ import (
 	"codex-online/server/internal/entity"
 )
 
-// classTree returns the behavior tree for the given class.
-func classTree(class string) *bt.Tree {
+// specTree returns the default behavior tree for the given class and spec.
+// These are generic trees suitable for trash mobs. Boss-specific YAML trees
+// override these during boss encounters.
+func specTree(class, spec string) *bt.Tree {
 	switch class {
 	case entity.ClassVanguard:
-		return vanguardTree()
+		if spec == "shield" {
+			return vanguardShieldTree()
+		}
+		return vanguardBladeTree()
 	case entity.ClassBladeDancer:
 		return bladeDancerTree()
 	default:
@@ -68,10 +73,10 @@ func gunnerTree() *bt.Tree {
 	))
 }
 
-// vanguardTree builds the BT for a melee tank that stays in melee range.
-// Vanguard circles behind boss during melee telegraphs (cone is fixed, not tracking).
+// vanguardBladeTree builds the BT for Vanguard Blade spec (melee DPS).
+// Circles behind boss during melee telegraphs (cone is fixed, not tracking).
 // Block is cast while strafing — shield up + movement simultaneously.
-func vanguardTree() *bt.Tree {
+func vanguardBladeTree() *bt.Tree {
 	return bt.NewTree(bt.NewReactiveSelector(
 		// Melee telegraph: strafe behind boss + block (shield up while circling)
 		bt.NewSequence(
@@ -129,6 +134,101 @@ func vanguardTree() *bt.Tree {
 		),
 		// Filler: light combo
 		bt.NewAction(castAbilityAction("cleave")),
+	))
+}
+
+// vanguardShieldTree builds the BT for Vanguard Shield spec (tank).
+// Raises shield to block incoming damage, bashes while blocking, uses
+// bull_rush and retaliate as burst when safe. Generic tree for trash mobs;
+// boss-specific YAML trees add Brace timing and soak strategies.
+func vanguardShieldTree() *bt.Tree {
+	return bt.NewTree(bt.NewReactiveSelector(
+		// Charge: always dodge (can't block geometry attacks)
+		bt.NewSequence(
+			bt.NewCondition(condHasReactedQuick),
+			bt.NewCondition(condInChargePath),
+			bt.NewAction(withCast(actionStrafeCharge, "shield_bash")),
+		),
+		// AoE: block through it if already blocking, otherwise flee
+		bt.NewSequence(
+			bt.NewCondition(condHasReactedQuick),
+			bt.NewCondition(condInAoEDanger),
+			bt.NewCondition(condIsBlocking),
+			bt.NewAction(castAbilityAction("shield_bash")),
+		),
+		bt.NewSequence(
+			bt.NewCondition(condHasReactedQuick),
+			bt.NewCondition(condInAoEDanger),
+			bt.NewAction(withCast(actionFleeAoE, "shield_bash")),
+		),
+		// Ranged: raise shield and tank through projectiles
+		bt.NewSequence(
+			bt.NewCondition(condHasReactedQuick),
+			bt.NewCondition(condTargetedByRanged),
+			bt.NewCondition(condIsBlocking),
+			bt.NewAction(castAbilityAction("shield_bash")),
+		),
+		bt.NewSequence(
+			bt.NewCondition(condHasReactedQuick),
+			bt.NewCondition(condTargetedByRanged),
+			bt.NewAction(castAbilityAction("vg_shield_block")),
+		),
+		// Projectile: hold block if already blocking, sidestep otherwise
+		bt.NewSequence(
+			bt.NewCondition(condProjectileIncoming),
+			bt.NewCondition(condIsBlocking),
+			bt.NewAction(castAbilityAction("shield_bash")),
+		),
+		bt.NewSequence(
+			bt.NewCondition(condProjectileIncoming),
+			bt.NewAction(withCast(actionSidestepProjectile, "shield_bash")),
+		),
+		// Melee: block + bash through melee attacks
+		bt.NewSequence(
+			bt.NewCondition(condInMeleeDanger),
+			bt.NewCondition(condIsBlocking),
+			bt.NewAction(castAbilityAction("shield_bash")),
+		),
+		bt.NewSequence(
+			bt.NewCondition(condHasReacted),
+			bt.NewCondition(condInMeleeDanger),
+			bt.NewCondition(condShouldUseDefensive),
+			bt.NewAction(castAbilityAction("vg_shield_block")),
+		),
+		bt.NewSequence(
+			bt.NewCondition(condHasReacted),
+			bt.NewCondition(condInMeleeDanger),
+			bt.NewAction(castAbilityAction("shield_bash")),
+		),
+		// Safe window: drop stale block
+		bt.NewSequence(
+			bt.NewCondition(condIsBlocking),
+			bt.NewCondition(condBlockStale),
+			bt.NewAction(castAbilityAction("vg_shield_block_stop")),
+		),
+		// Burst: retaliate when Devotion stacked
+		bt.NewSequence(
+			bt.NewCondition(condHasDevotion),
+			bt.NewCondition(canCastAbility("retaliate")),
+			bt.NewAction(castAbilityAction("retaliate")),
+		),
+		// Burst: bull rush on CD
+		bt.NewSequence(
+			bt.NewCondition(canCastAbility("bull_rush")),
+			bt.NewAction(castAbilityAction("bull_rush")),
+		),
+		// Drop block when safe (no telegraph active)
+		bt.NewSequence(
+			bt.NewCondition(condIsBlocking),
+			bt.NewAction(castAbilityAction("vg_shield_block_stop")),
+		),
+		// Positioning: get into melee range
+		bt.NewSequence(
+			bt.NewCondition(condOutOfMelee),
+			bt.NewAction(actionAdvance),
+		),
+		// Filler: shield bash
+		bt.NewAction(castAbilityAction("shield_bash")),
 	))
 }
 

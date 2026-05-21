@@ -66,8 +66,9 @@ type Enemy struct {
 	IsBoss      bool    // true for the boss, false for trash
 	LeashOrigin Vec3    // where the mob spawned (for leash behavior)
 	LeashRadius float32 // max distance from spawn before resetting
-	DefName     string  // name of the EnemyDef, for client-side identification
-	GroupID     int     // mobs with the same GroupID aggro together (0 = no group)
+	DefName        string  // name of the EnemyDef, for client-side identification
+	GroupID        int     // mobs with the same GroupID aggro together (0 = no group)
+	BaseMaxHealth  float32 // original MaxHealth before instance scaling (set at spawn)
 }
 
 // NewEnemy creates a fresh enemy with the given max health.
@@ -79,6 +80,7 @@ func NewEnemy(id uint16, maxHealth float32, defName string) *Enemy {
 			Health:    maxHealth,
 			Alive:     true,
 		},
+		BaseMaxHealth:     maxHealth,
 		DefName:           defName,
 		Phase:             1,
 		PhaseTransitioned: []int{},

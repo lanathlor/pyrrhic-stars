@@ -55,7 +55,8 @@ type SimResult struct {
 	TotalTicks    int
 	PhasesReached []int
 	TreeReport    *TreeReport
-	ClassDamage   map[string]float32        // class → total damage dealt to boss
+	SpecDamage    map[string]float32        // spec → total damage dealt to boss
+	SpecPlayers   map[string]int            // spec → number of players with that spec
 	AbilityStats  map[string]*AbilityResult // ability name → stats
 	CompName      string                    // composition name (set by runner)
 }
@@ -105,6 +106,12 @@ func RunSimulation(cfg SimConfig) SimResult {
 		pp.Player.SpawnTick = 0 // no spawn grace period
 		puppets[i] = pp
 		playerMap[pp.Player.ID] = pp.Player
+	}
+
+	// Count players per spec for reporting.
+	specPlayers := make(map[string]int)
+	for _, pp := range puppets {
+		specPlayers[pp.Player.SpecID]++
 	}
 
 	// Compute group-size scaling (HP: 1x→4x, Damage: 1x→2x over 1→5 players)
@@ -176,7 +183,7 @@ func RunSimulation(cfg SimConfig) SimResult {
 
 	// Track phases reached
 	phasesReached := map[int]bool{1: true}
-	classDmg := make(map[string]float32)
+	specDmg := make(map[string]float32)
 	abilStats := make(map[string]*AbilityResult)
 	var replayBuf []byte
 
@@ -234,7 +241,7 @@ func RunSimulation(cfg SimConfig) SimResult {
 			for _, ev := range w.DamageEvents {
 				if ev.SourcePeerID != 0 && ev.SourceType == combat.SourcePlayerAttack {
 					if p, ok := w.Players[ev.SourcePeerID]; ok {
-						classDmg[p.ClassID] += ev.Amount
+						specDmg[p.SpecID] += ev.Amount
 					}
 				}
 			}
@@ -307,7 +314,8 @@ func RunSimulation(cfg SimConfig) SimResult {
 		TotalTicks:    tick,
 		PhasesReached: phases,
 		TreeReport:    instrumented.Report(),
-		ClassDamage:   classDmg,
+		SpecDamage:    specDmg,
+		SpecPlayers:   specPlayers,
 		AbilityStats:  abilStats,
 	}
 }

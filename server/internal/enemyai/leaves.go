@@ -156,6 +156,65 @@ func condPhaseEq(phase int) func(any) bool {
 	}
 }
 
+// condNPlayersClustered returns a condition factory: true if any alive player
+// has minNeighbors+ alive allies within 6m. O(N²), trivial for N=5.
+func condNPlayersClustered(minNeighbors int) func(any) bool {
+	const clusterRadius float32 = 6.0
+	rSq := clusterRadius * clusterRadius
+	return func(v any) bool {
+		c := ctx(v)
+		for _, p := range c.Players {
+			if !p.Alive {
+				continue
+			}
+			neighbors := 0
+			for _, q := range c.Players {
+				if q == p || !q.Alive {
+					continue
+				}
+				if p.Position.Flat().DistanceToSq(q.Position.Flat()) <= rSq {
+					neighbors++
+				}
+			}
+			if neighbors >= minNeighbors {
+				if c.Logger != nil {
+					c.logCond("n_players_clustered", true, "min", minNeighbors, "player", p.ID, "neighbors", neighbors)
+				}
+				return true
+			}
+		}
+		if c.Logger != nil {
+			c.logCond("n_players_clustered", false, "min", minNeighbors)
+		}
+		return false
+	}
+}
+
+// condAnyBelowHPPct returns a condition factory: true if any alive player has
+// Health/MaxHealth below the given percentage (0-100). O(N), very cheap.
+func condAnyBelowHPPct(pct float32) func(any) bool {
+	threshold := pct / 100.0
+	return func(v any) bool {
+		c := ctx(v)
+		for _, p := range c.Players {
+			if !p.Alive {
+				continue
+			}
+			if p.MaxHealth > 0 && p.Health/p.MaxHealth < threshold {
+				if c.Logger != nil {
+					c.logCond("any_below_hp_pct", true, "pct", pct, "player", p.ID,
+						"hp_pct", p.Health/p.MaxHealth*100)
+				}
+				return true
+			}
+		}
+		if c.Logger != nil {
+			c.logCond("any_below_hp_pct", false, "pct", pct)
+		}
+		return false
+	}
+}
+
 // --- Actions ---
 
 func actionStop(v any) bt.Result {
@@ -175,6 +234,92 @@ func actionAggroNearest(v any) bt.Result {
 	c.Enemy.State = entity.EnemyChase
 	if c.Logger != nil {
 		c.logAction("aggro_nearest", bt.Success, "target", p.ID)
+	}
+	return bt.Success
+}
+
+// actionSetTargetClustered finds the alive player with the most alive allies
+// within 6m and sets them as the target. Tiebreaker: farthest from boss (to
+// spread damage away from the tank). O(N²), trivial for N=5.
+func actionSetTargetClustered(v any) bt.Result {
+	const clusterRadius float32 = 6.0
+	rSq := clusterRadius * clusterRadius
+	c := ctx(v)
+
+	var best *entity.Player
+	bestNeighbors := -1
+	var bestDistSq float32
+
+	for _, p := range c.Players {
+		if !p.Alive {
+			continue
+		}
+		neighbors := 0
+		for _, q := range c.Players {
+			if q == p || !q.Alive {
+				continue
+			}
+			if p.Position.Flat().DistanceToSq(q.Position.Flat()) <= rSq {
+				neighbors++
+			}
+		}
+		distSq := c.Enemy.Position.Flat().DistanceToSq(p.Position.Flat())
+		if neighbors > bestNeighbors || (neighbors == bestNeighbors && distSq > bestDistSq) {
+			best = p
+			bestNeighbors = neighbors
+			bestDistSq = distSq
+		}
+	}
+
+	if best == nil {
+		return bt.Failure
+	}
+	c.Enemy.TargetPlayerID = best.ID
+	if c.Logger != nil {
+		c.logAction("set_target_clustered", bt.Success, "target", best.ID, "neighbors", bestNeighbors)
+	}
+	return bt.Success
+}
+
+// actionSetTargetLowestHP finds the alive player with the lowest HP percentage
+// and sets them as the target. O(N), very cheap.
+func actionSetTargetLowestHP(v any) bt.Result {
+	c := ctx(v)
+	var best *entity.Player
+	bestPct := float32(2.0) // > 100%
+
+	for _, p := range c.Players {
+		if !p.Alive || p.MaxHealth <= 0 {
+			continue
+		}
+		pct := p.Health / p.MaxHealth
+		if pct < bestPct {
+			bestPct = pct
+			best = p
+		}
+	}
+
+	if best == nil {
+		return bt.Failure
+	}
+	c.Enemy.TargetPlayerID = best.ID
+	if c.Logger != nil {
+		c.logAction("set_target_lowest_hp", bt.Success, "target", best.ID, "hp_pct", bestPct*100)
+	}
+	return bt.Success
+}
+
+// actionSetTargetNearest sets the target to the nearest alive player without
+// changing enemy state. Unlike aggro_nearest, this is a pure retarget action.
+func actionSetTargetNearest(v any) bt.Result {
+	c := ctx(v)
+	p := c.NearestPlayer()
+	if p == nil {
+		return bt.Failure
+	}
+	c.Enemy.TargetPlayerID = p.ID
+	if c.Logger != nil {
+		c.logAction("set_target_nearest", bt.Success, "target", p.ID)
 	}
 	return bt.Success
 }

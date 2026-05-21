@@ -530,8 +530,8 @@ func TestFight_PhaseOverridesAffectAbilities(t *testing.T) {
 
 	// Phase 1: base stats
 	resolved1 := def.ResolveAbility(&def.Abilities[0], 1) // melee_swipe
-	if resolved1.BaseDamage != 25.0 {
-		t.Errorf("P1 melee damage = %f, want 25.0", resolved1.BaseDamage)
+	if resolved1.BaseDamage != 35.0 {
+		t.Errorf("P1 melee damage = %f, want 35.0", resolved1.BaseDamage)
 	}
 	if resolved1.CommitTime != 1.2 {
 		t.Errorf("P1 commit time = %f, want 1.2", resolved1.CommitTime)
@@ -556,8 +556,8 @@ func TestFight_PhaseOverridesAffectAbilities(t *testing.T) {
 	if resolved3.CommitTime != 0.7 {
 		t.Errorf("P3 commit time = %f, want 0.7", resolved3.CommitTime)
 	}
-	if resolved3.BaseDamage != 30.0 {
-		t.Errorf("P3 melee damage = %f, want 30.0", resolved3.BaseDamage)
+	if resolved3.BaseDamage != 45.0 {
+		t.Errorf("P3 melee damage = %f, want 45.0", resolved3.BaseDamage)
 	}
 
 	// fireball_burst Phase 3: commit time even shorter
@@ -568,11 +568,11 @@ func TestFight_PhaseOverridesAffectAbilities(t *testing.T) {
 
 	// ground_slam Phase 3: bigger radius and more damage (index 3 after void_barrage)
 	gs3 := def.ResolveAbility(&def.Abilities[3], 3)
-	if gs3.Hit.Radius != 7.0 {
-		t.Errorf("P3 AoE radius = %f, want 7.0", gs3.Hit.Radius)
+	if gs3.Hit.Radius != 8.5 {
+		t.Errorf("P3 AoE radius = %f, want 8.5", gs3.Hit.Radius)
 	}
-	if gs3.BaseDamage != 45.0 {
-		t.Errorf("P3 AoE damage = %f, want 45.0", gs3.BaseDamage)
+	if gs3.BaseDamage != 55.0 {
+		t.Errorf("P3 AoE damage = %f, want 55.0", gs3.BaseDamage)
 	}
 
 	// bull_charge Phase 3: faster and longer (index 4)
@@ -583,8 +583,8 @@ func TestFight_PhaseOverridesAffectAbilities(t *testing.T) {
 	if bc3.Charge.MaxDistance != 20.0 {
 		t.Errorf("P3 charge max dist = %f, want 20.0", bc3.Charge.MaxDistance)
 	}
-	if bc3.Charge.Damage != 40.0 {
-		t.Errorf("P3 charge damage = %f, want 40.0", bc3.Charge.Damage)
+	if bc3.Charge.Damage != 50.0 {
+		t.Errorf("P3 charge damage = %f, want 50.0", bc3.Charge.Damage)
 	}
 }
 

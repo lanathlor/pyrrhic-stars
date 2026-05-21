@@ -46,7 +46,7 @@ type FuzzReport struct {
 	CompBreakdown []compStats
 
 	// Sections with sub-items
-	ClassBalance    []reportLine
+	SpecBalance     []reportLine
 	AbilityStats    []reportLine
 	TotalBossDamage float64            // grand total damage dealt by boss abilities
 	CompDetails     []compDetailReport // per-composition breakdown
@@ -75,7 +75,8 @@ type compDetailReport struct {
 	TotalDurationSec  float64     // sum of all run durations
 	Runs              int
 	AbilityShares     []nameShare // sorted by damage desc
-	ClassShares       []nameShare // sorted alphabetically
+	SpecShares        []nameShare // sorted alphabetically
+	SpecPlayerCount   map[string]int // spec → player count (for per-player DPS)
 }
 
 type nameShare struct {
@@ -131,12 +132,12 @@ func (r *FuzzReport) PrintReport(t *testing.T) {
 	}
 
 	// Class balance
-	if len(r.ClassBalance) > 0 {
+	if len(r.SpecBalance) > 0 {
 		sb.WriteString(fmt.Sprintf("\n  %s\n", strings.Repeat("─", 58)))
-		h := r.ClassBalance[0]
-		sb.WriteString(fmt.Sprintf("  Class Balance     sigma=%-8s max=%-8s [%s]\n",
+		h := r.SpecBalance[0]
+		sb.WriteString(fmt.Sprintf("  Spec Balance      sigma=%-8s max=%-8s [%s]\n",
 			h.result, h.spec, statusIcon(h.pass)))
-		for _, l := range r.ClassBalance[1:] {
+		for _, l := range r.SpecBalance[1:] {
 			sb.WriteString(fmt.Sprintf("    %-14s %s\n", l.label, l.result))
 		}
 	}
@@ -169,23 +170,27 @@ func (r *FuzzReport) PrintReport(t *testing.T) {
 			}
 			sb.WriteString("\n")
 			// Class balance (shares)
-			sb.WriteString("      class:    ")
-			for i, c := range cd.ClassShares {
+			sb.WriteString("      spec:     ")
+			for i, c := range cd.SpecShares {
 				if i > 0 {
 					sb.WriteString("  ")
 				}
 				sb.WriteString(fmt.Sprintf("%s %.1f%%", c.Name, c.Share))
 			}
 			sb.WriteString("\n")
-			// Per-class DPS
+			// Per-player DPS (normalized by player count per spec)
 			if cd.TotalDurationSec > 0 {
-				sb.WriteString("      dps:      ")
-				for i, c := range cd.ClassShares {
+				sb.WriteString("      dps/player: ")
+				for i, c := range cd.SpecShares {
 					if i > 0 {
 						sb.WriteString("  ")
 					}
-					classDPS := c.RawDmg / cd.TotalDurationSec
-					sb.WriteString(fmt.Sprintf("%s %.1f/s", c.Name, classDPS))
+					n := cd.SpecPlayerCount[c.Name]
+					if n < 1 {
+						n = 1
+					}
+					playerDPS := c.RawDmg / cd.TotalDurationSec / float64(n)
+					sb.WriteString(fmt.Sprintf("%s %.1f/s", c.Name, playerDPS))
 				}
 				sb.WriteString("\n")
 			}
@@ -302,14 +307,17 @@ func (fr *FuzzResults) AssertAll(t *testing.T) *FuzzReport {
 			fr.assertPhaseReach(t, ps, report)
 		})
 	}
-	if fr.Spec.ClassBalance != nil {
-		t.Run("class_balance", func(t *testing.T) { fr.assertClassBalance(t, report) })
+	if fr.Spec.SpecBalance != nil {
+		t.Run("spec_balance", func(t *testing.T) { fr.assertSpecBalance(t, report) })
 	}
 	if len(fr.Spec.AbilityStats) > 0 {
 		t.Run("ability_stats", func(t *testing.T) {
 			fr.assertAbilityStats(t, fr.Spec.AbilityStats, report)
 		})
 	}
+
+	// Per-composition win rate assertions.
+	fr.assertCompWinRates(t, report)
 
 	// Compute per-composition ability damage and class balance (informational).
 	fr.computePerCompDetails(report)
@@ -403,27 +411,34 @@ func (fr *FuzzResults) computePerCompDetails(report *FuzzReport) {
 			return detail.AbilityShares[i].RawDmg > detail.AbilityShares[j].RawDmg
 		})
 
-		// Class damage aggregation.
-		classDmg := make(map[string]float64)
-		var totalClassDmg float64
+		// Spec damage aggregation.
+		specDmg := make(map[string]float64)
+		specPlayers := make(map[string]int)
+		var totalSpecDmg float64
 		for _, r := range results {
-			for class, d := range r.ClassDamage {
-				classDmg[class] += float64(d)
-				totalClassDmg += float64(d)
+			for spec, d := range r.SpecDamage {
+				specDmg[spec] += float64(d)
+				totalSpecDmg += float64(d)
+			}
+			for spec, n := range r.SpecPlayers {
+				if n > specPlayers[spec] {
+					specPlayers[spec] = n
+				}
 			}
 		}
-		detail.TotalPlayerDamage = totalClassDmg
-		classes := make([]string, 0, len(classDmg))
-		for class := range classDmg {
-			classes = append(classes, class)
+		detail.TotalPlayerDamage = totalSpecDmg
+		detail.SpecPlayerCount = specPlayers
+		specs := make([]string, 0, len(specDmg))
+		for spec := range specDmg {
+			specs = append(specs, spec)
 		}
-		sort.Strings(classes)
-		for _, class := range classes {
+		sort.Strings(specs)
+		for _, spec := range specs {
 			var pct float64
-			if totalClassDmg > 0 {
-				pct = classDmg[class] / totalClassDmg * 100
+			if totalSpecDmg > 0 {
+				pct = specDmg[spec] / totalSpecDmg * 100
 			}
-			detail.ClassShares = append(detail.ClassShares, nameShare{Name: class, Share: pct, RawDmg: classDmg[class]})
+			detail.SpecShares = append(detail.SpecShares, nameShare{Name: spec, Share: pct, RawDmg: specDmg[spec]})
 		}
 
 		report.CompDetails = append(report.CompDetails, detail)
@@ -452,6 +467,56 @@ func (fr *FuzzResults) assertWinRate(t *testing.T, report *FuzzReport) {
 		fmt.Sprintf("%.1f%%", rate*100),
 		fmt.Sprintf("[%.0f%%-%.0f%%]", fr.Spec.WinRate.Min*100, fr.Spec.WinRate.Max*100),
 		pass)
+}
+
+func (fr *FuzzResults) assertCompWinRates(t *testing.T, report *FuzzReport) {
+	t.Helper()
+
+	// Group results by composition name.
+	byComp := make(map[string][]SimResult)
+	for _, r := range fr.Results {
+		byComp[r.CompName] = append(byComp[r.CompName], r)
+	}
+
+	// Deduplicate compositions by name (ExpandVariants produces multiples).
+	seen := make(map[string]bool)
+	for _, comp := range fr.Spec.Compositions {
+		if comp.WinRate == nil || seen[comp.Name] {
+			continue
+		}
+		seen[comp.Name] = true
+		comp := comp
+		t.Run("comp_win_rate/"+comp.Name, func(t *testing.T) {
+			results := byComp[comp.Name]
+			if len(results) == 0 {
+				return
+			}
+			wins := 0
+			for _, r := range results {
+				if r.Outcome == combatlog.OutcomePlayerWin {
+					wins++
+				}
+			}
+			rate := float64(wins) / float64(len(results))
+			pass := true
+			if comp.WinRate.Min > 0 && rate < comp.WinRate.Min {
+				t.Errorf("%s win rate = %.3f, want >= %.3f (%d/%d)",
+					comp.Name, rate, comp.WinRate.Min, wins, len(results))
+				pass = false
+			}
+			if comp.WinRate.Max > 0 && rate > comp.WinRate.Max {
+				t.Errorf("%s win rate = %.3f, want <= %.3f (%d/%d)",
+					comp.Name, rate, comp.WinRate.Max, wins, len(results))
+				pass = false
+			}
+			report.add(
+				fmt.Sprintf("  %s", comp.Name),
+				fmt.Sprintf("%.1f%%", rate*100),
+				fmt.Sprintf("[%.0f%%-%.0f%%]", comp.WinRate.Min*100, comp.WinRate.Max*100),
+				pass,
+			)
+		})
+	}
 }
 
 func (fr *FuzzResults) assertDuration(t *testing.T, report *FuzzReport) {
@@ -514,22 +579,22 @@ func (fr *FuzzResults) assertPhaseReach(t *testing.T, ps PhaseSpec, report *Fuzz
 		pass)
 }
 
-func (fr *FuzzResults) assertClassBalance(t *testing.T, report *FuzzReport) {
+func (fr *FuzzResults) assertSpecBalance(t *testing.T, report *FuzzReport) {
 	t.Helper()
-	totalByClass := make(map[string]float64)
+	totalBySpec := make(map[string]float64)
 	var grandTotal float64
 	for _, r := range fr.Results {
-		for class, dmg := range r.ClassDamage {
-			totalByClass[class] += float64(dmg)
+		for spec, dmg := range r.SpecDamage {
+			totalBySpec[spec] += float64(dmg)
 			grandTotal += float64(dmg)
 		}
 	}
-	if grandTotal == 0 || len(totalByClass) < 2 {
+	if grandTotal == 0 || len(totalBySpec) < 2 {
 		return
 	}
 
-	shares := make([]float64, 0, len(totalByClass))
-	for _, dmg := range totalByClass {
+	shares := make([]float64, 0, len(totalBySpec))
+	for _, dmg := range totalBySpec {
 		shares = append(shares, dmg/grandTotal)
 	}
 
@@ -541,28 +606,28 @@ func (fr *FuzzResults) assertClassBalance(t *testing.T, report *FuzzReport) {
 	}
 	sigma := math.Sqrt(variance / float64(len(shares)))
 
-	maxSigma := fr.Spec.ClassBalance.MaxDamageShareSigma
+	maxSigma := fr.Spec.SpecBalance.MaxDamageShareSigma
 	pass := maxSigma <= 0 || sigma <= maxSigma
 	if !pass {
-		t.Errorf("class damage share sigma = %.4f, want <= %.4f", sigma, maxSigma)
+		t.Errorf("spec damage share sigma = %.4f, want <= %.4f", sigma, maxSigma)
 	}
 
 	// Header line
-	report.ClassBalance = append(report.ClassBalance, reportLine{
+	report.SpecBalance = append(report.SpecBalance, reportLine{
 		result: fmt.Sprintf("%.4f", sigma),
 		spec:   fmt.Sprintf("%.2f", maxSigma),
 		pass:   pass,
 	})
-	// Per-class lines (sorted for stable output)
-	classes := make([]string, 0, len(totalByClass))
-	for class := range totalByClass {
-		classes = append(classes, class)
+	// Per-spec lines (sorted for stable output)
+	specs := make([]string, 0, len(totalBySpec))
+	for spec := range totalBySpec {
+		specs = append(specs, spec)
 	}
-	sort.Strings(classes)
-	for _, class := range classes {
-		dmg := totalByClass[class]
-		report.ClassBalance = append(report.ClassBalance, reportLine{
-			label:  class,
+	sort.Strings(specs)
+	for _, spec := range specs {
+		dmg := totalBySpec[spec]
+		report.SpecBalance = append(report.SpecBalance, reportLine{
+			label:  spec,
 			result: fmt.Sprintf("%.1f%%", (dmg/grandTotal)*100),
 		})
 	}

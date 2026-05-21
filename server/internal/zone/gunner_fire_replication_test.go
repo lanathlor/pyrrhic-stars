@@ -131,6 +131,7 @@ func decodeShooterState(payload []byte, targetPeerID uint16) (state uint8, visua
 		off += 1 + 1 + 4 + 4 + 4 + 4
 		off++    // onslaught_stacks
 		off += 7 // gunner assault state
+		off++    // speedMult
 
 		if peerID == targetPeerID {
 			return st, vs, ap, true

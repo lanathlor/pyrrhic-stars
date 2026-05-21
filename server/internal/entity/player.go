@@ -419,7 +419,7 @@ func (p *Player) ApplyDamage(amount float32) float32 {
 
 	// Shield Block (non-parry): drain stamina proportional to pre-DR damage, generate Devotion.
 	if p.ClassID == ClassVanguard && p.SpecID == "shield" && p.HasBuff("vg_shield_block") && !parried {
-		drainFraction := float32(0.5) // 50% of incoming damage → stamina drain
+		drainFraction := float32(0.65) // 65% of incoming damage → stamina drain (must match ability.ShieldStaminaDrainFraction)
 		if p.HasBuff("brace") {
 			drainFraction *= 0.2 // Brace reduces drain to 20% of normal
 		}
@@ -431,11 +431,18 @@ func (p *Player) ApplyDamage(amount float32) float32 {
 			}
 			stamina.DelayTimer = stamina.RegenDelay
 		}
-		// Devotion generation from blocked damage
+		// Devotion generation from blocked damage (decays over sustained block)
 		type devotionAdder interface{ AddCharges(absorbed, mastery float32) }
+		type devotionMulter interface{ GetDevotionMult() float32 }
+		devMult := float32(1.0)
+		if sb, ok := p.AbilityState["vg_shield_block"]; ok {
+			if dm, ok := sb.(devotionMulter); ok {
+				devMult = dm.GetDevotionMult()
+			}
+		}
 		if d, ok := p.AbilityState["devotion"]; ok {
 			if da, ok := d.(devotionAdder); ok {
-				da.AddCharges(preDR, p.GearStats.Mastery)
+				da.AddCharges(preDR*devMult, p.GearStats.Mastery)
 			}
 		}
 	}

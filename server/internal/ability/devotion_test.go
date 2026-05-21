@@ -26,19 +26,19 @@ func TestDevotion_StartsAtZero(t *testing.T) {
 
 func TestDevotion_AddCharges(t *testing.T) {
 	dev := &DevotionState{}
-	// 50 damage absorbed, 0 mastery → 50 * 0.1 = 5 charges
+	// 50 damage absorbed, 0 mastery → 50 * 0.15 = 7.5 charges
 	dev.AddCharges(50, 0)
-	if dev.Charges < 4.9 || dev.Charges > 5.1 {
-		t.Errorf("charges = %f, want 5.0", dev.Charges)
+	if dev.Charges < 7.4 || dev.Charges > 7.6 {
+		t.Errorf("charges = %f, want 7.5", dev.Charges)
 	}
 }
 
 func TestDevotion_AddChargesWithMastery(t *testing.T) {
 	dev := &DevotionState{}
-	// 50 damage, 100 mastery → 50 * (0.1 + 100/500) = 50 * 0.3 = 15
+	// 50 damage, 100 mastery → 50 * (0.15 + 100/500) = 50 * 0.35 = 17.5
 	dev.AddCharges(50, 100)
-	if dev.Charges < 14.9 || dev.Charges > 15.1 {
-		t.Errorf("charges = %f, want 15.0", dev.Charges)
+	if dev.Charges < 17.4 || dev.Charges > 17.6 {
+		t.Errorf("charges = %f, want 17.5", dev.Charges)
 	}
 }
 

@@ -496,6 +496,42 @@ func condShouldReload(v any) bool {
 		state.MagCurrent > 0 && state.MagCurrent <= 5 && state.EnhancedLoaded <= 0
 }
 
+// condIsBlocking checks if the puppet is actively shield blocking.
+func condIsBlocking(v any) bool {
+	c := pctx(v)
+	return c.Puppet.Player.HasBuff("vg_shield_block")
+}
+
+// condBlockStale checks if shield block has been held long enough for DR to decay significantly.
+func condBlockStale(v any) bool {
+	c := pctx(v)
+	state, ok := c.Puppet.Player.AbilityState["vg_shield_block"].(*ability.VgShieldBlockState)
+	if !ok || state == nil {
+		return false
+	}
+	return state.Active && state.Elapsed > 0.8
+}
+
+// condHasDevotion checks if devotion charges >= empowered threshold (30).
+func condHasDevotion(v any) bool {
+	c := pctx(v)
+	dev, ok := c.Puppet.Player.AbilityState["devotion"].(*ability.DevotionState)
+	if !ok || dev == nil {
+		return false
+	}
+	return dev.Charges >= 30 // empowered threshold
+}
+
+// condStaminaLow checks if stamina is below 30% of max.
+func condStaminaLow(v any) bool {
+	c := pctx(v)
+	r := c.Puppet.Player.Resources["stamina"]
+	if r == nil {
+		return false
+	}
+	return r.Current < r.Max*0.3
+}
+
 // actionCastBlock casts vanguard block.
 func actionCastBlock(v any) bt.Result {
 	c := pctx(v)

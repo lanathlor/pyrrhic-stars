@@ -1,4 +1,5 @@
 class: vanguard
+spec: blade
 bosses: [guard_captain]
 profiles: [average]
 

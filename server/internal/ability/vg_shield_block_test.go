@@ -21,11 +21,17 @@ func TestShieldBlock_StartAppliesBuffsAndState(t *testing.T) {
 		t.Error("shield block buff should be applied")
 	}
 	b := p.GetBuff("vg_shield_block")
-	if b == nil || b.Value != shieldBlockDR {
-		t.Errorf("block DR = %v, want %v", b.Value, shieldBlockDR)
+	if b == nil || b.Value != shieldBlockDRStart {
+		t.Errorf("block DR = %v, want %v", b.Value, shieldBlockDRStart)
 	}
 	if p.State != entity.PlayerStateBlock {
 		t.Errorf("state = %d, want %d (block)", p.State, entity.PlayerStateBlock)
+	}
+
+	// DevotionMult should start at 1.0
+	state := getVgShieldBlockState(p)
+	if state.DevotionMult != devotionMultStart {
+		t.Errorf("DevotionMult = %f, want %f", state.DevotionMult, devotionMultStart)
 	}
 }
 
@@ -43,22 +49,35 @@ func TestShieldBlock_ParryExpires(t *testing.T) {
 	}
 }
 
-func TestShieldBlock_ConstantDR(t *testing.T) {
+func TestShieldBlock_DRDecays(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
 	eng.Cast("vg_shield_block", castCtx(p))
-	// Tick past parry, then well into block — DR should stay constant
-	eng.TickPlayer(p, 0.5, tickCtx())
-	eng.TickPlayer(p, 1.0, tickCtx())
-	eng.TickPlayer(p, 1.0, tickCtx())
 
+	// At start: DR should be shieldBlockDRStart (0.10)
 	b := p.GetBuff("vg_shield_block")
 	if b == nil {
-		t.Fatal("shield block buff should still be active")
+		t.Fatal("shield block buff should be active")
 	}
-	if b.Value != shieldBlockDR {
-		t.Errorf("DR = %f, want %f (constant, no decay)", b.Value, shieldBlockDR)
+	if b.Value != shieldBlockDRStart {
+		t.Errorf("initial DR = %f, want %f", b.Value, shieldBlockDRStart)
+	}
+
+	// Tick 0.5s — midpoint of decay
+	eng.TickPlayer(p, 0.5, tickCtx())
+	b = p.GetBuff("vg_shield_block")
+	midpoint := shieldBlockDRStart + (shieldBlockDREnd-shieldBlockDRStart)*0.5
+	if b.Value < midpoint-0.02 || b.Value > midpoint+0.02 {
+		t.Errorf("DR at 0.5s = %f, want ~%f", b.Value, midpoint)
+	}
+
+	// Tick past decay time — should clamp to DREnd
+	eng.TickPlayer(p, 1.0, tickCtx())
+	eng.TickPlayer(p, 1.0, tickCtx())
+	b = p.GetBuff("vg_shield_block")
+	if b.Value != shieldBlockDREnd {
+		t.Errorf("DR after full decay = %f, want %f (clamped)", b.Value, shieldBlockDREnd)
 	}
 }
 
@@ -90,7 +109,7 @@ func TestShieldBlock_DamageDrainsStamina(t *testing.T) {
 
 	initialStamina := p.GetResource("stamina")
 	// Take 100 damage while blocking.
-	// Stamina drain uses pre-DR amount: 100 * 0.5 (drain fraction) * 1.0 (tenacity) = 50
+	// Stamina drain uses pre-DR amount: 100 * 0.65 (drain fraction) * 1.0 (tenacity) = 65
 	p.ApplyDamage(100)
 
 	stam := p.GetResource("stamina")
@@ -113,6 +132,61 @@ func TestShieldBlock_DamageGeneratesDevotion(t *testing.T) {
 	dev := getDevotionState(p)
 	if dev.Charges <= 0 {
 		t.Error("Devotion charges should increase from blocked damage")
+	}
+}
+
+func TestShieldBlock_DevotionMultDecays(t *testing.T) {
+	eng := NewEngine(nil)
+	p := newShieldVanguard()
+
+	eng.Cast("vg_shield_block", castCtx(p))
+
+	// During parry window: DevotionMult should be 1.0
+	state := getVgShieldBlockState(p)
+	if state.DevotionMult != devotionMultStart {
+		t.Errorf("DevotionMult during parry = %f, want %f", state.DevotionMult, devotionMultStart)
+	}
+
+	// Tick past parry + halfway through decay
+	eng.TickPlayer(p, shieldGuardParryWindow+0.5, tickCtx())
+	state = getVgShieldBlockState(p)
+	midpoint := devotionMultStart - (devotionMultStart-devotionMultEnd)*0.5
+	if state.DevotionMult < midpoint-0.1 || state.DevotionMult > midpoint+0.1 {
+		t.Errorf("DevotionMult at midpoint = %f, want ~%f", state.DevotionMult, midpoint)
+	}
+
+	// Tick well past decay — should clamp to floor
+	eng.TickPlayer(p, 2.0, tickCtx())
+	state = getVgShieldBlockState(p)
+	if state.DevotionMult != devotionMultEnd {
+		t.Errorf("DevotionMult after full decay = %f, want %f", state.DevotionMult, devotionMultEnd)
+	}
+}
+
+func TestShieldBlock_SustainedBlockReducesDevotion(t *testing.T) {
+	eng := NewEngine(nil)
+
+	// Fresh block: apply damage immediately after parry expires
+	p1 := newShieldVanguard()
+	eng.Cast("vg_shield_block", castCtx(p1))
+	eng.TickPlayer(p1, 0.15, tickCtx()) // just past parry
+	p1.ApplyDamage(100)
+	freshCharges := getDevotionState(p1).Charges
+
+	// Stale block: apply damage after full decay
+	p2 := newShieldVanguard()
+	eng.Cast("vg_shield_block", castCtx(p2))
+	eng.TickPlayer(p2, 2.0, tickCtx()) // well past decay
+	p2.ApplyDamage(100)
+	staleCharges := getDevotionState(p2).Charges
+
+	if staleCharges >= freshCharges {
+		t.Errorf("stale block Devotion (%f) should be less than fresh block (%f)", staleCharges, freshCharges)
+	}
+	// Stale should be roughly 25% of fresh
+	ratio := staleCharges / freshCharges
+	if ratio < 0.15 || ratio > 0.35 {
+		t.Errorf("stale/fresh ratio = %f, want ~0.25", ratio)
 	}
 }
 
@@ -230,5 +304,64 @@ func TestShieldBlock_DoesNotResetOnslaught(t *testing.T) {
 	// No onslaught state should exist
 	if _, ok := p.AbilityState["onslaught"]; ok {
 		t.Error("Shield spec should not have onslaught state")
+	}
+}
+
+func TestShieldBlock_BraceFreezesDRDecay(t *testing.T) {
+	eng := NewEngine(nil)
+	p := newShieldVanguard()
+
+	eng.Cast("vg_shield_block", castCtx(p))
+	// Tick past parry window to start decay
+	eng.TickPlayer(p, 0.3, tickCtx())
+
+	// Record DR before Brace
+	b := p.GetBuff("vg_shield_block")
+	drBeforeBrace := b.Value
+
+	// Cast Brace
+	eng.Cast("brace", castCtx(p))
+
+	// Tick 2 seconds — DR should NOT decay further while braced
+	eng.TickPlayer(p, 2.0, tickCtx())
+
+	b = p.GetBuff("vg_shield_block")
+	if b == nil {
+		t.Fatal("shield block should still be active")
+	}
+	if b.Value != drBeforeBrace {
+		t.Errorf("DR during Brace = %f, want %f (frozen)", b.Value, drBeforeBrace)
+	}
+}
+
+func TestShieldBlock_BraceFreezesDevotionDecay(t *testing.T) {
+	eng := NewEngine(nil)
+	p := newShieldVanguard()
+
+	eng.Cast("vg_shield_block", castCtx(p))
+	eng.TickPlayer(p, 0.3, tickCtx())
+
+	state := getVgShieldBlockState(p)
+	devMultBeforeBrace := state.DevotionMult
+
+	eng.Cast("brace", castCtx(p))
+	eng.TickPlayer(p, 2.0, tickCtx())
+
+	state = getVgShieldBlockState(p)
+	if state.DevotionMult != devMultBeforeBrace {
+		t.Errorf("DevotionMult during Brace = %f, want %f (frozen)", state.DevotionMult, devMultBeforeBrace)
+	}
+}
+
+func TestShieldBlock_EndResetsDevotionMult(t *testing.T) {
+	eng := NewEngine(nil)
+	p := newShieldVanguard()
+
+	eng.Cast("vg_shield_block", castCtx(p))
+	eng.Cast("vg_shield_block_stop", castCtx(p))
+
+	state := getVgShieldBlockState(p)
+	if state.DevotionMult != 0 {
+		t.Errorf("DevotionMult after end = %f, want 0", state.DevotionMult)
 	}
 }

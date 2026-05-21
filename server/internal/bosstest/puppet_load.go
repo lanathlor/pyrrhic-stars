@@ -15,6 +15,7 @@ import (
 // puppetTreeFile is the YAML schema for a puppet behavior tree definition.
 type puppetTreeFile struct {
 	Class          string   `yaml:"class"`
+	Spec           string   `yaml:"spec"`
 	Bosses         []string `yaml:"bosses"`
 	Profiles       []string `yaml:"profiles"`
 	PreferredRange *float32 `yaml:"preferred_range"`
@@ -24,6 +25,7 @@ type puppetTreeFile struct {
 // puppetTreeDef is a parsed and validated puppet tree definition.
 type puppetTreeDef struct {
 	Class          string
+	Spec           string   // empty = matches all specs
 	Bosses         []string // empty = matches all bosses
 	Profiles       []string // empty = matches all profiles
 	PreferredRange *float32 // nil = use class default
@@ -92,6 +94,7 @@ func parsePuppetTreeYAML(data []byte) (*puppetTreeDef, error) {
 
 	return &puppetTreeDef{
 		Class:          pf.Class,
+		Spec:           pf.Spec,
 		Bosses:         pf.Bosses,
 		Profiles:       pf.Profiles,
 		PreferredRange: pf.PreferredRange,
@@ -99,16 +102,20 @@ func parsePuppetTreeYAML(data []byte) (*puppetTreeDef, error) {
 	}, nil
 }
 
-// Resolve finds the best matching puppet tree for the given class, boss, and profile.
+// Resolve finds the best matching puppet tree for the given class, spec, boss, and profile.
 //
 // Priority (highest first):
-//  1. class + boss match + profile match (both lists non-empty and contain the value)
-//  2. class + boss match (bosses non-empty, profiles empty)
-//  3. class + profile match (bosses empty, profiles non-empty)
-//  4. class only (both bosses and profiles empty)
+//  1. class + spec + boss + profile (score 7)
+//  2. class + spec + boss (score 6)
+//  3. class + boss + profile (score 5)
+//  4. class + boss only (score 4)
+//  5. class + spec + profile (score 3)
+//  6. class + spec only (score 2)
+//  7. class + profile only (score 1)
+//  8. class only (score 0)
 //
 // Returns nil if no YAML tree matches (caller should fall back to hardcoded Go tree).
-func (r *PuppetTreeRegistry) Resolve(class, boss string, profile BotProfile) *ResolvedPuppet {
+func (r *PuppetTreeRegistry) Resolve(class, spec, boss string, profile BotProfile) *ResolvedPuppet {
 	if r == nil {
 		return nil
 	}
@@ -122,14 +129,15 @@ func (r *PuppetTreeRegistry) Resolve(class, boss string, profile BotProfile) *Re
 			continue
 		}
 
+		specMatch := d.Spec == "" || d.Spec == spec
 		bossMatch := len(d.Bosses) == 0 || containsStr(d.Bosses, boss)
 		profileMatch := len(d.Profiles) == 0 || containsStr(d.Profiles, string(profile))
 
-		if !bossMatch || !profileMatch {
+		if !specMatch || !bossMatch || !profileMatch {
 			continue
 		}
 
-		score := matchScore(d.Bosses, d.Profiles)
+		score := matchScore(d.Spec, d.Bosses, d.Profiles)
 		if score > bestScore {
 			bestScore = score
 			best = d
@@ -146,10 +154,13 @@ func (r *PuppetTreeRegistry) Resolve(class, boss string, profile BotProfile) *Re
 }
 
 // matchScore ranks how specific a definition is.
-// Both specified = 3, boss only = 2, profile only = 1, neither = 0.
-func matchScore(bosses, profiles []string) int {
+// boss=+4, spec=+2, profile=+1 (max 7).
+func matchScore(spec string, bosses, profiles []string) int {
 	score := 0
 	if len(bosses) > 0 {
+		score += 4
+	}
+	if spec != "" {
 		score += 2
 	}
 	if len(profiles) > 0 {

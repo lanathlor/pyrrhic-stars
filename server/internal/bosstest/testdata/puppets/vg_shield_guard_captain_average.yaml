@@ -1,0 +1,47 @@
+class: vanguard
+spec: shield
+bosses: [guard_captain]
+profiles: [average]
+preferred_range: 2.0
+
+# Competent Shield: face-tanks melee, soaks bullet-hell with raw block.
+# Knows shield blocks ranged patterns — raises shield and tanks through them.
+# Does NOT use Brace for soak → takes full stamina drain → occasional guard break.
+# That stamina punishment is what separates competent from expert.
+# Still flees AoE (ground_slam instinct), always dodges charge.
+# Holds block through AoE if caught mid-block (doesn't panic-drop).
+# Uses Retaliate when Devotion is empowered (30+ charges).
+
+tree:
+  reactive_selector:
+    # Charge: always dodge
+    - sequence: [has_reacted_quick, in_charge_path, "strafe_charge(shield_bash)"]
+    # AoE: hold block if already blocking (don't panic-drop mid-swing)
+    - sequence: [in_aoe_danger, is_blocking, "cast(shield_bash)"]
+    # AoE: flee (instinct to dodge big ground hit)
+    - sequence: [has_reacted_quick, in_aoe_danger, "flee_aoe(shield_bash)"]
+
+    # Ranged: hold block if committed to soak
+    - sequence: [targeted_by_ranged, is_blocking, "cast(shield_bash)"]
+    # Ranged: soak with raw block (knows shield handles bullet-hell, no Brace)
+    - sequence: [has_reacted_quick, targeted_by_ranged, should_use_defensive, "cast(vg_shield_block)"]
+    # Ranged: dodge if didn't commit to soak
+    - sequence: [has_reacted_quick, targeted_by_ranged, "strafe_ranged(shield_bash)"]
+    # Projectile: hold block if blocking (committed to soak)
+    - sequence: [projectile_incoming, is_blocking, "cast(shield_bash)"]
+    # Projectile: sidestep if not blocking
+    - sequence: [projectile_incoming, sidestep_projectile]
+
+    # Melee: hold block and bash through
+    - sequence: [in_melee_danger, is_blocking, "cast(shield_bash)"]
+    # Melee: raise shield to tank the hit (builds Devotion)
+    - sequence: [has_reacted_quick, in_melee_danger, "cast(vg_shield_block)"]
+
+    # Retaliate when Devotion is empowered (auto-drops block)
+    - sequence: [has_devotion, "can_cast(retaliate)", "cast(retaliate)"]
+    # Drop block when no active telegraph
+    - sequence: [is_blocking, "cast(vg_shield_block_stop)"]
+    # Get into melee range
+    - sequence: [out_of_melee, advance]
+    # Shield bash filler
+    - "cast(shield_bash)"

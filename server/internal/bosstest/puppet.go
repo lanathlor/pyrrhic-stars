@@ -82,7 +82,10 @@ type PlayerPuppet struct {
 	Rng     *rand.Rand
 
 	tree           *bt.Tree
+	defaultTree    *bt.Tree // spec default, restored after boss-specific swaps
 	preferredRange float32
+	defaultRange   float32 // spec default range, restored after boss-specific swaps
+	NoBoundsClamp  bool    // skip boss room clamping (live bots use level geometry instead)
 
 	// State tracking for reaction timing
 	lastBossState       entity.EnemyState
@@ -135,15 +138,40 @@ func NewPuppet(id uint16, class, spec string, profile BotProfile, seed uint64, b
 	}
 
 	// YAML tree lookup first, then hardcoded Go fallback
-	if res := reg.Resolve(class, boss, profile); res != nil {
+	if res := reg.Resolve(class, spec, boss, profile); res != nil {
 		pp.tree = res.Tree
 		if res.PreferredRange != nil {
 			pp.preferredRange = *res.PreferredRange
 		}
 	} else {
-		pp.tree = classTree(class)
+		pp.tree = specTree(class, spec)
 	}
+	pp.defaultTree = pp.tree
+	pp.defaultRange = pp.preferredRange
 	return pp
+}
+
+// SwapTree replaces the active BT tree. If res is nil, the default spec tree
+// and preferred range are restored. Resets the old tree's running state to
+// avoid stale sequence cursors.
+func (pp *PlayerPuppet) SwapTree(res *ResolvedPuppet) {
+	if res == nil {
+		if pp.tree == pp.defaultTree {
+			return
+		}
+		pp.tree.Reset()
+		pp.tree = pp.defaultTree
+		pp.preferredRange = pp.defaultRange
+		return
+	}
+	if pp.tree == res.Tree {
+		return
+	}
+	pp.tree.Reset()
+	pp.tree = res.Tree
+	if res.PreferredRange != nil {
+		pp.preferredRange = *res.PreferredRange
+	}
 }
 
 // Boss room bounds — keeps puppets from drifting into the hallway through connector walls.
@@ -170,8 +198,11 @@ func (pp *PlayerPuppet) Tick(ctx *PuppetContext) {
 	// Evaluate BT — leaves push inputs onto World.InputQueue
 	pp.tree.Tick(ctx)
 
-	// Clamp to boss room bounds (prevents drifting into hallway)
-	pp.clampToBossRoom()
+	// Clamp to boss room bounds (prevents drifting into hallway).
+	// Disabled for live bots — InputSystem enforces level geometry.
+	if !pp.NoBoundsClamp {
+		pp.clampToBossRoom()
+	}
 
 	// Emit position input so InputSystem applies clamping and obstacle push
 	pp.emitPositionInput(ctx)

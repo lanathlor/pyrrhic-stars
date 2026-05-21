@@ -326,7 +326,12 @@ func handleRespawnRequest(w *World, peerID uint16, payload []byte) {
 			w.OnPlayerRespawnHub(peerID)
 		}
 	case 0: // arena
-		if w.State == StateFightOver || w.State == StateLobby || w.State == StateSpawned {
+		canRespawn := w.State == StateFightOver || w.State == StateLobby || w.State == StateSpawned
+		// Allow respawn during fight if the boss room is not sealed (trash mob deaths).
+		if !canRespawn && w.State == StateFight && !w.BossGateActive {
+			canRespawn = true
+		}
+		if canRespawn {
 			player.Alive = true
 			player.Health = player.MaxHealth
 			player.State = entity.PlayerStateMove

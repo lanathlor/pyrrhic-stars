@@ -44,8 +44,47 @@ func TestShieldBash_CostsStamina(t *testing.T) {
 
 	eng.Cast("shield_bash", castCtx(p))
 
-	if p.GetResource("stamina") >= initial {
-		t.Error("stamina should decrease after Shield Bash")
+	spent := initial - p.GetResource("stamina")
+	expected := shieldBashStamina * p.TenacityEfficiency()
+	if spent < expected-0.1 || spent > expected+0.1 {
+		t.Errorf("stamina spent = %f, want %f (normal cost)", spent, expected)
+	}
+}
+
+func TestShieldBash_HigherCostWhenBlocking(t *testing.T) {
+	eng := NewEngine(nil)
+	p := newShieldVanguard()
+
+	eng.Cast("vg_shield_block", castCtx(p))
+	initial := p.GetResource("stamina")
+
+	eng.Cast("shield_bash", castCtx(p))
+
+	spent := initial - p.GetResource("stamina")
+	expected := shieldBashBlockedStamina * p.TenacityEfficiency()
+	if spent < expected-0.1 || spent > expected+0.1 {
+		t.Errorf("stamina spent while blocking = %f, want %f (blocked cost)", spent, expected)
+	}
+}
+
+func TestShieldBash_SlowerGCDWhenBlocking(t *testing.T) {
+	eng := NewEngine(nil)
+	p := newShieldVanguard()
+
+	// Normal GCD (not blocking)
+	eng.Cast("shield_bash", castCtx(p))
+	normalGCD := p.GCDTimer
+	if normalGCD < shieldBashGCD-0.01 || normalGCD > shieldBashGCD+0.01 {
+		t.Errorf("normal GCD = %f, want %f", normalGCD, shieldBashGCD)
+	}
+
+	// Blocked GCD
+	p.GCDTimer = 0
+	eng.Cast("vg_shield_block", castCtx(p))
+	eng.Cast("shield_bash", castCtx(p))
+	blockedGCD := p.GCDTimer
+	if blockedGCD < shieldBashBlockedGCD-0.01 || blockedGCD > shieldBashBlockedGCD+0.01 {
+		t.Errorf("blocked GCD = %f, want %f", blockedGCD, shieldBashBlockedGCD)
 	}
 }
 

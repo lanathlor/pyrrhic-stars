@@ -16,6 +16,12 @@ type System interface {
 	Tick(w *World, dt float32)
 }
 
+// NoOpSystem is a placeholder that does nothing. Used when a system is
+// conditionally disabled (e.g. bots in non-dev mode).
+type NoOpSystem struct{}
+
+func (NoOpSystem) Tick(*World, float32) {}
+
 // GameFlowState tracks the zone's game state.
 type GameFlowState uint8
 

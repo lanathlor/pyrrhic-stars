@@ -8,7 +8,7 @@ import (
 const (
 	braceDuration         float32 = 3.5
 	braceDrainReduction   float32 = 0.2 // 20% of normal stamina drain while braced
-	braceCooldown         float32 = 12
+	braceCooldown         float32 = 18
 )
 
 // BraceDrainReduction is exported so entity.ApplyDamage can check brace.
@@ -43,8 +43,6 @@ func braceHandler(_ *Engine, ctx *CastContext) CastResult {
 		Duration: braceDuration,
 	})
 
-	// Cannot move or attack during brace
-	p.GCDTimer = braceDuration
 	p.Cooldowns["brace"] = braceCooldown
 
 	return CastResult{OK: true}

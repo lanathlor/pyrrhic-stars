@@ -54,7 +54,7 @@ func TestBrace_ReducesStaminaDrain(t *testing.T) {
 	initialStamina := p.GetResource("stamina")
 
 	// Take 100 damage → drain uses pre-DR amount
-	// With Brace: drain = 100 * 0.5 * 0.2 = 10
+	// With Brace: drain = 100 * 0.65 * 0.2 = 13
 	p.ApplyDamage(100)
 
 	stam := p.GetResource("stamina")
@@ -66,15 +66,16 @@ func TestBrace_ReducesStaminaDrain(t *testing.T) {
 	}
 }
 
-func TestBrace_SetsLockout(t *testing.T) {
+func TestBrace_AllowsAttackDuringBrace(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
 	eng.Cast("vg_shield_block", castCtx(p))
 	eng.Cast("brace", castCtx(p))
 
-	if p.GCDTimer < 3.0 {
-		t.Errorf("GCD = %f, want >= 3.0 (brace lockout)", p.GCDTimer)
+	// Brace should not lock the GCD — tank can shield bash while braced
+	if p.GCDTimer > 0.5 {
+		t.Errorf("GCD = %f, want <= 0.5 (brace should not lock out attacks)", p.GCDTimer)
 	}
 }
 
@@ -85,8 +86,8 @@ func TestBrace_SetsCooldown(t *testing.T) {
 	eng.Cast("vg_shield_block", castCtx(p))
 	eng.Cast("brace", castCtx(p))
 
-	if p.Cooldowns["brace"] < 11.9 {
-		t.Errorf("cooldown = %f, want ~12.0", p.Cooldowns["brace"])
+	if p.Cooldowns["brace"] < 17.9 {
+		t.Errorf("cooldown = %f, want ~18.0", p.Cooldowns["brace"])
 	}
 }
 
