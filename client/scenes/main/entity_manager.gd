@@ -6,6 +6,7 @@ const CLASS_SCENES := {
 	"gunner": "res://scenes/controllers/gunner/gunner.tscn",
 	"vanguard": "res://scenes/controllers/vanguard/vanguard.tscn",
 	"blade_dancer": "res://scenes/controllers/blade_dancer/blade_dancer.tscn",
+	"arcanotechnicien": "res://scenes/controllers/arcanotechnicien/arcanotechnicien.tscn",
 }
 const NPC_MODEL_SCENE := "res://scenes/shared/character_model/character_model.tscn"
 const NPC_PUPPET_SCRIPT := "res://scenes/shared/npc_puppet/npc_puppet.gd"

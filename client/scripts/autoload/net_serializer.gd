@@ -94,6 +94,10 @@ const VS_VG_EXECUTION := 19
 const VS_BD_CASTING := 20
 const VS_BD_DASH := 21
 const VS_BD_STAGGER := 22
+# Arcanotechnicien-specific (40-49):
+const VS_AT_CASTING := 40
+const VS_AT_CHANNELING := 41
+const VS_AT_STAGGER := 42
 
 # Debug — client → server (dev mode only)
 const OP_DEBUG_FORCE_CAST := 0x00D0
