@@ -67,11 +67,29 @@ func resolveHeal(def *AbilityDef, caster *entity.Player, allies map[uint16]*enti
 		return nil
 	}
 
+	// Harmony: bonus heal when delivery method differs from last heal on target.
+	deliveryMethod := entity.DeliveryMethod(def.Delivery)
+	harmonyBonus := CheckHarmony(caster, target.ID, deliveryMethod)
+	var harmonyProc bool
+	var harmonyAmount float32
+	if harmonyBonus > 0 {
+		harmonyProc = true
+		beforeBonus := target.Health
+		target.Health += harmonyBonus
+		if target.Health > target.MaxHealth {
+			target.Health = target.MaxHealth
+		}
+		harmonyAmount = target.Health - beforeBonus
+		actual += harmonyAmount
+	}
+
 	return &HealResult{
-		TargetID:   target.ID,
-		SourceID:   caster.ID,
-		Amount:     actual,
-		HitPos:     target.Position.Add(entity.Vec3{Y: 1.0}),
-		SourceType: combat.SourcePlayerHeal,
+		TargetID:      target.ID,
+		SourceID:      caster.ID,
+		Amount:        actual,
+		HitPos:        target.Position.Add(entity.Vec3{Y: 1.0}),
+		SourceType:    combat.SourcePlayerHeal,
+		HarmonyProc:   harmonyProc,
+		HarmonyAmount: harmonyAmount,
 	}
 }

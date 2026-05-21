@@ -6,6 +6,23 @@ import "math"
 // always passes through Plating. Plating can never reduce a hit below this.
 const platingMinDamageFraction float32 = 0.2
 
+// DeliveryMethod identifies how a heal reaches its target.
+// Harmony procs when consecutive heals on the same target use different methods.
+type DeliveryMethod uint8
+
+const (
+	DeliveryNone   DeliveryMethod = 0
+	DeliveryDirect DeliveryMethod = 1
+	DeliveryBeam   DeliveryMethod = 2
+	DeliveryZone   DeliveryMethod = 3
+)
+
+// HarmonyState tracks the last delivery method used on each ally target.
+// Only initialized for Harmonist players.
+type HarmonyState struct {
+	LastDelivery map[uint16]DeliveryMethod
+}
+
 // GearStats holds aggregated stat bonuses from equipped gear.
 type GearStats struct {
 	Hull     float32
@@ -120,6 +137,9 @@ type Player struct {
 	ChannelCharge    float32
 	ChannelPhase     uint8 // 0=idle, 1=commit, 2=execute, 3=cooldown
 
+	// Harmony state (Harmonist spec only)
+	Harmony *HarmonyState
+
 	// Blade Dancer config (visual state for client)
 	Config int // 0=orbit, 1=fan, 2=lance, 3=scatter, 4=crown
 
@@ -192,6 +212,10 @@ func NewPlayerWithSpec(peerID uint16, className, specID string) *Player {
 			Regen:      tmpl.Regen,
 			RegenDelay: tmpl.RegenDelay,
 		}
+	}
+
+	if className == ClassArcanotechnicien && spec.ID == "harmonist" {
+		p.Harmony = &HarmonyState{LastDelivery: make(map[uint16]DeliveryMethod)}
 	}
 
 	p.RecalcStats()

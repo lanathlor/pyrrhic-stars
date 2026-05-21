@@ -125,6 +125,7 @@ type AbilityDef struct {
 	// Healing
 	BaseHeal    float32 `yaml:"base_heal"`
 	HealScaling string  `yaml:"heal_scaling"`
+	Delivery    uint8   `yaml:"delivery"` // entity.DeliveryMethod for Harmony tracking
 
 	// Healing zone fields
 	ZoneRadius   float32 `yaml:"zone_radius"`

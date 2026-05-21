@@ -17,6 +17,7 @@ var mendingBeamDef = AbilityDef{
 	},
 	BaseHeal:         15, // heal per tick during channel
 	HealScaling:      "identity",
+	Delivery:         uint8(entity.DeliveryBeam),
 	Handler:          "mending_beam",
 	OnCommitTick:     "mending_beam",
 	CancelConditions: uint8(CancelOnMove) | uint8(CancelOnDamage),

@@ -13,14 +13,15 @@ var vitalBloomDef = AbilityDef{
 	ZoneRadius:   4.0,
 	ZoneDuration: 8.0,
 	ZoneInterval: 1.0,
+	Delivery:     uint8(entity.DeliveryZone),
 	Handler:      "vital_bloom",
 }
 
 var restorationMatrixDef = AbilityDef{
-	ID:   "restoration_matrix",
-	Name: "Restoration Matrix",
-	Hit:  HitDef{Type: HitGroundPlacement, Range: 18},
-	GCD:  1.0,
+	ID:       "restoration_matrix",
+	Name:     "Restoration Matrix",
+	Hit:      HitDef{Type: HitGroundPlacement, Range: 18},
+	GCD:      1.0,
 	Cooldown: 12.0,
 	Costs: []ResourceCost{
 		{Resource: "flux", Amount: 50},
@@ -29,6 +30,7 @@ var restorationMatrixDef = AbilityDef{
 	ZoneDuration: 10.0,
 	ZoneHealTick: 12,
 	ZoneInterval: 1.0,
+	Delivery:     uint8(entity.DeliveryZone),
 	Handler:      "restoration_matrix",
 }
 

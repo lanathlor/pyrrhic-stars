@@ -15,6 +15,7 @@ var mendingSurgeDef = AbilityDef{
 	},
 	BaseHeal:    80,
 	HealScaling: "identity",
+	Delivery:    uint8(entity.DeliveryDirect),
 	Handler:     "mending_surge",
 }
 
