@@ -29,9 +29,15 @@ func start_spell(slot: int) -> void:
 	ctrl._cast_timer = spell.dur
 	ctrl._gcd_timer = ctrl.gcd_duration
 
-	# Send ability to server with action_id
+	# Send ability to server with action_id, including target if available
 	if NetworkManager.is_active:
-		NetworkManager.send_ability(spell.action_id, 0.0, ctrl.rotation.y)
+		var target_pid: int = _resolve_target_peer()
+		if target_pid > 0:
+			NetworkManager.send_ability_targeted(
+				spell.action_id, 0.0, ctrl.rotation.y, target_pid
+			)
+		else:
+			NetworkManager.send_ability(spell.action_id, 0.0, ctrl.rotation.y)
 
 	# Determine state: short spells are instant casts, longer ones are channels
 	if spell.dur > 0.5:
@@ -128,3 +134,23 @@ func process_stagger() -> void:
 	ctrl.velocity.z = 0.0
 	if ctrl._state_timer <= 0.0:
 		ctrl._enter_state(ctrl.State.MOVE)
+
+
+# --- Target resolution ---
+
+
+## Returns the peer_id of the current heal target, or -1 if none.
+## Priority: lock-on target > HUD mouseover target.
+func _resolve_target_peer() -> int:
+	# 1. Lock-on target (ally)
+	if ctrl._lock_on_active and ctrl._lock_target and is_instance_valid(ctrl._lock_target):
+		if "peer_id" in ctrl._lock_target:
+			return ctrl._lock_target.peer_id
+
+	# 2. HUD party-frame mouseover
+	if ctrl.hud and ctrl.hud.has_method("get_mouseover_target"):
+		var hovered: int = ctrl.hud.get_mouseover_target()
+		if hovered > 0:
+			return hovered
+
+	return -1

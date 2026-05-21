@@ -123,6 +123,16 @@ func send_ability(action_id: int, aim_pitch: float = 0.0, rot_y: float = 0.0) ->
 	)
 
 
+## Send a combat action with a target peer ID (e.g. heals targeting an ally).
+func send_ability_targeted(
+	action_id: int, aim_pitch: float, rot_y: float, target_peer_id: int
+) -> void:
+	send_msg(
+		NetSerializer.OP_ABILITY_INPUT,
+		NetSerializer.encode_ability_targeted(action_id, aim_pitch, rot_y, target_peer_id)
+	)
+
+
 ## Send a generic interaction to the server (class select, ready toggle, etc.).
 func send_interact(action: int, data: String = "") -> void:
 	send_msg(NetSerializer.OP_INTERACT_INPUT, NetSerializer.encode_interact_input(action, data))

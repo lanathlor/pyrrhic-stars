@@ -405,6 +405,19 @@ func encode_ability(action_id: int, aim_pitch: float = 0.0, rot_y: float = 0.0) 
 	return buf.data_array
 
 
+## Encode an ability/action request with a target peer ID.
+## Format: [action_id:u8][aim_pitch:f32][rot_y:f32][target_peer_id:u16]
+func encode_ability_targeted(
+	action_id: int, aim_pitch: float, rot_y: float, target_peer_id: int
+) -> PackedByteArray:
+	var buf := StreamPeerBuffer.new()
+	buf.put_u8(action_id)
+	buf.put_float(aim_pitch)
+	buf.put_float(rot_y)
+	buf.put_u16(target_peer_id)
+	return buf.data_array
+
+
 # =============================================================================
 # Interact input (client -> server, server-authoritative protocol)
 # =============================================================================
@@ -481,6 +494,7 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 		var munitions := buf.get_float() if buf.get_position() + 4 <= buf.get_size() else 0.0
 		var resonance := buf.get_float() if buf.get_position() + 4 <= buf.get_size() else 0.0
 		var onslaught_stacks := buf.get_u8() if buf.get_position() < buf.get_size() else 0
+		var player_flux := buf.get_float() if buf.get_position() + 4 <= buf.get_size() else 0.0
 		# Gunner Assault state (7 bytes)
 		var magazine := buf.get_u8() if buf.get_position() < buf.get_size() else 0
 		var mag_max := buf.get_u8() if buf.get_position() < buf.get_size() else 0
@@ -528,6 +542,7 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 					"reloading": bool(assault_flags & 0x01),
 					"mag_dump_active": bool(assault_flags & 0x02),
 					"speed_mult": float(speed_mult_q) / 255.0,
+					"flux": player_flux,
 				}
 			)
 		)

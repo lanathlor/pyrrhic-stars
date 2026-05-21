@@ -230,6 +230,7 @@ func apply_server_state(data: Dictionary) -> void:
 	# Confluence uses the same wire bytes as onslaught (reused field).
 	_confluence_tier = data.get("onslaught_tier", 0)
 	_confluence_stacks = data.get("onslaught_stacks", 0)
+	flux = data.get("flux", flux)
 	if _is_local():
 		health = data.health
 		if health <= 0.0 and _alive:

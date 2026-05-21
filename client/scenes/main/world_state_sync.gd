@@ -152,6 +152,22 @@ func on_damage_event(data: Dictionary) -> void:
 	var amount: float = data.get("amount", 0.0)
 	var hit_pos: Vector3 = data.get("hit_pos", Vector3.ZERO)
 	var source_type: int = data.get("source_type", 0)
+
+	# SourcePlayerHeal = 5 — heal event, not damage
+	if source_type == 5:
+		if target_peer in entity_mgr.spawned_players:
+			var player: CharacterBody3D = entity_mgr.spawned_players[target_peer]
+			if is_instance_valid(player):
+				if player.has_method("on_heal_visual"):
+					player.on_heal_visual(amount, hit_pos)
+				elif "character_model" in player and player.character_model.has_method("flash_damage"):
+					player.character_model.flash_damage(Color(0.3, 1.0, 0.4), 0.15)
+		spawn_heal_number(amount, hit_pos)
+		# Feed shared HUD damage meter (heals are tracked too)
+		if ctrl._shared_hud:
+			ctrl._shared_hud.on_damage_event(data)
+		return
+
 	if target_peer >= 1000:
 		# Player hit an enemy (enemy IDs are >= 1000)
 		if target_peer in entity_mgr.enemy_nodes:
@@ -186,6 +202,34 @@ func spawn_damage_number(amount: float, world_pos: Vector3) -> void:
 	label.no_depth_test = true
 	label.pixel_size = 0.005
 	# Slight random offset so stacked hits don't overlap
+	var offset := Vector3(randf_range(-0.3, 0.3), randf_range(0.0, 0.3), randf_range(-0.3, 0.3))
+	label.position = world_pos + offset + Vector3(0.0, 0.5, 0.0)
+	ctrl.add_child(label)
+
+	var tween: Tween = ctrl.create_tween()
+	tween.set_parallel(true)
+	(
+		tween
+		. tween_property(label, "position:y", label.position.y + 1.5, 0.8)
+		. set_ease(Tween.EASE_OUT)
+		. set_trans(Tween.TRANS_QUAD)
+	)
+	tween.tween_property(label, "modulate:a", 0.0, 0.8).set_delay(0.3)
+	tween.tween_property(label, "outline_modulate:a", 0.0, 0.8).set_delay(0.3)
+	tween.chain().tween_callback(label.queue_free)
+
+
+func spawn_heal_number(amount: float, world_pos: Vector3) -> void:
+	var label := Label3D.new()
+	label.text = "+" + str(int(amount))
+	label.font_size = 48
+	label.outline_size = 8
+	label.modulate = Color(0.3, 1.0, 0.4, 1.0)
+	label.outline_modulate = Color(0.0, 0.0, 0.0, 0.8)
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	label.pixel_size = 0.005
+	# Slight random offset so stacked heals don't overlap
 	var offset := Vector3(randf_range(-0.3, 0.3), randf_range(0.0, 0.3), randf_range(-0.3, 0.3))
 	label.position = world_pos + offset + Vector3(0.0, 0.5, 0.0)
 	ctrl.add_child(label)
