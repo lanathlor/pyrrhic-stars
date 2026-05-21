@@ -113,6 +113,7 @@ func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
 		Clients:         make(map[uint16]*system.Client),
 		Level:           l,
 		AbilityEngine:   ability.NewEngine(slog.Default().With("zone_id", id)),
+		AbilityRunners:  make(map[uint16]*ability.PlayerAbilityRunner),
 		PatternEngine:   combat.NewPatternEngine(),
 		PatternRng:      rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), 0)),
 	}
@@ -293,6 +294,7 @@ func (z *Zone) RemoveClient(peerID uint16) {
 	}
 	delete(z.world.Clients, peerID)
 	delete(z.world.Players, peerID)
+	delete(z.world.AbilityRunners, peerID)
 	if z.Type == ZoneTypeInstanced {
 		z.RescaleForPlayerCount(len(z.world.Players))
 	}

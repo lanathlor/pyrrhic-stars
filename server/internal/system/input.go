@@ -172,6 +172,23 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 		return
 	}
 
+	// If the ability has a commit phase, route through the PlayerAbilityRunner
+	// instead of casting immediately. The runner ticks in CombatSystem and fires
+	// the actual Cast when the commit timer expires.
+	if def := w.AbilityEngine.GetAbility(abilityID); def != nil && def.CommitTime > 0 {
+		runner := w.AbilityRunners[peerID]
+		if runner == nil {
+			runner = &ability.PlayerAbilityRunner{}
+			w.AbilityRunners[peerID] = runner
+		}
+		if runner.IsBusy() {
+			return // already in an ability lifecycle
+		}
+		runner.Start(def)
+		runner.SyncToPlayer(p)
+		return
+	}
+
 	// Cast through the ability engine
 	w.enemyTargetBuf = enemiesToTargets(w.enemyTargetBuf, w.Enemies)
 	ctx := &ability.CastContext{

@@ -1,6 +1,7 @@
 package system
 
 import (
+	"codex-online/server/internal/ability"
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/combatlog"
 	"codex-online/server/internal/entity"
@@ -93,6 +94,62 @@ func (s *CombatSystem) Tick(w *World, dt float32) {
 					checkEnemyGroupDead(w, enemy)
 				}
 				w.logPhaseChange(enemy)
+			}
+		}
+	}
+
+	// Tick player ability runners (commit→execute→cooldown lifecycle)
+	for _, p := range w.Players {
+		if !p.Alive {
+			continue
+		}
+		runner, ok := w.AbilityRunners[p.ID]
+		if !ok || !runner.IsBusy() {
+			continue
+		}
+		shouldExecute := runner.Tick(dt)
+		runner.SyncToPlayer(p)
+		if shouldExecute {
+			w.enemyTargetBuf = enemiesToTargets(w.enemyTargetBuf, w.Enemies)
+			ctx := &ability.CastContext{
+				Caster:    p,
+				Targets:   w.enemyTargetBuf,
+				Obstacles: w.Level.Obstacles,
+				Allies:    w.Players,
+			}
+			result := w.AbilityEngine.Cast(runner.AbilityID, ctx)
+			for _, h := range result.Heals {
+				w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
+					TargetPeerID: h.TargetID,
+					SourcePeerID: h.SourceID,
+					Amount:       h.Amount,
+					HitPos:       h.HitPos,
+					SourceType:   h.SourceType,
+				})
+			}
+			for _, r := range result.Events {
+				w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
+					TargetPeerID: r.TargetID,
+					SourcePeerID: r.SourceID,
+					Amount:       r.Amount,
+					HitPos:       r.HitPos,
+					SourceType:   r.SourceType,
+				})
+				// Apply threat and handle enemy death
+				if enemy, ok := r.Target.(*entity.Enemy); ok {
+					enemy.AddThreat(p.ID, r.Amount)
+					w.AggroEnemy(enemy, p.ID)
+					if !enemy.Alive {
+						w.logCombatDeath(
+							combatlog.FormatEnemyID(r.TargetID),
+							combatlog.FormatPlayerID(p.ID),
+							p.ClassID,
+							runner.AbilityID,
+						)
+						checkEnemyGroupDead(w, enemy)
+					}
+					w.logPhaseChange(enemy)
+				}
 			}
 		}
 	}

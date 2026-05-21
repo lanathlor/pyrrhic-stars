@@ -8,17 +8,19 @@ import (
 	"codex-online/server/internal/codec"
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/level"
+	"codex-online/server/internal/message"
 )
 
 func makeWorld(players map[uint16]*entity.Player, enemies []*entity.Enemy) *World {
 	return &World{
-		ZoneType:      1, // arena
-		TickNum:       100,
-		State:         StateFight,
-		Players:       players,
-		Enemies:       enemies,
-		Level:         level.NewArenaLevel(),
-		AbilityEngine: ability.NewEngine(nil),
+		ZoneType:       1, // arena
+		TickNum:        100,
+		State:          StateFight,
+		Players:        players,
+		Enemies:        enemies,
+		Level:          level.NewArenaLevel(),
+		AbilityEngine:  ability.NewEngine(nil),
+		AbilityRunners: make(map[uint16]*ability.PlayerAbilityRunner),
 	}
 }
 
@@ -955,5 +957,262 @@ func TestAllBladeDancerSpells(t *testing.T) {
 				t.Errorf("eFar HP = %.0f, want %.0f", eFar.Health, hp)
 			}
 		})
+	}
+}
+
+// =============================================================================
+// PlayerAbilityRunner wiring — commit→execute lifecycle
+// =============================================================================
+
+// testCommitAction is an unused action slot used to bind test abilities.
+const testCommitAction uint8 = 99
+
+// registerTestCommitAbility adds a test ability with CommitTime to an engine and
+// binds it to the player's action map.
+func registerTestCommitAbility(eng *ability.Engine, p *entity.Player) {
+	def := &ability.AbilityDef{
+		ID:           "test_commit_aoe",
+		Name:         "Test Commit AoE",
+		Hit:          ability.HitDef{Type: ability.HitAoECircle, Radius: 10},
+		BaseDamage:   50,
+		CommitTime:   0.5,
+		ExecuteTime:  0.1,
+		GCD:          0.3,
+		OriginConfig: -1,
+		DestConfig:   -1,
+	}
+	eng.Register(def)
+	p.ActionMap[testCommitAction] = "test_commit_aoe"
+}
+
+func TestRunnerWiring_InputStartsRunner(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassVanguard)
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	registerTestCommitAbility(w.AbilityEngine, p)
+
+	payload := codec.EncodeAbilityInput(testCommitAction, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpAbilityInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	runner := w.AbilityRunners[1]
+	if runner == nil {
+		t.Fatal("runner should be created for peer 1")
+	}
+	if !runner.IsBusy() {
+		t.Error("runner should be busy after Start")
+	}
+	if runner.Phase != ability.PRunnerCommit {
+		t.Errorf("runner phase = %d, want %d (commit)", runner.Phase, ability.PRunnerCommit)
+	}
+	if runner.AbilityID != "test_commit_aoe" {
+		t.Errorf("runner ability = %q, want %q", runner.AbilityID, "test_commit_aoe")
+	}
+
+	// Player channel state should be synced
+	if p.ChannelAbilityID != "test_commit_aoe" {
+		t.Errorf("player ChannelAbilityID = %q, want %q", p.ChannelAbilityID, "test_commit_aoe")
+	}
+	if p.ChannelPhase != uint8(ability.PRunnerCommit) {
+		t.Errorf("player ChannelPhase = %d, want %d", p.ChannelPhase, ability.PRunnerCommit)
+	}
+}
+
+func TestRunnerWiring_InputRejectedWhileBusy(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassVanguard)
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	registerTestCommitAbility(w.AbilityEngine, p)
+
+	payload := codec.EncodeAbilityInput(testCommitAction, 0.0)
+	is := &InputSystem{}
+
+	// First input starts the runner
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpAbilityInput, Payload: payload}}
+	is.Tick(w, 0.05)
+
+	runner := w.AbilityRunners[1]
+	if runner == nil || !runner.IsBusy() {
+		t.Fatal("runner should be busy after first input")
+	}
+
+	timerBefore := runner.Timer
+
+	// Second input should be rejected (runner is busy)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpAbilityInput, Payload: payload}}
+	is.Tick(w, 0.05)
+
+	// Timer should be unchanged (no restart)
+	if runner.Timer != timerBefore {
+		t.Errorf("runner timer changed from %f to %f (second input should be rejected)", timerBefore, runner.Timer)
+	}
+}
+
+func TestRunnerWiring_CombatTickFiresCast(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassVanguard)
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
+
+	e := entity.NewEnemy(1000, 2000.0, "test_enemy")
+	e.Alive = true
+	e.Position = entity.Vec3{X: 2, Y: 0.1, Z: 0} // within 10-unit AoE radius
+	e.State = entity.EnemyChase
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	registerTestCommitAbility(w.AbilityEngine, p)
+
+	// Start the runner via input
+	payload := codec.EncodeAbilityInput(testCommitAction, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpAbilityInput, Payload: payload}}
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	runner := w.AbilityRunners[1]
+	if runner == nil {
+		t.Fatal("runner should exist")
+	}
+
+	startHP := e.Health
+	combatSys := &CombatSystem{}
+
+	// Tick through commit phase (0.5s = 10 ticks at 0.05s)
+	// During commit, no damage should be dealt
+	for i := 0; i < 9; i++ {
+		w.DamageEvents = w.DamageEvents[:0]
+		combatSys.Tick(w, 0.05)
+	}
+	if e.Health != startHP {
+		t.Errorf("enemy took damage during commit phase: HP %f -> %f", startHP, e.Health)
+	}
+
+	// The 10th tick should expire commit and fire the ability
+	w.DamageEvents = w.DamageEvents[:0]
+	combatSys.Tick(w, 0.05)
+
+	if e.Health >= startHP {
+		t.Error("enemy should have taken damage after commit expired")
+	}
+	if len(w.DamageEvents) == 0 {
+		t.Error("expected damage events after commit expired")
+	}
+
+	// Runner should now be in execute or cooldown phase
+	if runner.Phase == ability.PRunnerCommit {
+		t.Error("runner should have left commit phase")
+	}
+}
+
+func TestRunnerWiring_SyncsPlayerChannelState(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassVanguard)
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	registerTestCommitAbility(w.AbilityEngine, p)
+
+	payload := codec.EncodeAbilityInput(testCommitAction, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpAbilityInput, Payload: payload}}
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// After input, channel state should be set
+	if p.ChannelPhase != uint8(ability.PRunnerCommit) {
+		t.Fatalf("initial ChannelPhase = %d, want %d", p.ChannelPhase, ability.PRunnerCommit)
+	}
+
+	combatSys := &CombatSystem{}
+
+	// Tick a few times during commit — charge should increase
+	for i := 0; i < 5; i++ {
+		combatSys.Tick(w, 0.05)
+	}
+	if p.ChannelCharge <= 0 {
+		t.Errorf("ChannelCharge = %f after 5 ticks, want > 0", p.ChannelCharge)
+	}
+	if p.ChannelCharge >= 1.0 {
+		t.Errorf("ChannelCharge = %f after 5 ticks, want < 1.0 (still in commit)", p.ChannelCharge)
+	}
+
+	// Tick through the rest until idle
+	for i := 0; i < 20; i++ {
+		combatSys.Tick(w, 0.05)
+	}
+
+	// Runner should return to idle, channel state cleared
+	runner := w.AbilityRunners[1]
+	if runner.IsBusy() {
+		t.Errorf("runner should be idle, phase = %d", runner.Phase)
+	}
+	if p.ChannelPhase != 0 {
+		t.Errorf("ChannelPhase = %d after idle, want 0", p.ChannelPhase)
+	}
+	if p.ChannelAbilityID != "" {
+		t.Errorf("ChannelAbilityID = %q after idle, want empty", p.ChannelAbilityID)
+	}
+}
+
+func TestRunnerWiring_ThreatAndAggroOnExecute(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassVanguard)
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
+
+	e := entity.NewEnemy(1000, 2000.0, "test_enemy")
+	e.Alive = true
+	e.Position = entity.Vec3{X: 2, Y: 0.1, Z: 0}
+	e.State = entity.EnemyPatrol // starts in patrol
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	registerTestCommitAbility(w.AbilityEngine, p)
+
+	// Start the runner
+	payload := codec.EncodeAbilityInput(testCommitAction, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpAbilityInput, Payload: payload}}
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	combatSys := &CombatSystem{}
+
+	// Tick through commit (10 ticks at 0.05s = 0.5s)
+	for i := 0; i < 10; i++ {
+		combatSys.Tick(w, 0.05)
+	}
+
+	// After ability fires, enemy should have threat from player
+	if !e.HasThreat(1) {
+		t.Error("enemy should have threat from player 1 after committed ability fires")
+	}
+	// Enemy should have been aggroed from patrol
+	if e.State == entity.EnemyPatrol {
+		t.Error("enemy should have left patrol state after being hit")
+	}
+}
+
+func TestRunnerWiring_NonCommitAbilityBypassesRunner(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassVanguard)
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
+
+	e := entity.NewEnemy(1000, 2000.0, "test_enemy")
+	e.Alive = true
+	e.Position = entity.Vec3{X: 0, Y: 0, Z: -2.0} // in front (player faces -Z)
+	e.State = entity.EnemyChase
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+
+	// Normal melee has CommitTime=0, should bypass runner entirely
+	payload := codec.EncodeAbilityInput(entity.ActionMelee, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpAbilityInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// No runner should have been created
+	if runner := w.AbilityRunners[1]; runner != nil {
+		t.Errorf("runner should not be created for non-commit ability, got phase=%d", runner.Phase)
+	}
+
+	// Damage should have been applied immediately (no commit delay)
+	if e.Health >= 2000.0 {
+		t.Error("non-commit melee should deal immediate damage")
 	}
 }

@@ -87,6 +87,9 @@ type World struct {
 	// Ability engine
 	AbilityEngine *ability.Engine
 
+	// Per-player ability runners (commit→execute→cooldown lifecycle).
+	AbilityRunners map[uint16]*ability.PlayerAbilityRunner
+
 	// Networking
 	Clients      map[uint16]*Client
 	DamageEvents []combat.DamageEvent

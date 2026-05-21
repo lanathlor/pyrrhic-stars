@@ -12,12 +12,13 @@ import (
 
 func makeHubWorld(players map[uint16]*entity.Player) *World {
 	return &World{
-		ZoneType:      0, // hub
-		TickNum:       100,
-		State:         StateLobby, // hub never enters StateFight
-		Players:       players,
-		Level:         level.NewHubLevel(),
-		AbilityEngine: ability.NewEngine(nil),
+		ZoneType:       0, // hub
+		TickNum:        100,
+		State:          StateLobby, // hub never enters StateFight
+		Players:        players,
+		Level:          level.NewHubLevel(),
+		AbilityEngine:  ability.NewEngine(nil),
+		AbilityRunners: make(map[uint16]*ability.PlayerAbilityRunner),
 	}
 }
 
