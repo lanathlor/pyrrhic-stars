@@ -38,9 +38,13 @@ test-suite suite:
 
 # --- Run ---
 
-# Launch Godot in dev mode (debug panel, auto-start server)
+# Launch Godot
 run:
-    godot -- --dev
+    godot
+
+# Launch Godot in dev mode (debug panel, auto-start server)
+run-dev class="":
+    godot -- --dev {{ if class != "" { "--class=" + class } else { "" } }}
 
 # Launch Godot editor
 editor:
