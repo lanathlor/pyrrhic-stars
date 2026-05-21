@@ -61,6 +61,13 @@ func resolveHeal(def *AbilityDef, caster *entity.Player, allies map[uint16]*enti
 		heal *= caster.Confluence.SpellPowerMult()
 	}
 
+	// VitalCharge: consume stored drain from Life Swap to empower this heal.
+	if caster.VitalCharge > 0 && caster.VitalChargeTimer > 0 {
+		heal += caster.VitalCharge
+		caster.VitalCharge = 0
+		caster.VitalChargeTimer = 0
+	}
+
 	before := target.Health
 	target.Health += heal
 	if target.Health > target.MaxHealth {

@@ -42,6 +42,7 @@ func registerAbilities(eng *Engine) {
 	eng.Register(&mendingBeamDef)
 	eng.Register(&vitalBloomDef)
 	eng.Register(&restorationMatrixDef)
+	eng.Register(&lifeSwapDef)
 }
 
 func registerHandlers(eng *Engine) {
@@ -69,6 +70,7 @@ func registerHandlers(eng *Engine) {
 	eng.RegisterHandler("mending_beam", mendingBeamHandler)
 	eng.RegisterHandler("vital_bloom", vitalBloomHandler)
 	eng.RegisterHandler("restoration_matrix", restorationMatrixHandler)
+	eng.RegisterHandler("life_swap", lifeSwapHandler)
 
 	eng.RegisterTickHandler("rechamber", rechamberTick)
 	eng.RegisterTickHandler("vortex", vortexTick)

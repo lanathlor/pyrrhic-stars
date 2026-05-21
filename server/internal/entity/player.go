@@ -197,6 +197,10 @@ type Player struct {
 	// Confluence state (all Arcanotechnicien specs)
 	Confluence *ConfluenceState
 
+	// VitalCharge: stored HP drain from Life Swap, empowers next heal.
+	VitalCharge      float32
+	VitalChargeTimer float32
+
 	// Blade Dancer config (visual state for client)
 	Config int // 0=orbit, 1=fan, 2=lance, 3=scatter, 4=crown
 

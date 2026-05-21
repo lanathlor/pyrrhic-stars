@@ -526,6 +526,15 @@ func (eng *Engine) TickPlayer(p *entity.Player, dt float32, ctx *TickContext) []
 		p.Confluence.Tick(dt)
 	}
 
+	// Tick VitalCharge expiry (Life Swap stored drain)
+	if p.VitalChargeTimer > 0 {
+		p.VitalChargeTimer -= dt
+		if p.VitalChargeTimer <= 0 {
+			p.VitalCharge = 0
+			p.VitalChargeTimer = 0
+		}
+	}
+
 	// Tick resources
 	for _, r := range p.Resources {
 		if r.DelayTimer > 0 {
