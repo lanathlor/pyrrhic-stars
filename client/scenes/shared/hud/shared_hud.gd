@@ -11,6 +11,7 @@ const CLASS_MAX_HP := {
 	"gunner": 150.0,
 	"vanguard": 200.0,
 	"blade_dancer": 150.0,
+	"arcanotechnicien": 150.0,
 }
 const ENEMY_MAX_HP := 2000.0
 const MINIMAP_RADIUS := 80.0
@@ -510,6 +511,7 @@ func _draw_damage_meter() -> void:
 		"gunner": Color(0.24, 0.62, 0.95),
 		"vanguard": Color(0.82, 0.44, 0.24),
 		"blade_dancer": Color(0.36, 0.82, 0.66),
+		"arcanotechnicien": Color(0.3, 0.65, 0.85),
 	}
 
 	for i in entry_count:

@@ -331,6 +331,9 @@ func _physics_process(delta: float) -> void:
 	_update_hud_spells()
 	hud.update_gcd(_gcd_timer / gcd_duration if _gcd_timer > 0.0 else 0.0)
 	hud.update_confluence(_confluence_tier, _confluence_stacks)
+	hud.update_flux(flux, max_flux)
+	_update_hud_channel()
+	_update_hud_party()
 
 	# Send position + visual state to server
 	if NetworkManager.is_active:
@@ -349,6 +352,43 @@ func _update_hud_spells() -> void:
 			cooldown_max = spell.cooldown_max,
 		})
 	hud.update_spells(spell_data)
+
+
+func _update_hud_channel() -> void:
+	if state == State.CHANNELING and not _casting_spell.is_empty():
+		var total_dur: float = _casting_spell.get("dur", 1.0)
+		var elapsed: float = total_dur - _cast_timer
+		var progress: float = clampf(elapsed / maxf(total_dur, 0.01), 0.0, 1.0)
+		hud.update_channel(progress, _casting_spell.get("name", ""))
+	else:
+		hud.hide_channel()
+
+
+func _update_hud_party() -> void:
+	var party: Array = []
+	for p in GameManager.players:
+		if not is_instance_valid(p) or not p.visible:
+			continue
+		if p == self:
+			continue
+		var pid: int = p.peer_id if "peer_id" in p else 0
+		var p_health: float = p.health if "health" in p else 0.0
+		var p_max_health: float = p.max_health if "max_health" in p else 150.0
+		var cls: String = "unknown"
+		var uname: String = "Player_%d" % pid
+		if NetworkManager.player_info.has(pid):
+			cls = NetworkManager.player_info[pid].get("class_name", "unknown")
+			var info_name: String = NetworkManager.player_info[pid].get("username", "")
+			if info_name != "":
+				uname = info_name
+		party.append({
+			peer_id = pid,
+			name = uname,
+			health = p_health,
+			max_health = p_max_health,
+			class_name = cls,
+		})
+	hud.update_party(party)
 
 
 # --- Damage (server-authoritative) ---
