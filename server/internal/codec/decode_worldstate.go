@@ -24,6 +24,7 @@ type DecodedPlayer struct {
 	BuffFlags, Config    uint8
 	Stamina, ShieldHP    float32
 	Munitions, Resonance float32
+	Flux                 float32
 	OnslaughtStacks      uint8
 	// Gunner Assault state
 	Magazine, MagMax, StabilityQ, SteadinessQ, PressureStacks, EnhancedLoaded, AssaultFlags uint8
@@ -131,7 +132,7 @@ func DecodeWorldState(buf []byte) (DecodedWorldState, bool) {
 		p.VisualState = buf[off]
 		off++
 		// aim_pitch, buff_flags, config, stamina, shield_hp, munitions, resonance, onslaught_stacks
-		if off+23 > len(buf) {
+		if off+27 > len(buf) {
 			return ws, false
 		}
 		p.AimPitch = getF32(buf[off:])
@@ -147,6 +148,8 @@ func DecodeWorldState(buf []byte) (DecodedWorldState, bool) {
 		p.Munitions = getF32(buf[off:])
 		off += 4
 		p.Resonance = getF32(buf[off:])
+		off += 4
+		p.Flux = getF32(buf[off:])
 		off += 4
 		p.OnslaughtStacks = buf[off]
 		off++

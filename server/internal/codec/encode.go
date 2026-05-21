@@ -23,7 +23,7 @@ func EncodeWorldState(tick uint32, players map[uint16]*entity.Player, enemies []
 // Pass a pooled buffer to avoid per-call allocations in hot paths.
 func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.Player, enemies []*entity.Enemy, projectiles []*entity.Projectile, npcs []*entity.NPC) []byte {
 	// Estimate needed capacity and grow if needed.
-	// Per player: ~80 bytes. Per enemy: ~60 bytes. Per projectile: ~28 bytes.
+	// Per player: ~84 bytes. Per enemy: ~60 bytes. Per projectile: ~28 bytes.
 	estCap := 512 + len(players)*80 + len(enemies)*60 + len(projectiles)*28
 	if cap(buf) < estCap {
 		newCap := cap(buf) * 2
@@ -95,6 +95,7 @@ func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.
 		buf = appendF32(buf, p.GetResource("shield"))
 		buf = appendF32(buf, p.GetResource("munitions"))
 		buf = appendF32(buf, p.GetResource("resonance"))
+		buf = appendF32(buf, p.GetResource("flux"))
 		// Class-specific mastery stacks (1 byte: VG=onslaught/devotion, BD=flow, others=0).
 		var masteryStacks uint8
 		switch p.ClassID {

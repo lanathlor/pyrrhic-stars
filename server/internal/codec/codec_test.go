@@ -245,6 +245,51 @@ func TestWorldStateProjectileRoundtrip(t *testing.T) {
 	}
 }
 
+func TestWorldStateFluxRoundtrip(t *testing.T) {
+	p := &entity.Player{
+		Combatant: entity.Combatant{
+			ID:        1,
+			Position:  entity.Vec3{X: 1.0},
+			Health:    100.0,
+			MaxHealth: 150.0,
+		},
+		ClassID: entity.ClassGunner,
+		Resources: map[string]*entity.Resource{
+			"flux":      {Current: 75.5},
+			"stamina":   {Current: 50.0},
+			"shield":    {Current: 25.0},
+			"munitions": {Current: 10.0},
+			"resonance": {Current: 30.0},
+		},
+		AbilityState: make(map[string]any),
+	}
+
+	buf := EncodeWorldState(1, map[uint16]*entity.Player{1: p}, nil, nil)
+	ws, ok := DecodeWorldState(buf)
+	if !ok {
+		t.Fatal("DecodeWorldState failed")
+	}
+	if len(ws.Players) != 1 {
+		t.Fatalf("players = %d, want 1", len(ws.Players))
+	}
+	dp := ws.Players[0]
+	if dp.Stamina != 50.0 {
+		t.Errorf("Stamina = %f, want 50.0", dp.Stamina)
+	}
+	if dp.ShieldHP != 25.0 {
+		t.Errorf("ShieldHP = %f, want 25.0", dp.ShieldHP)
+	}
+	if dp.Munitions != 10.0 {
+		t.Errorf("Munitions = %f, want 10.0", dp.Munitions)
+	}
+	if dp.Resonance != 30.0 {
+		t.Errorf("Resonance = %f, want 30.0", dp.Resonance)
+	}
+	if dp.Flux != 75.5 {
+		t.Errorf("Flux = %f, want 75.5", dp.Flux)
+	}
+}
+
 func TestDecodeWorldStateNilProjectiles(t *testing.T) {
 	buf := EncodeWorldState(1, nil, nil, nil)
 	ws, ok := DecodeWorldState(buf)
@@ -387,6 +432,11 @@ func TestEncodeWorldStateWireFormat(t *testing.T) {
 	off += 4
 	if resonanceVal != 0.0 {
 		t.Errorf("resonance = %f, want 0.0", resonanceVal)
+	}
+	fluxVal := math.Float32frombits(binary.LittleEndian.Uint32(buf[off:]))
+	off += 4
+	if fluxVal != 0.0 {
+		t.Errorf("flux = %f, want 0.0", fluxVal)
 	}
 	// onslaught_stacks (1 byte)
 	if buf[off] != 0 {
