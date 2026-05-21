@@ -3,8 +3,9 @@ package ability
 import "codex-online/server/internal/entity"
 
 var vitalBloomDef = AbilityDef{
-	ID:   "vital_bloom",
-	Name: "Vital Bloom",
+	ID:     "vital_bloom",
+	Name:   "Vital Bloom",
+	School: "biometabolic",
 	Hit:  HitDef{Type: HitGroundPlacement, Range: 15},
 	GCD:  1.0,
 	Costs: []ResourceCost{
@@ -20,6 +21,7 @@ var vitalBloomDef = AbilityDef{
 var restorationMatrixDef = AbilityDef{
 	ID:       "restoration_matrix",
 	Name:     "Restoration Matrix",
+	School:   "bioarcanotechnic",
 	Hit:      HitDef{Type: HitGroundPlacement, Range: 18},
 	GCD:      1.0,
 	Cooldown: 12.0,

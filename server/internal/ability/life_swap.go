@@ -6,8 +6,9 @@ import (
 )
 
 var lifeSwapDef = AbilityDef{
-	ID:   "life_swap",
-	Name: "Life Swap",
+	ID:     "life_swap",
+	Name:   "Life Swap",
+	School: "biometabolic",
 	Hit: HitDef{
 		Type:  HitAllyTarget,
 		Range: 15,

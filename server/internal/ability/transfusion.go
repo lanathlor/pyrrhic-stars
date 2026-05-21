@@ -3,8 +3,9 @@ package ability
 import "codex-online/server/internal/entity"
 
 var transfusionDef = AbilityDef{
-	ID:   "transfusion",
-	Name: "Transfusion",
+	ID:     "transfusion",
+	Name:   "Transfusion",
+	School: "biometabolic",
 	Hit: HitDef{
 		Type:  HitAllyTarget,
 		Range: 15,

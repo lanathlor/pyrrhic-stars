@@ -3,8 +3,9 @@ package ability
 import "codex-online/server/internal/entity"
 
 var mendingBeamDef = AbilityDef{
-	ID:   "mending_beam",
-	Name: "Mending Beam",
+	ID:     "mending_beam",
+	Name:   "Mending Beam",
+	School: "bioarcanotechnic",
 	Hit: HitDef{
 		Type:  HitAllyTarget,
 		Range: 20,

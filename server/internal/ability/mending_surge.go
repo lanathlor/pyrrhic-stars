@@ -3,8 +3,9 @@ package ability
 import "codex-online/server/internal/entity"
 
 var mendingSurgeDef = AbilityDef{
-	ID:   "mending_surge",
-	Name: "Mending Surge",
+	ID:     "mending_surge",
+	Name:   "Mending Surge",
+	School: "bioarcanotechnic",
 	Hit: HitDef{
 		Type: HitAllyTarget,
 	},

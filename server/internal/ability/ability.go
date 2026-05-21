@@ -101,6 +101,10 @@ type AbilityDef struct {
 	ID   string `yaml:"id"`
 	Name string `yaml:"name"`
 
+	// School identifies which flux commitment pool this ability draws from.
+	// Only relevant for Arcanotechnicien abilities with flux costs.
+	School string `yaml:"school"`
+
 	// Hit resolution
 	Hit HitDef `yaml:"hit"`
 

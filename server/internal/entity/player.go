@@ -198,6 +198,9 @@ type Player struct {
 	// Confluence state (all Arcanotechnicien specs)
 	Confluence *ConfluenceState
 
+	// FluxCommit tracks school-based flux pool distribution (Arcanotechnicien).
+	FluxCommit *FluxCommitment
+
 	// VitalCharge: stored HP drain from Life Swap, empowers next heal.
 	VitalCharge      float32
 	VitalChargeTimer float32
@@ -280,6 +283,22 @@ func NewPlayerWithSpec(peerID uint16, className, specID string) *Player {
 		p.Confluence = &ConfluenceState{MaxStacks: 5, DecayRate: 1.0}
 		if spec.ID == "harmonist" {
 			p.Harmony = &HarmonyState{LastDelivery: make(map[uint16]DeliveryMethod)}
+		}
+
+		// Initialize flux commitment: distribute total flux across schools.
+		if fluxRes, ok := resources["flux"]; ok {
+			p.FluxCommit = &FluxCommitment{
+				TotalMax:   fluxRes.Max,
+				TotalRegen: fluxRes.Regen,
+			}
+			if spec.ID == "harmonist" {
+				p.FluxCommit.SetCommitment(map[string]float32{
+					"bioarcanotechnic": 0.5,
+					"biometabolic":     0.3,
+					"frost":            0.1,
+					"aerokinetic":      0.1,
+				})
+			}
 		}
 	}
 
