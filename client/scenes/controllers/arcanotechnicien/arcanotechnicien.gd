@@ -383,11 +383,11 @@ func _update_hud_party() -> void:
 			if info_name != "":
 				uname = info_name
 		party.append({
-			peer_id = pid,
-			name = uname,
-			health = p_health,
-			max_health = p_max_health,
-			class_name = cls,
+			"peer_id": pid,
+			"name": uname,
+			"health": p_health,
+			"max_health": p_max_health,
+			"class_name": cls,
 		})
 	hud.update_party(party)
 
