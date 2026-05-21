@@ -45,9 +45,9 @@ func face_direction(dir: Vector3, delta: float) -> void:
 
 
 func face_target(delta: float) -> void:
-	if not ctrl._lock_target or not is_instance_valid(ctrl._lock_target):
+	if not ctrl._selected_target or not is_instance_valid(ctrl._selected_target):
 		return
-	var to_target: Vector3 = ctrl._lock_target.global_position - ctrl.global_position
+	var to_target: Vector3 = ctrl._selected_target.global_position - ctrl.global_position
 	to_target.y = 0.0
 	if to_target.length() > 0.1:
 		var target_angle := get_target_yaw(to_target)
@@ -55,9 +55,9 @@ func face_target(delta: float) -> void:
 		ctrl.rotation.y = _facing_angle
 
 
-## Auto-face during casts: lock target > nearest ally (for heals) > camera forward.
+## Auto-face during casts: selected target > nearest ally (for heals) > camera forward.
 func face_attack_direction(delta: float) -> void:
-	if ctrl._lock_on_active and ctrl._lock_target and is_instance_valid(ctrl._lock_target):
+	if ctrl._selected_target and is_instance_valid(ctrl._selected_target):
 		face_target(delta)
 		return
 
@@ -103,11 +103,8 @@ func face_attack_direction(delta: float) -> void:
 
 
 func process_move(delta: float) -> void:
-	var cursor_active := Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED
-
-	# Spell inputs (gated by GCD, disabled when cursor is visible)
-	if ctrl._gcd_timer <= 0.0 and not cursor_active:
-		# Check spell slots 0-4 (slot 5 is C which is dodge/spell depending on context)
+	# Spell inputs (gated by GCD only -- cursor is always visible for this class)
+	if ctrl._gcd_timer <= 0.0:
 		for slot in 5:
 			if Input.is_action_just_pressed(ctrl.SPELL_SLOT_ACTIONS[slot]):
 				if ctrl._cooldowns[slot] <= 0.0:
@@ -121,8 +118,7 @@ func process_move(delta: float) -> void:
 			else:
 				ctrl.combat.start_dodge()
 			return
-
-	elif not cursor_active:
+	else:
 		# GCD is active but still allow dodge
 		if Input.is_action_just_pressed("dodge") and ctrl.is_on_floor():
 			ctrl.combat.start_dodge()
@@ -147,12 +143,14 @@ func _apply_movement(delta: float) -> void:
 		var target_vel: Vector3 = wish_dir * speed
 		ctrl.velocity.x = move_toward(ctrl.velocity.x, target_vel.x, accel * delta)
 		ctrl.velocity.z = move_toward(ctrl.velocity.z, target_vel.z, accel * delta)
-		if ctrl._lock_on_active and ctrl._lock_target and is_instance_valid(ctrl._lock_target):
-			face_target(delta)
+		# WoW behavior: while right-click held, character faces camera direction
+		if ctrl._right_mouse_held:
+			var cam_fwd: Vector3 = -ctrl.camera.global_transform.basis.z
+			cam_fwd.y = 0.0
+			if cam_fwd.length() > 0.01:
+				face_direction(cam_fwd.normalized(), delta)
 		else:
 			face_direction(wish_dir, delta)
 	else:
 		ctrl.velocity.x = move_toward(ctrl.velocity.x, 0.0, decel * delta)
 		ctrl.velocity.z = move_toward(ctrl.velocity.z, 0.0, decel * delta)
-		if ctrl._lock_on_active and ctrl._lock_target and is_instance_valid(ctrl._lock_target):
-			face_target(delta)

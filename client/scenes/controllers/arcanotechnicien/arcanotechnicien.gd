@@ -20,19 +20,19 @@ const NET_INTERP_SPEED := 15.0
 
 # Input actions mapped to spell slots 0-5
 const SPELL_SLOT_ACTIONS: Array[StringName] = [
-	&"light_attack",   # slot 0 -- LMB
-	&"block",          # slot 1 -- RMB
-	&"heavy_attack",   # slot 2 -- R
-	&"ability_2",      # slot 3 -- T
-	&"ability_1",      # slot 4 -- F
-	&"dodge",          # slot 5 -- C (overloaded: dodge when no target, spell when targeting)
+	&"harmonist_slot_0",  # slot 0 -- 1 key
+	&"harmonist_slot_1",  # slot 1 -- 2 key
+	&"heavy_attack",      # slot 2 -- R
+	&"ability_2",         # slot 3 -- T
+	&"ability_1",         # slot 4 -- F
+	&"dodge",             # slot 5 -- C (overloaded: dodge when no target, spell when targeting)
 ]
 
 ## Harmonist spell table. action_id = 50 + slot_index.
 const HARMONIST_SPELLS: Array[Dictionary] = [
 	{
 		name = "Mending Surge",
-		keybind = "LMB",
+		keybind = "1",
 		desc = "Direct. Massive single-target emergency heal. High Flux cost.",
 		action_id = 50,
 		dur = 0.4,
@@ -41,7 +41,7 @@ const HARMONIST_SPELLS: Array[Dictionary] = [
 	},
 	{
 		name = "Mending Beam",
-		keybind = "RMB",
+		keybind = "2",
 		desc = "Beam. High sustained single-target throughput. Channel.",
 		action_id = 51,
 		dur = 2.0,
@@ -89,6 +89,7 @@ const HARMONIST_SPELLS: Array[Dictionary] = [
 const MovementScript := preload("res://scenes/controllers/arcanotechnicien/arcanotechnicien_movement.gd")
 const CombatScript := preload("res://scenes/controllers/arcanotechnicien/harmonist_combat.gd")
 const CameraScript := preload("res://scenes/controllers/arcanotechnicien/arcanotechnicien_camera.gd")
+const VfxScript := preload("res://scenes/controllers/arcanotechnicien/vfx/harmonist_vfx.gd")
 
 # Movement
 @export var run_speed: float = 5.5
@@ -130,6 +131,7 @@ var state: State = State.MOVE
 var combat: Node
 var movement: Node
 var cam: Node
+var vfx: Node
 
 var spec_id: String = "harmonist"
 
@@ -150,12 +152,15 @@ var _cooldowns: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 var _camera_yaw: float = 0.0
 var _camera_pitch: float = -0.3
 
-# Lock-on (for ally targeting)
-var _lock_target: Node3D = null
-var _lock_on_active: bool = false
+# WoW-style click targeting
+var _selected_target: Node3D = null
+var _right_mouse_held: bool = false
+var _rmb_cursor_pos: Vector2 = Vector2.ZERO  # cursor position before RMB drag
+var _rmb_last_mouse: Vector2 = Vector2.ZERO  # last mouse pos for manual delta
 
 var _gravity: float = 8.5
 var _alive: bool = true
+var _prev_remote_vs: int = -1
 
 # Network sync
 var _visual_state: int = 0
@@ -172,6 +177,7 @@ func _ready() -> void:
 	combat = _add_subsystem("Combat", CombatScript)
 	movement = _add_subsystem("Movement", MovementScript)
 	cam = _add_subsystem("Cam", CameraScript)
+	vfx = _add_subsystem("Vfx", VfxScript)
 
 	GameManager.register_player(self)
 	_net_position = global_position
@@ -195,13 +201,17 @@ func _ready() -> void:
 		)
 	)
 
+	# Sympathetic Field is visible to all players (local and remote)
+	vfx.show_sympathetic_field()
+
 	if _is_local():
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		_update_hud_spells()
 	else:
 		$HUDLayer.visible = false
 		camera.current = false
 		set_process_unhandled_input(false)
+		set_process_input(false)
 
 
 func _add_subsystem(node_name: String, script: GDScript) -> Node:
@@ -231,6 +241,8 @@ func apply_server_state(data: Dictionary) -> void:
 	_confluence_tier = data.get("onslaught_tier", 0)
 	_confluence_stacks = data.get("onslaught_stacks", 0)
 	flux = data.get("flux", flux)
+	if data.get("max_flux", 0.0) > 0.0:
+		max_flux = data["max_flux"]
 	if _is_local():
 		health = data.health
 		if health <= 0.0 and _alive:
@@ -261,21 +273,49 @@ func on_damage_visual(_amount: float, _hit_pos: Vector3) -> void:
 
 
 ## Visual-only heal feedback.
-func on_heal_visual(_amount: float, _hit_pos: Vector3) -> void:
+func on_heal_visual(_amount: float, hit_pos: Vector3) -> void:
 	hud.show_heal_flash()
+	if vfx:
+		vfx.spawn_heal_pulse(hit_pos)
+
+
+## Escape intercept: clear selection first, only pause if no selection.
+func _input(event: InputEvent) -> void:
+	if not _is_local():
+		return
+	if event.is_action_pressed("ui_cancel") and _selected_target != null:
+		_clear_selection()
+		get_viewport().set_input_as_handled()
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not _is_local():
 		return
-	if event is InputEventMouseMotion and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
-		if not _lock_on_active:
-			_camera_yaw -= event.relative.x * mouse_sensitivity
-		_camera_pitch -= event.relative.y * mouse_sensitivity
+
+	# Right mouse button: hide cursor while held for camera drag
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
+		_right_mouse_held = event.pressed
+		if _right_mouse_held:
+			_rmb_cursor_pos = get_viewport().get_mouse_position()
+			_rmb_last_mouse = _rmb_cursor_pos
+			Input.set_mouse_mode(Input.MOUSE_MODE_CONFINED_HIDDEN)
+		else:
+			get_viewport().warp_mouse(_rmb_cursor_pos)
+			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		get_viewport().set_input_as_handled()
+
+	# Camera rotation: compute delta manually (CONFINED_HIDDEN has no relative)
+	if event is InputEventMouseMotion and _right_mouse_held:
+		var current_mouse: Vector2 = get_viewport().get_mouse_position()
+		var delta_mouse: Vector2 = current_mouse - _rmb_last_mouse
+		_rmb_last_mouse = current_mouse
+		_camera_yaw -= delta_mouse.x * mouse_sensitivity
+		_camera_pitch -= delta_mouse.y * mouse_sensitivity
 		_camera_pitch = clampf(_camera_pitch, deg_to_rad(-60.0), deg_to_rad(20.0))
 
-	if event.is_action_pressed("lock_on"):
-		cam.toggle_lock_on()
+	# Left-click targeting
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		_try_click_target(event.position)
 
 
 func _physics_process(delta: float) -> void:
@@ -319,19 +359,21 @@ func _physics_process(delta: float) -> void:
 		global_position.y = -199.0
 
 	cam.update_animation()
-	# Clear lock if target is dead, freed, or hidden
-	if _lock_on_active and _lock_target:
+	# Clear selection if target is dead, freed, or hidden
+	if _selected_target:
 		if (
-			not is_instance_valid(_lock_target)
-			or not _lock_target.visible
+			not is_instance_valid(_selected_target)
+			or not _selected_target.visible
 		):
-			cam.toggle_lock_on()
-	if _lock_on_active and _lock_target:
-		hud.update_lock_on(_lock_target, camera)
+			_clear_selection()
+		else:
+			hud.update_selected_target(_selected_target, camera)
 
 	_update_hud_spells()
 	hud.update_gcd(_gcd_timer / gcd_duration if _gcd_timer > 0.0 else 0.0)
 	hud.update_confluence(_confluence_tier, _confluence_stacks)
+	if vfx:
+		vfx.update_confluence(_confluence_tier, _confluence_stacks)
 	hud.update_flux(flux, max_flux)
 	_update_hud_channel()
 	_update_hud_party()
@@ -400,12 +442,20 @@ func take_damage(_amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
 
 
 func _drive_remote_animation(prev_pos: Vector3, delta: float) -> void:
+	# Drive remote VFX on visual state change
+	if _visual_state != _prev_remote_vs:
+		if vfx:
+			vfx.drive_remote_vfx(_prev_remote_vs, _visual_state)
+		_prev_remote_vs = _visual_state
+
 	match _visual_state:
 		NetSerializer.VS_DODGE:
 			character_model.travel("dodge")
 		NetSerializer.VS_AT_CASTING:
 			character_model.travel("casting")
-		NetSerializer.VS_AT_CHANNELING:
+		NetSerializer.VS_AT_CHANNELING, \
+		NetSerializer.VS_AT_CHANNELING_BEAM, \
+		NetSerializer.VS_AT_CHANNELING_ZONE:
 			character_model.travel("channeling")
 		NetSerializer.VS_AT_STAGGER:
 			character_model.travel("stagger")
@@ -424,9 +474,16 @@ func _drive_remote_animation(prev_pos: Vector3, delta: float) -> void:
 
 
 func _enter_state(new_state: State) -> void:
+	# Clean up VFX when leaving casting/channeling states (interruption, stagger)
 	match state:
 		State.DODGE:
 			_is_invincible = false
+		State.CASTING, State.CHANNELING:
+			if new_state != State.CASTING and new_state != State.CHANNELING:
+				if vfx:
+					vfx.stop_channel_flux()
+					vfx.stop_heal_beam()
+					vfx.stop_zone_telegraph()
 	state = new_state
 
 
@@ -455,14 +512,6 @@ func _process_channeling(delta: float) -> void:
 
 func _process_stagger() -> void:
 	combat.process_stagger()
-
-
-func _toggle_lock_on() -> void:
-	cam.toggle_lock_on()
-
-
-func _find_lock_target() -> Node3D:
-	return cam.find_lock_target()
 
 
 func _update_camera() -> void:
@@ -503,6 +552,62 @@ func _update_flash(delta: float) -> void:
 
 func _update_animation() -> void:
 	cam.update_animation()
+
+
+# --- WoW-style click targeting ---
+
+
+func _try_click_target(screen_pos: Vector2) -> void:
+	# Check HUD party frames first (UI priority over world)
+	if hud and hud.has_method("get_clicked_target"):
+		var party_pid: int = hud.get_clicked_target(screen_pos)
+		if party_pid > 0:
+			_select_target_by_peer_id(party_pid)
+			return
+
+	# Raycast into 3D world: mask 6 = layer 2 (Player) | layer 3 (Enemy)
+	var from: Vector3 = camera.project_ray_origin(screen_pos)
+	var dir: Vector3 = camera.project_ray_normal(screen_pos)
+	var to: Vector3 = from + dir * 100.0
+	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
+	if not space:
+		return
+	var query := PhysicsRayQueryParameters3D.create(from, to, 6)
+	query.exclude = [get_rid()]
+	var result: Dictionary = space.intersect_ray(query)
+	if result:
+		var hit_node: Node3D = result.collider
+		# Walk up to find a node with peer_id (player or enemy)
+		while hit_node and not ("peer_id" in hit_node):
+			hit_node = hit_node.get_parent()
+		if hit_node and "peer_id" in hit_node and hit_node != self:
+			_select_target(hit_node)
+			return
+	# Clicked empty space — clear selection
+	_clear_selection()
+
+
+func _select_target(target: Node3D) -> void:
+	_selected_target = target
+	hud.show_selected_target(target, camera)
+
+
+func _select_target_by_peer_id(pid: int) -> void:
+	for player in GameManager.players:
+		if is_instance_valid(player) and player.visible and "peer_id" in player:
+			if player.peer_id == pid and player != self:
+				_select_target(player)
+				return
+	for enemy in GameManager.enemies:
+		if is_instance_valid(enemy) and enemy.visible and "peer_id" in enemy:
+			if enemy.peer_id == pid:
+				_select_target(enemy)
+				return
+
+
+func _clear_selection() -> void:
+	_selected_target = null
+	hud.hide_selected_target()
 
 
 ## Stub for spec switching (only harmonist implemented for now).

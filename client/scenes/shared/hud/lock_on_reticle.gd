@@ -5,6 +5,8 @@ extends Control
 
 var _lock_active: bool = false
 var _pulse_timer: float = 0.0
+var hint_text: String = "[Q] Lock On"
+var lock_label: String = "LOCKED [Q]"
 
 
 func _process(delta: float) -> void:
@@ -30,12 +32,12 @@ func _draw() -> void:
 	# Lock-on status indicator (top-center)
 	if _lock_active and target:
 		_draw_lock_indicator()
-	elif not _lock_active:
+	elif not _lock_active and hint_text != "":
 		var hint_color := Color(0.6, 0.6, 0.7, 0.4)
 		draw_string(
 			ThemeDB.fallback_font,
 			Vector2(size.x / 2.0 - 30.0, 33.0),
-			"[Q] Lock On",
+			hint_text,
 			HORIZONTAL_ALIGNMENT_LEFT,
 			-1,
 			13,
@@ -103,7 +105,7 @@ func _draw_lock_indicator() -> void:
 	draw_string(
 		ThemeDB.fallback_font,
 		Vector2(center_x + 10.0, 33.0),
-		"LOCKED [Q]",
+		lock_label,
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1,
 		14,

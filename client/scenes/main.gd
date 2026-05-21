@@ -40,6 +40,7 @@ const CLASS_SCENES := {
 	"gunner": "res://scenes/controllers/gunner/gunner.tscn",
 	"vanguard": "res://scenes/controllers/vanguard/vanguard.tscn",
 	"blade_dancer": "res://scenes/controllers/blade_dancer/blade_dancer.tscn",
+	"arcanotechnicien": "res://scenes/controllers/arcanotechnicien/arcanotechnicien.tscn",
 }
 const CLASS_INFO := {
 	"gunner":
@@ -812,7 +813,10 @@ func _enter_hub() -> void:
 	_char_create_layer.visible = false
 	_hub_layer.visible = true
 	_inventory_layer.toolbar_panel.visible = true
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	if not _is_cursor_always_visible_class():
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	else:
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	hub_interact.near_portal = false
 	_portal_prompt.visible = false
 	hub_interact.near_lift = false
@@ -936,7 +940,10 @@ func _spawn_multiplayer_players() -> void:
 		entity_mgr.spawn_player(pid, class_name_str, spawn_pos, spec)
 		spawn_idx += 1
 
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	if not _is_cursor_always_visible_class():
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	else:
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 
 # =============================================================================
@@ -1005,9 +1012,14 @@ func _on_zone_transfer(zone_type: int, _new_peer_id: int) -> void:
 		state = GameState.ARENA_LOBBY
 		_show_portal_prompt_only()
 		_menu_layer.visible = false
+		_char_select_layer.visible = false
+		_char_create_layer.visible = false
 		if _shared_hud:
 			_shared_hud.on_enter_arena()
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		if not _is_cursor_always_visible_class():
+			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		else:
+			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		var my_id: int = NetworkManager.get_my_id()
 		if my_id > 0:
 			entity_mgr.spawn_player(my_id, _local_class, LOBBY_SPAWN, _local_spec)
@@ -1060,12 +1072,23 @@ func _toggle_pause() -> void:
 	if paused:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	else:
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		if not _is_cursor_always_visible_class():
+			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		else:
+			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+
+
+## Returns true for classes that always keep a visible cursor (WoW-style input).
+func _is_cursor_always_visible_class() -> bool:
+	return _local_class == "arcanotechnicien"
 
 
 ## Show/hide cursor for UI interaction without pausing.
 ## Active when Alt is held or backtick is toggled on.
 func _update_cursor_mode() -> void:
+	if _is_cursor_always_visible_class():
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		return
 	var inv_open: bool = _inventory_layer.equip_panel.visible or _inventory_layer.bag_panel.visible
 	var spec_open: bool = _spec_panel.visible
 	var bot_open: bool = _bot_panel != null and _bot_panel.visible
@@ -1185,7 +1208,10 @@ func _on_local_player_died() -> void:
 func _on_respawn() -> void:
 	NetworkManager.send_respawn_request(0)
 	_hide_death_overlay()
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	if not _is_cursor_always_visible_class():
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	else:
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 
 func _on_respawn_hub() -> void:

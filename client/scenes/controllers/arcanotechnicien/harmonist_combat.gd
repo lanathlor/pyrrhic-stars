@@ -39,11 +39,37 @@ func start_spell(slot: int) -> void:
 		else:
 			NetworkManager.send_ability(spell.action_id, 0.0, ctrl.rotation.y)
 
+	# Displacement spells use dodge movement instead of cast state
+	if spell.get("delivery", "") == "displacement":
+		_start_gust_step()
+		return
+
 	# Determine state: short spells are instant casts, longer ones are channels
 	if spell.dur > 0.5:
 		ctrl._enter_state(ctrl.State.CHANNELING)
 	else:
 		ctrl._enter_state(ctrl.State.CASTING)
+
+	# Trigger VFX for specific spells
+	if ctrl.vfx:
+		match slot:
+			0:  # Mending Surge — cast flash (heal pulse on server response)
+				ctrl.vfx.spawn_cast_flash()
+			1:  # Mending Beam — beam tether to target (skip beam on self-cast)
+				var target := _resolve_selected_target_node()
+				if target and target != ctrl:
+					ctrl.vfx.start_heal_beam(target)
+				ctrl.vfx.start_channel_flux()
+			2:  # Life Swap — cast flash
+				ctrl.vfx.spawn_cast_flash()
+			3:  # Transfusion — zone telegraph + channel flux
+				ctrl.vfx.start_zone_telegraph(ctrl.global_position, 6.0)
+				ctrl.vfx.start_channel_flux()
+			4:  # Frost Ward — shield on target + cast flash
+				ctrl.vfx.spawn_cast_flash()
+				var target := _resolve_selected_target_node()
+				if target:
+					ctrl.vfx.spawn_frost_ward(target)
 
 
 func process_casting(delta: float) -> void:
@@ -62,6 +88,7 @@ func process_casting(delta: float) -> void:
 
 	ctrl._cast_timer -= delta
 	if ctrl._cast_timer <= 0.0:
+		_stop_active_vfx()
 		ctrl._casting_spell = {}
 		ctrl._enter_state(ctrl.State.MOVE)
 
@@ -80,8 +107,17 @@ func process_channeling(delta: float) -> void:
 		ctrl.velocity.x = move_toward(ctrl.velocity.x, 0.0, ctrl.ground_decel * delta)
 		ctrl.velocity.z = move_toward(ctrl.velocity.z, 0.0, ctrl.ground_decel * delta)
 
+	# Update channel flux VFX intensity
+	if ctrl.vfx and not ctrl._casting_spell.is_empty():
+		var total_dur: float = ctrl._casting_spell.get("dur", 1.0)
+		var progress: float = clampf(
+			(total_dur - ctrl._cast_timer) / maxf(total_dur, 0.01), 0.0, 1.0
+		)
+		ctrl.vfx.update_channel_flux(progress)
+
 	ctrl._cast_timer -= delta
 	if ctrl._cast_timer <= 0.0:
+		_stop_active_vfx()
 		ctrl._casting_spell = {}
 		ctrl._enter_state(ctrl.State.MOVE)
 
@@ -89,10 +125,11 @@ func process_channeling(delta: float) -> void:
 # --- Dodge ---
 
 
-func start_dodge() -> void:
+## Gust Step: dodge-like displacement triggered as a spell (cooldown/GCD/network already handled).
+func _start_gust_step() -> void:
 	var wish: Vector3 = ctrl.movement.get_camera_wish_dir()
 	if wish.length() > 0.1:
-		if ctrl._lock_on_active and ctrl._lock_target and is_instance_valid(ctrl._lock_target):
+		if ctrl._selected_target and is_instance_valid(ctrl._selected_target):
 			var input_dir := Input.get_vector(
 				"move_left", "move_right", "move_forward", "move_backward"
 			)
@@ -107,6 +144,35 @@ func start_dodge() -> void:
 	ctrl._enter_state(ctrl.State.DODGE)
 	ctrl._state_timer = ctrl.dodge_duration
 	ctrl._is_invincible = true
+	ctrl._casting_spell = {}
+
+	if ctrl.vfx:
+		ctrl.vfx.spawn_gust_trail()
+
+
+func start_dodge() -> void:
+	var wish: Vector3 = ctrl.movement.get_camera_wish_dir()
+	if wish.length() > 0.1:
+		if ctrl._selected_target and is_instance_valid(ctrl._selected_target):
+			var input_dir := Input.get_vector(
+				"move_left", "move_right", "move_forward", "move_backward"
+			)
+			_dodge_direction = (
+				(ctrl.transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
+			)
+		else:
+			_dodge_direction = wish
+	else:
+		_dodge_direction = (ctrl.transform.basis * Vector3(0.0, 0.0, 1.0)).normalized()
+
+	ctrl._enter_state(ctrl.State.DODGE)
+	ctrl._state_timer = ctrl.dodge_duration
+	ctrl._is_invincible = true
+
+	# Gust Step wind trail
+	if ctrl.vfx:
+		ctrl.vfx.spawn_gust_trail()
+
 	if NetworkManager.is_active:
 		NetworkManager.send_ability(3, 0.0, ctrl.rotation.y)
 
@@ -136,16 +202,31 @@ func process_stagger() -> void:
 		ctrl._enter_state(ctrl.State.MOVE)
 
 
+# --- VFX helpers ---
+
+
+## Stop all active ability VFX (beam, zone, channel flux).
+func _stop_active_vfx() -> void:
+	if ctrl.vfx:
+		ctrl.vfx.stop_channel_flux()
+		ctrl.vfx.stop_heal_beam()
+		ctrl.vfx.stop_zone_telegraph()
+
+
 # --- Target resolution ---
 
 
 ## Returns the peer_id of the current heal target, or -1 if none.
-## Priority: lock-on target > HUD mouseover target.
+## Priority: click-selected target > HUD mouseover target.
+## If an enemy is selected, heals self-cast (WoW healer behavior).
 func _resolve_target_peer() -> int:
-	# 1. Lock-on target (ally)
-	if ctrl._lock_on_active and ctrl._lock_target and is_instance_valid(ctrl._lock_target):
-		if "peer_id" in ctrl._lock_target:
-			return ctrl._lock_target.peer_id
+	# 1. Click-selected target
+	if ctrl._selected_target and is_instance_valid(ctrl._selected_target):
+		if "peer_id" in ctrl._selected_target:
+			# Enemy targeted — heals go to self
+			if _is_enemy(ctrl._selected_target):
+				return ctrl.peer_id
+			return ctrl._selected_target.peer_id
 
 	# 2. HUD party-frame mouseover
 	if ctrl.hud and ctrl.hud.has_method("get_mouseover_target"):
@@ -154,3 +235,20 @@ func _resolve_target_peer() -> int:
 			return hovered
 
 	return -1
+
+
+func _is_enemy(node: Node3D) -> bool:
+	for enemy in GameManager.enemies:
+		if enemy == node:
+			return true
+	return false
+
+
+## Returns the effective heal target Node3D, or null if none.
+## If an enemy is selected, returns self (heals self-cast).
+func _resolve_selected_target_node() -> Node3D:
+	if ctrl._selected_target and is_instance_valid(ctrl._selected_target):
+		if _is_enemy(ctrl._selected_target):
+			return ctrl
+		return ctrl._selected_target
+	return null

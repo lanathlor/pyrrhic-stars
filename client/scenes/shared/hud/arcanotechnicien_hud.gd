@@ -67,6 +67,7 @@ var _channel_active: bool = false
 var _party_data: Array = []  # Array[Dictionary] with: peer_id, name, health, max_health, class_name
 var _hovered_party_index: int = -1
 var _party_frame_rects: Array[Rect2] = []  # cached rects for hover detection
+var _selected_peer_id: int = -1  # click-selected target peer_id
 
 @onready var damage_overlay: ColorRect = $DamageOverlay
 @onready var lock_on_reticle: Control = $LockOnReticle
@@ -78,6 +79,9 @@ func _ready() -> void:
 	ability_bar.accent_color = ARCANOTECHNICIEN_COLOR
 	# Enable mouse pass-through but track mouse for party frame hover
 	mouse_filter = Control.MOUSE_FILTER_PASS
+	# WoW-style: reticle shows "SELECTED" instead of lock-on hints
+	lock_on_reticle.hint_text = ""
+	lock_on_reticle.lock_label = "SELECTED"
 
 
 func _process(delta: float) -> void:
@@ -154,6 +158,37 @@ func get_mouseover_target() -> int:
 	return _party_data[_hovered_party_index].get("peer_id", -1)
 
 
+## Returns the peer_id of the party member clicked at screen_pos, or -1 if none.
+func get_clicked_target(screen_pos: Vector2) -> int:
+	for i in _party_frame_rects.size():
+		if i < _party_data.size() and _party_frame_rects[i].has_point(screen_pos):
+			return _party_data[i].get("peer_id", -1)
+	return -1
+
+
+func show_selected_target(target: Node3D, cam: Camera3D) -> void:
+	if "peer_id" in target:
+		_selected_peer_id = target.peer_id
+	else:
+		_selected_peer_id = -1
+	lock_on_reticle.set_meta("lock_target", target)
+	lock_on_reticle.set_meta("lock_camera", cam)
+	lock_on_reticle._lock_active = true
+	lock_on_reticle.visible = true
+
+
+func hide_selected_target() -> void:
+	_selected_peer_id = -1
+	lock_on_reticle._lock_active = false
+	lock_on_reticle.remove_meta("lock_target")
+	lock_on_reticle.remove_meta("lock_camera")
+
+
+func update_selected_target(target: Node3D, cam: Camera3D) -> void:
+	lock_on_reticle.set_meta("lock_target", target)
+	lock_on_reticle.set_meta("lock_camera", cam)
+
+
 func show_damage_flash() -> void:
 	_damage_flash_timer = DAMAGE_FLASH_DURATION
 
@@ -164,22 +199,6 @@ func show_heal_flash() -> void:
 
 func show_hit_marker() -> void:
 	_hit_marker_timer = HIT_MARKER_DURATION
-
-
-func show_lock_on() -> void:
-	lock_on_reticle.visible = true
-	lock_on_reticle._lock_active = true
-
-
-func hide_lock_on() -> void:
-	lock_on_reticle._lock_active = false
-	lock_on_reticle.remove_meta("lock_target")
-	lock_on_reticle.remove_meta("lock_camera")
-
-
-func update_lock_on(target: Node3D, cam: Camera3D) -> void:
-	lock_on_reticle.set_meta("lock_target", target)
-	lock_on_reticle.set_meta("lock_camera", cam)
 
 
 # =============================================================================
@@ -394,14 +413,31 @@ func _draw_party_frames() -> void:
 		var frame_rect := Rect2(PARTY_FRAME_X, y, PARTY_FRAME_W, PARTY_FRAME_H)
 		_party_frame_rects.append(frame_rect)
 
-		# Background -- slightly brighter on hover
+		# Background -- brighter on selected or hover
+		var is_selected: bool = (pid == _selected_peer_id and _selected_peer_id > 0)
 		var is_hovered: bool = (i == _hovered_party_index)
-		var bg_color := Color(0.06, 0.08, 0.12, 0.65) if is_hovered else Color(0.03, 0.04, 0.06, 0.5)
+		var bg_color: Color
+		if is_selected:
+			bg_color = Color(0.1, 0.15, 0.25, 0.75)
+		elif is_hovered:
+			bg_color = Color(0.06, 0.08, 0.12, 0.65)
+		else:
+			bg_color = Color(0.03, 0.04, 0.06, 0.5)
 		draw_rect(frame_rect, bg_color)
 
-		# Border -- accent on hover
-		var border_color := ARCANOTECHNICIEN_COLOR if is_hovered else Color(PANEL_BORDER, 0.4)
-		draw_rect(frame_rect, border_color, false, 1.0 if not is_hovered else 1.5)
+		# Border -- accent on selected or hover
+		var border_color: Color
+		var border_width: float
+		if is_selected:
+			border_color = Color(0.4, 0.75, 1.0, 0.95)
+			border_width = 2.0
+		elif is_hovered:
+			border_color = ARCANOTECHNICIEN_COLOR
+			border_width = 1.5
+		else:
+			border_color = Color(PANEL_BORDER, 0.4)
+			border_width = 1.0
+		draw_rect(frame_rect, border_color, false, border_width)
 
 		# Name (truncated)
 		if uname.length() > 14:

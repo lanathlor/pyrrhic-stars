@@ -45,7 +45,8 @@ func accept_invite() -> void:
 		pending_invite_group_id = 0
 	ctrl._invite_popup.visible = false
 	if ctrl.state == ctrl.GameState.HUB:
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		if not ctrl._is_cursor_always_visible_class():
+			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 
 func decline_invite() -> void:
@@ -54,7 +55,8 @@ func decline_invite() -> void:
 		pending_invite_group_id = 0
 	ctrl._invite_popup.visible = false
 	if ctrl.state == ctrl.GameState.HUB:
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		if not ctrl._is_cursor_always_visible_class():
+			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 
 func update_group_panel() -> void:
