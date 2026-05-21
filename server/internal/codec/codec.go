@@ -18,9 +18,10 @@ type PlayerInputMsg struct {
 
 // AbilityInputMsg is the decoded ability activation packet.
 type AbilityInputMsg struct {
-	Action   uint8
-	AimPitch float32
-	RotY     float32
+	Action       uint8
+	AimPitch     float32
+	RotY         float32
+	TargetPeerID uint16 // ally target for heals (0 = no ally target)
 }
 
 // InteractInputMsg is the decoded lobby/interact packet.

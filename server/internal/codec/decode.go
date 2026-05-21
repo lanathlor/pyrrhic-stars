@@ -38,6 +38,9 @@ func DecodeAbilityInput(payload []byte) *AbilityInputMsg {
 	if len(payload) >= 9 {
 		msg.RotY = getF32(payload[5:9])
 	}
+	if len(payload) >= 11 {
+		msg.TargetPeerID = getU16(payload[9:11])
+	}
 	return msg
 }
 

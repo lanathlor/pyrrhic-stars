@@ -275,6 +275,15 @@ func EncodeAbilityInput(action uint8, aimPitch float32, rotY ...float32) []byte 
 	return buf
 }
 
+// EncodeAbilityInputWithTarget serializes a client→server ability activation packet
+// that includes an ally target peer ID for heals. Extends the standard 9-byte payload
+// with a 2-byte TargetPeerID suffix.
+func EncodeAbilityInputWithTarget(action uint8, aimPitch, rotY float32, targetPeerID uint16) []byte {
+	buf := EncodeAbilityInput(action, aimPitch, rotY)
+	buf = appendU16(buf, targetPeerID)
+	return buf
+}
+
 // EncodeInteractInput serializes a client→server interact packet.
 // Used by test clients to build OpInteractInput payloads.
 func EncodeInteractInput(action uint8, className string) []byte {

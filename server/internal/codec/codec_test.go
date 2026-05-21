@@ -1078,6 +1078,57 @@ func TestEncodeRespawnRequestRoundtrip(t *testing.T) {
 // getU16 wire helper
 // =============================================================================
 
+// =============================================================================
+// EncodeAbilityInputWithTarget roundtrip
+// =============================================================================
+
+func TestAbilityInputWithTarget_Roundtrip(t *testing.T) {
+	buf := EncodeAbilityInputWithTarget(50, 0.1, 1.2, 42)
+	if len(buf) != 11 {
+		t.Fatalf("len = %d, want 11", len(buf))
+	}
+	msg := DecodeAbilityInput(buf)
+	if msg == nil {
+		t.Fatal("DecodeAbilityInput returned nil")
+	}
+	if msg.Action != 50 {
+		t.Errorf("Action = %d, want 50", msg.Action)
+	}
+	if msg.AimPitch != 0.1 {
+		t.Errorf("AimPitch = %f, want 0.1", msg.AimPitch)
+	}
+	if msg.RotY != 1.2 {
+		t.Errorf("RotY = %f, want 1.2", msg.RotY)
+	}
+	if msg.TargetPeerID != 42 {
+		t.Errorf("TargetPeerID = %d, want 42", msg.TargetPeerID)
+	}
+}
+
+func TestAbilityInputWithoutTarget_BackwardCompat(t *testing.T) {
+	// A 9-byte payload (no target) should decode with TargetPeerID == 0.
+	buf := EncodeAbilityInput(7, -0.5, 2.0)
+	if len(buf) != 9 {
+		t.Fatalf("len = %d, want 9", len(buf))
+	}
+	msg := DecodeAbilityInput(buf)
+	if msg == nil {
+		t.Fatal("DecodeAbilityInput returned nil")
+	}
+	if msg.Action != 7 {
+		t.Errorf("Action = %d, want 7", msg.Action)
+	}
+	if msg.AimPitch != -0.5 {
+		t.Errorf("AimPitch = %f, want -0.5", msg.AimPitch)
+	}
+	if msg.RotY != 2.0 {
+		t.Errorf("RotY = %f, want 2.0", msg.RotY)
+	}
+	if msg.TargetPeerID != 0 {
+		t.Errorf("TargetPeerID = %d, want 0 (backward compat)", msg.TargetPeerID)
+	}
+}
+
 func TestGetU16(t *testing.T) {
 	buf := make([]byte, 2)
 	binary.LittleEndian.PutUint16(buf, 0x1234)

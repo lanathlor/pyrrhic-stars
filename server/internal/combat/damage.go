@@ -18,6 +18,7 @@ const (
 	SourceEnemyRanged  uint8 = 2
 	SourceEnemyAoE     uint8 = 3
 	SourceEnemyCharge  uint8 = 4
+	SourcePlayerHeal   uint8 = 5
 )
 
 // AoEShapeType identifies the geometry of an AoE check.
