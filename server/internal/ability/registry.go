@@ -40,6 +40,8 @@ func registerAbilities(eng *Engine) {
 	// Arcanotechnicien — Harmonist
 	eng.Register(&mendingSurgeDef)
 	eng.Register(&mendingBeamDef)
+	eng.Register(&vitalBloomDef)
+	eng.Register(&restorationMatrixDef)
 }
 
 func registerHandlers(eng *Engine) {
@@ -65,6 +67,8 @@ func registerHandlers(eng *Engine) {
 
 	eng.RegisterHandler("mending_surge", mendingSurgeHandler)
 	eng.RegisterHandler("mending_beam", mendingBeamHandler)
+	eng.RegisterHandler("vital_bloom", vitalBloomHandler)
+	eng.RegisterHandler("restoration_matrix", restorationMatrixHandler)
 
 	eng.RegisterTickHandler("rechamber", rechamberTick)
 	eng.RegisterTickHandler("vortex", vortexTick)

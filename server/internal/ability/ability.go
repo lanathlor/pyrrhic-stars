@@ -54,7 +54,8 @@ const (
 	HitNearestN                       // N nearest in-combat enemies
 	HitAllyTarget    HitType = 10 // single ally targeted by peer ID
 	HitAllyLowestHP  HitType = 11 // auto-select lowest HP ally
-	HitAllyRandom    HitType = 12 // random ally
+	HitAllyRandom        HitType = 12 // random ally
+	HitGroundPlacement   HitType = 13 // place a ground zone at caster position
 )
 
 // HitDef describes how an ability finds its targets.
@@ -124,6 +125,12 @@ type AbilityDef struct {
 	// Healing
 	BaseHeal    float32 `yaml:"base_heal"`
 	HealScaling string  `yaml:"heal_scaling"`
+
+	// Healing zone fields
+	ZoneRadius   float32 `yaml:"zone_radius"`
+	ZoneDuration float32 `yaml:"zone_duration"`
+	ZoneHealTick float32 `yaml:"zone_heal_tick"`
+	ZoneInterval float32 `yaml:"zone_interval"`
 
 	// Splash damage (secondary AoE around primary hit target)
 	SplashRadius         float32 `yaml:"splash_radius"`

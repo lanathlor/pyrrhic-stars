@@ -32,6 +32,9 @@ type CastContext struct {
 	// Heal targeting
 	Allies       map[uint16]*entity.Player // all players in zone (for heal targeting)
 	TargetPeerID uint16                    // client-specified ally target
+
+	// Zone spawning (set by the system layer to inject zones into the world)
+	SpawnZone func(zone *entity.HealingZone)
 }
 
 // TickContext carries the state needed for per-tick ability updates.

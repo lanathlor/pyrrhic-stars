@@ -197,6 +197,11 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 		Obstacles:    w.Level.Obstacles,
 		Allies:       w.Players,
 		TargetPeerID: inp.TargetPeerID,
+		SpawnZone: func(zone *entity.HealingZone) {
+			w.NextZoneID++
+			zone.ID = w.NextZoneID
+			w.HealingZones = append(w.HealingZones, zone)
+		},
 	}
 	result := w.AbilityEngine.Cast(abilityID, ctx)
 	if !result.OK {
