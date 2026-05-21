@@ -114,6 +114,12 @@ type Player struct {
 	// Active DoTs (sourced from this player onto enemies)
 	DoTs []ActiveDoT
 
+	// Channel state (player ability runner)
+	ChannelAbilityID string
+	ChannelTimer     float32
+	ChannelCharge    float32
+	ChannelPhase     uint8 // 0=idle, 1=commit, 2=execute, 3=cooldown
+
 	// Blade Dancer config (visual state for client)
 	Config int // 0=orbit, 1=fan, 2=lance, 3=scatter, 4=crown
 

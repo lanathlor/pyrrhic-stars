@@ -182,4 +182,8 @@ type AbilityDef struct {
 	Cancellable      bool `yaml:"cancellable"`        // BT can abort during commit phase
 	CanMoveCommitted bool `yaml:"can_move_committed"` // entity can move during commit
 	CanMoveExecuting bool `yaml:"can_move_executing"` // entity can move during execute
+
+	// Player channel control
+	CancelConditions uint8  `yaml:"cancel_conditions"` // bitmask: which events cancel during commit
+	OnCommitTick     string `yaml:"on_commit_tick"`     // handler name called each tick during commit
 }
