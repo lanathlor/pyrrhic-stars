@@ -175,9 +175,11 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 	// Cast through the ability engine
 	w.enemyTargetBuf = enemiesToTargets(w.enemyTargetBuf, w.Enemies)
 	ctx := &ability.CastContext{
-		Caster:    p,
-		Targets:   w.enemyTargetBuf,
-		Obstacles: w.Level.Obstacles,
+		Caster:       p,
+		Targets:      w.enemyTargetBuf,
+		Obstacles:    w.Level.Obstacles,
+		Allies:       w.Players,
+		TargetPeerID: inp.TargetPeerID,
 	}
 	result := w.AbilityEngine.Cast(abilityID, ctx)
 	if !result.OK {
@@ -229,6 +231,17 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 			}
 			w.logPhaseChange(enemy)
 		}
+	}
+
+	// Convert heal results to damage events (SourceType=5 distinguishes heals on the client)
+	for _, h := range result.Heals {
+		w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
+			TargetPeerID: h.TargetID,
+			SourcePeerID: h.SourceID,
+			Amount:       h.Amount,
+			HitPos:       h.HitPos,
+			SourceType:   h.SourceType,
+		})
 	}
 
 	// Log buff applications
