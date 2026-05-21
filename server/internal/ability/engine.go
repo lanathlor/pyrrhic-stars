@@ -39,10 +39,20 @@ type TickContext struct {
 // Common cast failure reasons.
 const ReasonInsufficientStamina = "insufficient stamina"
 
+// HealResult is emitted by ability resolution when a heal is applied.
+type HealResult struct {
+	TargetID   uint16
+	SourceID   uint16
+	Amount     float32
+	HitPos     entity.Vec3
+	SourceType uint8
+}
+
 // CastResult is returned by the engine after attempting to cast an ability.
 type CastResult struct {
 	OK     bool
 	Events []DamageResult
+	Heals  []HealResult
 	Reason string
 }
 
