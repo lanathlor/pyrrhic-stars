@@ -189,7 +189,8 @@ type Player struct {
 	ChannelAbilityID string
 	ChannelTimer     float32
 	ChannelCharge    float32
-	ChannelPhase     uint8 // 0=idle, 1=commit, 2=execute, 3=cooldown
+	ChannelPhase     uint8  // 0=idle, 1=commit, 2=execute, 3=cooldown
+	ChannelTargetID  uint16 // peer ID of channel target (for beam/transfusion)
 
 	// Harmony state (Harmonist spec only)
 	Harmony *HarmonyState

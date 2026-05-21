@@ -43,6 +43,7 @@ func registerAbilities(eng *Engine) {
 	eng.Register(&vitalBloomDef)
 	eng.Register(&restorationMatrixDef)
 	eng.Register(&lifeSwapDef)
+	eng.Register(&transfusionDef)
 }
 
 func registerHandlers(eng *Engine) {
@@ -71,6 +72,7 @@ func registerHandlers(eng *Engine) {
 	eng.RegisterHandler("vital_bloom", vitalBloomHandler)
 	eng.RegisterHandler("restoration_matrix", restorationMatrixHandler)
 	eng.RegisterHandler("life_swap", lifeSwapHandler)
+	eng.RegisterHandler("transfusion", transfusionHandler)
 
 	eng.RegisterTickHandler("rechamber", rechamberTick)
 	eng.RegisterTickHandler("vortex", vortexTick)
