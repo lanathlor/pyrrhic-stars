@@ -68,6 +68,9 @@ func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.
 			p.HasBuff("vg_shield_parry") || p.HasBuff("vg_shield_block") {
 			flags |= 0x20
 		}
+		if p.ClassID == entity.ClassArcanotechnicien && p.ChannelPhase == 1 {
+			flags |= 0x20
+		}
 		// Bits 6-7: class-specific mastery tier (Vanguard=onslaught/devotion, BD=flow).
 		switch p.ClassID {
 		case entity.ClassVanguard:
@@ -116,6 +119,10 @@ func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.
 				if st, ok := s.(stacker); ok {
 					masteryStacks = uint8(min(st.StackCount(), 255))
 				}
+			}
+		case entity.ClassArcanotechnicien:
+			if p.Confluence != nil {
+				masteryStacks = uint8(p.Confluence.Stacks)
 			}
 		}
 		buf = append(buf, masteryStacks)

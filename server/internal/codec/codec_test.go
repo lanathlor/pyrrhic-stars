@@ -1137,3 +1137,92 @@ func TestGetU16(t *testing.T) {
 		t.Errorf("getU16 = 0x%04X, want 0x1234", got)
 	}
 }
+
+// =============================================================================
+// Arcanotechnicien WorldState encoding — Confluence stacks & channeling flag
+// =============================================================================
+
+func TestWorldStateArcanotechnicienEncoding(t *testing.T) {
+	tests := []struct {
+		name             string
+		confluenceStacks int
+		channelPhase     uint8
+		wantStacks       uint8
+		wantChannelFlag  bool
+	}{
+		{
+			name:             "confluence 3 stacks, channeling",
+			confluenceStacks: 3,
+			channelPhase:     1,
+			wantStacks:       3,
+			wantChannelFlag:  true,
+		},
+		{
+			name:             "confluence 5 stacks, not channeling",
+			confluenceStacks: 5,
+			channelPhase:     0,
+			wantStacks:       5,
+			wantChannelFlag:  false,
+		},
+		{
+			name:             "zero stacks, channeling",
+			confluenceStacks: 0,
+			channelPhase:     1,
+			wantStacks:       0,
+			wantChannelFlag:  true,
+		},
+		{
+			name:             "zero stacks, not channeling",
+			confluenceStacks: 0,
+			channelPhase:     0,
+			wantStacks:       0,
+			wantChannelFlag:  false,
+		},
+		{
+			name:             "execute phase is not channeling",
+			confluenceStacks: 2,
+			channelPhase:     2,
+			wantStacks:       2,
+			wantChannelFlag:  false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			p := &entity.Player{
+				Combatant: entity.Combatant{
+					ID:        1,
+					Alive:     true,
+					Health:    100,
+					MaxHealth: 100,
+				},
+				ClassID:      entity.ClassArcanotechnicien,
+				ChannelPhase: tc.channelPhase,
+				Confluence:   &entity.ConfluenceState{Stacks: tc.confluenceStacks, MaxStacks: 5},
+				Resources:    make(map[string]*entity.Resource),
+				AbilityState: make(map[string]any),
+			}
+
+			buf := EncodeWorldState(1, map[uint16]*entity.Player{1: p}, nil, nil)
+			ws, ok := DecodeWorldState(buf)
+			if !ok {
+				t.Fatal("DecodeWorldState failed")
+			}
+			if len(ws.Players) != 1 {
+				t.Fatalf("players = %d, want 1", len(ws.Players))
+			}
+
+			dp := ws.Players[0]
+
+			if dp.OnslaughtStacks != tc.wantStacks {
+				t.Errorf("OnslaughtStacks = %d, want %d", dp.OnslaughtStacks, tc.wantStacks)
+			}
+
+			gotFlag := dp.BuffFlags&0x20 != 0
+			if gotFlag != tc.wantChannelFlag {
+				t.Errorf("channeling flag (0x20) = %v, want %v (BuffFlags=0x%02X)",
+					gotFlag, tc.wantChannelFlag, dp.BuffFlags)
+			}
+		})
+	}
+}
