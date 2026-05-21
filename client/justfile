@@ -38,9 +38,9 @@ test-suite suite:
 
 # --- Run ---
 
-# Launch Godot
+# Launch Godot in dev mode (debug panel, auto-start server)
 run:
-    godot
+    godot -- --dev
 
 # Launch Godot editor
 editor:

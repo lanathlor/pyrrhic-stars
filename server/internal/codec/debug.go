@@ -52,3 +52,25 @@ func DecodeDebugTimeScale(payload []byte) (float32, bool) {
 	bits := binary.LittleEndian.Uint32(payload[0:4])
 	return math.Float32frombits(bits), true
 }
+
+// DecodeDebugSpawnBot reads two str8 fields: class name and spec ID.
+func DecodeDebugSpawnBot(payload []byte) (className, specID string, ok bool) {
+	className, ok = DecodeDebugStr8(payload)
+	if !ok {
+		return "", "", false
+	}
+	offset := 1 + len(className)
+	specID, ok = DecodeDebugStr8(payload[offset:])
+	if !ok {
+		return "", "", false
+	}
+	return className, specID, true
+}
+
+// DecodeDebugDismissBot reads a uint16 bot ID (0 = dismiss all).
+func DecodeDebugDismissBot(payload []byte) (botID uint16, ok bool) {
+	if len(payload) < 2 {
+		return 0, false
+	}
+	return binary.BigEndian.Uint16(payload[0:2]), true
+}

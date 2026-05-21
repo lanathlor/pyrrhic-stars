@@ -54,16 +54,13 @@ func newGateway(ctr *container.Container) *gateway {
 }
 
 // getOrCreateZone returns the zone for the given ID, creating it if needed.
-// groupSize is used for instance scaling (ignored for open-world zones).
+// Instance scaling is handled dynamically as players join/leave via AddClient/RemoveClient.
 func (g *gateway) getOrCreateZone(zoneID string, zoneType zone.ZoneType, groupSize int) *zoneInstance {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	zi, ok := g.zones[zoneID]
 	if !ok {
 		z := zone.New(zoneID, zoneType)
-		if zoneType == zone.ZoneTypeInstanced {
-			z.SetGroupSize(groupSize)
-		}
 		z.CombatLogSink = g.container.CombatLogSink
 		ctx, cancel := context.WithCancel(context.Background())
 		zi = &zoneInstance{zone: z, zoneType: zoneType, cancel: cancel, nextID: 1}

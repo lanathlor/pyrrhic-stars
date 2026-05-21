@@ -480,6 +480,24 @@ func send_debug_request_info() -> void:
 	send_msg(NetSerializer.OP_DEBUG_REQUEST_INFO)
 
 
+func send_debug_spawn_bot(cls_name: String, spec_id: String) -> void:
+	var payload := PackedByteArray()
+	var cls := cls_name.to_utf8_buffer()
+	payload.append(cls.size())
+	payload.append_array(cls)
+	var spec := spec_id.to_utf8_buffer()
+	payload.append(spec.size())
+	payload.append_array(spec)
+	send_msg(NetSerializer.OP_DEBUG_SPAWN_BOT, payload)
+
+
+func send_debug_dismiss_bot(bot_id: int = 0) -> void:
+	var payload := PackedByteArray()
+	payload.resize(2)
+	payload.encode_u16(0, bot_id)
+	send_msg(NetSerializer.OP_DEBUG_DISMISS_BOT, payload)
+
+
 func _handle_debug_info(payload: PackedByteArray) -> void:
 	var data := NetSerializer.decode_debug_info(payload)
 	print("[Net] Debug info: boss=%s abilities=%s" % [data.def_name, data.abilities])

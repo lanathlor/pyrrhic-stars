@@ -122,6 +122,7 @@ var state: GameState = GameState.MENU
 var paused: bool = false
 var dev_mode: bool = false
 var _debug_panel: CanvasLayer = null
+var _bot_panel: CanvasLayer = null
 var _server_pid: int = -1
 var _dev_class: String = "gunner"
 var _dev_zone: String = "arena"
@@ -314,6 +315,10 @@ func _ready() -> void:
 		var DebugPanelScript := preload("res://scenes/ui/debug_panel.gd")
 		_debug_panel = DebugPanelScript.new()
 		add_child(_debug_panel)
+		var BotPanelScript := preload("res://scenes/ui/bot_panel.gd")
+		_bot_panel = BotPanelScript.new()
+		_bot_panel.closed.connect(_update_cursor_mode)
+		add_child(_bot_panel)
 		print("[Main] Dev mode enabled — class=%s zone=%s" % [_dev_class, _dev_zone])
 
 	if dev_mode:
@@ -423,7 +428,11 @@ func _input(event: InputEvent) -> void:
 					NetworkManager.send_enter_portal()
 				elif hub_interact.aimed_peer_id > 0:
 					NetworkManager.send_group_invite(hub_interact.aimed_peer_id)
-			elif event.physical_keycode == KEY_G:
+			elif event.physical_keycode == KEY_G and event.ctrl_pressed:
+				if dev_mode:
+					_toggle_bot_panel()
+					get_viewport().set_input_as_handled()
+			elif event.physical_keycode == KEY_G and not event.ctrl_pressed:
 				# Toggle group: create if not in group, leave if in group
 				if group_mgr.group_data.get("group_id", 0) > 0:
 					NetworkManager.send_group_leave()
@@ -851,6 +860,20 @@ func _select_class(class_name_str: String) -> void:
 	hub_interact.update_hub_display()
 
 
+func _toggle_bot_panel() -> void:
+	if _bot_panel != null:
+		_bot_panel.toggle()
+		_update_cursor_mode()
+
+
+func _respawn_bots_after_transfer() -> void:
+	if _bot_panel == null:
+		return
+	var configs: Array = _bot_panel.get_bot_configs()
+	for cfg in configs:
+		NetworkManager.send_debug_spawn_bot(cfg["class"], cfg["spec"])
+
+
 func _toggle_spec_panel() -> void:
 	_spec_panel.set_specs(SPEC_INFO.get(_local_class, []), _local_spec)
 	_spec_panel.toggle()
@@ -972,6 +995,9 @@ func _on_zone_transfer(zone_type: int, _new_peer_id: int) -> void:
 		env_builder.load_environment(HUB_SCENE)
 		_enter_hub()
 
+	# Re-spawn bots after zone transfer (they are zone-local on the server)
+	_respawn_bots_after_transfer()
+
 
 # =============================================================================
 # Server-authoritative signal handlers
@@ -1021,7 +1047,8 @@ func _toggle_pause() -> void:
 func _update_cursor_mode() -> void:
 	var inv_open: bool = _inventory_layer.equip_panel.visible or _inventory_layer.bag_panel.visible
 	var spec_open: bool = _spec_panel.visible
-	var want_cursor: bool = _cursor_toggled or _alt_held or inv_open or spec_open
+	var bot_open: bool = _bot_panel != null and _bot_panel.visible
+	var want_cursor: bool = _cursor_toggled or _alt_held or inv_open or spec_open or bot_open
 	if want_cursor:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	else:

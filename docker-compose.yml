@@ -15,6 +15,7 @@ services:
             clickhouse:
                 condition: service_healthy
         environment:
+            CODEX_DEV: '1'
             REDIS_ADDR: redis:6379
             DB_DRIVER: sqlite
             CODEX_LEVELS_DIR: /shared/levels

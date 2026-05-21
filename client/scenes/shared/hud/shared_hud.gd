@@ -318,6 +318,7 @@ func _draw_group_frames() -> void:
 			if pid != _local_peer_id:
 				pids_to_show.append(pid)
 
+	pids_to_show.sort()
 	if pids_to_show.is_empty():
 		return
 
