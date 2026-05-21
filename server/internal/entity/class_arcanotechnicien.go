@@ -49,10 +49,11 @@ var arcanotechnicienHarmonistSpec = SpecDef{
 	Resources: map[string]ResourceTemplate{
 		"flux": {Max: 160, Initial: 160, Regen: 7, RegenDelay: 0},
 	},
-	Abilities: []string{"mending_surge", "dodge"},
+	Abilities: []string{"mending_surge", "mending_beam", "dodge"},
 	ActionMap: map[uint8]string{
 		3:  "dodge",
 		50: "mending_surge",
+		51: "mending_beam",
 	},
 }
 
