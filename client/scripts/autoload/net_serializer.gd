@@ -98,6 +98,8 @@ const VS_BD_STAGGER := 22
 const VS_AT_CASTING := 40
 const VS_AT_CHANNELING := 41
 const VS_AT_STAGGER := 42
+const VS_AT_CHANNELING_BEAM := 43
+const VS_AT_CHANNELING_ZONE := 44
 
 # Debug — client → server (dev mode only)
 const OP_DEBUG_FORCE_CAST := 0x00D0
@@ -493,8 +495,9 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 		var shield_hp := buf.get_float() if buf.get_position() + 4 <= buf.get_size() else 0.0
 		var munitions := buf.get_float() if buf.get_position() + 4 <= buf.get_size() else 0.0
 		var resonance := buf.get_float() if buf.get_position() + 4 <= buf.get_size() else 0.0
-		var onslaught_stacks := buf.get_u8() if buf.get_position() < buf.get_size() else 0
 		var player_flux := buf.get_float() if buf.get_position() + 4 <= buf.get_size() else 0.0
+		var max_flux := buf.get_float() if buf.get_position() + 4 <= buf.get_size() else 0.0
+		var onslaught_stacks := buf.get_u8() if buf.get_position() < buf.get_size() else 0
 		# Gunner Assault state (7 bytes)
 		var magazine := buf.get_u8() if buf.get_position() < buf.get_size() else 0
 		var mag_max := buf.get_u8() if buf.get_position() < buf.get_size() else 0
@@ -543,6 +546,7 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 					"mag_dump_active": bool(assault_flags & 0x02),
 					"speed_mult": float(speed_mult_q) / 255.0,
 					"flux": player_flux,
+					"max_flux": max_flux,
 				}
 			)
 		)

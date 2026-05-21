@@ -99,6 +99,7 @@ func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.
 		buf = appendF32(buf, p.GetResource("munitions"))
 		buf = appendF32(buf, p.GetResource("resonance"))
 		buf = appendF32(buf, p.GetResource("flux"))
+		buf = appendF32(buf, p.GetResourceMax("flux"))
 		// Class-specific mastery stacks (1 byte: VG=onslaught/devotion, BD=flow, others=0).
 		var masteryStacks uint8
 		switch p.ClassID {

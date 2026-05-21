@@ -492,6 +492,14 @@ func (p *Player) GetResource(name string) float32 {
 	return 0
 }
 
+// GetResourceMax returns the max value of a resource, or 0 if not present.
+func (p *Player) GetResourceMax(name string) float32 {
+	if r, ok := p.Resources[name]; ok {
+		return r.Max
+	}
+	return 0
+}
+
 // SpendResource deducts amount from a resource. Returns false if insufficient.
 func (p *Player) SpendResource(name string, amount float32) bool {
 	r, ok := p.Resources[name]

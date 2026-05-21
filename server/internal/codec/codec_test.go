@@ -255,7 +255,7 @@ func TestWorldStateFluxRoundtrip(t *testing.T) {
 		},
 		ClassID: entity.ClassGunner,
 		Resources: map[string]*entity.Resource{
-			"flux":      {Current: 75.5},
+			"flux":      {Current: 75.5, Max: 160.0},
 			"stamina":   {Current: 50.0},
 			"shield":    {Current: 25.0},
 			"munitions": {Current: 10.0},
@@ -287,6 +287,9 @@ func TestWorldStateFluxRoundtrip(t *testing.T) {
 	}
 	if dp.Flux != 75.5 {
 		t.Errorf("Flux = %f, want 75.5", dp.Flux)
+	}
+	if dp.MaxFlux != 160.0 {
+		t.Errorf("MaxFlux = %f, want 160.0", dp.MaxFlux)
 	}
 }
 
@@ -437,6 +440,11 @@ func TestEncodeWorldStateWireFormat(t *testing.T) {
 	off += 4
 	if fluxVal != 0.0 {
 		t.Errorf("flux = %f, want 0.0", fluxVal)
+	}
+	maxFluxVal := math.Float32frombits(binary.LittleEndian.Uint32(buf[off:]))
+	off += 4
+	if maxFluxVal != 0.0 {
+		t.Errorf("max_flux = %f, want 0.0", maxFluxVal)
 	}
 	// onslaught_stacks (1 byte)
 	if buf[off] != 0 {
@@ -1224,5 +1232,65 @@ func TestWorldStateArcanotechnicienEncoding(t *testing.T) {
 					gotFlag, tc.wantChannelFlag, dp.BuffFlags)
 			}
 		})
+	}
+}
+
+// TestWorldStateArcanotechnicienFieldOrder verifies the exact wire order:
+// resonance(f32) → flux(f32) → masteryStacks(u8). A swap between flux and
+// masteryStacks would cause the client to read a u8 where a f32 is expected,
+// corrupting all subsequent per-player data (the bug that caused the freeze).
+func TestWorldStateArcanotechnicienFieldOrder(t *testing.T) {
+	p := &entity.Player{
+		Combatant: entity.Combatant{
+			ID:        1,
+			Alive:     true,
+			Health:    120.0,
+			MaxHealth: 170.0,
+		},
+		ClassID:      entity.ClassArcanotechnicien,
+		ChannelPhase: 1,
+		Confluence:   &entity.ConfluenceState{Stacks: 3, MaxStacks: 5},
+		Resources: map[string]*entity.Resource{
+			"flux":      {Current: 87.5, Max: 160.0},
+			"resonance": {Current: 42.0},
+			"stamina":   {Current: 0},
+			"shield":    {Current: 0},
+			"munitions": {Current: 0},
+		},
+		AbilityState: make(map[string]any),
+	}
+
+	buf := EncodeWorldState(1, map[uint16]*entity.Player{1: p}, nil, nil)
+	ws, ok := DecodeWorldState(buf)
+	if !ok {
+		t.Fatal("DecodeWorldState failed")
+	}
+	if len(ws.Players) != 1 {
+		t.Fatalf("players = %d, want 1", len(ws.Players))
+	}
+
+	dp := ws.Players[0]
+
+	// These three fields are adjacent on the wire. If their order is wrong,
+	// the float values will be garbage (reading a u8 as part of a f32).
+	if dp.Resonance != 42.0 {
+		t.Errorf("Resonance = %f, want 42.0", dp.Resonance)
+	}
+	if dp.Flux != 87.5 {
+		t.Errorf("Flux = %f, want 87.5", dp.Flux)
+	}
+	if dp.MaxFlux != 160.0 {
+		t.Errorf("MaxFlux = %f, want 160.0", dp.MaxFlux)
+	}
+	if dp.OnslaughtStacks != 3 {
+		t.Errorf("OnslaughtStacks (confluence) = %d, want 3", dp.OnslaughtStacks)
+	}
+
+	// Also verify health roundtrips (would be corrupted if earlier offset was wrong).
+	if dp.Health != 120.0 {
+		t.Errorf("Health = %f, want 120.0", dp.Health)
+	}
+	if dp.MaxHealth != 170.0 {
+		t.Errorf("MaxHealth = %f, want 170.0", dp.MaxHealth)
 	}
 }
