@@ -17,8 +17,8 @@ const (
 type CancelCondition uint8
 
 const (
-	CancelNone     CancelCondition = 0
-	CancelOnMove   CancelCondition = 1 << iota
+	CancelNone   CancelCondition = 0
+	CancelOnMove CancelCondition = 1 << iota
 	CancelOnDamage
 	CancelOnInput
 )

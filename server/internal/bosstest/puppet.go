@@ -49,20 +49,20 @@ var profileTable = map[BotProfile]ProfileParams{
 
 // Preferred range per class (how far the puppet wants to stand from the boss).
 var classPreferredRange = map[string]float32{
-	entity.ClassGunner:            10.0,
-	entity.ClassVanguard:          2.5,
-	entity.ClassBladeDancer:       3.0,
-	entity.ClassArcanotechnicien:  7.0, // mid-range for Sympathetic Field coverage
+	entity.ClassGunner:           10.0,
+	entity.ClassVanguard:         2.5,
+	entity.ClassBladeDancer:      3.0,
+	entity.ClassArcanotechnicien: 7.0, // mid-range for Sympathetic Field coverage
 }
 
 // classSafetyScale reduces SafetyMargin for melee classes.
 // Melee classes need 0 margin — dodging happens at exact danger boundary.
 // SafetyMargin only helps ranged classes (wider buffer at no DPS cost).
 var classSafetyScale = map[string]float32{
-	entity.ClassGunner:            1.0,
-	entity.ClassVanguard:          0.3,
-	entity.ClassBladeDancer:       0.3,
-	entity.ClassArcanotechnicien:  0.8, // mostly ranged but needs to be near allies
+	entity.ClassGunner:           1.0,
+	entity.ClassVanguard:         0.3,
+	entity.ClassBladeDancer:      0.3,
+	entity.ClassArcanotechnicien: 0.8, // mostly ranged but needs to be near allies
 }
 
 // PuppetContext is the tick context passed to puppet BT leaves.

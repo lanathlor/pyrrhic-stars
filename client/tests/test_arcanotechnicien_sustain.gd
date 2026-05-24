@@ -25,9 +25,17 @@ func before_test() -> void:
 
 func after_test() -> void:
 	for action in [
-		"move_forward", "move_backward", "move_left", "move_right",
-		"dodge", "harmonist_slot_0", "harmonist_slot_1",
-		"heavy_attack", "ability_1", "ability_2", "ui_cancel"
+		"move_forward",
+		"move_backward",
+		"move_left",
+		"move_right",
+		"dodge",
+		"harmonist_slot_0",
+		"harmonist_slot_1",
+		"heavy_attack",
+		"ability_1",
+		"ability_2",
+		"ui_cancel"
 	]:
 		if Input.is_action_pressed(action):
 			Input.action_release(action)
@@ -188,7 +196,7 @@ func test_channeling_enters_sustain_when_ability_has_sustain() -> void:
 	# Set up a sustain ability that has finished its channel
 	_arcano.state = ArcanoScript.State.CHANNELING
 	_arcano._committing_ability = {name = "Mending Beam", dur = 2.0, sustain = true}
-	_arcano._commit_timer = 0.01  # About to expire
+	_arcano._cast_timer = 0.01  # About to expire
 	_arcano.combat._sustaining = false
 
 	# Tick past the timer
@@ -199,7 +207,7 @@ func test_channeling_enters_sustain_when_ability_has_sustain() -> void:
 func test_channeling_stays_channeling_state_during_sustain() -> void:
 	_arcano.state = ArcanoScript.State.CHANNELING
 	_arcano._committing_ability = {name = "Mending Beam", dur = 2.0, sustain = true}
-	_arcano._commit_timer = 0.01
+	_arcano._cast_timer = 0.01
 	_arcano.combat._sustaining = false
 	_arcano.combat.process_channeling(0.02)
 	# Should remain in CHANNELING (not MOVE)
@@ -209,7 +217,7 @@ func test_channeling_stays_channeling_state_during_sustain() -> void:
 func test_channeling_exits_to_move_when_no_sustain() -> void:
 	_arcano.state = ArcanoScript.State.CHANNELING
 	_arcano._committing_ability = {name = "Life Swap", dur = 0.3}
-	_arcano._commit_timer = 0.01
+	_arcano._cast_timer = 0.01
 	_arcano.combat._sustaining = false
 	_arcano.combat.process_channeling(0.02)
 	# Non-sustain ability: should exit to MOVE
@@ -219,7 +227,7 @@ func test_channeling_exits_to_move_when_no_sustain() -> void:
 func test_sustain_elapsed_increments_during_sustain() -> void:
 	_arcano.state = ArcanoScript.State.CHANNELING
 	_arcano._committing_ability = {name = "Mending Beam", dur = 2.0, sustain = true}
-	_arcano._commit_timer = 0.0
+	_arcano._cast_timer = 0.0
 	_arcano.combat._sustaining = true
 	_arcano.combat._sustain_elapsed = 0.0
 	# Tick in sustain mode
@@ -230,7 +238,7 @@ func test_sustain_elapsed_increments_during_sustain() -> void:
 func test_sustain_elapsed_accumulates() -> void:
 	_arcano.state = ArcanoScript.State.CHANNELING
 	_arcano._committing_ability = {name = "Mending Beam", dur = 2.0, sustain = true}
-	_arcano._commit_timer = 0.0
+	_arcano._cast_timer = 0.0
 	_arcano.combat._sustaining = true
 	_arcano.combat._sustain_elapsed = 0.0
 	for i in 10:
@@ -286,10 +294,7 @@ func test_server_state_cancels_sustain_when_phase_not_3() -> void:
 	_arcano._committing_ability = {name = "test"}
 	_arcano._alive = true
 	# Server sends channel_phase = 0 (idle / cooldown)
-	_arcano.apply_server_state({
-		pos = Vector3.ZERO, rot_y = 0.0, health = 100.0,
-		channel_phase = 0
-	})
+	_arcano.apply_server_state({pos = Vector3.ZERO, rot_y = 0.0, health = 100.0, channel_phase = 0})
 	assert_bool(_arcano.combat._sustaining).is_false()
 
 
@@ -300,10 +305,7 @@ func test_server_state_keeps_sustain_when_phase_is_3() -> void:
 	_arcano._committing_ability = {name = "test"}
 	_arcano._alive = true
 	# Server sends channel_phase = 3 (sustain)
-	_arcano.apply_server_state({
-		pos = Vector3.ZERO, rot_y = 0.0, health = 100.0,
-		channel_phase = 3
-	})
+	_arcano.apply_server_state({pos = Vector3.ZERO, rot_y = 0.0, health = 100.0, channel_phase = 3})
 	assert_bool(_arcano.combat._sustaining).is_true()
 
 
@@ -378,7 +380,7 @@ func test_hud_channel_shows_sustain_during_sustain() -> void:
 func test_hud_channel_shows_progress_during_normal_channel() -> void:
 	_arcano.state = ArcanoScript.State.CHANNELING
 	_arcano._committing_ability = {name = "Transfusion", dur = 1.5}
-	_arcano._commit_timer = 0.75
+	_arcano._cast_timer = 0.75
 	_arcano.combat._sustaining = false
 	_arcano._update_hud_channel()
 	assert_bool(_hud._sustain_active).is_false()

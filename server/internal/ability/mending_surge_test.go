@@ -102,7 +102,7 @@ func TestMendingSurge(t *testing.T) {
 			wantHealCount:  1,
 			wantHealTarget: 2,
 			wantHealAmount: 60.4, // 35 * 1.5 (identity) * 1.15 (Sympathetic Field) = 60.375
-			wantFlux:       135, // 160 (initial current) - 40 (cost) = 120
+			wantFlux:       135,  // 160 (initial current) - 40 (cost) = 120
 			wantCooldown:   true,
 			wantGCD:        true,
 		},
@@ -141,7 +141,7 @@ func TestMendingSurge(t *testing.T) {
 			caster, allies, targetPeer := tt.setup()
 
 			result := eng.Commit("mending_surge", &CommitContext{
-				Committer:       caster,
+				Committer:    caster,
 				Allies:       allies,
 				TargetPeerID: targetPeer,
 			})
@@ -174,7 +174,7 @@ func TestMendingSurge(t *testing.T) {
 				}
 			}
 
-			flux := caster.Resources["flux"]
+			flux := caster.Resources[entity.ResourceFlux]
 			if tt.wantFlux >= 0 && flux != nil && math.Abs(float64(flux.Current-tt.wantFlux)) > 0.5 {
 				t.Errorf("Flux = %.1f, want %.1f", flux.Current, tt.wantFlux)
 			}

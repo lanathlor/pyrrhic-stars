@@ -22,11 +22,13 @@ const NET_INTERP_SPEED := 15.0
 const ABILITY_SLOT_ACTIONS: Array[StringName] = [
 	&"harmonist_slot_0",  # slot 0 -- 1 key
 	&"harmonist_slot_1",  # slot 1 -- 2 key
-	&"heavy_attack",      # slot 2 -- R
-	&"ability_2",         # slot 3 -- T
-	&"ability_1",         # slot 4 -- F
-	&"dodge",             # slot 5 -- C (overloaded: dodge when no target, ability when targeting)
+	&"heavy_attack",  # slot 2 -- R
+	&"ability_2",  # slot 3 -- T
+	&"ability_1",  # slot 4 -- F
+	&"dodge",  # slot 5 -- C (overloaded: dodge when no target, ability when targeting)
 ]
+
+const SLOT_KEYBINDS: Array[String] = ["1", "2", "R", "T", "F", "C"]
 
 ## Harmonist ability table. action_id = 50 + slot_index.
 const HARMONIST_ABILITIES: Array[Dictionary] = [
@@ -89,9 +91,13 @@ const HARMONIST_ABILITIES: Array[Dictionary] = [
 	},
 ]
 
-const MovementScript := preload("res://scenes/controllers/arcanotechnicien/arcanotechnicien_movement.gd")
+const MovementScript := preload(
+	"res://scenes/controllers/arcanotechnicien/arcanotechnicien_movement.gd"
+)
 const CombatScript := preload("res://scenes/controllers/arcanotechnicien/harmonist_combat.gd")
-const CameraScript := preload("res://scenes/controllers/arcanotechnicien/arcanotechnicien_camera.gd")
+const CameraScript := preload(
+	"res://scenes/controllers/arcanotechnicien/arcanotechnicien_camera.gd"
+)
 const VfxScript := preload("res://scenes/controllers/arcanotechnicien/vfx/harmonist_vfx.gd")
 
 # Movement
@@ -297,7 +303,12 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		if combat._sustaining:
 			combat.cancel_sustain()
-			# Send cancel to server (dodge with no movement acts as cancel)
+			if NetworkManager.is_active:
+				NetworkManager.send_ability(255, 0.0, rotation.y)
+			get_viewport().set_input_as_handled()
+			return
+		if state == State.CASTING or state == State.CHANNELING:
+			combat.cancel_commit()
 			if NetworkManager.is_active:
 				NetworkManager.send_ability(255, 0.0, rotation.y)
 			get_viewport().set_input_as_handled()
@@ -393,10 +404,7 @@ func _physics_process(delta: float) -> void:
 	cam.update_animation()
 	# Clear selection if target is dead, freed, or hidden
 	if _selected_target:
-		if (
-			not is_instance_valid(_selected_target)
-			or not _selected_target.visible
-		):
+		if not is_instance_valid(_selected_target) or not _selected_target.visible:
 			_clear_selection()
 		else:
 			hud.update_selected_target(_selected_target, camera)
@@ -415,35 +423,55 @@ func _physics_process(delta: float) -> void:
 		NetworkManager.send_player_position(global_position, rotation.y, _visual_state)
 
 
-const SLOT_KEYBINDS: Array[String] = ["1", "2", "R", "T", "F", "C"]
-
 func _update_hud_abilities() -> void:
 	var ability_data: Array = []
 	# Use server catalog if populated, otherwise fall back to hardcoded HARMONIST_ABILITIES.
 	if AbilityCatalog.catalog.size() > 0:
 		for i in 6:
-			var ability_id: String = AbilityCatalog.current_loadout[i] if i < AbilityCatalog.current_loadout.size() else ""
+			var ability_id: String = (
+				AbilityCatalog.current_loadout[i]
+				if i < AbilityCatalog.current_loadout.size()
+				else ""
+			)
 			if ability_id == "":
-				ability_data.append({name = "Empty", keybind = SLOT_KEYBINDS[i], desc = "", cooldown = 0.0, cooldown_max = 0.0})
+				ability_data.append(
+					{
+						name = "Empty",
+						keybind = SLOT_KEYBINDS[i],
+						desc = "",
+						cooldown = 0.0,
+						cooldown_max = 0.0
+					}
+				)
 				continue
 			var entry: Dictionary = AbilityCatalog.get_ability(ability_id)
-			ability_data.append({
-				name = entry.get("name", ability_id),
-				keybind = SLOT_KEYBINDS[i],
-				desc = entry.get("description", ""),
-				cooldown = _cooldowns[i],
-				cooldown_max = entry.get("cooldown", 0.0),
-			})
+			(
+				ability_data
+				. append(
+					{
+						name = entry.get("name", ability_id),
+						keybind = SLOT_KEYBINDS[i],
+						desc = entry.get("description", ""),
+						cooldown = _cooldowns[i],
+						cooldown_max = entry.get("cooldown", 0.0),
+					}
+				)
+			)
 	else:
 		for i in HARMONIST_ABILITIES.size():
 			var ability: Dictionary = HARMONIST_ABILITIES[i]
-			ability_data.append({
-				name = ability.name,
-				keybind = ability.keybind,
-				desc = ability.desc,
-				cooldown = _cooldowns[i],
-				cooldown_max = ability.cooldown_max,
-			})
+			(
+				ability_data
+				. append(
+					{
+						name = ability.name,
+						keybind = ability.keybind,
+						desc = ability.desc,
+						cooldown = _cooldowns[i],
+						cooldown_max = ability.cooldown_max,
+					}
+				)
+			)
 	hud.update_abilities(ability_data)
 
 
@@ -452,7 +480,9 @@ func _update_hud_channel() -> void:
 		if combat._sustaining:
 			hud.update_sustain(_committing_ability.get("name", ""), combat._sustain_elapsed)
 		else:
-			var total_dur: float = _committing_ability.get("dur", _committing_ability.get("commit_time", 1.0))
+			var total_dur: float = _committing_ability.get(
+				"dur", _committing_ability.get("commit_time", 1.0)
+			)
 			var elapsed: float = total_dur - _cast_timer
 			var progress: float = clampf(elapsed / maxf(total_dur, 0.01), 0.0, 1.0)
 			hud.update_channel(progress, _committing_ability.get("name", ""))
@@ -477,13 +507,18 @@ func _update_hud_party() -> void:
 			var info_name: String = NetworkManager.player_info[pid].get("username", "")
 			if info_name != "":
 				uname = info_name
-		party.append({
-			"peer_id": pid,
-			"name": uname,
-			"health": p_health,
-			"max_health": p_max_health,
-			"class_name": cls,
-		})
+		(
+			party
+			. append(
+				{
+					"peer_id": pid,
+					"name": uname,
+					"health": p_health,
+					"max_health": p_max_health,
+					"class_name": cls,
+				}
+			)
+		)
 	hud.update_party(party)
 
 
@@ -506,9 +541,7 @@ func _drive_remote_animation(prev_pos: Vector3, delta: float) -> void:
 			character_model.travel("dodge")
 		NetSerializer.VS_AT_CASTING:
 			character_model.travel("casting")
-		NetSerializer.VS_AT_CHANNELING, \
-		NetSerializer.VS_AT_CHANNELING_BEAM, \
-		NetSerializer.VS_AT_CHANNELING_ZONE:
+		NetSerializer.VS_AT_CHANNELING, NetSerializer.VS_AT_CHANNELING_BEAM, NetSerializer.VS_AT_CHANNELING_ZONE:
 			character_model.travel("channeling")
 		NetSerializer.VS_AT_STAGGER:
 			character_model.travel("stagger")

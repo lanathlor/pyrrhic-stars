@@ -9,7 +9,7 @@ var overclockATDef = AbilityDef{
 	Hit:      HitDef{Type: HitAllyTarget},
 	GCD:      0.8,
 	Cooldown: 15.0,
-	Costs:    []ResourceCost{{Resource: "flux", Amount: 30}},
+	Costs:    []ResourceCost{{Resource: entity.ResourceFlux, Amount: 30}},
 	Delivery: uint8(entity.DeliveryDirect),
 	Handler:  "overclock_at",
 }

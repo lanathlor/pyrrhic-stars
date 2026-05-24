@@ -26,7 +26,7 @@ type EncounterSpec struct {
 type CompSpec struct {
 	Name     string     `yaml:"name"`
 	Classes  []string   `yaml:"classes"`
-	Specs    []string   `yaml:"specs"`    // spec IDs (empty string = class default)
+	Specs    []string   `yaml:"specs"` // spec IDs (empty string = class default)
 	Profiles []string   `yaml:"profiles"`
 	Loadouts [][]string `yaml:"loadouts"` // optional per-player ability loadouts
 	WinRate  *RangeSpec `yaml:"win_rate"` // optional per-comp win rate assertion

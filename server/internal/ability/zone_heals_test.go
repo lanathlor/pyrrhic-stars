@@ -29,7 +29,7 @@ func TestZoneHeals(t *testing.T) {
 					return p, nil
 				},
 				wantOK:        true,
-				wantHP:        85, // 100 - 15% of 100
+				wantHP:        85,  // 100 - 15% of 100
 				wantFlux:      152, // 160 - 8
 				wantZoneCount: 1,
 				wantHealTick:  4.5, // 15 * 0.3
@@ -42,7 +42,7 @@ func TestZoneHeals(t *testing.T) {
 					return p, nil
 				},
 				wantOK:        true,
-				wantHP:        1,     // clamped: sacrifice = 1.1 - 1 = 0.1
+				wantHP:        1, // clamped: sacrifice = 1.1 - 1 = 0.1
 				wantFlux:      152,
 				wantZoneCount: 1,
 				wantHealTick:  0.03, // 0.1 * 0.3 = 0.03
@@ -110,7 +110,7 @@ func TestZoneHeals(t *testing.T) {
 				if math.Abs(float64(p.Health-tt.wantHP)) > 0.1 {
 					t.Errorf("Health = %.1f, want %.1f", p.Health, tt.wantHP)
 				}
-				flux := p.Resources["flux"]
+				flux := p.Resources[entity.ResourceFlux]
 				if tt.wantFlux >= 0 && flux != nil && math.Abs(float64(flux.Current-tt.wantFlux)) > 0.5 {
 					t.Errorf("Flux = %.1f, want %.1f", flux.Current, tt.wantFlux)
 				}
@@ -233,7 +233,7 @@ func TestZoneHeals(t *testing.T) {
 				if !tt.wantOK && result.Reason != tt.wantReason {
 					t.Errorf("Reason = %q, want %q", result.Reason, tt.wantReason)
 				}
-				flux := p.Resources["flux"]
+				flux := p.Resources[entity.ResourceFlux]
 				if tt.wantFlux >= 0 && flux != nil && math.Abs(float64(flux.Current-tt.wantFlux)) > 0.5 {
 					t.Errorf("Flux = %.1f, want %.1f", flux.Current, tt.wantFlux)
 				}

@@ -527,9 +527,19 @@ func decodeWorldState(data []byte) (*WorldState, error) {
 		off += 4 // BD shield HP
 		off += 4 // munitions
 		off += 4 // resonance
-		off++    // onslaught_stacks
+		off += 4 // flux
+		off += 4 // flux_max
+		off++    // mastery_stacks
 		off += 7 // gunner assault state
 		off++    // speed_mult
+		// flux_commitment_pools
+		if off < len(data) {
+			poolCount := int(data[off])
+			off++
+			if poolCount > 0 {
+				off += 4 * 2 * 4 // 4 schools × (current f32 + max f32)
+			}
+		}
 
 		ws.Players = append(ws.Players, p)
 	}

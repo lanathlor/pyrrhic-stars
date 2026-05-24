@@ -16,12 +16,12 @@ func registerAbilities(eng *Engine) {
 	eng.Register(&magDumpDef)
 
 	// Vanguard — Blade
-	eng.Register(&meleeLightDef)  // Cleave
-	eng.Register(&meleeHeavyDef)  // Upheaval
-	eng.Register(&vgBlockDef)     // Blade Parry
+	eng.Register(&meleeLightDef) // Cleave
+	eng.Register(&meleeHeavyDef) // Upheaval
+	eng.Register(&vgBlockDef)    // Blade Parry
 	eng.Register(&vgBlockStopDef)
-	eng.Register(&bladeSwirlDef)  // Vortex
-	eng.Register(&groundSlamDef)  // Execution
+	eng.Register(&bladeSwirlDef) // Vortex
+	eng.Register(&groundSlamDef) // Execution
 
 	// Vanguard — Shield
 	eng.Register(&vgShieldBlockDef)

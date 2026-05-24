@@ -9,7 +9,7 @@ var regenProtocolDef = AbilityDef{
 	Hit:      HitDef{Type: HitAllyTarget},
 	GCD:      0.8,
 	Cooldown: 18.0,
-	Costs:    []ResourceCost{{Resource: "flux", Amount: 20}},
+	Costs:    []ResourceCost{{Resource: entity.ResourceFlux, Amount: 20}},
 	Delivery: uint8(entity.DeliveryDirect),
 	Handler:  "regen_protocol",
 }
@@ -27,7 +27,7 @@ func regenProtocolHandler(_ *Engine, ctx *CommitContext) CommitResult {
 			return CommitResult{Reason: "insufficient " + regenProtocolDef.School + " flux"}
 		}
 	} else {
-		flux := p.Resources["flux"]
+		flux := p.Resources[entity.ResourceFlux]
 		if flux == nil || flux.Current < regenProtocolDef.Costs[0].Amount {
 			return CommitResult{Reason: "insufficient flux"}
 		}

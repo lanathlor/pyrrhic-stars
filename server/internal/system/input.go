@@ -255,7 +255,7 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 	// Commit through the ability engine
 	w.enemyTargetBuf = enemiesToTargets(w.enemyTargetBuf, w.Enemies)
 	ctx := &ability.CommitContext{
-		Committer:       p,
+		Committer:    p,
 		Targets:      w.enemyTargetBuf,
 		Obstacles:    w.Level.Obstacles,
 		Allies:       w.Players,

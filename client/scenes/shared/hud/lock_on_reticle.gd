@@ -3,10 +3,10 @@ extends Control
 ## Lock-on reticle — tracks enemy position on screen.
 ## Shows a diamond marker on the target + a small HUD indicator for lock-on state.
 
-var _lock_active: bool = false
-var _pulse_timer: float = 0.0
 var hint_text: String = "[Q] Lock On"
 var lock_label: String = "LOCKED [Q]"
+var _lock_active: bool = false
+var _pulse_timer: float = 0.0
 
 
 func _process(delta: float) -> void:

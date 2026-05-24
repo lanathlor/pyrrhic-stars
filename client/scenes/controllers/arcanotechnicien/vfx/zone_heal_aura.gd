@@ -7,13 +7,13 @@ extends Node3D
 const FADE_OUT_TIME: float = 0.3
 const HEAL_GREEN := Color(0.3, 1.0, 0.4)
 
+static var _circle_shader: Shader
+
 var _target: Node3D = null
 var _material: ShaderMaterial = null
 var _particles: GPUParticles3D = null
 var _stopping: bool = false
 var _time: float = 0.0
-
-static var _circle_shader: Shader
 
 
 func _ready() -> void:

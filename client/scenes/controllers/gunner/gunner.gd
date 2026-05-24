@@ -26,6 +26,12 @@ const WEAPON_SCENE := "res://assets/models/weapons/weapon_rifle.glb"
 const WeaponScript := preload("res://scenes/controllers/gunner/gunner_weapon.gd")
 const AbilitiesScript := preload("res://scenes/controllers/gunner/gunner_abilities.gd")
 
+# Stability (client-optimistic bloom)
+const STABILITY_DECAY: float = 0.08
+const STABILITY_RATE: float = 2.0
+const STABILITY_DELAY: float = 0.15
+const STABILITY_OVERCLOCK_MULT: float = 1.5
+
 # Movement — tuned toward Halo 3 feel
 # H3: no sprint, 7.69 m/s measured base, weighty inertia
 @export var walk_speed: float = 5.5
@@ -98,11 +104,6 @@ var _reload_timer: float = 0.0
 var _reload_total: float = 0.0
 var _reload_server_acked: bool = false  # server confirmed our reload
 
-# Stability (client-optimistic bloom)
-const STABILITY_DECAY: float = 0.08
-const STABILITY_RATE: float = 2.0
-const STABILITY_DELAY: float = 0.15
-const STABILITY_OVERCLOCK_MULT: float = 1.5
 var _stability: float = 1.0
 var _stability_timer: float = 10.0  # start recovered
 
@@ -323,8 +324,14 @@ func _physics_process(delta: float) -> void:
 		)
 	)
 	hud.update_assault_state(
-		_magazine, _mag_max, _stability, _steadiness, _pressure_stacks,
-		_munitions, _enhanced_loaded, _reloading,
+		_magazine,
+		_mag_max,
+		_stability,
+		_steadiness,
+		_pressure_stacks,
+		_munitions,
+		_enhanced_loaded,
+		_reloading,
 		(1.0 - _reload_timer / _reload_total) if _reload_total > 0.0 else 0.0
 	)
 

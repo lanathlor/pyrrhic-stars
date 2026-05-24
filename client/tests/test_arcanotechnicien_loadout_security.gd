@@ -24,8 +24,9 @@ func before_test() -> void:
 
 
 func after_test() -> void:
-	for action in ["dodge", "harmonist_slot_0", "harmonist_slot_1",
-		"heavy_attack", "ability_1", "ability_2"]:
+	for action in [
+		"dodge", "harmonist_slot_0", "harmonist_slot_1", "heavy_attack", "ability_1", "ability_2"
+	]:
 		if Input.is_action_pressed(action):
 			Input.action_release(action)
 

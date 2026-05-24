@@ -41,7 +41,7 @@ func vitalDrainHandler(_ *Engine, ctx *CommitContext) CommitResult {
 			return CommitResult{Reason: "insufficient " + vitalDrainDef.School + " flux"}
 		}
 	} else {
-		flux := p.Resources["flux"]
+		flux := p.Resources[entity.ResourceFlux]
 		if flux == nil || flux.Current < vitalDrainDef.SustainCostPerSec {
 			return CommitResult{Reason: "insufficient flux"}
 		}

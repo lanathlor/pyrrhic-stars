@@ -378,8 +378,9 @@ func TestWorldState_MagazineReflectsShotOnSameTick(t *testing.T) {
 //  3. Tick N+1: server receives shot, magazine=29, broadcasts magazine=29.
 //
 // A naive client that slams server_mag on every world state would see:
-//   tick N broadcast arrives → server=30, client=29 → ROLLBACK (false misfire!)
-//   tick N+1 broadcast arrives → server=29, client=29 → in sync
+//
+//	tick N broadcast arrives → server=30, client=29 → ROLLBACK (false misfire!)
+//	tick N+1 broadcast arrives → server=29, client=29 → in sync
 //
 // The correct client behavior: ignore server_mag > _magazine (server hasn't
 // processed our shot yet), only correct downward (server_mag < _magazine).

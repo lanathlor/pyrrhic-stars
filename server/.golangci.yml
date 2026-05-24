@@ -6,7 +6,8 @@ linters:
     - goconst
     - misspell
     - revive
-
+    # - gocognit
+    # - funlen
   settings:
     goconst:
       min-occurrences: 4
@@ -195,5 +196,5 @@ linters:
           disabled: true
 
 issues:
-  max-issues-per-linter: 50
-  max-same-issues: 5
+  max-issues-per-linter: 0
+  max-same-issues: 0

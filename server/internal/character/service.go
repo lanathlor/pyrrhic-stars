@@ -12,10 +12,10 @@ import (
 const maxCharacters = 100
 
 var validClasses = map[string]bool{
-	"gunner":            true,
-	"vanguard":          true,
-	"blade_dancer":      true,
-	"arcanotechnicien":  true,
+	"gunner":           true,
+	"vanguard":         true,
+	"blade_dancer":     true,
+	"arcanotechnicien": true,
 }
 
 var (

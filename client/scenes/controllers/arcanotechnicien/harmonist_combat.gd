@@ -76,9 +76,7 @@ func start_ability(slot: int) -> void:
 	if NetworkManager.is_active:
 		var target_pid: int = _resolve_target_peer()
 		if target_pid > 0:
-			NetworkManager.send_ability_targeted(
-				action_id, 0.0, ctrl.rotation.y, target_pid
-			)
+			NetworkManager.send_ability_targeted(action_id, 0.0, ctrl.rotation.y, target_pid)
 		else:
 			NetworkManager.send_ability(action_id, 0.0, ctrl.rotation.y)
 
@@ -164,7 +162,9 @@ func process_channeling(delta: float) -> void:
 
 	# Update channel flux VFX intensity
 	if ctrl.vfx and not ctrl._committing_ability.is_empty():
-		var total_dur: float = ctrl._committing_ability.get("dur", ctrl._committing_ability.get("commit_time", 1.0))
+		var total_dur: float = ctrl._committing_ability.get(
+			"dur", ctrl._committing_ability.get("commit_time", 1.0)
+		)
 		var progress: float = clampf(
 			(total_dur - ctrl._cast_timer) / maxf(total_dur, 0.01), 0.0, 1.0
 		)
@@ -190,6 +190,14 @@ func process_channeling(delta: float) -> void:
 
 func _ability_has_sustain(ability: Dictionary) -> bool:
 	return ability.get("sustain", false)
+
+
+## Cancel a commit (channel/cast) before it fires. No cooldown penalty.
+func cancel_commit() -> void:
+	_stop_active_vfx()
+	ctrl._committing_ability = {}
+	ctrl._cast_timer = 0.0
+	ctrl._enter_state(ctrl.State.MOVE)
 
 
 ## Cancel sustain and return to MOVE. Called by ESC, movement, or new input.
@@ -218,7 +226,9 @@ func _apply_sustain_cooldown() -> void:
 				break
 	if slot < 0 or slot >= ctrl._cooldowns.size():
 		return
-	var cd_max: float = ctrl._committing_ability.get("cooldown_max", ctrl._committing_ability.get("cooldown", 0.0))
+	var cd_max: float = ctrl._committing_ability.get(
+		"cooldown_max", ctrl._committing_ability.get("cooldown", 0.0)
+	)
 	if cd_max > 0.0:
 		ctrl._cooldowns[slot] = cd_max
 

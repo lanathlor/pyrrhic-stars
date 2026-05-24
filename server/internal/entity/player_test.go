@@ -427,10 +427,10 @@ func TestArcanotechnicienSpecs(t *testing.T) {
 	if cd.GetSpec("harmonist") == nil {
 		t.Error("harmonist spec not found")
 	}
-	if cd.GetSpec("harmonist").Implemented != true {
+	if !cd.GetSpec("harmonist").Implemented {
 		t.Error("harmonist should be implemented")
 	}
-	if cd.GetSpec("destroyer").Implemented != false {
+	if cd.GetSpec("destroyer").Implemented {
 		t.Error("destroyer should not be implemented")
 	}
 }

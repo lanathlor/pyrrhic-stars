@@ -7,9 +7,9 @@ import (
 
 // Shield Bash — quick strike without dropping guard.
 const (
-	shieldBashDamage     float32 = 40
-	shieldBashArc        float32 = 90
-	shieldBashRange      float32 = 4
+	shieldBashDamage         float32 = 40
+	shieldBashArc            float32 = 90
+	shieldBashRange          float32 = 4
 	shieldBashStamina        float32 = 8
 	shieldBashGCD            float32 = 0.4
 	shieldBashBlockedStamina float32 = 14  // higher cost while blocking

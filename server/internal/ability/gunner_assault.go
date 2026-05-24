@@ -9,31 +9,31 @@ import (
 
 // Assault tuning constants.
 const (
-	assaultMagSize         = 30
-	assaultTacticalReload  = 1.5   // seconds, rounds remaining
-	assaultEmptyReload     = 2.2   // seconds, magazine dry
-	assaultStabilityDecay  = 0.08  // per shot
-	assaultStabilityRate   = 2.0   // recovery per second
-	assaultStabilityDelay  = 0.15  // seconds before recovery starts
-	assaultMaxSpreadDeg    = 3.0   // degrees at stability 0
-	assaultOverclockRecov  = 1.5   // multiplier on recovery rate
-	assaultPressureMax     = 10
-	assaultPressureTimeout = 2.0  // seconds
-	assaultPressureBonus   = 0.03 // per stack, fraction of base damage
-	assaultEnhancedBatch   = 5    // rounds generated at max pressure
-	assaultEnhancedMaxRes  = 10   // max reserve
-	assaultEnhancedBase    = 15.0 // base bonus damage per enhanced round
-	assaultEnhancedPerStack = 1.5 // bonus per pressure stack
-	assaultMagDumpCD       = 12.0
-	assaultMagDumpRPS      = 2   // rounds per tick during mag dump
-	assaultMagDumpStab     = 0.8 // locked stability during mag dump
+	assaultMagSize          = 30
+	assaultTacticalReload   = 1.5  // seconds, rounds remaining
+	assaultEmptyReload      = 2.2  // seconds, magazine dry
+	assaultStabilityDecay   = 0.08 // per shot
+	assaultStabilityRate    = 2.0  // recovery per second
+	assaultStabilityDelay   = 0.15 // seconds before recovery starts
+	assaultMaxSpreadDeg     = 3.0  // degrees at stability 0
+	assaultOverclockRecov   = 1.5  // multiplier on recovery rate
+	assaultPressureMax      = 10
+	assaultPressureTimeout  = 2.0  // seconds
+	assaultPressureBonus    = 0.03 // per stack, fraction of base damage
+	assaultEnhancedBatch    = 5    // rounds generated at max pressure
+	assaultEnhancedMaxRes   = 10   // max reserve
+	assaultEnhancedBase     = 15.0 // base bonus damage per enhanced round
+	assaultEnhancedPerStack = 1.5  // bonus per pressure stack
+	assaultMagDumpCD        = 12.0
+	assaultMagDumpRPS       = 2   // rounds per tick during mag dump
+	assaultMagDumpStab      = 0.8 // locked stability during mag dump
 
 	// Steadiness: movement-based accuracy penalty (separate from Stability)
-	assaultSteadinessDecay    = 0.12  // steadiness lost per unit of horizontal speed
-	assaultSteadinessRecov    = 2.5   // recovery per second when stationary
-	assaultSteadinessDelay    = 0.2   // seconds of no movement before recovery starts
-	assaultMaxSteadinessDeg   = 1.5   // max additional spread degrees from low steadiness
-	assaultSteadinessSpeedMin = 0.5   // speed below this counts as stationary
+	assaultSteadinessDecay    = 0.12 // steadiness lost per unit of horizontal speed
+	assaultSteadinessRecov    = 2.5  // recovery per second when stationary
+	assaultSteadinessDelay    = 0.2  // seconds of no movement before recovery starts
+	assaultMaxSteadinessDeg   = 1.5  // max additional spread degrees from low steadiness
+	assaultSteadinessSpeedMin = 0.5  // speed below this counts as stationary
 )
 
 var assaultMaxSpreadRad = float32(assaultMaxSpreadDeg * math.Pi / 180.0)
@@ -526,7 +526,7 @@ func magDumpTick(eng *Engine, p *entity.Player, state *GunnerAssaultState, ctx *
 
 		// Resolve hitscan
 		commitCtx := &CommitContext{
-			Committer:     p,
+			Committer:  p,
 			Targets:    ctx.Targets,
 			Obstacles:  ctx.Obstacles,
 			SourceType: 0,

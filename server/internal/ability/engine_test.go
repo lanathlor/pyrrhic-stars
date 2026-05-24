@@ -217,7 +217,7 @@ func TestCast_FireShot_ObstacleBlocksLOS(t *testing.T) {
 	obs := combat.Obstacle{CX: 0, CZ: -2.5, HX: 2, HZ: 0.5, Height: 3}
 
 	result := eng.Commit("fire_shot", &CommitContext{
-		Committer:    p,
+		Committer: p,
 		Targets:   []entity.Target{e},
 		Obstacles: []combat.Obstacle{obs},
 	})
@@ -1099,5 +1099,201 @@ func BenchmarkResolveAoECircle(b *testing.B) {
 	b.ResetTimer()
 	for b.Loop() {
 		buf = resolveAoECircle(buf[:0], center, 1, targets, nil, 8, 10, 0)
+	}
+}
+
+// --- Arcanotechnicien / Harmonist ability benchmarks ---
+
+func newHarmonistBench() *entity.Player {
+	p := entity.NewPlayer(10, entity.ClassArcanotechnicien)
+	p.Position = entity.Vec3{X: 0, Y: 0, Z: 0}
+	p.RotationY = 0
+	return p
+}
+
+func commitCtxWithAllies(p *entity.Player, enemies []*entity.Enemy, allies map[uint16]*entity.Player) *CommitContext {
+	targets := make([]entity.Target, len(enemies))
+	for i, e := range enemies {
+		targets[i] = e
+	}
+	return &CommitContext{
+		Committer: p,
+		Targets:   targets,
+		Allies:    allies,
+		SpawnZone: func(*entity.HealingZone) {},
+		SpawnLink: func(*entity.DamageLink) {},
+	}
+}
+
+func BenchmarkTickPlayer_Harmonist(b *testing.B) {
+	eng := NewEngine(nil)
+	p := newHarmonistBench()
+	e := enemyInFront(100, 1e9)
+	tctx := tickCtx(e)
+
+	// Set up realistic state
+	p.Cooldowns["siphon_pulse"] = 0.3
+	p.Cooldowns["restoration_matrix"] = 8.0
+	p.GCDTimer = 0.2
+	p.AddBuff(entity.ActiveBuff{ID: "frost_ward", Type: entity.BuffDamageReduction, Value: 1.0, Duration: 4.0})
+	p.Confluence.OnAbilityComplete()
+	p.Confluence.OnAbilityComplete()
+	p.Confluence.OnAbilityComplete() // 3 stacks
+	p.VitalCharge = 15
+	p.VitalChargeTimer = 2.0
+
+	// Partially spend flux pools so regen has work
+	for i := range p.FluxCommit.Pools {
+		p.FluxCommit.Pools[i].Current = p.FluxCommit.Pools[i].Max * 0.5
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		// Reset state each iteration
+		p.Alive = true
+		p.Cooldowns["siphon_pulse"] = 0.3
+		p.Cooldowns["restoration_matrix"] = 8.0
+		p.GCDTimer = 0.2
+		p.Buffs = p.Buffs[:0]
+		p.Buffs = append(p.Buffs, entity.ActiveBuff{ID: "frost_ward", Type: entity.BuffDamageReduction, Value: 1.0, Duration: 4.0})
+		p.Confluence.Stacks = 3
+		p.Confluence.IdleTimer = 1.0
+		p.Confluence.DecayTimer = 0
+		p.VitalCharge = 15
+		p.VitalChargeTimer = 2.0
+		for i := range p.FluxCommit.Pools {
+			p.FluxCommit.Pools[i].Current = p.FluxCommit.Pools[i].Max * 0.5
+		}
+		e.Health = 1e9
+		e.Alive = true
+		eng.TickPlayer(p, 0.05, tctx)
+	}
+}
+
+func BenchmarkAbilityCommit_SiphonPulse(b *testing.B) {
+	eng := NewEngine(nil)
+	p := newHarmonistBench()
+	e := enemyInFront(100, 1e9)
+
+	// Build allies map (4 gunners at varying HP)
+	allies := make(map[uint16]*entity.Player, 5)
+	allies[p.ID] = p
+	for i := uint16(1); i <= 4; i++ {
+		a := entity.NewPlayer(i, entity.ClassGunner)
+		a.Position = entity.Vec3{X: float32(i), Y: 0, Z: 0}
+		a.Health = a.MaxHealth * float32(0.5+float64(i)*0.1) // varying HP
+		allies[i] = a
+	}
+
+	ctx := commitCtxWithAllies(p, []*entity.Enemy{e}, allies)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		// Reset state
+		p.GCDTimer = 0
+		p.Confluence.Stacks = 2
+		p.Confluence.IdleTimer = 0
+		e.Health = 1e9
+		e.Alive = true
+		for _, a := range allies {
+			a.Health = a.MaxHealth * 0.7
+		}
+		eng.Commit("siphon_pulse", ctx)
+	}
+}
+
+func BenchmarkAbilityCommit_VitalCircuit(b *testing.B) {
+	eng := NewEngine(nil)
+	p := newHarmonistBench()
+
+	ally := entity.NewPlayer(2, entity.ClassGunner)
+	ally.Position = entity.Vec3{X: 3, Y: 0, Z: 0}
+	allies := map[uint16]*entity.Player{p.ID: p, ally.ID: ally}
+	ctx := commitCtxWithAllies(p, nil, allies)
+	ctx.TargetPeerID = ally.ID
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		p.GCDTimer = 0
+		delete(p.Cooldowns, "vital_circuit")
+		p.Confluence.Stacks = 2
+		p.Confluence.IdleTimer = 0
+		// Reset biometabolic flux pool
+		pool := p.FluxCommit.GetPool("biometabolic")
+		pool.Current = pool.Max
+		ally.Alive = true
+		eng.Commit("vital_circuit", ctx)
+	}
+}
+
+func BenchmarkAbilityCommit_RestorationMatrix(b *testing.B) {
+	eng := NewEngine(nil)
+	p := newHarmonistBench()
+	p.GearStats.Identity = 12
+
+	allies := map[uint16]*entity.Player{p.ID: p}
+	ctx := commitCtxWithAllies(p, nil, allies)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		p.GCDTimer = 0
+		delete(p.Cooldowns, "restoration_matrix")
+		p.Confluence.Stacks = 2
+		p.Confluence.IdleTimer = 0
+		// Reset bioarcanotechnic flux pool
+		pool := p.FluxCommit.GetPool("bioarcanotechnic")
+		pool.Current = pool.Max
+		eng.Commit("restoration_matrix", ctx)
+	}
+}
+
+func BenchmarkAbilityCommit_FrostWard(b *testing.B) {
+	eng := NewEngine(nil)
+	p := newHarmonistBench()
+
+	ally := entity.NewPlayer(2, entity.ClassGunner)
+	ally.Position = entity.Vec3{X: 3, Y: 0, Z: 0}
+	allies := map[uint16]*entity.Player{p.ID: p, ally.ID: ally}
+	ctx := commitCtxWithAllies(p, nil, allies)
+	ctx.TargetPeerID = ally.ID
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		p.GCDTimer = 0
+		delete(p.Cooldowns, "frost_ward")
+		p.Confluence.Stacks = 2
+		p.Confluence.IdleTimer = 0
+		// Reset frost flux pool
+		pool := p.FluxCommit.GetPool("frost")
+		pool.Current = pool.Max
+		// Remove shield and buff so handler re-creates them
+		ally.RemoveBuff("frost_ward")
+		delete(ally.AbilityState, "frost_ward_active")
+		delete(ally.Resources, "shield")
+		eng.Commit("frost_ward", ctx)
+	}
+}
+
+func BenchmarkAbilityValidation_InsufficientFlux(b *testing.B) {
+	eng := NewEngine(nil)
+	p := newHarmonistBench()
+	// Drain all flux so validation fails
+	p.SetAllFluxPoolsCurrent(0)
+
+	allies := map[uint16]*entity.Player{p.ID: p}
+	ctx := commitCtxWithAllies(p, nil, allies)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		p.GCDTimer = 0
+		delete(p.Cooldowns, "restoration_matrix")
+		p.SetAllFluxPoolsCurrent(0)
+		eng.Commit("restoration_matrix", ctx)
 	}
 }

@@ -58,6 +58,15 @@ type Repository interface {
 
 	// GetFluxCommitment returns the flux commitment for a character.
 	GetFluxCommitment(charID uint) ([]FluxCommitmentEntry, error)
+
+	// SaveLoadoutPreset creates or updates a named loadout preset. Max 10 per character.
+	SaveLoadoutPreset(charID uint, name string, slots [6]string, commitment string) error
+
+	// DeleteLoadoutPreset removes a preset by ID, only if owned by charID.
+	DeleteLoadoutPreset(charID uint, presetID uint) error
+
+	// GetLoadoutPresets returns all presets for a character, ordered by name.
+	GetLoadoutPresets(charID uint) ([]*CharacterLoadoutPreset, error)
 }
 
 // FluxCommitmentEntry is a school+percentage pair for the repo interface.

@@ -60,7 +60,7 @@ type AbilityCatalogEntry struct {
 	ID          string
 	Name        string
 	School      string
-	AbilityType   string
+	AbilityType string
 	Delivery    string
 	FluxCost    string
 	Description string
@@ -79,6 +79,14 @@ type AbilityCatalogEntry struct {
 	ZoneDuration float32
 	ZoneHealTick float32
 	Sustain      bool
+}
+
+// PresetInfo holds a loadout preset for wire encoding.
+type PresetInfo struct {
+	ID         uint32
+	Name       string
+	Slots      [6]string
+	Commitment string
 }
 
 // --- Private wire helpers ---

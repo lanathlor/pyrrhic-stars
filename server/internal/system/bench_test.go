@@ -1036,6 +1036,378 @@ func BenchmarkComputeStatsAndRecalc(b *testing.B) {
 	}
 }
 
+// --- Arcanotechnicien / Harmonist system benchmarks ---
+// These exercise healing zones, HoTs, damage links, Last Breath, flux regen,
+// and Confluence — all subsystems that are no-ops in Gunner-only benchmarks.
+
+// benchHarmonistPlayer creates a fully-equipped Harmonist player for system benchmarks.
+func benchHarmonistPlayer(peerID uint16) *entity.Player {
+	p := entity.NewPlayerWithSpec(peerID, entity.ClassArcanotechnicien, entity.SpecHarmonist)
+	p.Position = entity.Vec3{X: float32(peerID) * 2, Y: 0.1, Z: 5}
+	p.RotationY = 0
+	p.GearStats = entity.GearStats{Hull: 80, Output: 55, Plating: 15, Tempo: 20, Identity: 12, Mastery: 8}
+	p.RecalcStats()
+	p.Health = p.MaxHealth * 0.8
+	// Confluence at 3 stacks
+	p.Confluence.OnAbilityComplete()
+	p.Confluence.OnAbilityComplete()
+	p.Confluence.OnAbilityComplete()
+	// Spend some flux so regen has work
+	for i := range p.FluxCommit.Pools {
+		p.FluxCommit.Pools[i].Current = p.FluxCommit.Pools[i].Max * 0.6
+	}
+	p.SyncFluxAggregate()
+	return p
+}
+
+// benchWorldWithHealer creates a realistic fight: 4 Gunners + 1 Harmonist healer,
+// 9 enemies, 10 projectiles, plus active healing zones, HoTs, damage links, and Last Breath.
+func benchWorldWithHealer() *World {
+	w := benchWorld()
+
+	// Replace player 5 with a Harmonist
+	delete(w.Players, 5)
+	healer := benchHarmonistPlayer(5)
+	w.Players[5] = healer
+
+	// Initialize AbilityRunners (nil in benchWorld — causes runner loop to be skipped)
+	w.AbilityRunners = make(map[uint16]*ability.PlayerAbilityRunner)
+
+	// Healing zones: 2 active, timers near 0 so ShouldTick fires
+	w.HealingZones = []*entity.HealingZone{
+		{
+			OwnerID: 5, Position: entity.Vec3{X: 4, Y: 0.1, Z: 5},
+			Radius: 5.0, HealPerTick: 8, Duration: 6.0,
+			TickTimer: 0.01, Interval: 1.0, AbilityID: "vital_bloom",
+		},
+		{
+			OwnerID: 5, Position: entity.Vec3{X: 6, Y: 0.1, Z: 5},
+			Radius: 5.0, HealPerTick: 10, Duration: 4.0,
+			TickTimer: 0.01, Interval: 1.0, AbilityID: "restoration_matrix",
+		},
+	}
+
+	// Damage link between players 1 and 3
+	w.DamageLinks = []*entity.DamageLink{
+		{SourcePeer: 5, PeerA: 1, PeerB: 3, Duration: 5.0},
+	}
+
+	// HoTs on players 1 and 2
+	w.Players[1].HoTs = append(w.Players[1].HoTs,
+		entity.ActiveHoT{ID: "regen_protocol", SourcePeer: 5, HealPerTick: 5, Remaining: 8.0, Interval: 1.0, TickTimer: 0.02, BurstThreshold: 0.3},
+		entity.ActiveHoT{ID: "regen_protocol_2", SourcePeer: 5, HealPerTick: 4, Remaining: 6.0, Interval: 1.0, TickTimer: 0.5},
+	)
+	w.Players[2].HoTs = append(w.Players[2].HoTs,
+		entity.ActiveHoT{ID: "regen_protocol", SourcePeer: 5, HealPerTick: 5, Remaining: 8.0, Interval: 1.0, TickTimer: 0.02, BurstThreshold: 0.3},
+	)
+
+	// Last Breath on player 3
+	w.Players[3].AddBuff(entity.ActiveBuff{ID: "last_breath", Type: entity.BuffDamageReduction, Value: 1.0, Duration: 4.0})
+	w.Players[3].LastBreathCasterID = 5
+	w.Players[3].LastBreathPrevented = 20
+
+	return w
+}
+
+// resetHealerWorld resets healer-specific state between benchmark iterations.
+// Designed to be cheap: only touches fields that the tick loop mutates.
+func resetHealerWorld(w *World) {
+	w.DamageEvents = w.DamageEvents[:0]
+
+	// Reset healing zone timers (zones don't expire in one tick with Duration=6.0)
+	for _, z := range w.HealingZones {
+		z.TickTimer = 0.01
+	}
+
+	// Reset damage link duration (won't expire in one tick at Duration=5.0)
+	for _, l := range w.DamageLinks {
+		l.Duration = 5.0
+	}
+
+	// Reset HoT timers (Remaining=8-10s won't expire in one 0.05s tick)
+	for _, p := range w.Players {
+		for i := range p.HoTs {
+			p.HoTs[i].TickTimer = 0.02
+		}
+	}
+
+	// Reset player health so heals apply (don't cap at MaxHealth)
+	for _, p := range w.Players {
+		p.Health = p.MaxHealth * 0.8
+	}
+}
+
+func BenchmarkCombatSystemTick_WithHealer(b *testing.B) {
+	w := benchWorldWithHealer()
+	sys := CombatSystem{}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		resetHealerWorld(w)
+		sys.Tick(w, 0.05)
+	}
+}
+
+func BenchmarkCombatSystemTick_HealingZones(b *testing.B) {
+	w := benchWorld()
+	sys := CombatSystem{}
+
+	b.Run("3zones_5players", func(b *testing.B) {
+		w.HealingZones = []*entity.HealingZone{
+			{OwnerID: 1, Position: entity.Vec3{X: 4, Y: 0.1, Z: 5}, Radius: 6.0, HealPerTick: 8, Duration: 10, TickTimer: 0.01, Interval: 1.0},
+			{OwnerID: 1, Position: entity.Vec3{X: 6, Y: 0.1, Z: 5}, Radius: 6.0, HealPerTick: 10, Duration: 10, TickTimer: 0.01, Interval: 1.0},
+			{OwnerID: 1, Position: entity.Vec3{X: 8, Y: 0.1, Z: 5}, Radius: 6.0, HealPerTick: 6, Duration: 10, TickTimer: 0.01, Interval: 1.0},
+		}
+		b.ReportAllocs()
+		b.ResetTimer()
+		for b.Loop() {
+			w.DamageEvents = w.DamageEvents[:0]
+			for _, p := range w.Players {
+				p.Health = p.MaxHealth * 0.7
+			}
+			for _, z := range w.HealingZones {
+				z.TickTimer = 0.01
+				z.Duration = 10
+			}
+			sys.Tick(w, 0.05)
+		}
+	})
+
+	b.Run("5zones_5players", func(b *testing.B) {
+		w.HealingZones = make([]*entity.HealingZone, 5)
+		for i := range w.HealingZones {
+			w.HealingZones[i] = &entity.HealingZone{
+				OwnerID: 1, Position: entity.Vec3{X: float32(2 + i*2), Y: 0.1, Z: 5},
+				Radius: 6.0, HealPerTick: 8, Duration: 10, TickTimer: 0.01, Interval: 1.0,
+			}
+		}
+		b.ReportAllocs()
+		b.ResetTimer()
+		for b.Loop() {
+			w.DamageEvents = w.DamageEvents[:0]
+			for _, p := range w.Players {
+				p.Health = p.MaxHealth * 0.7
+			}
+			for _, z := range w.HealingZones {
+				z.TickTimer = 0.01
+				z.Duration = 10
+			}
+			sys.Tick(w, 0.05)
+		}
+	})
+}
+
+func BenchmarkCombatSystemTick_HoTs(b *testing.B) {
+	w := benchWorld()
+	sys := CombatSystem{}
+
+	b.Run("normal", func(b *testing.B) {
+		// 5 players x 2 HoTs each, HP above burst threshold
+		hotTemplate := [][]entity.ActiveHoT{}
+		for _, p := range w.Players {
+			p.HoTs = []entity.ActiveHoT{
+				{ID: "regen_1", SourcePeer: 1, HealPerTick: 5, Remaining: 10, Interval: 1.0, TickTimer: 0.02, BurstThreshold: 0.3},
+				{ID: "regen_2", SourcePeer: 1, HealPerTick: 4, Remaining: 8, Interval: 1.0, TickTimer: 0.5},
+			}
+			cpy := make([]entity.ActiveHoT, 2)
+			copy(cpy, p.HoTs)
+			hotTemplate = append(hotTemplate, cpy)
+		}
+		b.ReportAllocs()
+		b.ResetTimer()
+		for b.Loop() {
+			w.DamageEvents = w.DamageEvents[:0]
+			i := 0
+			for _, p := range w.Players {
+				p.Health = p.MaxHealth * 0.8 // above 0.3 threshold
+				p.HoTs = p.HoTs[:0]
+				p.HoTs = append(p.HoTs, hotTemplate[i]...)
+				i++
+			}
+			sys.Tick(w, 0.05)
+		}
+	})
+
+	b.Run("burst", func(b *testing.B) {
+		hotTemplate := [][]entity.ActiveHoT{}
+		for _, p := range w.Players {
+			p.HoTs = []entity.ActiveHoT{
+				{ID: "regen_1", SourcePeer: 1, HealPerTick: 5, Remaining: 10, Interval: 1.0, TickTimer: 0.02, BurstThreshold: 0.3},
+				{ID: "regen_2", SourcePeer: 1, HealPerTick: 4, Remaining: 8, Interval: 1.0, TickTimer: 0.02, BurstThreshold: 0.3},
+			}
+			cpy := make([]entity.ActiveHoT, 2)
+			copy(cpy, p.HoTs)
+			hotTemplate = append(hotTemplate, cpy)
+		}
+		b.ReportAllocs()
+		b.ResetTimer()
+		for b.Loop() {
+			w.DamageEvents = w.DamageEvents[:0]
+			i := 0
+			for _, p := range w.Players {
+				p.Health = p.MaxHealth * 0.2 // below 0.3 threshold → burst
+				p.HoTs = p.HoTs[:0]
+				p.HoTs = append(p.HoTs, hotTemplate[i]...)
+				i++
+			}
+			sys.Tick(w, 0.05)
+		}
+	})
+}
+
+func BenchmarkCombatSystemTick_DamageLinks(b *testing.B) {
+	w := benchWorld()
+	sys := CombatSystem{}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		w.DamageEvents = w.DamageEvents[:0]
+		// 3 links: 2 about to expire, 1 ongoing
+		w.DamageLinks = []*entity.DamageLink{
+			{SourcePeer: 1, PeerA: 1, PeerB: 2, Duration: 0.04}, // expires this tick
+			{SourcePeer: 1, PeerA: 3, PeerB: 4, Duration: 0.04}, // expires this tick
+			{SourcePeer: 1, PeerA: 1, PeerB: 3, Duration: 5.0},  // ongoing
+		}
+		// Set varying HP for expiry heal calc
+		w.Players[1].Health = w.Players[1].MaxHealth * 0.5
+		w.Players[2].Health = w.Players[2].MaxHealth * 0.9
+		w.Players[3].Health = w.Players[3].MaxHealth * 0.6
+		w.Players[4].Health = w.Players[4].MaxHealth * 0.8
+		sys.Tick(w, 0.05)
+	}
+}
+
+func BenchmarkFullTickPipeline_WithHealer(b *testing.B) {
+	w := benchWorldWithHealer()
+	inputSys := InputSystem{}
+	combatSys := CombatSystem{}
+	aiSys := AISystem{}
+	physicsSys := PhysicsSystem{}
+
+	inputs := make([]InputMsg, 5)
+	for i := uint16(1); i <= 5; i++ {
+		inputs[i-1] = InputMsg{
+			PeerID:  i,
+			Opcode:  0x0030,
+			Payload: codec.EncodePlayerInput(nil, float32(i)*2, 0.1, 5, 0, 100, 0, 0),
+		}
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		w.InputQueue = inputs
+		w.GameFlowEvents = w.GameFlowEvents[:0]
+		resetHealerWorld(w)
+
+		inputSys.Tick(w, 0.05)
+		combatSys.Tick(w, 0.05)
+		aiSys.Tick(w, 0.05)
+		physicsSys.Tick(w, 0.05)
+	}
+}
+
+// benchArenaInstanceWithHealer is benchArenaInstance but with player 0 as a Harmonist healer.
+func benchArenaInstanceWithHealer(instanceID uint16) *World {
+	w := benchArenaInstance(instanceID)
+
+	// Replace first player with a Harmonist
+	healerID := instanceID*10 + 1
+	delete(w.Players, healerID)
+	healer := benchHarmonistPlayer(healerID)
+	w.Players[healerID] = healer
+
+	w.AbilityRunners = make(map[uint16]*ability.PlayerAbilityRunner)
+
+	// Add healing zones
+	w.HealingZones = []*entity.HealingZone{
+		{OwnerID: healerID, Position: entity.Vec3{X: 4, Y: 0.1, Z: 5}, Radius: 5.0, HealPerTick: 8, Duration: 6.0, TickTimer: 0.01, Interval: 1.0},
+		{OwnerID: healerID, Position: entity.Vec3{X: 6, Y: 0.1, Z: 5}, Radius: 5.0, HealPerTick: 10, Duration: 4.0, TickTimer: 0.01, Interval: 1.0},
+	}
+
+	// Add a damage link
+	peer2 := instanceID*10 + 2
+	peer3 := instanceID*10 + 3
+	w.DamageLinks = []*entity.DamageLink{
+		{SourcePeer: healerID, PeerA: healerID, PeerB: peer2, Duration: 5.0},
+	}
+
+	// Add HoTs on a couple players
+	if p, ok := w.Players[peer2]; ok {
+		p.HoTs = append(p.HoTs, entity.ActiveHoT{
+			ID: "regen_protocol", SourcePeer: healerID, HealPerTick: 5,
+			Remaining: 8.0, Interval: 1.0, TickTimer: 0.02, BurstThreshold: 0.3,
+		})
+	}
+	if p, ok := w.Players[peer3]; ok {
+		p.HoTs = append(p.HoTs, entity.ActiveHoT{
+			ID: "regen_protocol", SourcePeer: healerID, HealPerTick: 5,
+			Remaining: 8.0, Interval: 1.0, TickTimer: 0.5, BurstThreshold: 0.3,
+		})
+	}
+
+	return w
+}
+
+func BenchmarkMultiInstance10_WithHealer(b *testing.B) {
+	instances := make([]*World, 10)
+	allInputs := make([][]InputMsg, 10)
+	for i := range instances {
+		instances[i] = benchArenaInstanceWithHealer(uint16(i))
+		allInputs[i] = buildInputs(uint16(i))
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		for j := range instances {
+			instances[j].InputQueue = allInputs[j]
+			tickInstance(instances[j], allInputs[j])
+		}
+	}
+}
+
+func BenchmarkMultiInstance50_WithHealer(b *testing.B) {
+	instances := make([]*World, 50)
+	allInputs := make([][]InputMsg, 50)
+	for i := range instances {
+		instances[i] = benchArenaInstanceWithHealer(uint16(i))
+		allInputs[i] = buildInputs(uint16(i))
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		for j := range instances {
+			instances[j].InputQueue = allInputs[j]
+			tickInstance(instances[j], allInputs[j])
+		}
+	}
+}
+
+func BenchmarkMultiInstance50Parallel_WithHealer(b *testing.B) {
+	instances := make([]*World, 50)
+	allInputs := make([][]InputMsg, 50)
+	for i := range instances {
+		instances[i] = benchArenaInstanceWithHealer(uint16(i))
+		allInputs[i] = buildInputs(uint16(i))
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		var wg sync.WaitGroup
+		for j := range instances {
+			w, inputs := instances[j], allInputs[j]
+			wg.Go(func() {
+				tickInstance(w, inputs)
+			})
+		}
+		wg.Wait()
+	}
+}
+
 // BenchmarkFullTickWithPatterns measures the complete tick pipeline with active patterns.
 // Represents a realistic boss fight: 5 players, 9 enemies, boss firing patterns,
 // 100+ projectiles in flight.

@@ -12,7 +12,7 @@ var frostWardDef = AbilityDef{
 	Hit:      HitDef{Type: HitAllyTarget},
 	GCD:      0.8,
 	Cooldown: 12.0,
-	Costs:    []ResourceCost{{Resource: "flux", Amount: 20}},
+	Costs:    []ResourceCost{{Resource: entity.ResourceFlux, Amount: 20}},
 	Delivery: uint8(entity.DeliveryDirect),
 	Handler:  "frost_ward",
 }
@@ -84,9 +84,9 @@ func frostWardHandler(_ *Engine, ctx *CommitContext) CommitResult {
 
 // frostWardTick checks each player for frost ward expiry or shield break and
 // triggers the AoE frost explosion when the ward ends.
-func frostWardTick(eng *Engine, p *entity.Player, dt float32, ctx *TickContext) []DamageResult {
-	wasActive, _ := p.AbilityState["frost_ward_active"].(bool)
-	if !wasActive {
+func frostWardTick(_ *Engine, p *entity.Player, dt float32, ctx *TickContext) []DamageResult {
+	wasActive, ok := p.AbilityState["frost_ward_active"].(bool)
+	if !ok || !wasActive {
 		return nil
 	}
 
@@ -96,14 +96,7 @@ func frostWardTick(eng *Engine, p *entity.Player, dt float32, ctx *TickContext) 
 	//   1. Buff was removed externally (dispel, shield break callback, etc.)
 	//   2. Buff will expire this tick (duration will go to 0 in the buff tick loop
 	//      that runs AFTER this tick handler in engine.TickPlayer)
-	shouldExplode := false
-	if buff == nil {
-		// Buff already removed externally.
-		shouldExplode = true
-	} else if buff.Duration > 0 && buff.Duration-dt <= 0 {
-		// Buff expires this tick.
-		shouldExplode = true
-	}
+	shouldExplode := buff == nil || (buff.Duration > 0 && buff.Duration-dt <= 0)
 
 	if !shouldExplode {
 		return nil

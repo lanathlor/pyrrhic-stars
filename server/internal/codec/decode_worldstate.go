@@ -33,7 +33,7 @@ type DecodedPlayer struct {
 	OnslaughtStacks      uint8
 	// Gunner Assault state
 	Magazine, MagMax, StabilityQ, SteadinessQ, PressureStacks, EnhancedLoaded, AssaultFlags uint8
-	SpeedMultQ uint8 // quantized 0-255 → 0.0-1.0
+	SpeedMultQ                                                                              uint8 // quantized 0-255 → 0.0-1.0
 	// Flux commitment pools (fixed order: bioarcanotechnic, biometabolic, frost, aerokinetic)
 	FluxPools []DecodedFluxPool
 }

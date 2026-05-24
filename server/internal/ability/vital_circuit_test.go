@@ -46,7 +46,7 @@ func TestVitalCircuit(t *testing.T) {
 		ally := newHarmonist(2)
 		allies := map[uint16]*entity.Player{1: caster, 2: ally}
 
-		before := caster.Resources["flux"].Current
+		before := caster.Resources[entity.ResourceFlux].Current
 		eng.Commit("vital_circuit", &CommitContext{
 			Committer:    caster,
 			Allies:       allies,
@@ -54,7 +54,7 @@ func TestVitalCircuit(t *testing.T) {
 			SpawnLink:    func(*entity.DamageLink) {},
 		})
 
-		after := caster.Resources["flux"].Current
+		after := caster.Resources[entity.ResourceFlux].Current
 		if after >= before {
 			t.Errorf("flux not spent: before=%.1f after=%.1f", before, after)
 		}

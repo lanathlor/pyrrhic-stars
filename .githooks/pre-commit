@@ -5,13 +5,13 @@ STAGED_GO=$(git diff --cached --name-only --diff-filter=ACM -- 'server/**/*.go' 
 STAGED_GD=$(git diff --cached --name-only --diff-filter=ACM -- 'client/**/*.gd' 'client/*.gd' || true)
 
 if [ -n "$STAGED_GO" ]; then
-  nix develop --command bash -c "just server lint"
-  nix develop --command bash -c "just server test"
-  nix develop --command bash -c "just server fmt"
+  just server lint
+  just server fmt-check
+  just server test
 fi
 
 if [ -n "$STAGED_GD" ]; then
-  nix develop --command bash -c "just client check"
-  nix develop --command bash -c "just client test"
-  nix develop --command bash -c "just client fmt"
+  just client lint
+  just client fmt-check
+  just client test
 fi

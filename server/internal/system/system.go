@@ -157,8 +157,8 @@ type World struct {
 	CombatLogs    map[int]*combatlog.EncounterSession
 
 	// Pre-allocated spawn function for AISystem (avoids per-tick closure).
-	spawnEnemyIdx int
-	spawnFn       func(pos, dir entity.Vec3, speed, damage, lifetime float32)
+	spawnEnemyIdx   int
+	spawnFn         func(pos, dir entity.Vec3, speed, damage, lifetime float32)
 	commitPatternFn func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3)
 }
 

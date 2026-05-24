@@ -447,6 +447,16 @@ tidy:
 fmt:
     goimports -w cmd/ internal/
 
+fmt-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    OUT=$(goimports -l cmd/ internal/)
+    if [ -n "$OUT" ]; then
+        echo "Files need formatting:" >&2
+        echo "$OUT" >&2
+        exit 1
+    fi
+
 # Run go vet on all packages
 vet:
     go vet ./...

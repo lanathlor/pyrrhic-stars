@@ -53,10 +53,16 @@ func _physics_process(delta: float) -> void:
 		return
 
 	# Let upheaval windup / upheaval / vortex / execution play out
-	if _player.state in [
-		_player.State.UPHEAVAL_WINDUP, _player.State.UPHEAVAL,
-		_player.State.VORTEX, _player.State.EXECUTION_WINDUP, _player.State.EXECUTION
-	]:
+	if (
+		_player.state
+		in [
+			_player.State.UPHEAVAL_WINDUP,
+			_player.State.UPHEAVAL,
+			_player.State.VORTEX,
+			_player.State.EXECUTION_WINDUP,
+			_player.State.EXECUTION
+		]
+	):
 		return
 
 	var melee_range: float = _player.melee_range
@@ -136,10 +142,7 @@ func _physics_process(delta: float) -> void:
 	if distance <= melee_range * 0.95 and _player.state == _player.State.MOVE and is_punish_window:
 		if _attack_timer <= 0.0:
 			# Heavy during enemy cooldown (big punish window)
-			if (
-				_is_enemy_state(target, "COOLDOWN")
-				and _player.stamina >= _player.UPHEAVAL_STAMINA
-			):
+			if _is_enemy_state(target, "COOLDOWN") and _player.stamina >= _player.UPHEAVAL_STAMINA:
 				_player._start_upheaval()
 				_attack_timer = 1.0
 			elif _player.stamina >= _player.CLEAVE_STAMINA:

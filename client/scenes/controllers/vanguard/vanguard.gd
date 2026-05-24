@@ -644,10 +644,7 @@ func _drive_remote_vfx(old_vs: int, new_vs: int) -> void:
 			vfx.show_block_shield()
 	if new_vs == NetSerializer.VS_VG_VORTEX and old_vs != NetSerializer.VS_VG_VORTEX:
 		vfx.start_vortex()
-	if (
-		new_vs == NetSerializer.VS_VG_EXECUTION
-		and old_vs == NetSerializer.VS_VG_EXECUTION_WINDUP
-	):
+	if new_vs == NetSerializer.VS_VG_EXECUTION and old_vs == NetSerializer.VS_VG_EXECUTION_WINDUP:
 		if spec_id == "shield":
 			vfx.spawn_retaliate_slam(global_position, rotation.y)
 		else:

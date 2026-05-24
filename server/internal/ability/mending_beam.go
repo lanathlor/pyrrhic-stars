@@ -14,7 +14,7 @@ var mendingBeamDef = AbilityDef{
 	ExecuteTime: 0.1,
 	GCD:         0.5,
 	Costs: []ResourceCost{
-		{Resource: "flux", Amount: 8}, // cost per second during channel
+		{Resource: entity.ResourceFlux, Amount: 8}, // cost per second during channel
 	},
 	BaseHeal:         12, // heal per tick during channel
 	HealScaling:      "identity",
@@ -45,7 +45,7 @@ func mendingBeamHandler(_ *Engine, ctx *CommitContext) CommitResult {
 			return CommitResult{Reason: "insufficient " + mendingBeamDef.School + " flux"}
 		}
 	} else {
-		flux := p.Resources["flux"]
+		flux := p.Resources[entity.ResourceFlux]
 		if flux == nil || flux.Current < mendingBeamDef.Costs[0].Amount {
 			return CommitResult{Reason: "insufficient flux"}
 		}

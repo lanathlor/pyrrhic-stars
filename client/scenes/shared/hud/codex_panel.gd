@@ -5,6 +5,8 @@ extends Control
 
 signal loadout_applied(slots: Array)
 signal commitment_applied(entries: Array)
+signal preset_saved(preset_name: String, slots: Array, commitment: String)
+signal preset_deleted(preset_id: int)
 
 # -- Colors --
 const BG_OVERLAY := Color(0.0, 0.0, 0.02, 0.7)
@@ -89,6 +91,17 @@ const APPLY_H := 32.0
 const COMMIT_H := 64.0
 const COMMIT_INPUT_W := 48.0
 const COMMIT_INPUT_H := 28.0
+const PRESET_ROW_H := 28.0
+const PRESET_BTN_H := 22.0
+const PRESET_GAP := 6.0
+const PRESET_SAVE_W := 50.0
+const PRESET_NAME_INPUT_W := 120.0
+const PRESET_DELETE_SIZE := 14.0
+
+const PRESET_BG := Color(0.06, 0.08, 0.12, 0.7)
+const PRESET_HOVER_BG := Color(0.1, 0.13, 0.18, 0.8)
+const PRESET_SAVE_COLOR := Color(0.25, 0.7, 0.4)
+const PRESET_DELETE_COLOR := Color(0.7, 0.3, 0.3)
 
 # -- State --
 var _active_tab: int = 0
@@ -100,11 +113,24 @@ var _max_scroll: float = 0.0
 
 # Flux commitment -- pending percentages per school
 var _pending_commitment: Dictionary = {}  # school → int (0-100)
-var _commitment_schools: Array[String] = ["bioarcanotechnic", "biometabolic", "frost", "aerokinetic"]
+var _commitment_schools: Array[String] = [
+	"bioarcanotechnic", "biometabolic", "frost", "aerokinetic"
+]
 var _focused_commit_field: int = -1  # index into _commitment_schools, -1 = none
-var _commit_input_text: String = ""   # current text in focused field
+var _commit_input_text: String = ""  # current text in focused field
 var _commit_rects: Array[Rect2] = []  # input field rects
 var _commit_total_rect: Rect2 = Rect2()
+
+# Presets
+var _preset_rects: Array[Rect2] = []
+var _preset_delete_rects: Array[Rect2] = []
+var _preset_save_rect: Rect2 = Rect2()
+var _preset_name_rect: Rect2 = Rect2()
+var _hovered_preset: int = -1
+var _hovered_preset_delete: int = -1
+var _hovered_preset_save: bool = false
+var _naming_preset: bool = false
+var _preset_name_input: String = ""
 
 # Hover
 var _hovered_ability_idx: int = -1
@@ -160,6 +186,8 @@ func close() -> void:
 	visible = false
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_dragging = false
+	_naming_preset = false
+	_preset_name_input = ""
 
 
 func is_open() -> bool:
@@ -206,6 +234,18 @@ func _update_hover() -> void:
 			_hovered_loadout_slot = i
 			break
 
+	_hovered_preset = -1
+	_hovered_preset_delete = -1
+	_hovered_preset_save = false
+	for i in _preset_rects.size():
+		if _preset_rects[i].has_point(mouse):
+			_hovered_preset = i
+			if i < _preset_delete_rects.size() and _preset_delete_rects[i].has_point(mouse):
+				_hovered_preset_delete = i
+			break
+	if _preset_save_rect.has_point(mouse):
+		_hovered_preset_save = true
+
 
 # =============================================================================
 # Input
@@ -234,27 +274,57 @@ func _gui_input(event: InputEvent) -> void:
 			_scroll_offset = minf(_scroll_offset + 40.0, _max_scroll)
 			accept_event()
 
+	if event is InputEventKey and (event as InputEventKey).pressed and _naming_preset:
+		var key := event as InputEventKey
+		if key.keycode == KEY_ENTER or key.keycode == KEY_KP_ENTER:
+			if _preset_name_input.strip_edges() != "":
+				var commitment_csv := AbilityCatalog.encode_commitment(_pending_commitment)
+				preset_saved.emit(
+					_preset_name_input.strip_edges(), _pending_loadout.duplicate(), commitment_csv
+				)
+			_naming_preset = false
+			_preset_name_input = ""
+			accept_event()
+			return
+		if key.keycode == KEY_ESCAPE:
+			_naming_preset = false
+			_preset_name_input = ""
+			accept_event()
+			return
+		if key.keycode == KEY_BACKSPACE:
+			if _preset_name_input.length() > 0:
+				_preset_name_input = _preset_name_input.substr(0, _preset_name_input.length() - 1)
+			accept_event()
+			return
+		if key.unicode >= 32 and key.unicode < 127:  # printable ASCII
+			if _preset_name_input.length() < 30:
+				_preset_name_input += char(key.unicode)
+			accept_event()
+			return
+
 	if event is InputEventKey and (event as InputEventKey).pressed and _focused_commit_field >= 0:
 		var key := event as InputEventKey
 		if key.keycode == KEY_ENTER or key.keycode == KEY_KP_ENTER or key.keycode == KEY_TAB:
 			_confirm_commit_input()
 			if key.keycode == KEY_TAB:
 				_focused_commit_field = (_focused_commit_field + 1) % _commitment_schools.size()
-				_commit_input_text = str(_pending_commitment.get(_commitment_schools[_focused_commit_field], 0))
+				_commit_input_text = str(
+					_pending_commitment.get(_commitment_schools[_focused_commit_field], 0)
+				)
 			else:
 				_focused_commit_field = -1
 			accept_event()
 			return
-		elif key.keycode == KEY_ESCAPE:
+		if key.keycode == KEY_ESCAPE:
 			_focused_commit_field = -1
 			accept_event()
 			return
-		elif key.keycode == KEY_BACKSPACE:
+		if key.keycode == KEY_BACKSPACE:
 			if _commit_input_text.length() > 0:
 				_commit_input_text = _commit_input_text.substr(0, _commit_input_text.length() - 1)
 			accept_event()
 			return
-		elif key.unicode >= 48 and key.unicode <= 57:  # 0-9
+		if key.unicode >= 48 and key.unicode <= 57:  # 0-9
 			if _commit_input_text.length() < 3:
 				_commit_input_text += char(key.unicode)
 			accept_event()
@@ -286,6 +356,36 @@ func _on_left_press(pos: Vector2) -> void:
 			for school in _commitment_schools:
 				entries.append({"school": school, "percentage": _pending_commitment.get(school, 0)})
 			commitment_applied.emit(entries)
+		return
+
+	# Preset clicks
+	for i in _preset_rects.size():
+		if i >= AbilityCatalog.presets.size():
+			break
+		if not _preset_rects[i].has_point(pos):
+			continue
+		var preset: Dictionary = AbilityCatalog.presets[i]
+		# Check delete button first
+		if i < _preset_delete_rects.size() and _preset_delete_rects[i].has_point(pos):
+			preset_deleted.emit(preset.get("id", 0))
+			return
+		# Load preset into pending state
+		var slots: Array = preset.get("slots", [])
+		_pending_loadout.clear()
+		for j in 6:
+			_pending_loadout.append(slots[j] if j < slots.size() else "")
+		var commit_csv: String = preset.get("commitment", "")
+		if commit_csv != "":
+			var parsed := AbilityCatalog.parse_commitment(commit_csv)
+			for school in _commitment_schools:
+				_pending_commitment[school] = parsed.get(school, 0)
+		return
+
+	# Save button
+	if _preset_save_rect.has_point(pos) and not _naming_preset:
+		_naming_preset = true
+		_preset_name_input = ""
+		grab_focus()
 		return
 
 	# Commitment input field focus
@@ -348,7 +448,9 @@ func _on_right_click(pos: Vector2) -> void:
 
 func _is_loadout_dirty() -> bool:
 	for i in 6:
-		var current: String = AbilityCatalog.current_loadout[i] if i < AbilityCatalog.current_loadout.size() else ""
+		var current: String = (
+			AbilityCatalog.current_loadout[i] if i < AbilityCatalog.current_loadout.size() else ""
+		)
 		var pending: String = _pending_loadout[i] if i < _pending_loadout.size() else ""
 		if current != pending:
 			return true
@@ -457,7 +559,7 @@ func _compute_layout() -> void:
 
 	# Grid area (loadout + commitment at bottom)
 	var grid_y := tab_y + TAB_ROW_H + 4
-	var bottom_h := LOADOUT_H + COMMIT_H
+	var bottom_h := LOADOUT_H + COMMIT_H + PRESET_ROW_H
 	var loadout_y := py + ph - bottom_h
 	_grid_rect = Rect2(px + 12, grid_y, pw - 24, loadout_y - grid_y - 8)
 	_loadout_rect = Rect2(px, loadout_y, pw, LOADOUT_H)
@@ -466,7 +568,9 @@ func _compute_layout() -> void:
 	_card_rects.clear()
 	var grid_w := _grid_rect.size.x
 	var cols := maxi(int(grid_w / (CARD_W + CARD_GAP)), 1)
-	var grid_start_x := _grid_rect.position.x + (grid_w - cols * (CARD_W + CARD_GAP) + CARD_GAP) / 2.0
+	var grid_start_x := (
+		_grid_rect.position.x + (grid_w - cols * (CARD_W + CARD_GAP) + CARD_GAP) / 2.0
+	)
 
 	for i in _filtered_abilities.size():
 		var col := i % cols
@@ -480,25 +584,60 @@ func _compute_layout() -> void:
 	_max_scroll = maxf(total_height - _grid_rect.size.y, 0.0)
 	_scroll_offset = clampf(_scroll_offset, 0.0, _max_scroll)
 
+	# Preset rects (row between LOADOUT label and slots)
+	_preset_rects.clear()
+	_preset_delete_rects.clear()
+	var preset_y := loadout_y + 16.0
+	var preset_x := px + 80.0  # After "LOADOUT" label
+	for i in AbilityCatalog.presets.size():
+		var preset: Dictionary = AbilityCatalog.presets[i]
+		var pname: String = preset.get("name", "?")
+		var btn_w := font.get_string_size(pname, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x + 24.0
+		btn_w = maxf(btn_w, 50.0)
+		_preset_rects.append(Rect2(preset_x, preset_y, btn_w, PRESET_BTN_H))
+		var del_x := preset_x + btn_w - PRESET_DELETE_SIZE - 2
+		_preset_delete_rects.append(
+			Rect2(del_x, preset_y + 2, PRESET_DELETE_SIZE, PRESET_DELETE_SIZE)
+		)
+		preset_x += btn_w + PRESET_GAP
+	if _naming_preset:
+		_preset_name_rect = Rect2(preset_x, preset_y, PRESET_NAME_INPUT_W, PRESET_BTN_H)
+		preset_x += PRESET_NAME_INPUT_W + PRESET_GAP
+	_preset_save_rect = Rect2(preset_x, preset_y, PRESET_SAVE_W, PRESET_BTN_H)
+
 	# Loadout slot rects
 	_loadout_slot_rects.clear()
 	var loadout_total_w := 6 * LOADOUT_SLOT_W + 5 * LOADOUT_GAP + APPLY_W + 20
 	var lx := px + (pw - loadout_total_w) / 2.0
-	var ly := loadout_y + (LOADOUT_H - LOADOUT_SLOT_H) / 2.0
+	var ly := loadout_y + PRESET_ROW_H + (LOADOUT_H - LOADOUT_SLOT_H) / 2.0
 	for i in 6:
-		_loadout_slot_rects.append(Rect2(lx + i * (LOADOUT_SLOT_W + LOADOUT_GAP), ly, LOADOUT_SLOT_W, LOADOUT_SLOT_H))
+		_loadout_slot_rects.append(
+			Rect2(lx + i * (LOADOUT_SLOT_W + LOADOUT_GAP), ly, LOADOUT_SLOT_W, LOADOUT_SLOT_H)
+		)
 
-	_apply_rect = Rect2(lx + 6 * (LOADOUT_SLOT_W + LOADOUT_GAP) + 12, ly + (LOADOUT_SLOT_H - APPLY_H) / 2.0, APPLY_W, APPLY_H)
+	_apply_rect = Rect2(
+		lx + 6 * (LOADOUT_SLOT_W + LOADOUT_GAP) + 12,
+		ly + (LOADOUT_SLOT_H - APPLY_H) / 2.0,
+		APPLY_W,
+		APPLY_H
+	)
 
 	# Commitment input rects
-	var commit_y := loadout_y + LOADOUT_H
+	var commit_y := loadout_y + LOADOUT_H + PRESET_ROW_H
 	_commit_total_rect = Rect2(px, commit_y, pw, COMMIT_H)
 	_commit_rects.clear()
 	var commit_entry_w := 100.0 + COMMIT_INPUT_W + 24.0  # label + input + gap
 	var commit_total_w := _commitment_schools.size() * commit_entry_w
 	var cx := px + (pw - commit_total_w) / 2.0
 	for i in _commitment_schools.size():
-		_commit_rects.append(Rect2(cx + 100.0, commit_y + (COMMIT_H - COMMIT_INPUT_H) / 2.0, COMMIT_INPUT_W, COMMIT_INPUT_H))
+		_commit_rects.append(
+			Rect2(
+				cx + 100.0,
+				commit_y + (COMMIT_H - COMMIT_INPUT_H) / 2.0,
+				COMMIT_INPUT_W,
+				COMMIT_INPUT_H
+			)
+		)
 		cx += commit_entry_w
 
 
@@ -524,9 +663,14 @@ func _draw() -> void:
 	_draw_tabs()
 	_draw_grid()
 	_draw_loadout()
+	_draw_presets()
 	_draw_commitment()
 
-	if _hovered_ability_idx >= 0 and _hovered_ability_idx < _filtered_abilities.size() and not _dragging:
+	if (
+		_hovered_ability_idx >= 0
+		and _hovered_ability_idx < _filtered_abilities.size()
+		and not _dragging
+	):
 		_draw_tooltip()
 	if _dragging:
 		_draw_drag_ghost()
@@ -536,19 +680,38 @@ func _draw_title() -> void:
 	var font := ThemeDB.fallback_font
 	var py := _panel_rect.position.y
 
-	draw_string(font, Vector2(_panel_rect.position.x + 16, py + 28), "HARMONIST CODEX",
-		HORIZONTAL_ALIGNMENT_LEFT, _panel_rect.size.x - 60, 18, ACCENT)
+	draw_string(
+		font,
+		Vector2(_panel_rect.position.x + 16, py + 28),
+		"HARMONIST CODEX",
+		HORIZONTAL_ALIGNMENT_LEFT,
+		_panel_rect.size.x - 60,
+		18,
+		ACCENT
+	)
 
 	# Separator
 	var sep_y := py + TITLE_H
-	draw_line(Vector2(_panel_rect.position.x + 8, sep_y), Vector2(_panel_rect.end.x - 8, sep_y), PANEL_BORDER, 1.0)
+	draw_line(
+		Vector2(_panel_rect.position.x + 8, sep_y),
+		Vector2(_panel_rect.end.x - 8, sep_y),
+		PANEL_BORDER,
+		1.0
+	)
 
 	# Close button
 	var cc := Color(1.0, 0.4, 0.4) if _hovered_close else CLOSE_COLOR
 	if _hovered_close:
 		draw_rect(_close_rect, Color(cc, 0.2))
-	draw_string(font, Vector2(_close_rect.position.x + 6, _close_rect.position.y + 18), "X",
-		HORIZONTAL_ALIGNMENT_CENTER, _close_rect.size.x - 12, 14, cc)
+	draw_string(
+		font,
+		Vector2(_close_rect.position.x + 6, _close_rect.position.y + 18),
+		"X",
+		HORIZONTAL_ALIGNMENT_CENTER,
+		_close_rect.size.x - 12,
+		14,
+		cc
+	)
 
 
 func _draw_tabs() -> void:
@@ -572,20 +735,42 @@ func _draw_tabs() -> void:
 			var sc := _get_school_color(_schools[i])
 			tc = sc if is_active else Color(sc, 0.6)
 
-		draw_string(font, Vector2(rect.position.x + 8, rect.position.y + 18), label,
-			HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 16, 10, tc)
+		draw_string(
+			font,
+			Vector2(rect.position.x + 8, rect.position.y + 18),
+			label,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			rect.size.x - 16,
+			10,
+			tc
+		)
 
 
 func _draw_grid() -> void:
 	# Separator
-	draw_line(Vector2(_panel_rect.position.x + 8, _grid_rect.position.y - 2),
-		Vector2(_panel_rect.end.x - 8, _grid_rect.position.y - 2), PANEL_BORDER, 1.0)
+	draw_line(
+		Vector2(_panel_rect.position.x + 8, _grid_rect.position.y - 2),
+		Vector2(_panel_rect.end.x - 8, _grid_rect.position.y - 2),
+		PANEL_BORDER,
+		1.0
+	)
 
 	if _filtered_abilities.is_empty():
 		var font := ThemeDB.fallback_font
-		var msg := "Waiting for ability catalog..." if AbilityCatalog.catalog.is_empty() else "No abilities in this school."
-		draw_string(font, Vector2(_grid_rect.position.x + 20, _grid_rect.position.y + 40), msg,
-			HORIZONTAL_ALIGNMENT_LEFT, _grid_rect.size.x - 40, 12, TEXT_DIM)
+		var msg := (
+			"Waiting for ability catalog..."
+			if AbilityCatalog.catalog.is_empty()
+			else "No abilities in this school."
+		)
+		draw_string(
+			font,
+			Vector2(_grid_rect.position.x + 20, _grid_rect.position.y + 40),
+			msg,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			_grid_rect.size.x - 40,
+			12,
+			TEXT_DIM
+		)
 		return
 
 	for i in _card_rects.size():
@@ -601,11 +786,25 @@ func _draw_grid() -> void:
 	if _max_scroll > 0:
 		var font := ThemeDB.fallback_font
 		if _scroll_offset > 0:
-			draw_string(font, Vector2(_grid_rect.get_center().x - 6, _grid_rect.position.y + 14),
-				"^", HORIZONTAL_ALIGNMENT_CENTER, 12, 12, TEXT_DIM)
+			draw_string(
+				font,
+				Vector2(_grid_rect.get_center().x - 6, _grid_rect.position.y + 14),
+				"^",
+				HORIZONTAL_ALIGNMENT_CENTER,
+				12,
+				12,
+				TEXT_DIM
+			)
 		if _scroll_offset < _max_scroll:
-			draw_string(font, Vector2(_grid_rect.get_center().x - 6, _grid_rect.end.y - 4),
-				"v", HORIZONTAL_ALIGNMENT_CENTER, 12, 12, TEXT_DIM)
+			draw_string(
+				font,
+				Vector2(_grid_rect.get_center().x - 6, _grid_rect.end.y - 4),
+				"v",
+				HORIZONTAL_ALIGNMENT_CENTER,
+				12,
+				12,
+				TEXT_DIM
+			)
 
 
 func _draw_ability_card(rect: Rect2, ability: Dictionary, hovered: bool) -> void:
@@ -646,35 +845,63 @@ func _draw_ability_card(rect: Rect2, ability: Dictionary, hovered: bool) -> void
 	var ability_name: String = ability.get("name", "???")
 	var name_color := TEXT_PRIMARY if implemented else TEXT_DIM
 	var name_parts := ability_name.split(" ", true, 1)
-	draw_string(font, Vector2(rect.position.x + 8, rect.position.y + 16), name_parts[0],
-		HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 14, 11, name_color)
+	draw_string(
+		font,
+		Vector2(rect.position.x + 8, rect.position.y + 16),
+		name_parts[0],
+		HORIZONTAL_ALIGNMENT_LEFT,
+		rect.size.x - 14,
+		11,
+		name_color
+	)
 	if name_parts.size() > 1:
-		draw_string(font, Vector2(rect.position.x + 8, rect.position.y + 30), name_parts[1],
-			HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 14, 11, name_color)
+		draw_string(
+			font,
+			Vector2(rect.position.x + 8, rect.position.y + 30),
+			name_parts[1],
+			HORIZONTAL_ALIGNMENT_LEFT,
+			rect.size.x - 14,
+			11,
+			name_color
+		)
 
 	# School abbrev + type letter (bottom-left area)
 	var school_abbrev: String = SCHOOL_LABELS.get(school, school).to_upper().left(3)
 	var ability_type: String = ability.get("ability_type", "")
 	var type_letter: String = TYPE_LETTERS.get(ability_type, "?")
-	draw_string(font, Vector2(rect.position.x + 8, rect.end.y - 22),
+	draw_string(
+		font,
+		Vector2(rect.position.x + 8, rect.end.y - 22),
 		"%s  %s" % [school_abbrev, type_letter],
-		HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 14, 9,
-		Color(school_color, 0.7) if implemented else TEXT_DIM)
+		HORIZONTAL_ALIGNMENT_LEFT,
+		rect.size.x - 14,
+		9,
+		Color(school_color, 0.7) if implemented else TEXT_DIM
+	)
 
 	# Flux cost dots
 	var flux_cost: String = ability.get("flux_cost", "")
 	var dot_count: int = FLUX_DOT_COUNT.get(flux_cost, 0)
 	if dot_count > 0:
 		for d in dot_count:
-			draw_rect(Rect2(rect.position.x + 8.0 + d * 10.0, rect.end.y - 10.0, 6.0, 4.0),
-				ACCENT if implemented else TEXT_DIM)
+			draw_rect(
+				Rect2(rect.position.x + 8.0 + d * 10.0, rect.end.y - 10.0, 6.0, 4.0),
+				ACCENT if implemented else TEXT_DIM
+			)
 
 	# Slot badge (top-right)
 	if slot >= 0:
 		var badge := Rect2(rect.end.x - 22, rect.position.y + 4, 18, 16)
 		draw_rect(badge, Color(ACCENT, 0.8))
-		draw_string(font, Vector2(badge.position.x + 3, badge.position.y + 12), SLOT_KEYBINDS[slot],
-			HORIZONTAL_ALIGNMENT_CENTER, 12, 10, Color.WHITE)
+		draw_string(
+			font,
+			Vector2(badge.position.x + 3, badge.position.y + 12),
+			SLOT_KEYBINDS[slot],
+			HORIZONTAL_ALIGNMENT_CENTER,
+			12,
+			10,
+			Color.WHITE
+		)
 
 	# Unimplemented overlay with cross-hatch
 	if not implemented:
@@ -702,12 +929,23 @@ func _draw_loadout() -> void:
 	var font := ThemeDB.fallback_font
 
 	# Separator
-	draw_line(Vector2(_panel_rect.position.x + 8, _loadout_rect.position.y),
-		Vector2(_panel_rect.end.x - 8, _loadout_rect.position.y), PANEL_BORDER, 1.0)
+	draw_line(
+		Vector2(_panel_rect.position.x + 8, _loadout_rect.position.y),
+		Vector2(_panel_rect.end.x - 8, _loadout_rect.position.y),
+		PANEL_BORDER,
+		1.0
+	)
 
 	# Label
-	draw_string(font, Vector2(_loadout_rect.position.x + 16, _loadout_rect.position.y + 14),
-		"LOADOUT", HORIZONTAL_ALIGNMENT_LEFT, 80, 10, TEXT_MUTED)
+	draw_string(
+		font,
+		Vector2(_loadout_rect.position.x + 16, _loadout_rect.position.y + 14),
+		"LOADOUT",
+		HORIZONTAL_ALIGNMENT_LEFT,
+		80,
+		10,
+		TEXT_MUTED
+	)
 
 	for i in 6:
 		var rect := _loadout_slot_rects[i]
@@ -725,44 +963,169 @@ func _draw_loadout() -> void:
 		draw_rect(rect, ACCENT if is_drop else PANEL_BORDER, false, 1.5 if is_drop else 1.0)
 
 		# Keybind
-		draw_string(font, Vector2(rect.position.x + 4, rect.position.y + 12), SLOT_KEYBINDS[i],
-			HORIZONTAL_ALIGNMENT_LEFT, 20, 9, TEXT_MUTED)
+		draw_string(
+			font,
+			Vector2(rect.position.x + 4, rect.position.y + 12),
+			SLOT_KEYBINDS[i],
+			HORIZONTAL_ALIGNMENT_LEFT,
+			20,
+			9,
+			TEXT_MUTED
+		)
 
 		if ability_id != "":
 			var ability := AbilityCatalog.get_ability(ability_id)
 			var sn: String = ability.get("name", ability_id)
 			var sc: String = ability.get("school", "")
-			draw_rect(Rect2(rect.position.x, rect.position.y, 3, rect.size.y), _get_school_color(sc))
+			draw_rect(
+				Rect2(rect.position.x, rect.position.y, 3, rect.size.y), _get_school_color(sc)
+			)
 			var parts := sn.split(" ", true, 1)
-			draw_string(font, Vector2(rect.position.x + 8, rect.position.y + 28), parts[0],
-				HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 12, 10, TEXT_PRIMARY)
+			draw_string(
+				font,
+				Vector2(rect.position.x + 8, rect.position.y + 28),
+				parts[0],
+				HORIZONTAL_ALIGNMENT_LEFT,
+				rect.size.x - 12,
+				10,
+				TEXT_PRIMARY
+			)
 			if parts.size() > 1:
-				draw_string(font, Vector2(rect.position.x + 8, rect.position.y + 42), parts[1],
-					HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 12, 10, TEXT_PRIMARY)
+				draw_string(
+					font,
+					Vector2(rect.position.x + 8, rect.position.y + 42),
+					parts[1],
+					HORIZONTAL_ALIGNMENT_LEFT,
+					rect.size.x - 12,
+					10,
+					TEXT_PRIMARY
+				)
 		else:
-			draw_string(font, Vector2(rect.position.x + 8, rect.position.y + 34), "Empty",
-				HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 12, 10, TEXT_DIM)
+			draw_string(
+				font,
+				Vector2(rect.position.x + 8, rect.position.y + 34),
+				"Empty",
+				HORIZONTAL_ALIGNMENT_LEFT,
+				rect.size.x - 12,
+				10,
+				TEXT_DIM
+			)
 
 	# Apply button (active when dirty AND commitment totals 100%)
 	var dirty := _is_anything_dirty() and _commitment_total() == 100
-	var abg := Color(APPLY_ACTIVE, 0.5 if _hovered_apply else 0.3) if dirty else Color(APPLY_INACTIVE, 0.15)
+	var abg := (
+		Color(APPLY_ACTIVE, 0.5 if _hovered_apply else 0.3)
+		if dirty
+		else Color(APPLY_INACTIVE, 0.15)
+	)
 	draw_rect(_apply_rect, abg)
 	draw_rect(_apply_rect, APPLY_ACTIVE if dirty else APPLY_INACTIVE, false, 1.0)
-	draw_string(font, Vector2(_apply_rect.position.x + 6, _apply_rect.position.y + 21), "APPLY",
-		HORIZONTAL_ALIGNMENT_CENTER, _apply_rect.size.x - 12, 12, APPLY_ACTIVE if dirty else APPLY_INACTIVE)
+	draw_string(
+		font,
+		Vector2(_apply_rect.position.x + 6, _apply_rect.position.y + 21),
+		"APPLY",
+		HORIZONTAL_ALIGNMENT_CENTER,
+		_apply_rect.size.x - 12,
+		12,
+		APPLY_ACTIVE if dirty else APPLY_INACTIVE
+	)
+
+
+func _draw_presets() -> void:
+	var font := ThemeDB.fallback_font
+
+	for i in _preset_rects.size():
+		if i >= AbilityCatalog.presets.size():
+			break
+		var rect := _preset_rects[i]
+		var preset: Dictionary = AbilityCatalog.presets[i]
+		var pname: String = preset.get("name", "?")
+		var is_hovered := i == _hovered_preset
+
+		var bg := PRESET_HOVER_BG if is_hovered else PRESET_BG
+		draw_rect(rect, bg)
+		draw_rect(rect, ACCENT if is_hovered else PANEL_BORDER, false, 1.0)
+
+		draw_string(
+			font,
+			Vector2(rect.position.x + 6, rect.position.y + 16),
+			pname,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			rect.size.x - PRESET_DELETE_SIZE - 10,
+			10,
+			TEXT_PRIMARY if is_hovered else TEXT_MUTED
+		)
+
+		# Delete "x" on hover
+		if is_hovered or i == _hovered_preset_delete:
+			var dr := _preset_delete_rects[i]
+			var dc := PRESET_DELETE_COLOR if i == _hovered_preset_delete else TEXT_DIM
+			draw_string(
+				font,
+				Vector2(dr.position.x + 2, dr.position.y + 11),
+				"x",
+				HORIZONTAL_ALIGNMENT_CENTER,
+				PRESET_DELETE_SIZE - 4,
+				9,
+				dc
+			)
+
+	# Name input field (when saving)
+	if _naming_preset:
+		var nr := _preset_name_rect
+		draw_rect(nr, Color(0.08, 0.1, 0.15, 0.9))
+		draw_rect(nr, ACCENT, false, 1.5)
+		var display := _preset_name_input + "_"
+		draw_string(
+			font,
+			Vector2(nr.position.x + 6, nr.position.y + 16),
+			display,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			nr.size.x - 12,
+			10,
+			TEXT_PRIMARY
+		)
+
+	# Save button
+	var sr := _preset_save_rect
+	var save_active := not _naming_preset
+	var save_alpha := 0.4 if _hovered_preset_save else 0.2
+	var sbg := Color(PRESET_SAVE_COLOR, save_alpha) if save_active else Color(APPLY_INACTIVE, 0.15)
+	draw_rect(sr, sbg)
+	draw_rect(sr, PRESET_SAVE_COLOR if save_active else APPLY_INACTIVE, false, 1.0)
+	draw_string(
+		font,
+		Vector2(sr.position.x + 4, sr.position.y + 16),
+		"SAVE",
+		HORIZONTAL_ALIGNMENT_CENTER,
+		sr.size.x - 8,
+		10,
+		PRESET_SAVE_COLOR if save_active else APPLY_INACTIVE
+	)
 
 
 func _draw_commitment() -> void:
 	var font := ThemeDB.fallback_font
 
 	# Separator
-	draw_line(Vector2(_panel_rect.position.x + 8, _commit_total_rect.position.y),
-		Vector2(_panel_rect.end.x - 8, _commit_total_rect.position.y), PANEL_BORDER, 1.0)
+	draw_line(
+		Vector2(_panel_rect.position.x + 8, _commit_total_rect.position.y),
+		Vector2(_panel_rect.end.x - 8, _commit_total_rect.position.y),
+		PANEL_BORDER,
+		1.0
+	)
 
 	# Label
 	var label_y := _commit_total_rect.position.y + (_commit_total_rect.size.y + 12.0) / 2.0
-	draw_string(font, Vector2(_commit_total_rect.position.x + 16, label_y),
-		"FLUX COMMITMENT", HORIZONTAL_ALIGNMENT_LEFT, 180, 12, TEXT_MUTED)
+	draw_string(
+		font,
+		Vector2(_commit_total_rect.position.x + 16, label_y),
+		"FLUX COMMITMENT",
+		HORIZONTAL_ALIGNMENT_LEFT,
+		180,
+		12,
+		TEXT_MUTED
+	)
 
 	# Compute total for validation
 	var total: int = 0
@@ -780,32 +1143,62 @@ func _draw_commitment() -> void:
 		var pct: int = _pending_commitment.get(school, 0)
 
 		# School label (above input)
-		draw_string(font, Vector2(cx, _commit_total_rect.position.y + 18),
-			label, HORIZONTAL_ALIGNMENT_LEFT, 96, 11, sc_color)
+		draw_string(
+			font,
+			Vector2(cx, _commit_total_rect.position.y + 18),
+			label,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			96,
+			11,
+			sc_color
+		)
 
 		# Input box
 		var input_rect := _commit_rects[i]
 		var is_focused := i == _focused_commit_field
 		var ibg := Color(0.08, 0.1, 0.15, 0.9) if is_focused else Color(0.04, 0.05, 0.07, 0.6)
 		draw_rect(input_rect, ibg)
-		draw_rect(input_rect, ACCENT if is_focused else PANEL_BORDER, false, 1.5 if is_focused else 1.0)
+		draw_rect(
+			input_rect, ACCENT if is_focused else PANEL_BORDER, false, 1.5 if is_focused else 1.0
+		)
 
 		# Value text (centered in input)
 		var display_text: String = _commit_input_text if is_focused else str(pct)
-		draw_string(font, Vector2(input_rect.position.x + 6, input_rect.position.y + 20),
-			display_text, HORIZONTAL_ALIGNMENT_LEFT, COMMIT_INPUT_W - 12, 14, TEXT_PRIMARY)
+		draw_string(
+			font,
+			Vector2(input_rect.position.x + 6, input_rect.position.y + 20),
+			display_text,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			COMMIT_INPUT_W - 12,
+			14,
+			TEXT_PRIMARY
+		)
 
 		# "%" suffix
-		draw_string(font, Vector2(input_rect.end.x + 4, input_rect.position.y + 20),
-			"%", HORIZONTAL_ALIGNMENT_LEFT, 16, 12, TEXT_MUTED)
+		draw_string(
+			font,
+			Vector2(input_rect.end.x + 4, input_rect.position.y + 20),
+			"%",
+			HORIZONTAL_ALIGNMENT_LEFT,
+			16,
+			12,
+			TEXT_MUTED
+		)
 
 		cx += commit_entry_w
 
 	# Total indicator (right side)
 	var total_color := APPLY_ACTIVE if total == 100 else CLOSE_COLOR
 	var total_x := cx + 12.0
-	draw_string(font, Vector2(total_x, _commit_total_rect.position.y + _commit_total_rect.size.y / 2.0 + 6),
-		"= %d%%" % total, HORIZONTAL_ALIGNMENT_LEFT, 80, 14, total_color)
+	draw_string(
+		font,
+		Vector2(total_x, _commit_total_rect.position.y + _commit_total_rect.size.y / 2.0 + 6),
+		"= %d%%" % total,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		80,
+		14,
+		total_color
+	)
 
 
 func _draw_tooltip() -> void:
@@ -867,7 +1260,12 @@ func _draw_tooltip() -> void:
 	var desc_lines := _wrap_text(font, description, 360.0, TIP_DESC_SIZE)
 	var tip_w := 400.0
 	var detail_rows := ceili(stat_details.size() / 2.0) if stat_details.size() > 0 else 0
-	var tip_h := 100.0 + detail_rows * TIP_LINE_H + desc_lines.size() * TIP_DESC_LINE_H + (22.0 if not implemented else 0.0)
+	var tip_h := (
+		100.0
+		+ detail_rows * TIP_LINE_H
+		+ desc_lines.size() * TIP_DESC_LINE_H
+		+ (22.0 if not implemented else 0.0)
+	)
 
 	var card_rect := _card_rects[_hovered_ability_idx]
 	var tip_x := card_rect.end.x + 8.0
@@ -885,8 +1283,15 @@ func _draw_tooltip() -> void:
 	var ty := tip_y + 22
 
 	# Name
-	draw_string(font, Vector2(tip_x + 14, ty), ability_name,
-		HORIZONTAL_ALIGNMENT_LEFT, tip_w - 28, TIP_NAME_SIZE, school_color)
+	draw_string(
+		font,
+		Vector2(tip_x + 14, ty),
+		ability_name,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		tip_w - 28,
+		TIP_NAME_SIZE,
+		school_color
+	)
 	ty += 22
 
 	# School | Type | Delivery
@@ -896,8 +1301,15 @@ func _draw_tooltip() -> void:
 		info.append(ability_type.capitalize())
 	if delivery != "":
 		info.append(delivery.capitalize())
-	draw_string(font, Vector2(tip_x + 14, ty), " \u00b7 ".join(info),
-		HORIZONTAL_ALIGNMENT_LEFT, tip_w - 28, TIP_INFO_SIZE, TEXT_MUTED)
+	draw_string(
+		font,
+		Vector2(tip_x + 14, ty),
+		" \u00b7 ".join(info),
+		HORIZONTAL_ALIGNMENT_LEFT,
+		tip_w - 28,
+		TIP_INFO_SIZE,
+		TEXT_MUTED
+	)
 	ty += TIP_LINE_H
 
 	# Stats line (flux / commit / cooldown)
@@ -911,8 +1323,15 @@ func _draw_tooltip() -> void:
 	if cooldown > 0.01:
 		stats.append("%.0fs CD" % cooldown)
 	if stats.size() > 0:
-		draw_string(font, Vector2(tip_x + 14, ty), " | ".join(stats),
-			HORIZONTAL_ALIGNMENT_LEFT, tip_w - 28, TIP_STAT_SIZE, Color(0.85, 0.75, 0.3, 0.8))
+		draw_string(
+			font,
+			Vector2(tip_x + 14, ty),
+			" | ".join(stats),
+			HORIZONTAL_ALIGNMENT_LEFT,
+			tip_w - 28,
+			TIP_STAT_SIZE,
+			Color(0.85, 0.75, 0.3, 0.8)
+		)
 		ty += TIP_LINE_H
 
 	# Detailed stat rows (2 per row)
@@ -920,40 +1339,83 @@ func _draw_tooltip() -> void:
 	var detail_i := 0
 	while detail_i < stat_details.size():
 		var left: String = stat_details[detail_i]
-		draw_string(font, Vector2(tip_x + 14, ty), left,
-			HORIZONTAL_ALIGNMENT_LEFT, col_w, TIP_DETAIL_SIZE, Color(0.7, 0.85, 0.75, 0.85))
+		draw_string(
+			font,
+			Vector2(tip_x + 14, ty),
+			left,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			col_w,
+			TIP_DETAIL_SIZE,
+			Color(0.7, 0.85, 0.75, 0.85)
+		)
 		if detail_i + 1 < stat_details.size():
 			var right: String = stat_details[detail_i + 1]
-			draw_string(font, Vector2(tip_x + 14 + col_w, ty), right,
-				HORIZONTAL_ALIGNMENT_LEFT, col_w, TIP_DETAIL_SIZE, Color(0.7, 0.85, 0.75, 0.85))
+			draw_string(
+				font,
+				Vector2(tip_x + 14 + col_w, ty),
+				right,
+				HORIZONTAL_ALIGNMENT_LEFT,
+				col_w,
+				TIP_DETAIL_SIZE,
+				Color(0.7, 0.85, 0.75, 0.85)
+			)
 		detail_i += 2
 		ty += TIP_LINE_H
 
 	# Affinity
 	var aff_color: Color
 	match affinity:
-		"primary": aff_color = Color(0.3, 0.8, 0.4)
-		"secondary": aff_color = Color(0.7, 0.7, 0.3)
-		_: aff_color = Color(0.7, 0.35, 0.3)
+		"primary":
+			aff_color = Color(0.3, 0.8, 0.4)
+		"secondary":
+			aff_color = Color(0.7, 0.7, 0.3)
+		_:
+			aff_color = Color(0.7, 0.35, 0.3)
 	var aff_labels := {"primary": "PRIMARY", "secondary": "SECONDARY", "off": "OFF-SPEC"}
-	draw_string(font, Vector2(tip_x + 14, ty), aff_labels.get(affinity, "OFF-SPEC"),
-		HORIZONTAL_ALIGNMENT_LEFT, tip_w - 28, TIP_AFF_SIZE, aff_color)
+	draw_string(
+		font,
+		Vector2(tip_x + 14, ty),
+		aff_labels.get(affinity, "OFF-SPEC"),
+		HORIZONTAL_ALIGNMENT_LEFT,
+		tip_w - 28,
+		TIP_AFF_SIZE,
+		aff_color
+	)
 	ty += 16
 
 	# Separator
-	draw_line(Vector2(tip_x + 10, ty - 2), Vector2(tip_x + tip_w - 10, ty - 2), Color(PANEL_BORDER, 0.5), 1.0)
+	draw_line(
+		Vector2(tip_x + 10, ty - 2),
+		Vector2(tip_x + tip_w - 10, ty - 2),
+		Color(PANEL_BORDER, 0.5),
+		1.0
+	)
 	ty += 6
 
 	# Description
 	for line in desc_lines:
-		draw_string(font, Vector2(tip_x + 14, ty), line,
-			HORIZONTAL_ALIGNMENT_LEFT, tip_w - 28, TIP_DESC_SIZE, Color(0.82, 0.84, 0.88, 0.9))
+		draw_string(
+			font,
+			Vector2(tip_x + 14, ty),
+			line,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			tip_w - 28,
+			TIP_DESC_SIZE,
+			Color(0.82, 0.84, 0.88, 0.9)
+		)
 		ty += TIP_DESC_LINE_H
 
 	if not implemented:
 		ty += 6
-		draw_string(font, Vector2(tip_x + 14, ty), "NOT YET IMPLEMENTED",
-			HORIZONTAL_ALIGNMENT_LEFT, tip_w - 28, TIP_WARN_SIZE, Color(0.8, 0.4, 0.3, 0.9))
+		draw_string(
+			font,
+			Vector2(tip_x + 14, ty),
+			"NOT YET IMPLEMENTED",
+			HORIZONTAL_ALIGNMENT_LEFT,
+			tip_w - 28,
+			TIP_WARN_SIZE,
+			Color(0.8, 0.4, 0.3, 0.9)
+		)
 
 
 func _draw_drag_ghost() -> void:
@@ -971,13 +1433,26 @@ func _draw_drag_ghost() -> void:
 	draw_rect(Rect2(gx, gy, 3, gh), sc)
 	draw_rect(Rect2(gx, gy, gw, gh), Color(sc, 0.6), false, 1.5)
 
-	draw_string(font, Vector2(gx + 8, gy + 16), _drag_ability.get("name", "???"),
-		HORIZONTAL_ALIGNMENT_LEFT, gw - 12, 11, TEXT_PRIMARY)
+	draw_string(
+		font,
+		Vector2(gx + 8, gy + 16),
+		_drag_ability.get("name", "???"),
+		HORIZONTAL_ALIGNMENT_LEFT,
+		gw - 12,
+		11,
+		TEXT_PRIMARY
+	)
 
 	if _hovered_loadout_slot >= 0:
-		draw_string(font, Vector2(gx + 8, gy + 32),
+		draw_string(
+			font,
+			Vector2(gx + 8, gy + 32),
 			"-> Slot %s" % SLOT_KEYBINDS[_hovered_loadout_slot],
-			HORIZONTAL_ALIGNMENT_LEFT, gw - 12, 9, ACCENT)
+			HORIZONTAL_ALIGNMENT_LEFT,
+			gw - 12,
+			9,
+			ACCENT
+		)
 
 
 # =============================================================================

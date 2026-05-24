@@ -127,11 +127,11 @@ func TestPlayerRunner_ChargeAccumulation(t *testing.T) {
 	r.Start(def)
 
 	tests := []struct {
-		tickCount     int
-		expectedLow   float32
-		expectedHigh  float32
+		tickCount    int
+		expectedLow  float32
+		expectedHigh float32
 	}{
-		{5, 0.2, 0.3},   // ~0.25s into 1.0s = ~0.25
+		{5, 0.2, 0.3},    // ~0.25s into 1.0s = ~0.25
 		{10, 0.45, 0.55}, // ~0.50s into 1.0s = ~0.50
 		{15, 0.7, 0.8},   // ~0.75s into 1.0s = ~0.75
 	}

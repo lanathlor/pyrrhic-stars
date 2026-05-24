@@ -17,7 +17,7 @@ var metabolicBurstDef = AbilityDef{
 	GCD:      0.8,
 	Cooldown: 12.0,
 	Costs: []ResourceCost{
-		{Resource: "flux", Amount: 40},
+		{Resource: entity.ResourceFlux, Amount: 40},
 	},
 	BaseDamage:   25,
 	Delivery:     uint8(entity.DeliveryDirect),

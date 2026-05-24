@@ -219,20 +219,20 @@ func TestAbilitiesForSpec(t *testing.T) {
 		wantAffinity string
 	}{
 		// Harmonist primary schools: bioarcanotechnic, biometabolic, frost
-		{id: "mending_surge", wantAffinity: "primary"},     // bioarcanotechnic
-		{id: "life_swap", wantAffinity: "primary"},          // biometabolic
-		{id: "frost_ward", wantAffinity: "primary"},         // frost
+		{id: "mending_surge", wantAffinity: "primary"}, // bioarcanotechnic
+		{id: "life_swap", wantAffinity: "primary"},     // biometabolic
+		{id: "frost_ward", wantAffinity: "primary"},    // frost
 		// Harmonist secondary schools: aerokinetic, hydrodynamic, pure
-		{id: "gust_step", wantAffinity: "secondary"},        // aerokinetic
-		{id: "torrent", wantAffinity: "secondary"},          // hydrodynamic
-		{id: "flux_negation", wantAffinity: "secondary"},    // pure
+		{id: "gust_step", wantAffinity: "secondary"},     // aerokinetic
+		{id: "torrent", wantAffinity: "secondary"},       // hydrodynamic
+		{id: "flux_negation", wantAffinity: "secondary"}, // pure
 		// Off-affinity
-		{id: "fireball", wantAffinity: "off"},               // fire
-		{id: "chain_lightning", wantAffinity: "off"},         // electricity
-		{id: "shadow_step", wantAffinity: "off"},            // shadow
-		{id: "gravitonic_collapse", wantAffinity: "off"},    // gravitonic
-		{id: "adrenaline", wantAffinity: "off"},             // martial
-		{id: "mirage", wantAffinity: "off"},                 // illusion
+		{id: "fireball", wantAffinity: "off"},            // fire
+		{id: "chain_lightning", wantAffinity: "off"},     // electricity
+		{id: "shadow_step", wantAffinity: "off"},         // shadow
+		{id: "gravitonic_collapse", wantAffinity: "off"}, // gravitonic
+		{id: "adrenaline", wantAffinity: "off"},          // martial
+		{id: "mirage", wantAffinity: "off"},              // illusion
 	}
 
 	for _, tt := range tests {

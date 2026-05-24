@@ -49,7 +49,7 @@ func TestDamageEventWireFormat(t *testing.T) {
 	gotHitZ := math.Float32frombits(binary.LittleEndian.Uint32(buf[off : off+4]))
 	off += 4
 	gotType := buf[off]
-	off += 1
+	off++
 	gotOverheal := math.Float32frombits(binary.LittleEndian.Uint32(buf[off : off+4]))
 
 	if gotTarget != 0 {

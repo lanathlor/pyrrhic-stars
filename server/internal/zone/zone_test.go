@@ -446,22 +446,22 @@ func TestHandleRespawnRequest(t *testing.T) {
 			wantPosition:    &entity.Vec3{X: -2, Y: 0.1, Z: 48},
 		},
 		{
-			name:          "arena respawn rejected during boss fight",
-			state:         StateFight,
+			name:           "arena respawn rejected during boss fight",
+			state:          StateFight,
 			bossGateActive: true,
-			playerAlive:   false,
-			respawnType:   0,
-			wantAlive:     false,
+			playerAlive:    false,
+			respawnType:    0,
+			wantAlive:      false,
 		},
 		{
-			name:          "arena respawn allowed during trash fight",
-			state:         StateFight,
-			bossGateActive: false,
-			playerAlive:   false,
-			respawnType:   0,
-			wantAlive:     true,
+			name:            "arena respawn allowed during trash fight",
+			state:           StateFight,
+			bossGateActive:  false,
+			playerAlive:     false,
+			respawnType:     0,
+			wantAlive:       true,
 			wantHealthReset: true,
-			wantPosition:  &entity.Vec3{X: -2, Y: 0.1, Z: 48},
+			wantPosition:    &entity.Vec3{X: -2, Y: 0.1, Z: 48},
 		},
 		{
 			name:         "hub respawn calls callback",
@@ -731,9 +731,19 @@ func extractPlayerState(msg []byte, wantPeer uint16) int {
 		off += 4 // bdShieldHP
 		off += 4 // munitions
 		off += 4 // resonance
-		off++    // onslaught_stacks
+		off += 4 // flux
+		off += 4 // flux_max
+		off++    // mastery_stacks
 		off += 7 // gunner assault state
 		off++    // speedMult
+		// flux_commitment_pools
+		if off < len(payload) {
+			poolCount := int(payload[off])
+			off++
+			if poolCount > 0 {
+				off += 4 * 2 * 4 // 4 schools × (current f32 + max f32)
+			}
+		}
 		if peerID == wantPeer {
 			return state
 		}

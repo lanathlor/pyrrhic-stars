@@ -12,7 +12,7 @@ var mendingSurgeDef = AbilityDef{
 	Cooldown: 1.5,
 	GCD:      0.8,
 	Costs: []ResourceCost{
-		{Resource: "flux", Amount: 25},
+		{Resource: entity.ResourceFlux, Amount: 25},
 	},
 	BaseHeal:    35,
 	HealScaling: "identity",

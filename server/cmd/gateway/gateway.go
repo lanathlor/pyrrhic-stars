@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"codex-online/server/internal/ability"
+	"codex-online/server/internal/abilitycatalog"
 	"codex-online/server/internal/character"
 	"codex-online/server/internal/codec"
 	"codex-online/server/internal/container"
@@ -17,7 +18,6 @@ import (
 	"codex-online/server/internal/item"
 	"codex-online/server/internal/message"
 	"codex-online/server/internal/session"
-	"codex-online/server/internal/abilitycatalog"
 	"codex-online/server/internal/user"
 	"codex-online/server/internal/zone"
 )
@@ -33,8 +33,8 @@ type gateway struct {
 	inventory  *inventory.Service
 	catalog    *abilitycatalog.Catalog
 	abilityEng *ability.Engine // for stat lookups when building catalog
-	mu         sync.Mutex     // protects zones
-	devMode    bool           // CODEX_DEV=1 enables debug features
+	mu         sync.Mutex      // protects zones
+	devMode    bool            // CODEX_DEV=1 enables debug features
 }
 
 type zoneInstance struct {
@@ -273,12 +273,12 @@ func (g *gateway) loadAndSendLoadout(sess *session.Session, zi *zoneInstance) {
 				ID:          sw.ID,
 				Name:        sw.Name,
 				School:      sw.School,
-				AbilityType:   sw.AbilityType,
+				AbilityType: sw.AbilityType,
 				Delivery:    sw.Delivery,
 				FluxCost:    sw.FluxCost,
 				Description: sw.Description,
 				Cooldown:    sw.Cooldown,
-				CommitTime:    sw.CommitTime,
+				CommitTime:  sw.CommitTime,
 				Implemented: sw.Implemented,
 				Affinity:    sw.Affinity,
 			}
@@ -352,6 +352,9 @@ func (g *gateway) loadAndSendLoadout(sess *session.Session, zi *zoneInstance) {
 
 	// Apply loadout to zone player.
 	zi.zone.QueueInput(sess.PeerID, message.OpSetLoadout, codec.EncodeLoadoutState(slots))
+
+	// Send loadout presets.
+	g.sendPresetList(sess)
 }
 
 // buildInventoryInfos converts equipped items to codec-compatible structs.

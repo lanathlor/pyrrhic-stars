@@ -8,11 +8,11 @@ const RECOIL_DURATION: float = 0.06
 const GUNNER_COLOR := Color(0.24, 0.62, 0.95)
 const ENHANCED_COLOR := Color(1.0, 0.75, 0.2)
 const PRESSURE_COLORS: Array[Color] = [
-	Color(0.3, 0.3, 0.35, 0.4),   # 0: dim
+	Color(0.3, 0.3, 0.35, 0.4),  # 0: dim
 	Color(0.3, 0.55, 0.85, 0.8),  # 1-3: blue
-	Color(0.85, 0.6, 0.2, 0.9),   # 4-7: orange
+	Color(0.85, 0.6, 0.2, 0.9),  # 4-7: orange
 	Color(0.95, 0.25, 0.2, 1.0),  # 8-9: red
-	Color(1.0, 1.0, 1.0, 1.0),    # 10: white (max)
+	Color(1.0, 1.0, 1.0, 1.0),  # 10: white (max)
 ]
 
 var _hit_marker_timer: float = 0.0
@@ -65,9 +65,15 @@ func show_damage_flash() -> void:
 
 
 func update_assault_state(
-	magazine: int, mag_max: int, stability: float, steadiness: float,
-	pressure: int, munitions: float, enhanced_loaded: int,
-	reloading: bool, reload_progress: float
+	magazine: int,
+	mag_max: int,
+	stability: float,
+	steadiness: float,
+	pressure: int,
+	munitions: float,
+	enhanced_loaded: int,
+	reloading: bool,
+	reload_progress: float
 ) -> void:
 	_magazine = magazine
 	_mag_max = mag_max
@@ -136,22 +142,30 @@ func _draw_hit_marker(canvas: Control, center: Vector2) -> void:
 	canvas.draw_line(
 		center + Vector2(-x_gap - x_len, -x_gap - x_len),
 		center + Vector2(-x_gap, -x_gap),
-		hit_color, x_thick, true
+		hit_color,
+		x_thick,
+		true
 	)
 	canvas.draw_line(
 		center + Vector2(x_gap + x_len, -x_gap - x_len),
 		center + Vector2(x_gap, -x_gap),
-		hit_color, x_thick, true
+		hit_color,
+		x_thick,
+		true
 	)
 	canvas.draw_line(
 		center + Vector2(-x_gap - x_len, x_gap + x_len),
 		center + Vector2(-x_gap, x_gap),
-		hit_color, x_thick, true
+		hit_color,
+		x_thick,
+		true
 	)
 	canvas.draw_line(
 		center + Vector2(x_gap + x_len, x_gap + x_len),
 		center + Vector2(x_gap, x_gap),
-		hit_color, x_thick, true
+		hit_color,
+		x_thick,
+		true
 	)
 
 
@@ -176,7 +190,12 @@ func _draw_magazine_counter(canvas: Control, center: Vector2) -> void:
 	# Max ammo — small, to the right
 	var max_str := " / " + str(_mag_max)
 	canvas.draw_string(
-		font, pos + Vector2(2.0, 0.0), max_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 11,
+		font,
+		pos + Vector2(2.0, 0.0),
+		max_str,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1,
+		11,
 		Color(0.6, 0.6, 0.65, 0.5)
 	)
 
@@ -217,9 +236,7 @@ func _draw_pressure_indicator(canvas: Control, center: Vector2) -> void:
 			mark_color = PRESSURE_COLORS[2]
 		else:
 			mark_color = PRESSURE_COLORS[1]
-		canvas.draw_rect(
-			Rect2(cx - mark_w / 2.0, y - mark_h / 2.0, mark_w, mark_h), mark_color
-		)
+		canvas.draw_rect(Rect2(cx - mark_w / 2.0, y - mark_h / 2.0, mark_w, mark_h), mark_color)
 
 
 ## Enhanced rounds display: reserve pips (dim blue) + loaded pips (gold).

@@ -6,10 +6,10 @@ var vitalBloomDef = AbilityDef{
 	ID:     "vital_bloom",
 	Name:   "Vital Bloom",
 	School: "biometabolic",
-	Hit:  HitDef{Type: HitGroundPlacement, Range: 15},
-	GCD:  1.0,
+	Hit:    HitDef{Type: HitGroundPlacement, Range: 15},
+	GCD:    1.0,
 	Costs: []ResourceCost{
-		{Resource: "flux", Amount: 8},
+		{Resource: entity.ResourceFlux, Amount: 8},
 	},
 	ZoneRadius:   4.0,
 	ZoneDuration: 8.0,
@@ -26,7 +26,7 @@ var restorationMatrixDef = AbilityDef{
 	GCD:      1.0,
 	Cooldown: 12.0,
 	Costs: []ResourceCost{
-		{Resource: "flux", Amount: 50},
+		{Resource: entity.ResourceFlux, Amount: 50},
 	},
 	ZoneRadius:   5.0,
 	ZoneDuration: 8.0,

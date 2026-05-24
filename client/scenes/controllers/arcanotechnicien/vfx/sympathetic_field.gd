@@ -8,11 +8,11 @@ const HEAL_GREEN := Color(0.3, 1.0, 0.4)
 const FADE_TIME: float = 0.3
 const DEFAULT_RADIUS: float = 8.0
 
+static var _circle_shader: Shader
+
 var _target: Node3D = null
 var _material: ShaderMaterial = null
 var _mesh_inst: MeshInstance3D = null
-
-static var _circle_shader: Shader
 
 
 func _ready() -> void:
@@ -74,5 +74,3 @@ func _setup_ground_plane(radius: float) -> void:
 	_mesh_inst.set_surface_override_material(0, _material)
 
 	add_child(_mesh_inst)
-
-

@@ -135,3 +135,53 @@ func EncodeFluxCommitState(entries []FluxCommitEntry) []byte {
 	}
 	return buf
 }
+
+// DecodeSavePreset parses a save-preset request.
+// Wire format: [name:str8][slot0:str8]...[slot5:str8][commitment:str8]
+func DecodeSavePreset(payload []byte) (name string, slots [6]string, commitment string, ok bool) {
+	off := 0
+	// name
+	if off >= len(payload) {
+		return "", slots, "", false
+	}
+	nLen := int(payload[off])
+	off++
+	if off+nLen > len(payload) {
+		return "", slots, "", false
+	}
+	name = string(payload[off : off+nLen])
+	off += nLen
+	// 6 slots
+	for i := range 6 {
+		if off >= len(payload) {
+			return "", slots, "", false
+		}
+		sLen := int(payload[off])
+		off++
+		if off+sLen > len(payload) {
+			return "", slots, "", false
+		}
+		slots[i] = string(payload[off : off+sLen])
+		off += sLen
+	}
+	// commitment
+	if off >= len(payload) {
+		return "", slots, "", false
+	}
+	cLen := int(payload[off])
+	off++
+	if off+cLen > len(payload) {
+		return "", slots, "", false
+	}
+	commitment = string(payload[off : off+cLen])
+	return name, slots, commitment, true
+}
+
+// DecodeDeletePreset parses a delete-preset request.
+// Wire format: [preset_id:u32 LE]
+func DecodeDeletePreset(payload []byte) (uint32, bool) {
+	if len(payload) < 4 {
+		return 0, false
+	}
+	return getU32(payload[0:4]), true
+}

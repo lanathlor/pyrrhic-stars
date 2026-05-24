@@ -32,22 +32,58 @@ func after_test() -> void:
 
 func _load_sample_catalog() -> void:
 	var catalog := [
-		{id = "mending_surge", name = "Mending Surge", school = "bioarcanotechnic",
-			ability_type = "enhancement", delivery = "direct", flux_cost = "high",
-			description = "Emergency heal.", cooldown = 0.0, commit_time = 0.4,
-			implemented = true, affinity = "primary"},
-		{id = "mending_beam", name = "Mending Beam", school = "bioarcanotechnic",
-			ability_type = "enhancement", delivery = "beam", flux_cost = "medium",
-			description = "Channel heal.", cooldown = 0.0, commit_time = 2.0,
-			implemented = true, affinity = "primary"},
-		{id = "frost_ward", name = "Frost Ward", school = "frost",
-			ability_type = "protection", delivery = "direct", flux_cost = "medium",
-			description = "Shield.", cooldown = 12.0, commit_time = 0.2,
-			implemented = true, affinity = "primary"},
-		{id = "fireball", name = "Fireball", school = "fire",
-			ability_type = "destruction", delivery = "zone", flux_cost = "high",
-			description = "AoE explosion.", cooldown = 0.0, commit_time = 3.0,
-			implemented = false, affinity = "off"},
+		{
+			id = "mending_surge",
+			name = "Mending Surge",
+			school = "bioarcanotechnic",
+			ability_type = "enhancement",
+			delivery = "direct",
+			flux_cost = "high",
+			description = "Emergency heal.",
+			cooldown = 0.0,
+			commit_time = 0.4,
+			implemented = true,
+			affinity = "primary"
+		},
+		{
+			id = "mending_beam",
+			name = "Mending Beam",
+			school = "bioarcanotechnic",
+			ability_type = "enhancement",
+			delivery = "beam",
+			flux_cost = "medium",
+			description = "Channel heal.",
+			cooldown = 0.0,
+			commit_time = 2.0,
+			implemented = true,
+			affinity = "primary"
+		},
+		{
+			id = "frost_ward",
+			name = "Frost Ward",
+			school = "frost",
+			ability_type = "protection",
+			delivery = "direct",
+			flux_cost = "medium",
+			description = "Shield.",
+			cooldown = 12.0,
+			commit_time = 0.2,
+			implemented = true,
+			affinity = "primary"
+		},
+		{
+			id = "fireball",
+			name = "Fireball",
+			school = "fire",
+			ability_type = "destruction",
+			delivery = "zone",
+			flux_cost = "high",
+			description = "AoE explosion.",
+			cooldown = 0.0,
+			commit_time = 3.0,
+			implemented = false,
+			affinity = "off"
+		},
 	]
 	AbilityCatalog._on_catalog(catalog)
 	AbilityCatalog._on_loadout(["mending_surge", "mending_beam", "frost_ward", "", "", ""])
@@ -235,7 +271,11 @@ func test_wrap_short_string_single_line() -> void:
 
 func test_wrap_long_string_multiple_lines() -> void:
 	var font: Font = ThemeDB.fallback_font
-	var long_text := "Massive single-target emergency heal. The biggest heal per commit in the game. Burns Flux fast but nothing else saves a dying ally this quickly."
+	var long_text := (
+		"Massive single-target emergency heal. The biggest heal per commit"
+		+ " in the game. Burns Flux fast but nothing else saves a dying"
+		+ " ally this quickly."
+	)
 	var lines: Array[String] = _panel._wrap_text(font, long_text, 200.0, 10)
 	assert_int(lines.size()).is_greater(1)
 	# All words should be preserved across lines

@@ -111,6 +111,8 @@ func _ready() -> void:
 	add_child(_codex_panel)
 	_codex_panel.loadout_applied.connect(_on_loadout_applied)
 	_codex_panel.commitment_applied.connect(_on_commitment_applied)
+	_codex_panel.preset_saved.connect(_on_preset_saved)
+	_codex_panel.preset_deleted.connect(_on_preset_deleted)
 
 
 func _process(delta: float) -> void:
@@ -278,25 +280,13 @@ func _draw_hit_marker() -> void:
 		true
 	)
 	draw_line(
-		center + Vector2(gap + x_len, -gap - x_len),
-		center + Vector2(gap, -gap),
-		color,
-		thick,
-		true
+		center + Vector2(gap + x_len, -gap - x_len), center + Vector2(gap, -gap), color, thick, true
 	)
 	draw_line(
-		center + Vector2(-gap - x_len, gap + x_len),
-		center + Vector2(-gap, gap),
-		color,
-		thick,
-		true
+		center + Vector2(-gap - x_len, gap + x_len), center + Vector2(-gap, gap), color, thick, true
 	)
 	draw_line(
-		center + Vector2(gap + x_len, gap + x_len),
-		center + Vector2(gap, gap),
-		color,
-		thick,
-		true
+		center + Vector2(gap + x_len, gap + x_len), center + Vector2(gap, gap), color, thick, true
 	)
 
 
@@ -400,7 +390,9 @@ func _draw_flux_bar() -> void:
 		_draw_single_flux_bar(font, bar_x, bar_y, bar_w, bar_h)
 
 
-func _draw_single_flux_bar(font: Font, bar_x: float, bar_y: float, bar_w: float, bar_h: float) -> void:
+func _draw_single_flux_bar(
+	font: Font, bar_x: float, bar_y: float, bar_w: float, bar_h: float
+) -> void:
 	var ratio := clampf(_flux_current / maxf(_flux_max, 1.0), 0.0, 1.0)
 
 	# Flux color shifts to purple when low (below 20%)
@@ -445,7 +437,9 @@ func _draw_single_flux_bar(font: Font, bar_x: float, bar_y: float, bar_w: float,
 	)
 
 
-func _draw_segmented_flux_bar(font: Font, bar_x: float, bar_y: float, bar_w: float, bar_h: float) -> void:
+func _draw_segmented_flux_bar(
+	font: Font, bar_x: float, bar_y: float, bar_w: float, bar_h: float
+) -> void:
 	var total_max := maxf(_flux_max, 1.0)
 
 	# Background for entire bar
@@ -477,11 +471,7 @@ func _draw_segmented_flux_bar(font: Font, bar_x: float, bar_y: float, bar_w: flo
 
 		# Separator line between segments (skip first)
 		if i > 0:
-			draw_line(
-				Vector2(seg_x, bar_y),
-				Vector2(seg_x, bar_y + bar_h),
-				PANEL_BORDER, 1.0
-			)
+			draw_line(Vector2(seg_x, bar_y), Vector2(seg_x, bar_y + bar_h), PANEL_BORDER, 1.0)
 
 		# School label above segment (only if wide enough)
 		var label: String = SCHOOL_LABELS.get(school, "")
@@ -545,8 +535,8 @@ func _draw_party_frames() -> void:
 		_party_frame_rects.append(frame_rect)
 
 		# Background -- brighter on selected or hover
-		var is_selected: bool = (pid == _selected_peer_id and _selected_peer_id > 0)
-		var is_hovered: bool = (i == _hovered_party_index)
+		var is_selected: bool = pid == _selected_peer_id and _selected_peer_id > 0
+		var is_hovered: bool = i == _hovered_party_index
 		var bg_color: Color
 		if is_selected:
 			bg_color = Color(0.1, 0.15, 0.25, 0.75)
@@ -606,9 +596,7 @@ func _draw_party_frames() -> void:
 		draw_rect(Rect2(hp_bar_x, hp_bar_y, hp_bar_w, hp_bar_h), PANEL_BG)
 		# Bar fill
 		if hp_ratio > 0.0:
-			draw_rect(
-				Rect2(hp_bar_x, hp_bar_y, hp_bar_w * hp_ratio, hp_bar_h), bar_color
-			)
+			draw_rect(Rect2(hp_bar_x, hp_bar_y, hp_bar_w * hp_ratio, hp_bar_h), bar_color)
 		# Bar border
 		draw_rect(Rect2(hp_bar_x, hp_bar_y, hp_bar_w, hp_bar_h), PANEL_BORDER, false, 1.0)
 
@@ -647,6 +635,14 @@ func _on_loadout_applied(slots: Array) -> void:
 
 func _on_commitment_applied(entries: Array) -> void:
 	NetworkManager.send_set_flux_commitment(entries)
+
+
+func _on_preset_saved(preset_name: String, slots: Array, commitment: String) -> void:
+	NetworkManager.send_save_preset(preset_name, slots, commitment)
+
+
+func _on_preset_deleted(preset_id: int) -> void:
+	NetworkManager.send_delete_preset(preset_id)
 
 
 # =============================================================================

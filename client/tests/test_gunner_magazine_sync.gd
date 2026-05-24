@@ -65,10 +65,17 @@ func test_reload_not_cancelled_by_stale_server_state() -> void:
 
 	# Server state arrives from BEFORE it saw the reload request.
 	# Server still says: reloading=false, magazine=0
-	_gunner.apply_server_state(_server_state({
-		"magazine": 0,
-		"reloading": false,
-	}))
+	(
+		_gunner
+		. apply_server_state(
+			_server_state(
+				{
+					"magazine": 0,
+					"reloading": false,
+				}
+			)
+		)
+	)
 
 	# Client reload must NOT be cancelled — server just hasn't seen it yet
 	assert_bool(_gunner._reloading).is_true()
@@ -83,10 +90,17 @@ func test_reload_not_cancelled_by_stale_server_with_higher_mag() -> void:
 	_gunner._reload_timer = 2.0
 	_gunner._reload_total = 2.2
 
-	_gunner.apply_server_state(_server_state({
-		"magazine": 3,
-		"reloading": false,
-	}))
+	(
+		_gunner
+		. apply_server_state(
+			_server_state(
+				{
+					"magazine": 3,
+					"reloading": false,
+				}
+			)
+		)
+	)
 
 	# Must NOT cancel reload or slam magazine to 3
 	assert_bool(_gunner._reloading).is_true()
@@ -101,17 +115,31 @@ func test_reload_completes_when_server_confirms() -> void:
 	_gunner._reload_total = 2.2
 
 	# Server acks reload
-	_gunner.apply_server_state(_server_state({
-		"magazine": 0,
-		"reloading": true,
-	}))
+	(
+		_gunner
+		. apply_server_state(
+			_server_state(
+				{
+					"magazine": 0,
+					"reloading": true,
+				}
+			)
+		)
+	)
 	assert_bool(_gunner._reloading).is_true()
 
 	# Later: server says reload done, magazine full
-	_gunner.apply_server_state(_server_state({
-		"magazine": 30,
-		"reloading": false,
-	}))
+	(
+		_gunner
+		. apply_server_state(
+			_server_state(
+				{
+					"magazine": 30,
+					"reloading": false,
+				}
+			)
+		)
+	)
 
 	# NOW it should accept the completion
 	assert_bool(_gunner._reloading).is_false()
@@ -124,10 +152,17 @@ func test_server_initiated_reload_accepted() -> void:
 	_gunner._magazine = 5
 	_gunner._reloading = false
 
-	_gunner.apply_server_state(_server_state({
-		"magazine": 0,
-		"reloading": true,
-	}))
+	(
+		_gunner
+		. apply_server_state(
+			_server_state(
+				{
+					"magazine": 0,
+					"reloading": true,
+				}
+			)
+		)
+	)
 
 	assert_bool(_gunner._reloading).is_true()
 	assert_int(_gunner._magazine).is_equal(0)
@@ -144,10 +179,17 @@ func test_sustained_fire_no_rollback() -> void:
 	_gunner._magazine = 28
 	_gunner._reloading = false
 
-	_gunner.apply_server_state(_server_state({
-		"magazine": 29,
-		"reloading": false,
-	}))
+	(
+		_gunner
+		. apply_server_state(
+			_server_state(
+				{
+					"magazine": 29,
+					"reloading": false,
+				}
+			)
+		)
+	)
 
 	# Client should keep its prediction (28), not rollback to 29
 	assert_int(_gunner._magazine).is_equal(28)
@@ -167,10 +209,17 @@ func test_sustained_fire_full_sequence_no_rollback() -> void:
 
 		# Server state from previous tick (1 behind)
 		var server_mag: int = 30 - i  # server hasn't processed this shot yet
-		_gunner.apply_server_state(_server_state({
-			"magazine": server_mag,
-			"reloading": false,
-		}))
+		(
+			_gunner
+			. apply_server_state(
+				_server_state(
+					{
+						"magazine": server_mag,
+						"reloading": false,
+					}
+				)
+			)
+		)
 
 		if _gunner._magazine > client_mag:
 			rollbacks += 1
@@ -185,10 +234,17 @@ func test_server_downward_correction_accepted() -> void:
 	_gunner._magazine = 25
 	_gunner._reloading = false
 
-	_gunner.apply_server_state(_server_state({
-		"magazine": 23,
-		"reloading": false,
-	}))
+	(
+		_gunner
+		. apply_server_state(
+			_server_state(
+				{
+					"magazine": 23,
+					"reloading": false,
+				}
+			)
+		)
+	)
 
 	assert_int(_gunner._magazine).is_equal(23)
 
@@ -198,10 +254,17 @@ func test_server_equal_magazine_no_change() -> void:
 	_gunner._magazine = 20
 	_gunner._reloading = false
 
-	_gunner.apply_server_state(_server_state({
-		"magazine": 20,
-		"reloading": false,
-	}))
+	(
+		_gunner
+		. apply_server_state(
+			_server_state(
+				{
+					"magazine": 20,
+					"reloading": false,
+				}
+			)
+		)
+	)
 
 	assert_int(_gunner._magazine).is_equal(20)
 
@@ -219,17 +282,31 @@ func test_reload_bar_clears_on_server_completion() -> void:
 	_gunner._reload_total = 2.2
 
 	# Server confirms reload in progress first
-	_gunner.apply_server_state(_server_state({
-		"magazine": 0,
-		"reloading": true,
-	}))
+	(
+		_gunner
+		. apply_server_state(
+			_server_state(
+				{
+					"magazine": 0,
+					"reloading": true,
+				}
+			)
+		)
+	)
 	assert_bool(_gunner._reloading).is_true()
 
 	# Server says done
-	_gunner.apply_server_state(_server_state({
-		"magazine": 30,
-		"reloading": false,
-	}))
+	(
+		_gunner
+		. apply_server_state(
+			_server_state(
+				{
+					"magazine": 30,
+					"reloading": false,
+				}
+			)
+		)
+	)
 
 	assert_bool(_gunner._reloading).is_false()
 	assert_int(_gunner._magazine).is_equal(30)
@@ -259,10 +336,17 @@ func test_no_double_reload_after_client_completion() -> void:
 	_gunner._reload_server_acked = true
 
 	# Server state arrives still showing reloading=true (hasn't finished yet)
-	_gunner.apply_server_state(_server_state({
-		"magazine": 0,
-		"reloading": true,
-	}))
+	(
+		_gunner
+		. apply_server_state(
+			_server_state(
+				{
+					"magazine": 0,
+					"reloading": true,
+				}
+			)
+		)
+	)
 
 	# Must NOT re-enter reload — client already completed
 	assert_bool(_gunner._reloading).is_false()
@@ -277,20 +361,34 @@ func test_ack_flag_resets_for_next_reload_cycle() -> void:
 	_gunner._reload_server_acked = true  # leftover from previous reload
 
 	# Server agrees: not reloading
-	_gunner.apply_server_state(_server_state({
-		"magazine": 30,
-		"reloading": false,
-	}))
+	(
+		_gunner
+		. apply_server_state(
+			_server_state(
+				{
+					"magazine": 30,
+					"reloading": false,
+				}
+			)
+		)
+	)
 
 	# Ack flag should be cleared
 	assert_bool(_gunner._reload_server_acked).is_false()
 
 	# Now a new reload should be accepted from server
 	_gunner._magazine = 0
-	_gunner.apply_server_state(_server_state({
-		"magazine": 0,
-		"reloading": true,
-	}))
+	(
+		_gunner
+		. apply_server_state(
+			_server_state(
+				{
+					"magazine": 0,
+					"reloading": true,
+				}
+			)
+		)
+	)
 
 	assert_bool(_gunner._reloading).is_true()
 	assert_bool(_gunner._reload_server_acked).is_true()

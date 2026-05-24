@@ -10,16 +10,16 @@ func TestOverclockAT(t *testing.T) {
 	eng := NewEngine(nil)
 
 	tests := []struct {
-		name            string
-		setup           func() (*entity.Player, map[uint16]*entity.Player, uint16)
-		wantOK          bool
-		wantReason      string
-		wantAllyBuffs   bool   // check buffs on target ally
-		wantAllyBuffID  uint16 // which ally to check buffs on
-		wantConfluence  int
-		wantCooldown    bool
-		wantGCD         bool
-		wantFlux        float32 // -1 to skip
+		name           string
+		setup          func() (*entity.Player, map[uint16]*entity.Player, uint16)
+		wantOK         bool
+		wantReason     string
+		wantAllyBuffs  bool   // check buffs on target ally
+		wantAllyBuffID uint16 // which ally to check buffs on
+		wantConfluence int
+		wantCooldown   bool
+		wantGCD        bool
+		wantFlux       float32 // -1 to skip
 	}{
 		{
 			name: "buffs target ally with attack speed and move speed",

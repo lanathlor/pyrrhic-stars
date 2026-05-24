@@ -27,7 +27,7 @@ func (r *stubRepo) GetUser(string) (*persistence.User, error) { return nil, nil 
 func (r *stubRepo) UpdateCharacterPosition(uint, float64, float64, float64, float64) error {
 	return nil
 }
-func (r *stubRepo) UpdateCharacterSpec(uint, string) error                  { return nil }
+func (r *stubRepo) UpdateCharacterSpec(uint, string) error                 { return nil }
 func (r *stubRepo) GetCharacters(string) ([]*persistence.Character, error) { return nil, nil }
 
 func (r *stubRepo) GetCharacterByID(id uint) (*persistence.Character, error) {
@@ -69,7 +69,16 @@ func (r *stubRepo) GetLoadout(uint) (*persistence.CharacterLoadout, error) { ret
 
 // Flux commitment stubs (not used by character service tests).
 func (r *stubRepo) UpsertFluxCommitment(uint, []persistence.FluxCommitmentEntry) error { return nil }
-func (r *stubRepo) GetFluxCommitment(uint) ([]persistence.FluxCommitmentEntry, error)  { return nil, nil }
+func (r *stubRepo) GetFluxCommitment(uint) ([]persistence.FluxCommitmentEntry, error) {
+	return nil, nil
+}
+
+// Loadout preset stubs (not used by character service tests).
+func (r *stubRepo) SaveLoadoutPreset(uint, string, [6]string, string) error { return nil }
+func (r *stubRepo) DeleteLoadoutPreset(uint, uint) error                    { return nil }
+func (r *stubRepo) GetLoadoutPresets(uint) ([]*persistence.CharacterLoadoutPreset, error) {
+	return nil, nil
+}
 
 func TestSelect(t *testing.T) {
 	repo := newStubRepo()

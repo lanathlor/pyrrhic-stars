@@ -15,7 +15,7 @@ import (
 const (
 	followStartDist    float32 = 3.0
 	followTeleportDist float32 = 40.0
-	combatDetectRange float32 = 30.0
+	combatDetectRange  float32 = 30.0
 )
 
 // TickAll updates all bots for the current tick.

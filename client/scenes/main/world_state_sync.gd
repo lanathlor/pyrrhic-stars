@@ -161,7 +161,10 @@ func on_damage_event(data: Dictionary) -> void:
 			if is_instance_valid(player):
 				if player.has_method("on_heal_visual"):
 					player.on_heal_visual(amount, hit_pos)
-				elif "character_model" in player and player.character_model.has_method("flash_damage"):
+				elif (
+					"character_model" in player
+					and player.character_model.has_method("flash_damage")
+				):
 					player.character_model.flash_damage(Color(0.3, 1.0, 0.4), 0.15)
 		if amount > 0.0:
 			spawn_heal_number(amount, hit_pos)

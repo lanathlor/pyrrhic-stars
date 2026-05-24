@@ -10,12 +10,6 @@ const HUGE_AABB := AABB(Vector3(-500, -500, -500), Vector3(1000, 1000, 1000))
 const HEAL_GREEN := Color(0.3, 1.0, 0.4)
 const FLUX_CYAN := Color(0.2, 0.9, 1.0)
 
-var _target: Node3D = null
-var _arcs: Array[Dictionary] = []
-var _light: OmniLight3D = null
-var _current_tier: int = 0
-var _time: float = 0.0
-
 ## Arc definitions per tier. Each tier includes all arcs from lower tiers.
 const TIER_ARCS: Array[Array] = [
 	[],  # tier 0: nothing
@@ -38,6 +32,12 @@ const TIER_ARCS: Array[Array] = [
 		{radius = 0.9, y = 1.9, arc_deg = 100.0, height = 0.18, speed_mult = -1.5, phase = 4.0},
 	],
 ]
+
+var _target: Node3D = null
+var _arcs: Array[Dictionary] = []
+var _light: OmniLight3D = null
+var _current_tier: int = 0
+var _time: float = 0.0
 
 
 func _ready() -> void:
@@ -95,13 +95,18 @@ func _rebuild_arcs() -> void:
 		)
 		mesh_inst.mesh = arc_mesh
 
-		_arcs.append({
-			mesh = mesh_inst,
-			material = mat,
-			speed_mult = def.speed_mult,
-			phase = def.phase,
-			angle = def.phase,
-		})
+		(
+			_arcs
+			. append(
+				{
+					mesh = mesh_inst,
+					material = mat,
+					speed_mult = def.speed_mult,
+					phase = def.phase,
+					angle = def.phase,
+				}
+			)
+		)
 
 	_setup_light()
 

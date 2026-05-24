@@ -59,7 +59,7 @@ func TestBDSpells_AllSetGCD(t *testing.T) {
 	// Test one ability from each origin config
 	tests := []struct {
 		ability string
-		config int
+		config  int
 	}{
 		{"shielded_sweep", entity.ConfigOrbit},
 		{"reaping_guard", entity.ConfigFan},
@@ -111,8 +111,8 @@ func TestBDSpells_ConfigTransitionPerOrigin(t *testing.T) {
 
 	tests := []struct {
 		ability string
-		origin int
-		dest   int
+		origin  int
+		dest    int
 	}{
 		{"shielded_sweep", entity.ConfigOrbit, entity.ConfigFan},
 		{"cleaving_pierce", entity.ConfigFan, entity.ConfigLance},

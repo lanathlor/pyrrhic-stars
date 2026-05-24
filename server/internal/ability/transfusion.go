@@ -13,7 +13,7 @@ var transfusionDef = AbilityDef{
 	CommitTime:       4.0,
 	ExecuteTime:      0.1,
 	GCD:              0.5,
-	Costs:            []ResourceCost{{Resource: "flux", Amount: 3}},
+	Costs:            []ResourceCost{{Resource: entity.ResourceFlux, Amount: 3}},
 	Handler:          "transfusion",
 	OnCommitTick:     "transfusion",
 	CancelConditions: uint8(CancelOnMove) | uint8(CancelOnDamage),
@@ -42,7 +42,7 @@ func transfusionHandler(_ *Engine, ctx *CommitContext) CommitResult {
 			return CommitResult{Reason: "insufficient " + transfusionDef.School + " flux"}
 		}
 	} else {
-		flux := p.Resources["flux"]
+		flux := p.Resources[entity.ResourceFlux]
 		if flux == nil || flux.Current < transfusionDef.Costs[0].Amount {
 			return CommitResult{Reason: "insufficient flux"}
 		}

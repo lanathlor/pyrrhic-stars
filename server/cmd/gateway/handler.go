@@ -53,10 +53,6 @@ func handleServerMessage(gw *gateway, sess *session.Session, opcode uint16, payl
 // after a character is selected or created. In dev mode, skips hub and
 // transfers directly to an arena instance.
 func (g *gateway) joinHubAfterCharSelect(sess *session.Session) {
-	if g.devMode {
-		g.transferPlayer(sess, "arena_dev", zone.ZoneTypeInstanced, 1)
-		return
-	}
 	zi := g.getOrCreateZone(zone.ZoneHub, zone.ZoneTypeOpenWorld, 0)
 	g.joinZone(sess, zi, joinResponseZoneJoined)
 }

@@ -280,9 +280,8 @@ func TestGunnerHitBroadcastsDamageEventIntegration(t *testing.T) {
 	// Walk both players into the hallway (Z < ArenaEntryZ=40) concurrently
 	// using incremental steps so the server-side speed clamp accepts each move.
 	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() { defer wg.Done(); shooter.WalkTo(0, 0.1, 48, 0, 0.1, 39, 0.35) }()
-	go func() { defer wg.Done(); observer.WalkTo(0, 0.1, 48, 0, 0.1, 39, 0.35) }()
+	wg.Go(func() { shooter.WalkTo(0, 0.1, 48, 0, 0.1, 39, 0.35) })
+	wg.Go(func() { observer.WalkTo(0, 0.1, 48, 0, 0.1, 39, 0.35) })
 	wg.Wait()
 
 	// Wait for fight start

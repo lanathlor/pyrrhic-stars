@@ -15,17 +15,17 @@ import (
 // once per Brain and reset each tick. Lazy-cached queries avoid repeated
 // computation within a single tick.
 type EntityContext struct {
-	Enemy         *entity.Enemy
-	Def           *EnemyDef
-	Engine        *ability.Engine
-	BB            *Blackboard
-	Rng           *rand.Rand
-	Dt            float32
-	Players       []*entity.Player
-	Obs           []combat.Obstacle
-	SpawnFn       func(pos, dir entity.Vec3, speed, damage, lifetime float32)
+	Enemy           *entity.Enemy
+	Def             *EnemyDef
+	Engine          *ability.Engine
+	BB              *Blackboard
+	Rng             *rand.Rand
+	Dt              float32
+	Players         []*entity.Player
+	Obs             []combat.Obstacle
+	SpawnFn         func(pos, dir entity.Vec3, speed, damage, lifetime float32)
 	CommitPatternFn func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3)
-	Events        *[]combat.DamageEvent
+	Events          *[]combat.DamageEvent
 
 	// Runner owns the ability commit→execute→cooldown lifecycle.
 	Runner *AbilityRunner
@@ -44,7 +44,7 @@ type EntityContext struct {
 
 	// Reusable buffers
 	targetBuf []entity.Target
-	commitCtx   ability.CommitContext
+	commitCtx ability.CommitContext
 }
 
 // Reset prepares the context for a new tick. Clears cached queries.

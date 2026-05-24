@@ -15,7 +15,7 @@ type AbilityEntry struct {
 	ID          string  `yaml:"id"`
 	Name        string  `yaml:"name"`
 	School      string  `yaml:"school"`
-	AbilityType   string  `yaml:"ability_type"`
+	AbilityType string  `yaml:"ability_type"`
 	Delivery    string  `yaml:"delivery"`
 	FluxCost    string  `yaml:"flux_cost"`
 	Cooldown    float32 `yaml:"cooldown"`
@@ -38,7 +38,7 @@ type AbilityWithAffinity struct {
 
 // Catalog holds all loaded ability data for the Arcanotechnicien class.
 type Catalog struct {
-	Abilities     []AbilityEntry
+	Abilities  []AbilityEntry
 	byID       map[string]*AbilityEntry
 	Affinities map[string]SpecAffinity
 }
@@ -46,7 +46,7 @@ type Catalog struct {
 // yamlFile mirrors the on-disk YAML structure for unmarshalling.
 type yamlFile struct {
 	Affinities map[string]SpecAffinity `yaml:"affinities"`
-	Abilities     []AbilityEntry            `yaml:"abilities"`
+	Abilities  []AbilityEntry          `yaml:"abilities"`
 }
 
 // Load reads the YAML catalog from disk and returns a ready-to-query Catalog.
@@ -129,7 +129,7 @@ func (c *Catalog) AbilitiesForSpec(specID string) []AbilityWithAffinity {
 	for i, s := range c.Abilities {
 		out[i] = AbilityWithAffinity{
 			AbilityEntry: s,
-			Affinity:   c.GetAffinityTier(specID, s.School),
+			Affinity:     c.GetAffinityTier(specID, s.School),
 		}
 	}
 	return out

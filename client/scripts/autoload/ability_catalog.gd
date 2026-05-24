@@ -12,6 +12,9 @@ var current_loadout: Array = ["", "", "", "", "", ""]
 ## Current flux commitment: school → percentage (0-100).
 var current_commitment: Dictionary = {}
 
+## Saved loadout presets from server. Array[Dictionary] with keys: id, name, slots, commitment.
+var presets: Array = []
+
 ## Index for fast lookup.
 var _by_id: Dictionary = {}
 
@@ -20,6 +23,7 @@ func _ready() -> void:
 	NetworkManager.ability_catalog_received.connect(_on_catalog)
 	NetworkManager.loadout_state_received.connect(_on_loadout)
 	NetworkManager.flux_commit_state_received.connect(_on_flux_commit)
+	NetworkManager.preset_list_received.connect(_on_presets)
 
 
 func _on_catalog(entries: Array) -> void:
@@ -37,6 +41,10 @@ func _on_flux_commit(entries: Array) -> void:
 	current_commitment.clear()
 	for entry in entries:
 		current_commitment[entry.get("school", "")] = entry.get("percentage", 0)
+
+
+func _on_presets(list: Array) -> void:
+	presets = list
 
 
 ## Get an ability entry by ID, or empty dict if not found.
@@ -77,3 +85,23 @@ func is_implemented(id: String) -> bool:
 func get_affinity(id: String) -> String:
 	var entry: Dictionary = get_ability(id)
 	return entry.get("affinity", "off")
+
+
+## Parse a commitment CSV string ("school:pct,school:pct,...") into a Dictionary.
+func parse_commitment(csv: String) -> Dictionary:
+	var result: Dictionary = {}
+	if csv == "":
+		return result
+	for pair in csv.split(","):
+		var parts := pair.split(":")
+		if parts.size() == 2:
+			result[parts[0]] = parts[1].to_int()
+	return result
+
+
+## Encode a commitment Dictionary (school -> int) as a CSV string.
+func encode_commitment(commitment: Dictionary) -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	for school in commitment:
+		parts.append("%s:%d" % [school, commitment[school]])
+	return ",".join(parts)

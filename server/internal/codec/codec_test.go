@@ -642,7 +642,7 @@ func TestEncodeDamageEventWireFormat(t *testing.T) {
 	hitZ := math.Float32frombits(binary.LittleEndian.Uint32(buf[off:]))
 	off += 4
 	srcType := buf[off]
-	off += 1
+	off++
 	overheal := math.Float32frombits(binary.LittleEndian.Uint32(buf[off:]))
 
 	if target != 0 {
@@ -1313,12 +1313,12 @@ func TestAbilityCatalogEncode(t *testing.T) {
 			ID:          "fireball",
 			Name:        "Fireball",
 			School:      "destruction",
-			AbilityType:   "damage",
+			AbilityType: "damage",
 			Delivery:    "projectile",
 			FluxCost:    "30",
 			Description: "Hurls a ball of fire at the target.",
 			Cooldown:    1.5,
-			CommitTime:    2.0,
+			CommitTime:  2.0,
 			Implemented: true,
 			Affinity:    "primary",
 		},
@@ -1326,12 +1326,12 @@ func TestAbilityCatalogEncode(t *testing.T) {
 			ID:          "heal",
 			Name:        "Heal",
 			School:      "restoration",
-			AbilityType:   "heal",
+			AbilityType: "heal",
 			Delivery:    "direct",
 			FluxCost:    "50",
 			Description: "Restores health to the target.",
 			Cooldown:    0.0,
-			CommitTime:    1.0,
+			CommitTime:  1.0,
 			Implemented: false,
 			Affinity:    "secondary",
 		},
@@ -1339,12 +1339,12 @@ func TestAbilityCatalogEncode(t *testing.T) {
 			ID:          "shield",
 			Name:        "Shield",
 			School:      "protection",
-			AbilityType:   "buff",
+			AbilityType: "buff",
 			Delivery:    "self",
 			FluxCost:    "20",
 			Description: "Grants a protective barrier.",
 			Cooldown:    10.0,
-			CommitTime:    0.0,
+			CommitTime:  0.0,
 			Implemented: true,
 			Affinity:    "off",
 		},

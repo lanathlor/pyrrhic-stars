@@ -20,8 +20,9 @@ func before_test() -> void:
 
 
 func after_test() -> void:
-	for action in ["dodge", "harmonist_slot_0", "harmonist_slot_1",
-		"heavy_attack", "ability_1", "ability_2"]:
+	for action in [
+		"dodge", "harmonist_slot_0", "harmonist_slot_1", "heavy_attack", "ability_1", "ability_2"
+	]:
 		if Input.is_action_pressed(action):
 			Input.action_release(action)
 
@@ -79,10 +80,7 @@ func test_bug2a_server_commit_kills_client_sustain() -> void:
 	_arcano.state = ArcanoScript.State.CHANNELING
 	_arcano._committing_ability = {name = "Mending Beam", dur = 2.0, sustain = true}
 	_arcano._alive = true
-	_arcano.apply_server_state({
-		pos = Vector3.ZERO, rot_y = 0.0, health = 100.0,
-		channel_phase = 1
-	})
+	_arcano.apply_server_state({pos = Vector3.ZERO, rot_y = 0.0, health = 100.0, channel_phase = 1})
 	assert_bool(_arcano.combat._sustaining).is_true()
 
 
@@ -93,10 +91,7 @@ func test_bug2b_server_execute_kills_client_sustain() -> void:
 	_arcano.state = ArcanoScript.State.CHANNELING
 	_arcano._committing_ability = {name = "Mending Beam", dur = 2.0, sustain = true}
 	_arcano._alive = true
-	_arcano.apply_server_state({
-		pos = Vector3.ZERO, rot_y = 0.0, health = 100.0,
-		channel_phase = 2
-	})
+	_arcano.apply_server_state({pos = Vector3.ZERO, rot_y = 0.0, health = 100.0, channel_phase = 2})
 	assert_bool(_arcano.combat._sustaining).is_true()
 
 
@@ -108,10 +103,8 @@ func test_bug2c_server_idle_after_sustain_should_cancel() -> void:
 	_arcano.state = ArcanoScript.State.CHANNELING
 	_arcano._committing_ability = {name = "Mending Beam", dur = 2.0, sustain = true}
 	_arcano._alive = true
-	_arcano.apply_server_state({
-		pos = Vector3.ZERO, rot_y = 0.0, health = 100.0,
-		channel_phase = 0  # idle — server cancelled
-	})
+	# idle — server cancelled
+	_arcano.apply_server_state({pos = Vector3.ZERO, rot_y = 0.0, health = 100.0, channel_phase = 0})
 	assert_bool(_arcano.combat._sustaining).is_false()
 
 
@@ -128,7 +121,7 @@ func test_ability_during_sustain_cancels_only() -> void:
 	## _resolve_ability requires catalog to be loaded (no offline fallback).
 	_arcano.state = ArcanoScript.State.CHANNELING
 	_arcano._committing_ability = {name = "Transfusion", dur = 1.5, sustain = true}
-	_arcano._commit_timer = 0.0
+	_arcano._cast_timer = 0.0
 	_arcano.combat._sustaining = true
 	_arcano.combat._sustain_elapsed = 1.0
 	_arcano._gcd_timer = 0.0

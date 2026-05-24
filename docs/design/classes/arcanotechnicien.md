@@ -388,19 +388,19 @@ The full list of abilities available to Arcanotechnicien. Each ability belongs t
 
 ### Fire
 
-**Fireball** — Destruction. High cost. Channeled (supports early release). Massive AoE explosion at target location. Radius and damage scale with channel completion. The Destroyer's signature nuke. At full Overcharge, it leaves a brief burning ground effect.
+**Fireball** — Destruction. High cost. Channeled (supports early release). AoE explosion at target location. Radius and damage scale with channel completion. At full Overcharge, leaves a brief burning ground effect.
 
-**Ignition** — Destruction. Medium cost. Instant. Single-target burst that applies a strong burn DoT. Less raw damage than Fireball but instant activation makes it Weave-compatible. The Battlemage's fire option.
+**Ignition** — Destruction. Medium cost. Instant. Single-target burst damage that applies a strong burn DoT.
 
-**Burn** — Affliction. Low cost. Instant. Applies a burn DoT to target. Low individual damage but efficient Flux-per-damage. Good filler, good for maintaining pressure.
+**Burn** — Affliction. Low cost. Instant. Applies a burn DoT to target. Low damage per tick, high Flux efficiency.
 
-**Flame Wall** — Protection. Medium cost. Channeled. Creates a wall of fire at target location for 6 seconds. Enemies passing through take heavy damage and are briefly slowed. Zone denial tool.
+**Flame Wall** — Protection. Medium cost. Channeled. Creates a wall of fire at target location for 6 seconds. Enemies passing through take heavy damage and are briefly slowed.
 
 ### Frost
 
-**Frost Nova** — Destruction. Medium cost. Channeled (supports early release). AoE burst centered on target location. Deals damage and leaves a slow field for 4 seconds. The control-damage hybrid.
+**Frost Nova** — Destruction. Medium cost. Channeled (supports early release). AoE burst centered on target location. Deals damage and leaves a slow field for 4 seconds.
 
-**Ice Javelin** — Destruction. Medium cost. Instant. Single-target projectile. High damage, applies a brief root on hit. The Frost school's burst single-target option.
+**Ice Javelin** — Destruction. Medium cost. Instant. Single-target projectile. High damage, applies a brief root on hit.
 
 **Frostbite** — Affliction. Low cost. Instant. Applies a stacking slow + damage-over-time. Each stack increases slow magnitude. At 3 stacks, the target is immobilized for 2 seconds.
 
@@ -408,113 +408,113 @@ The full list of abilities available to Arcanotechnicien. Each ability belongs t
 
 ### Electricity
 
-**Chain Lightning** — Destruction. Medium cost. Instant. Hits primary target then chains to up to 3 nearby enemies. Each chain deals reduced damage. The instant AoE option.
+**Chain Lightning** — Destruction. Medium cost. Instant. Hits primary target then chains to up to 3 nearby enemies. Each chain deals reduced damage.
 
-**Lightning** — Destruction. High cost. Channeled. Single-target, devastating damage. Near-instant travel time. The Electricity school's big single-target nuke.
+**Lightning** — Destruction. High cost. Channeled. Single-target, high damage. Near-instant travel time.
 
-**Lightning Blade** — Enhancement. Medium cost. Instant. Infuses your weapon (or Flux Blade) with electricity for 10 seconds. Weapon strikes chain a small lightning arc to one nearby enemy. The Battlemage's bread-and-butter enhancement.
+**Lightning Blade** — Enhancement. Medium cost. Instant. Infuses your weapon (or Flux Blade) with electricity for 10 seconds. Weapon strikes chain a small lightning arc to one nearby enemy.
 
 **Static Field** — Affliction. Medium cost. Instant. Places a persistent field at target location for 8 seconds. Enemies inside take ticking lightning damage and have reduced attack speed.
 
-**Surge** — Enhancement. Medium cost. Instant. Channels electromagnetic Flux along your limbs, granting +20% attack speed for 6 seconds. Flux arcs visibly between your joints. The Battlemage's burst window opener.
+**Surge** — Enhancement. Medium cost. Instant. Channels electromagnetic Flux along your limbs, granting +20% attack speed for 6 seconds.
 
-**Flux Armor** — Protection. Medium cost. Instant. Wraps the channeler in a crackling electromagnetic field for 4 seconds. Absorbs incoming damage. Enemies who strike the channeler in melee take shock damage. The Battlemage's defensive tool.
+**Flux Armor** — Protection. Medium cost. Instant. Wraps the channeler in an electromagnetic field for 4 seconds. Absorbs incoming damage. Enemies who strike the channeler in melee take shock damage.
 
 ### Shadow
 
-**Shadow Step** — Displacement. Low cost. Instant. Short-range blink (8m) in facing direction. Leaves a shadow decoy at origin for 2 seconds that draws one attack. The universal repositioning tool.
+**Shadow Step** — Displacement. Low cost. Instant. Short-range blink (8m) in facing direction. Leaves a shadow decoy at origin for 2 seconds that draws one attack.
 
-**Veil** — Enhancement. Medium cost. Instant. Grants brief optical camouflage (3 seconds). Reduces enemy targeting priority. Not true invisibility — AoE still hits you — but buys breathing room.
+**Veil** — Enhancement. Medium cost. Instant. Grants optical camouflage for 3 seconds. Reduces enemy targeting priority. Does not prevent AoE damage.
 
-**Dread** — Affliction. Medium cost. Instant. Debuffs target: reduced damage output for 6 seconds. A strong defensive debuff for high-damage phases.
+**Dread** — Affliction. Medium cost. Instant. Debuffs target enemy: reduced damage output for 6 seconds.
 
 ### Aerokinetic
 
-**Gale Force** — Destruction. Medium cost. Channeled (supports early release). Cone of pressurized wind that pushes enemies back and deals damage over the channel duration. Longer channel = more pushback. Area denial meets damage.
+**Gale Force** — Destruction. Medium cost. Channeled (supports early release). Cone of pressurized wind that pushes enemies back and deals damage over the channel duration. Pushback distance scales with channel completion.
 
 **Gale Shield** — Protection. Medium cost. Instant. Creates a swirling wind barrier around channeler for 4 seconds. Deflects incoming projectiles and reduces ranged damage taken. Melee attacks unaffected.
 
-**Gust Step** — Displacement. Low cost. Instant. Wind-propelled dash (10m) in facing direction. Faster than Shadow Step, no decoy, but leaves a brief tailwind that gives allies who pass through it +10% move speed for 2 seconds.
+**Gust Step** — Displacement. Low cost. Instant. Wind-propelled dash (10m) in facing direction. Leaves a brief tailwind at origin that gives allies who pass through it +10% move speed for 2 seconds.
 
-**Soothing Wind** — Enhancement. Medium cost. Instant. Places a gentle wind zone at target location for 8 seconds. Allies inside gain minor move speed and heal per tick. The Harmonist's off-school zone option.
+**Soothing Wind** — Enhancement. Medium cost. Instant. Places a wind zone at target location for 8 seconds. Allies inside gain minor move speed and heal per tick.
 
 ### Gravitonic
 
-**Gravitonic Collapse** — Destruction. Extreme cost. Channeled. Creates a gravity well at target location. Pulls all enemies within 10m toward center over 2 seconds, then detonates for massive AoE damage. The ultimate "group them and nuke them" setup tool.
+**Gravitonic Collapse** — Destruction. Extreme cost. Channeled. Creates a gravity well at target location. Pulls all enemies within 10m toward center over 2 seconds, then detonates for high AoE damage.
 
 **Force Shell** — Protection. Medium cost. Instant. Surrounds channeler in a gravity field for 3 seconds. Incoming projectiles are deflected. Melee attacks against the channeler deal reduced damage. Does not prevent telegraphed AoE.
 
-**Gravity Crush** — Destruction. High cost. Instant. Single target. Increases local gravity on the target — heavy damage plus a 2-second root (they can't move under the weight). Strong burst CC.
+**Gravity Crush** — Destruction. High cost. Instant. Single target. Increases local gravity on the target, dealing heavy damage and applying a 2-second root.
 
 ### Hydrodynamic
 
 **Torrent** — Destruction. Medium cost. Channeled. Directed stream of pressurized water at target. Sustained damage that pushes the target slowly backward. Low damage per tick but continuous and disruptive.
 
-**Purifying Mist** — Enhancement. Medium cost. Instant. Places a water mist zone at target location for 6 seconds. Allies inside are cleansed of one DoT effect on entry and gain minor damage reduction. Situational but powerful in DoT-heavy encounters.
+**Purifying Mist** — Enhancement. Medium cost. Instant. Places a water mist zone at target location for 6 seconds. Allies inside are cleansed of one DoT effect on entry and gain minor damage reduction.
 
 ### Bioarcanotechnic
 
-Expensive, powerful, monotarget. The "emergency room" school — each ability costs a lot of Flux but hits hard.
+High-cost, high-output single-target healing and support.
 
-**Mending Surge** — Enhancement. High cost. Instant. Massive single-target heal on an ally. The biggest heal in the game per commit. Burns through your Flux reserve fast — you can't spam this, but when someone is about to die, nothing else compares.
+**Mending Surge** — Enhancement. High cost. Instant. Large single-target heal on an ally. Highest per-commit healing output.
 
-**Mending Beam** — Enhancement. High cost. Channeled. Tethers channeler to target ally. Heals for a large amount per tick while channeled. Highest sustained single-target healing throughput. Line-of-sight required. Expensive to maintain — drains Flux every tick.
+**Mending Beam** — Enhancement. High cost. Channeled. Tethers channeler to target ally. Heals for a large amount per tick while channeled. Line-of-sight required. Consumes Flux every tick while active.
 
-**Overclock** — Enhancement. Medium cost. Instant. Buffs target for 6 seconds: +15% attack speed, +10% movement speed. Works on self or ally. The offensive support tool.
+**Overclock** — Enhancement. Medium cost. Instant. Buffs target (self or ally) for 6 seconds: +15% attack speed, +10% movement speed.
 
-**Neural Fortification** — Protection. High cost. Instant. Buffs target ally for 6 seconds: +20% damage reduction, immunity to one interrupt effect. The "protect the channeler" ability — a Harmonist can commit this on a Destroyer mid-channel to armor them against one interruption.
+**Neural Fortification** — Protection. High cost. Instant. Buffs target ally for 6 seconds: +20% damage reduction and immunity to the next interrupt effect received.
 
-**Restoration Matrix** — Enhancement. High cost. Instant. Places a bioarcanotechnic healing zone at target location for 10 seconds. Allies inside heal at high throughput per tick. Expensive to place but powerful sustained AoE healing. The Bioarcanotechnic primary-school Zone heal.
+**Restoration Matrix** — Enhancement. High cost. Instant. Places a healing zone at target location for 10 seconds. Allies inside heal at high throughput per tick.
 
-**Neural Purge** — Enhancement. Medium cost. Instant. Cleanses all Flux-based debuffs and one non-Flux debuff from target ally. Grants 2-second debuff immunity after cleanse. The primary-school cleanse.
+**Neural Purge** — Enhancement. Medium cost. Instant. Cleanses all Flux-based debuffs and one non-Flux debuff from target ally. Grants 2-second debuff immunity after cleanse.
 
-**Regeneration Protocol** — Enhancement. Medium cost. Instant. Applies a strong HoT to target ally for 12 seconds. If the ally drops below 30% HP while the HoT is active, remaining ticks are consumed instantly as a burst heal. The "insurance policy" — place before a dangerous phase.
+**Regeneration Protocol** — Enhancement. Medium cost. Instant. Applies a strong HoT to target ally for 12 seconds. If the ally drops below 30% HP while the HoT is active, remaining ticks are consumed instantly as a burst heal.
 
 ### Biometabolic
 
-Life force redistribution. Two modes: drain ally HP as fuel (low Flux cost), or spend Flux to damage enemies and heal allies simultaneously (high Flux cost). This is where the Harmonist's AoE and multi-target healing lives.
+Life force redistribution. Two modes: drain ally HP as fuel (low Flux cost), or spend Flux to damage enemies and heal allies simultaneously (high Flux cost).
 
-**Life Swap** — Enhancement. Low cost. Instant. Drains a portion of target ally's HP and stores it as vital charge. The next healing ability you commit within 4 seconds is empowered by the stored charge (bonus healing proportional to HP drained). The core Biometabolic mechanic — take health from someone healthy to supercharge your next heal on someone dying. Allies must trust their Harmonist.
+**Life Swap** — Enhancement. Low cost. Instant. Drains a portion of target ally's HP and stores it as vital charge. The next healing ability committed within 4 seconds is empowered by the stored charge (bonus healing proportional to HP drained).
 
-**Transfusion** — Enhancement. Low cost. Channeled. Tethers channeler to an ally, draining their HP per tick. Simultaneously heals all other allies within 10m for the same amount. The AoE heal — powered by one ally's sacrifice. Best used on a high-HP Shield Vanguard who can afford to donate. Interruptible.
+**Transfusion** — Enhancement. Low cost. Channeled. Tethers channeler to target ally, draining their HP per tick. Simultaneously heals all other allies within 10m for the drained amount. Interruptible.
 
-**Vital Circuit** — Enhancement. Low cost. Instant. Links two allies for 8 seconds. Damage taken by either ally is split evenly between them. When the link expires, the ally with lower HP is healed for a portion of the difference. HP equalization — keeps both targets alive longer against focused damage.
+**Vital Circuit** — Enhancement. Low cost. Instant. Links two allies for 8 seconds. Damage taken by either ally is split evenly between them. When the link expires, the ally with lower HP is healed for a portion of the HP difference.
 
-**Metabolic Burst** — Enhancement. High cost. Instant. Deals moderate damage to target enemy and heals all allies within 8m of the target for a portion of the damage dealt. The Flux-expensive mode — no ally HP cost, but burns your reserve. The "I need AoE healing NOW and nobody is healthy enough to drain" emergency.
+**Metabolic Burst** — Enhancement. High cost. Instant. Deals moderate damage to target enemy and heals all allies within 8m of the target for a portion of the damage dealt. Does not drain ally HP.
 
-**Vital Drain** — Destruction. Medium cost. Channeled. Tethers channeler to target enemy. Drains health per tick, healing the channeler for a portion of damage dealt. The self-sustain option for any Arcanotechnicien without a healer. Beam is visible and interruptible.
+**Vital Drain** — Destruction. Medium cost. Channeled. Tethers channeler to target enemy. Drains health per tick, healing the channeler for a portion of damage dealt. Beam is visible. Interruptible.
 
-**Metabolic Disruption** — Affliction. Medium cost. Instant. Debuffs target: -15% healing received, -10% movement speed for 8 seconds. Reduces enemy sustain. Niche in PvE, powerful in PvP.
+**Metabolic Disruption** — Affliction. Medium cost. Instant. Debuffs target enemy: -15% healing received, -10% movement speed for 8 seconds.
 
-**Vital Bloom** — Enhancement. Low cost. Instant. Sacrifices a portion of the channeler's HP to create a healing zone at target location for 8 seconds. Heal per tick is proportional to HP sacrificed — more health given, stronger zone. The Biometabolic primary-school Zone heal. Self-sacrifice fits the school's identity: HP is the currency.
+**Vital Bloom** — Enhancement. Low cost. Instant. Sacrifices a portion of the channeler's HP to create a healing zone at target location for 8 seconds. Heal per tick scales with the amount of HP sacrificed.
 
-**Siphon Pulse** — Destruction. Low cost. Instant. Deals minor damage to target enemy. If the target has any active debuff, heals the nearest injured ally for a portion of the damage dealt. The Harmonist's offensive filler — builds Confluence during safe phases and trickle-heals as a bonus. Pairs with Frostbite or Burn for sustained damage and heal loops.
+**Siphon Pulse** — Destruction. Low cost. Instant. Deals minor damage to target enemy. If the target has any active debuff, heals the nearest injured ally for a portion of the damage dealt.
 
-**Last Breath** — Enhancement. High cost. Instant. 60-second cooldown. Target ally cannot die for 4 seconds — lethal damage reduces them to 1 HP instead. When the effect expires, the channeler takes 50% of the damage that was prevented as self-damage. The emergency cooldown — save someone, pay the price yourself.
+**Last Breath** — Enhancement. High cost. Instant. 60-second cooldown. Target ally cannot die for 4 seconds — lethal damage reduces them to 1 HP instead. When the effect expires, the channeler takes 50% of the damage that was prevented as self-damage.
 
 ### Martial (Battlemage Only)
 
 Martial abilities do not consume Flux. They use cooldowns instead — channeling vital energy rather than external Flux. Only accessible to the Battlemage spec.
 
-**Adrenaline** — Enhancement. No Flux cost. 15s cooldown. Instant. +20% attack speed for 6 seconds. The Battlemage's burst window opener — faster strikes mean faster Weave stacking.
+**Adrenaline** — Enhancement. No Flux cost. 15s cooldown. Instant. +20% attack speed for 6 seconds.
 
-**Combat Roll** — Displacement. No Flux cost. 8s cooldown. Instant. Quick lateral roll with brief i-frames. Doesn't consume Flux and has a tight cooldown. The Battlemage's resource-free dodge.
+**Combat Roll** — Displacement. No Flux cost. 8s cooldown. Instant. Quick lateral roll with brief i-frames.
 
-**Precise Strike** — Enhancement. No Flux cost. 12s cooldown. Instant. Next melee hit within 4 seconds is guaranteed to critically hit. The Battlemage's burst punctuation — land this on the 3-hit combo finisher for massive damage.
+**Precise Strike** — Enhancement. No Flux cost. 12s cooldown. Instant. Next melee hit within 4 seconds is guaranteed to critically hit.
 
 ### Illusion
 
 **Mirage** — Affliction. Medium cost. Instant. Creates a false targeting signal on an ally's position for 4 seconds. The next enemy ability targeting that ally is redirected to the illusion (which takes the hit and vanishes). One-use bodyguard. Does not work on untargeted AoE.
 
-**Data Theft** — Affliction. High cost. Channeled. Hacks a target enemy's perception for 3 seconds: the target's next ability is delayed by 1.5 seconds (cognitive lag). Against bosses, this shortens the reaction window but does not prevent the ability. Powerful when timed with party burst windows.
+**Data Theft** — Affliction. High cost. Channeled. Hacks target enemy's perception for 3 seconds: the target's next ability is delayed by 1.5 seconds. Against bosses, delays the ability but does not prevent it.
 
 ### Pure
 
-**Flux Negation** — Protection. High cost. Instant. Dispels one active Flux-based effect on target (ally: removes debuff; enemy: removes buff). The counter-arcanotechnique tool. Essential for encounters with dispellable mechanics.
+**Flux Negation** — Protection. High cost. Instant. Dispels one active Flux-based effect on target. On allies, removes a debuff. On enemies, removes a buff.
 
-**Flux Burn** — Destruction. High cost. Instant. Deals damage proportional to the target's current Flux reserve (effective against Flux-using enemies). Against non-Flux targets, deals flat moderate damage. Niche but devastating in the right encounter.
+**Flux Burn** — Destruction. High cost. Instant. Deals damage proportional to the target's current Flux reserve. Against non-Flux targets, deals flat moderate damage.
 
-**Arcane Silence** — Affliction. Extreme cost. Channeled. Silences target enemy for 3 seconds — prevents all Flux-based abilities. The ultimate shutdown for arcanotechnique-using bosses or PvP targets. Enormous Flux cost makes it a commitment.
+**Arcane Silence** — Affliction. Extreme cost. Channeled. Silences target enemy for 3 seconds, preventing all Flux-based abilities.
 
 ---
 

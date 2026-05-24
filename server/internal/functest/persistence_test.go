@@ -41,13 +41,13 @@ func TestHubPersistence_PositionSavedOnDisconnect(t *testing.T) {
 
 	startX := me.PosX
 	startZ := me.PosZ
-	steps := 10
+	steps := 30 // enough steps to stay within server speed clamping
 	for tick := uint32(1); tick <= uint32(steps); tick++ {
 		frac := float32(tick) / float32(steps)
 		x := startX + (walkX-startX)*frac
 		z := startZ + (walkZ-startZ)*frac
 		c1.SendPlayerInput(x, walkY, z, walkRotY, tick)
-		time.Sleep(60 * time.Millisecond)
+		time.Sleep(55 * time.Millisecond) // ~1 per server tick (50ms)
 	}
 
 	var confirmed bool

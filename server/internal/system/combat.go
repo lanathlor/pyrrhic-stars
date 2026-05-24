@@ -153,11 +153,12 @@ func (s *CombatSystem) Tick(w *World, dt float32) {
 		if shouldFire {
 			switch runner.Phase {
 			case ability.PRunnerExecute, ability.PRunnerCooldown, ability.PRunnerSustain:
-				if prevPhase == ability.PRunnerCommit {
+				switch prevPhase {
+				case ability.PRunnerCommit:
 					// Commit expired → execute ability
 					w.enemyTargetBuf = enemiesToTargets(w.enemyTargetBuf, w.Enemies)
 					ctx := &ability.CommitContext{
-						Committer:       p,
+						Committer:    p,
 						Targets:      w.enemyTargetBuf,
 						Obstacles:    w.Level.Obstacles,
 						Allies:       w.Players,
@@ -197,7 +198,7 @@ func (s *CombatSystem) Tick(w *World, dt float32) {
 							w.logPhaseChange(enemy)
 						}
 					}
-				} else if prevPhase == ability.PRunnerSustain {
+				case ability.PRunnerSustain:
 					// Sustain tick → apply per-tick effect
 					applySustainTick(w, p, runner)
 				}
@@ -408,6 +409,27 @@ func (s *CombatSystem) Tick(w *World, dt float32) {
 			p.Health += p.MaxHealth * RegenRate * dt
 			if p.Health > p.MaxHealth {
 				p.Health = p.MaxHealth
+			}
+		}
+
+		// Flux regen boost when out of combat (same 5% rate as HP)
+		if !inCombat {
+			if fc := p.FluxCommit; fc != nil && len(fc.Pools) > 0 {
+				for i := range fc.Pools {
+					pool := &fc.Pools[i]
+					if pool.Current < pool.Max {
+						pool.Current += pool.Max * RegenRate * dt
+						if pool.Current > pool.Max {
+							pool.Current = pool.Max
+						}
+					}
+				}
+				p.SyncFluxAggregate()
+			} else if r := p.Resources[entity.ResourceFlux]; r != nil && r.Current < r.Max {
+				r.Current += r.Max * RegenRate * dt
+				if r.Current > r.Max {
+					r.Current = r.Max
+				}
 			}
 		}
 	}

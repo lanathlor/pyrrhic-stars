@@ -155,9 +155,9 @@ func TestTickRegen(t *testing.T) {
 		dt          float32
 		wantCurrent float32
 	}{
-		{"regen partial", "bioarcanotechnic", 40, 2.0, 47},     // 80-40=40, +3.5*2=47
-		{"regen caps at max", "bioarcanotechnic", 5, 10.0, 80}, // 80-5=75, +3.5*10=110, capped at 80
-		{"regen from empty", "frost", 16, 1.0, 0.7},            // 16-16=0, +0.7*1=0.7
+		{"regen partial", "bioarcanotechnic", 40, 2.0, 47},            // 80-40=40, +3.5*2=47
+		{"regen caps at max", "bioarcanotechnic", 5, 10.0, 80},        // 80-5=75, +3.5*10=110, capped at 80
+		{"regen from empty", "frost", 16, 1.0, 0.7},                   // 16-16=0, +0.7*1=0.7
 		{"no spend full pool stays full", "biometabolic", 0, 5.0, 48}, // already at max 48
 	}
 

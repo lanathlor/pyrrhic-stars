@@ -61,12 +61,6 @@ func start_replay(replay: Variant) -> void:
 		# Move it to first child so it renders behind entities
 		move_child(env, 0)
 
-		# Add procedural buildings (same as main.gd does during gameplay)
-		var buildings := Node3D.new()
-		buildings.name = "ArenaBuildings"
-		buildings.set_script(load("res://scenes/environments/arena/arena_buildings.gd"))
-		env.add_child(buildings)
-
 		# Add atmospheric effects (rain, lightning, fire lights)
 		var atmosphere := Node3D.new()
 		atmosphere.name = "DungeonAtmosphere"

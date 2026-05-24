@@ -127,11 +127,19 @@ func decodeShooterState(payload []byte, targetPeerID uint16) (state uint8, visua
 		}
 		ap := math.Float32frombits(binary.LittleEndian.Uint32(payload[off:]))
 		off += 4
-		// buff_flags: u8, config: u8, stamina: f32, shield_hp: f32, munitions: f32, resonance: f32
-		off += 1 + 1 + 4 + 4 + 4 + 4
-		off++    // onslaught_stacks
+		// buff_flags: u8, config: u8, stamina: f32, shield_hp: f32, munitions: f32, resonance: f32, flux: f32, flux_max: f32
+		off += 1 + 1 + 4 + 4 + 4 + 4 + 4 + 4
+		off++    // mastery_stacks
 		off += 7 // gunner assault state
 		off++    // speedMult
+		// flux_commitment_pools: count byte + 4 schools * 2 f32 if count > 0
+		if off < len(payload) {
+			poolCount := int(payload[off])
+			off++
+			if poolCount > 0 {
+				off += 4 * 2 * 4 // 4 schools × (current f32 + max f32)
+			}
+		}
 
 		if peerID == targetPeerID {
 			return st, vs, ap, true
@@ -303,7 +311,7 @@ func TestGunnerSustainedFire_RemoteTracerCount(t *testing.T) {
 	// Sustained-fire tracers for remote clients rely on VisualState passthrough,
 	// not state transitions.
 	if tracersFired == 0 {
-		t.Errorf("BUG: 0 tracers detected -- initial Move->Attack transition was lost")
+		t.Error("BUG: 0 tracers detected -- initial Move->Attack transition was lost")
 	} else {
 		t.Logf("OK: %d Move->Attack transition(s) detected (sustained fire uses VisualState)", tracersFired)
 	}

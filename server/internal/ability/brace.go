@@ -6,9 +6,9 @@ import (
 
 // Brace — plant feet and fortify stance while blocking.
 const (
-	braceDuration         float32 = 3.5
-	braceDrainReduction   float32 = 0.2 // 20% of normal stamina drain while braced
-	braceCooldown         float32 = 18
+	braceDuration       float32 = 3.5
+	braceDrainReduction float32 = 0.2 // 20% of normal stamina drain while braced
+	braceCooldown       float32 = 18
 )
 
 // BraceDrainReduction is exported so entity.ApplyDamage can check brace.

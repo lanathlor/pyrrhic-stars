@@ -7,12 +7,12 @@ import (
 
 // Retaliate — massive shield slam consuming all Devotion charges.
 const (
-	retaliateBaseDamage    float32 = 50
-	retaliatePerCharge     float32 = 4.5
-	retaliateArc           float32 = 180
-	retaliateRange         float32 = 6
-	retaliateGCD           float32 = 1.5
-	retaliateThreatMult    float32 = 3.0
+	retaliateBaseDamage float32 = 50
+	retaliatePerCharge  float32 = 4.5
+	retaliateArc        float32 = 180
+	retaliateRange      float32 = 6
+	retaliateGCD        float32 = 1.5
+	retaliateThreatMult float32 = 3.0
 )
 
 var retaliateDef = AbilityDef{

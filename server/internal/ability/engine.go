@@ -24,7 +24,7 @@ type TickHandlerFunc func(eng *Engine, p *entity.Player, dt float32, ctx *TickCo
 
 // CommitContext carries the state needed to resolve an ability.
 type CommitContext struct {
-	Committer     entity.Committer
+	Committer  entity.Committer
 	Targets    []entity.Target
 	Obstacles  []combat.Obstacle
 	SourceType uint8 // combat.SourcePlayerAttack, SourceEnemyMelee, etc.
@@ -204,7 +204,7 @@ func (eng *Engine) doCommit(abilityID string, def *AbilityDef, ctx *CommitContex
 		for _, cost := range def.Costs {
 			// School-aware flux validation: check the specific school pool.
 			// Apply affinity cost scaling (primary 1.0x, secondary 1.25x, off 1.5x).
-			if cost.Resource == "flux" && def.School != "" && p.FluxCommit != nil && len(p.FluxCommit.Pools) > 0 {
+			if cost.Resource == entity.ResourceFlux && def.School != "" && p.FluxCommit != nil && len(p.FluxCommit.Pools) > 0 {
 				scaledCost := cost.Amount * p.AffinityCostMult(def.School)
 				pool := p.FluxCommit.GetPool(def.School)
 				if pool == nil || pool.Current < scaledCost {
@@ -276,7 +276,7 @@ func (eng *Engine) doCommit(abilityID string, def *AbilityDef, ctx *CommitContex
 	// Spend resources (player only)
 	if isPlayer {
 		for _, cost := range def.Costs {
-			if cost.Resource == "flux" && def.School != "" && p.FluxCommit != nil && len(p.FluxCommit.Pools) > 0 {
+			if cost.Resource == entity.ResourceFlux && def.School != "" && p.FluxCommit != nil && len(p.FluxCommit.Pools) > 0 {
 				p.SpendFluxBySchool(def.School, cost.Amount)
 				continue
 			}
@@ -566,7 +566,7 @@ func (eng *Engine) TickPlayer(p *entity.Player, dt float32, ctx *TickContext) []
 	hasFluxCommit := p.FluxCommit != nil && len(p.FluxCommit.Pools) > 0
 	for name, r := range p.Resources {
 		// Skip generic flux regen for FluxCommitment players — handled by pool-based regen below.
-		if name == "flux" && hasFluxCommit {
+		if name == entity.ResourceFlux && hasFluxCommit {
 			continue
 		}
 		if r.DelayTimer > 0 {

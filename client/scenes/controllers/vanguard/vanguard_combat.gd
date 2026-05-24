@@ -167,7 +167,7 @@ func start_vortex() -> void:
 	)
 
 
-func process_vortex(delta: float) -> void:
+func process_vortex(_delta: float) -> void:
 	# Forward dash in facing direction at high speed
 	var forward: Vector3 = -ctrl.transform.basis.z
 	forward.y = 0.0

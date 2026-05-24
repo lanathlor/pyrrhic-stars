@@ -52,10 +52,10 @@ const (
 	HitAoECone                        // cone around caster
 	HitAoECircleTarget                // circle around hitscan target
 	HitNearestN                       // N nearest in-combat enemies
-	HitAllyTarget    HitType = 10 // single ally targeted by peer ID
-	HitAllyLowestHP  HitType = 11 // auto-select lowest HP ally
-	HitAllyRandom        HitType = 12 // random ally
-	HitGroundPlacement   HitType = 13 // place a ground zone at caster position
+	HitAllyTarget      HitType = 10   // single ally targeted by peer ID
+	HitAllyLowestHP    HitType = 11   // auto-select lowest HP ally
+	HitAllyRandom      HitType = 12   // random ally
+	HitGroundPlacement HitType = 13   // place a ground zone at caster position
 )
 
 // HitDef describes how an ability finds its targets.
@@ -197,7 +197,7 @@ type AbilityDef struct {
 
 	// Player channel control
 	CancelConditions uint8  `yaml:"cancel_conditions"` // bitmask: which events cancel during commit
-	OnCommitTick     string `yaml:"on_commit_tick"`     // handler name called each tick during commit
+	OnCommitTick     string `yaml:"on_commit_tick"`    // handler name called each tick during commit
 
 	// Sustain (extended channel after execute — Arcanotechnicien class mechanic)
 	Sustain           bool    `yaml:"sustain"`              // ability supports extended channel

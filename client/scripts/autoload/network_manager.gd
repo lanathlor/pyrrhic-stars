@@ -30,6 +30,7 @@ signal inventory_state_received(data: Dictionary)
 signal ability_catalog_received(catalog: Array)
 signal loadout_state_received(slots: Array)
 signal flux_commit_state_received(entries: Array)
+signal preset_list_received(presets: Array)
 
 const DEFAULT_PORT := 7777
 
@@ -268,6 +269,8 @@ func _on_message(data: PackedByteArray) -> void:
 			_handle_loadout_state(payload)
 		NetSerializer.OP_FLUX_COMMIT_STATE:
 			_handle_flux_commit_state(payload)
+		NetSerializer.OP_PRESET_LIST:
+			_handle_preset_list(payload)
 
 		# -- Debug (dev mode) --
 		NetSerializer.OP_DEBUG_INFO:
@@ -492,7 +495,25 @@ func _handle_flux_commit_state(payload: PackedByteArray) -> void:
 
 
 func send_set_flux_commitment(entries: Array) -> void:
-	send_msg(NetSerializer.OP_SET_FLUX_COMMITMENT, NetSerializer.encode_set_flux_commitment(entries))
+	send_msg(
+		NetSerializer.OP_SET_FLUX_COMMITMENT, NetSerializer.encode_set_flux_commitment(entries)
+	)
+
+
+func _handle_preset_list(payload: PackedByteArray) -> void:
+	var presets: Array = NetSerializer.decode_preset_list(payload)
+	preset_list_received.emit(presets)
+
+
+func send_save_preset(preset_name: String, slots: Array, commitment: String) -> void:
+	send_msg(
+		NetSerializer.OP_SAVE_PRESET,
+		NetSerializer.encode_save_preset(preset_name, slots, commitment)
+	)
+
+
+func send_delete_preset(preset_id: int) -> void:
+	send_msg(NetSerializer.OP_DELETE_PRESET, NetSerializer.encode_delete_preset(preset_id))
 
 
 # =============================================================================

@@ -30,8 +30,8 @@ func TestLifeSwap(t *testing.T) {
 				return caster, allies, 2
 			},
 			wantOK:          true,
-			wantAllyHealth:  80,  // 100 - 100*0.20
-			wantVitalCharge: 20,  // 100 * 0.20
+			wantAllyHealth:  80, // 100 - 100*0.20
+			wantVitalCharge: 20, // 100 * 0.20
 			wantHealCount:   1,
 			wantHealAmount:  -20, // negative = drain
 		},
@@ -117,7 +117,7 @@ func TestLifeSwap(t *testing.T) {
 			caster, allies, targetPeer := tt.setup()
 
 			result := eng.Commit("life_swap", &CommitContext{
-				Committer:       caster,
+				Committer:    caster,
 				Allies:       allies,
 				TargetPeerID: targetPeer,
 			})
@@ -161,7 +161,7 @@ func TestLifeSwap(t *testing.T) {
 
 			// Verify flux was spent
 			if tt.wantOK && tt.name == "spends flux on commit" {
-				flux := caster.Resources["flux"]
+				flux := caster.Resources[entity.ResourceFlux]
 				want := float32(155) // 160 - 5
 				if math.Abs(float64(flux.Current-want)) > 0.5 {
 					t.Errorf("Flux = %.1f, want %.1f", flux.Current, want)
@@ -190,7 +190,7 @@ func TestVitalChargeEmpowersMendingSurge(t *testing.T) {
 
 	// Step 1: Commit Life Swap on donor to build vital charge
 	result := eng.Commit("life_swap", &CommitContext{
-		Committer:       caster,
+		Committer:    caster,
 		Allies:       allies,
 		TargetPeerID: 2,
 	})
@@ -210,7 +210,7 @@ func TestVitalChargeEmpowersMendingSurge(t *testing.T) {
 
 	// Step 3: Commit Mending Surge on the patient
 	healResult := eng.Commit("mending_surge", &CommitContext{
-		Committer:       caster,
+		Committer:    caster,
 		Allies:       allies,
 		TargetPeerID: 3,
 	})

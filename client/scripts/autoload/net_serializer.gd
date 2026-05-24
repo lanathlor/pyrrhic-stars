@@ -60,11 +60,14 @@ const OP_INVENTORY_STATE := 0x0080
 # Loadout — client → server
 const OP_SET_LOADOUT := 0x0090
 const OP_SET_FLUX_COMMITMENT := 0x0091
+const OP_SAVE_PRESET := 0x0092
+const OP_DELETE_PRESET := 0x0093
 
 # Loadout — server → client
 const OP_LOADOUT_STATE := 0x00A0
 const OP_ABILITY_CATALOG := 0x00A1
 const OP_FLUX_COMMIT_STATE := 0x00A2
+const OP_PRESET_LIST := 0x00A3
 
 # Game flow event types
 const FLOW_SPAWN_PLAYERS := 1
@@ -520,16 +523,23 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 		# Flux commitment pools (Arcanotechnicien school breakdown)
 		var flux_pool_count := buf.get_u8() if buf.get_position() < buf.get_size() else 0
 		var flux_pools: Array = []
-		var _school_order: Array[String] = ["bioarcanotechnic", "biometabolic", "frost", "aerokinetic"]
+		var school_order: Array[String] = [
+			"bioarcanotechnic", "biometabolic", "frost", "aerokinetic"
+		]
 		for pool_i in range(flux_pool_count):
 			var pool_current := buf.get_float() if buf.get_position() + 4 <= buf.get_size() else 0.0
 			var pool_max := buf.get_float() if buf.get_position() + 4 <= buf.get_size() else 0.0
-			if pool_i < _school_order.size():
-				flux_pools.append({
-					"school": _school_order[pool_i],
-					"current": pool_current,
-					"max": pool_max,
-				})
+			if pool_i < school_order.size():
+				(
+					flux_pools
+					. append(
+						{
+							"school": school_order[pool_i],
+							"current": pool_current,
+							"max": pool_max,
+						}
+					)
+				)
 		(
 			players
 			. append(
@@ -552,9 +562,11 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 					"guard_active": bool(buff_flags & 0x20),
 					"onslaught_tier": (buff_flags >> 6) & 0x03,
 					"onslaught_stacks": onslaught_stacks,
-					"flow_tier": (buff_flags >> 6) & 0x03 if class_name_str == "blade_dancer" else 0,
+					"flow_tier":
+					(buff_flags >> 6) & 0x03 if class_name_str == "blade_dancer" else 0,
 					"flow_stacks": onslaught_stacks if class_name_str == "blade_dancer" else 0,
-					"channel_phase": (buff_flags >> 6) & 0x03 if class_name_str == "arcanotechnicien" else 0,
+					"channel_phase":
+					(buff_flags >> 6) & 0x03 if class_name_str == "arcanotechnicien" else 0,
 					"config": config,
 					"stamina": server_stamina,
 					"shield_hp": shield_hp,
@@ -678,7 +690,8 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 # =============================================================================
 
 
-## Format: [target_peer_id:u16][source_peer_id:u16][amount:f32][hit_x:f32][hit_y:f32][hit_z:f32][source_type:u8][overheal:f32]
+## Format: [target_peer_id:u16][source_peer_id:u16][amount:f32]
+## [hit_x:f32][hit_y:f32][hit_z:f32][source_type:u8][overheal:f32]
 func decode_damage_event(data: PackedByteArray) -> Dictionary:
 	var buf := StreamPeerBuffer.new()
 	buf.data_array = data
@@ -696,8 +709,12 @@ func decode_damage_event(data: PackedByteArray) -> Dictionary:
 
 
 func encode_damage_event(
-	target_peer_id: int, source_peer_id: int, amount: float, hit_pos: Vector3,
-	source_type: int, overheal: float = 0.0
+	target_peer_id: int,
+	source_peer_id: int,
+	amount: float,
+	hit_pos: Vector3,
+	source_type: int,
+	overheal: float = 0.0
 ) -> PackedByteArray:
 	var buf := StreamPeerBuffer.new()
 	buf.put_u16(target_peer_id)
@@ -1166,6 +1183,47 @@ func decode_flux_commit_state(data: PackedByteArray) -> Array:
 	return entries
 
 
+## Encode save-preset: [name:str8][6x ability_id:str8][commitment:str8]
+func encode_save_preset(preset_name: String, slots: Array, commitment: String) -> PackedByteArray:
+	var buf := StreamPeerBuffer.new()
+	_put_str8(buf, preset_name)
+	for i in 6:
+		var id: String = slots[i] if i < slots.size() else ""
+		_put_str8(buf, id)
+	_put_str8(buf, commitment)
+	return buf.data_array
+
+
+## Encode delete-preset: [preset_id:u32 LE]
+func encode_delete_preset(preset_id: int) -> PackedByteArray:
+	var buf := StreamPeerBuffer.new()
+	buf.put_u32(preset_id)
+	return buf.data_array
+
+
+## Decode preset list: [count:u8][per: id:u32, name:str8, 6x slot:str8, commitment:str8]
+func decode_preset_list(data: PackedByteArray) -> Array:
+	var buf := StreamPeerBuffer.new()
+	buf.data_array = data
+	var presets: Array = []
+	if buf.get_size() < 1:
+		return presets
+	var count: int = buf.get_u8()
+	for _i in count:
+		if buf.get_position() >= buf.get_size():
+			break
+		var preset: Dictionary = {}
+		preset["id"] = buf.get_u32()
+		preset["name"] = _get_str8(buf)
+		var slots: Array = []
+		for _j in 6:
+			slots.append(_get_str8(buf))
+		preset["slots"] = slots
+		preset["commitment"] = _get_str8(buf)
+		presets.append(preset)
+	return presets
+
+
 ## Decode ability catalog: [count:u8][per: id:str8, name:str8, school:str8,
 ## ability_type:str8, delivery:str8, flux_cost:str8, description:str16,
 ## cooldown:f32, commit_time:f32, implemented:u8, affinity:str8,
@@ -1214,9 +1272,18 @@ func decode_ability_catalog(data: PackedByteArray) -> Array:
 			entry["affinity"] = _get_str8(buf)
 		else:
 			entry["affinity"] = "off"
-		# 9 x f32: exact ability stats
-		for key in ["flux_amount", "base_heal", "base_damage", "range", "gcd",
-				"commit_time", "zone_radius", "zone_duration", "zone_heal_tick"]:
+		# 9 x f32: exact ability stats (commit_time is a duplicate of the header field)
+		for key in [
+			"flux_amount",
+			"base_heal",
+			"base_damage",
+			"range",
+			"gcd",
+			"_commit_time_dup",
+			"zone_radius",
+			"zone_duration",
+			"zone_heal_tick"
+		]:
 			if buf.get_position() + 4 <= buf.get_size():
 				entry[key] = buf.get_float()
 			else:

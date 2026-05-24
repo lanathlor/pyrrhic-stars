@@ -2,6 +2,8 @@ package entity
 
 import "testing"
 
+const siphonPulseAbility = "siphon_pulse"
+
 func TestHarmonistDefaultLoadout(t *testing.T) {
 	p := NewPlayer(1, ClassArcanotechnicien)
 
@@ -9,7 +11,7 @@ func TestHarmonistDefaultLoadout(t *testing.T) {
 		action uint8
 		want   string
 	}{
-		{50, "siphon_pulse"},
+		{50, siphonPulseAbility},
 		{51, "mending_beam"},
 		{52, "mending_surge"},
 		{53, "restoration_matrix"},
@@ -32,7 +34,7 @@ func TestApplyLoadoutUpdatesActionMap(t *testing.T) {
 	p := NewPlayer(1, ClassArcanotechnicien)
 
 	// Verify the initial state from default loadout.
-	if p.ActionMap[50] != "siphon_pulse" {
+	if p.ActionMap[50] != siphonPulseAbility {
 		t.Fatalf("precondition: ActionMap[50] = %q, want siphon_pulse", p.ActionMap[50])
 	}
 
@@ -115,7 +117,7 @@ func TestLoadoutEmptySlotsSkipped(t *testing.T) {
 	}
 
 	// Non-empty slots should still be present.
-	if p.ActionMap[50] != "siphon_pulse" {
+	if p.ActionMap[50] != siphonPulseAbility {
 		t.Errorf("ActionMap[50] = %q, want siphon_pulse", p.ActionMap[50])
 	}
 }
@@ -129,10 +131,10 @@ func TestLoadoutIsolationBetweenPlayers(t *testing.T) {
 	p1.ApplyLoadout()
 
 	// p2 should still have the default.
-	if p2.ActionMap[50] != "siphon_pulse" {
+	if p2.ActionMap[50] != siphonPulseAbility {
 		t.Errorf("p2 ActionMap[50] = %q, want siphon_pulse (p1 mutation leaked)", p2.ActionMap[50])
 	}
-	if p2.Loadout.Slots[0] != "siphon_pulse" {
+	if p2.Loadout.Slots[0] != siphonPulseAbility {
 		t.Errorf("p2 Loadout.Slots[0] = %q, want siphon_pulse (p1 mutation leaked)", p2.Loadout.Slots[0])
 	}
 }

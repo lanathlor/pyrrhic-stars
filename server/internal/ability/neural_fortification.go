@@ -9,7 +9,7 @@ var neuralFortificationDef = AbilityDef{
 	Hit:      HitDef{Type: HitAllyTarget},
 	GCD:      0.8,
 	Cooldown: 20.0,
-	Costs:    []ResourceCost{{Resource: "flux", Amount: 40}},
+	Costs:    []ResourceCost{{Resource: entity.ResourceFlux, Amount: 40}},
 	Delivery: uint8(entity.DeliveryDirect),
 	Handler:  "neural_fortification",
 }

@@ -36,9 +36,9 @@ func (c *Combatant) CommitterID() uint16    { return c.ID }
 func (c *Combatant) CommitterPos() Vec3     { return c.Position }
 func (c *Combatant) CommitterForward() Vec3 { return c.Forward() }
 func (c *Combatant) CommitterAlive() bool   { return c.Alive }
-func (c *Combatant) TargetID() uint16    { return c.ID }
-func (c *Combatant) TargetPos() Vec3     { return c.Position }
-func (c *Combatant) TargetAlive() bool   { return c.Alive }
+func (c *Combatant) TargetID() uint16       { return c.ID }
+func (c *Combatant) TargetPos() Vec3        { return c.Position }
+func (c *Combatant) TargetAlive() bool      { return c.Alive }
 
 // Committer is an entity that can commit abilities.
 type Committer interface {

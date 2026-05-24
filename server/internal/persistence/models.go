@@ -56,13 +56,30 @@ type CharacterFluxCommitment struct {
 
 // CharacterLoadout stores the 6-slot ability loadout for Arcanotechnicien characters.
 type CharacterLoadout struct {
-	ID          uint      `gorm:"primaryKey"`
-	CharacterID uint      `gorm:"uniqueIndex"`
-	Slot0       string    `gorm:"size:40"`
-	Slot1       string    `gorm:"size:40"`
-	Slot2       string    `gorm:"size:40"`
-	Slot3       string    `gorm:"size:40"`
-	Slot4       string    `gorm:"size:40"`
-	Slot5       string    `gorm:"size:40"`
+	ID          uint   `gorm:"primaryKey"`
+	CharacterID uint   `gorm:"uniqueIndex"`
+	Slot0       string `gorm:"size:40"`
+	Slot1       string `gorm:"size:40"`
+	Slot2       string `gorm:"size:40"`
+	Slot3       string `gorm:"size:40"`
+	Slot4       string `gorm:"size:40"`
+	Slot5       string `gorm:"size:40"`
+	UpdatedAt   time.Time
+}
+
+// CharacterLoadoutPreset stores a named loadout preset for Arcanotechnicien characters.
+// Max 10 presets per character. Unique on (CharacterID, Name).
+type CharacterLoadoutPreset struct {
+	ID          uint   `gorm:"primaryKey"`
+	CharacterID uint   `gorm:"uniqueIndex:idx_char_preset_name"`
+	Name        string `gorm:"size:30;uniqueIndex:idx_char_preset_name"`
+	Slot0       string `gorm:"size:40"`
+	Slot1       string `gorm:"size:40"`
+	Slot2       string `gorm:"size:40"`
+	Slot3       string `gorm:"size:40"`
+	Slot4       string `gorm:"size:40"`
+	Slot5       string `gorm:"size:40"`
+	Commitment  string `gorm:"size:200"` // "school:pct,school:pct,..."
+	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }

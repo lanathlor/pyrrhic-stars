@@ -109,7 +109,7 @@ func start_bull_rush() -> void:
 	)
 
 
-func process_bull_rush(delta: float) -> void:
+func process_bull_rush(_delta: float) -> void:
 	ctrl.velocity.x = _bull_rush_direction.x * ctrl.BULL_RUSH_SPEED
 	ctrl.velocity.z = _bull_rush_direction.z * ctrl.BULL_RUSH_SPEED
 
@@ -240,7 +240,7 @@ func process_retaliate_windup(delta: float) -> void:
 		)
 
 
-func process_retaliate(delta: float) -> void:
+func process_retaliate(_delta: float) -> void:
 	ctrl.velocity.x = 0.0
 	ctrl.velocity.z = 0.0
 	if not _has_hit_this_attack and ctrl._state_timer <= ctrl.RETALIATE_HIT_TIME * 0.5:

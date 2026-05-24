@@ -45,7 +45,7 @@ func NewGormRepo(driver, dsn string) (*GormRepo, error) {
 		return nil, fmt.Errorf("persistence open: %w", err)
 	}
 
-	if err := db.AutoMigrate(&User{}, &Character{}, &CharacterItem{}, &CharacterEquipment{}, &CharacterLoadout{}, &CharacterFluxCommitment{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &Character{}, &CharacterItem{}, &CharacterEquipment{}, &CharacterLoadout{}, &CharacterFluxCommitment{}, &CharacterLoadoutPreset{}); err != nil {
 		return nil, fmt.Errorf("persistence migrate: %w", err)
 	}
 
@@ -211,4 +211,43 @@ func (r *GormRepo) GetFluxCommitment(charID uint) ([]FluxCommitmentEntry, error)
 		entries[i] = FluxCommitmentEntry{School: row.School, Percentage: row.Percentage}
 	}
 	return entries, nil
+}
+
+func (r *GormRepo) SaveLoadoutPreset(charID uint, name string, slots [6]string, commitment string) error {
+	// Count existing presets for this character.
+	var count int64
+	if err := r.db.Model(&CharacterLoadoutPreset{}).Where("character_id = ?", charID).Count(&count).Error; err != nil {
+		return fmt.Errorf("count presets: %w", err)
+	}
+	// Check if a preset with this name already exists (update case).
+	var existing CharacterLoadoutPreset
+	found := r.db.Where("character_id = ? AND name = ?", charID, name).First(&existing)
+	if found.Error != nil && !errors.Is(found.Error, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("find preset: %w", found.Error)
+	}
+	if count >= 10 && errors.Is(found.Error, gorm.ErrRecordNotFound) {
+		return errors.New("save preset: maximum of 10 presets reached")
+	}
+	// Upsert.
+	preset := CharacterLoadoutPreset{CharacterID: charID, Name: name}
+	result := r.db.Where("character_id = ? AND name = ?", charID, name).Assign(CharacterLoadoutPreset{
+		Slot0:      slots[0],
+		Slot1:      slots[1],
+		Slot2:      slots[2],
+		Slot3:      slots[3],
+		Slot4:      slots[4],
+		Slot5:      slots[5],
+		Commitment: commitment,
+	}).FirstOrCreate(&preset)
+	return result.Error
+}
+
+func (r *GormRepo) DeleteLoadoutPreset(charID uint, presetID uint) error {
+	return r.db.Where("id = ? AND character_id = ?", presetID, charID).Delete(&CharacterLoadoutPreset{}).Error
+}
+
+func (r *GormRepo) GetLoadoutPresets(charID uint) ([]*CharacterLoadoutPreset, error) {
+	var presets []*CharacterLoadoutPreset
+	result := r.db.Where("character_id = ?", charID).Order("name").Find(&presets)
+	return presets, result.Error
 }

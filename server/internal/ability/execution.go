@@ -22,8 +22,8 @@ type executionTuning struct {
 
 var executionTiers = [3]executionTuning{
 	{damage: 90, lockout: 1.2, shockwaveArc: 0, shockwaveRng: 0},   // standard
-	{damage: 120, lockout: 1.4, shockwaveArc: 60, shockwaveRng: 3},  // empowered
-	{damage: 150, lockout: 1.6, shockwaveArc: 90, shockwaveRng: 5},  // maximum
+	{damage: 120, lockout: 1.4, shockwaveArc: 60, shockwaveRng: 3}, // empowered
+	{damage: 150, lockout: 1.6, shockwaveArc: 90, shockwaveRng: 5}, // maximum
 }
 
 const (

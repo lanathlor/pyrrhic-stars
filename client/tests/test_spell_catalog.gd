@@ -16,26 +16,71 @@ func before_test() -> void:
 
 func _sample_catalog() -> Array:
 	return [
-		{id = "mending_surge", name = "Mending Surge", school = "bioarcanotechnic",
-			ability_type = "enhancement", delivery = "direct", flux_cost = "high",
-			description = "Big heal.", cooldown = 0.0, commit_time = 0.4,
-			implemented = true, affinity = "primary"},
-		{id = "mending_beam", name = "Mending Beam", school = "bioarcanotechnic",
-			ability_type = "enhancement", delivery = "beam", flux_cost = "medium",
-			description = "Channel heal.", cooldown = 0.0, commit_time = 2.0,
-			implemented = true, affinity = "primary"},
-		{id = "frost_ward", name = "Frost Ward", school = "frost",
-			ability_type = "protection", delivery = "direct", flux_cost = "medium",
-			description = "Shield.", cooldown = 12.0, commit_time = 0.2,
-			implemented = true, affinity = "primary"},
-		{id = "fireball", name = "Fireball", school = "fire",
-			ability_type = "destruction", delivery = "zone", flux_cost = "high",
-			description = "AoE explosion.", cooldown = 0.0, commit_time = 3.0,
-			implemented = false, affinity = "off"},
-		{id = "chain_lightning", name = "Chain Lightning", school = "electricity",
-			ability_type = "destruction", delivery = "bolt", flux_cost = "medium",
-			description = "Bouncing bolt.", cooldown = 6.0, commit_time = 0.8,
-			implemented = false, affinity = "secondary"},
+		{
+			id = "mending_surge",
+			name = "Mending Surge",
+			school = "bioarcanotechnic",
+			ability_type = "enhancement",
+			delivery = "direct",
+			flux_cost = "high",
+			description = "Big heal.",
+			cooldown = 0.0,
+			commit_time = 0.4,
+			implemented = true,
+			affinity = "primary"
+		},
+		{
+			id = "mending_beam",
+			name = "Mending Beam",
+			school = "bioarcanotechnic",
+			ability_type = "enhancement",
+			delivery = "beam",
+			flux_cost = "medium",
+			description = "Channel heal.",
+			cooldown = 0.0,
+			commit_time = 2.0,
+			implemented = true,
+			affinity = "primary"
+		},
+		{
+			id = "frost_ward",
+			name = "Frost Ward",
+			school = "frost",
+			ability_type = "protection",
+			delivery = "direct",
+			flux_cost = "medium",
+			description = "Shield.",
+			cooldown = 12.0,
+			commit_time = 0.2,
+			implemented = true,
+			affinity = "primary"
+		},
+		{
+			id = "fireball",
+			name = "Fireball",
+			school = "fire",
+			ability_type = "destruction",
+			delivery = "zone",
+			flux_cost = "high",
+			description = "AoE explosion.",
+			cooldown = 0.0,
+			commit_time = 3.0,
+			implemented = false,
+			affinity = "off"
+		},
+		{
+			id = "chain_lightning",
+			name = "Chain Lightning",
+			school = "electricity",
+			ability_type = "destruction",
+			delivery = "bolt",
+			flux_cost = "medium",
+			description = "Bouncing bolt.",
+			cooldown = 6.0,
+			commit_time = 0.8,
+			implemented = false,
+			affinity = "secondary"
+		},
 	]
 
 
@@ -204,8 +249,18 @@ func test_catalog_update_replaces_old() -> void:
 	_cat._on_catalog(_sample_catalog())
 	assert_int(_cat.catalog.size()).is_equal(5)
 
-	_cat._on_catalog([{id = "only_one", name = "Only", school = "pure",
-		ability_type = "enhancement", implemented = true, affinity = "primary"}])
+	_cat._on_catalog(
+		[
+			{
+				id = "only_one",
+				name = "Only",
+				school = "pure",
+				ability_type = "enhancement",
+				implemented = true,
+				affinity = "primary"
+			}
+		]
+	)
 	assert_int(_cat.catalog.size()).is_equal(1)
 	assert_str(_cat.get_ability("only_one")["name"]).is_equal("Only")
 	assert_dict(_cat.get_ability("mending_surge")).is_empty()

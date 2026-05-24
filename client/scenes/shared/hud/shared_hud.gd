@@ -63,7 +63,7 @@ var _fight_active: bool = false
 var _fight_duration: float = 0.0
 
 # --- Healing Meter (bottom right, above damage meter) ---
-var _healing_totals: Dictionary = {}   # pid → float (effective healing)
+var _healing_totals: Dictionary = {}  # pid → float (effective healing)
 var _overheal_totals: Dictionary = {}  # pid → float (overheal amount)
 
 # --- Minimap (top right) ---

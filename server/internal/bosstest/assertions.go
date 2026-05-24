@@ -70,10 +70,10 @@ type compStats struct {
 // compDetailReport holds per-composition ability damage and class balance for the report.
 type compDetailReport struct {
 	Name              string
-	TotalBossDamage   float64        // boss damage dealt to players
-	TotalPlayerDamage float64        // player damage dealt to boss
-	TotalPlayerHeal   float64        // total healing done by players
-	TotalDurationSec  float64        // sum of all run durations
+	TotalBossDamage   float64 // boss damage dealt to players
+	TotalPlayerDamage float64 // player damage dealt to boss
+	TotalPlayerHeal   float64 // total healing done by players
+	TotalDurationSec  float64 // sum of all run durations
 	Runs              int
 	AbilityShares     []nameShare    // sorted by damage desc
 	SpecShares        []nameShare    // sorted alphabetically

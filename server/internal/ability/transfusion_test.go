@@ -36,7 +36,7 @@ func TestTransfusion(t *testing.T) {
 		if def.GCD != 0.5 {
 			t.Errorf("GCD = %v, want 0.5", def.GCD)
 		}
-		if len(def.Costs) != 1 || def.Costs[0].Resource != "flux" || def.Costs[0].Amount != 3 {
+		if len(def.Costs) != 1 || def.Costs[0].Resource != entity.ResourceFlux || def.Costs[0].Amount != 3 {
 			t.Errorf("Costs = %+v, want [{flux 3}]", def.Costs)
 		}
 		if def.Delivery != uint8(entity.DeliveryBeam) {
@@ -46,11 +46,11 @@ func TestTransfusion(t *testing.T) {
 
 	t.Run("handler", func(t *testing.T) {
 		tests := []struct {
-			name            string
-			setup           func() (*entity.Player, map[uint16]*entity.Player, uint16)
-			wantOK          bool
-			wantReason      string
-			wantTargetID    uint16
+			name         string
+			setup        func() (*entity.Player, map[uint16]*entity.Player, uint16)
+			wantOK       bool
+			wantReason   string
+			wantTargetID uint16
 		}{
 			{
 				name: "rejects when flux below 3",
@@ -80,7 +80,7 @@ func TestTransfusion(t *testing.T) {
 				name: "accepts when flux exactly 3",
 				setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 					caster := entity.NewPlayer(1, entity.ClassArcanotechnicien)
-					caster.Resources["flux"].Current = 3
+					caster.Resources[entity.ResourceFlux].Current = 3
 					ally := entity.NewPlayer(2, entity.ClassArcanotechnicien)
 					allies := map[uint16]*entity.Player{1: caster, 2: ally}
 					return caster, allies, 2
@@ -118,7 +118,7 @@ func TestTransfusion(t *testing.T) {
 				caster, allies, targetPeer := tt.setup()
 
 				result := eng.Commit("transfusion", &CommitContext{
-					Committer:       caster,
+					Committer:    caster,
 					Allies:       allies,
 					TargetPeerID: targetPeer,
 				})

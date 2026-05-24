@@ -562,6 +562,22 @@ func EncodeLoadoutState(slots [6]string) []byte {
 	return buf
 }
 
+// EncodePresetList serializes a list of loadout presets.
+// Wire format: [count:u8][per: id:u32 LE + name:str8 + slot0:str8..slot5:str8 + commitment:str8]
+func EncodePresetList(presets []PresetInfo) []byte {
+	buf := make([]byte, 0, 256)
+	buf = append(buf, byte(len(presets)))
+	for _, p := range presets {
+		buf = appendU32(buf, p.ID)
+		buf = appendStr8(buf, p.Name)
+		for _, s := range p.Slots {
+			buf = appendStr8(buf, s)
+		}
+		buf = appendStr8(buf, p.Commitment)
+	}
+	return buf
+}
+
 // EncodeAbilityCatalog serializes the full ability catalog.
 // Wire format: [count:u8][per entry: id:str8, name:str8, school:str8,
 //

@@ -341,8 +341,7 @@ func TestFrostWardTick(t *testing.T) {
 		}
 
 		// Ward active should be cleared.
-		active, _ := p.AbilityState["frost_ward_active"].(bool)
-		if active {
+		if active, ok := p.AbilityState["frost_ward_active"].(bool); ok && active {
 			t.Error("expected frost_ward_active = false after explosion")
 		}
 
@@ -369,8 +368,7 @@ func TestFrostWardTick(t *testing.T) {
 			t.Fatalf("expected 1 result, got %d", len(results))
 		}
 
-		active, _ := p.AbilityState["frost_ward_active"].(bool)
-		if active {
+		if active, ok := p.AbilityState["frost_ward_active"].(bool); ok && active {
 			t.Error("expected frost_ward_active = false after explosion")
 		}
 	})
@@ -397,8 +395,7 @@ func TestFrostWardTick(t *testing.T) {
 		}
 
 		// Active should still be cleared despite no hits.
-		active, _ := p.AbilityState["frost_ward_active"].(bool)
-		if active {
+		if active, ok := p.AbilityState["frost_ward_active"].(bool); ok && active {
 			t.Error("expected frost_ward_active = false after explosion (no hits)")
 		}
 	})

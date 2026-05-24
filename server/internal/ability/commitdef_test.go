@@ -37,7 +37,7 @@ func TestCastDef_EnemyMelee_HitsPlayer(t *testing.T) {
 	}
 
 	ctx := &CommitContext{
-		Committer:     e,
+		Committer:  e,
 		Targets:    []entity.Target{p},
 		SourceType: combat.SourceEnemyMelee,
 	}
@@ -72,8 +72,8 @@ func TestCastDef_EnemyMelee_HitsMultiplePlayers(t *testing.T) {
 	}
 
 	ctx := &CommitContext{
-		Committer:  e,
-		Targets: []entity.Target{p1, p2},
+		Committer: e,
+		Targets:   []entity.Target{p1, p2},
 	}
 	result := eng.CommitDef(def, ctx)
 	if !result.OK {
@@ -96,8 +96,8 @@ func TestCastDef_EnemyMelee_MissesPlayerBehind(t *testing.T) {
 	}
 
 	ctx := &CommitContext{
-		Committer:  e,
-		Targets: []entity.Target{p},
+		Committer: e,
+		Targets:   []entity.Target{p},
 	}
 	result := eng.CommitDef(def, ctx)
 	if !result.OK {
@@ -120,8 +120,8 @@ func TestCastDef_EnemyMelee_MissesPlayerOutOfRange(t *testing.T) {
 	}
 
 	ctx := &CommitContext{
-		Committer:  e,
-		Targets: []entity.Target{p},
+		Committer: e,
+		Targets:   []entity.Target{p},
 	}
 	result := eng.CommitDef(def, ctx)
 	if !result.OK {
@@ -145,8 +145,8 @@ func TestCastDef_EnemyMelee_SkipsDeadPlayer(t *testing.T) {
 	}
 
 	ctx := &CommitContext{
-		Committer:  e,
-		Targets: []entity.Target{p},
+		Committer: e,
+		Targets:   []entity.Target{p},
 	}
 	result := eng.CommitDef(def, ctx)
 	if len(result.Events) != 0 {
@@ -167,7 +167,7 @@ func TestCastDef_EnemyAoE_HitsPlayersInRadius(t *testing.T) {
 	}
 
 	ctx := &CommitContext{
-		Committer:     e,
+		Committer:  e,
 		Targets:    []entity.Target{pClose, pFar},
 		SourceType: combat.SourceEnemyAoE,
 	}
@@ -195,7 +195,7 @@ func TestCastDef_EnemyAoE_SourceTypePreserved(t *testing.T) {
 	}
 
 	ctx := &CommitContext{
-		Committer:     e,
+		Committer:  e,
 		Targets:    []entity.Target{p},
 		SourceType: combat.SourceEnemyAoE,
 	}
@@ -444,7 +444,7 @@ func TestCastDef_EnemyMelee_ObstacleBlocksLOS(t *testing.T) {
 	}
 
 	ctx := &CommitContext{
-		Committer:    e,
+		Committer: e,
 		Targets:   []entity.Target{p},
 		Obstacles: []combat.Obstacle{obs},
 	}
@@ -498,7 +498,7 @@ func BenchmarkCastDef_EnemyMelee(b *testing.B) {
 		Hit:        HitDef{Type: HitAoECone, Range: 5.0, ArcDegrees: 180},
 	}
 	ctx := &CommitContext{
-		Committer:     e,
+		Committer:  e,
 		Targets:    targets,
 		SourceType: combat.SourceEnemyMelee,
 	}
@@ -529,7 +529,7 @@ func BenchmarkCastDef_EnemyAoE(b *testing.B) {
 		Hit:        HitDef{Type: HitAoECircle, Radius: 8.0},
 	}
 	ctx := &CommitContext{
-		Committer:     e,
+		Committer:  e,
 		Targets:    targets,
 		SourceType: combat.SourceEnemyAoE,
 	}
@@ -555,8 +555,8 @@ func BenchmarkCastDef_EnemyMelee_Miss(b *testing.B) {
 		Hit:        HitDef{Type: HitAoECone, Range: 3.0, ArcDegrees: 180},
 	}
 	ctx := &CommitContext{
-		Committer:  e,
-		Targets: []entity.Target{p},
+		Committer: e,
+		Targets:   []entity.Target{p},
 	}
 
 	b.ReportAllocs()

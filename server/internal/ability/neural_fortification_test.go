@@ -232,7 +232,7 @@ func TestNeuralFortification(t *testing.T) {
 
 			// Check flux spending.
 			if tt.wantFlux >= 0 {
-				flux := caster.Resources["flux"]
+				flux := caster.Resources[entity.ResourceFlux]
 				if flux != nil && math.Abs(float64(flux.Current-tt.wantFlux)) > 0.5 {
 					t.Errorf("Flux = %.1f, want %.1f", flux.Current, tt.wantFlux)
 				}

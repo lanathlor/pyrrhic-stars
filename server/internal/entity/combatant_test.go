@@ -7,9 +7,9 @@ import (
 
 // Compile-time interface compliance checks.
 var (
-	_ Committer      = (*Player)(nil)
+	_ Committer   = (*Player)(nil)
 	_ Target      = (*Player)(nil)
-	_ Committer      = (*Enemy)(nil)
+	_ Committer   = (*Enemy)(nil)
 	_ Target      = (*Enemy)(nil)
 	_ Threateable = (*Enemy)(nil)
 )

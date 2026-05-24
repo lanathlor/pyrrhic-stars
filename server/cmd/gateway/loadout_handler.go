@@ -2,6 +2,8 @@ package main
 
 import (
 	"log/slog"
+	"strconv"
+	"strings"
 
 	"codex-online/server/internal/codec"
 	"codex-online/server/internal/message"
@@ -69,7 +71,80 @@ func (g *gateway) handleLoadoutMessage(sess *session.Session, opcode uint16, pay
 		// Confirm to client.
 		sess.Conn.Send(message.Encode(message.OpFluxCommitState, 0, codec.EncodeFluxCommitState(entries)))
 
+	case message.OpSavePreset:
+		name, slots, commitment, ok := codec.DecodeSavePreset(payload)
+		if !ok {
+			return
+		}
+		// Validate name.
+		if len(name) == 0 || len(name) > 30 {
+			slog.Warn("invalid preset name", "char_id", sess.CharID)
+			return
+		}
+		// Validate slots against catalog.
+		if g.catalog != nil && !g.catalog.ValidateLoadout(slots) {
+			slog.Warn("invalid preset loadout", "char_id", sess.CharID)
+			return
+		}
+		// Validate commitment: parse CSV, check sum.
+		if commitment != "" && !validateCommitmentCSV(commitment) {
+			slog.Warn("invalid preset commitment", "char_id", sess.CharID)
+			return
+		}
+		// Persist.
+		if err := g.container.Repo.SaveLoadoutPreset(sess.CharID, name, slots, commitment); err != nil {
+			slog.Error("save preset", "char_id", sess.CharID, "error", err)
+			return
+		}
+		g.sendPresetList(sess)
+
+	case message.OpDeletePreset:
+		presetID, ok := codec.DecodeDeletePreset(payload)
+		if !ok {
+			return
+		}
+		if err := g.container.Repo.DeleteLoadoutPreset(sess.CharID, uint(presetID)); err != nil {
+			slog.Error("delete preset", "char_id", sess.CharID, "error", err)
+			return
+		}
+		g.sendPresetList(sess)
+
 	default:
 		slog.Warn("unknown loadout opcode", "opcode", opcode)
 	}
+}
+
+func (g *gateway) sendPresetList(sess *session.Session) {
+	presets, err := g.container.Repo.GetLoadoutPresets(sess.CharID)
+	if err != nil {
+		slog.Error("load presets", "char_id", sess.CharID, "error", err)
+		return
+	}
+	infos := make([]codec.PresetInfo, len(presets))
+	for i, p := range presets {
+		infos[i] = codec.PresetInfo{
+			ID:         uint32(p.ID),
+			Name:       p.Name,
+			Slots:      [6]string{p.Slot0, p.Slot1, p.Slot2, p.Slot3, p.Slot4, p.Slot5},
+			Commitment: p.Commitment,
+		}
+	}
+	sess.Conn.Send(message.Encode(message.OpPresetList, 0, codec.EncodePresetList(infos)))
+}
+
+func validateCommitmentCSV(csv string) bool {
+	parts := strings.Split(csv, ",")
+	var total int
+	for _, part := range parts {
+		kv := strings.SplitN(part, ":", 2)
+		if len(kv) != 2 {
+			return false
+		}
+		pct, err := strconv.Atoi(kv[1])
+		if err != nil || pct < 0 || pct > 100 {
+			return false
+		}
+		total += pct
+	}
+	return total == 100
 }

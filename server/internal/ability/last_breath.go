@@ -9,7 +9,7 @@ var lastBreathDef = AbilityDef{
 	Hit:      HitDef{Type: HitAllyTarget},
 	GCD:      0.8,
 	Cooldown: 60.0,
-	Costs:    []ResourceCost{{Resource: "flux", Amount: 45}},
+	Costs:    []ResourceCost{{Resource: entity.ResourceFlux, Amount: 45}},
 	Delivery: uint8(entity.DeliveryDirect),
 	Handler:  "last_breath",
 }
@@ -27,7 +27,7 @@ func lastBreathHandler(_ *Engine, ctx *CommitContext) CommitResult {
 			return CommitResult{Reason: "insufficient " + lastBreathDef.School + " flux"}
 		}
 	} else {
-		flux := p.Resources["flux"]
+		flux := p.Resources[entity.ResourceFlux]
 		if flux == nil || flux.Current < lastBreathDef.Costs[0].Amount {
 			return CommitResult{Reason: "insufficient flux"}
 		}

@@ -26,7 +26,9 @@ func _ready() -> void:
 	ctrl = get_parent()
 
 
-func spawn_player(peer_id: int, class_name_str: String, spawn_pos: Vector3, spec_id: String = "") -> void:
+func spawn_player(
+	peer_id: int, class_name_str: String, spawn_pos: Vector3, spec_id: String = ""
+) -> void:
 	if peer_id in spawned_players:
 		return
 	if not CLASS_SCENES.has(class_name_str):

@@ -99,7 +99,7 @@ func TestMetabolicBurst(t *testing.T) {
 			},
 			wantOK:          true,
 			wantDamageCount: 1,
-			wantHealCount:   1, // caster within 8m of enemy
+			wantHealCount:   1,   // caster within 8m of enemy
 			wantFlux:        120, // 160 initial - 40 cost
 			wantCooldown:    true,
 			wantGCD:         true,
@@ -239,7 +239,7 @@ func TestMetabolicBurst(t *testing.T) {
 
 			// Flux check
 			if tt.wantFlux >= 0 {
-				flux := caster.Resources["flux"]
+				flux := caster.Resources[entity.ResourceFlux]
 				if flux != nil && math.Abs(float64(flux.Current-tt.wantFlux)) > 0.5 {
 					t.Errorf("Flux = %.1f, want %.1f", flux.Current, tt.wantFlux)
 				}
@@ -295,7 +295,7 @@ func TestMetabolicBurstRegistered(t *testing.T) {
 	if def.GCD != 0.8 {
 		t.Errorf("GCD = %v, want 0.8", def.GCD)
 	}
-	if len(def.Costs) != 1 || def.Costs[0].Resource != "flux" || def.Costs[0].Amount != 40 {
+	if len(def.Costs) != 1 || def.Costs[0].Resource != entity.ResourceFlux || def.Costs[0].Amount != 40 {
 		t.Errorf("Costs = %+v, want [{flux 40}]", def.Costs)
 	}
 	if def.Handler != "metabolic_burst" {

@@ -42,7 +42,7 @@ func TestMendingBeam(t *testing.T) {
 		if def.GCD != 0.5 {
 			t.Errorf("GCD = %v, want 0.5", def.GCD)
 		}
-		if len(def.Costs) != 1 || def.Costs[0].Resource != "flux" || def.Costs[0].Amount != 8 {
+		if len(def.Costs) != 1 || def.Costs[0].Resource != entity.ResourceFlux || def.Costs[0].Amount != 8 {
 			t.Errorf("Costs = %+v, want [{flux 8}]", def.Costs)
 		}
 	})
@@ -84,7 +84,7 @@ func TestMendingBeam(t *testing.T) {
 				name: "accepts when flux exactly 10",
 				setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 					caster := entity.NewPlayer(1, entity.ClassArcanotechnicien)
-					caster.Resources["flux"].Current = 10
+					caster.Resources[entity.ResourceFlux].Current = 10
 					ally := entity.NewPlayer(2, entity.ClassArcanotechnicien)
 					ally.Health = 50
 					allies := map[uint16]*entity.Player{1: caster, 2: ally}
@@ -137,7 +137,7 @@ func TestMendingBeam(t *testing.T) {
 				caster, allies, targetPeer := tt.setup()
 
 				result := eng.Commit("mending_beam", &CommitContext{
-					Committer:       caster,
+					Committer:    caster,
 					Allies:       allies,
 					TargetPeerID: targetPeer,
 				})

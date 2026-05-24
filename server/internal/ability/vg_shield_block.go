@@ -7,15 +7,15 @@ import (
 
 // Shield Block constants.
 const (
-	shieldBlockDRStart         float32 = 0.10  // damage passthrough at block start (90% DR)
-	shieldBlockDREnd           float32 = 0.25  // damage passthrough at full decay (75% DR)
-	shieldBlockDRDecayTime     float32 = 1.0   // seconds to reach full DR decay
-	shieldBlockCooldown        float32 = 1.5   // cooldown after block ends
-	shieldGuardParryWindow     float32 = 0.12  // tighter than Blade's 0.15
-	guardParryReflectFraction  float32 = 0.3   // 30% of blocked damage reflected
+	shieldBlockDRStart         float32 = 0.10 // damage passthrough at block start (90% DR)
+	shieldBlockDREnd           float32 = 0.25 // damage passthrough at full decay (75% DR)
+	shieldBlockDRDecayTime     float32 = 1.0  // seconds to reach full DR decay
+	shieldBlockCooldown        float32 = 1.5  // cooldown after block ends
+	shieldGuardParryWindow     float32 = 0.12 // tighter than Blade's 0.15
+	guardParryReflectFraction  float32 = 0.3  // 30% of blocked damage reflected
 	guardParryReflectRange     float32 = 6.0
 	guardParryReflectArc       float32 = 120.0
-	guardBreakVulnMult         float32 = 1.25  // 25% increased damage taken
+	guardBreakVulnMult         float32 = 1.25 // 25% increased damage taken
 	guardBreakDuration         float32 = 1.5
 	ShieldStaminaDrainFraction float32 = 0.65 // 65% of pre-DR damage drains stamina (exported for entity pkg)
 

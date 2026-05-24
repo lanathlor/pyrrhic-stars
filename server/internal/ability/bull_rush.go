@@ -23,7 +23,7 @@ var bullRushDef = AbilityDef{
 	Charge: &ChargeDef{
 		Speed:       12,
 		Damage:      bullRushDamage,
-		MaxDistance:  12,
+		MaxDistance: 12,
 		HitRadius:   2.5,
 		StopOnWall:  true,
 	},

@@ -22,8 +22,8 @@ type upheavalTuning struct {
 
 var upheavalTiers = [3]upheavalTuning{
 	{arc: 60, damage: 55, lockout: 0.8, dot: false},  // standard
-	{arc: 120, damage: 70, lockout: 1.0, dot: false},  // empowered
-	{arc: 120, damage: 70, lockout: 1.0, dot: true},   // maximum
+	{arc: 120, damage: 70, lockout: 1.0, dot: false}, // empowered
+	{arc: 120, damage: 70, lockout: 1.0, dot: true},  // maximum
 }
 
 const upheavalStaminaCost float32 = 20

@@ -787,7 +787,7 @@ func TestAllBladeDancerSpells(t *testing.T) {
 	const hp float32 = 5000.0
 
 	type abilityExpect struct {
-		abilityIdx      int
+		abilityIdx    int
 		name          string
 		originCfg     int
 		destCfg       int
@@ -967,12 +967,13 @@ func TestAllBladeDancerSpells(t *testing.T) {
 // testCommitAction is an unused action slot used to bind test abilities.
 const testCommitAction uint8 = 99
 const testSustainAction uint8 = 98
+const testCommitAbilityID = "test_commit_aoe"
 
 // registerTestCommitAbility adds a test ability with CommitTime to an engine and
 // binds it to the player's action map.
 func registerTestCommitAbility(eng *ability.Engine, p *entity.Player) {
 	def := &ability.AbilityDef{
-		ID:           "test_commit_aoe",
+		ID:           testCommitAbilityID,
 		Name:         "Test Commit AoE",
 		Hit:          ability.HitDef{Type: ability.HitAoECircle, Radius: 10},
 		BaseDamage:   50,
@@ -983,7 +984,7 @@ func registerTestCommitAbility(eng *ability.Engine, p *entity.Player) {
 		DestConfig:   -1,
 	}
 	eng.Register(def)
-	p.ActionMap[testCommitAction] = "test_commit_aoe"
+	p.ActionMap[testCommitAction] = testCommitAbilityID
 }
 
 func TestRunnerWiring_InputStartsRunner(t *testing.T) {
@@ -1009,13 +1010,13 @@ func TestRunnerWiring_InputStartsRunner(t *testing.T) {
 	if runner.Phase != ability.PRunnerCommit {
 		t.Errorf("runner phase = %d, want %d (commit)", runner.Phase, ability.PRunnerCommit)
 	}
-	if runner.AbilityID != "test_commit_aoe" {
-		t.Errorf("runner ability = %q, want %q", runner.AbilityID, "test_commit_aoe")
+	if runner.AbilityID != testCommitAbilityID {
+		t.Errorf("runner ability = %q, want %q", runner.AbilityID, testCommitAbilityID)
 	}
 
 	// Player channel state should be synced
-	if p.ChannelAbilityID != "test_commit_aoe" {
-		t.Errorf("player ChannelAbilityID = %q, want %q", p.ChannelAbilityID, "test_commit_aoe")
+	if p.ChannelAbilityID != testCommitAbilityID {
+		t.Errorf("player ChannelAbilityID = %q, want %q", p.ChannelAbilityID, testCommitAbilityID)
 	}
 	if p.ChannelPhase != uint8(ability.PRunnerCommit) {
 		t.Errorf("player ChannelPhase = %d, want %d", p.ChannelPhase, ability.PRunnerCommit)
@@ -1296,7 +1297,7 @@ func registerTestSustainAbility(eng *ability.Engine, p *entity.Player) {
 		CancelConditions:  uint8(ability.CancelOnMove) | uint8(ability.CancelOnDamage),
 	}
 	eng.Register(def)
-	eng.RegisterHandler("test_sustain_heal", func(_ *ability.Engine, ctx *ability.CommitContext) ability.CommitResult {
+	eng.RegisterHandler("test_sustain_heal", func(_ *ability.Engine, _ *ability.CommitContext) ability.CommitResult {
 		return ability.CommitResult{OK: true}
 	})
 	p.ActionMap[testSustainAction] = "test_sustain_heal"
@@ -1655,7 +1656,7 @@ func TestSustain_CancelledByNewAbilityInput(t *testing.T) {
 	if runner.Phase == ability.PRunnerSustain {
 		t.Fatal("sustain should have been cancelled by new ability input")
 	}
-	if runner.AbilityID != "test_commit_aoe" {
+	if runner.AbilityID != testCommitAbilityID {
 		t.Errorf("runner should be on new ability, got %q", runner.AbilityID)
 	}
 }
@@ -2279,7 +2280,7 @@ func TestSetLoadout_InvalidPayload(t *testing.T) {
 	}
 }
 
-func TestSetLoadout_UnknownPlayer(t *testing.T) {
+func TestSetLoadout_UnknownPlayer(_ *testing.T) {
 	w := makeWorld(map[uint16]*entity.Player{}, nil)
 
 	newSlots := [6]string{"mending_surge", "", "", "", "", ""}
@@ -2500,7 +2501,7 @@ func TestForceReset_SustainThenCommittedAbility(t *testing.T) {
 		t.Errorf("runner phase = %d, want %d (commit). ForceReset may not be working.",
 			runner.Phase, ability.PRunnerCommit)
 	}
-	if runner.AbilityID != "test_commit_aoe" {
+	if runner.AbilityID != testCommitAbilityID {
 		t.Errorf("runner ability = %q, want 'test_commit_aoe'", runner.AbilityID)
 	}
 	if runner.Timer < 0.45 {

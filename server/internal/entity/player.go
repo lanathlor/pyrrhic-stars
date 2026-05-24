@@ -184,7 +184,7 @@ type Player struct {
 	GCDTimer     float32            // global cooldown timer
 	ActionMap    map[uint8]string   // wire action_id → ability_id
 	AbilityState map[string]any     // ability_id → custom handler state
-	Loadout    *Loadout         // selectable loadout (Arcanotechnicien)
+	Loadout      *Loadout           // selectable loadout (Arcanotechnicien)
 
 	// Active buffs
 	Buffs []ActiveBuff
@@ -286,12 +286,12 @@ func NewPlayerWithSpec(peerID uint16, className, specID string) *Player {
 			ID:    peerID,
 			Alive: true,
 		},
-		ClassID:      className,
-		SpecID:       spec.ID,
-		BaseHealth:   maxHealth,
-		OnGround:     true,
-		Resources:    make(map[string]*Resource, len(resources)),
-		Cooldowns:    make(map[string]float32),
+		ClassID:          className,
+		SpecID:           spec.ID,
+		BaseHealth:       maxHealth,
+		OnGround:         true,
+		Resources:        make(map[string]*Resource, len(resources)),
+		Cooldowns:        make(map[string]float32),
 		ActionMap:        ownMap,
 		AbilityState:     make(map[string]any),
 		PrimarySchools:   spec.PrimarySchools,
@@ -309,7 +309,7 @@ func NewPlayerWithSpec(peerID uint16, className, specID string) *Player {
 
 	if className == ClassArcanotechnicien {
 		p.Confluence = &ConfluenceState{MaxStacks: 5, DecayRate: 1.0}
-		if spec.ID == "harmonist" {
+		if spec.ID == SpecHarmonist {
 			p.Harmony = &HarmonyState{LastDelivery: make(map[uint16]DeliveryMethod)}
 			loadout := harmonistDefaultLoadout // copy so each player owns its loadout
 			p.Loadout = &loadout
@@ -322,7 +322,7 @@ func NewPlayerWithSpec(peerID uint16, className, specID string) *Player {
 				TotalMax:   fluxRes.Max,
 				TotalRegen: fluxRes.Regen,
 			}
-			if spec.ID == "harmonist" {
+			if spec.ID == SpecHarmonist {
 				p.FluxCommit.SetCommitment(map[string]float32{
 					"bioarcanotechnic": 0.5,
 					"biometabolic":     0.3,
@@ -426,7 +426,7 @@ func (p *Player) RecalcStats() {
 // passive aura (Sympathetic Field). Non-Harmonist players return 0.
 // Base radius is 8 units, scaled by Identity (identity/200 additive).
 func (p *Player) SympatheticFieldRadius() float32 {
-	if p.ClassID != ClassArcanotechnicien || p.SpecID != "harmonist" {
+	if p.ClassID != ClassArcanotechnicien || p.SpecID != SpecHarmonist {
 		return 0
 	}
 	return 8.0 * (1.0 + p.GearStats.Identity/200.0)
@@ -652,7 +652,7 @@ func (p *Player) ApplyDamage(amount float32) float32 {
 	parried := false
 
 	// Blade Parry: flag counter-swing pending (builds Onslaught instead of resetting it).
-	if p.ClassID == ClassVanguard && p.SpecID != "shield" && p.HasBuff("vg_parry") {
+	if p.ClassID == ClassVanguard && p.SpecID != SpecShield && p.HasBuff("vg_parry") {
 		type parrySetter interface{ SetParryPending() }
 		if s, ok := p.AbilityState["vg_block"]; ok {
 			if ps, ok := s.(parrySetter); ok {
@@ -663,13 +663,15 @@ func (p *Player) ApplyDamage(amount float32) float32 {
 	}
 
 	// Shield Guard Parry: zero stamina drain, reflect damage pending, bonus Devotion.
-	if p.ClassID == ClassVanguard && p.SpecID == "shield" && p.HasBuff("vg_shield_parry") {
+	if p.ClassID == ClassVanguard && p.SpecID == SpecShield && p.HasBuff("vg_shield_parry") {
 		type parryReflector interface{ SetParryReflectPending(dmg float32) }
 		if s, ok := p.AbilityState["vg_shield_block"]; ok {
 			if pr, ok := s.(parryReflector); ok {
 				pr.SetParryReflectPending(preDR)
 				// Bonus Devotion from parry (2x rate)
-				type devotionAdder interface{ AddCharges(absorbed, mastery float32) }
+				type devotionAdder interface {
+					AddCharges(absorbed, mastery float32)
+				}
 				if d, ok := p.AbilityState["devotion"]; ok {
 					if da, ok := d.(devotionAdder); ok {
 						da.AddCharges(preDR*2.0, p.GearStats.Mastery)
@@ -681,7 +683,7 @@ func (p *Player) ApplyDamage(amount float32) float32 {
 	}
 
 	// Shield Block (non-parry): drain stamina proportional to pre-DR damage, generate Devotion.
-	if p.ClassID == ClassVanguard && p.SpecID == "shield" && p.HasBuff("vg_shield_block") && !parried {
+	if p.ClassID == ClassVanguard && p.SpecID == SpecShield && p.HasBuff("vg_shield_block") && !parried {
 		drainFraction := float32(0.65) // 65% of incoming damage → stamina drain (must match ability.ShieldStaminaDrainFraction)
 		if p.HasBuff("brace") {
 			drainFraction *= 0.2 // Brace reduces drain to 20% of normal
@@ -695,7 +697,9 @@ func (p *Player) ApplyDamage(amount float32) float32 {
 			stamina.DelayTimer = stamina.RegenDelay
 		}
 		// Devotion generation from blocked damage (decays over sustained block)
-		type devotionAdder interface{ AddCharges(absorbed, mastery float32) }
+		type devotionAdder interface {
+			AddCharges(absorbed, mastery float32)
+		}
 		type devotionMulter interface{ GetDevotionMult() float32 }
 		devMult := float32(1.0)
 		if sb, ok := p.AbilityState["vg_shield_block"]; ok {
@@ -750,7 +754,7 @@ func (p *Player) ApplyDamage(amount float32) float32 {
 
 	// Vanguard Onslaught: reset stacks on damage taken (unless parried).
 	// Shield spec doesn't use Onslaught.
-	if p.ClassID == ClassVanguard && p.SpecID != "shield" && !parried {
+	if p.ClassID == ClassVanguard && p.SpecID != SpecShield && !parried {
 		type resettable interface{ Reset() }
 		if s, ok := p.AbilityState["onslaught"]; ok {
 			if r, ok := s.(resettable); ok {

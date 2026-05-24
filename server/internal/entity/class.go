@@ -8,6 +8,17 @@ const (
 	ClassArcanotechnicien = "arcanotechnicien"
 )
 
+// Spec name constants.
+const (
+	SpecHarmonist = "harmonist"
+	SpecShield    = "shield"
+)
+
+// Resource name constants.
+const (
+	ResourceFlux = "flux"
+)
+
 // ClassMovement holds per-class movement tuning.
 type ClassMovement struct {
 	WalkSpeed   float32
@@ -33,10 +44,10 @@ type ResourceTemplate struct {
 // SpecDef describes a specialization within a class.
 type SpecDef struct {
 	ID          string
-	Name        string                      // display name: "Assault"
-	Description string                      // short UI blurb
-	Role        string                      // "DPS", "Tank", "Healer"
-	Implemented bool                        // false = coming soon
+	Name        string // display name: "Assault"
+	Description string // short UI blurb
+	Role        string // "DPS", "Tank", "Healer"
+	Implemented bool   // false = coming soon
 	MaxHealth   float32
 	Movement    ClassMovement
 	Resources   map[string]ResourceTemplate

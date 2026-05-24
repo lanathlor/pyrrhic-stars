@@ -9,7 +9,7 @@ var gustStepDef = AbilityDef{
 	Hit:      HitDef{Type: HitNone},
 	GCD:      0.8,
 	Cooldown: 10.0,
-	Costs:    []ResourceCost{{Resource: "flux", Amount: 10}},
+	Costs:    []ResourceCost{{Resource: entity.ResourceFlux, Amount: 10}},
 	Delivery: uint8(entity.DeliveryDirect),
 	Handler:  "gust_step",
 }

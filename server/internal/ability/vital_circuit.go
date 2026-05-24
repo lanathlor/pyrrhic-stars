@@ -9,7 +9,7 @@ var vitalCircuitDef = AbilityDef{
 	Hit:      HitDef{Type: HitAllyTarget, Range: 15},
 	GCD:      0.8,
 	Cooldown: 15.0,
-	Costs:    []ResourceCost{{Resource: "flux", Amount: 8}},
+	Costs:    []ResourceCost{{Resource: entity.ResourceFlux, Amount: 8}},
 	Delivery: uint8(entity.DeliveryDirect),
 	Handler:  "vital_circuit",
 }
@@ -27,7 +27,7 @@ func vitalCircuitHandler(_ *Engine, ctx *CommitContext) CommitResult {
 			return CommitResult{Reason: "insufficient " + vitalCircuitDef.School + " flux"}
 		}
 	} else {
-		flux := p.Resources["flux"]
+		flux := p.Resources[entity.ResourceFlux]
 		if flux == nil || flux.Current < vitalCircuitDef.Costs[0].Amount {
 			return CommitResult{Reason: "insufficient flux"}
 		}

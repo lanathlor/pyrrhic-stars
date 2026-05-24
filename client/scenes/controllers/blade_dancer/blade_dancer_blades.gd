@@ -170,11 +170,11 @@ func _get_formation_positions(cfg: int) -> Array[Vector3]:
 			for i in 3:
 				var d: float = 2.1 + i * 0.4
 				var offset: float = 0.2 if i % 2 == 0 else -0.2
-				positions.append(Vector3(
-					local_dir.x * d + side.x * offset,
-					0.9,
-					local_dir.z * d + side.z * offset
-				))
+				positions.append(
+					Vector3(
+						local_dir.x * d + side.x * offset, 0.9, local_dir.z * d + side.z * offset
+					)
+				)
 		ctrl.Config.SCATTER:
 			# Blades spread outward in different directions -- 6 blades, staggered heights
 			for i in 6:

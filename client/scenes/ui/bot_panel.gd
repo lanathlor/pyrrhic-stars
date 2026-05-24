@@ -29,23 +29,37 @@ const MAX_BOTS := 4
 
 # Class/spec data — only implemented specs
 const CLASS_DATA := {
-	"gunner": {
+	"gunner":
+	{
 		"display": "Gunner",
-		"specs": [
+		"specs":
+		[
 			{"id": "assault", "name": "Assault", "role": "DPS"},
 		]
 	},
-	"vanguard": {
+	"vanguard":
+	{
 		"display": "Vanguard",
-		"specs": [
+		"specs":
+		[
 			{"id": "blade", "name": "Blade", "role": "DPS"},
 			{"id": "shield", "name": "Shield", "role": "Tank"},
 		]
 	},
-	"blade_dancer": {
+	"blade_dancer":
+	{
 		"display": "Blade Dancer",
-		"specs": [
+		"specs":
+		[
 			{"id": "multi_blade", "name": "Multi Blade", "role": "DPS"},
+		]
+	},
+	"arcanotechnicien":
+	{
+		"display": "Arcanotechnicien",
+		"specs":
+		[
+			{"id": "harmonist", "name": "Harmonist", "role": "Healer"},
 		]
 	},
 }

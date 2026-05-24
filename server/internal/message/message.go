@@ -70,14 +70,17 @@ const (
 	// Loadout — client → server.
 	OpSetLoadout        uint16 = 0x0090 // [6x str8: ability_id per slot]
 	OpSetFluxCommitment uint16 = 0x0091 // [n:u8][per: str8 school + u8 percentage]
+	OpSavePreset        uint16 = 0x0092 // [name:str8][6x slot:str8][commitment:str8]
+	OpDeletePreset      uint16 = 0x0093 // [preset_id:u32 LE]
 
 	// Loadout — server → client.
-	OpLoadoutState      uint16 = 0x00A0 // [6x str8: ability_id per slot]
-	OpAbilityCatalog    uint16 = 0x00A1 // [n:u8][per: str8 fields...][affinities]
-	OpFluxCommitState   uint16 = 0x00A2 // [n:u8][per: str8 school + u8 percentage]
+	OpLoadoutState    uint16 = 0x00A0 // [6x str8: ability_id per slot]
+	OpAbilityCatalog  uint16 = 0x00A1 // [n:u8][per: str8 fields...][affinities]
+	OpFluxCommitState uint16 = 0x00A2 // [n:u8][per: str8 school + u8 percentage]
+	OpPresetList      uint16 = 0x00A3 // [count:u8][per: id:u32 LE + name:str8 + 6x slot:str8 + commitment:str8]
 
 	// Debug — client → server (dev mode only).
-	OpDebugForceCommit     uint16 = 0x00D0 // [str8: ability_id]
+	OpDebugForceCommit   uint16 = 0x00D0 // [str8: ability_id]
 	OpDebugSetPhase      uint16 = 0x00D1 // [uint8: phase]
 	OpDebugGodMode       uint16 = 0x00D2 // [uint8: 0=off, 1=on]
 	OpDebugTimeScale     uint16 = 0x00D3 // [float32: scale, clamped 0.1-2.0]

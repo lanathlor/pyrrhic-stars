@@ -12,9 +12,7 @@ const ZoneHealAuraScene := preload(
 )
 const FrostWardScene := preload("res://scenes/controllers/arcanotechnicien/vfx/frost_ward.tscn")
 const GustTrailScene := preload("res://scenes/controllers/arcanotechnicien/vfx/gust_trail.tscn")
-const ChannelFluxScene := preload(
-	"res://scenes/controllers/arcanotechnicien/vfx/channel_flux.tscn"
-)
+const ChannelFluxScene := preload("res://scenes/controllers/arcanotechnicien/vfx/channel_flux.tscn")
 const ConfluenceOrbitScene := preload(
 	"res://scenes/controllers/arcanotechnicien/vfx/confluence_orbit.tscn"
 )
@@ -89,7 +87,7 @@ func spawn_heal_pulse(pos: Vector3) -> void:
 # --- Zone Telegraph (Transfusion, slot 3) ---
 
 
-func start_zone_telegraph(pos: Vector3, radius: float) -> void:
+func start_zone_telegraph(_pos: Vector3, radius: float) -> void:
 	stop_zone_telegraph()
 	var root := _scene_root()
 	if not root:

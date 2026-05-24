@@ -10,18 +10,18 @@ import (
 
 // sustain def for testing — CancelOnDamage | CancelOnMove, with sustain.
 var testSustainDef = ability.AbilityDef{
-	ID:               "test_sustain_channel",
-	Name:             "Test Sustain",
-	CommitTime:       2.0,
-	ExecuteTime:      0.1,
-	Cooldown:         5.0,
-	CancelConditions: uint8(ability.CancelOnMove) | uint8(ability.CancelOnDamage),
-	Sustain:          true,
+	ID:                "test_sustain_channel",
+	Name:              "Test Sustain",
+	CommitTime:        2.0,
+	ExecuteTime:       0.1,
+	Cooldown:          5.0,
+	CancelConditions:  uint8(ability.CancelOnMove) | uint8(ability.CancelOnDamage),
+	Sustain:           true,
 	SustainCostPerSec: 0, // no cost — prevent flux-based cancel
-	SustainEffect:    5,
-	SustainInterval:  0.5,
-	SustainCooldown:  5.0,
-	Hit:              ability.HitDef{Type: ability.HitAllyTarget},
+	SustainEffect:     5,
+	SustainInterval:   0.5,
+	SustainCooldown:   5.0,
+	Hit:               ability.HitDef{Type: ability.HitAllyTarget},
 }
 
 func harmonistWithConfluence(id uint16, stacks int) *entity.Player {
@@ -197,4 +197,3 @@ func TestConfluence_NotDroppedWhenRunnerIdle(t *testing.T) {
 		t.Errorf("Idle: Confluence.Stacks = %d, want 3 (should NOT drop)", p.Confluence.Stacks)
 	}
 }
-

@@ -4,11 +4,11 @@ import "codex-online/server/internal/entity"
 
 // Flow tuning constants.
 const (
-	flowBaseWindow     float32 = 4.0  // seconds
-	flowExtendPerChain float32 = 2.0  // seconds added per unique transition
-	flowMaxWindow      float32 = 12.0 // hard cap on window duration
-	flowBonusPerChain  float32 = 0.05 // 5% per chain step
-	flowEmpoweredThresh        = 3
+	flowBaseWindow      float32 = 4.0  // seconds
+	flowExtendPerChain  float32 = 2.0  // seconds added per unique transition
+	flowMaxWindow       float32 = 12.0 // hard cap on window duration
+	flowBonusPerChain   float32 = 0.05 // 5% per chain step
+	flowEmpoweredThresh         = 3
 	flowMaximumThresh           = 6
 )
 

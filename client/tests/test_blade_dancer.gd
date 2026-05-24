@@ -120,8 +120,8 @@ func test_ability_transitions_config_on_complete() -> void:
 	var dur: float = _bd._committing_ability.dur
 	var frames := ceili((dur + 0.05) / DELTA)
 	for i in frames:
-		_bd._commit_timer -= DELTA
-		if _bd._commit_timer <= 0.0:
+		_bd._cast_timer -= DELTA
+		if _bd._cast_timer <= 0.0:
 			_bd.config = int(_bd._committing_ability.dest)
 			_bd._enter_state(_bd.State.MOVE)
 			break
@@ -317,7 +317,7 @@ func test_blade_visual_no_crash_all_states() -> void:
 		_bd._state_timer = 0.15
 		if s == _bd.State.CASTING:
 			_bd._committing_ability = {dest = _bd.Config.FAN, dur = 0.4}
-			_bd._commit_timer = 0.2
+			_bd._cast_timer = 0.2
 		_bd._update_blade_visual(DELTA)
 	assert_bool(true).is_true()
 

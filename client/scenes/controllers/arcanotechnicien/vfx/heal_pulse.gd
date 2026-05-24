@@ -74,9 +74,7 @@ func _setup_flash() -> void:
 	add_child(flash)
 
 	var tween := get_tree().create_tween()
-	tween.tween_property(flash, "scale", Vector3(2.5, 2.5, 2.5), 0.15).from(
-		Vector3(0.5, 0.5, 0.5)
-	)
+	tween.tween_property(flash, "scale", Vector3(2.5, 2.5, 2.5), 0.15).from(Vector3(0.5, 0.5, 0.5))
 	tween.parallel().tween_property(mat, "albedo_color:a", 0.0, 0.15).from(0.8)
 
 

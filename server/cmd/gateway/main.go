@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"codex-online/server/internal/ability"
+	"codex-online/server/internal/abilitycatalog"
 	"codex-online/server/internal/combatlog"
 	combatapi "codex-online/server/internal/combatlog/api"
 	chrepo "codex-online/server/internal/combatlog/clickhouse"
@@ -19,7 +20,6 @@ import (
 	"codex-online/server/internal/message"
 	"codex-online/server/internal/network"
 	"codex-online/server/internal/persistence"
-	"codex-online/server/internal/abilitycatalog"
 	"codex-online/server/internal/telemetry"
 	"codex-online/server/internal/validation"
 	"codex-online/server/internal/zone"

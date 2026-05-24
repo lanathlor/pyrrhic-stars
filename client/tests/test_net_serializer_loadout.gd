@@ -6,6 +6,7 @@ extends GdUnitTestSuite
 const NetSer := preload("res://scripts/autoload/net_serializer.gd")
 
 var _ser: NetSer
+var _catalog_buf: StreamPeerBuffer
 
 
 func before_test() -> void:
@@ -23,7 +24,14 @@ func after_test() -> void:
 
 
 func test_loadout_roundtrip_full() -> void:
-	var slots: Array = ["mending_surge", "mending_beam", "vital_bloom", "restoration_matrix", "life_swap", "transfusion"]
+	var slots: Array = [
+		"mending_surge",
+		"mending_beam",
+		"vital_bloom",
+		"restoration_matrix",
+		"life_swap",
+		"transfusion"
+	]
 	var encoded := _ser.encode_set_loadout(slots)
 	var decoded := _ser.decode_loadout_state(encoded)
 	assert_array(decoded).has_size(6)
@@ -71,15 +79,20 @@ func test_loadout_encode_all_empty_size() -> void:
 
 
 func _build_catalog_entry(
-	id: String, name: String, school: String, ability_type: String,
-	delivery: String, flux_cost: String, description: String,
-	cooldown: float, commit_time: float, implemented: bool, affinity: String,
-	flux_amount: float = 0.0, base_heal: float = 0.0, base_damage: float = 0.0,
-	ability_range: float = 0.0, gcd: float = 0.0, commit_time: float = 0.0,
-	zone_radius: float = 0.0, zone_duration: float = 0.0, zone_heal_tick: float = 0.0,
-	sustain: bool = false,
+	id: String,
+	name: String,
+	school: String,
+	ability_type: String,
+	delivery: String,
+	flux_cost: String,
+	description: String,
+	cooldown: float,
+	commit_time: float,
+	stats: Dictionary = {},
 ) -> void:
 	# Helper: appends one entry to _catalog_buf
+	var affinity: String = stats.get("affinity", "")
+	var implemented: bool = stats.get("implemented", false)
 	_put_str8_to_buf(id)
 	_put_str8_to_buf(name)
 	_put_str8_to_buf(school)
@@ -96,19 +109,16 @@ func _build_catalog_entry(
 	_catalog_buf.put_u8(1 if implemented else 0)
 	_put_str8_to_buf(affinity)
 	# 9 x f32: exact stats
-	_catalog_buf.put_float(flux_amount)
-	_catalog_buf.put_float(base_heal)
-	_catalog_buf.put_float(base_damage)
-	_catalog_buf.put_float(ability_range)
-	_catalog_buf.put_float(gcd)
-	_catalog_buf.put_float(commit_time)
-	_catalog_buf.put_float(zone_radius)
-	_catalog_buf.put_float(zone_duration)
-	_catalog_buf.put_float(zone_heal_tick)
-	_catalog_buf.put_u8(1 if sustain else 0)
-
-
-var _catalog_buf: StreamPeerBuffer
+	_catalog_buf.put_float(stats.get("flux_amount", 0.0))
+	_catalog_buf.put_float(stats.get("base_heal", 0.0))
+	_catalog_buf.put_float(stats.get("base_damage", 0.0))
+	_catalog_buf.put_float(stats.get("ability_range", 0.0))
+	_catalog_buf.put_float(stats.get("gcd", 0.0))
+	_catalog_buf.put_float(stats.get("commit_time2", 0.0))
+	_catalog_buf.put_float(stats.get("zone_radius", 0.0))
+	_catalog_buf.put_float(stats.get("zone_duration", 0.0))
+	_catalog_buf.put_float(stats.get("zone_heal_tick", 0.0))
+	_catalog_buf.put_u8(1 if stats.get("sustain", false) else 0)
 
 
 func _put_str8_to_buf(s: String) -> void:
@@ -122,9 +132,22 @@ func test_decode_catalog_single_entry() -> void:
 	_catalog_buf = StreamPeerBuffer.new()
 	_catalog_buf.put_u8(1)  # count
 	_build_catalog_entry(
-		"mending_surge", "Mending Surge", "bioarcanotechnic", "enhancement",
-		"direct", "high", "Emergency heal.", 0.0, 0.4, true, "primary",
-		40.0, 80.0, 0.0, 0.0, 0.8
+		"mending_surge",
+		"Mending Surge",
+		"bioarcanotechnic",
+		"enhancement",
+		"direct",
+		"high",
+		"Emergency heal.",
+		0.0,
+		0.4,
+		{
+			implemented = true,
+			affinity = "primary",
+			flux_amount = 40.0,
+			base_heal = 80.0,
+			gcd = 0.8,
+		},
 	)
 	var entries := _ser.decode_ability_catalog(_catalog_buf.data_array)
 	assert_int(entries.size()).is_equal(1)
@@ -150,12 +173,28 @@ func test_decode_catalog_multiple_entries() -> void:
 	_catalog_buf = StreamPeerBuffer.new()
 	_catalog_buf.put_u8(2)  # count
 	_build_catalog_entry(
-		"mending_surge", "Mending Surge", "bioarcanotechnic", "enhancement",
-		"direct", "high", "Big heal.", 0.0, 0.4, true, "primary"
+		"mending_surge",
+		"Mending Surge",
+		"bioarcanotechnic",
+		"enhancement",
+		"direct",
+		"high",
+		"Big heal.",
+		0.0,
+		0.4,
+		{implemented = true, affinity = "primary"},
 	)
 	_build_catalog_entry(
-		"fireball", "Fireball", "fire", "destruction",
-		"zone", "high", "AoE explosion.", 0.0, 3.0, false, "off"
+		"fireball",
+		"Fireball",
+		"fire",
+		"destruction",
+		"zone",
+		"high",
+		"AoE explosion.",
+		0.0,
+		3.0,
+		{affinity = "off"},
 	)
 	var entries := _ser.decode_ability_catalog(_catalog_buf.data_array)
 	assert_int(entries.size()).is_equal(2)
@@ -181,10 +220,18 @@ func test_decode_catalog_empty_buffer() -> void:
 func test_decode_catalog_long_description() -> void:
 	_catalog_buf = StreamPeerBuffer.new()
 	_catalog_buf.put_u8(1)
-	var long_desc := "A" .repeat(300)
+	var long_desc := "A".repeat(300)
 	_build_catalog_entry(
-		"test_ability", "Test Ability", "frost", "destruction",
-		"bolt", "medium", long_desc, 8.0, 1.5, false, "secondary"
+		"test_ability",
+		"Test Ability",
+		"frost",
+		"destruction",
+		"bolt",
+		"medium",
+		long_desc,
+		8.0,
+		1.5,
+		{affinity = "secondary"},
 	)
 	var entries := _ser.decode_ability_catalog(_catalog_buf.data_array)
 	assert_int(entries.size()).is_equal(1)
@@ -197,8 +244,16 @@ func test_decode_catalog_unimplemented() -> void:
 	_catalog_buf = StreamPeerBuffer.new()
 	_catalog_buf.put_u8(1)
 	_build_catalog_entry(
-		"chain_lightning", "Chain Lightning", "electricity", "destruction",
-		"bolt", "medium", "Bouncing bolt.", 6.0, 0.8, false, "secondary"
+		"chain_lightning",
+		"Chain Lightning",
+		"electricity",
+		"destruction",
+		"bolt",
+		"medium",
+		"Bouncing bolt.",
+		6.0,
+		0.8,
+		{affinity = "secondary"},
 	)
 	var entries := _ser.decode_ability_catalog(_catalog_buf.data_array)
 	assert_bool(entries[0]["implemented"]).is_false()

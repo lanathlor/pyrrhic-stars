@@ -14,7 +14,7 @@ var lifeSwapDef = AbilityDef{
 		Range: 15,
 	},
 	GCD:      0.6,
-	Costs:    []ResourceCost{{Resource: "flux", Amount: 5}},
+	Costs:    []ResourceCost{{Resource: entity.ResourceFlux, Amount: 5}},
 	Handler:  "life_swap",
 	Delivery: uint8(entity.DeliveryDirect),
 }
