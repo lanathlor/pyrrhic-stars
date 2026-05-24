@@ -57,72 +57,10 @@ func handlePlayerInput(w *World, peerID uint16, payload []byte) {
 		return
 	}
 
-	// Reject positions that teleport too far from the server-assigned position.
 	newPos := entity.Vec3{X: inp.PosX, Y: inp.PosY, Z: inp.PosZ}
-	dx := newPos.X - p.Position.X
-	dy := newPos.Y - p.Position.Y
-	dz := newPos.Z - p.Position.Z
-	dist := dx*dx + dy*dy + dz*dz
-	if dist > 100.0 { // > 10 units teleport = reject
+	newPos, valid := validateAndClampPosition(w, p, newPos)
+	if !valid {
 		return
-	}
-
-	// Y validation: hard reject if outside zone Y bounds
-	if w.Level.PlayerBoundsMaxY != 0 || w.Level.PlayerBoundsMinY != 0 {
-		if newPos.Y < w.Level.PlayerBoundsMinY || newPos.Y > w.Level.PlayerBoundsMaxY {
-			return
-		}
-	}
-
-	// Y validation: limit upward movement speed
-	const tickDt = 1.0 / 20.0
-	deltaY := newPos.Y - p.Position.Y
-	if deltaY > 0 {
-		maxUp := float32(0.0)
-		inElevator := false
-		for _, ev := range w.Level.Elevators {
-			if newPos.X > ev.CenterX-ev.HalfX && newPos.X < ev.CenterX+ev.HalfX &&
-				newPos.Z > ev.CenterZ-ev.HalfZ && newPos.Z < ev.CenterZ+ev.HalfZ &&
-				newPos.Y >= ev.BottomY-1.0 && newPos.Y <= ev.TopY+1.0 {
-				allowed := ev.Speed * tickDt * 1.5
-				if allowed > maxUp {
-					maxUp = allowed
-				}
-				inElevator = true
-			}
-		}
-		if !inElevator {
-			maxUp = 5.0 * tickDt * 2.0
-		}
-		if deltaY > maxUp+0.1 {
-			newPos.Y = p.Position.Y
-		}
-	}
-
-	// Enforce server-authoritative speed clamping for all players.
-	speedMult := float32(1.0)
-	if p.HasBuff("brace") {
-		speedMult = 0.0
-	} else if p.HasBuff("vg_shield_block") {
-		speedMult = 0.4
-	}
-	{
-		hDx := newPos.X - p.Position.X
-		hDz := newPos.Z - p.Position.Z
-		hDistSq := hDx*hDx + hDz*hDz
-		mv := p.Movement()
-		maxSpd := mv.SprintSpeed * speedMult
-		maxDist := maxSpd * tickDt * 1.5 // 50% tolerance
-		if hDistSq > maxDist*maxDist {
-			if speedMult == 0 {
-				newPos.X = p.Position.X
-				newPos.Z = p.Position.Z
-			} else {
-				scale := maxDist / float32(math.Sqrt(float64(hDistSq)))
-				newPos.X = p.Position.X + hDx*scale
-				newPos.Z = p.Position.Z + hDz*scale
-			}
-		}
 	}
 
 	// Client-authoritative: accept position, clamp to boundaries
@@ -132,6 +70,83 @@ func handlePlayerInput(w *World, peerID uint16, payload []byte) {
 	p.LastInput = entity.PlayerInput{PosX: inp.PosX, PosY: inp.PosY, PosZ: inp.PosZ, RotY: inp.RotY, Tick: inp.Tick}
 	p.VisualState = inp.VisualState
 	p.AimPitch = inp.AimPitch
+}
+
+func validateAndClampPosition(w *World, p *entity.Player, newPos entity.Vec3) (entity.Vec3, bool) {
+	// Reject positions that teleport too far from the server-assigned position.
+	dx := newPos.X - p.Position.X
+	dy := newPos.Y - p.Position.Y
+	dz := newPos.Z - p.Position.Z
+	dist := dx*dx + dy*dy + dz*dz
+	if dist > 100.0 { // > 10 units teleport = reject
+		return newPos, false
+	}
+
+	// Y validation: hard reject if outside zone Y bounds
+	if w.Level.PlayerBoundsMaxY != 0 || w.Level.PlayerBoundsMinY != 0 {
+		if newPos.Y < w.Level.PlayerBoundsMinY || newPos.Y > w.Level.PlayerBoundsMaxY {
+			return newPos, false
+		}
+	}
+
+	newPos = clampPositionY(w, p, newPos)
+	newPos = clampPositionXZ(p, newPos)
+	return newPos, true
+}
+
+func clampPositionY(w *World, p *entity.Player, newPos entity.Vec3) entity.Vec3 {
+	const tickDt = 1.0 / 20.0
+	deltaY := newPos.Y - p.Position.Y
+	if deltaY <= 0 {
+		return newPos
+	}
+	maxUp := float32(0.0)
+	inElevator := false
+	for _, ev := range w.Level.Elevators {
+		if newPos.X > ev.CenterX-ev.HalfX && newPos.X < ev.CenterX+ev.HalfX &&
+			newPos.Z > ev.CenterZ-ev.HalfZ && newPos.Z < ev.CenterZ+ev.HalfZ &&
+			newPos.Y >= ev.BottomY-1.0 && newPos.Y <= ev.TopY+1.0 {
+			allowed := ev.Speed * tickDt * 1.5
+			if allowed > maxUp {
+				maxUp = allowed
+			}
+			inElevator = true
+		}
+	}
+	if !inElevator {
+		maxUp = 5.0 * tickDt * 2.0
+	}
+	if deltaY > maxUp+0.1 {
+		newPos.Y = p.Position.Y
+	}
+	return newPos
+}
+
+func clampPositionXZ(p *entity.Player, newPos entity.Vec3) entity.Vec3 {
+	const tickDt = 1.0 / 20.0
+	speedMult := float32(1.0)
+	if p.HasBuff("brace") {
+		speedMult = 0.0
+	} else if p.HasBuff("vg_shield_block") {
+		speedMult = 0.4
+	}
+	hDx := newPos.X - p.Position.X
+	hDz := newPos.Z - p.Position.Z
+	hDistSq := hDx*hDx + hDz*hDz
+	mv := p.Movement()
+	maxSpd := mv.SprintSpeed * speedMult
+	maxDist := maxSpd * tickDt * 1.5 // 50% tolerance
+	if hDistSq > maxDist*maxDist {
+		if speedMult == 0 {
+			newPos.X = p.Position.X
+			newPos.Z = p.Position.Z
+		} else {
+			scale := maxDist / float32(math.Sqrt(float64(hDistSq)))
+			newPos.X = p.Position.X + hDx*scale
+			newPos.Z = p.Position.Z + hDz*scale
+		}
+	}
+	return newPos
 }
 
 func handleAbilityInput(w *World, peerID uint16, payload []byte) {
@@ -154,51 +169,13 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 	// but we still need to check/spend stamina for vanguard.
 	// Harmonist has no dodge — gust step is their mobility (goes through loadout).
 	if inp.Action == entity.ActionDodge {
-		if p.ClassID == entity.ClassArcanotechnicien {
-			return // harmonist has no dodge
-		}
-		// Cancel any active channel when dodging
-		if runner := w.AbilityRunners[peerID]; runner != nil && runner.IsBusy() {
-			wasChanneling := runner.Phase == ability.PRunnerCommit || runner.Phase == ability.PRunnerSustain
-			if id, cd := runner.SustainCooldownOnCancel(); cd > 0 {
-				p.Cooldowns[id] = cd
-			}
-			runner.Cancel()
-			if wasChanneling && p.Confluence != nil {
-				p.Confluence.OnInterrupt()
-			}
-			runner.SyncToPlayer(p)
-		}
-		if !p.SpendResource("stamina", 20) {
-			return
-		}
-		// Server-side i-frames: prevent damage (and Onslaught reset) during dodge
-		p.Invincible = true
-		p.InvincibleTimer = 0.15
-		w.logCombatEvent(combatlog.LogEntry{
-			EventType:    combatlog.EventDodge,
-			SourceEntity: combatlog.FormatPlayerID(peerID),
-			SourceClass:  p.ClassID,
-			PosX:         p.Position.X,
-			PosY:         p.Position.Y,
-			PosZ:         p.Position.Z,
-		})
+		handleDodgeInput(w, p, peerID)
 		return
 	}
 
 	// Action 255: explicit channel/sustain cancel (ESC on client)
 	if inp.Action == 255 {
-		if runner := w.AbilityRunners[peerID]; runner != nil && runner.IsBusy() {
-			wasChanneling := runner.Phase == ability.PRunnerCommit || runner.Phase == ability.PRunnerSustain
-			if id, cd := runner.SustainCooldownOnCancel(); cd > 0 {
-				p.Cooldowns[id] = cd
-			}
-			runner.Cancel()
-			if wasChanneling && p.Confluence != nil {
-				p.Confluence.OnInterrupt()
-			}
-			runner.SyncToPlayer(p)
-		}
+		handleCancelInput(w, p, peerID)
 		return
 	}
 
@@ -212,32 +189,86 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 	// instead of committing immediately. The runner ticks in CombatSystem and fires
 	// the actual Commit when the commit timer expires.
 	if def := w.AbilityEngine.GetAbility(abilityID); def != nil && def.CommitTime > 0 {
-		runner := w.AbilityRunners[peerID]
-		if runner == nil {
-			runner = &ability.PlayerAbilityRunner{}
-			w.AbilityRunners[peerID] = runner
-		}
-		if runner.IsBusy() {
-			wasChanneling := runner.Phase == ability.PRunnerCommit || runner.Phase == ability.PRunnerSustain
-			if id, cd := runner.SustainCooldownOnCancel(); cd > 0 {
-				p.Cooldowns[id] = cd
-			}
-			if !runner.Cancel() {
-				return // in execute or cooldown phase, cannot cancel
-			}
-			if wasChanneling && p.Confluence != nil {
-				p.Confluence.OnInterrupt()
-			}
-			// Cancel during sustain enters cooldown — force reset so Start succeeds
-			runner.ForceReset()
-			runner.SyncToPlayer(p)
-		}
-		runner.Start(def)
-		p.ChannelTargetID = inp.TargetPeerID
-		runner.SyncToPlayer(p)
+		handleCommitPhaseAbility(w, p, peerID, inp, def)
 		return
 	}
 
+	commitAbilityAndLog(w, p, peerID, abilityID, inp)
+}
+
+func handleDodgeInput(w *World, p *entity.Player, peerID uint16) {
+	if p.ClassID == entity.ClassArcanotechnicien {
+		return // harmonist has no dodge
+	}
+	// Cancel any active channel when dodging
+	if runner := w.AbilityRunners[peerID]; runner != nil && runner.IsBusy() {
+		wasChanneling := runner.Phase == ability.PRunnerCommit || runner.Phase == ability.PRunnerSustain
+		if id, cd := runner.SustainCooldownOnCancel(); cd > 0 {
+			p.Cooldowns[id] = cd
+		}
+		runner.Cancel()
+		if wasChanneling && p.Confluence != nil {
+			p.Confluence.OnInterrupt()
+		}
+		runner.SyncToPlayer(p)
+	}
+	if !p.SpendResource("stamina", 20) {
+		return
+	}
+	// Server-side i-frames: prevent damage (and Onslaught reset) during dodge
+	p.Invincible = true
+	p.InvincibleTimer = 0.15
+	w.logCombatEvent(combatlog.LogEntry{
+		EventType:    combatlog.EventDodge,
+		SourceEntity: combatlog.FormatPlayerID(peerID),
+		SourceClass:  p.ClassID,
+		PosX:         p.Position.X,
+		PosY:         p.Position.Y,
+		PosZ:         p.Position.Z,
+	})
+}
+
+func handleCancelInput(w *World, p *entity.Player, peerID uint16) {
+	if runner := w.AbilityRunners[peerID]; runner != nil && runner.IsBusy() {
+		wasChanneling := runner.Phase == ability.PRunnerCommit || runner.Phase == ability.PRunnerSustain
+		if id, cd := runner.SustainCooldownOnCancel(); cd > 0 {
+			p.Cooldowns[id] = cd
+		}
+		runner.Cancel()
+		if wasChanneling && p.Confluence != nil {
+			p.Confluence.OnInterrupt()
+		}
+		runner.SyncToPlayer(p)
+	}
+}
+
+func handleCommitPhaseAbility(w *World, p *entity.Player, peerID uint16, inp *codec.AbilityInputMsg, def *ability.AbilityDef) {
+	runner := w.AbilityRunners[peerID]
+	if runner == nil {
+		runner = &ability.PlayerAbilityRunner{}
+		w.AbilityRunners[peerID] = runner
+	}
+	if runner.IsBusy() {
+		wasChanneling := runner.Phase == ability.PRunnerCommit || runner.Phase == ability.PRunnerSustain
+		if id, cd := runner.SustainCooldownOnCancel(); cd > 0 {
+			p.Cooldowns[id] = cd
+		}
+		if !runner.Cancel() {
+			return // in execute or cooldown phase, cannot cancel
+		}
+		if wasChanneling && p.Confluence != nil {
+			p.Confluence.OnInterrupt()
+		}
+		// Cancel during sustain enters cooldown — force reset so Start succeeds
+		runner.ForceReset()
+		runner.SyncToPlayer(p)
+	}
+	runner.Start(def)
+	p.ChannelTargetID = inp.TargetPeerID
+	runner.SyncToPlayer(p)
+}
+
+func commitAbilityAndLog(w *World, p *entity.Player, peerID uint16, abilityID string, inp *codec.AbilityInputMsg) {
 	// Cancel any active channel when committing an instant ability
 	if runner := w.AbilityRunners[peerID]; runner != nil && runner.IsBusy() {
 		wasChanneling := runner.Phase == ability.PRunnerCommit || runner.Phase == ability.PRunnerSustain
@@ -285,8 +316,15 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 		PosZ:         p.Position.Z,
 	})
 
+	processCommitDamageEvents(w, p, peerID, abilityID, result.Events)
+	processCommitHealEvents(w, result.Heals)
+	startSustainRunner(w, p, peerID, abilityID)
+	logAbilityBuffsAndCooldown(w, p, peerID, abilityID)
+}
+
+func processCommitDamageEvents(w *World, p *entity.Player, peerID uint16, abilityID string, events []ability.DamageResult) {
 	// Convert ability results to combat damage events and apply threat
-	for _, r := range result.Events {
+	for _, r := range events {
 		w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
 			TargetPeerID: r.TargetID,
 			SourcePeerID: r.SourceID,
@@ -320,9 +358,11 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 			w.logPhaseChange(enemy)
 		}
 	}
+}
 
+func processCommitHealEvents(w *World, heals []ability.HealResult) {
 	// Convert heal results to damage events (SourceType=5 distinguishes heals on the client)
-	for _, h := range result.Heals {
+	for _, h := range heals {
 		w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
 			TargetPeerID: h.TargetID,
 			SourcePeerID: h.SourceID,
@@ -332,40 +372,47 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 			SourceType:   h.SourceType,
 		})
 	}
+}
 
+func startSustainRunner(w *World, p *entity.Player, peerID uint16, abilityID string) {
 	// If the instant ability supports sustain, start the runner in sustain phase
-	if def := w.AbilityEngine.GetAbility(abilityID); def != nil && def.Sustain {
-		runner := w.AbilityRunners[peerID]
-		if runner == nil {
-			runner = &ability.PlayerAbilityRunner{}
-			w.AbilityRunners[peerID] = runner
-		}
-		runner.StartSustain(def, p.Position, w.TickNum)
-		runner.SyncToPlayer(p)
+	def := w.AbilityEngine.GetAbility(abilityID)
+	if def == nil || !def.Sustain {
+		return
 	}
+	runner := w.AbilityRunners[peerID]
+	if runner == nil {
+		runner = &ability.PlayerAbilityRunner{}
+		w.AbilityRunners[peerID] = runner
+	}
+	runner.StartSustain(def, p.Position, w.TickNum)
+	runner.SyncToPlayer(p)
+}
 
+func logAbilityBuffsAndCooldown(w *World, p *entity.Player, peerID uint16, abilityID string) {
 	// Log buff applications
 	def := w.AbilityEngine.GetAbility(abilityID)
-	if def != nil {
-		for _, buff := range def.SelfBuffs {
-			w.logCombatEvent(combatlog.LogEntry{
-				EventType:    combatlog.EventBuffApply,
-				SourceEntity: combatlog.FormatPlayerID(peerID),
-				SourceClass:  p.ClassID,
-				Target:       combatlog.FormatPlayerID(peerID),
-				AbilityID:    buff.ID,
-			})
-		}
+	if def == nil {
+		return
+	}
+	for _, buff := range def.SelfBuffs {
+		w.logCombatEvent(combatlog.LogEntry{
+			EventType:    combatlog.EventBuffApply,
+			SourceEntity: combatlog.FormatPlayerID(peerID),
+			SourceClass:  p.ClassID,
+			Target:       combatlog.FormatPlayerID(peerID),
+			AbilityID:    buff.ID,
+		})
+	}
 
-		// Log cooldown start
-		if def.Cooldown > 0 {
-			w.logCombatEvent(combatlog.LogEntry{
-				EventType:    combatlog.EventCooldownStart,
-				SourceEntity: combatlog.FormatPlayerID(peerID),
-				SourceClass:  p.ClassID,
-				AbilityID:    abilityID,
-			})
-		}
+	// Log cooldown start
+	if def.Cooldown > 0 {
+		w.logCombatEvent(combatlog.LogEntry{
+			EventType:    combatlog.EventCooldownStart,
+			SourceEntity: combatlog.FormatPlayerID(peerID),
+			SourceClass:  p.ClassID,
+			AbilityID:    abilityID,
+		})
 	}
 }
 

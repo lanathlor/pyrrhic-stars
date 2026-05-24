@@ -57,6 +57,13 @@ func registerAbilities(eng *Engine) {
 }
 
 func registerHandlers(eng *Engine) {
+	registerGunnerHandlers(eng)
+	registerVanguardHandlers(eng)
+	registerSupportHandlers(eng)
+	registerTickHandlers(eng)
+}
+
+func registerGunnerHandlers(eng *Engine) {
 	eng.RegisterHandler("rechamber", rechamberHandler)
 	eng.RegisterHandler("rechamber_confirm", rechamberConfirmHandler)
 	eng.RegisterHandler("overclock", overclockHandler)
@@ -64,6 +71,9 @@ func registerHandlers(eng *Engine) {
 	eng.RegisterHandler("reload_assault", reloadAssaultHandler)
 	eng.RegisterHandler("load_enhanced_assault", loadEnhancedHandler)
 	eng.RegisterHandler("mag_dump_assault", magDumpHandler)
+}
+
+func registerVanguardHandlers(eng *Engine) {
 	eng.RegisterHandler("vortex", vortexHandler)
 	eng.RegisterHandler("vg_block", vgBlockHandler)
 	eng.RegisterHandler("vg_block_stop", vgBlockStopHandler)
@@ -76,7 +86,9 @@ func registerHandlers(eng *Engine) {
 	eng.RegisterHandler("cleave_vg", cleaveHandler)
 	eng.RegisterHandler("upheaval_vg", upheavalHandler)
 	eng.RegisterHandler("execution_vg", executionVGHandler)
+}
 
+func registerSupportHandlers(eng *Engine) {
 	eng.RegisterHandler("siphon_pulse", siphonPulseHandler)
 	eng.RegisterHandler("mending_surge", mendingSurgeHandler)
 	eng.RegisterHandler("mending_beam", mendingBeamHandler)
@@ -93,7 +105,9 @@ func registerHandlers(eng *Engine) {
 	eng.RegisterHandler("last_breath", lastBreathHandler)
 	eng.RegisterHandler("gust_step", gustStepHandler)
 	eng.RegisterHandler("frost_ward", frostWardHandler)
+}
 
+func registerTickHandlers(eng *Engine) {
 	eng.RegisterTickHandler("rechamber", rechamberTick)
 	eng.RegisterTickHandler("vortex", vortexTick)
 	eng.RegisterTickHandler("vg_block", vgBlockTick)

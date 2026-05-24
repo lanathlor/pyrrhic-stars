@@ -423,20 +423,37 @@ func gunnerAssaultTick(eng *Engine, p *entity.Player, dt float32, ctx *TickConte
 		return nil
 	}
 	state := getGunnerAssaultState(p)
-	var allEvents []DamageResult
 
-	// 1. Reload
-	if state.Reloading {
-		state.ReloadTimer -= dt * p.TempoMult()
-		if state.ReloadTimer <= 0 {
-			state.MagCurrent = state.MagMax
-			state.Reloading = false
-			state.ReloadTimer = 0
-			state.ReloadTotal = 0
-		}
+	tickGunnerReload(state, dt, p.TempoMult())
+	tickGunnerStability(state, p, dt)
+	tickGunnerPressure(state, dt)
+	tickGunnerSteadiness(state, p, dt)
+
+	var allEvents []DamageResult
+	if state.MagDumpActive {
+		allEvents = magDumpTick(eng, p, state, ctx)
 	}
 
-	// 2. Stability recovery
+	syncMunitionsResource(p, state)
+	return allEvents
+}
+
+// tickGunnerReload decrements the reload timer and refills the magazine when complete.
+func tickGunnerReload(state *GunnerAssaultState, dt float32, tempoMult float32) {
+	if !state.Reloading {
+		return
+	}
+	state.ReloadTimer -= dt * tempoMult
+	if state.ReloadTimer <= 0 {
+		state.MagCurrent = state.MagMax
+		state.Reloading = false
+		state.ReloadTimer = 0
+		state.ReloadTotal = 0
+	}
+}
+
+// tickGunnerStability advances the stability recovery timer and recovers stability.
+func tickGunnerStability(state *GunnerAssaultState, p *entity.Player, dt float32) {
 	state.StabilityTimer += dt
 	if state.StabilityTimer > assaultStabilityDelay && state.Stability < 1.0 {
 		rate := float32(assaultStabilityRate)
@@ -448,19 +465,24 @@ func gunnerAssaultTick(eng *Engine, p *entity.Player, dt float32, ctx *TickConte
 			state.Stability = 1.0
 		}
 	}
+}
 
-	// 3. Pressure timeout
-	if state.PressureStacks > 0 {
-		state.PressureTimer -= dt
-		if state.PressureTimer <= 0 {
-			state.PressureStacks = 0
-			state.PressureTarget = 0
-			state.PressureTimer = 0
-			state.pressureWasMax = false
-		}
+// tickGunnerPressure times out pressure stacks when the player stops hitting the same target.
+func tickGunnerPressure(state *GunnerAssaultState, dt float32) {
+	if state.PressureStacks == 0 {
+		return
 	}
+	state.PressureTimer -= dt
+	if state.PressureTimer <= 0 {
+		state.PressureStacks = 0
+		state.PressureTarget = 0
+		state.PressureTimer = 0
+		state.pressureWasMax = false
+	}
+}
 
-	// 4. Steadiness (movement-based accuracy)
+// tickGunnerSteadiness tracks movement and decays or recovers steadiness accordingly.
+func tickGunnerSteadiness(state *GunnerAssaultState, p *entity.Player, dt float32) {
 	if !state.prevPosInit {
 		state.PrevPos = p.Position
 		state.prevPosInit = true
@@ -471,14 +493,12 @@ func gunnerAssaultTick(eng *Engine, p *entity.Player, dt float32, ctx *TickConte
 	state.PrevPos = p.Position
 
 	if horizSpeed > assaultSteadinessSpeedMin {
-		// Moving: decay steadiness proportional to speed
 		state.Steadiness -= assaultSteadinessDecay * horizSpeed * dt
 		if state.Steadiness < 0 {
 			state.Steadiness = 0
 		}
 		state.SteadinessTimer = 0
 	} else {
-		// Stationary: recover after delay
 		state.SteadinessTimer += dt
 		if state.SteadinessTimer > assaultSteadinessDelay && state.Steadiness < 1.0 {
 			state.Steadiness += assaultSteadinessRecov * dt
@@ -487,16 +507,6 @@ func gunnerAssaultTick(eng *Engine, p *entity.Player, dt float32, ctx *TickConte
 			}
 		}
 	}
-
-	// 5. Mag dump — fire rounds each tick
-	if state.MagDumpActive {
-		allEvents = magDumpTick(eng, p, state, ctx)
-	}
-
-	// Keep munitions resource in sync
-	syncMunitionsResource(p, state)
-
-	return allEvents
 }
 
 // magDumpTick fires multiple rounds per tick during mag dump.

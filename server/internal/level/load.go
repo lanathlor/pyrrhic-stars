@@ -119,7 +119,27 @@ func loadLevelData(path string, l *Level) error {
 		return fmt.Errorf("level %q: version %d (want 2-%d)", path, ld.Version, currentVersion)
 	}
 
-	// Bounds
+	loadBoundsAndGeometry(l, &ld)
+
+	// Player spawns
+	l.PlayerSpawns = make([]PlayerSpawn, len(ld.PlayerSpawns))
+	for i, s := range ld.PlayerSpawns {
+		l.PlayerSpawns[i] = PlayerSpawn{
+			Position:  entity.Vec3{X: s.X, Y: s.Y, Z: s.Z},
+			Condition: s.Condition,
+		}
+	}
+	l.SpawnYaw = ld.SpawnYaw
+
+	loadEnemySpawns(l, ld.EnemySpawns)
+	loadNPCSpawns(l, ld.NPCSpawns)
+	loadPortals(l, ld.Portals)
+	loadZoneTriggers(l, ld.ZoneTriggers)
+
+	return nil
+}
+
+func loadBoundsAndGeometry(l *Level, ld *levelDataJSON) {
 	l.PlayerBoundsMinX = ld.Bounds.MinX
 	l.PlayerBoundsMaxX = ld.Bounds.MaxX
 	l.PlayerBoundsMinY = ld.Bounds.MinY
@@ -132,7 +152,6 @@ func loadLevelData(path string, l *Level) error {
 	l.EnemyBoundsMinZ = ld.Bounds.MinZ
 	l.EnemyBoundsMaxZ = ld.Bounds.MaxZ
 
-	// Obstacles
 	l.Obstacles = make([]combat.Obstacle, len(ld.Obstacles))
 	for i, o := range ld.Obstacles {
 		l.Obstacles[i] = combat.Obstacle{
@@ -144,7 +163,6 @@ func loadLevelData(path string, l *Level) error {
 		}
 	}
 
-	// Elevators
 	l.Elevators = make([]ElevatorVolume, len(ld.Elevators))
 	for i, e := range ld.Elevators {
 		l.Elevators[i] = ElevatorVolume{
@@ -157,20 +175,51 @@ func loadLevelData(path string, l *Level) error {
 			Speed:   e.Speed,
 		}
 	}
+}
 
-	// Player spawns
-	l.PlayerSpawns = make([]PlayerSpawn, len(ld.PlayerSpawns))
-	for i, s := range ld.PlayerSpawns {
-		l.PlayerSpawns[i] = PlayerSpawn{
-			Position:  entity.Vec3{X: s.X, Y: s.Y, Z: s.Z},
-			Condition: s.Condition,
+func loadNPCSpawns(l *Level, spawns []npcSpawnJSON) {
+	l.NPCSpawns = make([]NPCSpawnPoint, len(spawns))
+	for i, s := range spawns {
+		wps := make([]entity.Vec3, len(s.Waypoints))
+		for j, w := range s.Waypoints {
+			wps[j] = entity.Vec3{X: w.X, Y: w.Y, Z: w.Z}
+		}
+		l.NPCSpawns[i] = NPCSpawnPoint{
+			DefName:      s.DefName,
+			Speed:        s.Speed,
+			IdleDuration: s.IdleDuration,
+			Waypoints:    wps,
 		}
 	}
-	l.SpawnYaw = ld.SpawnYaw
+}
 
-	// Enemy spawns
-	l.EnemySpawns = make([]EnemySpawnPoint, len(ld.EnemySpawns))
-	for i, s := range ld.EnemySpawns {
+func loadPortals(l *Level, portals []portalJSON) {
+	l.Portals = make([]PortalDef, len(portals))
+	for i, p := range portals {
+		l.Portals[i] = PortalDef{
+			Name:              p.Name,
+			Position:          entity.Vec3{X: p.X, Y: p.Y, Z: p.Z},
+			TargetZone:        p.TargetZone,
+			InteractionRadius: p.InteractionRadius,
+			Condition:         p.Condition,
+		}
+	}
+}
+
+func loadZoneTriggers(l *Level, triggers []zoneTriggerJSON) {
+	for _, zt := range triggers {
+		switch zt.TriggerID {
+		case "arena_entry":
+			l.ArenaEntryZ = zt.Threshold
+		case "boss_room_entry":
+			l.BossRoomEntryZ = zt.Threshold
+		}
+	}
+}
+
+func loadEnemySpawns(l *Level, spawns []enemySpawnJSON) {
+	l.EnemySpawns = make([]EnemySpawnPoint, len(spawns))
+	for i, s := range spawns {
 		esp := EnemySpawnPoint{
 			Position:    entity.Vec3{X: s.X, Y: s.Y, Z: s.Z},
 			DefName:     s.DefName,
@@ -187,49 +236,9 @@ func loadLevelData(path string, l *Level) error {
 			for j, w := range s.PatrolWaypoints {
 				esp.PatrolWaypoints[j] = entity.Vec3{X: w.X, Y: w.Y, Z: w.Z}
 			}
-			// Override A/B with first/last for backward compat with 2-point patrol
 			esp.PatrolA = esp.PatrolWaypoints[0]
 			esp.PatrolB = esp.PatrolWaypoints[len(esp.PatrolWaypoints)-1]
 		}
 		l.EnemySpawns[i] = esp
 	}
-
-	// NPC spawns (hub)
-	l.NPCSpawns = make([]NPCSpawnPoint, len(ld.NPCSpawns))
-	for i, s := range ld.NPCSpawns {
-		wps := make([]entity.Vec3, len(s.Waypoints))
-		for j, w := range s.Waypoints {
-			wps[j] = entity.Vec3{X: w.X, Y: w.Y, Z: w.Z}
-		}
-		l.NPCSpawns[i] = NPCSpawnPoint{
-			DefName:      s.DefName,
-			Speed:        s.Speed,
-			IdleDuration: s.IdleDuration,
-			Waypoints:    wps,
-		}
-	}
-
-	// Portals
-	l.Portals = make([]PortalDef, len(ld.Portals))
-	for i, p := range ld.Portals {
-		l.Portals[i] = PortalDef{
-			Name:              p.Name,
-			Position:          entity.Vec3{X: p.X, Y: p.Y, Z: p.Z},
-			TargetZone:        p.TargetZone,
-			InteractionRadius: p.InteractionRadius,
-			Condition:         p.Condition,
-		}
-	}
-
-	// Zone triggers → map well-known trigger IDs to Level fields
-	for _, zt := range ld.ZoneTriggers {
-		switch zt.TriggerID {
-		case "arena_entry":
-			l.ArenaEntryZ = zt.Threshold
-		case "boss_room_entry":
-			l.BossRoomEntryZ = zt.Threshold
-		}
-	}
-
-	return nil
 }

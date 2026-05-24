@@ -17,7 +17,7 @@ type Obstacle struct {
 // intersects any obstacle. Uses slab intersection (ray-vs-AABB in 2D).
 // Obstacles that contain point a (the origin) are skipped — you can shoot
 // out of geometry you're standing in.
-func SegmentHitsObstacle(a, b entity.Vec3, obstacles []Obstacle) bool {
+func SegmentHitsObstacle(a, b entity.Vec3, obstacles []Obstacle) bool { //nolint:gocognit
 	dx := b.X - a.X
 	dy := b.Y - a.Y
 	dz := b.Z - a.Z
@@ -41,51 +41,13 @@ func SegmentHitsObstacle(a, b entity.Vec3, obstacles []Obstacle) bool {
 		}
 
 		var tMin, tMax float32 = 0, 1
+		var hit bool
 
-		// X slab
-		if abs32(dx) < 1e-6 {
-			if a.X < minX || a.X > maxX {
-				continue
-			}
-		} else {
-			invD := 1.0 / dx
-			t1 := (minX - a.X) * invD
-			t2 := (maxX - a.X) * invD
-			if t1 > t2 {
-				t1, t2 = t2, t1
-			}
-			if t1 > tMin {
-				tMin = t1
-			}
-			if t2 < tMax {
-				tMax = t2
-			}
-			if tMin > tMax {
-				continue
-			}
+		if tMin, tMax, hit = slabIntersect2D(a.X, dx, minX, maxX, tMin, tMax); !hit {
+			continue
 		}
-
-		// Z slab
-		if abs32(dz) < 1e-6 {
-			if a.Z < minZ || a.Z > maxZ {
-				continue
-			}
-		} else {
-			invD := 1.0 / dz
-			t1 := (minZ - a.Z) * invD
-			t2 := (maxZ - a.Z) * invD
-			if t1 > t2 {
-				t1, t2 = t2, t1
-			}
-			if t1 > tMin {
-				tMin = t1
-			}
-			if t2 < tMax {
-				tMax = t2
-			}
-			if tMin > tMax {
-				continue
-			}
+		if tMin, tMax, hit = slabIntersect2D(a.Z, dz, minZ, maxZ, tMin, tMax); !hit {
+			continue
 		}
 
 		// Height check: if obstacle has a finite height, the segment
@@ -239,51 +201,13 @@ func SegmentHitsExpandedObstacle(a, b entity.Vec3, obstacles []Obstacle, radius 
 		maxZ := obs.CZ + obs.HZ + radius
 
 		var tMin, tMax float32 = 0, 1
+		var hit bool
 
-		// X slab
-		if abs32(dx) < 1e-6 {
-			if a.X < minX || a.X > maxX {
-				continue
-			}
-		} else {
-			invD := 1.0 / dx
-			t1 := (minX - a.X) * invD
-			t2 := (maxX - a.X) * invD
-			if t1 > t2 {
-				t1, t2 = t2, t1
-			}
-			if t1 > tMin {
-				tMin = t1
-			}
-			if t2 < tMax {
-				tMax = t2
-			}
-			if tMin > tMax {
-				continue
-			}
+		if tMin, tMax, hit = slabIntersect2D(a.X, dx, minX, maxX, tMin, tMax); !hit {
+			continue
 		}
-
-		// Z slab
-		if abs32(dz) < 1e-6 {
-			if a.Z < minZ || a.Z > maxZ {
-				continue
-			}
-		} else {
-			invD := 1.0 / dz
-			t1 := (minZ - a.Z) * invD
-			t2 := (maxZ - a.Z) * invD
-			if t1 > t2 {
-				t1, t2 = t2, t1
-			}
-			if t1 > tMin {
-				tMin = t1
-			}
-			if t2 < tMax {
-				tMax = t2
-			}
-			if tMin > tMax {
-				continue
-			}
+		if _, _, hit = slabIntersect2D(a.Z, dz, minZ, maxZ, tMin, tMax); !hit {
+			continue
 		}
 
 		return true
@@ -312,49 +236,13 @@ func NearestObstacleOnSegment(a, b entity.Vec3, obstacles []Obstacle, radius flo
 		maxZ := obs.CZ + obs.HZ + radius
 
 		var tMin, tMax float32 = 0, 1
+		var hit bool
 
-		if abs32(dx) < 1e-6 {
-			if a.X < minX || a.X > maxX {
-				continue
-			}
-		} else {
-			invD := 1.0 / dx
-			t1 := (minX - a.X) * invD
-			t2 := (maxX - a.X) * invD
-			if t1 > t2 {
-				t1, t2 = t2, t1
-			}
-			if t1 > tMin {
-				tMin = t1
-			}
-			if t2 < tMax {
-				tMax = t2
-			}
-			if tMin > tMax {
-				continue
-			}
+		if tMin, tMax, hit = slabIntersect2D(a.X, dx, minX, maxX, tMin, tMax); !hit {
+			continue
 		}
-
-		if abs32(dz) < 1e-6 {
-			if a.Z < minZ || a.Z > maxZ {
-				continue
-			}
-		} else {
-			invD := 1.0 / dz
-			t1 := (minZ - a.Z) * invD
-			t2 := (maxZ - a.Z) * invD
-			if t1 > t2 {
-				t1, t2 = t2, t1
-			}
-			if t1 > tMin {
-				tMin = t1
-			}
-			if t2 < tMax {
-				tMax = t2
-			}
-			if tMin > tMax {
-				continue
-			}
+		if tMin, _, hit = slabIntersect2D(a.Z, dz, minZ, maxZ, tMin, tMax); !hit {
+			continue
 		}
 
 		if tMin < bestT {
@@ -371,4 +259,30 @@ func abs32(x float32) float32 {
 		return -x
 	}
 	return x
+}
+
+// slabIntersect2D performs a 2D AABB slab intersection test along one axis.
+// Returns the updated tMin/tMax and false if the segment misses the slab.
+// ax is the ray origin component, dx is the ray direction component,
+// minV/maxV are the slab bounds.
+func slabIntersect2D(ax, dx, minV, maxV, tMin, tMax float32) (float32, float32, bool) {
+	if abs32(dx) < 1e-6 {
+		if ax < minV || ax > maxV {
+			return tMin, tMax, false
+		}
+		return tMin, tMax, true
+	}
+	invD := 1.0 / dx
+	t1 := (minV - ax) * invD
+	t2 := (maxV - ax) * invD
+	if t1 > t2 {
+		t1, t2 = t2, t1
+	}
+	if t1 > tMin {
+		tMin = t1
+	}
+	if t2 < tMax {
+		tMax = t2
+	}
+	return tMin, tMax, tMin <= tMax
 }

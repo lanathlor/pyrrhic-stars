@@ -57,27 +57,35 @@ func (r *Repo) ListInstances(ctx context.Context, filter combatlog.InstanceFilte
 
 	var results []combatlog.InstanceLog
 	for rows.Next() {
-		var inst combatlog.InstanceLog
-		var startedAt time.Time
-		var durationMS uint32
-		var outcome, source string
-
-		var mobGroupID int32
-		if err := rows.Scan(
-			&inst.InstanceID, &inst.GroupID, &inst.EncounterID,
-			&inst.ZoneID, &inst.RunID, &mobGroupID,
-			&startedAt, &durationMS, &outcome, &source,
-		); err != nil {
-			return nil, fmt.Errorf("scan instance: %w", err)
+		inst, err := scanInstance(rows)
+		if err != nil {
+			return nil, err
 		}
-		inst.MobGroupID = int(mobGroupID)
-		inst.StartedAt = startedAt
-		inst.Duration = time.Duration(durationMS) * time.Millisecond
-		inst.Outcome = combatlog.Outcome(outcome)
-		inst.Source = combatlog.LogSource(source)
 		results = append(results, inst)
 	}
 	return results, nil
+}
+
+func scanInstance(rows interface{ Scan(dest ...any) error }) (combatlog.InstanceLog, error) {
+	var inst combatlog.InstanceLog
+	var startedAt time.Time
+	var durationMS uint32
+	var outcome, source string
+	var mobGroupID int32
+
+	if err := rows.Scan(
+		&inst.InstanceID, &inst.GroupID, &inst.EncounterID,
+		&inst.ZoneID, &inst.RunID, &mobGroupID,
+		&startedAt, &durationMS, &outcome, &source,
+	); err != nil {
+		return combatlog.InstanceLog{}, fmt.Errorf("scan instance: %w", err)
+	}
+	inst.MobGroupID = int(mobGroupID)
+	inst.StartedAt = startedAt
+	inst.Duration = time.Duration(durationMS) * time.Millisecond
+	inst.Outcome = combatlog.Outcome(outcome)
+	inst.Source = combatlog.LogSource(source)
+	return inst, nil
 }
 
 // GetInstance returns a single instance with its participants.
@@ -227,137 +235,144 @@ func (r *Repo) GetEncounterStats(ctx context.Context, filter combatlog.InstanceF
 		InstancePhases:  make(map[string]string),
 	}
 
-	// Per-instance class damage (players -> boss).
-	{
-		q := fmt.Sprintf(
-			`SELECT instance_id, source_class, SUM(amount) as total_damage
-			FROM combat_events
-			WHERE instance_id IN (%s) AND event_type = 1 AND source LIKE 'player_%%'
-			GROUP BY instance_id, source_class`, subquery)
-		rows, err := r.conn.Query(ctx, q, subArgs...)
-		if err != nil {
-			return nil, fmt.Errorf("get encounter stats damage: %w", err)
-		}
-		defer rows.Close() //nolint:errcheck // rows.Close error is not actionable
-
-		for rows.Next() {
-			var instID, class string
-			var total float64
-			if err := rows.Scan(&instID, &class, &total); err != nil {
-				return nil, fmt.Errorf("scan encounter stats damage: %w", err)
-			}
-			if stats.InstanceDamage[instID] == nil {
-				stats.InstanceDamage[instID] = make(map[string]float32)
-			}
-			stats.InstanceDamage[instID][class] = float32(total)
-		}
+	if err := r.loadInstanceClassStats(ctx, stats, subquery, subArgs); err != nil {
+		return nil, err
 	}
-
-	// Per-instance class healing.
-	{
-		q := fmt.Sprintf(
-			`SELECT instance_id, source_class, SUM(amount) as total_healing
-			FROM combat_events
-			WHERE instance_id IN (%s) AND event_type = 2 AND source LIKE 'player_%%'
-			GROUP BY instance_id, source_class`, subquery)
-		rows, err := r.conn.Query(ctx, q, subArgs...)
-		if err != nil {
-			return nil, fmt.Errorf("get encounter stats healing: %w", err)
-		}
-		defer rows.Close() //nolint:errcheck // rows.Close error is not actionable
-
-		for rows.Next() {
-			var instID, class string
-			var total float64
-			if err := rows.Scan(&instID, &class, &total); err != nil {
-				return nil, fmt.Errorf("scan encounter stats healing: %w", err)
-			}
-			if stats.InstanceHealing[instID] == nil {
-				stats.InstanceHealing[instID] = make(map[string]float32)
-			}
-			stats.InstanceHealing[instID][class] = float32(total)
-		}
+	if err := r.loadInstanceDeaths(ctx, stats, subquery, subArgs); err != nil {
+		return nil, err
 	}
-
-	// Deaths per instance.
-	{
-		q := fmt.Sprintf(
-			`SELECT instance_id, COUNT(*) as death_count
-			FROM combat_events
-			WHERE instance_id IN (%s) AND event_type = 11 AND target LIKE 'player_%%'
-			GROUP BY instance_id`, subquery)
-		rows, err := r.conn.Query(ctx, q, subArgs...)
-		if err != nil {
-			return nil, fmt.Errorf("get encounter stats deaths: %w", err)
-		}
-		defer rows.Close() //nolint:errcheck // rows.Close error is not actionable
-
-		for rows.Next() {
-			var instID string
-			var count uint64
-			if err := rows.Scan(&instID, &count); err != nil {
-				return nil, fmt.Errorf("scan encounter stats deaths: %w", err)
-			}
-			stats.InstanceDeaths[instID] = int(count)
-		}
+	if err := r.loadInstancePhases(ctx, stats, subquery, subArgs); err != nil {
+		return nil, err
 	}
-
-	// Max phase per instance.
-	{
-		q := fmt.Sprintf(
-			`SELECT instance_id, max(phase) as max_phase
-			FROM combat_events
-			WHERE instance_id IN (%s) AND phase != ''
-			GROUP BY instance_id`, subquery)
-		rows, err := r.conn.Query(ctx, q, subArgs...)
-		if err != nil {
-			return nil, fmt.Errorf("get encounter stats phases: %w", err)
-		}
-		defer rows.Close() //nolint:errcheck // rows.Close error is not actionable
-
-		for rows.Next() {
-			var instID, maxPhase string
-			if err := rows.Scan(&instID, &maxPhase); err != nil {
-				return nil, fmt.Errorf("scan encounter stats phases: %w", err)
-			}
-			stats.InstancePhases[instID] = maxPhase
-		}
-	}
-
-	// Boss ability aggregates across all instances.
-	{
-		q := fmt.Sprintf(
-			`SELECT ability_id,
-				SUM(CASE WHEN event_type = 1 THEN amount ELSE 0 END) as total_damage,
-				countIf(event_type = 1) as hits,
-				countIf(event_type = 11) as kills,
-				countIf(event_type = 10) as dodges
-			FROM combat_events
-			WHERE instance_id IN (%s) AND source LIKE 'enemy_%%' AND event_type IN (1, 10, 11)
-			GROUP BY ability_id
-			ORDER BY total_damage DESC`, subquery)
-		rows, err := r.conn.Query(ctx, q, subArgs...)
-		if err != nil {
-			return nil, fmt.Errorf("get encounter stats boss abilities: %w", err)
-		}
-		defer rows.Close() //nolint:errcheck // rows.Close error is not actionable
-
-		for rows.Next() {
-			var ab combatlog.BossAbilityStat
-			var totalDmg float64
-			var hits, kills, dodges uint64
-			if err := rows.Scan(&ab.AbilityID, &totalDmg, &hits, &kills, &dodges); err != nil {
-				return nil, fmt.Errorf("scan encounter stats boss abilities: %w", err)
-			}
-			ab.TotalDamage = float32(totalDmg)
-			ab.Hits = int(hits)
-			ab.Kills = int(kills)
-			ab.Dodges = int(dodges)
-			stats.BossAbilities = append(stats.BossAbilities, ab)
-		}
+	if err := r.loadBossAbilityStats(ctx, stats, subquery, subArgs); err != nil {
+		return nil, err
 	}
 
 	return stats, nil
+}
+
+func (r *Repo) loadInstanceClassStats(ctx context.Context, stats *combatlog.EncounterStats, subquery string, subArgs []any) error {
+	// Per-instance class damage (players -> boss).
+	q := fmt.Sprintf(
+		`SELECT instance_id, source_class, SUM(amount) as total
+		FROM combat_events
+		WHERE instance_id IN (%s) AND event_type = 1 AND source LIKE 'player_%%'
+		GROUP BY instance_id, source_class`, subquery)
+	rows, err := r.conn.Query(ctx, q, subArgs...)
+	if err != nil {
+		return fmt.Errorf("get encounter stats damage: %w", err)
+	}
+	defer rows.Close() //nolint:errcheck // rows.Close error is not actionable
+	for rows.Next() {
+		var instID, class string
+		var total float64
+		if err := rows.Scan(&instID, &class, &total); err != nil {
+			return fmt.Errorf("scan encounter stats damage: %w", err)
+		}
+		if stats.InstanceDamage[instID] == nil {
+			stats.InstanceDamage[instID] = make(map[string]float32)
+		}
+		stats.InstanceDamage[instID][class] = float32(total)
+	}
+
+	// Per-instance class healing.
+	q = fmt.Sprintf(
+		`SELECT instance_id, source_class, SUM(amount) as total
+		FROM combat_events
+		WHERE instance_id IN (%s) AND event_type = 2 AND source LIKE 'player_%%'
+		GROUP BY instance_id, source_class`, subquery)
+	rows2, err := r.conn.Query(ctx, q, subArgs...)
+	if err != nil {
+		return fmt.Errorf("get encounter stats healing: %w", err)
+	}
+	defer rows2.Close() //nolint:errcheck // rows.Close error is not actionable
+	for rows2.Next() {
+		var instID, class string
+		var total float64
+		if err := rows2.Scan(&instID, &class, &total); err != nil {
+			return fmt.Errorf("scan encounter stats healing: %w", err)
+		}
+		if stats.InstanceHealing[instID] == nil {
+			stats.InstanceHealing[instID] = make(map[string]float32)
+		}
+		stats.InstanceHealing[instID][class] = float32(total)
+	}
+	return nil
+}
+
+func (r *Repo) loadInstanceDeaths(ctx context.Context, stats *combatlog.EncounterStats, subquery string, subArgs []any) error {
+	q := fmt.Sprintf(
+		`SELECT instance_id, COUNT(*) as death_count
+		FROM combat_events
+		WHERE instance_id IN (%s) AND event_type = 11 AND target LIKE 'player_%%'
+		GROUP BY instance_id`, subquery)
+	rows, err := r.conn.Query(ctx, q, subArgs...)
+	if err != nil {
+		return fmt.Errorf("get encounter stats deaths: %w", err)
+	}
+	defer rows.Close() //nolint:errcheck // rows.Close error is not actionable
+	for rows.Next() {
+		var instID string
+		var count uint64
+		if err := rows.Scan(&instID, &count); err != nil {
+			return fmt.Errorf("scan encounter stats deaths: %w", err)
+		}
+		stats.InstanceDeaths[instID] = int(count)
+	}
+	return nil
+}
+
+func (r *Repo) loadInstancePhases(ctx context.Context, stats *combatlog.EncounterStats, subquery string, subArgs []any) error {
+	q := fmt.Sprintf(
+		`SELECT instance_id, max(phase) as max_phase
+		FROM combat_events
+		WHERE instance_id IN (%s) AND phase != ''
+		GROUP BY instance_id`, subquery)
+	rows, err := r.conn.Query(ctx, q, subArgs...)
+	if err != nil {
+		return fmt.Errorf("get encounter stats phases: %w", err)
+	}
+	defer rows.Close() //nolint:errcheck // rows.Close error is not actionable
+	for rows.Next() {
+		var instID, maxPhase string
+		if err := rows.Scan(&instID, &maxPhase); err != nil {
+			return fmt.Errorf("scan encounter stats phases: %w", err)
+		}
+		stats.InstancePhases[instID] = maxPhase
+	}
+	return nil
+}
+
+func (r *Repo) loadBossAbilityStats(ctx context.Context, stats *combatlog.EncounterStats, subquery string, subArgs []any) error {
+	q := fmt.Sprintf(
+		`SELECT ability_id,
+			SUM(CASE WHEN event_type = 1 THEN amount ELSE 0 END) as total_damage,
+			countIf(event_type = 1) as hits,
+			countIf(event_type = 11) as kills,
+			countIf(event_type = 10) as dodges
+		FROM combat_events
+		WHERE instance_id IN (%s) AND source LIKE 'enemy_%%' AND event_type IN (1, 10, 11)
+		GROUP BY ability_id
+		ORDER BY total_damage DESC`, subquery)
+	rows, err := r.conn.Query(ctx, q, subArgs...)
+	if err != nil {
+		return fmt.Errorf("get encounter stats boss abilities: %w", err)
+	}
+	defer rows.Close() //nolint:errcheck // rows.Close error is not actionable
+	for rows.Next() {
+		var ab combatlog.BossAbilityStat
+		var totalDmg float64
+		var hits, kills, dodges uint64
+		if err := rows.Scan(&ab.AbilityID, &totalDmg, &hits, &kills, &dodges); err != nil {
+			return fmt.Errorf("scan encounter stats boss abilities: %w", err)
+		}
+		ab.TotalDamage = float32(totalDmg)
+		ab.Hits = int(hits)
+		ab.Kills = int(kills)
+		ab.Dodges = int(dodges)
+		stats.BossAbilities = append(stats.BossAbilities, ab)
+	}
+	return nil
 }
 
 // buildInstanceSubquery returns a SELECT subquery and its args that resolves

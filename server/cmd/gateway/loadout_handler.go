@@ -18,85 +18,13 @@ func (g *gateway) handleLoadoutMessage(sess *session.Session, opcode uint16, pay
 
 	switch opcode {
 	case message.OpSetLoadout:
-		slots, ok := codec.DecodeSetLoadout(payload)
-		if !ok {
-			return
-		}
-		// Validate each slot against the ability catalog.
-		if g.catalog != nil && !g.catalog.ValidateLoadout(slots) {
-			slog.Warn("invalid loadout", "char_id", sess.CharID)
-			return
-		}
-		// Persist.
-		if err := g.container.Repo.UpsertLoadout(sess.CharID, slots); err != nil {
-			slog.Error("persist loadout", "char_id", sess.CharID, "error", err)
-			return
-		}
-		// Forward to zone so ActionMap updates.
-		zi := g.getZone(sess.ZoneID)
-		if zi != nil {
-			zi.zone.QueueInput(sess.PeerID, message.OpSetLoadout, payload)
-		}
-		// Confirm to client.
-		sess.Conn.Send(message.Encode(message.OpLoadoutState, 0, codec.EncodeLoadoutState(slots)))
+		g.handleSetLoadout(sess, payload)
 
 	case message.OpSetFluxCommitment:
-		entries, ok := codec.DecodeFluxCommitment(payload)
-		if !ok {
-			return
-		}
-		// Validate: percentages must sum to 100.
-		var total uint8
-		for _, e := range entries {
-			total += e.Percentage
-		}
-		if total != 100 {
-			slog.Warn("invalid flux commitment: total != 100", "char_id", sess.CharID, "total", total)
-			return
-		}
-		// Persist.
-		repoEntries := make([]persistence.FluxCommitmentEntry, len(entries))
-		for i, e := range entries {
-			repoEntries[i] = persistence.FluxCommitmentEntry{School: e.School, Percentage: e.Percentage}
-		}
-		if err := g.container.Repo.UpsertFluxCommitment(sess.CharID, repoEntries); err != nil {
-			slog.Error("persist flux commitment", "char_id", sess.CharID, "error", err)
-			return
-		}
-		// Forward to zone so FluxCommitment updates on the player entity.
-		zi := g.getZone(sess.ZoneID)
-		if zi != nil {
-			zi.zone.QueueInput(sess.PeerID, message.OpSetFluxCommitment, payload)
-		}
-		// Confirm to client.
-		sess.Conn.Send(message.Encode(message.OpFluxCommitState, 0, codec.EncodeFluxCommitState(entries)))
+		g.handleSetFluxCommitment(sess, payload)
 
 	case message.OpSavePreset:
-		name, slots, commitment, ok := codec.DecodeSavePreset(payload)
-		if !ok {
-			return
-		}
-		// Validate name.
-		if len(name) == 0 || len(name) > 30 {
-			slog.Warn("invalid preset name", "char_id", sess.CharID)
-			return
-		}
-		// Validate slots against catalog.
-		if g.catalog != nil && !g.catalog.ValidateLoadout(slots) {
-			slog.Warn("invalid preset loadout", "char_id", sess.CharID)
-			return
-		}
-		// Validate commitment: parse CSV, check sum.
-		if commitment != "" && !validateCommitmentCSV(commitment) {
-			slog.Warn("invalid preset commitment", "char_id", sess.CharID)
-			return
-		}
-		// Persist.
-		if err := g.container.Repo.SaveLoadoutPreset(sess.CharID, name, slots, commitment); err != nil {
-			slog.Error("save preset", "char_id", sess.CharID, "error", err)
-			return
-		}
-		g.sendPresetList(sess)
+		g.handleSavePreset(sess, payload)
 
 	case message.OpDeletePreset:
 		presetID, ok := codec.DecodeDeletePreset(payload)
@@ -112,6 +40,93 @@ func (g *gateway) handleLoadoutMessage(sess *session.Session, opcode uint16, pay
 	default:
 		slog.Warn("unknown loadout opcode", "opcode", opcode)
 	}
+}
+
+// handleSetLoadout validates, persists, and applies a new ability loadout.
+func (g *gateway) handleSetLoadout(sess *session.Session, payload []byte) {
+	slots, ok := codec.DecodeSetLoadout(payload)
+	if !ok {
+		return
+	}
+	// Validate each slot against the ability catalog.
+	if g.catalog != nil && !g.catalog.ValidateLoadout(slots) {
+		slog.Warn("invalid loadout", "char_id", sess.CharID)
+		return
+	}
+	// Persist.
+	if err := g.container.Repo.UpsertLoadout(sess.CharID, slots); err != nil {
+		slog.Error("persist loadout", "char_id", sess.CharID, "error", err)
+		return
+	}
+	// Forward to zone so ActionMap updates.
+	zi := g.getZone(sess.ZoneID)
+	if zi != nil {
+		zi.zone.QueueInput(sess.PeerID, message.OpSetLoadout, payload)
+	}
+	// Confirm to client.
+	sess.Conn.Send(message.Encode(message.OpLoadoutState, 0, codec.EncodeLoadoutState(slots)))
+}
+
+// handleSetFluxCommitment validates, persists, and applies a flux commitment update.
+func (g *gateway) handleSetFluxCommitment(sess *session.Session, payload []byte) {
+	entries, ok := codec.DecodeFluxCommitment(payload)
+	if !ok {
+		return
+	}
+	// Validate: percentages must sum to 100.
+	var total uint8
+	for _, e := range entries {
+		total += e.Percentage
+	}
+	if total != 100 {
+		slog.Warn("invalid flux commitment: total != 100", "char_id", sess.CharID, "total", total)
+		return
+	}
+	// Persist.
+	repoEntries := make([]persistence.FluxCommitmentEntry, len(entries))
+	for i, e := range entries {
+		repoEntries[i] = persistence.FluxCommitmentEntry{School: e.School, Percentage: e.Percentage}
+	}
+	if err := g.container.Repo.UpsertFluxCommitment(sess.CharID, repoEntries); err != nil {
+		slog.Error("persist flux commitment", "char_id", sess.CharID, "error", err)
+		return
+	}
+	// Forward to zone so FluxCommitment updates on the player entity.
+	zi := g.getZone(sess.ZoneID)
+	if zi != nil {
+		zi.zone.QueueInput(sess.PeerID, message.OpSetFluxCommitment, payload)
+	}
+	// Confirm to client.
+	sess.Conn.Send(message.Encode(message.OpFluxCommitState, 0, codec.EncodeFluxCommitState(entries)))
+}
+
+// handleSavePreset validates and persists an ability loadout preset.
+func (g *gateway) handleSavePreset(sess *session.Session, payload []byte) {
+	name, slots, commitment, ok := codec.DecodeSavePreset(payload)
+	if !ok {
+		return
+	}
+	// Validate name.
+	if len(name) == 0 || len(name) > 30 {
+		slog.Warn("invalid preset name", "char_id", sess.CharID)
+		return
+	}
+	// Validate slots against catalog.
+	if g.catalog != nil && !g.catalog.ValidateLoadout(slots) {
+		slog.Warn("invalid preset loadout", "char_id", sess.CharID)
+		return
+	}
+	// Validate commitment: parse CSV, check sum.
+	if commitment != "" && !validateCommitmentCSV(commitment) {
+		slog.Warn("invalid preset commitment", "char_id", sess.CharID)
+		return
+	}
+	// Persist.
+	if err := g.container.Repo.SaveLoadoutPreset(sess.CharID, name, slots, commitment); err != nil {
+		slog.Error("save preset", "char_id", sess.CharID, "error", err)
+		return
+	}
+	g.sendPresetList(sess)
 }
 
 func (g *gateway) sendPresetList(sess *session.Session) {

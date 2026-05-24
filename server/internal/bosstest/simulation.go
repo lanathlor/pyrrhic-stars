@@ -63,35 +63,47 @@ type SimResult struct {
 	CompName      string                    // composition name (set by runner)
 }
 
-// RunSimulation executes a single boss fight simulation using the real game server pipeline.
-func RunSimulation(cfg SimConfig) SimResult {
-	def := enemyai.DefRegistry[cfg.Boss]
-	if def == nil {
-		panic(fmt.Sprintf("RunSimulation: boss %q not in DefRegistry", cfg.Boss))
-	}
+// simState holds the fully initialised state handed off from setupSimulation to
+// the RunSimulation tick loop.
+type simState struct {
+	def           *enemyai.EnemyDef
+	enemy         *entity.Enemy
+	puppets       []*PlayerPuppet
+	specPlayers   map[string]int
+	world         system.World
+	session       *combatlog.EncounterSession
+	pipeline      []system.System
+	instrumented  *InstrumentedTree
+	phasesReached map[int]bool
+	specDmg       map[string]float32
+	specHealing   map[string]float32
+	abilStats     map[string]*AbilityResult
+}
 
-	maxTicks := cfg.MaxTicks
-	if maxTicks == 0 {
-		maxTicks = defaultMaxTicks
-	}
+// enemySetup holds the initialised enemy, engine, brain, level, and
+// instrumented tree before players are added.
+type enemySetup struct {
+	def          *enemyai.EnemyDef
+	enemy        *entity.Enemy
+	engine       *ability.Engine
+	brain        enemyai.BrainTicker
+	lvl          *level.Level
+	instrumented *InstrumentedTree
+}
 
-	rng := rand.New(rand.NewPCG(cfg.Seed, cfg.Seed+42))
-
-	// Load real arena level (obstacles, bounds, etc.)
+// initEnemy creates the enemy entity, ability engine, and instrumented brain.
+func initEnemy(def *enemyai.EnemyDef, seed uint64) enemySetup {
 	lvl := level.NewArenaLevel()
 
-	// Create enemy
 	enemy := entity.NewEnemy(1, def.MaxHealth, def.Name)
 	enemy.Alive = true
 	enemy.IsBoss = true
 	enemy.LeashRadius = 100
 	enemy.AggroRadius = 50
 
-	// Create ability engine
 	engine := ability.NewEngine(nil)
 
-	// Create brain and instrument tree for health tracking
-	brain := enemyai.NewBrainSeeded(def, enemy, engine, cfg.Seed)
+	brain := enemyai.NewBrainSeeded(def, enemy, engine, seed)
 	brain.BoundsMinX = lvl.EnemyBoundsMinX
 	brain.BoundsMaxX = lvl.EnemyBoundsMaxX
 	brain.BoundsMinZ = lvl.EnemyBoundsMinZ
@@ -100,7 +112,19 @@ func RunSimulation(cfg SimConfig) SimResult {
 	instrumented := InstrumentTree(brain.Tree())
 	brain.SetTree(instrumented.Root)
 
-	// Create puppets and register as players
+	return enemySetup{
+		def:          def,
+		enemy:        enemy,
+		engine:       engine,
+		brain:        brain,
+		lvl:          lvl,
+		instrumented: instrumented,
+	}
+}
+
+// initPuppets creates the puppet players and returns them along with the
+// player map and per-spec player counts.
+func initPuppets(cfg SimConfig) ([]*PlayerPuppet, map[uint16]*entity.Player, map[string]int) {
 	puppets := make([]*PlayerPuppet, len(cfg.Party))
 	playerMap := make(map[uint16]*entity.Player, len(cfg.Party))
 	for i, pc := range cfg.Party {
@@ -122,21 +146,66 @@ func RunSimulation(cfg SimConfig) SimResult {
 		puppets[i] = pp
 		playerMap[pp.Player.ID] = pp.Player
 	}
-
-	// Count players per spec for reporting.
 	specPlayers := make(map[string]int)
 	for _, pp := range puppets {
 		specPlayers[pp.Player.SpecID]++
 	}
+	return puppets, playerMap, specPlayers
+}
+
+// setupSimulation initialises every object needed by the tick loop.
+func setupSimulation(cfg SimConfig) simState {
+	def := enemyai.DefRegistry[cfg.Boss]
+	if def == nil {
+		panic(fmt.Sprintf("RunSimulation: boss %q not in DefRegistry", cfg.Boss))
+	}
+
+	rng := rand.New(rand.NewPCG(cfg.Seed, cfg.Seed+42))
+
+	es := initEnemy(def, cfg.Seed)
+	puppets, playerMap, specPlayers := initPuppets(cfg)
 
 	// Compute group-size scaling (HP: 1x→4x, Damage: 1x→2x over 1→5 players)
 	groupSize := len(cfg.Party)
 	hpMult := float32(1.0 + 0.75*float64(groupSize-1))
 	dmgMult := float32(1.0 + 0.25*float64(groupSize-1))
-	enemy.MaxHealth *= hpMult
-	enemy.Health = enemy.MaxHealth
+	es.enemy.MaxHealth *= hpMult
+	es.enemy.Health = es.enemy.MaxHealth
 
-	// Build system.World — the same state container the real server uses
+	w := buildWorld(cfg, es, playerMap, dmgMult, rng)
+
+	// Force boss into chase immediately (skip patrol→aggro)
+	es.enemy.State = entity.EnemyChase
+	es.enemy.TargetPlayerID = 1
+
+	sess := buildCombatSession(cfg, &w, puppets, es.enemy, def)
+
+	// System pipeline: same as real arena minus GameFlowSystem and NetworkSystem
+	pipeline := []system.System{
+		&system.InputSystem{},
+		&system.AISystem{},
+		&system.CombatSystem{},
+		&system.PhysicsSystem{},
+	}
+
+	return simState{
+		def:           def,
+		enemy:         es.enemy,
+		puppets:       puppets,
+		specPlayers:   specPlayers,
+		world:         w,
+		session:       sess,
+		pipeline:      pipeline,
+		instrumented:  es.instrumented,
+		phasesReached: map[int]bool{1: true},
+		specDmg:       make(map[string]float32),
+		specHealing:   make(map[string]float32),
+		abilStats:     make(map[string]*AbilityResult),
+	}
+}
+
+// buildWorld constructs the system.World used by the simulation.
+func buildWorld(cfg SimConfig, es enemySetup, playerMap map[uint16]*entity.Player, dmgMult float32, rng *rand.Rand) system.World {
 	w := system.World{
 		ZoneID:          fmt.Sprintf("%s_%d", cfg.GroupID, cfg.Seed),
 		ZoneType:        1, // instanced
@@ -144,10 +213,10 @@ func RunSimulation(cfg SimConfig) SimResult {
 		State:           system.StateFight,
 		EnemyDamageMult: dmgMult,
 		Players:         playerMap,
-		Enemies:         []*entity.Enemy{enemy},
-		Brains:          []enemyai.BrainTicker{brain},
-		Level:           lvl,
-		AbilityEngine:   engine,
+		Enemies:         []*entity.Enemy{es.enemy},
+		Brains:          []enemyai.BrainTicker{es.brain},
+		Level:           es.lvl,
+		AbilityEngine:   es.engine,
 		PatternEngine:   combat.NewPatternEngine(),
 		PatternRng:      rng,
 		AbilityRunners:  make(map[uint16]*ability.PlayerAbilityRunner),
@@ -161,19 +230,19 @@ func RunSimulation(cfg SimConfig) SimResult {
 	if w.CombatLogSink == nil {
 		w.CombatLogSink = combatlog.NullSink{}
 	}
+	return w
+}
 
-	// Force boss into chase immediately (skip patrol→aggro)
-	enemy.State = entity.EnemyChase
-	enemy.TargetPlayerID = 1
-
-	// Set up combat log session
+// buildCombatSession creates the encounter session, registers all participants,
+// and pre-populates w.CombatLogs so the AISystem doesn't create a duplicate.
+func buildCombatSession(cfg SimConfig, w *system.World, puppets []*PlayerPuppet, enemy *entity.Enemy, def *enemyai.EnemyDef) *combatlog.EncounterSession {
 	instanceID := fmt.Sprintf("%s_%d", cfg.GroupID, cfg.Seed)
-	session := combatlog.NewSession(
+	sess := combatlog.NewSession(
 		w.CombatLogSink, instanceID, cfg.GroupID, cfg.Boss,
 		"sim", cfg.RunID, 0, combatlog.SourceSimulation, 0,
 	)
 	for _, pp := range puppets {
-		session.AddParticipant(combatlog.ParticipantLog{
+		sess.AddParticipant(combatlog.ParticipantLog{
 			EntityID:   combatlog.FormatPlayerID(pp.Player.ID),
 			Name:       fmt.Sprintf("%s_%s_%s", pp.Profile, pp.Player.ClassID, pp.Player.SpecID),
 			Class:      pp.Player.ClassID,
@@ -181,142 +250,26 @@ func RunSimulation(cfg SimConfig) SimResult {
 			BotProfile: string(pp.Profile),
 		})
 	}
-	session.AddParticipant(combatlog.ParticipantLog{
+	sess.AddParticipant(combatlog.ParticipantLog{
 		EntityID: combatlog.FormatEnemyID(enemy.ID),
 		Name:     def.Name,
 		Class:    "enemy",
 	})
 	// Pre-populate combat logs so AISystem doesn't create a duplicate
-	w.CombatLogs = map[int]*combatlog.EncounterSession{-1: session}
+	w.CombatLogs = map[int]*combatlog.EncounterSession{-1: sess}
+	return sess
+}
 
-	// System pipeline: same as real arena minus GameFlowSystem and NetworkSystem
-	pipeline := []system.System{
-		&system.InputSystem{},
-		&system.AISystem{},
-		&system.CombatSystem{},
-		&system.PhysicsSystem{},
+// RunSimulation executes a single boss fight simulation using the real game server pipeline.
+func RunSimulation(cfg SimConfig) SimResult {
+	maxTicks := cfg.MaxTicks
+	if maxTicks == 0 {
+		maxTicks = defaultMaxTicks
 	}
 
-	// Track phases reached
-	phasesReached := map[int]bool{1: true}
-	specDmg := make(map[string]float32)
-	specHealing := make(map[string]float32)
-	abilStats := make(map[string]*AbilityResult)
-	var replayBuf []byte
+	st := setupSimulation(cfg)
 
-	// Simulation loop
-	var outcome combatlog.Outcome
-	tick := 0
-	for ; tick < maxTicks; tick++ {
-		w.TickNum = uint32(tick + 1)
-		w.DamageEvents = w.DamageEvents[:0]
-		w.GameFlowEvents = w.GameFlowEvents[:0]
-
-		bossHP := enemy.Health / enemy.MaxHealth
-		currentPhase := enemy.Phase
-
-		// Phase tracking
-		if !phasesReached[currentPhase] {
-			phasesReached[currentPhase] = true
-			session.CheckPhaseChange(w.TickNum, 0, currentPhase, bossHP)
-		}
-
-		// Resolve active ability for puppet context
-		var activeAbil *ability.AbilityDef
-		if abil := def.AbilityByIndex(enemy.ActiveAbility); abil != nil {
-			resolved := def.ResolveAbility(abil, enemy.Phase)
-			activeAbil = &resolved
-		}
-
-		// --- Puppet BT ticks: generate input messages ---
-		for _, pp := range puppets {
-			if !pp.Player.Alive {
-				continue
-			}
-			ctx := &PuppetContext{
-				Puppet:     pp,
-				World:      &w,
-				Boss:       enemy,
-				BossDef:    def,
-				ActiveAbil: activeAbil,
-				AllPuppets: puppets,
-				Dt:         defaultDt,
-			}
-			pp.Tick(ctx)
-		}
-
-		// --- Run real system pipeline ---
-		bossHPBefore := enemy.Health
-		for _, sys := range pipeline {
-			sys.Tick(&w, defaultDt)
-		}
-
-		// --- Track player damage to boss ---
-		bossHPDelta := bossHPBefore - enemy.Health
-		if bossHPDelta > 0 {
-			// Attribute damage via DamageEvents (player→enemy)
-			for _, ev := range w.DamageEvents {
-				if ev.SourcePeerID != 0 && ev.SourceType == combat.SourcePlayerAttack {
-					if p, ok := w.Players[ev.SourcePeerID]; ok {
-						specDmg[p.SpecID] += ev.Amount
-					}
-				}
-			}
-		}
-
-		// --- Track healing done ---
-		for _, ev := range w.DamageEvents {
-			if ev.SourceType == combat.SourcePlayerHeal && ev.Amount > 0 {
-				if p, ok := w.Players[ev.SourcePeerID]; ok {
-					specHealing[p.SpecID] += ev.Amount
-				}
-			}
-		}
-
-		// --- Track boss ability stats (enemy→player damage) ---
-		abilName := ""
-		if abil := def.AbilityByIndex(enemy.ActiveAbility); abil != nil {
-			abilName = abil.Name
-		}
-		for _, ev := range w.DamageEvents {
-			if ev.SourcePeerID == 0 && ev.TargetPeerID != 0 {
-				if abilName != "" {
-					ar := trackAbility(abilStats, abilName)
-					ar.Hits++
-					ar.TotalDamage += ev.Amount
-				}
-				if p, ok := w.Players[ev.TargetPeerID]; ok && !p.Alive {
-					if abilName != "" {
-						trackAbility(abilStats, abilName).Kills++
-					}
-				}
-			}
-		}
-
-		// Record replay frame
-		replayBuf = replayBuf[:0]
-		replayBuf = codec.AppendEncodeWorldState(replayBuf, w.TickNum, w.Players, w.Enemies, w.Projectiles, nil)
-		session.Recorder.AppendFrame(replayBuf)
-
-		// Check termination
-		if enemy.Health <= 0 || !enemy.Alive {
-			enemy.Health = 0
-			enemy.Alive = false
-			outcome = combatlog.OutcomePlayerWin
-			break
-		}
-		allDead := true
-		for _, p := range w.Players {
-			if p.Alive {
-				allDead = false
-				break
-			}
-		}
-		if allDead {
-			outcome = combatlog.OutcomeBossWin
-			break
-		}
-	}
+	outcome, tick := runTickLoop(&st, maxTicks)
 
 	if outcome == "" {
 		outcome = combatlog.OutcomeTimeout
@@ -324,26 +277,160 @@ func RunSimulation(cfg SimConfig) SimResult {
 
 	// Only finalize if CombatSystem didn't already (player_win is finalized
 	// by checkEnemyGroupDead inside CombatSystem.Tick).
-	if w.CombatLogs[-1] != nil {
-		session.Finalize(outcome, uint32(tick))
-	}
-
-	// Build phases list
-	phases := make([]int, 0, len(phasesReached))
-	for p := range phasesReached {
-		phases = append(phases, p)
+	if st.world.CombatLogs[-1] != nil {
+		st.session.Finalize(outcome, uint32(tick))
 	}
 
 	return SimResult{
 		Outcome:       outcome,
 		Duration:      time.Duration(tick) * 50 * time.Millisecond,
 		TotalTicks:    tick,
-		PhasesReached: phases,
-		TreeReport:    instrumented.Report(),
-		SpecDamage:    specDmg,
-		SpecHealing:   specHealing,
-		SpecPlayers:   specPlayers,
-		AbilityStats:  abilStats,
+		PhasesReached: collectPhases(st.phasesReached),
+		TreeReport:    st.instrumented.Report(),
+		SpecDamage:    st.specDmg,
+		SpecHealing:   st.specHealing,
+		SpecPlayers:   st.specPlayers,
+		AbilityStats:  st.abilStats,
+	}
+}
+
+// runTickLoop advances the simulation one tick at a time until maxTicks,
+// boss death, or party wipe. Returns the outcome and final tick count.
+func runTickLoop(st *simState, maxTicks int) (combatlog.Outcome, int) {
+	var replayBuf []byte
+	var outcome combatlog.Outcome
+	tick := 0
+	for ; tick < maxTicks; tick++ {
+		st.world.TickNum = uint32(tick + 1)
+		st.world.DamageEvents = st.world.DamageEvents[:0]
+		st.world.GameFlowEvents = st.world.GameFlowEvents[:0]
+
+		bossHP := st.enemy.Health / st.enemy.MaxHealth
+		currentPhase := st.enemy.Phase
+		if !st.phasesReached[currentPhase] {
+			st.phasesReached[currentPhase] = true
+			st.session.CheckPhaseChange(st.world.TickNum, 0, currentPhase, bossHP)
+		}
+
+		var activeAbil *ability.AbilityDef
+		if abil := st.def.AbilityByIndex(st.enemy.ActiveAbility); abil != nil {
+			resolved := st.def.ResolveAbility(abil, st.enemy.Phase)
+			activeAbil = &resolved
+		}
+
+		tickPuppets(st.puppets, &st.world, st.enemy, st.def, activeAbil)
+
+		bossHPBefore := st.enemy.Health
+		for _, sys := range st.pipeline {
+			sys.Tick(&st.world, defaultDt)
+		}
+
+		collectTickStats(&st.world, st.enemy, st.def, bossHPBefore, st.specDmg, st.specHealing, st.abilStats)
+
+		replayBuf = replayBuf[:0]
+		replayBuf = codec.AppendEncodeWorldState(replayBuf, st.world.TickNum, st.world.Players, st.world.Enemies, st.world.Projectiles, nil)
+		st.session.Recorder.AppendFrame(replayBuf)
+
+		if terminated, o := checkTermination(st.enemy, st.world.Players); terminated {
+			outcome = o
+			break
+		}
+	}
+	return outcome, tick
+}
+
+// checkTermination tests whether the fight has ended. It returns true along
+// with the outcome when either the boss or all players are dead.
+func checkTermination(enemy *entity.Enemy, players map[uint16]*entity.Player) (bool, combatlog.Outcome) {
+	if enemy.Health <= 0 || !enemy.Alive {
+		enemy.Health = 0
+		enemy.Alive = false
+		return true, combatlog.OutcomePlayerWin
+	}
+	for _, p := range players {
+		if p.Alive {
+			return false, ""
+		}
+	}
+	return true, combatlog.OutcomeBossWin
+}
+
+// collectPhases converts the phases-reached bool map to a sorted int slice.
+func collectPhases(phasesReached map[int]bool) []int {
+	phases := make([]int, 0, len(phasesReached))
+	for p := range phasesReached {
+		phases = append(phases, p)
+	}
+	return phases
+}
+
+// tickPuppets runs one BT tick for each alive puppet, generating their input
+// messages for the current tick.
+func tickPuppets(puppets []*PlayerPuppet, w *system.World, enemy *entity.Enemy, def *enemyai.EnemyDef, activeAbil *ability.AbilityDef) {
+	for _, pp := range puppets {
+		if !pp.Player.Alive {
+			continue
+		}
+		ctx := &PuppetContext{
+			Puppet:     pp,
+			World:      w,
+			Boss:       enemy,
+			BossDef:    def,
+			ActiveAbil: activeAbil,
+			AllPuppets: puppets,
+			Dt:         defaultDt,
+		}
+		pp.Tick(ctx)
+	}
+}
+
+// collectTickStats attributes damage events from the current tick to the
+// per-spec damage map, per-spec healing map, and per-ability stats map.
+func collectTickStats(
+	w *system.World,
+	enemy *entity.Enemy,
+	def *enemyai.EnemyDef,
+	bossHPBefore float32,
+	specDmg map[string]float32,
+	specHealing map[string]float32,
+	abilStats map[string]*AbilityResult,
+) {
+	// Track player damage to boss.
+	if bossHPBefore > enemy.Health {
+		for _, ev := range w.DamageEvents {
+			if ev.SourcePeerID != 0 && ev.SourceType == combat.SourcePlayerAttack {
+				if p, ok := w.Players[ev.SourcePeerID]; ok {
+					specDmg[p.SpecID] += ev.Amount
+				}
+			}
+		}
+	}
+
+	// Track healing done.
+	for _, ev := range w.DamageEvents {
+		if ev.SourceType == combat.SourcePlayerHeal && ev.Amount > 0 {
+			if p, ok := w.Players[ev.SourcePeerID]; ok {
+				specHealing[p.SpecID] += ev.Amount
+			}
+		}
+	}
+
+	// Track boss ability stats (enemy→player damage).
+	abilName := ""
+	if abil := def.AbilityByIndex(enemy.ActiveAbility); abil != nil {
+		abilName = abil.Name
+	}
+	for _, ev := range w.DamageEvents {
+		if ev.SourcePeerID == 0 && ev.TargetPeerID != 0 {
+			if abilName != "" {
+				ar := trackAbility(abilStats, abilName)
+				ar.Hits++
+				ar.TotalDamage += ev.Amount
+			}
+			if p, ok := w.Players[ev.TargetPeerID]; ok && !p.Alive && abilName != "" {
+				trackAbility(abilStats, abilName).Kills++
+			}
+		}
 	}
 }
 

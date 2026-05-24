@@ -126,30 +126,7 @@ func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
 	}
 
 	if zoneType == ZoneTypeInstanced {
-		for i, sp := range l.EnemySpawns {
-			def := enemyai.DefRegistry[sp.DefName]
-			if def == nil {
-				slog.Warn("unknown enemy def", "def_name", sp.DefName)
-				continue
-			}
-			enemy := entity.NewEnemy(uint16(1000+i), def.MaxHealth, sp.DefName)
-			enemy.Alive = false // dormant until fight starts
-			enemy.IsBoss = sp.IsBoss
-			enemy.PatrolA = sp.PatrolA
-			enemy.PatrolB = sp.PatrolB
-			enemy.AggroRadius = sp.AggroRadius
-			enemy.LeashOrigin = sp.Position
-			enemy.LeashRadius = sp.LeashRadius
-			enemy.GroupID = sp.GroupID
-			brain := enemyai.NewBrain(def, enemy, z.world.AbilityEngine)
-			brain.BoundsMinX = l.EnemyBoundsMinX
-			brain.BoundsMaxX = l.EnemyBoundsMaxX
-			brain.BoundsMinZ = l.EnemyBoundsMinZ
-			brain.BoundsMaxZ = l.EnemyBoundsMaxZ
-			z.world.Enemies = append(z.world.Enemies, enemy)
-			z.world.Brains = append(z.world.Brains, brain)
-		}
-		// Activate all enemies immediately — they patrol from the start
+		spawnInstanceEnemies(z, l)
 		system.InitInstance(&z.world)
 	}
 
@@ -161,34 +138,60 @@ func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
 		}
 	}
 
-	// Build system pipeline based on zone type.
-	// BotSystem runs first: it intercepts spawn/dismiss opcodes and generates
-	// bot movement/ability inputs before InputSystem processes them.
+	z.systems = buildSystemPipeline(zoneType, z.botMgr)
+
+	return z
+}
+
+func buildSystemPipeline(zoneType ZoneType, botMgr *bot.Manager) []system.System {
 	var botSys system.System = &system.NoOpSystem{}
-	if z.botMgr != nil {
-		botSys = &bot.System{Manager: z.botMgr}
+	if botMgr != nil {
+		botSys = &bot.System{Manager: botMgr}
 	}
 	if zoneType == ZoneTypeOpenWorld {
-		z.systems = []system.System{
+		return []system.System{
 			botSys,
 			&system.CombatSystem{},
 			&system.InputSystem{},
 			&system.NPCSystem{},
 			&system.NetworkSystem{},
 		}
-	} else {
-		z.systems = []system.System{
-			botSys,
-			&system.CombatSystem{},
-			&system.InputSystem{},
-			&system.GameFlowSystem{},
-			&system.AISystem{},
-			&system.PhysicsSystem{},
-			&system.NetworkSystem{},
-		}
 	}
+	return []system.System{
+		botSys,
+		&system.CombatSystem{},
+		&system.InputSystem{},
+		&system.GameFlowSystem{},
+		&system.AISystem{},
+		&system.PhysicsSystem{},
+		&system.NetworkSystem{},
+	}
+}
 
-	return z
+func spawnInstanceEnemies(z *Zone, l *level.Level) {
+	for i, sp := range l.EnemySpawns {
+		def := enemyai.DefRegistry[sp.DefName]
+		if def == nil {
+			slog.Warn("unknown enemy def", "def_name", sp.DefName)
+			continue
+		}
+		enemy := entity.NewEnemy(uint16(1000+i), def.MaxHealth, sp.DefName)
+		enemy.Alive = false
+		enemy.IsBoss = sp.IsBoss
+		enemy.PatrolA = sp.PatrolA
+		enemy.PatrolB = sp.PatrolB
+		enemy.AggroRadius = sp.AggroRadius
+		enemy.LeashOrigin = sp.Position
+		enemy.LeashRadius = sp.LeashRadius
+		enemy.GroupID = sp.GroupID
+		brain := enemyai.NewBrain(def, enemy, z.world.AbilityEngine)
+		brain.BoundsMinX = l.EnemyBoundsMinX
+		brain.BoundsMaxX = l.EnemyBoundsMaxX
+		brain.BoundsMinZ = l.EnemyBoundsMinZ
+		brain.BoundsMaxZ = l.EnemyBoundsMaxZ
+		z.world.Enemies = append(z.world.Enemies, enemy)
+		z.world.Brains = append(z.world.Brains, brain)
+	}
 }
 
 // SetGroupSize configures instance scaling based on the number of players.

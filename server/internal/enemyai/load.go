@@ -261,6 +261,26 @@ func convertAbility(af abilityFile) (ability.AbilityDef, error) {
 		DamageSource:     af.DamageSource,
 	}
 
+	if err := applyAbilityCategory(&ad, af); err != nil {
+		return ability.AbilityDef{}, err
+	}
+
+	if err := applyTargetStrategy(&ad, af.Target); err != nil {
+		return ability.AbilityDef{}, err
+	}
+
+	if af.Pattern != nil {
+		p, err := convertPattern(af.Pattern)
+		if err != nil {
+			return ability.AbilityDef{}, fmt.Errorf("pattern: %w", err)
+		}
+		ad.Pattern = p
+	}
+
+	return ad, nil
+}
+
+func applyAbilityCategory(ad *ability.AbilityDef, af abilityFile) error {
 	switch af.Type {
 	case "melee":
 		ad.Category = ability.CategoryMelee
@@ -298,10 +318,13 @@ func convertAbility(af abilityFile) (ability.AbilityDef, error) {
 			StopOnObstacle: af.ChargeStopOnObstacle,
 		}
 	default:
-		return ability.AbilityDef{}, fmt.Errorf("unknown ability type %q", af.Type)
+		return fmt.Errorf("unknown ability type %q", af.Type)
 	}
+	return nil
+}
 
-	switch af.Target {
+func applyTargetStrategy(ad *ability.AbilityDef, target string) error {
+	switch target {
 	case "nearest", "":
 		ad.TargetStrategy = ability.TargetNearest
 	case "farthest":
@@ -309,18 +332,9 @@ func convertAbility(af abilityFile) (ability.AbilityDef, error) {
 	case "current":
 		ad.TargetStrategy = ability.TargetCurrent
 	default:
-		return ability.AbilityDef{}, fmt.Errorf("unknown target strategy %q", af.Target)
+		return fmt.Errorf("unknown target strategy %q", target)
 	}
-
-	if af.Pattern != nil {
-		p, err := convertPattern(af.Pattern)
-		if err != nil {
-			return ability.AbilityDef{}, fmt.Errorf("pattern: %w", err)
-		}
-		ad.Pattern = p
-	}
-
-	return ad, nil
+	return nil
 }
 
 func convertPattern(pf *patternFile) (*combat.PatternDef, error) {

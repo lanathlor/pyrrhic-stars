@@ -103,143 +103,165 @@ func (r *FuzzReport) PrintReport(t *testing.T) {
 	t.Helper()
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("\n%s\n", strings.Repeat("━", 64)))
-	sb.WriteString(fmt.Sprintf("  FUZZ REPORT: %s\n", r.Boss))
-	sb.WriteString(fmt.Sprintf("  %d runs | %d wins | %d losses | %d timeouts\n",
-		r.Runs, r.Wins, r.Losses, r.Timeouts))
-	sb.WriteString(fmt.Sprintf("  duration: avg %s | min %s | max %s\n",
-		fmtDuration(r.DurationAvg), fmtDuration(r.DurationMin), fmtDuration(r.DurationMax)))
-	sb.WriteString(fmt.Sprintf("%s\n\n", strings.Repeat("━", 64)))
+	fmt.Fprintf(&sb, "\n%s\n", strings.Repeat("━", 64))
+	fmt.Fprintf(&sb, "  FUZZ REPORT: %s\n", r.Boss)
+	fmt.Fprintf(&sb, "  %d runs | %d wins | %d losses | %d timeouts\n",
+		r.Runs, r.Wins, r.Losses, r.Timeouts)
+	fmt.Fprintf(&sb, "  duration: avg %s | min %s | max %s\n",
+		fmtDuration(r.DurationAvg), fmtDuration(r.DurationMin), fmtDuration(r.DurationMax))
+	fmt.Fprintf(&sb, "%s\n\n", strings.Repeat("━", 64))
 
-	// Per-composition breakdown
-	if len(r.CompBreakdown) > 1 {
-		sb.WriteString(fmt.Sprintf("  %-20s %6s %6s %6s %8s   %s\n",
-			"Composition", "Runs", "Win%", "Loss%", "T/O%", "Avg Dur"))
-		sb.WriteString(fmt.Sprintf("  %s\n", strings.Repeat("─", 58)))
-		for _, cs := range r.CompBreakdown {
-			winPct := 100.0 * float64(cs.Wins) / float64(cs.Runs)
-			lossPct := 100.0 * float64(cs.Losses) / float64(cs.Runs)
-			toPct := 100.0 * float64(cs.Timeouts) / float64(cs.Runs)
-			sb.WriteString(fmt.Sprintf("    %-18s %6d %5.1f%% %5.1f%% %7.1f%%   %s\n",
-				cs.Name, cs.Runs, winPct, lossPct, toPct, fmtDuration(cs.AvgDur)))
+	r.printCompBreakdownSection(&sb)
+	r.printMetricsSection(&sb)
+	r.printSpecBalanceSection(&sb)
+	r.printAbilityStatsSection(&sb)
+	r.printCompDetailsSection(&sb)
+	r.printTreeHealthSection(&sb)
+
+	fmt.Fprintf(&sb, "\n%s\n", strings.Repeat("━", 64))
+	t.Log(sb.String())
+}
+
+func (r *FuzzReport) printCompBreakdownSection(sb *strings.Builder) {
+	if len(r.CompBreakdown) <= 1 {
+		return
+	}
+	fmt.Fprintf(sb, "  %-20s %6s %6s %6s %8s   %s\n",
+		"Composition", "Runs", "Win%", "Loss%", "T/O%", "Avg Dur")
+	fmt.Fprintf(sb, "  %s\n", strings.Repeat("─", 58))
+	for _, cs := range r.CompBreakdown {
+		winPct := 100.0 * float64(cs.Wins) / float64(cs.Runs)
+		lossPct := 100.0 * float64(cs.Losses) / float64(cs.Runs)
+		toPct := 100.0 * float64(cs.Timeouts) / float64(cs.Runs)
+		fmt.Fprintf(sb, "    %-18s %6d %5.1f%% %5.1f%% %7.1f%%   %s\n",
+			cs.Name, cs.Runs, winPct, lossPct, toPct, fmtDuration(cs.AvgDur))
+	}
+	sb.WriteString("\n")
+}
+
+func (r *FuzzReport) printMetricsSection(sb *strings.Builder) {
+	fmt.Fprintf(sb, "  %-20s %-14s %-14s %s\n", "Metric", "Result", "Spec", "")
+	fmt.Fprintf(sb, "  %s\n", strings.Repeat("─", 58))
+	for _, l := range r.Lines {
+		fmt.Fprintf(sb, "  %-20s %-14s %-14s [%s]\n", l.label, l.result, l.spec, statusIcon(l.pass))
+	}
+}
+
+func (r *FuzzReport) printSpecBalanceSection(sb *strings.Builder) {
+	if len(r.SpecBalance) == 0 {
+		return
+	}
+	fmt.Fprintf(sb, "\n  %s\n", strings.Repeat("─", 58))
+	h := r.SpecBalance[0]
+	fmt.Fprintf(sb, "  Spec Balance      sigma=%-8s max=%-8s [%s]\n",
+		h.result, h.spec, statusIcon(h.pass))
+	for _, l := range r.SpecBalance[1:] {
+		fmt.Fprintf(sb, "    %-14s %s\n", l.label, l.result)
+	}
+}
+
+func (r *FuzzReport) printAbilityStatsSection(sb *strings.Builder) {
+	if len(r.AbilityStats) == 0 {
+		return
+	}
+	fmt.Fprintf(sb, "\n  %s\n", strings.Repeat("─", 58))
+	fmt.Fprintf(sb, "  Boss Damage (total: %.0f)\n", r.TotalBossDamage)
+	for _, l := range r.AbilityStats {
+		fmt.Fprintf(sb, "    %-14s %s [%s]\n", l.label, l.result, statusIcon(l.pass))
+	}
+}
+
+func (r *FuzzReport) printCompDetailsSection(sb *strings.Builder) {
+	if len(r.CompDetails) == 0 {
+		return
+	}
+	fmt.Fprintf(sb, "\n  %s\n", strings.Repeat("─", 58))
+	sb.WriteString("  Per-Composition Breakdown\n")
+	for _, cd := range r.CompDetails {
+		r.printSingleCompDetail(sb, cd)
+	}
+}
+
+func (r *FuzzReport) printSingleCompDetail(sb *strings.Builder, cd compDetailReport) {
+	avgDur := cd.TotalDurationSec / float64(cd.Runs)
+	partyDPS := cd.TotalPlayerDamage / cd.TotalDurationSec
+	fmt.Fprintf(sb, "\n    %s (boss dmg: %.0f | party DPS: %.1f/s | avg %.1fs)\n",
+		cd.Name, cd.TotalBossDamage, partyDPS, avgDur)
+	// Ability damage shares
+	sb.WriteString("      ability:  ")
+	for i, a := range cd.AbilityShares {
+		if i > 0 {
+			sb.WriteString("  ")
+		}
+		fmt.Fprintf(sb, "%s %.1f%%", a.Name, a.Share)
+	}
+	sb.WriteString("\n")
+	// Class balance (shares)
+	sb.WriteString("      spec:     ")
+	for i, c := range cd.SpecShares {
+		if i > 0 {
+			sb.WriteString("  ")
+		}
+		fmt.Fprintf(sb, "%s %.1f%%", c.Name, c.Share)
+	}
+	sb.WriteString("\n")
+	// Per-player DPS (normalized by player count per spec)
+	if cd.TotalDurationSec > 0 {
+		sb.WriteString("      dps/player: ")
+		for i, c := range cd.SpecShares {
+			if i > 0 {
+				sb.WriteString("  ")
+			}
+			n := cd.SpecPlayerCount[c.Name]
+			if n < 1 {
+				n = 1
+			}
+			playerDPS := c.RawDmg / cd.TotalDurationSec / float64(n)
+			fmt.Fprintf(sb, "%s %.1f/s", c.Name, playerDPS)
 		}
 		sb.WriteString("\n")
 	}
-
-	// Main metrics table
-	sb.WriteString(fmt.Sprintf("  %-20s %-14s %-14s %s\n", "Metric", "Result", "Spec", ""))
-	sb.WriteString(fmt.Sprintf("  %s\n", strings.Repeat("─", 58)))
-	for _, l := range r.Lines {
-		sb.WriteString(fmt.Sprintf("  %-20s %-14s %-14s [%s]\n", l.label, l.result, l.spec, statusIcon(l.pass)))
-	}
-
-	// Class balance
-	if len(r.SpecBalance) > 0 {
-		sb.WriteString(fmt.Sprintf("\n  %s\n", strings.Repeat("─", 58)))
-		h := r.SpecBalance[0]
-		sb.WriteString(fmt.Sprintf("  Spec Balance      sigma=%-8s max=%-8s [%s]\n",
-			h.result, h.spec, statusIcon(h.pass)))
-		for _, l := range r.SpecBalance[1:] {
-			sb.WriteString(fmt.Sprintf("    %-14s %s\n", l.label, l.result))
+	// Healing stats
+	if cd.TotalPlayerHeal > 0 && cd.TotalDurationSec > 0 {
+		partyHPS := cd.TotalPlayerHeal / cd.TotalDurationSec
+		fmt.Fprintf(sb, "      healing:  total %.0f | party HPS: %.1f/s\n", cd.TotalPlayerHeal, partyHPS)
+		sb.WriteString("      hps/player: ")
+		for i, h := range cd.HealShares {
+			if i > 0 {
+				sb.WriteString("  ")
+			}
+			n := cd.SpecPlayerCount[h.Name]
+			if n < 1 {
+				n = 1
+			}
+			playerHPS := h.RawDmg / cd.TotalDurationSec / float64(n)
+			fmt.Fprintf(sb, "%s %.1f/s (%.0f%%)", h.Name, playerHPS, h.Share)
 		}
+		sb.WriteString("\n")
 	}
+}
 
-	// Ability stats (overall)
-	if len(r.AbilityStats) > 0 {
-		sb.WriteString(fmt.Sprintf("\n  %s\n", strings.Repeat("─", 58)))
-		sb.WriteString(fmt.Sprintf("  Boss Damage (total: %.0f)\n", r.TotalBossDamage))
-		for _, l := range r.AbilityStats {
-			sb.WriteString(fmt.Sprintf("    %-14s %s [%s]\n", l.label, l.result, statusIcon(l.pass)))
-		}
+func (r *FuzzReport) printTreeHealthSection(sb *strings.Builder) {
+	if len(r.TreeHealth) == 0 {
+		return
 	}
-
-	// Per-composition boss damage + class balance + DPS + healing
-	if len(r.CompDetails) > 0 {
-		sb.WriteString(fmt.Sprintf("\n  %s\n", strings.Repeat("─", 58)))
-		sb.WriteString("  Per-Composition Breakdown\n")
-		for _, cd := range r.CompDetails {
-			avgDur := cd.TotalDurationSec / float64(cd.Runs)
-			partyDPS := cd.TotalPlayerDamage / cd.TotalDurationSec
-			sb.WriteString(fmt.Sprintf("\n    %s (boss dmg: %.0f | party DPS: %.1f/s | avg %.1fs)\n",
-				cd.Name, cd.TotalBossDamage, partyDPS, avgDur))
-			// Ability damage shares
-			sb.WriteString("      ability:  ")
-			for i, a := range cd.AbilityShares {
-				if i > 0 {
-					sb.WriteString("  ")
-				}
-				sb.WriteString(fmt.Sprintf("%s %.1f%%", a.Name, a.Share))
-			}
-			sb.WriteString("\n")
-			// Class balance (shares)
-			sb.WriteString("      spec:     ")
-			for i, c := range cd.SpecShares {
-				if i > 0 {
-					sb.WriteString("  ")
-				}
-				sb.WriteString(fmt.Sprintf("%s %.1f%%", c.Name, c.Share))
-			}
-			sb.WriteString("\n")
-			// Per-player DPS (normalized by player count per spec)
-			if cd.TotalDurationSec > 0 {
-				sb.WriteString("      dps/player: ")
-				for i, c := range cd.SpecShares {
-					if i > 0 {
-						sb.WriteString("  ")
-					}
-					n := cd.SpecPlayerCount[c.Name]
-					if n < 1 {
-						n = 1
-					}
-					playerDPS := c.RawDmg / cd.TotalDurationSec / float64(n)
-					sb.WriteString(fmt.Sprintf("%s %.1f/s", c.Name, playerDPS))
-				}
-				sb.WriteString("\n")
-			}
-			// Healing stats
-			if cd.TotalPlayerHeal > 0 && cd.TotalDurationSec > 0 {
-				partyHPS := cd.TotalPlayerHeal / cd.TotalDurationSec
-				sb.WriteString(fmt.Sprintf("      healing:  total %.0f | party HPS: %.1f/s\n", cd.TotalPlayerHeal, partyHPS))
-				sb.WriteString("      hps/player: ")
-				for i, h := range cd.HealShares {
-					if i > 0 {
-						sb.WriteString("  ")
-					}
-					n := cd.SpecPlayerCount[h.Name]
-					if n < 1 {
-						n = 1
-					}
-					playerHPS := h.RawDmg / cd.TotalDurationSec / float64(n)
-					sb.WriteString(fmt.Sprintf("%s %.1f/s (%.0f%%)", h.Name, playerHPS, h.Share))
-				}
-				sb.WriteString("\n")
-			}
+	fmt.Fprintf(sb, "\n  %s\n", strings.Repeat("─", 58))
+	sb.WriteString("  Tree Health\n")
+	for _, l := range r.TreeHealth {
+		fmt.Fprintf(sb, "    %-14s %-24s [%s]\n", l.label, l.result, statusIcon(l.pass))
+	}
+	if len(r.DeadNodes) > 0 {
+		sb.WriteString("\n    dead:\n")
+		for _, name := range r.DeadNodes {
+			fmt.Fprintf(sb, "      %s\n", name)
 		}
 	}
-
-	// Tree health
-	if len(r.TreeHealth) > 0 {
-		sb.WriteString(fmt.Sprintf("\n  %s\n", strings.Repeat("─", 58)))
-		sb.WriteString("  Tree Health\n")
-		for _, l := range r.TreeHealth {
-			sb.WriteString(fmt.Sprintf("    %-14s %-24s [%s]\n", l.label, l.result, statusIcon(l.pass)))
-		}
-		if len(r.DeadNodes) > 0 {
-			sb.WriteString("\n    dead:\n")
-			for _, name := range r.DeadNodes {
-				sb.WriteString(fmt.Sprintf("      %s\n", name))
-			}
-		}
-		if len(r.ColdNodes) > 0 {
-			sb.WriteString("\n    cold:\n")
-			for _, name := range r.ColdNodes {
-				sb.WriteString(fmt.Sprintf("      %s\n", name))
-			}
+	if len(r.ColdNodes) > 0 {
+		sb.WriteString("\n    cold:\n")
+		for _, name := range r.ColdNodes {
+			fmt.Fprintf(sb, "      %s\n", name)
 		}
 	}
-
-	sb.WriteString(fmt.Sprintf("\n%s\n", strings.Repeat("━", 64)))
-	t.Log(sb.String())
 }
 
 func fmtDuration(d time.Duration) string {
@@ -259,9 +281,40 @@ func (fr *FuzzResults) AssertAll(t *testing.T) *FuzzReport {
 		Runs: len(fr.Results),
 	}
 
-	// Compute outcome distribution + duration stats
+	computeOutcomeStats(fr.Results, report)
+	groupByComposition(fr.Results, report)
+
+	t.Run("win_rate", func(t *testing.T) { fr.assertWinRate(t, report) })
+	t.Run("duration", func(t *testing.T) { fr.assertDuration(t, report) })
+	for _, ps := range fr.Spec.PhaseReach {
+		ps := ps
+		t.Run("phase_reach/"+itoa(ps.Phase), func(t *testing.T) {
+			fr.assertPhaseReach(t, ps, report)
+		})
+	}
+	if fr.Spec.SpecBalance != nil {
+		t.Run("spec_balance", func(t *testing.T) { fr.assertSpecBalance(t, report) })
+	}
+	if len(fr.Spec.AbilityStats) > 0 {
+		t.Run("ability_stats", func(t *testing.T) {
+			fr.assertAbilityStats(t, fr.Spec.AbilityStats, report)
+		})
+	}
+
+	// Per-composition win rate assertions.
+	fr.assertCompWinRates(t, report)
+
+	// Compute per-composition ability damage and class balance (informational).
+	fr.computePerCompDetails(report)
+
+	return report
+}
+
+// computeOutcomeStats tallies wins/losses/timeouts and duration min/max/avg
+// from the results slice, writing directly into report.
+func computeOutcomeStats(results []SimResult, report *FuzzReport) {
 	var minDur, maxDur, totalDur time.Duration
-	for i, r := range fr.Results {
+	for i, r := range results {
 		switch r.Outcome {
 		case combatlog.OutcomePlayerWin:
 			report.Wins++
@@ -278,16 +331,19 @@ func (fr *FuzzResults) AssertAll(t *testing.T) *FuzzReport {
 			maxDur = r.Duration
 		}
 	}
-	if len(fr.Results) > 0 {
-		report.DurationAvg = totalDur / time.Duration(len(fr.Results))
+	if len(results) > 0 {
+		report.DurationAvg = totalDur / time.Duration(len(results))
 	}
 	report.DurationMin = minDur
 	report.DurationMax = maxDur
+}
 
-	// Compute per-composition breakdown
+// groupByComposition builds the per-composition breakdown and appends it to
+// report.CompBreakdown, sorted by win-rate descending.
+func groupByComposition(results []SimResult, report *FuzzReport) {
 	compMap := make(map[string]*compStats)
 	var compOrder []string
-	for _, r := range fr.Results {
+	for _, r := range results {
 		cs, ok := compMap[r.CompName]
 		if !ok {
 			cs = &compStats{Name: r.CompName}
@@ -318,31 +374,6 @@ func (fr *FuzzResults) AssertAll(t *testing.T) *FuzzReport {
 		wj := float64(report.CompBreakdown[j].Wins) / float64(report.CompBreakdown[j].Runs)
 		return wi > wj
 	})
-
-	t.Run("win_rate", func(t *testing.T) { fr.assertWinRate(t, report) })
-	t.Run("duration", func(t *testing.T) { fr.assertDuration(t, report) })
-	for _, ps := range fr.Spec.PhaseReach {
-		ps := ps
-		t.Run("phase_reach/"+itoa(ps.Phase), func(t *testing.T) {
-			fr.assertPhaseReach(t, ps, report)
-		})
-	}
-	if fr.Spec.SpecBalance != nil {
-		t.Run("spec_balance", func(t *testing.T) { fr.assertSpecBalance(t, report) })
-	}
-	if len(fr.Spec.AbilityStats) > 0 {
-		t.Run("ability_stats", func(t *testing.T) {
-			fr.assertAbilityStats(t, fr.Spec.AbilityStats, report)
-		})
-	}
-
-	// Per-composition win rate assertions.
-	fr.assertCompWinRates(t, report)
-
-	// Compute per-composition ability damage and class balance (informational).
-	fr.computePerCompDetails(report)
-
-	return report
 }
 
 // AssertTreeHealth validates instrumented tree metrics against spec.
@@ -403,96 +434,106 @@ func (fr *FuzzResults) computePerCompDetails(report *FuzzReport) {
 		results := byComp[cs.Name]
 		detail := compDetailReport{Name: cs.Name, Runs: len(results)}
 
-		// Total duration across all runs.
 		for _, r := range results {
 			detail.TotalDurationSec += r.Duration.Seconds()
 		}
 
-		// Ability damage aggregation.
-		abilDmg := make(map[string]float64)
-		for _, r := range results {
-			for name, ar := range r.AbilityStats {
-				abilDmg[name] += float64(ar.TotalDamage)
-			}
-		}
-		var totalAbilDmg float64
-		for _, d := range abilDmg {
-			totalAbilDmg += d
-		}
-		detail.TotalBossDamage = totalAbilDmg
-		for name, d := range abilDmg {
-			var pct float64
-			if totalAbilDmg > 0 {
-				pct = d / totalAbilDmg * 100
-			}
-			detail.AbilityShares = append(detail.AbilityShares, nameShare{Name: name, Share: pct, RawDmg: d})
-		}
-		sort.Slice(detail.AbilityShares, func(i, j int) bool {
-			return detail.AbilityShares[i].RawDmg > detail.AbilityShares[j].RawDmg
-		})
-
-		// Spec damage aggregation.
-		specDmg := make(map[string]float64)
-		specPlayers := make(map[string]int)
-		var totalSpecDmg float64
-		for _, r := range results {
-			for spec, d := range r.SpecDamage {
-				specDmg[spec] += float64(d)
-				totalSpecDmg += float64(d)
-			}
-			for spec, n := range r.SpecPlayers {
-				if n > specPlayers[spec] {
-					specPlayers[spec] = n
-				}
-			}
-		}
-		detail.TotalPlayerDamage = totalSpecDmg
-		detail.SpecPlayerCount = specPlayers
-		// Build spec list from specPlayers (all specs), not specDmg (only specs that dealt damage).
-		specs := make([]string, 0, len(specPlayers))
-		for spec := range specPlayers {
-			specs = append(specs, spec)
-		}
-		sort.Strings(specs)
-		for _, spec := range specs {
-			var pct float64
-			if totalSpecDmg > 0 {
-				pct = specDmg[spec] / totalSpecDmg * 100
-			}
-			detail.SpecShares = append(detail.SpecShares, nameShare{Name: spec, Share: pct, RawDmg: specDmg[spec]})
-		}
-
-		// Spec healing aggregation.
-		specHeal := make(map[string]float64)
-		var totalSpecHeal float64
-		for _, r := range results {
-			for spec, h := range r.SpecHealing {
-				specHeal[spec] += float64(h)
-				totalSpecHeal += float64(h)
-			}
-		}
-		detail.TotalPlayerHeal = totalSpecHeal
-		if totalSpecHeal > 0 {
-			healSpecs := make([]string, 0, len(specHeal))
-			for spec := range specHeal {
-				healSpecs = append(healSpecs, spec)
-			}
-			sort.Strings(healSpecs)
-			for _, spec := range healSpecs {
-				var pct float64
-				if totalSpecHeal > 0 {
-					pct = specHeal[spec] / totalSpecHeal * 100
-				}
-				detail.HealShares = append(detail.HealShares, nameShare{Name: spec, Share: pct, RawDmg: specHeal[spec]})
-			}
-			// Sort by healing done descending.
-			sort.Slice(detail.HealShares, func(i, j int) bool {
-				return detail.HealShares[i].RawDmg > detail.HealShares[j].RawDmg
-			})
-		}
+		aggregateAbilityDamage(results, &detail)
+		aggregateSpecDamage(results, &detail)
+		aggregateSpecHealing(results, &detail)
 
 		report.CompDetails = append(report.CompDetails, detail)
 	}
+}
+
+// aggregateAbilityDamage fills detail.TotalBossDamage and detail.AbilityShares
+// from the boss-ability damage events across all results.
+func aggregateAbilityDamage(results []SimResult, detail *compDetailReport) {
+	abilDmg := make(map[string]float64)
+	for _, r := range results {
+		for name, ar := range r.AbilityStats {
+			abilDmg[name] += float64(ar.TotalDamage)
+		}
+	}
+	var totalAbilDmg float64
+	for _, d := range abilDmg {
+		totalAbilDmg += d
+	}
+	detail.TotalBossDamage = totalAbilDmg
+	for name, d := range abilDmg {
+		var pct float64
+		if totalAbilDmg > 0 {
+			pct = d / totalAbilDmg * 100
+		}
+		detail.AbilityShares = append(detail.AbilityShares, nameShare{Name: name, Share: pct, RawDmg: d})
+	}
+	sort.Slice(detail.AbilityShares, func(i, j int) bool {
+		return detail.AbilityShares[i].RawDmg > detail.AbilityShares[j].RawDmg
+	})
+}
+
+// aggregateSpecDamage fills detail.TotalPlayerDamage, detail.SpecPlayerCount,
+// and detail.SpecShares from player damage events across all results.
+func aggregateSpecDamage(results []SimResult, detail *compDetailReport) {
+	specDmg := make(map[string]float64)
+	specPlayers := make(map[string]int)
+	var totalSpecDmg float64
+	for _, r := range results {
+		for spec, d := range r.SpecDamage {
+			specDmg[spec] += float64(d)
+			totalSpecDmg += float64(d)
+		}
+		for spec, n := range r.SpecPlayers {
+			if n > specPlayers[spec] {
+				specPlayers[spec] = n
+			}
+		}
+	}
+	detail.TotalPlayerDamage = totalSpecDmg
+	detail.SpecPlayerCount = specPlayers
+	// Build spec list from specPlayers (all specs), not specDmg (only specs that dealt damage).
+	specs := make([]string, 0, len(specPlayers))
+	for spec := range specPlayers {
+		specs = append(specs, spec)
+	}
+	sort.Strings(specs)
+	for _, spec := range specs {
+		var pct float64
+		if totalSpecDmg > 0 {
+			pct = specDmg[spec] / totalSpecDmg * 100
+		}
+		detail.SpecShares = append(detail.SpecShares, nameShare{Name: spec, Share: pct, RawDmg: specDmg[spec]})
+	}
+}
+
+// aggregateSpecHealing fills detail.TotalPlayerHeal and detail.HealShares
+// from healer events across all results.
+func aggregateSpecHealing(results []SimResult, detail *compDetailReport) {
+	specHeal := make(map[string]float64)
+	var totalSpecHeal float64
+	for _, r := range results {
+		for spec, h := range r.SpecHealing {
+			specHeal[spec] += float64(h)
+			totalSpecHeal += float64(h)
+		}
+	}
+	detail.TotalPlayerHeal = totalSpecHeal
+	if totalSpecHeal == 0 {
+		return
+	}
+	healSpecs := make([]string, 0, len(specHeal))
+	for spec := range specHeal {
+		healSpecs = append(healSpecs, spec)
+	}
+	sort.Strings(healSpecs)
+	for _, spec := range healSpecs {
+		pct := specHeal[spec] / totalSpecHeal * 100
+		detail.HealShares = append(detail.HealShares, nameShare{Name: spec, Share: pct, RawDmg: specHeal[spec]})
+	}
+	// Sort by healing done descending.
+	sort.Slice(detail.HealShares, func(i, j int) bool {
+		return detail.HealShares[i].RawDmg > detail.HealShares[j].RawDmg
+	})
 }
 
 func (fr *FuzzResults) assertWinRate(t *testing.T, report *FuzzReport) {
@@ -683,10 +724,11 @@ func (fr *FuzzResults) assertSpecBalance(t *testing.T, report *FuzzReport) {
 	}
 }
 
-func (fr *FuzzResults) assertAbilityStats(t *testing.T, specs []AbilitySpec, report *FuzzReport) {
-	t.Helper()
+// aggregateAbilityStats merges per-run AbilityResult maps from all results into
+// a single map keyed by ability name.
+func aggregateAbilityStats(results []SimResult) map[string]*AbilityResult {
 	agg := make(map[string]*AbilityResult)
-	for _, r := range fr.Results {
+	for _, r := range results {
 		for name, ar := range r.AbilityStats {
 			if existing, ok := agg[name]; ok {
 				existing.Hits += ar.Hits
@@ -704,6 +746,12 @@ func (fr *FuzzResults) assertAbilityStats(t *testing.T, specs []AbilitySpec, rep
 			}
 		}
 	}
+	return agg
+}
+
+func (fr *FuzzResults) assertAbilityStats(t *testing.T, specs []AbilitySpec, report *FuzzReport) {
+	t.Helper()
+	agg := aggregateAbilityStats(fr.Results)
 
 	// Compute grand total damage for share percentages.
 	var grandTotalDmg float64
@@ -718,60 +766,76 @@ func (fr *FuzzResults) assertAbilityStats(t *testing.T, specs []AbilitySpec, rep
 		specNames[spec.Ability] = true
 		spec := spec
 		t.Run(spec.Ability, func(t *testing.T) {
-			ar, ok := agg[spec.Ability]
-			if !ok {
-				report.AbilityStats = append(report.AbilityStats, reportLine{
-					label: spec.Ability, result: "no data", pass: true,
-				})
-				return
-			}
-			total := ar.Hits + ar.Dodges
-			if total == 0 {
-				report.AbilityStats = append(report.AbilityStats, reportLine{
-					label: spec.Ability, result: "no interactions", pass: true,
-				})
-				return
-			}
-
-			pass := true
-			var sharePct float64
-			if grandTotalDmg > 0 {
-				sharePct = float64(ar.TotalDamage) / grandTotalDmg * 100
-			}
-			parts := []string{fmt.Sprintf("%4.1f%%", sharePct)}
-
-			if spec.MaxKillRate > 0 {
-				killRate := float64(ar.Kills) / float64(total)
-				if killRate > spec.MaxKillRate {
-					t.Errorf("ability %q kill rate = %.3f, want <= %.3f (%d/%d)",
-						spec.Ability, killRate, spec.MaxKillRate, ar.Kills, total)
-					pass = false
-				}
-				parts = append(parts, fmt.Sprintf("kill=%.0f%% (max %.0f%%)", killRate*100, spec.MaxKillRate*100))
-			}
-
-			if spec.MinDodgeRate > 0 {
-				dodgeRate := float64(ar.Dodges) / float64(total)
-				if dodgeRate < spec.MinDodgeRate {
-					t.Errorf("ability %q dodge rate = %.3f, want >= %.3f (%d/%d)",
-						spec.Ability, dodgeRate, spec.MinDodgeRate, ar.Dodges, total)
-					pass = false
-				}
-				parts = append(parts, fmt.Sprintf("dodge=%.0f%% (min %.0f%%)", dodgeRate*100, spec.MinDodgeRate*100))
-			}
-
-			parts = append(parts, fmt.Sprintf("dmg=%.0f hits=%d", ar.TotalDamage, ar.Hits))
-
-			report.AbilityStats = append(report.AbilityStats, reportLine{
-				label:  spec.Ability,
-				result: strings.Join(parts, "  "),
-				pass:   pass,
-				dmg:    float64(ar.TotalDamage),
-			})
+			assertSpecdAbility(t, spec, agg, grandTotalDmg, report)
 		})
 	}
 
-	// Unspec'd abilities: show damage stats for visibility (always pass)
+	appendUnspecdAbilities(agg, specNames, grandTotalDmg, report)
+
+	// Sort ability stats by damage descending for readability.
+	sort.Slice(report.AbilityStats, func(i, j int) bool {
+		return report.AbilityStats[i].dmg > report.AbilityStats[j].dmg
+	})
+}
+
+// assertSpecdAbility runs the kill-rate and dodge-rate assertions for a single
+// spec'd ability and appends the result line to the report.
+func assertSpecdAbility(t *testing.T, spec AbilitySpec, agg map[string]*AbilityResult, grandTotalDmg float64, report *FuzzReport) {
+	t.Helper()
+	ar, ok := agg[spec.Ability]
+	if !ok {
+		report.AbilityStats = append(report.AbilityStats, reportLine{
+			label: spec.Ability, result: "no data", pass: true,
+		})
+		return
+	}
+	total := ar.Hits + ar.Dodges
+	if total == 0 {
+		report.AbilityStats = append(report.AbilityStats, reportLine{
+			label: spec.Ability, result: "no interactions", pass: true,
+		})
+		return
+	}
+
+	pass := true
+	var sharePct float64
+	if grandTotalDmg > 0 {
+		sharePct = float64(ar.TotalDamage) / grandTotalDmg * 100
+	}
+	parts := []string{fmt.Sprintf("%4.1f%%", sharePct)}
+
+	if spec.MaxKillRate > 0 {
+		killRate := float64(ar.Kills) / float64(total)
+		if killRate > spec.MaxKillRate {
+			t.Errorf("ability %q kill rate = %.3f, want <= %.3f (%d/%d)",
+				spec.Ability, killRate, spec.MaxKillRate, ar.Kills, total)
+			pass = false
+		}
+		parts = append(parts, fmt.Sprintf("kill=%.0f%% (max %.0f%%)", killRate*100, spec.MaxKillRate*100))
+	}
+
+	if spec.MinDodgeRate > 0 {
+		dodgeRate := float64(ar.Dodges) / float64(total)
+		if dodgeRate < spec.MinDodgeRate {
+			t.Errorf("ability %q dodge rate = %.3f, want >= %.3f (%d/%d)",
+				spec.Ability, dodgeRate, spec.MinDodgeRate, ar.Dodges, total)
+			pass = false
+		}
+		parts = append(parts, fmt.Sprintf("dodge=%.0f%% (min %.0f%%)", dodgeRate*100, spec.MinDodgeRate*100))
+	}
+
+	parts = append(parts, fmt.Sprintf("dmg=%.0f hits=%d", ar.TotalDamage, ar.Hits))
+	report.AbilityStats = append(report.AbilityStats, reportLine{
+		label:  spec.Ability,
+		result: strings.Join(parts, "  "),
+		pass:   pass,
+		dmg:    float64(ar.TotalDamage),
+	})
+}
+
+// appendUnspecdAbilities appends informational (always-pass) report lines for
+// abilities present in the aggregated data but not covered by a spec.
+func appendUnspecdAbilities(agg map[string]*AbilityResult, specNames map[string]bool, grandTotalDmg float64, report *FuzzReport) {
 	var unspecced []string
 	for name := range agg {
 		if !specNames[name] {
@@ -792,11 +856,6 @@ func (fr *FuzzResults) assertAbilityStats(t *testing.T, specs []AbilitySpec, rep
 			dmg:    float64(ar.TotalDamage),
 		})
 	}
-
-	// Sort ability stats by damage descending for readability.
-	sort.Slice(report.AbilityStats, func(i, j int) bool {
-		return report.AbilityStats[i].dmg > report.AbilityStats[j].dmg
-	})
 }
 
 // --- Tier Report (injection / scenario) ---
@@ -837,22 +896,22 @@ func (tr *TierReport) Print(t *testing.T) {
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("\n%s\n", strings.Repeat("━", 64)))
-	sb.WriteString(fmt.Sprintf("  %s REPORT: %s (%d/%d passed)\n",
-		strings.ToUpper(tr.Tier), tr.Boss, passed, len(tr.Cases)))
-	sb.WriteString(fmt.Sprintf("%s\n\n", strings.Repeat("━", 64)))
+	fmt.Fprintf(&sb, "\n%s\n", strings.Repeat("━", 64))
+	fmt.Fprintf(&sb, "  %s REPORT: %s (%d/%d passed)\n",
+		strings.ToUpper(tr.Tier), tr.Boss, passed, len(tr.Cases))
+	fmt.Fprintf(&sb, "%s\n\n", strings.Repeat("━", 64))
 
 	for _, c := range tr.Cases {
-		sb.WriteString(fmt.Sprintf("  [%s] %s\n", statusIcon(c.Passed), c.Name))
+		fmt.Fprintf(&sb, "  [%s] %s\n", statusIcon(c.Passed), c.Name)
 		if c.Setup != "" {
-			sb.WriteString(fmt.Sprintf("        setup:  %s\n", c.Setup))
+			fmt.Fprintf(&sb, "        setup:  %s\n", c.Setup)
 		}
-		sb.WriteString(fmt.Sprintf("        assert: %s\n", c.Assert))
+		fmt.Fprintf(&sb, "        assert: %s\n", c.Assert)
 		if c.Detail != "" {
-			sb.WriteString(fmt.Sprintf("        result: %s\n", c.Detail))
+			fmt.Fprintf(&sb, "        result: %s\n", c.Detail)
 		}
 	}
 
-	sb.WriteString(fmt.Sprintf("\n%s\n", strings.Repeat("━", 64)))
+	fmt.Fprintf(&sb, "\n%s\n", strings.Repeat("━", 64))
 	t.Log(sb.String())
 }

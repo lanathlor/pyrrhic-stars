@@ -464,7 +464,7 @@ func (c *Client) WaitWorldState(timeout time.Duration) *WorldState {
 }
 
 // decodeWorldState parses an OpWorldState payload into a WorldState.
-func decodeWorldState(data []byte) (*WorldState, error) {
+func decodeWorldState(data []byte) (*WorldState, error) { //nolint:funlen // test infrastructure binary decoder
 	if len(data) < 5 {
 		return nil, fmt.Errorf("world state too short: %d bytes", len(data))
 	}

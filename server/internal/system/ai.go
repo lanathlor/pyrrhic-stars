@@ -39,57 +39,12 @@ func (s *AISystem) Tick(w *World, dt float32) {
 			continue
 		}
 		w.spawnEnemyIdx = i
-		// When the boss gate is active, enemies only see players on
-		// their side of the gate (Z < BossRoomEntryZ = boss room).
 		visiblePlayers := allPlayers
 		if w.BossGateActive {
 			w.filteredPlayers = playersOnSameSide(w.filteredPlayers[:0], allPlayers, e.Position.Z, w.Level.BossRoomEntryZ)
 			visiblePlayers = w.filteredPlayers
 		}
-		prevState := e.State
-		events := w.Brains[i].Tick(dt, visiblePlayers, w.Level.Obstacles, w.spawnFn, w.commitPatternFn)
-
-		// Apply group-size damage scaling to direct hits (melee, AoE, charge).
-		if mult := w.EnemyDmgMult(); mult != 1.0 {
-			for j := range events {
-				events[j].Amount *= mult
-			}
-		}
-
-		// Detect proximity aggro: brain transitioned patrol→chase directly
-		// (bypassing AggroEnemy). Start combat log session for this enemy's group.
-		if prevState == entity.EnemyPatrol && e.State != entity.EnemyPatrol {
-			if key := enemySessionKey(e); key != 0 {
-				startGroupCombatLog(w, key)
-			}
-		}
-		for _, evt := range events {
-			if _, ok := w.Players[evt.TargetPeerID]; ok {
-				e.AddThreat(evt.TargetPeerID, evt.Amount)
-			}
-
-			// Log enemy damage
-			abilName := resolveEnemyAbilityName(e)
-			w.logCombatEvent(combatlog.LogEntry{
-				EventType:    combatlog.EventDamage,
-				SourceEntity: combatlog.FormatEnemyID(e.ID),
-				SourceClass:  e.DefName,
-				Target:       combatlog.FormatPlayerID(evt.TargetPeerID),
-				AbilityID:    abilName,
-				Amount:       evt.Amount,
-				PosX:         evt.HitPos.X,
-				PosY:         evt.HitPos.Y,
-				PosZ:         evt.HitPos.Z,
-			})
-
-			// Log death if player died
-			if p, ok := w.Players[evt.TargetPeerID]; ok && !p.Alive {
-				w.logCombatDeath(combatlog.FormatPlayerID(evt.TargetPeerID), combatlog.FormatEnemyID(e.ID), e.DefName, abilName)
-			}
-		}
-		w.DamageEvents = append(w.DamageEvents, events...)
-		w.Level.ClampEnemy(&e.Position)
-		combat.PushOutOfObstacles(&e.Position, w.Level.Obstacles, w.Level.EnemyRadius)
+		tickEnemyBrain(w, i, e, visiblePlayers, dt)
 	}
 
 	// Dev mode: auto-repeat a specific ability on the boss.
@@ -108,6 +63,53 @@ func (s *AISystem) Tick(w *World, dt float32) {
 	// Group aggro propagation: if any mob in a group is chasing, wake all
 	// patrol members of that group.
 	propagateGroupAggro(w)
+}
+
+func tickEnemyBrain(w *World, idx int, e *entity.Enemy, allPlayers []*entity.Player, dt float32) {
+	prevState := e.State
+	events := w.Brains[idx].Tick(dt, allPlayers, w.Level.Obstacles, w.spawnFn, w.commitPatternFn)
+
+	// Apply group-size damage scaling to direct hits (melee, AoE, charge).
+	if mult := w.EnemyDmgMult(); mult != 1.0 {
+		for j := range events {
+			events[j].Amount *= mult
+		}
+	}
+
+	// Detect proximity aggro: brain transitioned patrol→chase directly
+	// (bypassing AggroEnemy). Start combat log session for this enemy's group.
+	if prevState == entity.EnemyPatrol && e.State != entity.EnemyPatrol {
+		if key := enemySessionKey(e); key != 0 {
+			startGroupCombatLog(w, key)
+		}
+	}
+	for _, evt := range events {
+		if _, ok := w.Players[evt.TargetPeerID]; ok {
+			e.AddThreat(evt.TargetPeerID, evt.Amount)
+		}
+
+		// Log enemy damage
+		abilName := resolveEnemyAbilityName(e)
+		w.logCombatEvent(combatlog.LogEntry{
+			EventType:    combatlog.EventDamage,
+			SourceEntity: combatlog.FormatEnemyID(e.ID),
+			SourceClass:  e.DefName,
+			Target:       combatlog.FormatPlayerID(evt.TargetPeerID),
+			AbilityID:    abilName,
+			Amount:       evt.Amount,
+			PosX:         evt.HitPos.X,
+			PosY:         evt.HitPos.Y,
+			PosZ:         evt.HitPos.Z,
+		})
+
+		// Log death if player died
+		if p, ok := w.Players[evt.TargetPeerID]; ok && !p.Alive {
+			w.logCombatDeath(combatlog.FormatPlayerID(evt.TargetPeerID), combatlog.FormatEnemyID(e.ID), e.DefName, abilName)
+		}
+	}
+	w.DamageEvents = append(w.DamageEvents, events...)
+	w.Level.ClampEnemy(&e.Position)
+	combat.PushOutOfObstacles(&e.Position, w.Level.Obstacles, w.Level.EnemyRadius)
 }
 
 // playersOnSameSide filters players to those on the same side of gateZ as enemyZ.

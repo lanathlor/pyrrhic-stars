@@ -40,200 +40,245 @@ func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.
 
 	buf = append(buf, byte(len(players)))
 	for _, p := range players {
-		buf = appendU16(buf, p.ID)
-		buf = appendF32(buf, p.Position.X)
-		buf = appendF32(buf, p.Position.Y)
-		buf = appendF32(buf, p.Position.Z)
-		buf = appendF32(buf, p.RotationY)
-		buf = appendF32(buf, p.Health)
-		buf = appendF32(buf, p.MaxHealth)
-		buf = append(buf, byte(p.State))
-		buf = appendStr8(buf, p.ClassName())
-		buf = appendStr8(buf, p.SpecName())
-		buf = appendStr8(buf, p.Username)
-		buf = append(buf, p.VisualState)
-		buf = appendF32(buf, p.AimPitch)
-		var flags uint8
-		if p.HasBuff("overclock") {
-			flags |= 0x01
-		}
-		if p.HasBuff("rechamber_buff") {
-			flags |= 0x02
-		}
-		flags |= (p.GetAbilityPhase("rechamber") & 0x03) << 2
-		if p.HasBuff("vortex") {
-			flags |= 0x10
-		}
-		if p.HasBuff("guard") || p.HasBuff("vg_parry") || p.HasBuff("vg_block") ||
-			p.HasBuff("vg_shield_parry") || p.HasBuff("vg_shield_block") {
-			flags |= 0x20
-		}
-		if p.ClassID == entity.ClassArcanotechnicien && p.ChannelPhase == 1 {
-			flags |= 0x20
-		}
-		// Bits 6-7: class-specific mastery tier (Vanguard=onslaught/devotion, BD=flow)
-		// or ChannelPhase for Arcanotechnicien (0=idle, 1=commit, 2=execute, 3=sustain).
-		switch p.ClassID {
-		case entity.ClassArcanotechnicien:
-			phase := p.ChannelPhase
-			if phase > 3 {
-				phase = 0 // cooldown/idle → 0
-			}
-			flags |= (phase & 0x03) << 6
-		case entity.ClassVanguard:
-			type tiered interface{ Tier() uint8 }
-			masteryKey := "onslaught"
-			if p.SpecID == "shield" {
-				masteryKey = "devotion"
-			}
-			if s, ok := p.AbilityState[masteryKey]; ok {
-				if t, ok := s.(tiered); ok {
-					flags |= (t.Tier() & 0x03) << 6
-				}
-			}
-		case entity.ClassBladeDancer:
-			type tiered interface{ Tier() uint8 }
-			if s, ok := p.AbilityState["flow"]; ok {
-				if t, ok := s.(tiered); ok {
-					flags |= (t.Tier() & 0x03) << 6
-				}
-			}
-		}
-		buf = append(buf, flags)
-		buf = append(buf, byte(p.Config))
-		buf = appendF32(buf, p.GetResource("stamina"))
-		buf = appendF32(buf, p.GetResource("shield"))
-		buf = appendF32(buf, p.GetResource("munitions"))
-		buf = appendF32(buf, p.GetResource("resonance"))
-		buf = appendF32(buf, p.GetResource("flux"))
-		buf = appendF32(buf, p.GetResourceMax("flux"))
-		// Class-specific mastery stacks (1 byte: VG=onslaught/devotion, BD=flow, others=0).
-		var masteryStacks uint8
-		switch p.ClassID {
-		case entity.ClassVanguard:
-			type stacker interface{ StackCount() int }
-			stackKey := "onslaught"
-			if p.SpecID == "shield" {
-				stackKey = "devotion"
-			}
-			if s, ok := p.AbilityState[stackKey]; ok {
-				if st, ok := s.(stacker); ok {
-					masteryStacks = uint8(min(st.StackCount(), 255))
-				}
-			}
-		case entity.ClassBladeDancer:
-			type stacker interface{ StackCount() int }
-			if s, ok := p.AbilityState["flow"]; ok {
-				if st, ok := s.(stacker); ok {
-					masteryStacks = uint8(min(st.StackCount(), 255))
-				}
-			}
-		case entity.ClassArcanotechnicien:
-			if p.Confluence != nil {
-				masteryStacks = uint8(p.Confluence.Stacks)
-			}
-		}
-		buf = append(buf, masteryStacks)
-
-		// Gunner Assault state (7 bytes — zeroed for non-gunner classes).
-		var magCur, magMax, stabilityQ, steadinessQ, pressureStacks, enhancedLoaded, assaultFlags uint8
-		type gunnerStater interface {
-			GunnerWireState() (mag, magMax, stab, steadiness, pressure, enhanced, flags uint8)
-		}
-		if gs, ok := p.AbilityState["gunner_assault"].(gunnerStater); ok {
-			magCur, magMax, stabilityQ, steadinessQ, pressureStacks, enhancedLoaded, assaultFlags = gs.GunnerWireState()
-		}
-		buf = append(buf, magCur, magMax, stabilityQ, steadinessQ, pressureStacks, enhancedLoaded, assaultFlags)
-
-		// Speed multiplier (1 byte, quantized 0-255 → 0.0-1.0).
-		// Derived from active buffs: brace=0, shield_block=0.4, default=1.0.
-		var speedMult float32 = 1.0
-		if p.HasBuff("brace") {
-			speedMult = 0.0
-		} else if p.HasBuff("vg_shield_block") {
-			speedMult = 0.4
-		}
-		buf = append(buf, byte(speedMult*255.0+0.5))
-
-		// Flux commitment pools (Arcanotechnicien school breakdown).
-		// Fixed order: bioarcanotechnic, biometabolic, frost, aerokinetic.
-		if p.FluxCommit != nil && len(p.FluxCommit.Pools) > 0 {
-			pools := p.FluxCommit.Pools
-			buf = append(buf, byte(len(pools)))
-			schoolOrder := [4]string{"bioarcanotechnic", "biometabolic", "frost", "aerokinetic"}
-			for _, school := range schoolOrder {
-				pool := p.FluxCommit.GetPool(school)
-				if pool != nil {
-					buf = appendF32(buf, pool.Current)
-					buf = appendF32(buf, pool.Max)
-				} else {
-					buf = appendF32(buf, 0)
-					buf = appendF32(buf, 0)
-				}
-			}
-		} else {
-			buf = append(buf, 0)
-		}
+		buf = appendEncodePlayer(buf, p)
 	}
 
 	buf = append(buf, byte(len(enemies)))
 	for _, e := range enemies {
-		if e.Alive {
-			buf = append(buf, 1)
-		} else {
-			buf = append(buf, 0)
-		}
-		buf = appendU16(buf, e.ID)
-		buf = appendF32(buf, e.Position.X)
-		buf = appendF32(buf, e.Position.Y)
-		buf = appendF32(buf, e.Position.Z)
-		buf = appendF32(buf, e.RotationY)
-		buf = appendF32(buf, e.Health)
-		buf = append(buf, byte(e.State))
-		buf = append(buf, byte(e.Phase))
-		buf = appendF32(buf, e.MaxHealth)
-		buf = appendStr8(buf, e.DefName)
-		buf = appendF32(buf, e.RangedTargetPos.X)
-		buf = appendF32(buf, e.RangedTargetPos.Y)
-		buf = appendF32(buf, e.RangedTargetPos.Z)
-		buf = appendF32(buf, e.ChargeDirection.X)
-		buf = appendF32(buf, e.ChargeDirection.Y)
-		buf = appendF32(buf, e.ChargeDirection.Z)
-		buf = appendF32(buf, e.MeleeConeAngle)
-		buf = appendF32(buf, e.MeleeRange)
+		buf = appendEncodeEnemy(buf, e)
 	}
 
 	buf = append(buf, byte(len(projectiles)))
 	for _, proj := range projectiles {
-		buf = appendU32(buf, proj.ID)
-		buf = appendF32(buf, proj.Position.X)
-		buf = appendF32(buf, proj.Position.Y)
-		buf = appendF32(buf, proj.Position.Z)
-		buf = appendF32(buf, proj.Direction.X)
-		buf = appendF32(buf, proj.Direction.Y)
-		buf = appendF32(buf, proj.Direction.Z)
-		buf = appendF32(buf, proj.Speed)
-		buf = appendF32(buf, proj.AngularVelocity)
-		tag := proj.VisualTag
-		if len(tag) > 255 {
-			tag = tag[:255]
-		}
-		buf = append(buf, byte(len(tag)))
-		buf = append(buf, tag...)
+		buf = appendEncodeProjectile(buf, proj)
 	}
 
 	npcList := npcs
 	buf = append(buf, byte(len(npcList)))
 	for _, n := range npcList {
-		buf = appendU16(buf, n.ID)
-		buf = appendF32(buf, n.Position.X)
-		buf = appendF32(buf, n.Position.Y)
-		buf = appendF32(buf, n.Position.Z)
-		buf = appendF32(buf, n.RotationY)
-		buf = append(buf, byte(n.State))
-		buf = appendStr8(buf, n.DefName)
+		buf = appendEncodeNPC(buf, n)
 	}
 
+	return buf
+}
+
+// appendEncodePlayer encodes a single player into buf and returns the grown slice.
+func appendEncodePlayer(buf []byte, p *entity.Player) []byte {
+	buf = appendU16(buf, p.ID)
+	buf = appendF32(buf, p.Position.X)
+	buf = appendF32(buf, p.Position.Y)
+	buf = appendF32(buf, p.Position.Z)
+	buf = appendF32(buf, p.RotationY)
+	buf = appendF32(buf, p.Health)
+	buf = appendF32(buf, p.MaxHealth)
+	buf = append(buf, byte(p.State))
+	buf = appendStr8(buf, p.ClassName())
+	buf = appendStr8(buf, p.SpecName())
+	buf = appendStr8(buf, p.Username)
+	buf = append(buf, p.VisualState)
+	buf = appendF32(buf, p.AimPitch)
+	buf = append(buf, playerBuffFlags(p))
+	buf = append(buf, byte(p.Config))
+	buf = appendF32(buf, p.GetResource("stamina"))
+	buf = appendF32(buf, p.GetResource("shield"))
+	buf = appendF32(buf, p.GetResource("munitions"))
+	buf = appendF32(buf, p.GetResource("resonance"))
+	buf = appendF32(buf, p.GetResource("flux"))
+	buf = appendF32(buf, p.GetResourceMax("flux"))
+	buf = append(buf, playerMasteryStacks(p))
+	buf = appendGunnerAssaultState(buf, p)
+	buf = appendPlayerSpeedMult(buf, p)
+	buf = appendFluxCommitPools(buf, p)
+	return buf
+}
+
+// playerBuffFlags computes the single flags byte encoding buff/phase state.
+func playerBuffFlags(p *entity.Player) uint8 {
+	var flags uint8
+	if p.HasBuff("overclock") {
+		flags |= 0x01
+	}
+	if p.HasBuff("rechamber_buff") {
+		flags |= 0x02
+	}
+	flags |= (p.GetAbilityPhase("rechamber") & 0x03) << 2
+	if p.HasBuff("vortex") {
+		flags |= 0x10
+	}
+	if p.HasBuff("guard") || p.HasBuff("vg_parry") || p.HasBuff("vg_block") ||
+		p.HasBuff("vg_shield_parry") || p.HasBuff("vg_shield_block") {
+		flags |= 0x20
+	}
+	if p.ClassID == entity.ClassArcanotechnicien && p.ChannelPhase == 1 {
+		flags |= 0x20
+	}
+	// Bits 6-7: class-specific mastery tier (Vanguard=onslaught/devotion, BD=flow)
+	// or ChannelPhase for Arcanotechnicien (0=idle, 1=commit, 2=execute, 3=sustain).
+	switch p.ClassID {
+	case entity.ClassArcanotechnicien:
+		phase := p.ChannelPhase
+		if phase > 3 {
+			phase = 0 // cooldown/idle → 0
+		}
+		flags |= (phase & 0x03) << 6
+	case entity.ClassVanguard:
+		type tiered interface{ Tier() uint8 }
+		masteryKey := "onslaught"
+		if p.SpecID == "shield" {
+			masteryKey = "devotion"
+		}
+		if s, ok := p.AbilityState[masteryKey]; ok {
+			if t, ok := s.(tiered); ok {
+				flags |= (t.Tier() & 0x03) << 6
+			}
+		}
+	case entity.ClassBladeDancer:
+		type tiered interface{ Tier() uint8 }
+		if s, ok := p.AbilityState["flow"]; ok {
+			if t, ok := s.(tiered); ok {
+				flags |= (t.Tier() & 0x03) << 6
+			}
+		}
+	}
+	return flags
+}
+
+// playerMasteryStacks returns the class-specific mastery stack count byte.
+func playerMasteryStacks(p *entity.Player) uint8 {
+	// Class-specific mastery stacks (1 byte: VG=onslaught/devotion, BD=flow, others=0).
+	var masteryStacks uint8
+	switch p.ClassID {
+	case entity.ClassVanguard:
+		type stacker interface{ StackCount() int }
+		stackKey := "onslaught"
+		if p.SpecID == "shield" {
+			stackKey = "devotion"
+		}
+		if s, ok := p.AbilityState[stackKey]; ok {
+			if st, ok := s.(stacker); ok {
+				masteryStacks = uint8(min(st.StackCount(), 255))
+			}
+		}
+	case entity.ClassBladeDancer:
+		type stacker interface{ StackCount() int }
+		if s, ok := p.AbilityState["flow"]; ok {
+			if st, ok := s.(stacker); ok {
+				masteryStacks = uint8(min(st.StackCount(), 255))
+			}
+		}
+	case entity.ClassArcanotechnicien:
+		if p.Confluence != nil {
+			masteryStacks = uint8(p.Confluence.Stacks)
+		}
+	}
+	return masteryStacks
+}
+
+// appendGunnerAssaultState appends the 7-byte Gunner Assault state block (zeroed for non-gunner).
+func appendGunnerAssaultState(buf []byte, p *entity.Player) []byte {
+	var magCur, magMax, stabilityQ, steadinessQ, pressureStacks, enhancedLoaded, assaultFlags uint8
+	type gunnerStater interface {
+		GunnerWireState() (mag, magMax, stab, steadiness, pressure, enhanced, flags uint8)
+	}
+	if gs, ok := p.AbilityState["gunner_assault"].(gunnerStater); ok {
+		magCur, magMax, stabilityQ, steadinessQ, pressureStacks, enhancedLoaded, assaultFlags = gs.GunnerWireState()
+	}
+	return append(buf, magCur, magMax, stabilityQ, steadinessQ, pressureStacks, enhancedLoaded, assaultFlags)
+}
+
+// appendPlayerSpeedMult appends the 1-byte quantized speed multiplier.
+func appendPlayerSpeedMult(buf []byte, p *entity.Player) []byte {
+	// Speed multiplier (1 byte, quantized 0-255 → 0.0-1.0).
+	// Derived from active buffs: brace=0, shield_block=0.4, default=1.0.
+	var speedMult float32 = 1.0
+	if p.HasBuff("brace") {
+		speedMult = 0.0
+	} else if p.HasBuff("vg_shield_block") {
+		speedMult = 0.4
+	}
+	return append(buf, byte(speedMult*255.0+0.5))
+}
+
+// appendFluxCommitPools appends the Arcanotechnicien school flux pools.
+func appendFluxCommitPools(buf []byte, p *entity.Player) []byte {
+	// Flux commitment pools (Arcanotechnicien school breakdown).
+	// Fixed order: bioarcanotechnic, biometabolic, frost, aerokinetic.
+	if p.FluxCommit != nil && len(p.FluxCommit.Pools) > 0 {
+		pools := p.FluxCommit.Pools
+		buf = append(buf, byte(len(pools)))
+		schoolOrder := [4]string{"bioarcanotechnic", "biometabolic", "frost", "aerokinetic"}
+		for _, school := range schoolOrder {
+			pool := p.FluxCommit.GetPool(school)
+			if pool != nil {
+				buf = appendF32(buf, pool.Current)
+				buf = appendF32(buf, pool.Max)
+			} else {
+				buf = appendF32(buf, 0)
+				buf = appendF32(buf, 0)
+			}
+		}
+		return buf
+	}
+	return append(buf, 0)
+}
+
+// appendEncodeEnemy encodes a single enemy into buf and returns the grown slice.
+func appendEncodeEnemy(buf []byte, e *entity.Enemy) []byte {
+	if e.Alive {
+		buf = append(buf, 1)
+	} else {
+		buf = append(buf, 0)
+	}
+	buf = appendU16(buf, e.ID)
+	buf = appendF32(buf, e.Position.X)
+	buf = appendF32(buf, e.Position.Y)
+	buf = appendF32(buf, e.Position.Z)
+	buf = appendF32(buf, e.RotationY)
+	buf = appendF32(buf, e.Health)
+	buf = append(buf, byte(e.State))
+	buf = append(buf, byte(e.Phase))
+	buf = appendF32(buf, e.MaxHealth)
+	buf = appendStr8(buf, e.DefName)
+	buf = appendF32(buf, e.RangedTargetPos.X)
+	buf = appendF32(buf, e.RangedTargetPos.Y)
+	buf = appendF32(buf, e.RangedTargetPos.Z)
+	buf = appendF32(buf, e.ChargeDirection.X)
+	buf = appendF32(buf, e.ChargeDirection.Y)
+	buf = appendF32(buf, e.ChargeDirection.Z)
+	buf = appendF32(buf, e.MeleeConeAngle)
+	buf = appendF32(buf, e.MeleeRange)
+	return buf
+}
+
+// appendEncodeProjectile encodes a single projectile into buf and returns the grown slice.
+func appendEncodeProjectile(buf []byte, proj *entity.Projectile) []byte {
+	buf = appendU32(buf, proj.ID)
+	buf = appendF32(buf, proj.Position.X)
+	buf = appendF32(buf, proj.Position.Y)
+	buf = appendF32(buf, proj.Position.Z)
+	buf = appendF32(buf, proj.Direction.X)
+	buf = appendF32(buf, proj.Direction.Y)
+	buf = appendF32(buf, proj.Direction.Z)
+	buf = appendF32(buf, proj.Speed)
+	buf = appendF32(buf, proj.AngularVelocity)
+	tag := proj.VisualTag
+	if len(tag) > 255 {
+		tag = tag[:255]
+	}
+	buf = append(buf, byte(len(tag)))
+	buf = append(buf, tag...)
+	return buf
+}
+
+// appendEncodeNPC encodes a single NPC into buf and returns the grown slice.
+func appendEncodeNPC(buf []byte, n *entity.NPC) []byte {
+	buf = appendU16(buf, n.ID)
+	buf = appendF32(buf, n.Position.X)
+	buf = appendF32(buf, n.Position.Y)
+	buf = appendF32(buf, n.Position.Z)
+	buf = appendF32(buf, n.RotationY)
+	buf = append(buf, byte(n.State))
+	buf = appendStr8(buf, n.DefName)
 	return buf
 }
 

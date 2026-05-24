@@ -56,65 +56,81 @@ func (r *AbilityRunner) Start(ctx *EntityContext, abilityID string) bool {
 	ctx.BB.Set("last_attack", abil.ID)
 	e.Velocity = entity.Vec3{}
 
-	// Set enemy state and timer based on ability category.
-	// Mirrors the logic previously in EntityContext.StartAbility.
+	setupAbilityCategory(ctx, abil, resolved)
+
+	return true
+}
+
+func setupAbilityCategory(ctx *EntityContext, abil *ability.AbilityDef, resolved ability.AbilityDef) {
+	e := ctx.Enemy
+
 	switch abil.Category {
 	case ability.CategoryMelee:
-		e.State = entity.EnemyMeleeTelegraph
-		e.StateTimer = resolved.CommitTime
-		e.MeleeRange = resolved.Hit.Range
-		arcDeg := resolved.Hit.ArcDegrees
-		if arcDeg <= 0 {
-			arcDeg = 180
-		}
-		e.MeleeConeAngle = arcDeg * 3.14159265 / 180.0
-		if resolved.FaceTarget {
-			if p := ctx.TargetPlayer(); p != nil {
-				ctx.FaceToward(p.Position)
-			}
-		}
+		setupMeleeAbility(ctx, e, resolved)
 	case ability.CategoryRanged:
-		e.State = entity.EnemyRangedTelegraph
-		e.StateTimer = resolved.CommitTime
-		var target *entity.Player
-		switch abil.TargetStrategy {
-		case ability.TargetFarthest:
-			target = FarthestAlivePlayer(e.Position, ctx.Players)
-		case ability.TargetCurrent:
-			target = ctx.TargetPlayer()
-		default: // TargetNearest
-			target = NearestAlivePlayer(e.Position, ctx.Players)
-		}
-		if target != nil {
-			e.TargetPlayerID = target.ID
-			e.RangedTargetPos = target.Position.Add(entity.Vec3{Y: 1.0})
-		}
+		setupRangedAbility(ctx, e, abil, resolved)
 	case ability.CategoryAoE:
 		e.State = entity.EnemyAoETelegraph
 		e.StateTimer = resolved.CommitTime
-		if resolved.FaceTarget {
-			if p := ctx.TargetPlayer(); p != nil {
-				ctx.FaceToward(p.Position)
-			}
-		}
+		maybeFaceTarget(ctx, resolved)
 	case ability.CategoryCharge:
-		e.State = entity.EnemyChargeTelegraph
-		e.StateTimer = resolved.CommitTime
-		if resolved.FaceTarget {
-			if p := ctx.TargetPlayer(); p != nil {
-				ctx.FaceToward(p.Position)
-				dir := p.Position.Sub(e.Position).Flat()
-				if dir.Length() > 0.1 {
-					e.ChargeDirection = dir.Normalized()
-				}
+		setupChargeAbility(ctx, e, resolved)
+	}
+}
+
+func setupMeleeAbility(ctx *EntityContext, e *entity.Enemy, resolved ability.AbilityDef) {
+	e.State = entity.EnemyMeleeTelegraph
+	e.StateTimer = resolved.CommitTime
+	e.MeleeRange = resolved.Hit.Range
+	arcDeg := resolved.Hit.ArcDegrees
+	if arcDeg <= 0 {
+		arcDeg = 180
+	}
+	e.MeleeConeAngle = arcDeg * 3.14159265 / 180.0
+	maybeFaceTarget(ctx, resolved)
+}
+
+func setupRangedAbility(ctx *EntityContext, e *entity.Enemy, abil *ability.AbilityDef, resolved ability.AbilityDef) {
+	e.State = entity.EnemyRangedTelegraph
+	e.StateTimer = resolved.CommitTime
+	var target *entity.Player
+	switch abil.TargetStrategy {
+	case ability.TargetFarthest:
+		target = FarthestAlivePlayer(e.Position, ctx.Players)
+	case ability.TargetCurrent:
+		target = ctx.TargetPlayer()
+	default:
+		target = NearestAlivePlayer(e.Position, ctx.Players)
+	}
+	if target != nil {
+		e.TargetPlayerID = target.ID
+		e.RangedTargetPos = target.Position.Add(entity.Vec3{Y: 1.0})
+	}
+}
+
+func setupChargeAbility(ctx *EntityContext, e *entity.Enemy, resolved ability.AbilityDef) {
+	e.State = entity.EnemyChargeTelegraph
+	e.StateTimer = resolved.CommitTime
+	if resolved.FaceTarget {
+		if p := ctx.TargetPlayer(); p != nil {
+			ctx.FaceToward(p.Position)
+			dir := p.Position.Sub(e.Position).Flat()
+			if dir.Length() > 0.1 {
+				e.ChargeDirection = dir.Normalized()
 			}
-		}
-		if e.ChargeDirection.LengthSq() < 0.01 {
-			e.ChargeDirection = entity.Vec3{Z: -1}
 		}
 	}
+	if e.ChargeDirection.LengthSq() < 0.01 {
+		e.ChargeDirection = entity.Vec3{Z: -1}
+	}
+}
 
-	return true
+func maybeFaceTarget(ctx *EntityContext, resolved ability.AbilityDef) {
+	if resolved.FaceTarget {
+		if p := ctx.TargetPlayer(); p != nil {
+			ctx.FaceToward(p.Position)
+		}
+	}
 }
 
 // ForceStart unconditionally resets the runner and starts the given ability.
@@ -214,25 +230,7 @@ func (r *AbilityRunner) tickCommit(ctx *EntityContext) {
 		e.Velocity = entity.Vec3{}
 	}
 
-	// Track target during commit
-	if abil.TrackTarget {
-		switch abil.Category {
-		case ability.CategoryCharge:
-			ctx.faceTargetPlayer()
-			if target := ctx.TargetPlayer(); target != nil {
-				dir := target.Position.Sub(e.Position).Flat()
-				if dir.Length() > 0.1 {
-					e.ChargeDirection = dir.Normalized()
-				}
-			}
-		case ability.CategoryRanged:
-			if target := ctx.TargetPlayer(); target != nil {
-				e.RangedTargetPos = target.Position.Add(entity.Vec3{Y: 1.0})
-			}
-		case ability.CategoryMelee, ability.CategoryAoE:
-			ctx.faceTargetPlayer()
-		}
-	}
+	trackTargetDuringCommit(ctx, abil)
 
 	// Wait for commit timer to expire
 	if e.StateTimer > 0 {
@@ -240,6 +238,34 @@ func (r *AbilityRunner) tickCommit(ctx *EntityContext) {
 	}
 
 	// Transition to execute phase
+	r.transitionToExecute(ctx, abil)
+}
+
+func trackTargetDuringCommit(ctx *EntityContext, abil *ability.AbilityDef) {
+	if !abil.TrackTarget {
+		return
+	}
+	e := ctx.Enemy
+	switch abil.Category {
+	case ability.CategoryCharge:
+		ctx.faceTargetPlayer()
+		if target := ctx.TargetPlayer(); target != nil {
+			dir := target.Position.Sub(e.Position).Flat()
+			if dir.Length() > 0.1 {
+				e.ChargeDirection = dir.Normalized()
+			}
+		}
+	case ability.CategoryRanged:
+		if target := ctx.TargetPlayer(); target != nil {
+			e.RangedTargetPos = target.Position.Add(entity.Vec3{Y: 1.0})
+		}
+	case ability.CategoryMelee, ability.CategoryAoE:
+		ctx.faceTargetPlayer()
+	}
+}
+
+func (r *AbilityRunner) transitionToExecute(ctx *EntityContext, abil *ability.AbilityDef) {
+	e := ctx.Enemy
 	resolved := ctx.Def.ResolveAbility(abil, e.Phase)
 	r.Phase = RunnerExecute
 

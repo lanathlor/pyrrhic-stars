@@ -27,7 +27,7 @@ func NewArenaLevel() *Level {
 	return l
 }
 
-func hardcodedArenaLevel() *Level {
+func hardcodedArenaLevel() *Level { //nolint:funlen // pure data literal
 	return &Level{
 		// Players can move in warmup + hallway + boss room
 		PlayerBoundsMinX: -19.5,

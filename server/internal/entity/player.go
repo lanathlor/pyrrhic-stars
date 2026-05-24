@@ -246,6 +246,36 @@ func NewPlayer(peerID uint16, className string) *Player {
 	return NewPlayerWithSpec(peerID, className, classDef.DefaultSpec)
 }
 
+// specParams holds the resolved spec parameters used to construct a Player.
+type specParams struct {
+	spec      *SpecDef
+	maxHealth float32
+	resources map[string]ResourceTemplate
+	actionMap map[uint8]string
+}
+
+// resolveSpecParams resolves the effective spec, maxHealth, resources, and actionMap
+// for the given class/spec, falling back to class-level defaults where the spec has none.
+func resolveSpecParams(classDef *ClassDef, specID string) specParams {
+	spec := classDef.GetSpec(specID)
+	if spec == nil {
+		spec = classDef.FirstSpec()
+	}
+	maxHealth := spec.MaxHealth
+	if maxHealth == 0 {
+		maxHealth = classDef.MaxHealth
+	}
+	resources := spec.Resources
+	if resources == nil {
+		resources = classDef.Resources
+	}
+	actionMap := spec.ActionMap
+	if actionMap == nil {
+		actionMap = classDef.ActionMap
+	}
+	return specParams{spec: spec, maxHealth: maxHealth, resources: resources, actionMap: actionMap}
+}
+
 // NewPlayerWithSpec creates a player with a specific specialization.
 func NewPlayerWithSpec(peerID uint16, className, specID string) *Player {
 	classDef, ok := Classes[className]
@@ -254,30 +284,13 @@ func NewPlayerWithSpec(peerID uint16, className, specID string) *Player {
 		className = ClassGunner
 	}
 
-	spec := classDef.GetSpec(specID)
-	if spec == nil {
-		spec = classDef.FirstSpec()
-	}
-
-	// Fall back to ClassDef root values if spec has no data (should not happen).
-	maxHealth := spec.MaxHealth
-	resources := spec.Resources
-	actionMap := spec.ActionMap
-	if maxHealth == 0 {
-		maxHealth = classDef.MaxHealth
-	}
-	if resources == nil {
-		resources = classDef.Resources
-	}
-	if actionMap == nil {
-		actionMap = classDef.ActionMap
-	}
+	sp := resolveSpecParams(classDef, specID)
 
 	// Copy the ActionMap so each player has an independent map.
 	// The spec/class ActionMap is shared, and per-player mutations (e.g.
 	// loadout) must not affect other players.
-	ownMap := make(map[uint8]string, len(actionMap))
-	for k, v := range actionMap {
+	ownMap := make(map[uint8]string, len(sp.actionMap))
+	for k, v := range sp.actionMap {
 		ownMap[k] = v
 	}
 
@@ -287,18 +300,18 @@ func NewPlayerWithSpec(peerID uint16, className, specID string) *Player {
 			Alive: true,
 		},
 		ClassID:          className,
-		SpecID:           spec.ID,
-		BaseHealth:       maxHealth,
+		SpecID:           sp.spec.ID,
+		BaseHealth:       sp.maxHealth,
 		OnGround:         true,
-		Resources:        make(map[string]*Resource, len(resources)),
+		Resources:        make(map[string]*Resource, len(sp.resources)),
 		Cooldowns:        make(map[string]float32),
 		ActionMap:        ownMap,
 		AbilityState:     make(map[string]any),
-		PrimarySchools:   spec.PrimarySchools,
-		SecondarySchools: spec.SecondarySchools,
+		PrimarySchools:   sp.spec.PrimarySchools,
+		SecondarySchools: sp.spec.SecondarySchools,
 	}
 
-	for name, tmpl := range resources {
+	for name, tmpl := range sp.resources {
 		p.Resources[name] = &Resource{
 			Current:    tmpl.Initial,
 			Max:        tmpl.Max,
@@ -308,35 +321,40 @@ func NewPlayerWithSpec(peerID uint16, className, specID string) *Player {
 	}
 
 	if className == ClassArcanotechnicien {
-		p.Confluence = &ConfluenceState{MaxStacks: 5, DecayRate: 1.0}
-		if spec.ID == SpecHarmonist {
-			p.Harmony = &HarmonyState{LastDelivery: make(map[uint16]DeliveryMethod)}
-			loadout := harmonistDefaultLoadout // copy so each player owns its loadout
-			p.Loadout = &loadout
-			p.ApplyLoadout()
-		}
-
-		// Initialize flux commitment: distribute total flux across schools.
-		if fluxRes, ok := resources["flux"]; ok {
-			p.FluxCommit = &FluxCommitment{
-				TotalMax:   fluxRes.Max,
-				TotalRegen: fluxRes.Regen,
-			}
-			if spec.ID == SpecHarmonist {
-				p.FluxCommit.SetCommitment(map[string]float32{
-					"bioarcanotechnic": 0.5,
-					"biometabolic":     0.3,
-					"frost":            0.1,
-					"aerokinetic":      0.1,
-				})
-			}
-		}
+		initArcanotechnicien(p, sp.spec, sp.resources)
 	}
 
 	p.RecalcStats()
 	p.Health = p.MaxHealth
 
 	return p
+}
+
+// initArcanotechnicien sets up Arcanotechnicien-specific state on a freshly constructed player.
+func initArcanotechnicien(p *Player, spec *SpecDef, resources map[string]ResourceTemplate) {
+	p.Confluence = &ConfluenceState{MaxStacks: 5, DecayRate: 1.0}
+	if spec.ID == SpecHarmonist {
+		p.Harmony = &HarmonyState{LastDelivery: make(map[uint16]DeliveryMethod)}
+		loadout := harmonistDefaultLoadout // copy so each player owns its loadout
+		p.Loadout = &loadout
+		p.ApplyLoadout()
+	}
+
+	// Initialize flux commitment: distribute total flux across schools.
+	if fluxRes, ok := resources["flux"]; ok {
+		p.FluxCommit = &FluxCommitment{
+			TotalMax:   fluxRes.Max,
+			TotalRegen: fluxRes.Regen,
+		}
+		if spec.ID == SpecHarmonist {
+			p.FluxCommit.SetCommitment(map[string]float32{
+				"bioarcanotechnic": 0.5,
+				"biometabolic":     0.3,
+				"frost":            0.1,
+				"aerokinetic":      0.1,
+			})
+		}
+	}
 }
 
 // NewPlayerNoPTR creates a player with class defaults (value type).
@@ -649,69 +667,9 @@ func (p *Player) ApplyDamage(amount float32) float32 {
 	// Vanguard parry/block: check BEFORE DR application so parries see the
 	// pre-DR amount (for reflect damage, Devotion generation, stamina drain).
 	preDR := amount
-	parried := false
-
-	// Blade Parry: flag counter-swing pending (builds Onslaught instead of resetting it).
-	if p.ClassID == ClassVanguard && p.SpecID != SpecShield && p.HasBuff("vg_parry") {
-		type parrySetter interface{ SetParryPending() }
-		if s, ok := p.AbilityState["vg_block"]; ok {
-			if ps, ok := s.(parrySetter); ok {
-				ps.SetParryPending()
-				parried = true
-			}
-		}
-	}
-
-	// Shield Guard Parry: zero stamina drain, reflect damage pending, bonus Devotion.
-	if p.ClassID == ClassVanguard && p.SpecID == SpecShield && p.HasBuff("vg_shield_parry") {
-		type parryReflector interface{ SetParryReflectPending(dmg float32) }
-		if s, ok := p.AbilityState["vg_shield_block"]; ok {
-			if pr, ok := s.(parryReflector); ok {
-				pr.SetParryReflectPending(preDR)
-				// Bonus Devotion from parry (2x rate)
-				type devotionAdder interface {
-					AddCharges(absorbed, mastery float32)
-				}
-				if d, ok := p.AbilityState["devotion"]; ok {
-					if da, ok := d.(devotionAdder); ok {
-						da.AddCharges(preDR*2.0, p.GearStats.Mastery)
-					}
-				}
-				parried = true
-			}
-		}
-	}
-
-	// Shield Block (non-parry): drain stamina proportional to pre-DR damage, generate Devotion.
-	if p.ClassID == ClassVanguard && p.SpecID == SpecShield && p.HasBuff("vg_shield_block") && !parried {
-		drainFraction := float32(0.65) // 65% of incoming damage → stamina drain (must match ability.ShieldStaminaDrainFraction)
-		if p.HasBuff("brace") {
-			drainFraction *= 0.2 // Brace reduces drain to 20% of normal
-		}
-		staminaDrain := preDR * drainFraction * p.TenacityEfficiency()
-		if stamina := p.Resources["stamina"]; stamina != nil {
-			stamina.Current -= staminaDrain
-			if stamina.Current < 0 {
-				stamina.Current = 0
-			}
-			stamina.DelayTimer = stamina.RegenDelay
-		}
-		// Devotion generation from blocked damage (decays over sustained block)
-		type devotionAdder interface {
-			AddCharges(absorbed, mastery float32)
-		}
-		type devotionMulter interface{ GetDevotionMult() float32 }
-		devMult := float32(1.0)
-		if sb, ok := p.AbilityState["vg_shield_block"]; ok {
-			if dm, ok := sb.(devotionMulter); ok {
-				devMult = dm.GetDevotionMult()
-			}
-		}
-		if d, ok := p.AbilityState["devotion"]; ok {
-			if da, ok := d.(devotionAdder); ok {
-				da.AddCharges(preDR*devMult, p.GearStats.Mastery)
-			}
-		}
+	parried := p.applyVanguardParry(preDR)
+	if !parried {
+		p.applyShieldBlockDrain(preDR)
 	}
 
 	// Apply all damage_reduction buffs
@@ -731,39 +689,126 @@ func (p *Player) ApplyDamage(amount float32) float32 {
 	}
 
 	p.Health -= amount
-	if p.Health <= 0 {
-		// Last Breath: prevent death, clamp to 1 HP, track prevented damage.
-		if p.GetBuff("last_breath") != nil {
-			p.LastBreathPrevented += -p.Health // amount below zero
-			p.Health = 1
-			return amount
-		}
-		p.Health = 0
-		p.State = PlayerStateDead
-		p.Alive = false
-		// BD Flow: reset chain on death.
-		if p.ClassID == ClassBladeDancer {
-			type resettable interface{ Reset() }
-			if s, ok := p.AbilityState["flow"]; ok {
-				if r, ok := s.(resettable); ok {
-					r.Reset()
-				}
+	p.applyDeathEffects()
+	if !parried {
+		p.resetOnslaughtOnHit()
+	}
+
+	return amount
+}
+
+// applyVanguardParry handles blade parry and shield parry detection/application.
+// Returns true if a parry was triggered (suppresses block drain and onslaught reset).
+func (p *Player) applyVanguardParry(preDR float32) bool {
+	// Blade Parry: flag counter-swing pending (builds Onslaught instead of resetting it).
+	if p.ClassID == ClassVanguard && p.SpecID != SpecShield && p.HasBuff("vg_parry") {
+		type parrySetter interface{ SetParryPending() }
+		if s, ok := p.AbilityState["vg_block"]; ok {
+			if ps, ok := s.(parrySetter); ok {
+				ps.SetParryPending()
+				return true
 			}
 		}
 	}
 
-	// Vanguard Onslaught: reset stacks on damage taken (unless parried).
-	// Shield spec doesn't use Onslaught.
-	if p.ClassID == ClassVanguard && p.SpecID != SpecShield && !parried {
+	// Shield Guard Parry: zero stamina drain, reflect damage pending, bonus Devotion.
+	if p.ClassID == ClassVanguard && p.SpecID == SpecShield && p.HasBuff("vg_shield_parry") {
+		type parryReflector interface{ SetParryReflectPending(dmg float32) }
+		if s, ok := p.AbilityState["vg_shield_block"]; ok {
+			if pr, ok := s.(parryReflector); ok {
+				pr.SetParryReflectPending(preDR)
+				// Bonus Devotion from parry (2x rate)
+				type devotionAdder interface {
+					AddCharges(absorbed, mastery float32)
+				}
+				if d, ok := p.AbilityState["devotion"]; ok {
+					if da, ok := d.(devotionAdder); ok {
+						da.AddCharges(preDR*2.0, p.GearStats.Mastery)
+					}
+				}
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// applyShieldBlockDrain handles shield block stamina drain and Devotion generation.
+// Only called when not parried.
+func (p *Player) applyShieldBlockDrain(preDR float32) {
+	if p.ClassID != ClassVanguard || p.SpecID != SpecShield || !p.HasBuff("vg_shield_block") {
+		return
+	}
+	// Shield Block (non-parry): drain stamina proportional to pre-DR damage, generate Devotion.
+	drainFraction := float32(0.65) // 65% of incoming damage → stamina drain (must match ability.ShieldStaminaDrainFraction)
+	if p.HasBuff("brace") {
+		drainFraction *= 0.2 // Brace reduces drain to 20% of normal
+	}
+	staminaDrain := preDR * drainFraction * p.TenacityEfficiency()
+	if stamina := p.Resources["stamina"]; stamina != nil {
+		stamina.Current -= staminaDrain
+		if stamina.Current < 0 {
+			stamina.Current = 0
+		}
+		stamina.DelayTimer = stamina.RegenDelay
+	}
+	// Devotion generation from blocked damage (decays over sustained block)
+	type devotionAdder interface {
+		AddCharges(absorbed, mastery float32)
+	}
+	type devotionMulter interface{ GetDevotionMult() float32 }
+	devMult := float32(1.0)
+	if sb, ok := p.AbilityState["vg_shield_block"]; ok {
+		if dm, ok := sb.(devotionMulter); ok {
+			devMult = dm.GetDevotionMult()
+		}
+	}
+	if d, ok := p.AbilityState["devotion"]; ok {
+		if da, ok := d.(devotionAdder); ok {
+			da.AddCharges(preDR*devMult, p.GearStats.Mastery)
+		}
+	}
+}
+
+// applyDeathEffects handles Last Breath, death state, and BD Flow reset.
+// Must be called after HP reduction.
+func (p *Player) applyDeathEffects() {
+	if p.Health > 0 {
+		return
+	}
+	// Last Breath: prevent death, clamp to 1 HP, track prevented damage.
+	if p.GetBuff("last_breath") != nil {
+		p.LastBreathPrevented += -p.Health // amount below zero
+		p.Health = 1
+		return
+	}
+	p.Health = 0
+	p.State = PlayerStateDead
+	p.Alive = false
+	// BD Flow: reset chain on death.
+	if p.ClassID == ClassBladeDancer {
 		type resettable interface{ Reset() }
-		if s, ok := p.AbilityState["onslaught"]; ok {
+		if s, ok := p.AbilityState["flow"]; ok {
 			if r, ok := s.(resettable); ok {
 				r.Reset()
 			}
 		}
 	}
+}
 
-	return amount
+// resetOnslaughtOnHit resets Vanguard Onslaught stacks on an unparried hit.
+// Shield spec doesn't use Onslaught.
+func (p *Player) resetOnslaughtOnHit() {
+	if p.ClassID != ClassVanguard || p.SpecID == SpecShield {
+		return
+	}
+	type resettable interface{ Reset() }
+	if s, ok := p.AbilityState["onslaught"]; ok {
+		if r, ok := s.(resettable); ok {
+			r.Reset()
+		}
+	}
 }
 
 // GetAbilityPhase returns a uint8 phase from an ability state that implements

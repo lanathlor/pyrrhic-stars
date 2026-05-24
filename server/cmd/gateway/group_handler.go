@@ -47,23 +47,7 @@ func (g *gateway) handleGroupMessage(sess *session.Session, opcode uint16, paylo
 		slog.Info("group invite sent", "from", sess.ID, "to", targetGlobalID, "group", invite.GroupID)
 
 	case message.OpGroupInviteReply:
-		if len(payload) < 5 {
-			return
-		}
-		groupID := binary.LittleEndian.Uint32(payload[0:4])
-		accept := payload[4] == 1
-		if accept {
-			grp, err := g.groups.AcceptInvite(sess.ID, groupID)
-			if err != nil {
-				sendGroupError(sess.Conn, err.Error())
-				return
-			}
-			slog.Info("group invite accepted", "player", sess.ID, "group", groupID)
-			g.broadcastGroupState(grp)
-		} else {
-			g.groups.DeclineInvite(sess.ID, groupID)
-			slog.Info("group invite declined", "player", sess.ID, "group", groupID)
-		}
+		g.handleGroupInviteReply(sess, payload)
 
 	case message.OpGroupLeave:
 		grp, disbanded := g.groups.LeaveGroup(sess.ID)
@@ -74,62 +58,95 @@ func (g *gateway) handleGroupMessage(sess *session.Session, opcode uint16, paylo
 		sendEmptyGroupState(sess.Conn)
 
 	case message.OpGroupKick:
-		if len(payload) < 2 {
-			return
+		g.handleGroupKick(sess, payload)
+
+	case message.OpEnterPortal:
+		g.handleEnterPortal(sess)
+
+	default:
+		slog.Warn("unknown group opcode", "opcode", opcode)
+	}
+}
+
+// handleEnterPortal resolves the portal target for the player's current zone and
+// transfers them to the appropriate hub or instanced zone.
+func (g *gateway) handleEnterPortal(sess *session.Session) {
+	// Determine target zone from portal definitions, fallback to "arena"
+	targetZone := "arena"
+	g.mu.Lock()
+	if zi, ok := g.zones[sess.ZoneID]; ok {
+		portals := zi.zone.Portals()
+		if len(portals) > 0 {
+			targetZone = portals[0].TargetZone
 		}
-		targetPeerID := binary.LittleEndian.Uint16(payload[0:2])
-		targetGlobalID := g.sessions.ResolveZonePeer(sess.ZoneID, targetPeerID)
-		if targetGlobalID == 0 {
-			sendGroupError(sess.Conn, "player not found")
-			return
-		}
-		grp, err := g.groups.KickPlayer(sess.ID, targetGlobalID)
+	}
+	g.mu.Unlock()
+
+	// Hub is a shared open-world zone; everything else is instanced
+	if targetZone == zone.ZoneHub {
+		slog.Info("player entering portal to hub", "player_id", sess.ID)
+		g.transferPlayer(sess, zone.ZoneHub, zone.ZoneTypeOpenWorld, 0)
+		return
+	}
+
+	grp := g.groups.GetGroup(sess.ID)
+	var instanceID string
+	groupSize := 1
+	if grp != nil {
+		instanceID = fmt.Sprintf("%s_g%d", targetZone, grp.ID)
+		groupSize = len(grp.Members)
+	} else {
+		instanceID = fmt.Sprintf("%s_s%d", targetZone, sess.ID)
+	}
+	slog.Info("player entering portal", "player_id", sess.ID, "target_zone", targetZone, "instance", instanceID, "group_size", groupSize)
+	g.transferPlayer(sess, instanceID, zone.ZoneTypeInstanced, groupSize)
+	if grp != nil {
+		g.broadcastGroupState(grp)
+	}
+}
+
+// handleGroupInviteReply processes an accept or decline for a pending group invite.
+func (g *gateway) handleGroupInviteReply(sess *session.Session, payload []byte) {
+	if len(payload) < 5 {
+		return
+	}
+	groupID := binary.LittleEndian.Uint32(payload[0:4])
+	accept := payload[4] == 1
+	if accept {
+		grp, err := g.groups.AcceptInvite(sess.ID, groupID)
 		if err != nil {
 			sendGroupError(sess.Conn, err.Error())
 			return
 		}
-		slog.Info("player kicked from group", "leader", sess.ID, "target", targetGlobalID)
+		slog.Info("group invite accepted", "player", sess.ID, "group", groupID)
 		g.broadcastGroupState(grp)
-		targetSess := g.sessions.GetByID(targetGlobalID)
-		if targetSess != nil {
-			sendEmptyGroupState(targetSess.Conn)
-		}
+	} else {
+		g.groups.DeclineInvite(sess.ID, groupID)
+		slog.Info("group invite declined", "player", sess.ID, "group", groupID)
+	}
+}
 
-	case message.OpEnterPortal:
-		// Determine target zone from portal definitions, fallback to "arena"
-		targetZone := "arena"
-		g.mu.Lock()
-		if zi, ok := g.zones[sess.ZoneID]; ok {
-			portals := zi.zone.Portals()
-			if len(portals) > 0 {
-				targetZone = portals[0].TargetZone
-			}
-		}
-		g.mu.Unlock()
-
-		// Hub is a shared open-world zone; everything else is instanced
-		if targetZone == zone.ZoneHub {
-			slog.Info("player entering portal to hub", "player_id", sess.ID)
-			g.transferPlayer(sess, zone.ZoneHub, zone.ZoneTypeOpenWorld, 0)
-		} else {
-			grp := g.groups.GetGroup(sess.ID)
-			var instanceID string
-			groupSize := 1
-			if grp != nil {
-				instanceID = fmt.Sprintf("%s_g%d", targetZone, grp.ID)
-				groupSize = len(grp.Members)
-			} else {
-				instanceID = fmt.Sprintf("%s_s%d", targetZone, sess.ID)
-			}
-			slog.Info("player entering portal", "player_id", sess.ID, "target_zone", targetZone, "instance", instanceID, "group_size", groupSize)
-			g.transferPlayer(sess, instanceID, zone.ZoneTypeInstanced, groupSize)
-			if grp != nil {
-				g.broadcastGroupState(grp)
-			}
-		}
-
-	default:
-		slog.Warn("unknown group opcode", "opcode", opcode)
+// handleGroupKick removes a targeted player from the group on behalf of the leader.
+func (g *gateway) handleGroupKick(sess *session.Session, payload []byte) {
+	if len(payload) < 2 {
+		return
+	}
+	targetPeerID := binary.LittleEndian.Uint16(payload[0:2])
+	targetGlobalID := g.sessions.ResolveZonePeer(sess.ZoneID, targetPeerID)
+	if targetGlobalID == 0 {
+		sendGroupError(sess.Conn, "player not found")
+		return
+	}
+	grp, err := g.groups.KickPlayer(sess.ID, targetGlobalID)
+	if err != nil {
+		sendGroupError(sess.Conn, err.Error())
+		return
+	}
+	slog.Info("player kicked from group", "leader", sess.ID, "target", targetGlobalID)
+	g.broadcastGroupState(grp)
+	targetSess := g.sessions.GetByID(targetGlobalID)
+	if targetSess != nil {
+		sendEmptyGroupState(targetSess.Conn)
 	}
 }
 

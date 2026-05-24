@@ -131,15 +131,7 @@ func (g *gateway) joinZone(sess *session.Session, zi *zoneInstance, resp joinRes
 	sess.PeerID = peerID
 	sess.ZoneID = zi.zone.ID
 
-	// Resolve display name.
-	displayName := sess.CharName
-	if displayName == "" {
-		displayName = sess.Username
-	}
-	if displayName == "" {
-		displayName = fmt.Sprintf("Player_%d", sess.ID)
-		sess.Username = displayName
-	}
+	displayName := resolveDisplayName(sess)
 
 	zi.zone.AddClient(&zone.Client{
 		PeerID:   peerID,
@@ -159,16 +151,7 @@ func (g *gateway) joinZone(sess *session.Session, zi *zoneInstance, resp joinRes
 			codec.EncodeInteractInput(message.InteractSpecSelect, sess.Spec))
 	}
 
-	// Restore saved position for hub zones.
-	if zi.zoneType == zone.ZoneTypeOpenWorld && sess.CharID != 0 {
-		if ch, _ := g.container.Repo.GetCharacterByID(sess.CharID); ch != nil && (ch.PosX != 0 || ch.PosY != 0 || ch.PosZ != 0) {
-			zi.zone.SetPlayerPosition(peerID, entity.Vec3{
-				X: float32(ch.PosX),
-				Y: float32(ch.PosY),
-				Z: float32(ch.PosZ),
-			}, float32(ch.RotY))
-		}
-	}
+	g.restoreSavedPosition(zi, peerID, sess)
 
 	// Notify new peer about existing peers.
 	for _, existingID := range zi.zone.GetPeerIDs() {
@@ -203,6 +186,39 @@ func (g *gateway) joinZone(sess *session.Session, zi *zoneInstance, resp joinRes
 	}
 
 	slog.Info("peer joined zone", "zone_id", zi.zone.ID, "peer_id", peerID, "username", displayName)
+}
+
+// resolveDisplayName returns the best available display name for a session.
+// It prefers CharName, then Username, and synthesises a name as a last resort,
+// updating sess.Username so the synthetic name is stable for the connection.
+func resolveDisplayName(sess *session.Session) string {
+	if sess.CharName != "" {
+		return sess.CharName
+	}
+	if sess.Username != "" {
+		return sess.Username
+	}
+	name := fmt.Sprintf("Player_%d", sess.ID)
+	sess.Username = name
+	return name
+}
+
+// restoreSavedPosition restores a character's last saved position for hub
+// (open-world) zones. It is a no-op for instanced zones or when the character
+// has no saved position.
+func (g *gateway) restoreSavedPosition(zi *zoneInstance, peerID uint16, sess *session.Session) {
+	if zi.zoneType != zone.ZoneTypeOpenWorld || sess.CharID == 0 {
+		return
+	}
+	ch, _ := g.container.Repo.GetCharacterByID(sess.CharID)
+	if ch == nil || (ch.PosX == 0 && ch.PosY == 0 && ch.PosZ == 0) {
+		return
+	}
+	zi.zone.SetPlayerPosition(peerID, entity.Vec3{
+		X: float32(ch.PosX),
+		Y: float32(ch.PosY),
+		Z: float32(ch.PosZ),
+	}, float32(ch.RotY))
 }
 
 // loadAndApplyGear loads a character's inventory, computes gear stats, applies
@@ -266,55 +282,7 @@ func (g *gateway) loadAndSendLoadout(sess *session.Session, zi *zoneInstance) {
 		if specID == "" {
 			specID = "harmonist"
 		}
-		abilities := g.catalog.AbilitiesForSpec(specID)
-		var entries []codec.AbilityCatalogEntry
-		for _, sw := range abilities {
-			entry := codec.AbilityCatalogEntry{
-				ID:          sw.ID,
-				Name:        sw.Name,
-				School:      sw.School,
-				AbilityType: sw.AbilityType,
-				Delivery:    sw.Delivery,
-				FluxCost:    sw.FluxCost,
-				Description: sw.Description,
-				Cooldown:    sw.Cooldown,
-				CommitTime:  sw.CommitTime,
-				Implemented: sw.Implemented,
-				Affinity:    sw.Affinity,
-			}
-			if g.abilityEng != nil {
-				if def := g.abilityEng.GetAbility(sw.ID); def != nil {
-					for _, cost := range def.Costs {
-						if cost.Resource == "flux" {
-							entry.FluxAmount = cost.Amount
-						}
-					}
-					entry.BaseHeal = def.BaseHeal
-					entry.BaseDamage = def.BaseDamage
-					entry.Range = def.Hit.Range
-					entry.GCD = def.GCD
-					entry.CommitTime = def.CommitTime
-					entry.ZoneRadius = def.ZoneRadius
-					entry.ZoneDuration = def.ZoneDuration
-					entry.ZoneHealTick = def.ZoneHealTick
-					entry.Sustain = def.Sustain
-				}
-			}
-			// Fallback: estimate flux from categorical label when no AbilityDef exists.
-			if entry.FluxAmount == 0 && entry.FluxCost != "" {
-				switch entry.FluxCost {
-				case "low":
-					entry.FluxAmount = 5
-				case "medium":
-					entry.FluxAmount = 15
-				case "high":
-					entry.FluxAmount = 40
-				case "extreme":
-					entry.FluxAmount = 80
-				}
-			}
-			entries = append(entries, entry)
-		}
+		entries := g.buildAbilityCatalogEntries(specID)
 		slog.Info("sending ability catalog", "peer_id", sess.PeerID, "spec", specID, "count", len(entries))
 		sess.Conn.Send(message.Encode(message.OpAbilityCatalog, 0, codec.EncodeAbilityCatalog(entries)))
 	} else {
@@ -326,24 +294,7 @@ func (g *gateway) loadAndSendLoadout(sess *session.Session, zi *zoneInstance) {
 
 	// Send flux commitment state (load from DB or use default for Harmonist).
 	if sess.Spec == "harmonist" || sess.Spec == "" {
-		var commitEntries []codec.FluxCommitEntry
-		if sess.CharID != 0 {
-			repoEntries, err := g.container.Repo.GetFluxCommitment(sess.CharID)
-			if err != nil {
-				slog.Error("load flux commitment", "char_id", sess.CharID, "error", err)
-			}
-			for _, e := range repoEntries {
-				commitEntries = append(commitEntries, codec.FluxCommitEntry{School: e.School, Percentage: e.Percentage})
-			}
-		}
-		if len(commitEntries) == 0 {
-			commitEntries = []codec.FluxCommitEntry{
-				{School: "bioarcanotechnic", Percentage: 50},
-				{School: "biometabolic", Percentage: 30},
-				{School: "frost", Percentage: 10},
-				{School: "aerokinetic", Percentage: 10},
-			}
-		}
+		commitEntries := g.loadFluxCommitment(sess.CharID)
 		sess.Conn.Send(message.Encode(message.OpFluxCommitState, 0, codec.EncodeFluxCommitState(commitEntries)))
 		// Apply commitment to zone player.
 		commitPayload := codec.EncodeFluxCommitState(commitEntries)
@@ -355,6 +306,86 @@ func (g *gateway) loadAndSendLoadout(sess *session.Session, zi *zoneInstance) {
 
 	// Send loadout presets.
 	g.sendPresetList(sess)
+}
+
+// buildAbilityCatalogEntries builds the codec entries for all abilities in the
+// given spec, enriching each entry with runtime stats from the ability engine
+// and applying flux-cost fallbacks when no AbilityDef is registered.
+func (g *gateway) buildAbilityCatalogEntries(specID string) []codec.AbilityCatalogEntry {
+	abilities := g.catalog.AbilitiesForSpec(specID)
+	var entries []codec.AbilityCatalogEntry
+	for _, sw := range abilities {
+		entry := codec.AbilityCatalogEntry{
+			ID:          sw.ID,
+			Name:        sw.Name,
+			School:      sw.School,
+			AbilityType: sw.AbilityType,
+			Delivery:    sw.Delivery,
+			FluxCost:    sw.FluxCost,
+			Description: sw.Description,
+			Cooldown:    sw.Cooldown,
+			CommitTime:  sw.CommitTime,
+			Implemented: sw.Implemented,
+			Affinity:    sw.Affinity,
+		}
+		if g.abilityEng != nil {
+			if def := g.abilityEng.GetAbility(sw.ID); def != nil {
+				for _, cost := range def.Costs {
+					if cost.Resource == "flux" {
+						entry.FluxAmount = cost.Amount
+					}
+				}
+				entry.BaseHeal = def.BaseHeal
+				entry.BaseDamage = def.BaseDamage
+				entry.Range = def.Hit.Range
+				entry.GCD = def.GCD
+				entry.CommitTime = def.CommitTime
+				entry.ZoneRadius = def.ZoneRadius
+				entry.ZoneDuration = def.ZoneDuration
+				entry.ZoneHealTick = def.ZoneHealTick
+				entry.Sustain = def.Sustain
+			}
+		}
+		// Fallback: estimate flux from categorical label when no AbilityDef exists.
+		if entry.FluxAmount == 0 && entry.FluxCost != "" {
+			switch entry.FluxCost {
+			case "low":
+				entry.FluxAmount = 5
+			case "medium":
+				entry.FluxAmount = 15
+			case "high":
+				entry.FluxAmount = 40
+			case "extreme":
+				entry.FluxAmount = 80
+			}
+		}
+		entries = append(entries, entry)
+	}
+	return entries
+}
+
+// loadFluxCommitment loads the persisted flux commitment for a character,
+// falling back to the default Harmonist allocation when none is stored.
+func (g *gateway) loadFluxCommitment(charID uint) []codec.FluxCommitEntry {
+	var commitEntries []codec.FluxCommitEntry
+	if charID != 0 {
+		repoEntries, err := g.container.Repo.GetFluxCommitment(charID)
+		if err != nil {
+			slog.Error("load flux commitment", "char_id", charID, "error", err)
+		}
+		for _, e := range repoEntries {
+			commitEntries = append(commitEntries, codec.FluxCommitEntry{School: e.School, Percentage: e.Percentage})
+		}
+	}
+	if len(commitEntries) == 0 {
+		commitEntries = []codec.FluxCommitEntry{
+			{School: "bioarcanotechnic", Percentage: 50},
+			{School: "biometabolic", Percentage: 30},
+			{School: "frost", Percentage: 10},
+			{School: "aerokinetic", Percentage: 10},
+		}
+	}
+	return commitEntries
 }
 
 // buildInventoryInfos converts equipped items to codec-compatible structs.

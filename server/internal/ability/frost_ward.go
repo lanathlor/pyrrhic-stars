@@ -115,7 +115,12 @@ func frostWardTick(_ *Engine, p *entity.Player, dt float32, ctx *TickContext) []
 		return nil
 	}
 
-	// AoE explosion: damage + frostbite to enemies within radius.
+	return frostWardAoE(p, ctx)
+}
+
+// frostWardAoE applies the AoE explosion damage and frostbite debuff to enemies
+// within frostWardExplosionRad of the ward carrier.
+func frostWardAoE(p *entity.Player, ctx *TickContext) []DamageResult {
 	var results []DamageResult
 	radSq := frostWardExplosionRad * frostWardExplosionRad
 

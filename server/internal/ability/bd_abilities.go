@@ -2,34 +2,35 @@ package ability
 
 import "codex-online/server/internal/entity"
 
+// bdAbilityRow is a compact table row for constructing BD transition ability definitions.
+type bdAbilityRow struct {
+	id        string
+	name      string
+	originCfg int
+	destCfg   int
+
+	hit         HitType
+	damage      float32
+	radius      float32
+	targetCount int
+
+	shieldHP   float32
+	drFactor   float32
+	drDuration float32
+
+	dotDamage   float32
+	dotDuration float32
+	dotInterval float32
+
+	debuffID       string
+	debuffType     string
+	debuffValue    float32
+	debuffDuration float32
+}
+
 // bdTransitionSpells builds all 20 Blade Dancer transition ability definitions.
 func bdTransitionSpells() []*AbilityDef {
-	type bdAbility struct {
-		id        string
-		name      string
-		originCfg int
-		destCfg   int
-
-		hit         HitType
-		damage      float32
-		radius      float32
-		targetCount int
-
-		shieldHP   float32
-		drFactor   float32
-		drDuration float32
-
-		dotDamage   float32
-		dotDuration float32
-		dotInterval float32
-
-		debuffID       string
-		debuffType     string
-		debuffValue    float32
-		debuffDuration float32
-	}
-
-	abilities := []bdAbility{
+	rows := []bdAbilityRow{
 		// From Orbit (Defense)
 		{"shielded_sweep", "Shielded Sweep", 0, 1, HitAoECircle, 8, 4, 0, 0, 0.85, 2.0, 0, 0, 0, "", "", 0, 0},
 		{"guarded_thrust", "Guarded Thrust", 0, 2, HitHitscan, 25, 0, 0, 8, 0, 0, 0, 0, 0, "", "", 0, 0},
@@ -57,55 +58,65 @@ func bdTransitionSpells() []*AbilityDef {
 		{"sovereign_scatter", "Sovereign Scatter", 4, 3, HitNearestN, 5, 0, 3, 0, 0, 0, 1.5, 12, 1, "bd_slow_ss", entity.DebuffSlow, 0.3, 2.0},
 	}
 
-	result := make([]*AbilityDef, 0, len(abilities))
-	for _, s := range abilities {
-		def := &AbilityDef{
-			ID:           s.id,
-			Name:         s.name,
-			Hit:          HitDef{Type: s.hit, Radius: s.radius, TargetCount: s.targetCount},
-			BaseDamage:   s.damage,
-			GCD:          0.5,
-			OriginConfig: s.originCfg,
-			DestConfig:   s.destCfg,
-			ShieldGrant:  s.shieldHP,
-			ShieldCap:    25,
-		}
-
-		if s.hit == HitHitscan {
-			def.Hit.Range = 20
-		}
-
-		if s.drFactor > 0 {
-			def.SelfBuffs = append(def.SelfBuffs, BuffEffect{
-				ID:       "bd_dr",
-				Type:     entity.BuffDamageReduction,
-				Value:    s.drFactor,
-				Duration: s.drDuration,
-			})
-		}
-
-		if s.dotDamage > 0 {
-			def.TargetDoTs = append(def.TargetDoTs, DoTEffect{
-				Damage:   s.dotDamage,
-				Duration: s.dotDuration,
-				Interval: s.dotInterval,
-			})
-		}
-
-		if s.debuffType != "" {
-			def.TargetDebuffs = append(def.TargetDebuffs, DebuffEffect{
-				ID:       s.debuffID,
-				Type:     s.debuffType,
-				Value:    s.debuffValue,
-				Duration: s.debuffDuration,
-			})
-		}
-
-		result = append(result, def)
+	result := make([]*AbilityDef, 0, len(rows))
+	for _, s := range rows {
+		result = append(result, buildBDAbilityDef(s))
 	}
 
-	// Post-loop fixups for special mechanics that don't fit the table pattern.
+	applyBDFixups(result)
+	return result
+}
 
+// buildBDAbilityDef converts a compact table row into a full AbilityDef.
+func buildBDAbilityDef(s bdAbilityRow) *AbilityDef {
+	def := &AbilityDef{
+		ID:           s.id,
+		Name:         s.name,
+		Hit:          HitDef{Type: s.hit, Radius: s.radius, TargetCount: s.targetCount},
+		BaseDamage:   s.damage,
+		GCD:          0.5,
+		OriginConfig: s.originCfg,
+		DestConfig:   s.destCfg,
+		ShieldGrant:  s.shieldHP,
+		ShieldCap:    25,
+	}
+
+	if s.hit == HitHitscan {
+		def.Hit.Range = 20
+	}
+
+	if s.drFactor > 0 {
+		def.SelfBuffs = append(def.SelfBuffs, BuffEffect{
+			ID:       "bd_dr",
+			Type:     entity.BuffDamageReduction,
+			Value:    s.drFactor,
+			Duration: s.drDuration,
+		})
+	}
+
+	if s.dotDamage > 0 {
+		def.TargetDoTs = append(def.TargetDoTs, DoTEffect{
+			Damage:   s.dotDamage,
+			Duration: s.dotDuration,
+			Interval: s.dotInterval,
+		})
+	}
+
+	if s.debuffType != "" {
+		def.TargetDebuffs = append(def.TargetDebuffs, DebuffEffect{
+			ID:       s.debuffID,
+			Type:     s.debuffType,
+			Value:    s.debuffValue,
+			Duration: s.debuffDuration,
+		})
+	}
+
+	return def
+}
+
+// applyBDFixups applies special-case post-loop modifications to BD ability definitions
+// that don't fit the table-driven pattern.
+func applyBDFixups(result []*AbilityDef) {
 	for _, def := range result {
 		switch def.ID {
 		case "cleaving_pierce":
@@ -142,6 +153,4 @@ func bdTransitionSpells() []*AbilityDef {
 			})
 		}
 	}
-
-	return result
 }

@@ -215,61 +215,7 @@ func (ctx *EntityContext) StartAbility(abil *ability.AbilityDef) {
 	ctx.BB.Set("last_attack", abil.ID)
 	e.Velocity = entity.Vec3{}
 
-	switch abil.Category {
-	case ability.CategoryMelee:
-		e.State = entity.EnemyMeleeTelegraph
-		e.StateTimer = resolved.CommitTime
-		e.MeleeRange = resolved.Hit.Range
-		arcDeg := resolved.Hit.ArcDegrees
-		if arcDeg <= 0 {
-			arcDeg = 180
-		}
-		e.MeleeConeAngle = arcDeg * math.Pi / 180.0
-		if resolved.FaceTarget {
-			if p := ctx.TargetPlayer(); p != nil {
-				ctx.FaceToward(p.Position)
-			}
-		}
-	case ability.CategoryRanged:
-		e.State = entity.EnemyRangedTelegraph
-		e.StateTimer = resolved.CommitTime
-		var target *entity.Player
-		switch abil.TargetStrategy {
-		case ability.TargetFarthest:
-			target = FarthestAlivePlayer(e.Position, ctx.Players)
-		case ability.TargetCurrent:
-			target = ctx.TargetPlayer()
-		default: // TargetNearest
-			target = NearestAlivePlayer(e.Position, ctx.Players)
-		}
-		if target != nil {
-			e.TargetPlayerID = target.ID
-			e.RangedTargetPos = target.Position.Add(entity.Vec3{Y: 1.0})
-		}
-	case ability.CategoryAoE:
-		e.State = entity.EnemyAoETelegraph
-		e.StateTimer = resolved.CommitTime
-		if resolved.FaceTarget {
-			if p := ctx.TargetPlayer(); p != nil {
-				ctx.FaceToward(p.Position)
-			}
-		}
-	case ability.CategoryCharge:
-		e.State = entity.EnemyChargeTelegraph
-		e.StateTimer = resolved.CommitTime
-		if resolved.FaceTarget {
-			if p := ctx.TargetPlayer(); p != nil {
-				ctx.FaceToward(p.Position)
-				dir := p.Position.Sub(e.Position).Flat()
-				if dir.Length() > 0.1 {
-					e.ChargeDirection = dir.Normalized()
-				}
-			}
-		}
-		if e.ChargeDirection.LengthSq() < 0.01 {
-			e.ChargeDirection = entity.Vec3{Z: -1}
-		}
-	}
+	setupAbilityCategory(ctx, abil, resolved)
 }
 
 // ResolveCurrentAbility returns the resolved AbilityDef for the currently active ability.

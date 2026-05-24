@@ -57,41 +57,49 @@ func metabolicBurstHandler(eng *Engine, ctx *CommitContext) CommitResult {
 
 	result := CommitResult{OK: true, Events: eng.hitBuf}
 
-	// AoE heal: heal all alive allies within 8m of the hit enemy for 50% of damage dealt
-	healAmount := totalDmg * 0.5
-	if healAmount > 0 && ctx.Allies != nil && len(eng.hitBuf) > 0 {
+	if totalDmg > 0 && ctx.Allies != nil && len(eng.hitBuf) > 0 {
 		enemyPos := eng.hitBuf[0].Target.TargetPos()
-
-		for _, ally := range ctx.Allies {
-			if !ally.Alive {
-				continue
-			}
-			dx := enemyPos.X - ally.Position.X
-			dz := enemyPos.Z - ally.Position.Z
-			if dx*dx+dz*dz > 64 { // 8m radius = 64 sq
-				continue
-			}
-
-			before := ally.Health
-			ally.Health += healAmount
-			if ally.Health > ally.MaxHealth {
-				ally.Health = ally.MaxHealth
-			}
-			actual := ally.Health - before
-			overheal := healAmount - actual
-
-			if actual > 0 || overheal > 0 {
-				result.Heals = append(result.Heals, HealResult{
-					TargetID:   ally.ID,
-					SourceID:   p.ID,
-					Amount:     actual,
-					Overheal:   overheal,
-					HitPos:     ally.Position.Add(entity.Vec3{Y: 1.0}),
-					SourceType: combat.SourcePlayerHeal,
-				})
-			}
-		}
+		result.Heals = metabolicBurstHeal(p, totalDmg, enemyPos, ctx.Allies)
 	}
 
 	return result
+}
+
+// metabolicBurstHeal heals all alive allies within 8m of the struck enemy for
+// 50% of the total damage dealt, and returns the resulting HealResult slice.
+func metabolicBurstHeal(p *entity.Player, totalDmg float32, enemyPos entity.Vec3, allies map[uint16]*entity.Player) []HealResult {
+	healAmount := totalDmg * 0.5
+	var heals []HealResult
+
+	for _, ally := range allies {
+		if !ally.Alive {
+			continue
+		}
+		dx := enemyPos.X - ally.Position.X
+		dz := enemyPos.Z - ally.Position.Z
+		if dx*dx+dz*dz > 64 { // 8m radius = 64 sq
+			continue
+		}
+
+		before := ally.Health
+		ally.Health += healAmount
+		if ally.Health > ally.MaxHealth {
+			ally.Health = ally.MaxHealth
+		}
+		actual := ally.Health - before
+		overheal := healAmount - actual
+
+		if actual > 0 || overheal > 0 {
+			heals = append(heals, HealResult{
+				TargetID:   ally.ID,
+				SourceID:   p.ID,
+				Amount:     actual,
+				Overheal:   overheal,
+				HitPos:     ally.Position.Add(entity.Vec3{Y: 1.0}),
+				SourceType: combat.SourcePlayerHeal,
+			})
+		}
+	}
+
+	return heals
 }

@@ -31,15 +31,7 @@ func (m *Manager) TickAll(w *system.World, dt float32) {
 	}
 
 	for _, lb := range m.bots {
-		// Auto-respawn dead bots after a delay (bots can't send OpRespawnRequest).
-		// No respawn while the boss room is sealed — dead is dead during boss encounters.
-		if !lb.Puppet.Player.Alive {
-			if !w.BossGateActive {
-				lb.deathTimer += dt
-				if lb.deathTimer >= BotRespawnDelay {
-					respawnBot(lb, w)
-				}
-			}
+		if m.tickBotRespawn(lb, w, dt) {
 			continue
 		}
 
@@ -53,19 +45,7 @@ func (m *Manager) TickAll(w *system.World, dt float32) {
 
 		if enemy != nil {
 			lb.inCombat = true
-			// Swap to boss-specific YAML tree on boss fight entry
-			if enemy.IsBoss && enemy.DefName != lb.currentBossName {
-				pp := lb.Puppet
-				res := m.treeReg.Resolve(pp.Player.ClassID, pp.Player.SpecID, enemy.DefName, pp.Profile)
-				if res != nil {
-					pp.SwapTree(res)
-				}
-				lb.currentBossName = enemy.DefName
-			} else if !enemy.IsBoss && lb.currentBossName != "" {
-				// Fighting trash after boss — restore default tree
-				lb.Puppet.SwapTree(nil)
-				lb.currentBossName = ""
-			}
+			m.resolveBotTree(lb, enemy)
 			tickCombat(lb, w, enemy, allPuppets, dt)
 		} else {
 			lb.inCombat = false
@@ -77,6 +57,38 @@ func (m *Manager) TickAll(w *system.World, dt float32) {
 				tickFollow(lb, owner, w, dt)
 			}
 		}
+	}
+}
+
+// tickBotRespawn handles dead-bot auto-respawn logic.
+// Returns true if the bot is dead and the caller should skip this bot.
+func (m *Manager) tickBotRespawn(lb *LiveBot, w *system.World, dt float32) bool {
+	if lb.Puppet.Player.Alive {
+		return false
+	}
+	// No respawn while the boss room is sealed — dead is dead during boss encounters.
+	if !w.BossGateActive {
+		lb.deathTimer += dt
+		if lb.deathTimer >= BotRespawnDelay {
+			respawnBot(lb, w)
+		}
+	}
+	return true
+}
+
+// resolveBotTree swaps the bot's behaviour tree when the enemy type changes.
+func (m *Manager) resolveBotTree(lb *LiveBot, enemy *entity.Enemy) {
+	if enemy.IsBoss && enemy.DefName != lb.currentBossName {
+		pp := lb.Puppet
+		res := m.treeReg.Resolve(pp.Player.ClassID, pp.Player.SpecID, enemy.DefName, pp.Profile)
+		if res != nil {
+			pp.SwapTree(res)
+		}
+		lb.currentBossName = enemy.DefName
+	} else if !enemy.IsBoss && lb.currentBossName != "" {
+		// Fighting trash after boss — restore default tree
+		lb.Puppet.SwapTree(nil)
+		lb.currentBossName = ""
 	}
 }
 

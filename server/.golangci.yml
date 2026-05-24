@@ -6,8 +6,8 @@ linters:
     - goconst
     - misspell
     - revive
-    # - gocognit
-    # - funlen
+    - gocognit
+    - funlen
   settings:
     goconst:
       min-occurrences: 4
@@ -194,6 +194,13 @@ linters:
         # Handled by errcheck
         - name: unhandled-error
           disabled: true
+
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - funlen
+          - gocognit
 
 issues:
   max-issues-per-linter: 0

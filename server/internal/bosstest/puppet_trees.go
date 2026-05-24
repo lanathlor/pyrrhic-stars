@@ -144,7 +144,17 @@ func vanguardBladeTree() *bt.Tree {
 // bull_rush and retaliate as burst when safe. Generic tree for trash mobs;
 // boss-specific YAML trees add Brace timing and soak strategies.
 func vanguardShieldTree() *bt.Tree {
-	return bt.NewTree(bt.NewReactiveSelector(
+	var branches []bt.Node
+	branches = append(branches, vanguardShieldMechanicsBranches()...)
+	branches = append(branches, vanguardShieldRotationBranches()...)
+	return bt.NewTree(bt.NewReactiveSelector(branches...))
+}
+
+// vanguardShieldMechanicsBranches returns the avoidance-and-blocking branches:
+// charge dodge, AoE (block or flee), ranged (block or raise), projectile
+// (hold block or sidestep), and melee (bash-through or raise-block).
+func vanguardShieldMechanicsBranches() []bt.Node {
+	return []bt.Node{
 		// Charge: always dodge (can't block geometry attacks)
 		bt.NewSequence(
 			bt.NewCondition(condHasReactedQuick),
@@ -202,6 +212,13 @@ func vanguardShieldTree() *bt.Tree {
 			bt.NewCondition(condInMeleeDanger),
 			bt.NewAction(commitAbilityAction("shield_bash")),
 		),
+	}
+}
+
+// vanguardShieldRotationBranches returns the safe-window, burst, positioning,
+// and filler branches for vanguardShieldTree.
+func vanguardShieldRotationBranches() []bt.Node {
+	return []bt.Node{
 		// Safe window: drop stale block
 		bt.NewSequence(
 			bt.NewCondition(condIsBlocking),
@@ -231,7 +248,7 @@ func vanguardShieldTree() *bt.Tree {
 		),
 		// Filler: shield bash
 		bt.NewAction(commitAbilityAction("shield_bash")),
-	))
+	}
 }
 
 // bladeDancerTree builds the BT for a mobile melee with config transitions.
@@ -290,8 +307,17 @@ func bladeDancerTree() *bt.Tree {
 // - Life Swap before channels (cheap setup that empowers filler heals)
 // - Siphon Pulse as DPS filler (0 flux, heals lowest ally for 50% of damage)
 func harmonistTree() *bt.Tree {
-	return bt.NewTree(bt.NewReactiveSelector(
-		// --- Dodge mechanics (pure dodge, no DPS — healer must interrupt channel to dodge) ---
+	var branches []bt.Node
+	branches = append(branches, harmonistDodgeSubtree()...)
+	branches = append(branches, harmonistHealSubtree()...)
+	branches = append(branches, harmonistDPSSubtree()...)
+	return bt.NewTree(bt.NewReactiveSelector(branches...))
+}
+
+// harmonistDodgeSubtree returns the dodge-mechanic branches for harmonistTree.
+// Healers dodge without committing an ability (must interrupt active channels).
+func harmonistDodgeSubtree() []bt.Node {
+	return []bt.Node{
 		bt.NewSequence(
 			bt.NewCondition(condHasReactedQuick),
 			bt.NewCondition(condInChargePath),
@@ -316,8 +342,23 @@ func harmonistTree() *bt.Tree {
 			bt.NewCondition(condProjectileIncoming),
 			bt.NewAction(actionSidestepProjectile),
 		),
+	}
+}
 
-		// --- Emergency heal: ally below 30% HP ---
+// harmonistHealSubtree returns all healing branches for harmonistTree in
+// priority order: emergency → zone placement → sustain channels → spot heals.
+func harmonistHealSubtree() []bt.Node {
+	var nodes []bt.Node
+	nodes = append(nodes, harmonistEmergencyAndZonesBranches()...)
+	nodes = append(nodes, harmonistSustainAndSpotBranches()...)
+	return nodes
+}
+
+// harmonistEmergencyAndZonesBranches returns the highest-priority healing
+// branches: emergency surge, zone placement, and life swap empowerment.
+func harmonistEmergencyAndZonesBranches() []bt.Node {
+	return []bt.Node{
+		// Emergency heal: ally below 30% HP
 		bt.NewSequence(
 			bt.NewCondition(condAllyNeedsEmergency),
 			bt.NewCondition(not(condIsChanneling)),
@@ -325,8 +366,7 @@ func harmonistTree() *bt.Tree {
 			bt.NewCondition(condHasSchoolFlux("bioarcanotechnic", 40)),
 			bt.NewAction(healLowest("mending_surge")),
 		),
-
-		// --- Zone placement (fire-and-forget, high throughput per GCD) ---
+		// Zone placement (fire-and-forget, high throughput per GCD)
 		bt.NewSequence(
 			bt.NewCondition(not(condIsChanneling)),
 			bt.NewCondition(not(condZoneActive("restoration_matrix"))),
@@ -334,8 +374,7 @@ func harmonistTree() *bt.Tree {
 			bt.NewCondition(condHasSchoolFlux("bioarcanotechnic", 50)),
 			bt.NewAction(placeZone("restoration_matrix")),
 		),
-
-		// --- Vital Bloom zone (in loadout for healing-focused builds) ---
+		// Vital Bloom zone (in loadout for healing-focused builds)
 		bt.NewSequence(
 			bt.NewCondition(not(condIsChanneling)),
 			bt.NewCondition(not(condZoneActive("vital_bloom"))),
@@ -343,8 +382,7 @@ func harmonistTree() *bt.Tree {
 			bt.NewCondition(condHasSchoolFlux("biometabolic", 8)),
 			bt.NewAction(placeZone("vital_bloom")),
 		),
-
-		// --- Life Swap empowerment (cheap setup for Vital Charge) ---
+		// Life Swap empowerment (cheap setup for Vital Charge)
 		bt.NewSequence(
 			bt.NewCondition(not(condIsChanneling)),
 			bt.NewCondition(not(condHasVitalCharge)),
@@ -352,8 +390,14 @@ func harmonistTree() *bt.Tree {
 			bt.NewCondition(condHasSchoolFlux("biometabolic", 5)),
 			bt.NewAction(drainHealthiest("life_swap")),
 		),
+	}
+}
 
-		// --- Tank sustain: mending_beam channel on damaged tank ---
+// harmonistSustainAndSpotBranches returns the lower-priority healing branches:
+// tank channel, group sustain, repositioning, and spot heals.
+func harmonistSustainAndSpotBranches() []bt.Node {
+	return []bt.Node{
+		// Tank sustain: mending_beam channel on damaged tank
 		bt.NewSequence(
 			bt.NewCondition(allyBelowHPPct(0.60)),
 			bt.NewCondition(not(condIsChanneling)),
@@ -361,8 +405,7 @@ func harmonistTree() *bt.Tree {
 			bt.NewCondition(condHasSchoolFlux("bioarcanotechnic", 8)),
 			bt.NewAction(healTank("mending_beam")),
 		),
-
-		// --- Group sustain: transfusion when biometabolic flux is healthy ---
+		// Group sustain: transfusion when biometabolic flux is healthy
 		bt.NewSequence(
 			bt.NewCondition(allyBelowHPPct(0.75)),
 			bt.NewCondition(not(condIsChanneling)),
@@ -370,15 +413,13 @@ func harmonistTree() *bt.Tree {
 			bt.NewCondition(canCommitAbility("transfusion")),
 			bt.NewAction(healLowest("transfusion")),
 		),
-
-		// --- Reposition for Sympathetic Field coverage ---
+		// Reposition for Sympathetic Field coverage
 		bt.NewSequence(
 			bt.NewCondition(not(condIsChanneling)),
 			bt.NewCondition(condTooFar),
 			bt.NewAction(actionMoveToCenter),
 		),
-
-		// --- Spot heal: Mending Surge when ally below 70% and flux available ---
+		// Spot heal: Mending Surge when ally below 70% and flux available
 		bt.NewSequence(
 			bt.NewCondition(not(condIsChanneling)),
 			bt.NewCondition(allyBelowHPPct(0.70)),
@@ -386,9 +427,7 @@ func harmonistTree() *bt.Tree {
 			bt.NewCondition(condHasSchoolFlux("bioarcanotechnic", 40)),
 			bt.NewAction(healLowest("mending_surge")),
 		),
-
-		// --- Group sustain: transfusion when biometabolic flux is healthy ---
-		// Only in loadout for healing-focused builds (bad profile).
+		// Group sustain: transfusion for healing-focused builds (bad profile)
 		bt.NewSequence(
 			bt.NewCondition(allyBelowHPPct(0.85)),
 			bt.NewCondition(not(condIsChanneling)),
@@ -396,8 +435,14 @@ func harmonistTree() *bt.Tree {
 			bt.NewCondition(canCommitAbility("transfusion")),
 			bt.NewAction(healLowest("transfusion")),
 		),
+	}
+}
 
-		// --- Sustained DPS: Vital Drain (channel on boss, cancel-on-damage) ---
+// harmonistDPSSubtree returns the DPS filler branches for harmonistTree.
+// Vital Drain is a sustained channel; Siphon Pulse is the 0-flux filler.
+func harmonistDPSSubtree() []bt.Node {
+	return []bt.Node{
+		// Sustained DPS: Vital Drain (channel on boss, cancel-on-damage)
 		// Only in loadout for DPS-healer builds (sweaty/average profile).
 		bt.NewSequence(
 			bt.NewCondition(not(condIsChanneling)),
@@ -406,13 +451,12 @@ func harmonistTree() *bt.Tree {
 			bt.NewCondition(condHasSchoolFlux("biometabolic", 3)),
 			bt.NewAction(commitAbilityAction("vital_drain")),
 		),
-
-		// --- DPS filler: Siphon Pulse (0 flux, heals lowest ally) ---
+		// DPS filler: Siphon Pulse (0 flux, heals lowest ally)
 		bt.NewSequence(
 			bt.NewCondition(not(condIsChanneling)),
 			bt.NewAction(commitAbilityAction("siphon_pulse")),
 		),
-	))
+	}
 }
 
 // not wraps a condition function to return its negation.
