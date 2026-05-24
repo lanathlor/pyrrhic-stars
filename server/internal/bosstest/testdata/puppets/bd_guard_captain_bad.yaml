@@ -19,6 +19,6 @@ tree:
     # Positioning: walk back into melee range
     - sequence: [out_of_melee, advance]
     # Rotation: transitions (MechanicIQ=0.20 = random picks)
-    - sequence: [can_transition, cast_best_transition]
+    - sequence: [can_transition, commit_best_transition]
     # Filler
-    - cast_best_transition
+    - commit_best_transition

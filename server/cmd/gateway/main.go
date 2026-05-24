@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"codex-online/server/internal/ability"
 	"codex-online/server/internal/combatlog"
 	combatapi "codex-online/server/internal/combatlog/api"
 	chrepo "codex-online/server/internal/combatlog/clickhouse"
@@ -18,6 +19,7 @@ import (
 	"codex-online/server/internal/message"
 	"codex-online/server/internal/network"
 	"codex-online/server/internal/persistence"
+	"codex-online/server/internal/abilitycatalog"
 	"codex-online/server/internal/telemetry"
 	"codex-online/server/internal/validation"
 	"codex-online/server/internal/zone"
@@ -124,6 +126,19 @@ func main() {
 		gw.devMode = true
 		slog.Info("dev mode enabled — debug opcodes active, standalone (no external deps)")
 	}
+
+	// Load ability catalog for loadout validation.
+	cat, err := abilitycatalog.Load("data/abilities/arcanotechnicien.yaml")
+	if err != nil {
+		slog.Warn("ability catalog not loaded", "error", err)
+		// Non-fatal: loadout validation will be skipped if catalog is nil.
+	} else {
+		slog.Info("ability catalog loaded", "abilities", len(cat.Abilities))
+	}
+	gw.catalog = cat
+
+	// Create ability engine for stat lookups (catalog enrichment).
+	gw.abilityEng = ability.NewEngine(nil)
 
 	// Create persistent hub zone at startup.
 	gw.getOrCreateZone(zone.ZoneHub, zone.ZoneTypeOpenWorld, 0)

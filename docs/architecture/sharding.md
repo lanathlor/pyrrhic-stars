@@ -213,7 +213,7 @@ Every entity in the world is owned by exactly one shard at any given time.
 | Player     | Assigned shard                  | Yes — rehome when approaching another cluster                   |
 | Enemy      | Shard owning their spawn region | Rarely — players come to enemies, not the reverse               |
 | NPC        | Shard owning their patrol area  | No                                                              |
-| Projectile | Caster's shard                  | No — ghost on other shards (visual only, no cross-shard damage) |
+| Projectile | Committer's shard               | No — ghost on other shards (visual only, no cross-shard damage) |
 
 Enemies are spatially anchored (leash radius, patrol routes). When a player approaches an enemy on another shard, the player transfers to the enemy's shard, not the other way around. This keeps enemy AI, threat tables, and phase state stable.
 
@@ -293,7 +293,7 @@ GhostSnapshot {
     rotation_y:   f32
     health:       f32       for health bars
     max_health:   f32
-    state:        u8        visual state (attack anim, cast, idle)
+    state:        u8        visual state (attack anim, channel, idle)
     class_or_def: string    "gunner" or "guard_captain"
     username:     string    players only
     visual_state: u8

@@ -1,9 +1,9 @@
 extends Control
 
-## Shared spell bar — MMO-style action bar with dynamic slots, tooltips, cooldowns.
-## Used by all class HUDs. Each class provides an Array[Dictionary] of spells.
+## Shared ability bar — MMO-style action bar with dynamic slots, tooltips, cooldowns.
+## Used by all class HUDs. Each class provides an Array[Dictionary] of abilities.
 ##
-## Spell dict keys (required): name, desc, keybind, cooldown, cooldown_max
+## Ability dict keys (required): name, desc, keybind, cooldown, cooldown_max
 ## Optional keys: active, active_remaining, active_max, status_text, color, dur
 
 const SLOT_SIZE: float = 58.0
@@ -18,13 +18,13 @@ const TEXT_MUTED := Color(0.66, 0.7, 0.77, 0.9)
 var accent_color: Color = Color.WHITE
 var custom_tooltip_draw := Callable()
 
-var _spells: Array = []
+var _abilities: Array = []
 var _gcd_ratio: float = 0.0
 var _hovered_slot: int = -1
 
 
-func update_spells(spells: Array) -> void:
-	_spells = spells
+func update_abilities(abilities: Array) -> void:
+	_abilities = abilities
 
 
 func update_gcd(ratio: float) -> void:
@@ -36,7 +36,7 @@ func _process(_delta: float) -> void:
 
 
 func _draw() -> void:
-	var slot_count := _spells.size()
+	var slot_count := _abilities.size()
 	if slot_count == 0:
 		return
 
@@ -52,21 +52,21 @@ func _draw() -> void:
 	for i in slot_count:
 		var x := start_x + i * (SLOT_SIZE + SLOT_GAP)
 		var slot_rect := Rect2(x, y, SLOT_SIZE, SLOT_SIZE)
-		var spell: Dictionary = _spells[i]
-		var slot_color: Color = spell.get("color", accent_color)
+		var ability: Dictionary = _abilities[i]
+		var slot_color: Color = ability.get("color", accent_color)
 
 		draw_rect(slot_rect, bg_color)
 		draw_rect(slot_rect, PANEL_BORDER, false, 1.0)
 
 		var inner := Rect2(x + 1.5, y + 1.5, SLOT_SIZE - 3.0, SLOT_SIZE - 3.0)
-		var is_active: bool = spell.get("active", false)
+		var is_active: bool = ability.get("active", false)
 		if is_active:
 			var pulse := 0.6 + 0.4 * absf(sin(float(Time.get_ticks_msec()) / 300.0))
 			draw_rect(inner, Color(slot_color, pulse), false, 2.0)
 		else:
 			draw_rect(inner, Color(slot_color, 0.35), false, 1.5)
 
-		var keybind: String = spell.get("keybind", "?")
+		var keybind: String = ability.get("keybind", "?")
 		draw_string(
 			font,
 			Vector2(x + 5.0, y + 12.0),
@@ -77,7 +77,7 @@ func _draw() -> void:
 			keybind_color
 		)
 
-		var stam_cost: float = spell.get("stamina_cost", 0.0)
+		var stam_cost: float = ability.get("stamina_cost", 0.0)
 		if stam_cost > 0.0:
 			var stam_text := "%d" % int(stam_cost)
 			draw_string(
@@ -90,8 +90,8 @@ func _draw() -> void:
 				Color(0.85, 0.75, 0.2, 0.8)
 			)
 
-		var spell_name: String = spell.get("name", "???")
-		var status_text: String = spell.get("status_text", "")
+		var ability_name: String = ability.get("name", "???")
+		var status_text: String = ability.get("status_text", "")
 		if status_text != "":
 			draw_string(
 				font,
@@ -103,7 +103,7 @@ func _draw() -> void:
 				slot_color
 			)
 		else:
-			var parts := spell_name.split(" ", true, 1)
+			var parts := ability_name.split(" ", true, 1)
 			if parts.size() == 2:
 				draw_string(
 					font,
@@ -127,21 +127,21 @@ func _draw() -> void:
 				draw_string(
 					font,
 					Vector2(x + 3.0, y + SLOT_SIZE - 6.0),
-					spell_name,
+					ability_name,
 					HORIZONTAL_ALIGNMENT_LEFT,
 					SLOT_SIZE - 6.0,
 					9,
 					text_color
 				)
 
-		var cd: float = spell.get("cooldown", 0.0)
-		var cd_max: float = spell.get("cooldown_max", 0.0)
+		var cd: float = ability.get("cooldown", 0.0)
+		var cd_max: float = ability.get("cooldown_max", 0.0)
 		if cd > 0.01 and cd_max > 0.0:
 			_draw_cooldown_overlay(x, y, cd, cd_max)
 
 		if is_active:
-			var active_rem: float = spell.get("active_remaining", 0.0)
-			var active_max: float = spell.get("active_max", 0.0)
+			var active_rem: float = ability.get("active_remaining", 0.0)
+			var active_max: float = ability.get("active_max", 0.0)
 			if active_max > 0.0 and active_rem > 0.0:
 				var ratio := active_rem / active_max
 				var arc_center := Vector2(x + SLOT_SIZE - 10.0, y + 10.0)
@@ -174,11 +174,11 @@ func _draw() -> void:
 		for hi in slot_count:
 			var hx := start_x + hi * (SLOT_SIZE + SLOT_GAP)
 			var hover_rect := Rect2(hx, y, SLOT_SIZE, SLOT_SIZE)
-			if hover_rect.has_point(mouse_pos) and hi < _spells.size():
+			if hover_rect.has_point(mouse_pos) and hi < _abilities.size():
 				_hovered_slot = hi
 				break
 
-	if _hovered_slot >= 0 and _hovered_slot < _spells.size():
+	if _hovered_slot >= 0 and _hovered_slot < _abilities.size():
 		_draw_tooltip(start_x, y)
 
 
@@ -215,11 +215,11 @@ func _draw_cooldown_overlay(x: float, y: float, cd: float, cd_max: float) -> voi
 
 func _draw_tooltip(start_x: float, slot_y: float) -> void:
 	var font := ThemeDB.fallback_font
-	var spell: Dictionary = _spells[_hovered_slot]
-	var spell_name: String = spell.get("name", "???")
-	var spell_desc: String = spell.get("desc", "")
-	var cd_max: float = spell.get("cooldown_max", 0.0)
-	var cast_time: float = spell.get("dur", 0.0)
+	var ability: Dictionary = _abilities[_hovered_slot]
+	var ability_name: String = ability.get("name", "???")
+	var ability_desc: String = ability.get("desc", "")
+	var cd_max: float = ability.get("cooldown_max", 0.0)
+	var commit_time: float = ability.get("dur", 0.0)
 
 	var tip_w := 220.0
 	var tip_h := 80.0
@@ -239,22 +239,22 @@ func _draw_tooltip(start_x: float, slot_y: float) -> void:
 
 	_draw_panel(tip_rect, Color(accent_color, 0.2))
 
-	var name_color: Color = spell.get("color", accent_color)
+	var name_color: Color = ability.get("color", accent_color)
 	draw_string(
 		font,
 		Vector2(tip_x + 8.0, tip_y + 16.0),
-		spell_name,
+		ability_name,
 		HORIZONTAL_ALIGNMENT_LEFT,
 		tip_w - 16.0,
 		14,
 		name_color
 	)
 
-	if cast_time > 0.01:
+	if commit_time > 0.01:
 		draw_string(
 			font,
 			Vector2(tip_x + tip_w - 60.0, tip_y + 16.0),
-			"%.1fs" % cast_time,
+			"%.1fs" % commit_time,
 			HORIZONTAL_ALIGNMENT_RIGHT,
 			52.0,
 			10,
@@ -262,7 +262,7 @@ func _draw_tooltip(start_x: float, slot_y: float) -> void:
 		)
 
 	var info_parts: Array[String] = []
-	var stam_cost: float = spell.get("stamina_cost", 0.0)
+	var stam_cost: float = ability.get("stamina_cost", 0.0)
 	if stam_cost > 0.0:
 		info_parts.append("%d stamina" % int(stam_cost))
 	if cd_max > 0.01:
@@ -281,18 +281,18 @@ func _draw_tooltip(start_x: float, slot_y: float) -> void:
 
 	var desc_y := tip_y + 32.0
 	if has_custom_tooltip:
-		custom_tooltip_draw.call(self, spell, tip_rect)
+		custom_tooltip_draw.call(self, ability, tip_rect)
 		desc_y = tip_y + 46.0
 
-	if spell_desc != "":
+	if ability_desc != "":
 		var desc_color := Color(0.8, 0.8, 0.8, 0.9)
-		if spell_desc.length() > 35:
-			var split_pos := spell_desc.find(" ", 30)
+		if ability_desc.length() > 35:
+			var split_pos := ability_desc.find(" ", 30)
 			if split_pos > 0:
 				draw_string(
 					font,
 					Vector2(tip_x + 8.0, desc_y + 14.0),
-					spell_desc.left(split_pos),
+					ability_desc.left(split_pos),
 					HORIZONTAL_ALIGNMENT_LEFT,
 					tip_w - 16.0,
 					10,
@@ -301,7 +301,7 @@ func _draw_tooltip(start_x: float, slot_y: float) -> void:
 				draw_string(
 					font,
 					Vector2(tip_x + 8.0, desc_y + 26.0),
-					spell_desc.substr(split_pos + 1),
+					ability_desc.substr(split_pos + 1),
 					HORIZONTAL_ALIGNMENT_LEFT,
 					tip_w - 16.0,
 					10,
@@ -311,7 +311,7 @@ func _draw_tooltip(start_x: float, slot_y: float) -> void:
 				draw_string(
 					font,
 					Vector2(tip_x + 8.0, desc_y + 14.0),
-					spell_desc,
+					ability_desc,
 					HORIZONTAL_ALIGNMENT_LEFT,
 					tip_w - 16.0,
 					10,
@@ -321,7 +321,7 @@ func _draw_tooltip(start_x: float, slot_y: float) -> void:
 			draw_string(
 				font,
 				Vector2(tip_x + 8.0, desc_y + 14.0),
-				spell_desc,
+				ability_desc,
 				HORIZONTAL_ALIGNMENT_LEFT,
 				tip_w - 16.0,
 				10,

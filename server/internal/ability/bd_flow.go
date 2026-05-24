@@ -32,7 +32,7 @@ func (s *FlowState) HasTransition(origin, dest int) bool {
 }
 
 // RecordTransition attempts to add a transition to the chain.
-// Returns the damage multiplier for this cast.
+// Returns the damage multiplier for this commit.
 // If the transition is a repeat, resets the chain and returns 1.0 (no bonus).
 func (s *FlowState) RecordTransition(origin, dest int, mastery float32) float32 {
 	bit := transitionBit(origin, dest)

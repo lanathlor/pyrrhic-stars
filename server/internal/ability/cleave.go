@@ -27,23 +27,23 @@ var cleaveTiers = [3]cleaveTuning{
 
 const cleaveStaminaCost float32 = 10
 
-func cleaveHandler(eng *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func cleaveHandler(eng *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "invalid caster"}
+		return CommitResult{Reason: "invalid caster"}
 	}
 	if p.Cooldowns["cleave"] > 0 {
-		return CastResult{Reason: "cooldown"}
+		return CommitResult{Reason: "cooldown"}
 	}
 	if !p.SpendResource("stamina", cleaveStaminaCost*p.TenacityEfficiency()) {
-		return CastResult{Reason: ReasonInsufficientStamina}
+		return CommitResult{Reason: ReasonInsufficientStamina}
 	}
 
 	ons := getOnslaughtState(p)
 	tier := ons.Tier()
 	tuning := cleaveTiers[tier]
 
-	damage := tuning.damage * p.CasterDamageMult() * ons.DamageMult(p.GearStats.Mastery)
+	damage := tuning.damage * p.CommitterDamageMult() * ons.DamageMult(p.GearStats.Mastery)
 
 	// Maximum tier (360°) uses AoE circle instead of arc
 	if tier == TierMaximum {
@@ -68,5 +68,5 @@ func cleaveHandler(eng *Engine, ctx *CastContext) CastResult {
 	p.Cooldowns["cleave"] = tuning.cooldown
 	p.State = entity.PlayerStateAttack
 
-	return CastResult{OK: true, Events: eng.hitBuf}
+	return CommitResult{OK: true, Events: eng.hitBuf}
 }

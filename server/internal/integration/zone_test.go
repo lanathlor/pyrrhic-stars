@@ -277,9 +277,13 @@ func TestGunnerHitBroadcastsDamageEventIntegration(t *testing.T) {
 	// Wait for spawn grace period to expire (10 ticks @ 20Hz = 500ms)
 	time.Sleep(600 * time.Millisecond)
 
-	// Step into hallway (Z < ArenaEntryZ=40) — must be within 10 units of spawn (Z=48)
-	shooter.SendPlayerInput(-2, 0.1, 39, 0, 1, 0)
-	observer.SendPlayerInput(0, 0.1, 39, 0, 1, 0)
+	// Walk both players into the hallway (Z < ArenaEntryZ=40) concurrently
+	// using incremental steps so the server-side speed clamp accepts each move.
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() { defer wg.Done(); shooter.WalkTo(0, 0.1, 48, 0, 0.1, 39, 0.35) }()
+	go func() { defer wg.Done(); observer.WalkTo(0, 0.1, 48, 0, 0.1, 39, 0.35) }()
+	wg.Wait()
 
 	// Wait for fight start
 	shooter.WaitForMessage(message.OpGameFlowEvent, 3*time.Second)
@@ -288,24 +292,15 @@ func TestGunnerHitBroadcastsDamageEventIntegration(t *testing.T) {
 	shooter.DrainMessages()
 	observer.DrainMessages()
 
-	// Move shooter to Z=35, close to trash mobs at Z≈32
-	shooter.SendPlayerInput(0, 0.1, 42, 0, 2, 0)
-	time.Sleep(100 * time.Millisecond)
-	shooter.SendPlayerInput(0, 0.1, 35, 0, 3, 0)
-	time.Sleep(100 * time.Millisecond)
-
-	// Aim at trash mob at approximately (-3, 1, 32) from (0, 1.6, 35)
-	// Direction: (-3-0, 1-1.6, 32-35) = (-3, -0.6, -3)
-	dx := float64(-3.0)
-	dz := float64(32.0 - 35.0)
-	dy := float64(1.0 - 1.6)
-	horizDist := math.Sqrt(dx*dx + dz*dz)
-	aimPitch := float32(math.Atan2(dy, horizDist))
-	rotY := float32(-math.Atan2(-dx, -dz))
-	shooter.SendPlayerInput(0, 0.1, 35, rotY, 4, aimPitch)
-	time.Sleep(100 * time.Millisecond)
-
-	shooter.SendAbilityInput(entity.ActionShoot, aimPitch)
+	// Fire multiple shots at different yaw angles to sweep for mobs that may have
+	// moved during the walk. Mobs converge on the player, so they could be in any
+	// direction. Each shot is separated by enough time to clear the fire cooldown.
+	for _, rotY := range []float32{0, math.Pi, math.Pi / 2, -math.Pi / 2, math.Pi / 4, -math.Pi / 4} {
+		shooter.SendPlayerInput(0, 0.1, 39, rotY, 100, -0.1)
+		time.Sleep(60 * time.Millisecond)
+		shooter.SendAbilityInputAimed(entity.ActionShoot, -0.1, rotY)
+		time.Sleep(120 * time.Millisecond)
+	}
 
 	// Look for a player-on-enemy DamageEvent (target >= 1000, source_type == 0)
 	// There may also be enemy-on-player events from trash mobs, so filter.

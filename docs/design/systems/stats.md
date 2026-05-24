@@ -22,7 +22,7 @@ The rhythm stat. Controls how fast or fluidly the class operates.
 | ------------ | ---------- | ------------------------------------------------------- |
 | Gunner       | Action     | Fire rate, ADS speed, weapon swap speed                 |
 | Vanguard     | Recovery   | Parry window duration, dodge i-frame duration, combo input window, recovery frame speed |
-| Arcanotechnicien | Channel    | Cast speed, channel speed                               |
+| Arcanotechnicien | Channel    | Commit speed, channel speed                             |
 | Engineer     | Deploy     | Deployable cooldown reduction, drone reactivation speed |
 | Blade Dancer | Transition | GCD on configuration/position changes                   |
 | Tutelaire    | Pulse      | Aura tick rate, beacon recharge speed                   |
@@ -67,8 +67,8 @@ Named per spec. The build-defining stat — its effect changes based on the char
 | Spec       | Mastery Effect                                                                                                                                                                                  |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Destroyer  | Overcharge — channeling past base duration increases damage but builds Instability. Release at the right moment for max damage; hold too long and it backfires. Mastery widens the safe window. |
-| Battlemage | Weave — alternating melee and spell attacks grants stacking bonus damage. Consecutive same-type attacks break the chain.                                                                        |
-| Harmonist  | Harmony — healing an ally with a different spell type than the last heal on that target (zone/beam/direct) triggers a bonus heal. Mastery scales the bonus.                                     |
+| Battlemage | Weave — alternating melee and ability attacks grants stacking bonus damage. Consecutive same-type attacks break the chain.                                                                      |
+| Harmonist  | Harmony — healing an ally with a different ability type than the last heal on that target (zone/beam/direct) triggers a bonus heal. Mastery scales the bonus.                                   |
 
 #### Engineer
 

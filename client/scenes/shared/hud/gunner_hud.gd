@@ -52,8 +52,8 @@ func _process(delta: float) -> void:
 	crosshair.queue_redraw()
 
 
-func update_spells(spells: Array) -> void:
-	ability_bar.update_spells(spells)
+func update_abilities(abilities: Array) -> void:
+	ability_bar.update_abilities(abilities)
 
 
 func show_hit_marker() -> void:

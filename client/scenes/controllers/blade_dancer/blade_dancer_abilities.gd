@@ -1,6 +1,6 @@
 extends Node
 
-## Blade Dancer spells: casting, telegraphs, GCD, and hit detection.
+## Blade Dancer abilities: committing, telegraphs, GCD, and hit detection.
 
 const PlayerTelegraph := preload("res://scenes/shared/telegraph/player_telegraph.gd")
 const TELEGRAPH_COLOR := Color(0.2, 0.75, 0.9, 0.4)
@@ -12,45 +12,45 @@ func _ready() -> void:
 	ctrl = get_parent()
 
 
-func start_spell(slot: int) -> void:
-	var spells: Array = ctrl.SPELL_TABLE[ctrl.config]
-	if slot < 0 or slot >= spells.size():
+func start_ability(slot: int) -> void:
+	var slot_abilities: Array = ctrl.ABILITY_TABLE[ctrl.config]
+	if slot < 0 or slot >= slot_abilities.size():
 		return
-	var spell: Dictionary = spells[slot]
+	var ability: Dictionary = slot_abilities[slot]
 
-	ctrl._casting_spell = spell
-	ctrl._cast_timer = spell.dur
+	ctrl._committing_ability = ability
+	ctrl._cast_timer = ability.dur
 	ctrl._gcd_timer = ctrl.gcd_duration
 
 	# Send ability to server
 	if NetworkManager.is_active:
-		NetworkManager.send_ability(spell.action_id, 0.0, ctrl.rotation.y)
+		NetworkManager.send_ability(ability.action_id, 0.0, ctrl.rotation.y)
 
-	# Spawn telegraph if the spell has one
-	_spawn_spell_telegraph(spell)
+	# Spawn telegraph if the ability has one
+	_spawn_ability_telegraph(ability)
 
 	# Client-side raycast for optimistic hit feedback
-	perform_raycast_hit(ctrl.cast_range)
+	perform_raycast_hit(ctrl.ability_range)
 
 	ctrl._enter_state(ctrl.State.CASTING)
 
 
-func _spawn_spell_telegraph(spell: Dictionary) -> void:
-	var telegraph_type: String = spell.get("telegraph", "none")
+func _spawn_ability_telegraph(ability: Dictionary) -> void:
+	var telegraph_type: String = ability.get("telegraph", "none")
 	if telegraph_type == "none":
 		return
 
-	var spell_radius: float = spell.get("radius", 5.0)
+	var ability_radius: float = ability.get("radius", 5.0)
 
 	if telegraph_type == "circle":
 		PlayerTelegraph.spawn_circle(
-			ctrl.get_tree().root, ctrl.global_position, spell_radius, TELEGRAPH_COLOR
+			ctrl.get_tree().root, ctrl.global_position, ability_radius, TELEGRAPH_COLOR
 		)
 	elif telegraph_type == "circle_target":
 		var target_pos: Vector3 = get_aim_target_position()
 		if target_pos != Vector3.ZERO:
 			PlayerTelegraph.spawn_circle(
-				ctrl.get_tree().root, target_pos, spell_radius, TELEGRAPH_COLOR
+				ctrl.get_tree().root, target_pos, ability_radius, TELEGRAPH_COLOR
 			)
 
 
@@ -77,7 +77,7 @@ func get_aim_target_position() -> Vector3:
 func process_casting(delta: float) -> void:
 	ctrl.movement.face_attack_direction(delta)
 
-	# Slow movement while casting
+	# Slow movement while committing
 	var wish_dir: Vector3 = ctrl.movement.get_camera_wish_dir()
 	var speed: float = ctrl.run_speed * 0.4
 	if wish_dir.length() > 0.1:
@@ -89,13 +89,13 @@ func process_casting(delta: float) -> void:
 		ctrl.velocity.z = move_toward(ctrl.velocity.z, 0.0, ctrl.ground_decel * delta)
 
 	ctrl._cast_timer -= delta
-	if ctrl._cast_timer <= 0.0 and not ctrl._casting_spell.is_empty():
-		# Transition config on cast completion
-		var dest_config: int = ctrl._casting_spell.dest
+	if ctrl._cast_timer <= 0.0 and not ctrl._committing_ability.is_empty():
+		# Transition config on commit completion
+		var dest_config: int = ctrl._committing_ability.dest
 		ctrl.config = dest_config
 		ctrl.hud.update_config(ctrl.config)
-		ctrl.hud.update_spells(ctrl.SPELL_TABLE[ctrl.config])
-		ctrl._casting_spell = {}
+		ctrl.hud.update_abilities(ctrl.ABILITY_TABLE[ctrl.config])
+		ctrl._committing_ability = {}
 		ctrl._enter_state(ctrl.State.MOVE)
 
 

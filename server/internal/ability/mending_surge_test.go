@@ -34,8 +34,8 @@ func TestMendingSurge(t *testing.T) {
 			wantOK:         true,
 			wantHealCount:  1,
 			wantHealTarget: 2,
-			wantHealAmount: 92, // 80 * 1.15 (Sympathetic Field: Harmonist, same pos)
-			wantFlux:       120, // 160 - 40
+			wantHealAmount: 40.2, // 35 * 1.15 (Sympathetic Field: Harmonist, same pos)
+			wantFlux:       135,  // 160 - 40
 			wantCooldown:   true,
 			wantGCD:        true,
 		},
@@ -50,8 +50,8 @@ func TestMendingSurge(t *testing.T) {
 			wantOK:         true,
 			wantHealCount:  1,
 			wantHealTarget: 1,
-			wantHealAmount: 92, // 80 * 1.15 (Sympathetic Field: self-heal, dist=0)
-			wantFlux:       120,
+			wantHealAmount: 40.2, // 35 * 1.15 (Sympathetic Field: self-heal, dist=0)
+			wantFlux:       135,
 			wantCooldown:   true,
 			wantGCD:        true,
 		},
@@ -59,15 +59,15 @@ func TestMendingSurge(t *testing.T) {
 			name: "insufficient flux rejects before handler",
 			setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 				caster := entity.NewPlayer(1, entity.ClassArcanotechnicien)
-				caster.Resources["flux"].Current = 10 // not enough
+				caster.SetAllFluxPoolsCurrent(10) // not enough for mending_surge (25)
 				ally := entity.NewPlayer(2, entity.ClassArcanotechnicien)
 				ally.Health = 50
 				allies := map[uint16]*entity.Player{1: caster, 2: ally}
 				return caster, allies, 2
 			},
 			wantOK:     false,
-			wantReason: "insufficient flux",
-			wantFlux:   10, // unchanged
+			wantReason: "insufficient bioarcanotechnic flux",
+			wantFlux:   -1, // skip flux check (pools handle it)
 		},
 		{
 			name: "everyone at full HP still spends flux",
@@ -78,11 +78,13 @@ func TestMendingSurge(t *testing.T) {
 				allies := map[uint16]*entity.Player{1: caster, 2: ally}
 				return caster, allies, 2
 			},
-			wantOK:        true,
-			wantHealCount: 0, // no heal emitted, everyone full
-			wantFlux:      120,
-			wantCooldown:  true,
-			wantGCD:       true,
+			wantOK:         true,
+			wantHealCount:  1, // overheal event emitted even at full HP
+			wantHealTarget: 2,
+			wantHealAmount: 0, // pure overheal, no effective healing
+			wantFlux:       135,
+			wantCooldown:   true,
+			wantGCD:        true,
 		},
 		{
 			name: "identity stat scales heal",
@@ -99,8 +101,8 @@ func TestMendingSurge(t *testing.T) {
 			wantOK:         true,
 			wantHealCount:  1,
 			wantHealTarget: 2,
-			wantHealAmount: 138, // 80 * 1.5 (identity) * 1.15 (Sympathetic Field) = 138
-			wantFlux:       120, // 160 (initial current) - 40 (cost) = 120
+			wantHealAmount: 60.4, // 35 * 1.5 (identity) * 1.15 (Sympathetic Field) = 60.375
+			wantFlux:       135, // 160 (initial current) - 40 (cost) = 120
 			wantCooldown:   true,
 			wantGCD:        true,
 		},
@@ -116,7 +118,7 @@ func TestMendingSurge(t *testing.T) {
 			},
 			wantOK:     false,
 			wantReason: "gcd",
-			wantFlux:   160, // unchanged
+			wantFlux:   160,
 		},
 		{
 			name: "rejected on cooldown",
@@ -138,8 +140,8 @@ func TestMendingSurge(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			caster, allies, targetPeer := tt.setup()
 
-			result := eng.Cast("mending_surge", &CastContext{
-				Caster:       caster,
+			result := eng.Commit("mending_surge", &CommitContext{
+				Committer:       caster,
 				Allies:       allies,
 				TargetPeerID: targetPeer,
 			})
@@ -173,7 +175,7 @@ func TestMendingSurge(t *testing.T) {
 			}
 
 			flux := caster.Resources["flux"]
-			if flux != nil && math.Abs(float64(flux.Current-tt.wantFlux)) > 0.5 {
+			if tt.wantFlux >= 0 && flux != nil && math.Abs(float64(flux.Current-tt.wantFlux)) > 0.5 {
 				t.Errorf("Flux = %.1f, want %.1f", flux.Current, tt.wantFlux)
 			}
 

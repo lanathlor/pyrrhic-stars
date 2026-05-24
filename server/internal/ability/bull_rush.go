@@ -29,17 +29,17 @@ var bullRushDef = AbilityDef{
 	},
 }
 
-func bullRushHandler(eng *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func bullRushHandler(eng *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "invalid caster"}
+		return CommitResult{Reason: "invalid caster"}
 	}
 	if p.Cooldowns["bull_rush"] > 0 {
-		return CastResult{Reason: "cooldown"}
+		return CommitResult{Reason: "cooldown"}
 	}
 	cost := bullRushStamina * p.TenacityEfficiency()
 	if !p.SpendResource("stamina", cost) {
-		return CastResult{Reason: ReasonInsufficientStamina}
+		return CommitResult{Reason: ReasonInsufficientStamina}
 	}
 
 	// Bull Rush drops guard
@@ -49,7 +49,7 @@ func bullRushHandler(eng *Engine, ctx *CastContext) CastResult {
 
 	// AoE circle at caster position (charge endpoint resolved by movement system;
 	// for ability engine we hit targets in a circle around the caster)
-	damage := bullRushDamage * p.CasterDamageMult()
+	damage := bullRushDamage * p.CommitterDamageMult()
 	eng.hitBuf = resolveAoECircle(eng.hitBuf[:0], p.Position, p.ID, ctx.Targets, ctx.Obstacles, bullRushRange, damage, combat.SourcePlayerAttack)
 
 	// Root debuff (brief knockback effect)
@@ -72,5 +72,5 @@ func bullRushHandler(eng *Engine, ctx *CastContext) CastResult {
 	p.GCDTimer = bullRushGCD
 	p.State = entity.PlayerStateAttack
 
-	return CastResult{OK: true, Events: eng.hitBuf}
+	return CommitResult{OK: true, Events: eng.hitBuf}
 }

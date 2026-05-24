@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"sync"
 
+	"codex-online/server/internal/ability"
 	"codex-online/server/internal/character"
 	"codex-online/server/internal/codec"
 	"codex-online/server/internal/container"
@@ -16,6 +17,7 @@ import (
 	"codex-online/server/internal/item"
 	"codex-online/server/internal/message"
 	"codex-online/server/internal/session"
+	"codex-online/server/internal/abilitycatalog"
 	"codex-online/server/internal/user"
 	"codex-online/server/internal/zone"
 )
@@ -29,8 +31,10 @@ type gateway struct {
 	users      *user.Service
 	characters *character.Service
 	inventory  *inventory.Service
-	mu         sync.Mutex // protects zones
-	devMode    bool       // CODEX_DEV=1 enables debug features
+	catalog    *abilitycatalog.Catalog
+	abilityEng *ability.Engine // for stat lookups when building catalog
+	mu         sync.Mutex     // protects zones
+	devMode    bool           // CODEX_DEV=1 enables debug features
 }
 
 type zoneInstance struct {
@@ -195,6 +199,7 @@ func (g *gateway) joinZone(sess *session.Session, zi *zoneInstance, resp joinRes
 	// Load inventory and apply gear stats.
 	if sess.CharID != 0 {
 		g.loadAndApplyGear(sess, zi)
+		g.loadAndSendLoadout(sess, zi)
 	}
 
 	slog.Info("peer joined zone", "zone_id", zi.zone.ID, "peer_id", peerID, "username", displayName)
@@ -220,6 +225,133 @@ func (g *gateway) loadAndApplyGear(sess *session.Session, zi *zoneInstance) {
 			stats,
 		),
 	))
+}
+
+// loadAndSendLoadout loads a character's ability loadout, sends the ability catalog
+// and loadout state to the client, and applies the loadout in the zone.
+// Only relevant for Arcanotechnicien characters.
+func (g *gateway) loadAndSendLoadout(sess *session.Session, zi *zoneInstance) {
+	// Only for Arcanotechnicien.
+	if sess.Class != entity.ClassArcanotechnicien {
+		return
+	}
+
+	// Load persisted loadout (or default).
+	var slots [6]string
+	if sess.CharID != 0 {
+		loadout, err := g.container.Repo.GetLoadout(sess.CharID)
+		if err != nil {
+			slog.Error("load loadout", "char_id", sess.CharID, "error", err)
+		}
+		if loadout != nil {
+			slots = [6]string{loadout.Slot0, loadout.Slot1, loadout.Slot2, loadout.Slot3, loadout.Slot4, loadout.Slot5}
+		}
+	}
+
+	// If no persisted loadout, use default.
+	hasLoadout := false
+	for _, s := range slots {
+		if s != "" {
+			hasLoadout = true
+			break
+		}
+	}
+	if !hasLoadout {
+		slots = [6]string{"mending_surge", "mending_beam", "vital_bloom", "restoration_matrix", "life_swap", "transfusion"}
+	}
+
+	// Send catalog with affinity info for the spec.
+	if g.catalog != nil {
+		specID := sess.Spec
+		if specID == "" {
+			specID = "harmonist"
+		}
+		abilities := g.catalog.AbilitiesForSpec(specID)
+		var entries []codec.AbilityCatalogEntry
+		for _, sw := range abilities {
+			entry := codec.AbilityCatalogEntry{
+				ID:          sw.ID,
+				Name:        sw.Name,
+				School:      sw.School,
+				AbilityType:   sw.AbilityType,
+				Delivery:    sw.Delivery,
+				FluxCost:    sw.FluxCost,
+				Description: sw.Description,
+				Cooldown:    sw.Cooldown,
+				CommitTime:    sw.CommitTime,
+				Implemented: sw.Implemented,
+				Affinity:    sw.Affinity,
+			}
+			if g.abilityEng != nil {
+				if def := g.abilityEng.GetAbility(sw.ID); def != nil {
+					for _, cost := range def.Costs {
+						if cost.Resource == "flux" {
+							entry.FluxAmount = cost.Amount
+						}
+					}
+					entry.BaseHeal = def.BaseHeal
+					entry.BaseDamage = def.BaseDamage
+					entry.Range = def.Hit.Range
+					entry.GCD = def.GCD
+					entry.CommitTime = def.CommitTime
+					entry.ZoneRadius = def.ZoneRadius
+					entry.ZoneDuration = def.ZoneDuration
+					entry.ZoneHealTick = def.ZoneHealTick
+					entry.Sustain = def.Sustain
+				}
+			}
+			// Fallback: estimate flux from categorical label when no AbilityDef exists.
+			if entry.FluxAmount == 0 && entry.FluxCost != "" {
+				switch entry.FluxCost {
+				case "low":
+					entry.FluxAmount = 5
+				case "medium":
+					entry.FluxAmount = 15
+				case "high":
+					entry.FluxAmount = 40
+				case "extreme":
+					entry.FluxAmount = 80
+				}
+			}
+			entries = append(entries, entry)
+		}
+		slog.Info("sending ability catalog", "peer_id", sess.PeerID, "spec", specID, "count", len(entries))
+		sess.Conn.Send(message.Encode(message.OpAbilityCatalog, 0, codec.EncodeAbilityCatalog(entries)))
+	} else {
+		slog.Warn("no ability catalog loaded, skipping catalog send", "peer_id", sess.PeerID)
+	}
+
+	// Send loadout state.
+	sess.Conn.Send(message.Encode(message.OpLoadoutState, 0, codec.EncodeLoadoutState(slots)))
+
+	// Send flux commitment state (load from DB or use default for Harmonist).
+	if sess.Spec == "harmonist" || sess.Spec == "" {
+		var commitEntries []codec.FluxCommitEntry
+		if sess.CharID != 0 {
+			repoEntries, err := g.container.Repo.GetFluxCommitment(sess.CharID)
+			if err != nil {
+				slog.Error("load flux commitment", "char_id", sess.CharID, "error", err)
+			}
+			for _, e := range repoEntries {
+				commitEntries = append(commitEntries, codec.FluxCommitEntry{School: e.School, Percentage: e.Percentage})
+			}
+		}
+		if len(commitEntries) == 0 {
+			commitEntries = []codec.FluxCommitEntry{
+				{School: "bioarcanotechnic", Percentage: 50},
+				{School: "biometabolic", Percentage: 30},
+				{School: "frost", Percentage: 10},
+				{School: "aerokinetic", Percentage: 10},
+			}
+		}
+		sess.Conn.Send(message.Encode(message.OpFluxCommitState, 0, codec.EncodeFluxCommitState(commitEntries)))
+		// Apply commitment to zone player.
+		commitPayload := codec.EncodeFluxCommitState(commitEntries)
+		zi.zone.QueueInput(sess.PeerID, message.OpSetFluxCommitment, commitPayload)
+	}
+
+	// Apply loadout to zone player.
+	zi.zone.QueueInput(sess.PeerID, message.OpSetLoadout, codec.EncodeLoadoutState(slots))
 }
 
 // buildInventoryInfos converts equipped items to codec-compatible structs.

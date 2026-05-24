@@ -17,8 +17,8 @@ tree:
     # Charge: very late strafe
     - sequence: [has_reacted, in_charge_path, strafe_charge]
     # Start blocking if not already (and never stop)
-    - sequence: ["!is_blocking", "cast(vg_shield_block)"]
+    - sequence: ["!is_blocking", "commit(vg_shield_block)"]
     # Get into melee range
     - sequence: [out_of_melee, advance]
     # Shield bash filler while blocking
-    - "cast(shield_bash)"
+    - "commit(shield_bash)"

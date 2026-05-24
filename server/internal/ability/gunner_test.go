@@ -23,7 +23,7 @@ func TestGunner_FireShot_BasicHit(t *testing.T) {
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
-	r := eng.Cast("fire_shot", castCtx(p, e))
+	r := eng.Commit("fire_shot", commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("fire_shot failed: %s", r.Reason)
 	}
@@ -39,7 +39,7 @@ func TestGunner_FireShot_SetsCooldown(t *testing.T) {
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
-	eng.Cast("fire_shot", castCtx(p, e))
+	eng.Commit("fire_shot", commitCtx(p, e))
 	cd := p.Cooldowns["fire_shot"]
 	if math.Abs(float64(cd-0.18)) > 0.001 {
 		t.Errorf("cooldown = %f, want 0.18", cd)
@@ -51,8 +51,8 @@ func TestGunner_FireShot_BlockedByCooldown(t *testing.T) {
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
-	eng.Cast("fire_shot", castCtx(p, e))
-	r := eng.Cast("fire_shot", castCtx(p, e))
+	eng.Commit("fire_shot", commitCtx(p, e))
+	r := eng.Commit("fire_shot", commitCtx(p, e))
 	if r.OK {
 		t.Error("second fire_shot should be blocked by cooldown")
 	}
@@ -66,9 +66,9 @@ func TestGunner_FireShot_AfterCooldownExpires(t *testing.T) {
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
-	eng.Cast("fire_shot", castCtx(p, e))
+	eng.Commit("fire_shot", commitCtx(p, e))
 	eng.TickPlayer(p, 0.2, tickCtx()) // past 0.18s cooldown
-	r := eng.Cast("fire_shot", castCtx(p, e))
+	r := eng.Commit("fire_shot", commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("fire_shot should work after cooldown: %s", r.Reason)
 	}
@@ -81,7 +81,7 @@ func TestGunner_FireShot_RapidFire(t *testing.T) {
 
 	// Simulate 10 shots with proper cooldown ticks
 	for i := 0; i < 10; i++ {
-		r := eng.Cast("fire_shot", castCtx(p, e))
+		r := eng.Commit("fire_shot", commitCtx(p, e))
 		if !r.OK {
 			t.Fatalf("shot %d failed: %s", i+1, r.Reason)
 		}
@@ -95,7 +95,7 @@ func TestGunner_Overclock_AppliesBuff(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 
-	r := eng.Cast("overclock", castCtx(p))
+	r := eng.Commit("overclock", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("overclock failed: %s", r.Reason)
 	}
@@ -108,7 +108,7 @@ func TestGunner_Overclock_SetsCooldown(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 
-	eng.Cast("overclock", castCtx(p))
+	eng.Commit("overclock", commitCtx(p))
 	if p.Cooldowns["overclock"] != 15.0 {
 		t.Errorf("cooldown = %f, want 15.0", p.Cooldowns["overclock"])
 	}
@@ -119,9 +119,9 @@ func TestGunner_Overclock_ReducesFireCooldown(t *testing.T) {
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
-	eng.Cast("overclock", castCtx(p))
+	eng.Commit("overclock", commitCtx(p))
 
-	eng.Cast("fire_shot", castCtx(p, e))
+	eng.Commit("fire_shot", commitCtx(p, e))
 	cd := p.Cooldowns["fire_shot"]
 	want := float32(0.18 * 0.556)
 	if math.Abs(float64(cd-want)) > 0.01 {
@@ -134,11 +134,11 @@ func TestGunner_Overclock_CanFireDuring(t *testing.T) {
 	p := newGunner()
 	e := enemyInFront(100, 1e6)
 
-	eng.Cast("overclock", castCtx(p))
+	eng.Commit("overclock", commitCtx(p))
 
 	// Fire 5 rapid shots during overclock
 	for i := 0; i < 5; i++ {
-		r := eng.Cast("fire_shot", castCtx(p, e))
+		r := eng.Commit("fire_shot", commitCtx(p, e))
 		if !r.OK {
 			t.Fatalf("shot %d during overclock failed: %s", i+1, r.Reason)
 		}
@@ -150,8 +150,8 @@ func TestGunner_Overclock_BlocksWhileActive(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 
-	eng.Cast("overclock", castCtx(p))
-	r := eng.Cast("overclock", castCtx(p))
+	eng.Commit("overclock", commitCtx(p))
+	r := eng.Commit("overclock", commitCtx(p))
 	if r.OK {
 		t.Error("overclock should be blocked while active")
 	}
@@ -161,7 +161,7 @@ func TestGunner_Overclock_BlocksDuringCooldown(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 
-	eng.Cast("overclock", castCtx(p))
+	eng.Commit("overclock", commitCtx(p))
 
 	// Expire buff but keep cooldown
 	eng.TickPlayer(p, 7.5, tickCtx()) // buff lasts 7s
@@ -169,7 +169,7 @@ func TestGunner_Overclock_BlocksDuringCooldown(t *testing.T) {
 		t.Fatal("overclock buff should have expired")
 	}
 	// Cooldown should still be active (15 - 7.5 = 7.5)
-	r := eng.Cast("overclock", castCtx(p))
+	r := eng.Commit("overclock", commitCtx(p))
 	if r.OK {
 		t.Error("overclock should be blocked by cooldown")
 	}
@@ -179,7 +179,7 @@ func TestGunner_Overclock_ReusableAfterFullCooldown(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 
-	eng.Cast("overclock", castCtx(p))
+	eng.Commit("overclock", commitCtx(p))
 
 	// Tick past both buff (7s) and cooldown (15s)
 	eng.TickPlayer(p, 16.0, tickCtx())
@@ -190,7 +190,7 @@ func TestGunner_Overclock_ReusableAfterFullCooldown(t *testing.T) {
 		t.Error("overclock cooldown should have expired")
 	}
 
-	r := eng.Cast("overclock", castCtx(p))
+	r := eng.Commit("overclock", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("overclock should be reusable after full cooldown: %s", r.Reason)
 	}
@@ -200,7 +200,7 @@ func TestGunner_Overclock_BuffDuration(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 
-	eng.Cast("overclock", castCtx(p))
+	eng.Commit("overclock", commitCtx(p))
 
 	// At 6.9s, buff should still be active
 	eng.TickPlayer(p, 6.9, tickCtx())
@@ -221,7 +221,7 @@ func TestGunner_Rechamber_StartsPhase1(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 
-	r := eng.Cast("rechamber", castCtx(p))
+	r := eng.Commit("rechamber", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("rechamber failed: %s", r.Reason)
 	}
@@ -242,8 +242,8 @@ func TestGunner_Rechamber_BlockedDuringFireCooldown(t *testing.T) {
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
-	eng.Cast("fire_shot", castCtx(p, e))
-	r := eng.Cast("rechamber", castCtx(p))
+	eng.Commit("fire_shot", commitCtx(p, e))
+	r := eng.Commit("rechamber", commitCtx(p))
 	if r.OK {
 		t.Error("rechamber should be blocked during fire cooldown")
 	}
@@ -257,9 +257,9 @@ func TestGunner_Rechamber_AllowedAfterFireCooldown(t *testing.T) {
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
-	eng.Cast("fire_shot", castCtx(p, e))
+	eng.Commit("fire_shot", commitCtx(p, e))
 	eng.TickPlayer(p, 0.2, tickCtx()) // past 0.18s fire CD
-	r := eng.Cast("rechamber", castCtx(p))
+	r := eng.Commit("rechamber", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("rechamber should work after fire cooldown: %s", r.Reason)
 	}
@@ -270,8 +270,8 @@ func TestGunner_Rechamber_BlocksFiringDuringWindup(t *testing.T) {
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
-	eng.Cast("rechamber", castCtx(p))
-	r := eng.Cast("fire_shot", castCtx(p, e))
+	eng.Commit("rechamber", commitCtx(p))
+	r := eng.Commit("fire_shot", commitCtx(p, e))
 	if r.OK {
 		t.Error("fire_shot should be blocked during rechamber windup")
 	}
@@ -281,8 +281,8 @@ func TestGunner_Rechamber_BlocksDoubleStart(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 
-	eng.Cast("rechamber", castCtx(p))
-	r := eng.Cast("rechamber", castCtx(p))
+	eng.Commit("rechamber", commitCtx(p))
+	r := eng.Commit("rechamber", commitCtx(p))
 	if r.OK {
 		t.Error("second rechamber should be blocked")
 	}
@@ -295,7 +295,7 @@ func TestGunner_Rechamber_PhaseProgression(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 
-	eng.Cast("rechamber", castCtx(p))
+	eng.Commit("rechamber", commitCtx(p))
 	state, ok := p.AbilityState["rechamber"].(*RechamberState)
 	if !ok {
 		t.Fatal("rechamber state not set")
@@ -324,10 +324,10 @@ func TestGunner_Rechamber_ConfirmInWindow(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 
-	eng.Cast("rechamber", castCtx(p))
+	eng.Commit("rechamber", commitCtx(p))
 	eng.TickPlayer(p, 0.6, tickCtx()) // → phase 2
 
-	r := eng.Cast("rechamber_confirm", castCtx(p))
+	r := eng.Commit("rechamber_confirm", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("rechamber_confirm failed: %s", r.Reason)
 	}
@@ -340,9 +340,9 @@ func TestGunner_Rechamber_ConfirmDuringWindup(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 
-	eng.Cast("rechamber", castCtx(p))
+	eng.Commit("rechamber", commitCtx(p))
 	// Still in phase 1 (windup)
-	r := eng.Cast("rechamber_confirm", castCtx(p))
+	r := eng.Commit("rechamber_confirm", commitCtx(p))
 	if r.OK {
 		t.Error("confirm should fail during windup (phase 1)")
 	}
@@ -352,11 +352,11 @@ func TestGunner_Rechamber_ConfirmDuringLockout(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 
-	eng.Cast("rechamber", castCtx(p))
+	eng.Commit("rechamber", commitCtx(p))
 	eng.TickPlayer(p, 0.6, tickCtx())  // → phase 2
 	eng.TickPlayer(p, 0.35, tickCtx()) // → phase 3
 
-	r := eng.Cast("rechamber_confirm", castCtx(p))
+	r := eng.Commit("rechamber_confirm", commitCtx(p))
 	if r.OK {
 		t.Error("confirm should fail during lockout (phase 3)")
 	}
@@ -368,15 +368,15 @@ func TestGunner_Rechamber_BuffIncreasesDamage(t *testing.T) {
 	e := enemyInFront(100, 1000)
 
 	// Complete rechamber for buff
-	eng.Cast("rechamber", castCtx(p))
+	eng.Commit("rechamber", commitCtx(p))
 	eng.TickPlayer(p, 0.6, tickCtx()) // → phase 2
-	eng.Cast("rechamber_confirm", castCtx(p))
+	eng.Commit("rechamber_confirm", commitCtx(p))
 
 	// Clear fire cooldown (rechamber set it to 0.6, but we ticked 0.6)
 	eng.TickPlayer(p, 0.1, tickCtx()) // ensure fire CD is gone
 
 	// Fire with buff
-	r := eng.Cast("fire_shot", castCtx(p, e))
+	r := eng.Commit("fire_shot", commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("fire_shot after rechamber failed: %s", r.Reason)
 	}
@@ -392,12 +392,12 @@ func TestGunner_Rechamber_CanFireAfterConfirm(t *testing.T) {
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
-	eng.Cast("rechamber", castCtx(p))
+	eng.Commit("rechamber", commitCtx(p))
 	eng.TickPlayer(p, 0.6, tickCtx()) // → phase 2, fire CD expired
-	eng.Cast("rechamber_confirm", castCtx(p))
+	eng.Commit("rechamber_confirm", commitCtx(p))
 
 	// Fire cooldown was set to 0.6 at rechamber start, ticked by 0.6 → should be gone
-	r := eng.Cast("fire_shot", castCtx(p, e))
+	r := eng.Commit("fire_shot", commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("should be able to fire after confirm: %s", r.Reason)
 	}
@@ -408,12 +408,12 @@ func TestGunner_Rechamber_CanFireAfterLockout(t *testing.T) {
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
-	eng.Cast("rechamber", castCtx(p))
+	eng.Commit("rechamber", commitCtx(p))
 	eng.TickPlayer(p, 0.6, tickCtx())  // → phase 2
 	eng.TickPlayer(p, 0.35, tickCtx()) // → phase 3 (missed)
 	eng.TickPlayer(p, 0.8, tickCtx())  // → phase 0
 
-	r := eng.Cast("fire_shot", castCtx(p, e))
+	r := eng.Commit("fire_shot", commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("should be able to fire after lockout: %s", r.Reason)
 	}
@@ -423,12 +423,12 @@ func TestGunner_Rechamber_CanRestartAfterLockout(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 
-	eng.Cast("rechamber", castCtx(p))
+	eng.Commit("rechamber", commitCtx(p))
 	eng.TickPlayer(p, 0.6, tickCtx())  // → phase 2
 	eng.TickPlayer(p, 0.35, tickCtx()) // → phase 3
 	eng.TickPlayer(p, 0.8, tickCtx())  // → phase 0
 
-	r := eng.Cast("rechamber", castCtx(p))
+	r := eng.Commit("rechamber", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("rechamber should be restartable after lockout: %s", r.Reason)
 	}
@@ -438,12 +438,12 @@ func TestGunner_Rechamber_CanRestartAfterConfirm(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 
-	eng.Cast("rechamber", castCtx(p))
+	eng.Commit("rechamber", commitCtx(p))
 	eng.TickPlayer(p, 0.6, tickCtx()) // → phase 2
-	eng.Cast("rechamber_confirm", castCtx(p))
+	eng.Commit("rechamber_confirm", commitCtx(p))
 
 	// Fire CD should be cleared by now (0.6 tick > 0.6 CD)
-	r := eng.Cast("rechamber", castCtx(p))
+	r := eng.Commit("rechamber", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("rechamber should be restartable after confirm: %s", r.Reason)
 	}
@@ -455,8 +455,8 @@ func TestGunner_Overclock_Then_Rechamber(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 
-	eng.Cast("overclock", castCtx(p))
-	r := eng.Cast("rechamber", castCtx(p))
+	eng.Commit("overclock", commitCtx(p))
+	r := eng.Commit("rechamber", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("rechamber during overclock failed: %s", r.Reason)
 	}
@@ -466,8 +466,8 @@ func TestGunner_Rechamber_Then_Overclock(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 
-	eng.Cast("rechamber", castCtx(p))
-	r := eng.Cast("overclock", castCtx(p))
+	eng.Commit("rechamber", commitCtx(p))
+	r := eng.Commit("overclock", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("overclock during rechamber failed: %s", r.Reason)
 	}
@@ -479,13 +479,13 @@ func TestGunner_RechamberBuff_Plus_Overclock_Damage(t *testing.T) {
 	e := enemyInFront(100, 1000)
 
 	// Get rechamber buff (1.8x)
-	eng.Cast("rechamber", castCtx(p))
+	eng.Commit("rechamber", commitCtx(p))
 	eng.TickPlayer(p, 0.6, tickCtx())
-	eng.Cast("rechamber_confirm", castCtx(p))
+	eng.Commit("rechamber_confirm", commitCtx(p))
 
 	// rechamber_buff is damage_mult, not cooldown_mult — so it stacks multiplicatively
 	// 10 base * 1.8 = 18, + pressure bonus ~0.54
-	r := eng.Cast("fire_shot", castCtx(p, e))
+	r := eng.Commit("fire_shot", commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("fire_shot failed: %s", r.Reason)
 	}
@@ -499,11 +499,11 @@ func TestGunner_Overclock_RechamberCooldown(t *testing.T) {
 	p := newGunner()
 
 	// Overclock reduces cooldowns via cooldown_mult buff
-	eng.Cast("overclock", castCtx(p))
+	eng.Commit("overclock", commitCtx(p))
 
 	// Rechamber is handler-based, sets fire_shot CD directly (0.6)
 	// The handler doesn't go through the cooldown_mult path
-	eng.Cast("rechamber", castCtx(p))
+	eng.Commit("rechamber", commitCtx(p))
 	cd := p.Cooldowns["fire_shot"]
 	if cd != 0.6 {
 		t.Errorf("fire_shot CD during rechamber = %f, want 0.6 (handler sets directly)", cd)
@@ -519,7 +519,7 @@ func TestGunner_FullRotation_Fire_Rechamber_Fire(t *testing.T) {
 
 	// 1. Fire a few shots
 	for i := 0; i < 3; i++ {
-		r := eng.Cast("fire_shot", castCtx(p, e))
+		r := eng.Commit("fire_shot", commitCtx(p, e))
 		if !r.OK {
 			t.Fatalf("initial shot %d failed: %s", i+1, r.Reason)
 		}
@@ -527,7 +527,7 @@ func TestGunner_FullRotation_Fire_Rechamber_Fire(t *testing.T) {
 	}
 
 	// 2. Rechamber
-	r := eng.Cast("rechamber", castCtx(p))
+	r := eng.Commit("rechamber", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("rechamber failed: %s", r.Reason)
 	}
@@ -536,7 +536,7 @@ func TestGunner_FullRotation_Fire_Rechamber_Fire(t *testing.T) {
 	eng.TickPlayer(p, 0.6, tickCtx())
 
 	// 4. Confirm
-	r = eng.Cast("rechamber_confirm", castCtx(p))
+	r = eng.Commit("rechamber_confirm", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("confirm failed: %s", r.Reason)
 	}
@@ -544,7 +544,7 @@ func TestGunner_FullRotation_Fire_Rechamber_Fire(t *testing.T) {
 	// 5. Fire buffed shots — pressure stacks continue from earlier hits
 	var prevDmg float32
 	for i := range 3 {
-		r = eng.Cast("fire_shot", castCtx(p, e))
+		r = eng.Commit("fire_shot", commitCtx(p, e))
 		if !r.OK {
 			t.Fatalf("buffed shot %d failed: %s", i+1, r.Reason)
 		}
@@ -570,14 +570,14 @@ func TestGunner_FullRotation_Overclock_Fire(t *testing.T) {
 	e := enemyInFront(100, 1e6)
 
 	// 1. Overclock
-	r := eng.Cast("overclock", castCtx(p))
+	r := eng.Commit("overclock", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("overclock failed: %s", r.Reason)
 	}
 
 	// 2. Rapid fire with reduced cooldowns
 	for i := 0; i < 5; i++ {
-		r = eng.Cast("fire_shot", castCtx(p, e))
+		r = eng.Commit("fire_shot", commitCtx(p, e))
 		if !r.OK {
 			t.Fatalf("overclocked shot %d failed: %s", i+1, r.Reason)
 		}
@@ -592,28 +592,28 @@ func TestGunner_FullRotation_Overclock_Rechamber_Fire(t *testing.T) {
 	e := enemyInFront(100, 1e6)
 
 	// 1. Overclock
-	eng.Cast("overclock", castCtx(p))
+	eng.Commit("overclock", commitCtx(p))
 
 	// 2. Fire one shot
-	eng.Cast("fire_shot", castCtx(p, e))
+	eng.Commit("fire_shot", commitCtx(p, e))
 	eng.TickPlayer(p, 0.12, tickCtx())
 
 	// 3. Rechamber
-	r := eng.Cast("rechamber", castCtx(p))
+	r := eng.Commit("rechamber", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("rechamber during overclock failed: %s", r.Reason)
 	}
 
 	// 4. Tick through windup and confirm
 	eng.TickPlayer(p, 0.6, tickCtx())
-	r = eng.Cast("rechamber_confirm", castCtx(p))
+	r = eng.Commit("rechamber_confirm", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("confirm failed: %s", r.Reason)
 	}
 
 	// 5. Fire with both buffs (rechamber_buff 1.8x damage, overclock reduced CD)
 	// Pressure: was 1 (from shot 1), now same target → stacks=2, bonus ~1.08
-	r = eng.Cast("fire_shot", castCtx(p, e))
+	r = eng.Commit("fire_shot", commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("buffed fire failed: %s", r.Reason)
 	}
@@ -639,7 +639,7 @@ func TestGunner_Rechamber_GetPhase_ForCodec(t *testing.T) {
 		t.Errorf("phase before rechamber = %d, want 0", ph)
 	}
 
-	eng.Cast("rechamber", castCtx(p))
+	eng.Commit("rechamber", commitCtx(p))
 	if ph := p.GetAbilityPhase("rechamber"); ph != 1 {
 		t.Errorf("phase during windup = %d, want 1", ph)
 	}
@@ -661,9 +661,9 @@ func TestGunner_Rechamber_BuffExpires(t *testing.T) {
 	e := enemyInFront(100, 1e6)
 
 	// Get rechamber buff
-	eng.Cast("rechamber", castCtx(p))
+	eng.Commit("rechamber", commitCtx(p))
 	eng.TickPlayer(p, 0.6, tickCtx())
-	eng.Cast("rechamber_confirm", castCtx(p))
+	eng.Commit("rechamber_confirm", commitCtx(p))
 
 	// Buff lasts 4s
 	eng.TickPlayer(p, 4.1, tickCtx())
@@ -672,7 +672,7 @@ func TestGunner_Rechamber_BuffExpires(t *testing.T) {
 	}
 
 	// Damage should be back to base (+ pressure bonus for first hit)
-	r := eng.Cast("fire_shot", castCtx(p, e))
+	r := eng.Commit("fire_shot", commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("fire_shot failed: %s", r.Reason)
 	}
@@ -686,12 +686,12 @@ func TestGunner_NoGCD_BetweenAbilities(t *testing.T) {
 	p := newGunner()
 
 	// Gunner abilities should not set GCD (they use per-ability CDs)
-	eng.Cast("overclock", castCtx(p))
+	eng.Commit("overclock", commitCtx(p))
 	if p.GCDTimer != 0 {
 		t.Errorf("GCDTimer after overclock = %f, want 0", p.GCDTimer)
 	}
 
-	eng.Cast("rechamber", castCtx(p))
+	eng.Commit("rechamber", commitCtx(p))
 	if p.GCDTimer != 0 {
 		t.Errorf("GCDTimer after rechamber = %f, want 0", p.GCDTimer)
 	}
@@ -728,7 +728,7 @@ func TestGunner_Magazine_DepletesThenAutoReload(t *testing.T) {
 
 	for i := range 30 {
 		p.Cooldowns["fire_shot"] = 0
-		r := eng.Cast("fire_shot", castCtx(p, e))
+		r := eng.Commit("fire_shot", commitCtx(p, e))
 		if !r.OK {
 			t.Fatalf("shot %d failed: %s", i+1, r.Reason)
 		}
@@ -747,7 +747,7 @@ func TestGunner_Reload_Tactical(t *testing.T) {
 	state := getGunnerAssaultState(p)
 	state.MagCurrent = 15
 
-	r := eng.Cast("reload", castCtx(p))
+	r := eng.Commit("reload", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("reload failed: %s", r.Reason)
 	}
@@ -773,7 +773,7 @@ func TestGunner_Reload_Empty(t *testing.T) {
 	state := getGunnerAssaultState(p)
 	state.MagCurrent = 0
 
-	r := eng.Cast("reload", castCtx(p))
+	r := eng.Commit("reload", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("reload failed: %s", r.Reason)
 	}
@@ -787,7 +787,7 @@ func TestGunner_Reload_BlockedWhenFull(t *testing.T) {
 	p := newGunner()
 	getGunnerAssaultState(p) // ensure state init
 
-	r := eng.Cast("reload", castCtx(p))
+	r := eng.Commit("reload", commitCtx(p))
 	if r.OK {
 		t.Error("reload should fail when magazine is full")
 	}
@@ -803,7 +803,7 @@ func TestGunner_Reload_BlockedDuringMagDump(t *testing.T) {
 	state.MagCurrent = 15
 	state.MagDumpActive = true
 
-	r := eng.Cast("reload", castCtx(p))
+	r := eng.Commit("reload", commitCtx(p))
 	if r.OK {
 		t.Error("reload should fail during mag dump")
 	}
@@ -819,7 +819,7 @@ func TestGunner_Stability_DecayAndRecovery(t *testing.T) {
 	e := enemyInFront(100, 1e6)
 	state := getGunnerAssaultState(p)
 
-	eng.Cast("fire_shot", castCtx(p, e))
+	eng.Commit("fire_shot", commitCtx(p, e))
 	if state.Stability > 0.93 {
 		t.Errorf("stability = %f, want < 0.93 after 1 shot", state.Stability)
 	}
@@ -837,7 +837,7 @@ func TestGunner_Stability_OverclockFasterRecovery(t *testing.T) {
 	// Player with overclock
 	p1 := newGunner()
 	s1 := getGunnerAssaultState(p1)
-	eng.Cast("overclock", castCtx(p1))
+	eng.Commit("overclock", commitCtx(p1))
 	s1.Stability = 0.5
 	s1.StabilityTimer = 1.0 // past delay
 
@@ -933,7 +933,7 @@ func TestGunner_Steadiness_AffectsSpread(t *testing.T) {
 		s1.Stability = 1.0
 		s1.Steadiness = 1.0
 		s1.MagCurrent = 30 // keep magazine full
-		r := eng.Cast("fire_shot", castCtx(p1, e1))
+		r := eng.Commit("fire_shot", commitCtx(p1, e1))
 		if r.OK && len(r.Events) > 0 {
 			hits1++
 		}
@@ -963,7 +963,7 @@ func TestGunner_Pressure_ConsecutiveHits(t *testing.T) {
 
 	for i := range 5 {
 		p.Cooldowns["fire_shot"] = 0
-		r := eng.Cast("fire_shot", castCtx(p, e))
+		r := eng.Commit("fire_shot", commitCtx(p, e))
 		if !r.OK {
 			t.Fatalf("shot %d failed: %s", i+1, r.Reason)
 		}
@@ -982,7 +982,7 @@ func TestGunner_Pressure_MissResets(t *testing.T) {
 	// Build stacks
 	for i := range 3 {
 		p.Cooldowns["fire_shot"] = 0
-		r := eng.Cast("fire_shot", castCtx(p, e))
+		r := eng.Commit("fire_shot", commitCtx(p, e))
 		if !r.OK {
 			t.Fatalf("shot %d failed: %s", i+1, r.Reason)
 		}
@@ -994,7 +994,7 @@ func TestGunner_Pressure_MissResets(t *testing.T) {
 	// Miss (shoot at enemy behind — hitscan won't find it)
 	p.Cooldowns["fire_shot"] = 0
 	eBehind := enemyBehind(200, 1e6)
-	eng.Cast("fire_shot", castCtx(p, eBehind))
+	eng.Commit("fire_shot", commitCtx(p, eBehind))
 	if state.PressureStacks != 0 {
 		t.Errorf("stacks after miss = %d, want 0", state.PressureStacks)
 	}
@@ -1006,7 +1006,7 @@ func TestGunner_Pressure_TimeoutResets(t *testing.T) {
 	e := enemyInFront(100, 1e6)
 	state := getGunnerAssaultState(p)
 
-	eng.Cast("fire_shot", castCtx(p, e))
+	eng.Commit("fire_shot", commitCtx(p, e))
 	if state.PressureStacks == 0 {
 		t.Fatal("expected stacks > 0 after hit")
 	}
@@ -1028,7 +1028,7 @@ func TestGunner_Pressure_TargetSwapResetsToOne(t *testing.T) {
 	// Hit e1 three times
 	for i := range 3 {
 		p.Cooldowns["fire_shot"] = 0
-		r := eng.Cast("fire_shot", castCtx(p, e1))
+		r := eng.Commit("fire_shot", commitCtx(p, e1))
 		if !r.OK {
 			t.Fatalf("shot %d failed: %s", i+1, r.Reason)
 		}
@@ -1039,7 +1039,7 @@ func TestGunner_Pressure_TargetSwapResetsToOne(t *testing.T) {
 
 	// Hit e2 (only e2 in targets so hitscan picks it)
 	p.Cooldowns["fire_shot"] = 0
-	eng.Cast("fire_shot", castCtx(p, e2))
+	eng.Commit("fire_shot", commitCtx(p, e2))
 	if state.PressureStacks != 1 {
 		t.Errorf("stacks after target swap = %d, want 1", state.PressureStacks)
 	}
@@ -1053,7 +1053,7 @@ func TestGunner_Pressure_MaxGeneratesEnhanced(t *testing.T) {
 
 	for i := range 10 {
 		p.Cooldowns["fire_shot"] = 0
-		r := eng.Cast("fire_shot", castCtx(p, e))
+		r := eng.Commit("fire_shot", commitCtx(p, e))
 		if !r.OK {
 			t.Fatalf("shot %d failed: %s", i+1, r.Reason)
 		}
@@ -1075,7 +1075,7 @@ func TestGunner_Pressure_NoDuplicateEnhancedBatch(t *testing.T) {
 	// Reach max stacks (10 shots)
 	for i := range 10 {
 		p.Cooldowns["fire_shot"] = 0
-		eng.Cast("fire_shot", castCtx(p, e))
+		eng.Commit("fire_shot", commitCtx(p, e))
 		_ = i
 	}
 	if state.EnhancedReserve != 5 {
@@ -1085,7 +1085,7 @@ func TestGunner_Pressure_NoDuplicateEnhancedBatch(t *testing.T) {
 	// Fire more while at max — should NOT generate another batch
 	for range 5 {
 		p.Cooldowns["fire_shot"] = 0
-		eng.Cast("fire_shot", castCtx(p, e))
+		eng.Commit("fire_shot", commitCtx(p, e))
 	}
 	if state.EnhancedReserve != 5 {
 		t.Errorf("reserve = %d, want 5 (no duplicate batch)", state.EnhancedReserve)
@@ -1102,7 +1102,7 @@ func TestGunner_LoadEnhanced(t *testing.T) {
 	state := getGunnerAssaultState(p)
 	state.EnhancedReserve = 5
 
-	r := eng.Cast("load_enhanced", castCtx(p))
+	r := eng.Commit("load_enhanced", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("load_enhanced failed: %s", r.Reason)
 	}
@@ -1119,7 +1119,7 @@ func TestGunner_LoadEnhanced_BlockedWhenEmpty(t *testing.T) {
 	p := newGunner()
 	getGunnerAssaultState(p) // no reserve
 
-	r := eng.Cast("load_enhanced", castCtx(p))
+	r := eng.Commit("load_enhanced", commitCtx(p))
 	if r.OK {
 		t.Error("load_enhanced should fail with no reserve")
 	}
@@ -1135,7 +1135,7 @@ func TestGunner_LoadEnhanced_BlockedWhenAlreadyLoaded(t *testing.T) {
 	state.EnhancedReserve = 5
 	state.EnhancedLoaded = 3
 
-	r := eng.Cast("load_enhanced", castCtx(p))
+	r := eng.Commit("load_enhanced", commitCtx(p))
 	if r.OK {
 		t.Error("load_enhanced should fail when already loaded")
 	}
@@ -1150,10 +1150,10 @@ func TestGunner_EnhancedRound_ConsumesAndDealsBonusDamage(t *testing.T) {
 	e := enemyInFront(100, 1e6)
 	state := getGunnerAssaultState(p)
 	state.EnhancedReserve = 5
-	eng.Cast("load_enhanced", castCtx(p))
+	eng.Commit("load_enhanced", commitCtx(p))
 
 	// Fire an enhanced round
-	r := eng.Cast("fire_shot", castCtx(p, e))
+	r := eng.Commit("fire_shot", commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("fire_shot failed: %s", r.Reason)
 	}
@@ -1176,7 +1176,7 @@ func TestGunner_EnhancedRound_ConsumesBeforeMagazine(t *testing.T) {
 	magBefore := state.MagCurrent
 
 	p.Cooldowns["fire_shot"] = 0
-	eng.Cast("fire_shot", castCtx(p, e))
+	eng.Commit("fire_shot", commitCtx(p, e))
 	if state.EnhancedLoaded != 1 {
 		t.Errorf("enhanced = %d, want 1", state.EnhancedLoaded)
 	}
@@ -1196,7 +1196,7 @@ func TestGunner_MagDump(t *testing.T) {
 	state := getGunnerAssaultState(p)
 	state.MagCurrent = 4
 
-	r := eng.Cast("mag_dump", castCtx(p, e))
+	r := eng.Commit("mag_dump", commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("mag_dump failed: %s", r.Reason)
 	}
@@ -1222,7 +1222,7 @@ func TestGunner_MagDump_BlockedDuringReload(t *testing.T) {
 	state := getGunnerAssaultState(p)
 	state.Reloading = true
 
-	r := eng.Cast("mag_dump", castCtx(p))
+	r := eng.Commit("mag_dump", commitCtx(p))
 	if r.OK {
 		t.Error("mag dump should fail during reload")
 	}
@@ -1237,7 +1237,7 @@ func TestGunner_MagDump_BlockedWhenEmpty(t *testing.T) {
 	state := getGunnerAssaultState(p)
 	state.MagCurrent = 0
 
-	r := eng.Cast("mag_dump", castCtx(p))
+	r := eng.Commit("mag_dump", commitCtx(p))
 	if r.OK {
 		t.Error("mag dump should fail with empty magazine")
 	}
@@ -1251,7 +1251,7 @@ func TestGunner_MagDump_SetsCooldown(t *testing.T) {
 	p := newGunner()
 	getGunnerAssaultState(p)
 
-	eng.Cast("mag_dump", castCtx(p))
+	eng.Commit("mag_dump", commitCtx(p))
 	if p.Cooldowns["mag_dump"] != 12.0 {
 		t.Errorf("cooldown = %f, want 12.0", p.Cooldowns["mag_dump"])
 	}

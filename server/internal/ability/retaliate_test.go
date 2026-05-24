@@ -12,9 +12,9 @@ func TestRetaliate_ConsumesAllDevotion(t *testing.T) {
 	dev := getDevotionState(p)
 	dev.Charges = 50
 
-	r := eng.Cast("retaliate", castCtx(p, enemy))
+	r := eng.Commit("retaliate", commitCtx(p, enemy))
 	if !r.OK {
-		t.Fatalf("cast failed: %s", r.Reason)
+		t.Fatalf("commit failed: %s", r.Reason)
 	}
 
 	if dev.Charges != 0 {
@@ -28,7 +28,7 @@ func TestRetaliate_DamageScalesWithCharges(t *testing.T) {
 	// Zero charges
 	p0 := newShieldVanguard()
 	enemy0 := enemyInFront(100, 1000)
-	eng.Cast("retaliate", castCtx(p0, enemy0))
+	eng.Commit("retaliate", commitCtx(p0, enemy0))
 	dmg0 := float32(1000) - enemy0.Health
 
 	// 50 charges
@@ -36,7 +36,7 @@ func TestRetaliate_DamageScalesWithCharges(t *testing.T) {
 	enemy50 := enemyInFront(101, 1000)
 	dev := getDevotionState(p50)
 	dev.Charges = 50
-	eng.Cast("retaliate", castCtx(p50, enemy50))
+	eng.Commit("retaliate", commitCtx(p50, enemy50))
 	dmg50 := float32(1000) - enemy50.Health
 
 	if dmg50 <= dmg0 {
@@ -52,7 +52,7 @@ func TestRetaliate_DamageScalesWithMastery(t *testing.T) {
 	enemy0 := enemyInFront(100, 1000)
 	dev0 := getDevotionState(p0)
 	dev0.Charges = 50
-	eng.Cast("retaliate", castCtx(p0, enemy0))
+	eng.Commit("retaliate", commitCtx(p0, enemy0))
 	dmg0 := float32(1000) - enemy0.Health
 
 	// 50 charges, 100 mastery
@@ -62,7 +62,7 @@ func TestRetaliate_DamageScalesWithMastery(t *testing.T) {
 	enemy100 := enemyInFront(101, 1000)
 	dev100 := getDevotionState(p100)
 	dev100.Charges = 50
-	eng.Cast("retaliate", castCtx(p100, enemy100))
+	eng.Commit("retaliate", commitCtx(p100, enemy100))
 	dmg100 := float32(1000) - enemy100.Health
 
 	if dmg100 <= dmg0 {
@@ -74,12 +74,12 @@ func TestRetaliate_DropsGuard(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Cast("vg_shield_block", castCtx(p))
+	eng.Commit("vg_shield_block", commitCtx(p))
 	if !p.HasBuff("vg_shield_block") {
 		t.Fatal("should be blocking")
 	}
 
-	eng.Cast("retaliate", castCtx(p))
+	eng.Commit("retaliate", commitCtx(p))
 	if p.HasBuff("vg_shield_block") {
 		t.Error("Retaliate should cancel shield block")
 	}
@@ -89,7 +89,7 @@ func TestRetaliate_SetsGCD(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Cast("retaliate", castCtx(p))
+	eng.Commit("retaliate", commitCtx(p))
 
 	if p.GCDTimer < 1.4 {
 		t.Errorf("GCD = %f, want >= 1.5", p.GCDTimer)
@@ -101,9 +101,9 @@ func TestRetaliate_ZeroChargesStillDealsBaseDamage(t *testing.T) {
 	p := newShieldVanguard()
 	enemy := enemyInFront(100, 1000)
 
-	r := eng.Cast("retaliate", castCtx(p, enemy))
+	r := eng.Commit("retaliate", commitCtx(p, enemy))
 	if !r.OK {
-		t.Fatalf("cast failed: %s", r.Reason)
+		t.Fatalf("commit failed: %s", r.Reason)
 	}
 	if len(r.Events) == 0 {
 		t.Error("should deal damage even with 0 charges")
@@ -121,11 +121,11 @@ func TestRetaliate_PerChargeDamageValue(t *testing.T) {
 	dev := getDevotionState(p)
 	dev.Charges = 50
 
-	eng.Cast("retaliate", castCtx(p, enemy))
+	eng.Commit("retaliate", commitCtx(p, enemy))
 	dmg := float32(10000) - enemy.Health
 
-	// Expected: (50 base + 50 charges * 4.5 per-charge * 1.0 mastery_mult) * 1.0 CasterDamageMult = 275
-	expected := (retaliateBaseDamage + 50*retaliatePerCharge) * p.CasterDamageMult()
+	// Expected: (50 base + 50 charges * 4.5 per-charge * 1.0 mastery_mult) * 1.0 CommitterDamageMult = 275
+	expected := (retaliateBaseDamage + 50*retaliatePerCharge) * p.CommitterDamageMult()
 	if dmg < expected-1 || dmg > expected+1 {
 		t.Errorf("Retaliate damage with 50 charges = %f, want ~%f", dmg, expected)
 	}
@@ -143,9 +143,9 @@ func TestRetaliate_HitsWideArc(t *testing.T) {
 	right.Position.X = 3
 	right.Position.Z = -3
 
-	r := eng.Cast("retaliate", castCtx(p, left, right))
+	r := eng.Commit("retaliate", commitCtx(p, left, right))
 	if !r.OK {
-		t.Fatalf("cast failed: %s", r.Reason)
+		t.Fatalf("commit failed: %s", r.Reason)
 	}
 	if len(r.Events) < 2 {
 		t.Errorf("expected 2 hits from wide arc, got %d", len(r.Events))

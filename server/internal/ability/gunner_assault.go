@@ -113,22 +113,22 @@ func getGunnerAssaultState(p *entity.Player) *GunnerAssaultState {
 // fire_shot handler
 // ---------------------------------------------------------------------------
 
-func fireShotAssaultHandler(eng *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func fireShotAssaultHandler(eng *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "invalid caster"}
+		return CommitResult{Reason: "invalid caster"}
 	}
 	state := getGunnerAssaultState(p)
 
 	// Validate
 	if state.Reloading {
-		return CastResult{Reason: "reloading"}
+		return CommitResult{Reason: "reloading"}
 	}
 	if state.MagDumpActive {
-		return CastResult{Reason: "mag dump active"}
+		return CommitResult{Reason: "mag dump active"}
 	}
 	if state.MagCurrent <= 0 && state.EnhancedLoaded <= 0 {
-		return CastResult{Reason: "empty magazine"}
+		return CommitResult{Reason: "empty magazine"}
 	}
 
 	// Consume ammo
@@ -176,13 +176,13 @@ func fireShotAssaultHandler(eng *Engine, ctx *CastContext) CastResult {
 		startReload(p, state)
 	}
 
-	return CastResult{OK: true, Events: events}
+	return CommitResult{OK: true, Events: events}
 }
 
 // fireHitscan resolves a single hitscan shot with stability + steadiness cone offset.
-func fireHitscan(eng *Engine, p *entity.Player, state *GunnerAssaultState, ctx *CastContext) []DamageResult {
-	origin := p.CasterEyePos()
-	direction := p.CasterAimDir()
+func fireHitscan(eng *Engine, p *entity.Player, state *GunnerAssaultState, ctx *CommitContext) []DamageResult {
+	origin := p.CommitterEyePos()
+	direction := p.CommitterAimDir()
 
 	// Combined spread: stability (sustained fire) + steadiness (movement)
 	stabilitySpread := assaultMaxSpreadRad * (1.0 - state.Stability)
@@ -192,11 +192,11 @@ func fireHitscan(eng *Engine, p *entity.Player, state *GunnerAssaultState, ctx *
 		direction = applySpreadCone(direction, spreadRad)
 	}
 
-	// CasterDamageMult already includes BuffDamageMult (rechamber buff)
-	damage := fireShotDef.BaseDamage * p.CasterDamageMult()
+	// CommitterDamageMult already includes BuffDamageMult (rechamber buff)
+	damage := fireShotDef.BaseDamage * p.CommitterDamageMult()
 
 	eng.hitBuf = eng.hitBuf[:0]
-	return resolveHitscanDir(eng.hitBuf, origin, direction, ctx.Targets, ctx.Obstacles, damage, ctx.SourceType, p.CasterID())
+	return resolveHitscanDir(eng.hitBuf, origin, direction, ctx.Targets, ctx.Obstacles, damage, ctx.SourceType, p.CommitterID())
 }
 
 // applySpreadCone rotates a direction vector by a random angle within a cone.
@@ -260,7 +260,7 @@ func updatePressure(p *entity.Player, state *GunnerAssaultState, events []Damage
 	if state.PressureStacks > 0 {
 		bonus := fireShotDef.BaseDamage * float32(state.PressureStacks) * assaultPressureBonus
 		bonus *= (1.0 + p.GearStats.Mastery/100.0)
-		bonus *= p.CasterDamageMult()
+		bonus *= p.CommitterDamageMult()
 		if bonus > 0 {
 			t := events[0].Target
 			if t != nil && t.TargetAlive() {
@@ -286,7 +286,7 @@ func updatePressure(p *entity.Player, state *GunnerAssaultState, events []Damage
 func applyEnhancedBonus(p *entity.Player, state *GunnerAssaultState, events []DamageResult) {
 	bonus := float32(assaultEnhancedBase) + float32(assaultEnhancedPerStack)*float32(state.PressureStacks)
 	bonus *= (1.0 + p.GearStats.Identity/100.0)
-	bonus *= p.CasterDamageMult()
+	bonus *= p.CommitterDamageMult()
 	if bonus > 0 {
 		t := events[0].Target
 		if t != nil && t.TargetAlive() {
@@ -313,23 +313,23 @@ var reloadDef = AbilityDef{
 	Handler: "reload_assault",
 }
 
-func reloadAssaultHandler(_ *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func reloadAssaultHandler(_ *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "invalid caster"}
+		return CommitResult{Reason: "invalid caster"}
 	}
 	state := getGunnerAssaultState(p)
 	if state.Reloading {
-		return CastResult{Reason: "already reloading"}
+		return CommitResult{Reason: "already reloading"}
 	}
 	if state.MagCurrent >= state.MagMax {
-		return CastResult{Reason: "magazine full"}
+		return CommitResult{Reason: "magazine full"}
 	}
 	if state.MagDumpActive {
-		return CastResult{Reason: "mag dump active"}
+		return CommitResult{Reason: "mag dump active"}
 	}
 	startReload(p, state)
-	return CastResult{OK: true}
+	return CommitResult{OK: true}
 }
 
 func startReload(p *entity.Player, state *GunnerAssaultState) {
@@ -354,22 +354,22 @@ var loadEnhancedDef = AbilityDef{
 	Handler: "load_enhanced_assault",
 }
 
-func loadEnhancedHandler(_ *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func loadEnhancedHandler(_ *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "invalid caster"}
+		return CommitResult{Reason: "invalid caster"}
 	}
 	state := getGunnerAssaultState(p)
 	if state.EnhancedReserve <= 0 {
-		return CastResult{Reason: "no enhanced rounds"}
+		return CommitResult{Reason: "no enhanced rounds"}
 	}
 	if state.EnhancedLoaded > 0 {
-		return CastResult{Reason: "already loaded"}
+		return CommitResult{Reason: "already loaded"}
 	}
 	state.EnhancedLoaded = state.EnhancedReserve
 	state.EnhancedReserve = 0
 	syncMunitionsResource(p, state)
-	return CastResult{OK: true}
+	return CommitResult{OK: true}
 }
 
 // ---------------------------------------------------------------------------
@@ -382,24 +382,24 @@ var magDumpDef = AbilityDef{
 	Cooldown: assaultMagDumpCD,
 }
 
-func magDumpHandler(_ *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func magDumpHandler(_ *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "invalid caster"}
+		return CommitResult{Reason: "invalid caster"}
 	}
 	state := getGunnerAssaultState(p)
 	if state.Reloading {
-		return CastResult{Reason: "reloading"}
+		return CommitResult{Reason: "reloading"}
 	}
 	if state.MagDumpActive {
-		return CastResult{Reason: "already dumping"}
+		return CommitResult{Reason: "already dumping"}
 	}
 	totalRounds := state.MagCurrent + state.EnhancedLoaded
 	if totalRounds <= 0 {
-		return CastResult{Reason: "no ammo"}
+		return CommitResult{Reason: "no ammo"}
 	}
 	if cd := p.Cooldowns["mag_dump"]; cd > 0 {
-		return CastResult{Reason: "cooldown"}
+		return CommitResult{Reason: "cooldown"}
 	}
 
 	state.MagDumpActive = true
@@ -411,7 +411,7 @@ func magDumpHandler(_ *Engine, ctx *CastContext) CastResult {
 	// Lock out other abilities
 	p.GCDTimer = dur
 	p.Cooldowns["mag_dump"] = assaultMagDumpCD
-	return CastResult{OK: true}
+	return CommitResult{OK: true}
 }
 
 // ---------------------------------------------------------------------------
@@ -525,13 +525,13 @@ func magDumpTick(eng *Engine, p *entity.Player, state *GunnerAssaultState, ctx *
 		}
 
 		// Resolve hitscan
-		castCtx := &CastContext{
-			Caster:     p,
+		commitCtx := &CommitContext{
+			Committer:     p,
 			Targets:    ctx.Targets,
 			Obstacles:  ctx.Obstacles,
 			SourceType: 0,
 		}
-		hits := fireHitscan(eng, p, state, castCtx)
+		hits := fireHitscan(eng, p, state, commitCtx)
 
 		// Pressure tracking
 		updatePressure(p, state, hits)

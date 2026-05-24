@@ -13,7 +13,7 @@ func TestTempo_CooldownDrainsFaster(t *testing.T) {
 	pFast.GearStats.Tempo = 100
 	eFast := enemyInFront(100, 500)
 
-	r := eng.Cast("fire_shot", castCtx(pFast, eFast))
+	r := eng.Commit("fire_shot", commitCtx(pFast, eFast))
 	if !r.OK {
 		t.Fatalf("fire_shot failed: %s", r.Reason)
 	}
@@ -35,7 +35,7 @@ func TestTempo_CooldownDrainsFaster(t *testing.T) {
 	pSlow := newGunner()
 	eSlow := enemyInFront(101, 500)
 
-	eng.Cast("fire_shot", castCtx(pSlow, eSlow))
+	eng.Commit("fire_shot", commitCtx(pSlow, eSlow))
 	eng.TickPlayer(pSlow, 0.05, tickCtx())
 	cdSlow := pSlow.Cooldowns["fire_shot"]
 	// Without Tempo, 0.05s tick drains 0.05s of cooldown
@@ -61,12 +61,12 @@ func TestTempo_GCDDrainsFaster(t *testing.T) {
 	eFast := enemyInFront(100, 1000)
 	eFast.Position.Z = -3
 
-	r := eng.Cast("vortex", castCtx(pFast, eFast))
+	r := eng.Commit("vortex", commitCtx(pFast, eFast))
 	if !r.OK {
 		t.Fatalf("blade_swirl failed: %s", r.Reason)
 	}
 	if pFast.GCDTimer != 0.6 {
-		t.Fatalf("GCD after cast = %f, want 0.6", pFast.GCDTimer)
+		t.Fatalf("GCD after commit = %f, want 0.6", pFast.GCDTimer)
 	}
 
 	eng.TickPlayer(pFast, 0.2, tickCtx(eFast))
@@ -81,7 +81,7 @@ func TestTempo_GCDDrainsFaster(t *testing.T) {
 	eSlow := enemyInFront(101, 1000)
 	eSlow.Position.Z = -3
 
-	eng.Cast("vortex", castCtx(pSlow, eSlow))
+	eng.Commit("vortex", commitCtx(pSlow, eSlow))
 	eng.TickPlayer(pSlow, 0.2, tickCtx(eSlow))
 	// Without Tempo, 0.2s tick drains 0.2s of GCD
 	// Remaining: 0.6 - 0.2 = 0.4
@@ -101,7 +101,7 @@ func TestTempo_ParryWindowExtended(t *testing.T) {
 	pFast := newVanguard()
 	pFast.GearStats.Tempo = 100
 
-	r := eng.Cast("vg_block", castCtx(pFast))
+	r := eng.Commit("vg_block", commitCtx(pFast))
 	if !r.OK {
 		t.Fatalf("vg_block failed: %s", r.Reason)
 	}
@@ -118,7 +118,7 @@ func TestTempo_ParryWindowExtended(t *testing.T) {
 	// Vanguard with Tempo 0 => 1x multiplier (baseline)
 	pSlow := newVanguard()
 
-	eng.Cast("vg_block", castCtx(pSlow))
+	eng.Commit("vg_block", commitCtx(pSlow))
 	bSlow := pSlow.GetBuff("vg_parry")
 	if bSlow == nil {
 		t.Fatal("parry buff not found (slow)")
@@ -135,7 +135,7 @@ func TestTempo_RechamberFaster(t *testing.T) {
 	pFast := newGunner()
 	pFast.GearStats.Tempo = 100
 
-	r := eng.Cast("rechamber", castCtx(pFast))
+	r := eng.Commit("rechamber", commitCtx(pFast))
 	if !r.OK {
 		t.Fatalf("rechamber failed: %s", r.Reason)
 	}
@@ -157,7 +157,7 @@ func TestTempo_RechamberFaster(t *testing.T) {
 	// Gunner with Tempo 0 => 1x speed (baseline)
 	pSlow := newGunner()
 
-	eng.Cast("rechamber", castCtx(pSlow))
+	eng.Commit("rechamber", commitCtx(pSlow))
 	stateSlow, ok := pSlow.AbilityState["rechamber"].(*RechamberState)
 	if !ok {
 		t.Fatal("rechamber state not found")
@@ -215,11 +215,11 @@ func TestTempo_OverclockPlusTempo(t *testing.T) {
 	eFast := enemyInFront(100, 500)
 
 	// Overclock applies BuffCooldownMult 0.556
-	eng.Cast("overclock", castCtx(pFast))
+	eng.Commit("overclock", commitCtx(pFast))
 	// Clear overclock's own cooldown so it doesn't interfere
 	delete(pFast.Cooldowns, "overclock")
 
-	eng.Cast("fire_shot", castCtx(pFast, eFast))
+	eng.Commit("fire_shot", commitCtx(pFast, eFast))
 	cdSet := pFast.Cooldowns["fire_shot"]
 	// Cooldown set: 0.18 * 0.556 ~ 0.10
 	wantCD := float32(0.18 * 0.556)
@@ -240,10 +240,10 @@ func TestTempo_OverclockPlusTempo(t *testing.T) {
 	pSlow := newGunner()
 	eSlow := enemyInFront(101, 500)
 
-	eng.Cast("overclock", castCtx(pSlow))
+	eng.Commit("overclock", commitCtx(pSlow))
 	delete(pSlow.Cooldowns, "overclock")
 
-	eng.Cast("fire_shot", castCtx(pSlow, eSlow))
+	eng.Commit("fire_shot", commitCtx(pSlow, eSlow))
 	eng.TickPlayer(pSlow, 0.05, tickCtx())
 	// Without Tempo, 0.05s tick drains 0.05s
 	// Remaining: ~0.10 - 0.05 = ~0.05

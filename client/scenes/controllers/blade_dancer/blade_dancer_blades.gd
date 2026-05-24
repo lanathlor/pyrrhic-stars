@@ -86,11 +86,11 @@ func update_blade_visual(delta: float) -> void:
 
 	match ctrl.state:
 		ctrl.State.CASTING:
-			# During casting, blend toward destination config formation
-			var dest_cfg: int = ctrl._casting_spell.get("dest", ctrl.Config.ORBIT)
+			# During committing, blend toward destination config formation
+			var dest_cfg: int = ctrl._committing_ability.get("dest", ctrl.Config.ORBIT)
 			mat = get_config_material(dest_cfg)
 			lerp_speed = 20.0
-			var dur: float = ctrl._casting_spell.get("dur", 0.4)
+			var dur: float = ctrl._committing_ability.get("dur", 0.4)
 			var progress: float = 1.0 - (ctrl._cast_timer / dur) if dur > 0.0 else 1.0
 			progress = clampf(progress, 0.0, 1.0)
 

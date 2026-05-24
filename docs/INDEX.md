@@ -6,13 +6,13 @@ TTRPG source material: https://github.com/lanathlor/rpg
 ## Game Design
 
 - [Vision & Setting](design/vision.md) — core pitch, sci-fi universe, Flux as physical energy
-- [Combat Principles](design/combat.md) — no threat table, all damage avoidable, protect the caster
+- [Combat Principles](design/combat.md) — no threat table, all damage avoidable, protect the channeler
 - [HUD Graphical Language](design/ui-language.md) — minimalist MMO HUD rules, ElvUI-inspired but not cloned
 - [UI Screens & Menus](design/ui-screens.md) — pause, menu, character, group, and prompt design rules
 
 ### Core Systems
 
-- [Flux System](design/systems/flux.md) — reserve/afflux/recovery, commitment, channeling, spell slots
+- [Flux System](design/systems/flux.md) — reserve/afflux/recovery, commitment, channeling, ability slots
 - [Resistance System](design/systems/resistance.md) — RMEC/RRAD/RINT, physical-nature-based damage
 - [Affinity System](design/systems/affinity.md) — general + specific affinities, progression
 - [Defense System](design/systems/defense.md) — Score de Defense formula
@@ -26,7 +26,7 @@ TTRPG source material: https://github.com/lanathlor/rpg
 - [Overview](design/classes/README.md) — 6 classes summary table
 - [Gunner](design/classes/gunner.md) — FPS (Assault / Marksman / Chasseur)
 - [Vanguard](design/classes/vanguard.md) — Souls-like (Blade / Shield / Shadow)
-- [Arcanotechnicien](design/classes/arcanotechnicien.md) — Tactical caster (Destroyer / Battlemage / Harmonist)
+- [Arcanotechnicien](design/classes/arcanotechnicien.md) — Tactical channeler (Destroyer / Battlemage / Harmonist)
 - [Engineer](design/classes/engineer.md) — Deployables (Architect / Pilot / Saboteur)
 - [Blade Dancer](design/classes/blade-dancer.md) — State machine (Single / Multi Blade)
 - [Tutelaire](design/classes/tutelaire.md) — Aura positioning (Guardian / Adjudicator)

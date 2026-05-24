@@ -6,4 +6,4 @@
 - No traditional threat table. Shield Vanguard physically blocks space, doesn't "taunt"
 - No dedicated healer requirement. Two healer specs exist (Harmonist, Guardian) but encounters should be completable without them at sufficient player skill
 - Encounters reward positioning, timing, and team coordination
-- Flux channeling is visible and targetable, creating organic "protect the caster" gameplay
+- Flux channeling is visible and targetable, creating organic "protect the channeler" gameplay

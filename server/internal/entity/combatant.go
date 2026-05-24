@@ -28,27 +28,27 @@ func (c *Combatant) EyePos(height float32) Vec3 {
 	return c.Position.Add(Vec3{Y: height})
 }
 
-// --- Shared Caster/Target method implementations ---
+// --- Shared Committer/Target method implementations ---
 // These are promoted into Player/Enemy via embedding.
 // Override in the outer type where behavior differs.
 
-func (c *Combatant) CasterID() uint16    { return c.ID }
-func (c *Combatant) CasterPos() Vec3     { return c.Position }
-func (c *Combatant) CasterForward() Vec3 { return c.Forward() }
-func (c *Combatant) CasterAlive() bool   { return c.Alive }
+func (c *Combatant) CommitterID() uint16    { return c.ID }
+func (c *Combatant) CommitterPos() Vec3     { return c.Position }
+func (c *Combatant) CommitterForward() Vec3 { return c.Forward() }
+func (c *Combatant) CommitterAlive() bool   { return c.Alive }
 func (c *Combatant) TargetID() uint16    { return c.ID }
 func (c *Combatant) TargetPos() Vec3     { return c.Position }
 func (c *Combatant) TargetAlive() bool   { return c.Alive }
 
-// Caster is an entity that can cast abilities.
-type Caster interface {
-	CasterID() uint16
-	CasterPos() Vec3
-	CasterForward() Vec3
-	CasterEyePos() Vec3
-	CasterAimDir() Vec3
-	CasterAlive() bool
-	CasterDamageMult() float32
+// Committer is an entity that can commit abilities.
+type Committer interface {
+	CommitterID() uint16
+	CommitterPos() Vec3
+	CommitterForward() Vec3
+	CommitterEyePos() Vec3
+	CommitterAimDir() Vec3
+	CommitterAlive() bool
+	CommitterDamageMult() float32
 }
 
 // Target is an entity that can receive damage from abilities.

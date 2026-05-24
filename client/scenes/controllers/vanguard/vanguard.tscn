@@ -4,7 +4,7 @@
 [ext_resource type="Script" path="res://scenes/shared/hud/vanguard_hud.gd" id="2"]
 [ext_resource type="Script" path="res://scenes/shared/hud/lock_on_reticle.gd" id="3"]
 [ext_resource type="PackedScene" path="res://scenes/shared/character_model/character_model.tscn" id="4"]
-[ext_resource type="Script" path="res://scenes/shared/hud/spell_bar.gd" id="5"]
+[ext_resource type="Script" path="res://scenes/shared/hud/ability_bar.gd" id="5"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1"]
 radius = 0.45

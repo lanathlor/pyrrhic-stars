@@ -155,6 +155,7 @@ func on_damage_event(data: Dictionary) -> void:
 
 	# SourcePlayerHeal = 5 — heal event, not damage
 	if source_type == 5:
+		var overheal: float = data.get("overheal", 0.0)
 		if target_peer in entity_mgr.spawned_players:
 			var player: CharacterBody3D = entity_mgr.spawned_players[target_peer]
 			if is_instance_valid(player):
@@ -162,8 +163,11 @@ func on_damage_event(data: Dictionary) -> void:
 					player.on_heal_visual(amount, hit_pos)
 				elif "character_model" in player and player.character_model.has_method("flash_damage"):
 					player.character_model.flash_damage(Color(0.3, 1.0, 0.4), 0.15)
-		spawn_heal_number(amount, hit_pos)
-		# Feed shared HUD damage meter (heals are tracked too)
+		if amount > 0.0:
+			spawn_heal_number(amount, hit_pos)
+		if overheal > 0.0:
+			spawn_overheal_number(overheal, hit_pos)
+		# Feed shared HUD healing meter
 		if ctrl._shared_hud:
 			ctrl._shared_hud.on_damage_event(data)
 		return
@@ -231,6 +235,33 @@ func spawn_heal_number(amount: float, world_pos: Vector3) -> void:
 	label.pixel_size = 0.005
 	# Slight random offset so stacked heals don't overlap
 	var offset := Vector3(randf_range(-0.3, 0.3), randf_range(0.0, 0.3), randf_range(-0.3, 0.3))
+	label.position = world_pos + offset + Vector3(0.0, 0.5, 0.0)
+	ctrl.add_child(label)
+
+	var tween: Tween = ctrl.create_tween()
+	tween.set_parallel(true)
+	(
+		tween
+		. tween_property(label, "position:y", label.position.y + 1.5, 0.8)
+		. set_ease(Tween.EASE_OUT)
+		. set_trans(Tween.TRANS_QUAD)
+	)
+	tween.tween_property(label, "modulate:a", 0.0, 0.8).set_delay(0.3)
+	tween.tween_property(label, "outline_modulate:a", 0.0, 0.8).set_delay(0.3)
+	tween.chain().tween_callback(label.queue_free)
+
+
+func spawn_overheal_number(amount: float, world_pos: Vector3) -> void:
+	var label := Label3D.new()
+	label.text = "+" + str(int(amount))
+	label.font_size = 40
+	label.outline_size = 6
+	label.modulate = Color(0.5, 0.7, 0.5, 0.65)
+	label.outline_modulate = Color(0.0, 0.0, 0.0, 0.5)
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	label.pixel_size = 0.005
+	var offset := Vector3(randf_range(-0.3, 0.3), randf_range(0.3, 0.6), randf_range(-0.3, 0.3))
 	label.position = world_pos + offset + Vector3(0.0, 0.5, 0.0)
 	ctrl.add_child(label)
 

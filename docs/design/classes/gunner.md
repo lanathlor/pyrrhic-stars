@@ -144,7 +144,7 @@ The headshot requirement for Enhanced Round generation adds an aim-skill gate th
 
 ## Chasseur — Quarry System
 
-Shotgun and tactical grenades. AoE burst. The anti-caster: disruption, area denial, and punishing enemies for using abilities.
+Shotgun and tactical grenades. AoE burst. The anti-channeler: disruption, area denial, and punishing enemies for using abilities.
 
 ### Core Mechanic: Quarry
 
@@ -162,7 +162,7 @@ Hitscan, semi-auto, wide spread. High damage at close range, damage falls off sh
 
 ### Abilities
 
-**EMP Grenade** — thrown grenade that detonates after a short fuse (or on direct hit). Creates an EMP field for ~3 seconds. Enemies casting or channeling abilities within the field are disrupted (ability cancelled, brief stagger). Triggers Quarry on each disrupted target. The bread-and-butter interrupt tool. Moderate cooldown. Placement is everything — predicting where a boss will start its next ability and pre-placing the EMP is the core Chasseur skill.
+**EMP Grenade** — thrown grenade that detonates after a short fuse (or on direct hit). Creates an EMP field for ~3 seconds. Enemies committing or channeling abilities within the field are disrupted (ability cancelled, brief stagger). Triggers Quarry on each disrupted target. The bread-and-butter interrupt tool. Moderate cooldown. Placement is everything — predicting where a boss will start its next ability and pre-placing the EMP is the core Chasseur skill.
 
 **Concussion Charge** — thrown explosive that deals high AoE damage in a radius. No interrupt effect — pure damage. Short delay before detonation. The AoE damage tool. Enhanced Rounds loaded into the shotgun amplify Concussion Charge as well (the charge is loaded with enhanced shrapnel). Best used immediately after a Quarry proc for amplified AoE during the damage window.
 

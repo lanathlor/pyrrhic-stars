@@ -56,25 +56,25 @@ func TestTransfusion(t *testing.T) {
 				name: "rejects when flux below 3",
 				setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 					caster := entity.NewPlayer(1, entity.ClassArcanotechnicien)
-					caster.Resources["flux"].Current = 2
+					caster.SetAllFluxPoolsCurrent(2) // need 3 biometabolic
 					ally := entity.NewPlayer(2, entity.ClassArcanotechnicien)
 					allies := map[uint16]*entity.Player{1: caster, 2: ally}
 					return caster, allies, 2
 				},
 				wantOK:     false,
-				wantReason: "insufficient flux",
+				wantReason: "insufficient biometabolic flux",
 			},
 			{
 				name: "rejects when flux is zero",
 				setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 					caster := entity.NewPlayer(1, entity.ClassArcanotechnicien)
-					caster.Resources["flux"].Current = 0
+					caster.SetAllFluxPoolsCurrent(0)
 					ally := entity.NewPlayer(2, entity.ClassArcanotechnicien)
 					allies := map[uint16]*entity.Player{1: caster, 2: ally}
 					return caster, allies, 2
 				},
 				wantOK:     false,
-				wantReason: "insufficient flux",
+				wantReason: "insufficient biometabolic flux",
 			},
 			{
 				name: "accepts when flux exactly 3",
@@ -117,8 +117,8 @@ func TestTransfusion(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				caster, allies, targetPeer := tt.setup()
 
-				result := eng.Cast("transfusion", &CastContext{
-					Caster:       caster,
+				result := eng.Commit("transfusion", &CommitContext{
+					Committer:       caster,
 					Allies:       allies,
 					TargetPeerID: targetPeer,
 				})
@@ -138,10 +138,17 @@ func TestTransfusion(t *testing.T) {
 		}
 	})
 
-	t.Run("harmonist spec includes transfusion", func(t *testing.T) {
+	t.Run("harmonist spec includes transfusion in abilities list", func(t *testing.T) {
 		p := entity.NewPlayer(1, entity.ClassArcanotechnicien)
-		if abilityID, ok := p.ActionMap[55]; !ok || abilityID != "transfusion" {
-			t.Errorf("ActionMap[55] = %q, want %q", p.ActionMap[55], "transfusion")
+		found := false
+		for _, a := range p.AllowedAbilities() {
+			if a == "transfusion" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("transfusion not in AllowedAbilities (may not be in default loadout but should be equippable)")
 		}
 	})
 }

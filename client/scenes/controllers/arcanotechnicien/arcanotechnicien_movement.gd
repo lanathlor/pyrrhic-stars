@@ -55,7 +55,7 @@ func face_target(delta: float) -> void:
 		ctrl.rotation.y = _facing_angle
 
 
-## Auto-face during casts: selected target > nearest ally (for heals) > camera forward.
+## Auto-face during commits: selected target > nearest ally (for heals) > camera forward.
 func face_attack_direction(delta: float) -> void:
 	if ctrl._selected_target and is_instance_valid(ctrl._selected_target):
 		face_target(delta)
@@ -63,7 +63,7 @@ func face_attack_direction(delta: float) -> void:
 
 	# For a healer, look toward nearest ally if no lock
 	var best: Node3D = null
-	var best_dist: float = ctrl.cast_range
+	var best_dist: float = ctrl.ability_range
 	for player in GameManager.players:
 		if not is_instance_valid(player) or not player.visible:
 			continue
@@ -103,27 +103,9 @@ func face_attack_direction(delta: float) -> void:
 
 
 func process_move(delta: float) -> void:
-	# Spell inputs (gated by GCD only -- cursor is always visible for this class)
-	if ctrl._gcd_timer <= 0.0:
-		for slot in 5:
-			if Input.is_action_just_pressed(ctrl.SPELL_SLOT_ACTIONS[slot]):
-				if ctrl._cooldowns[slot] <= 0.0:
-					ctrl.combat.start_spell(slot)
-					return
-
-		# Slot 5 (C) -- Gust Step if available, otherwise dodge
-		if Input.is_action_just_pressed("dodge") and ctrl.is_on_floor():
-			if ctrl._cooldowns[5] <= 0.0:
-				ctrl.combat.start_spell(5)
-			else:
-				ctrl.combat.start_dodge()
-			return
-	else:
-		# GCD is active but still allow dodge
-		if Input.is_action_just_pressed("dodge") and ctrl.is_on_floor():
-			ctrl.combat.start_dodge()
-			return
-
+	# Ability inputs (delegated to combat helper, gated by GCD + cooldowns)
+	if not ctrl.hud.is_codex_open() and ctrl.combat._check_ability_input():
+		return
 	# Jump
 	if Input.is_action_just_pressed("jump") and ctrl.is_on_floor():
 		ctrl.velocity.y = 3.5

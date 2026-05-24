@@ -62,7 +62,7 @@ func face_attack_direction(delta: float) -> void:
 		return
 
 	var best: Node3D = null
-	var best_dist: float = ctrl.cast_range
+	var best_dist: float = ctrl.ability_range
 	for enemy in GameManager.enemies:
 		if not is_instance_valid(enemy) or not enemy.visible:
 			continue
@@ -94,13 +94,13 @@ func process_move(delta: float) -> void:
 
 	# Ability inputs (gated by GCD, disabled when cursor is visible)
 	if ctrl._gcd_timer <= 0.0 and not cursor_active:
-		# Check spell slots 0-3
+		# Check ability slots 0-3
 		for slot in 4:
-			if Input.is_action_just_pressed(ctrl.SPELL_SLOT_ACTIONS[slot]):
-				ctrl.spells.start_spell(slot)
+			if Input.is_action_just_pressed(ctrl.ABILITY_SLOT_ACTIONS[slot]):
+				ctrl.abilities.start_ability(slot)
 				return
 
-		# Dash on dodge key (not a spell slot)
+		# Dash on dodge key (not an ability slot)
 		if Input.is_action_just_pressed("dodge") and ctrl.is_on_floor():
 			start_dash()
 			return

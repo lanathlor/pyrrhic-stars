@@ -83,7 +83,7 @@ func TestLifeSwap(t *testing.T) {
 			wantHealAmount:  -0.8,
 		},
 		{
-			name: "spends flux on cast",
+			name: "spends flux on commit",
 			setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 				caster := entity.NewPlayer(1, entity.ClassArcanotechnicien)
 				ally := entity.NewPlayer(2, entity.ClassArcanotechnicien)
@@ -101,14 +101,14 @@ func TestLifeSwap(t *testing.T) {
 			name: "insufficient flux rejects before handler",
 			setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 				caster := entity.NewPlayer(1, entity.ClassArcanotechnicien)
-				caster.Resources["flux"].Current = 2 // need 5
+				caster.SetAllFluxPoolsCurrent(2) // need 5 biometabolic
 				ally := entity.NewPlayer(2, entity.ClassArcanotechnicien)
 				ally.Health = 100
 				allies := map[uint16]*entity.Player{1: caster, 2: ally}
 				return caster, allies, 2
 			},
 			wantOK:     false,
-			wantReason: "insufficient flux",
+			wantReason: "insufficient biometabolic flux",
 		},
 	}
 
@@ -116,8 +116,8 @@ func TestLifeSwap(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			caster, allies, targetPeer := tt.setup()
 
-			result := eng.Cast("life_swap", &CastContext{
-				Caster:       caster,
+			result := eng.Commit("life_swap", &CommitContext{
+				Committer:       caster,
 				Allies:       allies,
 				TargetPeerID: targetPeer,
 			})
@@ -160,7 +160,7 @@ func TestLifeSwap(t *testing.T) {
 			}
 
 			// Verify flux was spent
-			if tt.wantOK && tt.name == "spends flux on cast" {
+			if tt.wantOK && tt.name == "spends flux on commit" {
 				flux := caster.Resources["flux"]
 				want := float32(155) // 160 - 5
 				if math.Abs(float64(flux.Current-want)) > 0.5 {
@@ -170,7 +170,7 @@ func TestLifeSwap(t *testing.T) {
 
 			// Verify GCD was set
 			if tt.wantOK && caster.GCDTimer <= 0 {
-				t.Error("expected GCD to be set after successful cast")
+				t.Error("expected GCD to be set after successful commit")
 			}
 		})
 	}
@@ -188,9 +188,9 @@ func TestVitalChargeEmpowersMendingSurge(t *testing.T) {
 
 	allies := map[uint16]*entity.Player{1: caster, 2: donor, 3: patient}
 
-	// Step 1: Cast Life Swap on donor to build vital charge
-	result := eng.Cast("life_swap", &CastContext{
-		Caster:       caster,
+	// Step 1: Commit Life Swap on donor to build vital charge
+	result := eng.Commit("life_swap", &CommitContext{
+		Committer:       caster,
 		Allies:       allies,
 		TargetPeerID: 2,
 	})
@@ -203,14 +203,14 @@ func TestVitalChargeEmpowersMendingSurge(t *testing.T) {
 		t.Fatalf("expected VitalCharge > 0, got %.2f", charge)
 	}
 
-	// Step 2: Clear GCD so we can cast Mending Surge
+	// Step 2: Clear GCD so we can commit Mending Surge
 	caster.GCDTimer = 0
 	// Also clear the mending_surge cooldown if set
 	delete(caster.Cooldowns, "mending_surge")
 
-	// Step 3: Cast Mending Surge on the patient
-	healResult := eng.Cast("mending_surge", &CastContext{
-		Caster:       caster,
+	// Step 3: Commit Mending Surge on the patient
+	healResult := eng.Commit("mending_surge", &CommitContext{
+		Committer:       caster,
 		Allies:       allies,
 		TargetPeerID: 3,
 	})
@@ -221,11 +221,11 @@ func TestVitalChargeEmpowersMendingSurge(t *testing.T) {
 		t.Fatal("expected at least one heal result")
 	}
 
-	// Base heal = 80, confluence gives +8% (1 stack from life swap), so 80*1.08=86.4
+	// Base heal = 35, confluence gives +8% (1 stack from life swap), so 35*1.08=37.8
 	// Plus vital charge (20 from 100*0.20)
 	// Sympathetic Field: Harmonist caster, target at same pos, +15%
-	// Total = (86.4 + 20) * 1.15 = 122.36
-	baseHeal := float32(80)
+	// Total = (37.8 + 20) * 1.15 = 66.47
+	baseHeal := float32(35)
 	confluenceMult := float32(1.08) // 1 stack from Life Swap
 	expectedHeal := (baseHeal*confluenceMult + charge) * 1.15
 

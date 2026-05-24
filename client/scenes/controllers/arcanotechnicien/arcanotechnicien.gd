@@ -2,7 +2,7 @@ extends CharacterBody3D
 
 ## Arcanotechnicien -- Tactical Flux channeling controller.
 ## Harmonist spec: positional healer with Zone, Beam, and Direct delivery methods.
-## Confluence mechanic: stacking spell power from consecutive casts.
+## Confluence mechanic: stacking ability power from consecutive commits.
 ## Sub-systems: combat, movement, cam (child nodes).
 
 signal died
@@ -18,18 +18,18 @@ enum State {
 
 const NET_INTERP_SPEED := 15.0
 
-# Input actions mapped to spell slots 0-5
-const SPELL_SLOT_ACTIONS: Array[StringName] = [
+# Input actions mapped to ability slots 0-5
+const ABILITY_SLOT_ACTIONS: Array[StringName] = [
 	&"harmonist_slot_0",  # slot 0 -- 1 key
 	&"harmonist_slot_1",  # slot 1 -- 2 key
 	&"heavy_attack",      # slot 2 -- R
 	&"ability_2",         # slot 3 -- T
 	&"ability_1",         # slot 4 -- F
-	&"dodge",             # slot 5 -- C (overloaded: dodge when no target, spell when targeting)
+	&"dodge",             # slot 5 -- C (overloaded: dodge when no target, ability when targeting)
 ]
 
-## Harmonist spell table. action_id = 50 + slot_index.
-const HARMONIST_SPELLS: Array[Dictionary] = [
+## Harmonist ability table. action_id = 50 + slot_index.
+const HARMONIST_ABILITIES: Array[Dictionary] = [
 	{
 		name = "Mending Surge",
 		keybind = "1",
@@ -47,6 +47,7 @@ const HARMONIST_SPELLS: Array[Dictionary] = [
 		dur = 2.0,
 		delivery = "beam",
 		cooldown_max = 0.0,
+		sustain = true,
 	},
 	{
 		name = "Life Swap",
@@ -65,6 +66,7 @@ const HARMONIST_SPELLS: Array[Dictionary] = [
 		dur = 1.5,
 		delivery = "zone",
 		cooldown_max = 8.0,
+		sustain = true,
 	},
 	{
 		name = "Frost Ward",
@@ -76,13 +78,14 @@ const HARMONIST_SPELLS: Array[Dictionary] = [
 		cooldown_max = 12.0,
 	},
 	{
-		name = "Gust Step",
+		name = "Transfusion",
 		keybind = "C",
-		desc = "Instant. Wind-propelled repositioning.",
+		desc = "Beam to Zone. Drain one ally, AoE heal everyone else.",
 		action_id = 55,
-		dur = 0.3,
-		delivery = "displacement",
-		cooldown_max = 10.0,
+		dur = 1.5,
+		delivery = "zone",
+		cooldown_max = 8.0,
+		sustain = true,
 	},
 ]
 
@@ -107,8 +110,8 @@ const VfxScript := preload("res://scenes/controllers/arcanotechnicien/vfx/harmon
 @export var dodge_iframe_duration: float = 0.12
 
 # Casting
-@export var cast_range: float = 25.0
-@export var cast_move_speed_mult: float = 0.35
+@export var ability_range: float = 25.0
+@export var commit_move_speed_mult: float = 0.35
 
 # GCD
 @export var gcd_duration: float = 0.8
@@ -122,6 +125,7 @@ var health: float = 150.0
 var max_health: float = 150.0
 var flux: float = 100.0
 var max_flux: float = 100.0
+var flux_pools: Array = []  # per-school: [{school, current, max}, ...]
 var peer_id: int = 0
 
 # State
@@ -138,14 +142,14 @@ var spec_id: String = "harmonist"
 var _state_timer: float = 0.0
 var _gcd_timer: float = 0.0
 var _cast_timer: float = 0.0
-var _casting_spell: Dictionary = {}
+var _committing_ability: Dictionary = {}
 var _is_invincible: bool = false
 
 # Confluence (shared Arcanotechnicien mechanic) -- read from server state
 var _confluence_tier: int = 0
 var _confluence_stacks: int = 0
 
-# Cooldowns per spell slot
+# Cooldowns per ability slot
 var _cooldowns: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
 # Camera
@@ -206,7 +210,7 @@ func _ready() -> void:
 
 	if _is_local():
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-		_update_hud_spells()
+		_update_hud_abilities()
 	else:
 		$HUDLayer.visible = false
 		camera.current = false
@@ -243,6 +247,8 @@ func apply_server_state(data: Dictionary) -> void:
 	flux = data.get("flux", flux)
 	if data.get("max_flux", 0.0) > 0.0:
 		max_flux = data["max_flux"]
+	flux_pools = data.get("flux_pools", flux_pools)
+	var server_channel_phase: int = data.get("channel_phase", 0)
 	if _is_local():
 		health = data.health
 		if health <= 0.0 and _alive:
@@ -254,6 +260,11 @@ func apply_server_state(data: Dictionary) -> void:
 			_enter_state(State.MOVE)
 			global_position = data.pos
 			_net_position = data.pos
+		# Server cancelled sustain (damage, movement, flux depleted).
+		# Only cancel when server is idle (phase 0) — phases 1/2 (commit/execute)
+		# mean the server hasn't entered sustain yet, not that it cancelled.
+		if combat._sustaining and server_channel_phase == 0:
+			combat.cancel_sustain()
 	else:
 		_net_position = data.pos
 		_net_rotation_y = data.rot_y
@@ -279,13 +290,25 @@ func on_heal_visual(_amount: float, hit_pos: Vector3) -> void:
 		vfx.spawn_heal_pulse(hit_pos)
 
 
-## Escape intercept: clear selection first, only pause if no selection.
+## Escape intercept: close codex first, then clear selection, then pause.
 func _input(event: InputEvent) -> void:
 	if not _is_local():
 		return
-	if event.is_action_pressed("ui_cancel") and _selected_target != null:
-		_clear_selection()
-		get_viewport().set_input_as_handled()
+	if event.is_action_pressed("ui_cancel"):
+		if combat._sustaining:
+			combat.cancel_sustain()
+			# Send cancel to server (dodge with no movement acts as cancel)
+			if NetworkManager.is_active:
+				NetworkManager.send_ability(255, 0.0, rotation.y)
+			get_viewport().set_input_as_handled()
+			return
+		if hud.is_codex_open():
+			hud.close_codex()
+			get_viewport().set_input_as_handled()
+			return
+		if _selected_target != null:
+			_clear_selection()
+			get_viewport().set_input_as_handled()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -312,6 +335,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		_camera_yaw -= delta_mouse.x * mouse_sensitivity
 		_camera_pitch -= delta_mouse.y * mouse_sensitivity
 		_camera_pitch = clampf(_camera_pitch, deg_to_rad(-60.0), deg_to_rad(20.0))
+
+	# Toggle codex with P
+	if event.is_action_pressed("toggle_codex"):
+		if hud.is_codex_open():
+			hud.close_codex()
+		elif state == State.MOVE and _alive:
+			hud.toggle_codex()
+		get_viewport().set_input_as_handled()
+		return
 
 	# Left-click targeting
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
@@ -369,12 +401,12 @@ func _physics_process(delta: float) -> void:
 		else:
 			hud.update_selected_target(_selected_target, camera)
 
-	_update_hud_spells()
+	_update_hud_abilities()
 	hud.update_gcd(_gcd_timer / gcd_duration if _gcd_timer > 0.0 else 0.0)
 	hud.update_confluence(_confluence_tier, _confluence_stacks)
 	if vfx:
 		vfx.update_confluence(_confluence_tier, _confluence_stacks)
-	hud.update_flux(flux, max_flux)
+	hud.update_flux(flux, max_flux, flux_pools)
 	_update_hud_channel()
 	_update_hud_party()
 
@@ -383,26 +415,47 @@ func _physics_process(delta: float) -> void:
 		NetworkManager.send_player_position(global_position, rotation.y, _visual_state)
 
 
-func _update_hud_spells() -> void:
-	var spell_data: Array = []
-	for i in HARMONIST_SPELLS.size():
-		var spell: Dictionary = HARMONIST_SPELLS[i]
-		spell_data.append({
-			name = spell.name,
-			keybind = spell.keybind,
-			desc = spell.desc,
-			cooldown = _cooldowns[i],
-			cooldown_max = spell.cooldown_max,
-		})
-	hud.update_spells(spell_data)
+const SLOT_KEYBINDS: Array[String] = ["1", "2", "R", "T", "F", "C"]
+
+func _update_hud_abilities() -> void:
+	var ability_data: Array = []
+	# Use server catalog if populated, otherwise fall back to hardcoded HARMONIST_ABILITIES.
+	if AbilityCatalog.catalog.size() > 0:
+		for i in 6:
+			var ability_id: String = AbilityCatalog.current_loadout[i] if i < AbilityCatalog.current_loadout.size() else ""
+			if ability_id == "":
+				ability_data.append({name = "Empty", keybind = SLOT_KEYBINDS[i], desc = "", cooldown = 0.0, cooldown_max = 0.0})
+				continue
+			var entry: Dictionary = AbilityCatalog.get_ability(ability_id)
+			ability_data.append({
+				name = entry.get("name", ability_id),
+				keybind = SLOT_KEYBINDS[i],
+				desc = entry.get("description", ""),
+				cooldown = _cooldowns[i],
+				cooldown_max = entry.get("cooldown", 0.0),
+			})
+	else:
+		for i in HARMONIST_ABILITIES.size():
+			var ability: Dictionary = HARMONIST_ABILITIES[i]
+			ability_data.append({
+				name = ability.name,
+				keybind = ability.keybind,
+				desc = ability.desc,
+				cooldown = _cooldowns[i],
+				cooldown_max = ability.cooldown_max,
+			})
+	hud.update_abilities(ability_data)
 
 
 func _update_hud_channel() -> void:
-	if state == State.CHANNELING and not _casting_spell.is_empty():
-		var total_dur: float = _casting_spell.get("dur", 1.0)
-		var elapsed: float = total_dur - _cast_timer
-		var progress: float = clampf(elapsed / maxf(total_dur, 0.01), 0.0, 1.0)
-		hud.update_channel(progress, _casting_spell.get("name", ""))
+	if state == State.CHANNELING and not _committing_ability.is_empty():
+		if combat._sustaining:
+			hud.update_sustain(_committing_ability.get("name", ""), combat._sustain_elapsed)
+		else:
+			var total_dur: float = _committing_ability.get("dur", _committing_ability.get("commit_time", 1.0))
+			var elapsed: float = total_dur - _cast_timer
+			var progress: float = clampf(elapsed / maxf(total_dur, 0.01), 0.0, 1.0)
+			hud.update_channel(progress, _committing_ability.get("name", ""))
 	else:
 		hud.hide_channel()
 
@@ -474,6 +527,9 @@ func _drive_remote_animation(prev_pos: Vector3, delta: float) -> void:
 
 
 func _enter_state(new_state: State) -> void:
+	# Close codex on any non-MOVE state (combat gating)
+	if new_state != State.MOVE:
+		hud.close_codex()
 	# Clean up VFX when leaving casting/channeling states (interruption, stagger)
 	match state:
 		State.DODGE:
@@ -490,8 +546,8 @@ func _enter_state(new_state: State) -> void:
 # --- Delegate wrappers for test/bot compatibility ---
 
 
-func _start_spell(slot: int) -> void:
-	combat.start_spell(slot)
+func _start_ability(slot: int) -> void:
+	combat.start_ability(slot)
 
 
 func _start_dodge() -> void:

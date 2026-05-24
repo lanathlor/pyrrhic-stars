@@ -580,7 +580,7 @@ func actionExecuteAbility(v any) bt.Result {
 	resolved := c.ResolveCurrentAbility()
 	switch abil.Category {
 	case ability.CategoryMelee, ability.CategoryAoE:
-		c.CastMeleeOrAoE(resolved)
+		c.CommitMeleeOrAoE(resolved)
 	case ability.CategoryRanged:
 		c.SpawnProjectiles(resolved)
 	}
@@ -676,24 +676,17 @@ func actionCooldown(v any) bt.Result {
 
 // --- Runner-based leaves ---
 
-func condIsCasting(v any) bool {
-	c := ctx(v)
-	result := c.IsRunnerBusy()
-	c.logCond("is_casting", result)
-	return result
-}
-
 func condIsCommitted(v any) bool {
 	c := ctx(v)
-	result := c.Runner.Phase == RunnerCommit
+	result := c.IsRunnerBusy()
 	c.logCond("is_committed", result)
 	return result
 }
 
-func condCanCast(v any) bool {
+func condCanCommit(v any) bool {
 	c := ctx(v)
 	result := c.Runner.Phase == RunnerIdle
-	c.logCond("can_cast", result)
+	c.logCond("can_commit", result)
 	return result
 }
 
@@ -716,13 +709,13 @@ func condCanMove(v any) bool {
 	return true
 }
 
-func actionCastWeighted(v any) bt.Result {
+func actionCommitWeighted(v any) bt.Result {
 	c := ctx(v)
-	if !c.CastWeighted() {
-		c.logAction("cast_weighted", bt.Failure)
+	if !c.CommitWeighted() {
+		c.logAction("commit_weighted", bt.Failure)
 		return bt.Failure
 	}
-	c.logAction("cast_weighted", bt.Success, "ability", c.CurrentAbilityID())
+	c.logAction("commit_weighted", bt.Success, "ability", c.CurrentAbilityID())
 	return bt.Success
 }
 
@@ -754,15 +747,15 @@ func condAbilityReady(abilityID string) func(any) bool {
 	}
 }
 
-// castByName returns an action leaf that casts a specific ability by ID.
-func castByName(abilityID string) func(any) bt.Result {
+// commitByName returns an action leaf that commits a specific ability by ID.
+func commitByName(abilityID string) func(any) bt.Result {
 	return func(v any) bt.Result {
 		c := ctx(v)
-		if !c.Cast(abilityID) {
-			c.logAction("cast", bt.Failure, "ability", abilityID)
+		if !c.Commit(abilityID) {
+			c.logAction("commit", bt.Failure, "ability", abilityID)
 			return bt.Failure
 		}
-		c.logAction("cast", bt.Success, "ability", abilityID)
+		c.logAction("commit", bt.Success, "ability", abilityID)
 		return bt.Success
 	}
 }

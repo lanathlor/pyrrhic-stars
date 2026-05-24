@@ -42,6 +42,10 @@ type SpecDef struct {
 	Resources   map[string]ResourceTemplate
 	Abilities   []string
 	ActionMap   map[uint8]string
+
+	// School affinity (Arcanotechnicien): primary = 1.0x cost, secondary = 1.25x, off = 1.5x.
+	PrimarySchools   []string
+	SecondarySchools []string
 }
 
 // ClassDef describes a playable class: stats, resources, and available abilities.

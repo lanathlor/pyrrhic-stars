@@ -12,8 +12,8 @@ import (
 // handleDebugInput dispatches a debug opcode. Called from InputSystem when DevMode is true.
 func handleDebugInput(w *World, peerID uint16, opcode uint16, payload []byte) {
 	switch opcode {
-	case message.OpDebugForceCast:
-		handleDebugForceCast(w, payload)
+	case message.OpDebugForceCommit:
+		handleDebugForceCommit(w, payload)
 	case message.OpDebugSetPhase:
 		handleDebugSetPhase(w, payload)
 	case message.OpDebugGodMode:
@@ -31,7 +31,7 @@ func handleDebugInput(w *World, peerID uint16, opcode uint16, payload []byte) {
 	}
 }
 
-func handleDebugForceCast(w *World, payload []byte) {
+func handleDebugForceCommit(w *World, payload []byte) {
 	abilityID, ok := codec.DecodeDebugStr8(payload)
 	if !ok || abilityID == "" {
 		return
@@ -40,8 +40,8 @@ func handleDebugForceCast(w *World, payload []byte) {
 	if brain == nil {
 		return
 	}
-	if brain.ForceCast(abilityID) {
-		slog.Info("debug: force-cast", "ability", abilityID)
+	if brain.ForceCommit(abilityID) {
+		slog.Info("debug: force-commit", "ability", abilityID)
 	}
 }
 

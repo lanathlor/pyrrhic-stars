@@ -70,13 +70,15 @@ type compStats struct {
 // compDetailReport holds per-composition ability damage and class balance for the report.
 type compDetailReport struct {
 	Name              string
-	TotalBossDamage   float64     // boss damage dealt to players
-	TotalPlayerDamage float64     // player damage dealt to boss
-	TotalDurationSec  float64     // sum of all run durations
+	TotalBossDamage   float64        // boss damage dealt to players
+	TotalPlayerDamage float64        // player damage dealt to boss
+	TotalPlayerHeal   float64        // total healing done by players
+	TotalDurationSec  float64        // sum of all run durations
 	Runs              int
-	AbilityShares     []nameShare // sorted by damage desc
-	SpecShares        []nameShare // sorted alphabetically
-	SpecPlayerCount   map[string]int // spec → player count (for per-player DPS)
+	AbilityShares     []nameShare    // sorted by damage desc
+	SpecShares        []nameShare    // sorted alphabetically
+	HealShares        []nameShare    // per-spec healing, sorted by amount desc
+	SpecPlayerCount   map[string]int // spec → player count (for per-player DPS/HPS)
 }
 
 type nameShare struct {
@@ -151,7 +153,7 @@ func (r *FuzzReport) PrintReport(t *testing.T) {
 		}
 	}
 
-	// Per-composition boss damage + class balance + DPS
+	// Per-composition boss damage + class balance + DPS + healing
 	if len(r.CompDetails) > 0 {
 		sb.WriteString(fmt.Sprintf("\n  %s\n", strings.Repeat("─", 58)))
 		sb.WriteString("  Per-Composition Breakdown\n")
@@ -191,6 +193,24 @@ func (r *FuzzReport) PrintReport(t *testing.T) {
 					}
 					playerDPS := c.RawDmg / cd.TotalDurationSec / float64(n)
 					sb.WriteString(fmt.Sprintf("%s %.1f/s", c.Name, playerDPS))
+				}
+				sb.WriteString("\n")
+			}
+			// Healing stats
+			if cd.TotalPlayerHeal > 0 && cd.TotalDurationSec > 0 {
+				partyHPS := cd.TotalPlayerHeal / cd.TotalDurationSec
+				sb.WriteString(fmt.Sprintf("      healing:  total %.0f | party HPS: %.1f/s\n", cd.TotalPlayerHeal, partyHPS))
+				sb.WriteString("      hps/player: ")
+				for i, h := range cd.HealShares {
+					if i > 0 {
+						sb.WriteString("  ")
+					}
+					n := cd.SpecPlayerCount[h.Name]
+					if n < 1 {
+						n = 1
+					}
+					playerHPS := h.RawDmg / cd.TotalDurationSec / float64(n)
+					sb.WriteString(fmt.Sprintf("%s %.1f/s (%.0f%%)", h.Name, playerHPS, h.Share))
 				}
 				sb.WriteString("\n")
 			}
@@ -428,8 +448,9 @@ func (fr *FuzzResults) computePerCompDetails(report *FuzzReport) {
 		}
 		detail.TotalPlayerDamage = totalSpecDmg
 		detail.SpecPlayerCount = specPlayers
-		specs := make([]string, 0, len(specDmg))
-		for spec := range specDmg {
+		// Build spec list from specPlayers (all specs), not specDmg (only specs that dealt damage).
+		specs := make([]string, 0, len(specPlayers))
+		for spec := range specPlayers {
 			specs = append(specs, spec)
 		}
 		sort.Strings(specs)
@@ -439,6 +460,35 @@ func (fr *FuzzResults) computePerCompDetails(report *FuzzReport) {
 				pct = specDmg[spec] / totalSpecDmg * 100
 			}
 			detail.SpecShares = append(detail.SpecShares, nameShare{Name: spec, Share: pct, RawDmg: specDmg[spec]})
+		}
+
+		// Spec healing aggregation.
+		specHeal := make(map[string]float64)
+		var totalSpecHeal float64
+		for _, r := range results {
+			for spec, h := range r.SpecHealing {
+				specHeal[spec] += float64(h)
+				totalSpecHeal += float64(h)
+			}
+		}
+		detail.TotalPlayerHeal = totalSpecHeal
+		if totalSpecHeal > 0 {
+			healSpecs := make([]string, 0, len(specHeal))
+			for spec := range specHeal {
+				healSpecs = append(healSpecs, spec)
+			}
+			sort.Strings(healSpecs)
+			for _, spec := range healSpecs {
+				var pct float64
+				if totalSpecHeal > 0 {
+					pct = specHeal[spec] / totalSpecHeal * 100
+				}
+				detail.HealShares = append(detail.HealShares, nameShare{Name: spec, Share: pct, RawDmg: specHeal[spec]})
+			}
+			// Sort by healing done descending.
+			sort.Slice(detail.HealShares, func(i, j int) bool {
+				return detail.HealShares[i].RawDmg > detail.HealShares[j].RawDmg
+			})
 		}
 
 		report.CompDetails = append(report.CompDetails, detail)

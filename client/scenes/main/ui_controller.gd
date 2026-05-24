@@ -20,7 +20,7 @@ const CLASS_INFO := {
 	{
 		"name": "Blade Dancer",
 		"genre": "State Machine",
-		"desc": "5 configurations, 4 spells each.\nHighest skill ceiling."
+		"desc": "5 configurations, 4 abilities each.\nHighest skill ceiling."
 	},
 }
 const UI_SURFACE := Color(0.035, 0.045, 0.065, 0.88)

@@ -36,7 +36,7 @@ func makeLoggedWorld(players map[uint16]*entity.Player, enemies []*entity.Enemy)
 	return w, sink
 }
 
-// --- Player ability → damage + cast_start ---
+// --- Player ability → damage + commit_start ---
 
 func TestCombatLog_PlayerAbilityDamage(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
@@ -53,16 +53,16 @@ func TestCombatLog_PlayerAbilityDamage(t *testing.T) {
 	is := &InputSystem{}
 	is.Tick(w, 0.05)
 
-	// Should have cast_start
-	casts := sink.EventsOfType(combatlog.EventCastStart)
-	if len(casts) == 0 {
-		t.Error("expected at least one cast_start event")
+	// Should have commit_start
+	commits := sink.EventsOfType(combatlog.EventCommitStart)
+	if len(commits) == 0 {
+		t.Error("expected at least one commit_start event")
 	} else {
-		if casts[0].SourceEntity != "player_1" {
-			t.Errorf("cast_start Source = %s, want player_1", casts[0].SourceEntity)
+		if commits[0].SourceEntity != "player_1" {
+			t.Errorf("commit_start Source = %s, want player_1", commits[0].SourceEntity)
 		}
-		if casts[0].AbilityID == "" {
-			t.Error("cast_start AbilityID should not be empty")
+		if commits[0].AbilityID == "" {
+			t.Error("commit_start AbilityID should not be empty")
 		}
 	}
 
@@ -663,8 +663,8 @@ func TestCombatLog_FullFight_EndToEnd(t *testing.T) {
 	}
 
 	// Verify events reference the instance
-	castEvents := sink.EventsOfType(combatlog.EventCastStart)
+	castEvents := sink.EventsOfType(combatlog.EventCommitStart)
 	if len(castEvents) == 0 {
-		t.Error("expected cast_start events")
+		t.Error("expected commit_start events")
 	}
 }

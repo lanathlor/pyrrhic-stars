@@ -23,6 +23,7 @@ func TestResolveHeal(t *testing.T) {
 		wantNil      bool
 		wantTargetID uint16
 		wantAmount   float32
+		wantOverheal float32
 		wantSource   uint8
 	}{
 		{
@@ -127,11 +128,12 @@ func TestResolveHeal(t *testing.T) {
 			targetPeerID: 2,
 			wantNil:      false,
 			wantTargetID: 2,
-			wantAmount:   10, // capped at MaxHealth
+			wantAmount:   10,    // capped at MaxHealth
+			wantOverheal: 105.0, // 100 * 1.15 (SF) - 10 actual = 105
 			wantSource:   combat.SourcePlayerHeal,
 		},
 		{
-			name: "heal on full HP returns nil",
+			name: "heal on full HP returns overheal",
 			def: &AbilityDef{
 				Hit:      HitDef{Type: HitAllyTarget},
 				BaseHeal: 50,
@@ -145,7 +147,11 @@ func TestResolveHeal(t *testing.T) {
 				return map[uint16]*entity.Player{1: caster, 2: target}
 			},
 			targetPeerID: 2,
-			wantNil:      true,
+			wantNil:      false,
+			wantTargetID: 2,
+			wantAmount:   0,
+			wantOverheal: 57.5, // 50 * 1.15 (Sympathetic Field)
+			wantSource:   combat.SourcePlayerHeal,
 		},
 		{
 			name: "zero BaseHeal returns nil",
@@ -310,6 +316,9 @@ func TestResolveHeal(t *testing.T) {
 			}
 			if math.Abs(float64(result.Amount-tt.wantAmount)) > 0.01 {
 				t.Errorf("Amount = %f, want %f", result.Amount, tt.wantAmount)
+			}
+			if math.Abs(float64(result.Overheal-tt.wantOverheal)) > 0.01 {
+				t.Errorf("Overheal = %f, want %f", result.Overheal, tt.wantOverheal)
 			}
 			if result.SourceID != tt.casterID {
 				t.Errorf("SourceID = %d, want %d", result.SourceID, tt.casterID)

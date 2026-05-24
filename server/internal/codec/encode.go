@@ -24,7 +24,7 @@ func EncodeWorldState(tick uint32, players map[uint16]*entity.Player, enemies []
 func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.Player, enemies []*entity.Enemy, projectiles []*entity.Projectile, npcs []*entity.NPC) []byte {
 	// Estimate needed capacity and grow if needed.
 	// Per player: ~84 bytes. Per enemy: ~60 bytes. Per projectile: ~28 bytes.
-	estCap := 512 + len(players)*80 + len(enemies)*60 + len(projectiles)*28
+	estCap := 512 + len(players)*120 + len(enemies)*60 + len(projectiles)*28
 	if cap(buf) < estCap {
 		newCap := cap(buf) * 2
 		if newCap < estCap {
@@ -71,8 +71,15 @@ func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.
 		if p.ClassID == entity.ClassArcanotechnicien && p.ChannelPhase == 1 {
 			flags |= 0x20
 		}
-		// Bits 6-7: class-specific mastery tier (Vanguard=onslaught/devotion, BD=flow).
+		// Bits 6-7: class-specific mastery tier (Vanguard=onslaught/devotion, BD=flow)
+		// or ChannelPhase for Arcanotechnicien (0=idle, 1=commit, 2=execute, 3=sustain).
 		switch p.ClassID {
+		case entity.ClassArcanotechnicien:
+			phase := p.ChannelPhase
+			if phase > 3 {
+				phase = 0 // cooldown/idle → 0
+			}
+			flags |= (phase & 0x03) << 6
 		case entity.ClassVanguard:
 			type tiered interface{ Tier() uint8 }
 			masteryKey := "onslaught"
@@ -147,6 +154,26 @@ func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.
 			speedMult = 0.4
 		}
 		buf = append(buf, byte(speedMult*255.0+0.5))
+
+		// Flux commitment pools (Arcanotechnicien school breakdown).
+		// Fixed order: bioarcanotechnic, biometabolic, frost, aerokinetic.
+		if p.FluxCommit != nil && len(p.FluxCommit.Pools) > 0 {
+			pools := p.FluxCommit.Pools
+			buf = append(buf, byte(len(pools)))
+			schoolOrder := [4]string{"bioarcanotechnic", "biometabolic", "frost", "aerokinetic"}
+			for _, school := range schoolOrder {
+				pool := p.FluxCommit.GetPool(school)
+				if pool != nil {
+					buf = appendF32(buf, pool.Current)
+					buf = appendF32(buf, pool.Max)
+				} else {
+					buf = appendF32(buf, 0)
+					buf = appendF32(buf, 0)
+				}
+			}
+		} else {
+			buf = append(buf, 0)
+		}
 	}
 
 	buf = append(buf, byte(len(enemies)))
@@ -230,14 +257,14 @@ func EncodeLobbyState(players []LobbyPlayerInfo) []byte {
 
 // EncodeDamageEvent serializes a single damage event.
 // Takes primitive fields to avoid a codec→combat import cycle.
-func EncodeDamageEvent(targetPeerID, sourcePeerID uint16, amount, hitX, hitY, hitZ float32, sourceType uint8) []byte {
-	buf := make([]byte, 0, 21)
-	return AppendEncodeDamageEvent(buf, targetPeerID, sourcePeerID, amount, hitX, hitY, hitZ, sourceType)
+func EncodeDamageEvent(targetPeerID, sourcePeerID uint16, amount, hitX, hitY, hitZ float32, sourceType uint8, overheal float32) []byte {
+	buf := make([]byte, 0, 25)
+	return AppendEncodeDamageEvent(buf, targetPeerID, sourcePeerID, amount, hitX, hitY, hitZ, sourceType, overheal)
 }
 
 // AppendEncodeDamageEvent appends a damage event to buf.
 // Pass a pooled buffer to avoid per-call allocations.
-func AppendEncodeDamageEvent(buf []byte, targetPeerID, sourcePeerID uint16, amount, hitX, hitY, hitZ float32, sourceType uint8) []byte {
+func AppendEncodeDamageEvent(buf []byte, targetPeerID, sourcePeerID uint16, amount, hitX, hitY, hitZ float32, sourceType uint8, overheal float32) []byte {
 	buf = appendU16(buf, targetPeerID)
 	buf = appendU16(buf, sourcePeerID)
 	buf = appendF32(buf, amount)
@@ -245,6 +272,7 @@ func AppendEncodeDamageEvent(buf []byte, targetPeerID, sourcePeerID uint16, amou
 	buf = appendF32(buf, hitY)
 	buf = appendF32(buf, hitZ)
 	buf = append(buf, sourceType)
+	buf = appendF32(buf, overheal)
 	return buf
 }
 
@@ -522,4 +550,63 @@ func DecodeUnequipItem(payload []byte) (slotID uint8, ok bool) {
 		return 0, false
 	}
 	return payload[0], true
+}
+
+// EncodeLoadoutState serializes the 6 loadout slots.
+// Wire format: [slot0:str8][slot1:str8]...[slot5:str8]
+func EncodeLoadoutState(slots [6]string) []byte {
+	buf := make([]byte, 0, 128)
+	for _, s := range slots {
+		buf = appendStr8(buf, s)
+	}
+	return buf
+}
+
+// EncodeAbilityCatalog serializes the full ability catalog.
+// Wire format: [count:u8][per entry: id:str8, name:str8, school:str8,
+//
+//	ability_type:str8, delivery:str8, flux_cost:str8, description:str16,
+//	cooldown:f32, commit_time:f32, implemented:u8, affinity:str8,
+//	flux_amount:f32, base_heal:f32, base_damage:f32, range:f32, gcd:f32,
+//	zone_radius:f32, zone_duration:f32, zone_heal_tick:f32,
+//	sustain:u8]
+func EncodeAbilityCatalog(entries []AbilityCatalogEntry) []byte {
+	buf := make([]byte, 0, 256*len(entries)+1)
+	buf = append(buf, byte(len(entries)))
+	for _, e := range entries {
+		buf = appendStr8(buf, e.ID)
+		buf = appendStr8(buf, e.Name)
+		buf = appendStr8(buf, e.School)
+		buf = appendStr8(buf, e.AbilityType)
+		buf = appendStr8(buf, e.Delivery)
+		buf = appendStr8(buf, e.FluxCost)
+		buf = appendStr16(buf, e.Description)
+		buf = appendF32(buf, e.Cooldown)
+		buf = appendF32(buf, e.CommitTime)
+		if e.Implemented {
+			buf = append(buf, 1)
+		} else {
+			buf = append(buf, 0)
+		}
+		buf = appendStr8(buf, e.Affinity)
+
+		// Exact stats (9 x f32).
+		buf = appendF32(buf, e.FluxAmount)
+		buf = appendF32(buf, e.BaseHeal)
+		buf = appendF32(buf, e.BaseDamage)
+		buf = appendF32(buf, e.Range)
+		buf = appendF32(buf, e.GCD)
+		buf = appendF32(buf, e.CommitTime)
+		buf = appendF32(buf, e.ZoneRadius)
+		buf = appendF32(buf, e.ZoneDuration)
+		buf = appendF32(buf, e.ZoneHealTick)
+
+		// Sustain flag (u8).
+		if e.Sustain {
+			buf = append(buf, 1)
+		} else {
+			buf = append(buf, 0)
+		}
+	}
+	return buf
 }

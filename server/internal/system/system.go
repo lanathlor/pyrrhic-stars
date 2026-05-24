@@ -77,6 +77,7 @@ type World struct {
 	Projectiles  []*entity.Projectile
 	NPCs         []*entity.NPC
 	HealingZones []*entity.HealingZone
+	DamageLinks  []*entity.DamageLink
 	NextProjID   uint32
 	NextZoneID   uint32
 
@@ -158,7 +159,7 @@ type World struct {
 	// Pre-allocated spawn function for AISystem (avoids per-tick closure).
 	spawnEnemyIdx int
 	spawnFn       func(pos, dir entity.Vec3, speed, damage, lifetime float32)
-	castPatternFn func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3)
+	commitPatternFn func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3)
 }
 
 // DeadGroupIDs returns a set of enemy GroupIDs where all members are dead.

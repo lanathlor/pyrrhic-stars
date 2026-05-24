@@ -33,23 +33,23 @@ const (
 	executionPrimaryRng  float32 = 7
 )
 
-func executionVGHandler(eng *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func executionVGHandler(eng *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "invalid caster"}
+		return CommitResult{Reason: "invalid caster"}
 	}
 	if p.Cooldowns["execution"] > 0 || p.GCDTimer > 0 {
-		return CastResult{Reason: "cooldown"}
+		return CommitResult{Reason: "cooldown"}
 	}
 	if !p.SpendResource("stamina", executionStaminaCost*p.TenacityEfficiency()) {
-		return CastResult{Reason: ReasonInsufficientStamina}
+		return CommitResult{Reason: ReasonInsufficientStamina}
 	}
 
 	ons := getOnslaughtState(p)
 	tier := ons.Tier()
 	tuning := executionTiers[tier]
 
-	damage := tuning.damage * p.CasterDamageMult() * ons.DamageMult(p.GearStats.Mastery)
+	damage := tuning.damage * p.CommitterDamageMult() * ons.DamageMult(p.GearStats.Mastery)
 
 	// Primary hit: narrow cone
 	hit := HitDef{Type: HitAoECone, Range: executionPrimaryRng, ArcDegrees: executionPrimaryArc}
@@ -78,5 +78,5 @@ func executionVGHandler(eng *Engine, ctx *CastContext) CastResult {
 	p.GCDTimer = tuning.lockout
 	p.State = entity.PlayerStateAttack
 
-	return CastResult{OK: true, Events: eng.hitBuf}
+	return CommitResult{OK: true, Events: eng.hitBuf}
 }

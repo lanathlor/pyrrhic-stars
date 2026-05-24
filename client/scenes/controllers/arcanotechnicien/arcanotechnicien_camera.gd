@@ -48,18 +48,21 @@ func update_animation() -> void:
 			return
 		ctrl.State.CASTING:
 			ctrl._visual_state = NetSerializer.VS_AT_CASTING
-			var dur: float = ctrl._casting_spell.get("dur", 0.4)
+			var dur: float = ctrl._committing_ability.get("dur", 0.4)
 			ctrl.character_model.travel_timed("casting", dur)
 			return
 		ctrl.State.CHANNELING:
-			var delivery: String = ctrl._casting_spell.get("delivery", "")
-			match delivery:
-				"beam":
-					ctrl._visual_state = NetSerializer.VS_AT_CHANNELING_BEAM
-				"zone":
-					ctrl._visual_state = NetSerializer.VS_AT_CHANNELING_ZONE
-				_:
-					ctrl._visual_state = NetSerializer.VS_AT_CHANNELING
+			if ctrl.combat._sustaining:
+				ctrl._visual_state = NetSerializer.VS_AT_SUSTAINING
+			else:
+				var delivery: String = ctrl._committing_ability.get("delivery", "")
+				match delivery:
+					"beam":
+						ctrl._visual_state = NetSerializer.VS_AT_CHANNELING_BEAM
+					"zone":
+						ctrl._visual_state = NetSerializer.VS_AT_CHANNELING_ZONE
+					_:
+						ctrl._visual_state = NetSerializer.VS_AT_CHANNELING
 			ctrl.character_model.travel("channeling")
 			return
 		ctrl.State.STAGGER:

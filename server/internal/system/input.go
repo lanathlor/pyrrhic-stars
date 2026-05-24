@@ -30,6 +30,10 @@ func (s *InputSystem) Tick(w *World, _ float32) {
 			handleInteractInput(w, inp.PeerID, inp.Payload)
 		case message.OpRespawnRequest:
 			handleRespawnRequest(w, inp.PeerID, inp.Payload)
+		case message.OpSetLoadout:
+			handleSetLoadout(w, inp.PeerID, inp.Payload)
+		case message.OpSetFluxCommitment:
+			handleSetFluxCommitment(w, inp.PeerID, inp.Payload)
 		}
 	}
 	w.InputQueue = w.InputQueue[:0]
@@ -95,14 +99,14 @@ func handlePlayerInput(w *World, peerID uint16, payload []byte) {
 		}
 	}
 
-	// Enforce server-authoritative speed multiplier (shield block / brace).
+	// Enforce server-authoritative speed clamping for all players.
 	speedMult := float32(1.0)
 	if p.HasBuff("brace") {
 		speedMult = 0.0
 	} else if p.HasBuff("vg_shield_block") {
 		speedMult = 0.4
 	}
-	if speedMult < 1.0 {
+	{
 		hDx := newPos.X - p.Position.X
 		hDz := newPos.Z - p.Position.Z
 		hDistSq := hDx*hDx + hDz*hDz
@@ -147,8 +151,24 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 	p.AimPitch = inp.AimPitch
 
 	// Dodge is special: it doesn't go through the engine (client-authoritative movement)
-	// but we still need to check/spend stamina for vanguard
+	// but we still need to check/spend stamina for vanguard.
+	// Harmonist has no dodge — gust step is their mobility (goes through loadout).
 	if inp.Action == entity.ActionDodge {
+		if p.ClassID == entity.ClassArcanotechnicien {
+			return // harmonist has no dodge
+		}
+		// Cancel any active channel when dodging
+		if runner := w.AbilityRunners[peerID]; runner != nil && runner.IsBusy() {
+			wasChanneling := runner.Phase == ability.PRunnerCommit || runner.Phase == ability.PRunnerSustain
+			if id, cd := runner.SustainCooldownOnCancel(); cd > 0 {
+				p.Cooldowns[id] = cd
+			}
+			runner.Cancel()
+			if wasChanneling && p.Confluence != nil {
+				p.Confluence.OnInterrupt()
+			}
+			runner.SyncToPlayer(p)
+		}
 		if !p.SpendResource("stamina", 20) {
 			return
 		}
@@ -166,6 +186,22 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 		return
 	}
 
+	// Action 255: explicit channel/sustain cancel (ESC on client)
+	if inp.Action == 255 {
+		if runner := w.AbilityRunners[peerID]; runner != nil && runner.IsBusy() {
+			wasChanneling := runner.Phase == ability.PRunnerCommit || runner.Phase == ability.PRunnerSustain
+			if id, cd := runner.SustainCooldownOnCancel(); cd > 0 {
+				p.Cooldowns[id] = cd
+			}
+			runner.Cancel()
+			if wasChanneling && p.Confluence != nil {
+				p.Confluence.OnInterrupt()
+			}
+			runner.SyncToPlayer(p)
+		}
+		return
+	}
+
 	// Look up ability from action map
 	abilityID, ok := p.ActionMap[inp.Action]
 	if !ok {
@@ -173,8 +209,8 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 	}
 
 	// If the ability has a commit phase, route through the PlayerAbilityRunner
-	// instead of casting immediately. The runner ticks in CombatSystem and fires
-	// the actual Cast when the commit timer expires.
+	// instead of committing immediately. The runner ticks in CombatSystem and fires
+	// the actual Commit when the commit timer expires.
 	if def := w.AbilityEngine.GetAbility(abilityID); def != nil && def.CommitTime > 0 {
 		runner := w.AbilityRunners[peerID]
 		if runner == nil {
@@ -182,17 +218,44 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 			w.AbilityRunners[peerID] = runner
 		}
 		if runner.IsBusy() {
-			return // already in an ability lifecycle
+			wasChanneling := runner.Phase == ability.PRunnerCommit || runner.Phase == ability.PRunnerSustain
+			if id, cd := runner.SustainCooldownOnCancel(); cd > 0 {
+				p.Cooldowns[id] = cd
+			}
+			if !runner.Cancel() {
+				return // in execute or cooldown phase, cannot cancel
+			}
+			if wasChanneling && p.Confluence != nil {
+				p.Confluence.OnInterrupt()
+			}
+			// Cancel during sustain enters cooldown — force reset so Start succeeds
+			runner.ForceReset()
+			runner.SyncToPlayer(p)
 		}
 		runner.Start(def)
+		p.ChannelTargetID = inp.TargetPeerID
 		runner.SyncToPlayer(p)
 		return
 	}
 
-	// Cast through the ability engine
+	// Cancel any active channel when committing an instant ability
+	if runner := w.AbilityRunners[peerID]; runner != nil && runner.IsBusy() {
+		wasChanneling := runner.Phase == ability.PRunnerCommit || runner.Phase == ability.PRunnerSustain
+		if id, cd := runner.SustainCooldownOnCancel(); cd > 0 {
+			p.Cooldowns[id] = cd
+		}
+		runner.Cancel()
+		if wasChanneling && p.Confluence != nil {
+			p.Confluence.OnInterrupt()
+		}
+		runner.ForceReset()
+		runner.SyncToPlayer(p)
+	}
+
+	// Commit through the ability engine
 	w.enemyTargetBuf = enemiesToTargets(w.enemyTargetBuf, w.Enemies)
-	ctx := &ability.CastContext{
-		Caster:       p,
+	ctx := &ability.CommitContext{
+		Committer:       p,
 		Targets:      w.enemyTargetBuf,
 		Obstacles:    w.Level.Obstacles,
 		Allies:       w.Players,
@@ -202,15 +265,18 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 			zone.ID = w.NextZoneID
 			w.HealingZones = append(w.HealingZones, zone)
 		},
+		SpawnLink: func(link *entity.DamageLink) {
+			w.DamageLinks = append(w.DamageLinks, link)
+		},
 	}
-	result := w.AbilityEngine.Cast(abilityID, ctx)
+	result := w.AbilityEngine.Commit(abilityID, ctx)
 	if !result.OK {
 		return
 	}
 
-	// Log cast_start
+	// Log commit_start
 	w.logCombatEvent(combatlog.LogEntry{
-		EventType:    combatlog.EventCastStart,
+		EventType:    combatlog.EventCommitStart,
 		SourceEntity: combatlog.FormatPlayerID(peerID),
 		SourceClass:  p.ClassID,
 		AbilityID:    abilityID,
@@ -261,9 +327,21 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 			TargetPeerID: h.TargetID,
 			SourcePeerID: h.SourceID,
 			Amount:       h.Amount,
+			Overheal:     h.Overheal,
 			HitPos:       h.HitPos,
 			SourceType:   h.SourceType,
 		})
+	}
+
+	// If the instant ability supports sustain, start the runner in sustain phase
+	if def := w.AbilityEngine.GetAbility(abilityID); def != nil && def.Sustain {
+		runner := w.AbilityRunners[peerID]
+		if runner == nil {
+			runner = &ability.PlayerAbilityRunner{}
+			w.AbilityRunners[peerID] = runner
+		}
+		runner.StartSustain(def, p.Position, w.TickNum)
+		runner.SyncToPlayer(p)
 	}
 
 	// Log buff applications
@@ -343,6 +421,72 @@ func handleInteractInput(w *World, peerID uint16, payload []byte) {
 		np.SpawnTick = p.SpawnTick
 		*p = *np
 	}
+}
+
+func handleSetLoadout(w *World, peerID uint16, payload []byte) {
+	slots, ok := codec.DecodeSetLoadout(payload)
+	if !ok {
+		return
+	}
+	p, ok := w.Players[peerID]
+	if !ok {
+		return
+	}
+
+	// Validate every non-empty slot against the player's class/spec abilities.
+	allowed := p.AllowedAbilities()
+	for _, id := range slots {
+		if id == "" {
+			continue
+		}
+		valid := false
+		for _, a := range allowed {
+			if a == id {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return
+		}
+	}
+
+	if p.Loadout == nil {
+		p.Loadout = &entity.Loadout{}
+	}
+	p.Loadout.Slots = slots
+	p.ApplyLoadout()
+}
+
+func handleSetFluxCommitment(w *World, peerID uint16, payload []byte) {
+	entries, ok := codec.DecodeFluxCommitment(payload)
+	if !ok {
+		return
+	}
+	p, ok := w.Players[peerID]
+	if !ok {
+		return
+	}
+	if p.FluxCommit == nil {
+		return
+	}
+
+	// Validate total = 100%.
+	var total uint8
+	for _, e := range entries {
+		total += e.Percentage
+	}
+	if total != 100 {
+		return
+	}
+
+	// Build school → percentage map and apply.
+	schools := make(map[string]float32, len(entries))
+	for _, e := range entries {
+		schools[e.School] = float32(e.Percentage) / 100.0
+	}
+	p.FluxCommit.SetCommitment(schools)
+	p.SyncFluxAggregate()
 }
 
 func handleRespawnRequest(w *World, peerID uint16, payload []byte) {

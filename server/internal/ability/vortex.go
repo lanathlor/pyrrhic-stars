@@ -38,16 +38,16 @@ type VortexState struct {
 	HitsDone  int
 }
 
-func vortexHandler(eng *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func vortexHandler(eng *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "invalid caster"}
+		return CommitResult{Reason: "invalid caster"}
 	}
 	if p.Cooldowns["vortex"] > 0 || p.GCDTimer > 0 {
-		return CastResult{Reason: "cooldown"}
+		return CommitResult{Reason: "cooldown"}
 	}
 	if !p.SpendResource("stamina", vortexStaminaCost*p.TenacityEfficiency()) {
-		return CastResult{Reason: ReasonInsufficientStamina}
+		return CommitResult{Reason: ReasonInsufficientStamina}
 	}
 
 	ons := getOnslaughtState(p)
@@ -72,7 +72,7 @@ func vortexHandler(eng *Engine, ctx *CastContext) CastResult {
 	})
 
 	// First hit immediately
-	damage := vortexDamageBase * p.CasterDamageMult() * ons.DamageMult(p.GearStats.Mastery)
+	damage := vortexDamageBase * p.CommitterDamageMult() * ons.DamageMult(p.GearStats.Mastery)
 	eng.hitBuf = resolveAoECircle(eng.hitBuf, p.Position, p.ID, ctx.Targets, ctx.Obstacles, vortexHitRadius, damage, combat.SourcePlayerAttack)
 	for i := range eng.hitBuf {
 		if th, ok := eng.hitBuf[i].Target.(entity.Threateable); ok {
@@ -85,7 +85,7 @@ func vortexHandler(eng *Engine, ctx *CastContext) CastResult {
 	}
 	state.HitsDone = 1
 
-	return CastResult{OK: true, Events: eng.hitBuf}
+	return CommitResult{OK: true, Events: eng.hitBuf}
 }
 
 func vortexTick(eng *Engine, p *entity.Player, dt float32, ctx *TickContext) []DamageResult {
@@ -98,7 +98,7 @@ func vortexTick(eng *Engine, p *entity.Player, dt float32, ctx *TickContext) []D
 	var events []DamageResult
 
 	// Check if we should deliver the next hit based on evenly-spaced intervals.
-	// Hit 0 fires on cast. Hits 1..N-1 fire during ticks at interval spacing.
+	// Hit 0 fires on commit. Hits 1..N-1 fire during ticks at interval spacing.
 	if state.HitsDone < state.TotalHits && ctx != nil {
 		interval := state.Duration / float32(state.TotalHits)
 		elapsed := state.Duration - state.Timer
@@ -110,7 +110,7 @@ func vortexTick(eng *Engine, p *entity.Player, dt float32, ctx *TickContext) []D
 
 		if expectedHits > state.HitsDone {
 			ons := getOnslaughtState(p)
-			tickDmg := vortexDamageBase * p.CasterDamageMult() * ons.DamageMult(p.GearStats.Mastery)
+			tickDmg := vortexDamageBase * p.CommitterDamageMult() * ons.DamageMult(p.GearStats.Mastery)
 			eng.hitBuf = resolveAoECircle(eng.hitBuf[:0], p.Position, p.ID, ctx.Targets, ctx.Obstacles, vortexHitRadius, tickDmg, combat.SourcePlayerAttack)
 			for i := range eng.hitBuf {
 				if th, ok := eng.hitBuf[i].Target.(entity.Threateable); ok {

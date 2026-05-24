@@ -10,9 +10,9 @@ func TestVGBlock_StartAppliesBuffsAndState(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard()
 
-	r := eng.Cast("vg_block", castCtx(p))
+	r := eng.Commit("vg_block", commitCtx(p))
 	if !r.OK {
-		t.Fatalf("cast failed: %s", r.Reason)
+		t.Fatalf("commit failed: %s", r.Reason)
 	}
 	if !p.HasBuff("vg_parry") {
 		t.Error("parry buff should be applied")
@@ -33,7 +33,7 @@ func TestVGBlock_ParryExpires(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard()
 
-	eng.Cast("vg_block", castCtx(p))
+	eng.Commit("vg_block", commitCtx(p))
 
 	// Tick past parry window (0.15s)
 	eng.TickPlayer(p, 0.2, tickCtx())
@@ -49,7 +49,7 @@ func TestVGBlock_DamageWhileParrying(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard()
 
-	eng.Cast("vg_block", castCtx(p))
+	eng.Commit("vg_block", commitCtx(p))
 
 	// During parry: parry(0.0) * block(0.2) = 0 → full block
 	dealt := p.ApplyDamage(100)
@@ -62,7 +62,7 @@ func TestVGBlock_DamageAtStart(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard()
 
-	eng.Cast("vg_block", castCtx(p))
+	eng.Commit("vg_block", commitCtx(p))
 	// Expire parry with small ticks (4 x 0.05 = 0.2s)
 	for range 4 {
 		eng.TickPlayer(p, 0.05, tickCtx())
@@ -80,7 +80,7 @@ func TestVGBlock_DRDecaysPartial(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard()
 
-	eng.Cast("vg_block", castCtx(p))
+	eng.Commit("vg_block", commitCtx(p))
 	// Tick 0.75s (halfway through decay) — Value should be ~0.35
 	eng.TickPlayer(p, 0.75, tickCtx())
 
@@ -98,7 +98,7 @@ func TestVGBlock_DRDecaysFull(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard()
 
-	eng.Cast("vg_block", castCtx(p))
+	eng.Commit("vg_block", commitCtx(p))
 	// Tick 1.5s — Value should be 0.5 (floor)
 	eng.TickPlayer(p, 1.5, tickCtx())
 
@@ -115,7 +115,7 @@ func TestVGBlock_DRFloorsAt50(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard()
 
-	eng.Cast("vg_block", castCtx(p))
+	eng.Commit("vg_block", commitCtx(p))
 	// Tick well past decay time — Value should cap at 0.5
 	eng.TickPlayer(p, 3.0, tickCtx())
 
@@ -132,7 +132,7 @@ func TestVGBlock_StaminaDrains(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard()
 
-	eng.Cast("vg_block", castCtx(p))
+	eng.Commit("vg_block", commitCtx(p))
 	// Use small ticks to avoid partial-regen within a single large dt
 	for range 20 {
 		eng.TickPlayer(p, 0.05, tickCtx())
@@ -152,7 +152,7 @@ func TestVGBlock_StaminaDepletionEndsBlock(t *testing.T) {
 	// Set low stamina
 	p.Resources["stamina"].Current = 10
 
-	eng.Cast("vg_block", castCtx(p))
+	eng.Commit("vg_block", commitCtx(p))
 	// 10 stamina / 15 per sec = ~0.67s → block should end within 1s
 	for range 20 {
 		eng.TickPlayer(p, 0.05, tickCtx())
@@ -177,8 +177,8 @@ func TestVGBlock_StopAction(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard()
 
-	eng.Cast("vg_block", castCtx(p))
-	r := eng.Cast("vg_block_stop", castCtx(p))
+	eng.Commit("vg_block", commitCtx(p))
+	r := eng.Commit("vg_block_stop", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("stop failed: %s", r.Reason)
 	}
@@ -201,10 +201,10 @@ func TestVGBlock_CooldownPreventsReblock(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard()
 
-	eng.Cast("vg_block", castCtx(p))
-	eng.Cast("vg_block_stop", castCtx(p))
+	eng.Commit("vg_block", commitCtx(p))
+	eng.Commit("vg_block_stop", commitCtx(p))
 
-	r := eng.Cast("vg_block", castCtx(p))
+	r := eng.Commit("vg_block", commitCtx(p))
 	if r.OK {
 		t.Error("should not be able to re-block during cooldown")
 	}
@@ -217,13 +217,13 @@ func TestVGBlock_CooldownExpires(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard()
 
-	eng.Cast("vg_block", castCtx(p))
-	eng.Cast("vg_block_stop", castCtx(p))
+	eng.Commit("vg_block", commitCtx(p))
+	eng.Commit("vg_block_stop", commitCtx(p))
 
 	// Tick past the 3s cooldown
 	eng.TickPlayer(p, 3.1, tickCtx())
 
-	r := eng.Cast("vg_block", castCtx(p))
+	r := eng.Commit("vg_block", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("re-block after cooldown expired failed: %s", r.Reason)
 	}
@@ -233,8 +233,8 @@ func TestVGBlock_AlreadyBlocking(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard()
 
-	eng.Cast("vg_block", castCtx(p))
-	r := eng.Cast("vg_block", castCtx(p))
+	eng.Commit("vg_block", commitCtx(p))
+	r := eng.Commit("vg_block", commitCtx(p))
 	if r.OK {
 		t.Error("should reject duplicate block start")
 	}
@@ -248,7 +248,7 @@ func TestVGBlock_ZeroStaminaPreventsStart(t *testing.T) {
 	p := newVanguard()
 	p.Resources["stamina"].Current = 0
 
-	r := eng.Cast("vg_block", castCtx(p))
+	r := eng.Commit("vg_block", commitCtx(p))
 	if r.OK {
 		t.Error("should not block with 0 stamina")
 	}
@@ -259,7 +259,7 @@ func TestVGBlock_StopWhenNotBlocking_NoOp(t *testing.T) {
 	p := newVanguard()
 
 	// Stop without starting — should be a no-op, not crash
-	r := eng.Cast("vg_block_stop", castCtx(p))
+	r := eng.Commit("vg_block_stop", commitCtx(p))
 	if !r.OK {
 		t.Errorf("stop when not blocking should succeed (no-op): %s", r.Reason)
 	}

@@ -45,7 +45,7 @@ func NewGormRepo(driver, dsn string) (*GormRepo, error) {
 		return nil, fmt.Errorf("persistence open: %w", err)
 	}
 
-	if err := db.AutoMigrate(&User{}, &Character{}, &CharacterItem{}, &CharacterEquipment{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &Character{}, &CharacterItem{}, &CharacterEquipment{}, &CharacterLoadout{}, &CharacterFluxCommitment{}); err != nil {
 		return nil, fmt.Errorf("persistence migrate: %w", err)
 	}
 
@@ -155,4 +155,60 @@ func (r *GormRepo) GetEquipment(charID uint) ([]*CharacterEquipment, error) {
 	var eqs []*CharacterEquipment
 	result := r.db.Where("character_id = ?", charID).Find(&eqs)
 	return eqs, result.Error
+}
+
+func (r *GormRepo) UpsertLoadout(charID uint, slots [6]string) error {
+	lo := CharacterLoadout{CharacterID: charID}
+	result := r.db.Where("character_id = ?", charID).Assign(CharacterLoadout{
+		Slot0: slots[0],
+		Slot1: slots[1],
+		Slot2: slots[2],
+		Slot3: slots[3],
+		Slot4: slots[4],
+		Slot5: slots[5],
+	}).FirstOrCreate(&lo)
+	return result.Error
+}
+
+func (r *GormRepo) GetLoadout(charID uint) (*CharacterLoadout, error) {
+	var lo CharacterLoadout
+	result := r.db.Where("character_id = ?", charID).First(&lo)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &lo, result.Error
+}
+
+func (r *GormRepo) UpsertFluxCommitment(charID uint, entries []FluxCommitmentEntry) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// Delete existing rows for this character.
+		if err := tx.Where("character_id = ?", charID).Delete(&CharacterFluxCommitment{}).Error; err != nil {
+			return err
+		}
+		// Insert new rows.
+		for _, e := range entries {
+			row := CharacterFluxCommitment{
+				CharacterID: charID,
+				School:      e.School,
+				Percentage:  e.Percentage,
+			}
+			if err := tx.Create(&row).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (r *GormRepo) GetFluxCommitment(charID uint) ([]FluxCommitmentEntry, error) {
+	var rows []CharacterFluxCommitment
+	result := r.db.Where("character_id = ?", charID).Find(&rows)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	entries := make([]FluxCommitmentEntry, len(rows))
+	for i, row := range rows {
+		entries[i] = FluxCommitmentEntry{School: row.School, Percentage: row.Percentage}
+	}
+	return entries, nil
 }

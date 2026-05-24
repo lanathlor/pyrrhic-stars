@@ -7,7 +7,7 @@ import (
 )
 
 // These tests verify that the Output gear stat scales ability damage via
-// CasterDamageMult(). Each test equips gear with Output and asserts that
+// CommitterDamageMult(). Each test equips gear with Output and asserts that
 // the dealt damage exceeds the ability's base damage.
 
 func vanguardWithOutput(output float32) *entity.Player {
@@ -22,27 +22,27 @@ func TestBladeSwirl_OutputScalesCastDamage(t *testing.T) {
 	e := enemyInFront(100, 1e6)
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -3}
 
-	// Cast with 0 Output — should deal base 25 damage
+	// Commit with 0 Output — should deal base 25 damage
 	p0 := newVanguard()
-	r0 := eng.Cast("vortex", castCtx(p0, e))
+	r0 := eng.Commit("vortex", commitCtx(p0, e))
 	if !r0.OK || len(r0.Events) == 0 {
-		t.Fatal("base cast failed or missed")
+		t.Fatal("base commit failed or missed")
 	}
 	baseDmg := r0.Events[0].Amount
 
 	// Reset enemy and cooldowns
 	e.Health = 1e6
 
-	// Cast with 100 Output — should deal 25 * 2.0 = 50 damage
+	// Commit with 100 Output — should deal 25 * 2.0 = 50 damage
 	p100 := vanguardWithOutput(100)
-	r100 := eng.Cast("vortex", castCtx(p100, e))
+	r100 := eng.Commit("vortex", commitCtx(p100, e))
 	if !r100.OK || len(r100.Events) == 0 {
-		t.Fatal("output cast failed or missed")
+		t.Fatal("output commit failed or missed")
 	}
 	scaledDmg := r100.Events[0].Amount
 
 	if scaledDmg <= baseDmg {
-		t.Errorf("blade_swirl cast damage not scaled by Output: base=%.1f, with 100 Output=%.1f (want ~%.1f)",
+		t.Errorf("blade_swirl commit damage not scaled by Output: base=%.1f, with 100 Output=%.1f (want ~%.1f)",
 			baseDmg, scaledDmg, baseDmg*2.0)
 	}
 }
@@ -53,7 +53,7 @@ func TestVortex_OutputScalesTickDamage(t *testing.T) {
 	e := enemyInFront(100, 1e6)
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -3}
 
-	eng.Cast("vortex", castCtx(p, e))
+	eng.Commit("vortex", commitCtx(p, e))
 	hpAfterCast := e.Health
 
 	// Standard tier: interval = 0.3s. Tick past it.
@@ -75,18 +75,18 @@ func TestMeleeLight_OutputScalesDamage(t *testing.T) {
 	// Base damage (combo step 0 = 30)
 	p0 := newVanguard()
 	e := enemyInFront(100, 1e6)
-	r0 := eng.Cast("cleave", castCtx(p0, e))
+	r0 := eng.Commit("cleave", commitCtx(p0, e))
 	if !r0.OK || len(r0.Events) == 0 {
-		t.Fatal("base cast failed or missed")
+		t.Fatal("base commit failed or missed")
 	}
 	baseDmg := r0.Events[0].Amount
 
 	// With 100 Output (2.0x multiplier)
 	e.Health = 1e6
 	p100 := vanguardWithOutput(100)
-	r100 := eng.Cast("cleave", castCtx(p100, e))
+	r100 := eng.Commit("cleave", commitCtx(p100, e))
 	if !r100.OK || len(r100.Events) == 0 {
-		t.Fatal("output cast failed or missed")
+		t.Fatal("output commit failed or missed")
 	}
 	scaledDmg := r100.Events[0].Amount
 
@@ -102,9 +102,9 @@ func TestMeleeHeavy_OutputScalesDamage(t *testing.T) {
 	// Base damage = 45
 	p0 := newVanguard()
 	e := enemyInFront(100, 1e6)
-	r0 := eng.Cast("upheaval", castCtx(p0, e))
+	r0 := eng.Commit("upheaval", commitCtx(p0, e))
 	if !r0.OK || len(r0.Events) == 0 {
-		t.Fatal("base cast failed or missed")
+		t.Fatal("base commit failed or missed")
 	}
 	baseDmg := r0.Events[0].Amount
 
@@ -112,9 +112,9 @@ func TestMeleeHeavy_OutputScalesDamage(t *testing.T) {
 	e.Health = 1e6
 	p100 := vanguardWithOutput(100)
 	p100.Cooldowns["upheaval"] = 0
-	r100 := eng.Cast("upheaval", castCtx(p100, e))
+	r100 := eng.Commit("upheaval", commitCtx(p100, e))
 	if !r100.OK || len(r100.Events) == 0 {
-		t.Fatal("output cast failed or missed")
+		t.Fatal("output commit failed or missed")
 	}
 	scaledDmg := r100.Events[0].Amount
 

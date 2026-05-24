@@ -28,8 +28,8 @@ func (s *AISystem) Tick(w *World, dt float32) {
 			w.SpawnEnemyProjectile(w.spawnEnemyIdx, pos, dir, speed, damage, lifetime)
 		}
 	}
-	if w.castPatternFn == nil && w.PatternEngine != nil {
-		w.castPatternFn = func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3) {
+	if w.commitPatternFn == nil && w.PatternEngine != nil {
+		w.commitPatternFn = func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3) {
 			w.PatternEngine.Spawn(pattern, abilityName, 0, w.spawnEnemyIdx, origin, facing)
 		}
 	}
@@ -47,7 +47,7 @@ func (s *AISystem) Tick(w *World, dt float32) {
 			visiblePlayers = w.filteredPlayers
 		}
 		prevState := e.State
-		events := w.Brains[i].Tick(dt, visiblePlayers, w.Level.Obstacles, w.spawnFn, w.castPatternFn)
+		events := w.Brains[i].Tick(dt, visiblePlayers, w.Level.Obstacles, w.spawnFn, w.commitPatternFn)
 
 		// Apply group-size damage scaling to direct hits (melee, AoE, charge).
 		if mult := w.EnemyDmgMult(); mult != 1.0 {
@@ -93,13 +93,13 @@ func (s *AISystem) Tick(w *World, dt float32) {
 	}
 
 	// Dev mode: auto-repeat a specific ability on the boss.
-	// Only force-cast when the boss is idle (chase state) so the current
+	// Only force-commit when the boss is idle (chase state) so the current
 	// ability completes its full commit→execute→cooldown cycle first.
 	if w.DevMode && w.DebugRepeatAbility != "" {
 		for i, brain := range w.Brains {
 			if i < len(w.Enemies) && w.Enemies[i].IsBoss && w.Enemies[i].Alive {
 				if w.Enemies[i].State == entity.EnemyChase {
-					brain.ForceCast(w.DebugRepeatAbility)
+					brain.ForceCommit(w.DebugRepeatAbility)
 				}
 			}
 		}

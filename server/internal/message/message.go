@@ -67,8 +67,17 @@ const (
 	// Inventory — server → client.
 	OpInventoryState uint16 = 0x0080 // full inventory + equipment snapshot
 
+	// Loadout — client → server.
+	OpSetLoadout        uint16 = 0x0090 // [6x str8: ability_id per slot]
+	OpSetFluxCommitment uint16 = 0x0091 // [n:u8][per: str8 school + u8 percentage]
+
+	// Loadout — server → client.
+	OpLoadoutState      uint16 = 0x00A0 // [6x str8: ability_id per slot]
+	OpAbilityCatalog    uint16 = 0x00A1 // [n:u8][per: str8 fields...][affinities]
+	OpFluxCommitState   uint16 = 0x00A2 // [n:u8][per: str8 school + u8 percentage]
+
 	// Debug — client → server (dev mode only).
-	OpDebugForceCast     uint16 = 0x00D0 // [str8: ability_id]
+	OpDebugForceCommit     uint16 = 0x00D0 // [str8: ability_id]
 	OpDebugSetPhase      uint16 = 0x00D1 // [uint8: phase]
 	OpDebugGodMode       uint16 = 0x00D2 // [uint8: 0=off, 1=on]
 	OpDebugTimeScale     uint16 = 0x00D3 // [float32: scale, clamped 0.1-2.0]
@@ -164,12 +173,17 @@ func BroadcastExcludeSender(opcode uint16) bool {
 // IsServerHandled returns true for opcodes that the server processes directly
 // and does not relay to other clients.
 func IsServerHandled(opcode uint16) bool {
-	return opcode >= 0xFF00 || IsGroupRelated(opcode) || IsInventoryRelated(opcode)
+	return opcode >= 0xFF00 || IsGroupRelated(opcode) || IsInventoryRelated(opcode) || IsLoadoutRelated(opcode)
 }
 
 // IsInventoryRelated returns true for inventory/equipment opcodes (0x0070–0x007F).
 func IsInventoryRelated(opcode uint16) bool {
 	return opcode >= 0x0070 && opcode <= 0x007F
+}
+
+// IsLoadoutRelated returns true for loadout opcodes (0x0090–0x009F).
+func IsLoadoutRelated(opcode uint16) bool {
+	return opcode >= 0x0090 && opcode <= 0x009F
 }
 
 // IsGroupRelated returns true for group/social opcodes (0x0050–0x005F).

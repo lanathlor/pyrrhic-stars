@@ -194,7 +194,7 @@ Use stacked bars instead of boxed meters whenever possible.
 Action slots are allowed more structure than bars because they contain multiple signals:
 
 - keybind
-- icon or spell identity
+- icon or ability identity
 - cooldown state
 - proc/active highlight
 
@@ -220,7 +220,7 @@ Still:
 
 - keep them small
 - avoid thick framing
-- put the spell name first
+- put the ability name first
 - keep description density controlled
 
 ## Motion and Feedback

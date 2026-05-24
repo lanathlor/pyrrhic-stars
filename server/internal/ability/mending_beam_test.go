@@ -33,8 +33,8 @@ func TestMendingBeam(t *testing.T) {
 		if def.Hit.Range != 20 {
 			t.Errorf("Hit.Range = %v, want 20", def.Hit.Range)
 		}
-		if def.BaseHeal != 15 {
-			t.Errorf("BaseHeal = %v, want 15", def.BaseHeal)
+		if def.BaseHeal != 12 {
+			t.Errorf("BaseHeal = %v, want 12", def.BaseHeal)
 		}
 		if def.HealScaling != "identity" {
 			t.Errorf("HealScaling = %q, want %q", def.HealScaling, "identity")
@@ -42,8 +42,8 @@ func TestMendingBeam(t *testing.T) {
 		if def.GCD != 0.5 {
 			t.Errorf("GCD = %v, want 0.5", def.GCD)
 		}
-		if len(def.Costs) != 1 || def.Costs[0].Resource != "flux" || def.Costs[0].Amount != 10 {
-			t.Errorf("Costs = %+v, want [{flux 10}]", def.Costs)
+		if len(def.Costs) != 1 || def.Costs[0].Resource != "flux" || def.Costs[0].Amount != 8 {
+			t.Errorf("Costs = %+v, want [{flux 8}]", def.Costs)
 		}
 	})
 
@@ -58,27 +58,27 @@ func TestMendingBeam(t *testing.T) {
 				name: "rejects when flux below 10",
 				setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 					caster := entity.NewPlayer(1, entity.ClassArcanotechnicien)
-					caster.Resources["flux"].Current = 5
+					caster.SetAllFluxPoolsCurrent(5) // need 10 bioarcanotechnic
 					ally := entity.NewPlayer(2, entity.ClassArcanotechnicien)
 					ally.Health = 50
 					allies := map[uint16]*entity.Player{1: caster, 2: ally}
 					return caster, allies, 2
 				},
 				wantOK:     false,
-				wantReason: "insufficient flux",
+				wantReason: "insufficient bioarcanotechnic flux",
 			},
 			{
 				name: "rejects when flux is zero",
 				setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 					caster := entity.NewPlayer(1, entity.ClassArcanotechnicien)
-					caster.Resources["flux"].Current = 0
+					caster.SetAllFluxPoolsCurrent(0)
 					ally := entity.NewPlayer(2, entity.ClassArcanotechnicien)
 					ally.Health = 50
 					allies := map[uint16]*entity.Player{1: caster, 2: ally}
 					return caster, allies, 2
 				},
 				wantOK:     false,
-				wantReason: "insufficient flux",
+				wantReason: "insufficient bioarcanotechnic flux",
 			},
 			{
 				name: "accepts when flux exactly 10",
@@ -136,8 +136,8 @@ func TestMendingBeam(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				caster, allies, targetPeer := tt.setup()
 
-				result := eng.Cast("mending_beam", &CastContext{
-					Caster:       caster,
+				result := eng.Commit("mending_beam", &CommitContext{
+					Committer:       caster,
 					Allies:       allies,
 					TargetPeerID: targetPeer,
 				})

@@ -1,6 +1,6 @@
 extends Node3D
 
-## Channel Flux accumulation — particles orbiting the caster during channeled spells.
+## Channel Flux accumulation — particles orbiting the caster during channeled abilities.
 ## Intensity scales with channel progress (0.0 to 1.0).
 ## Call start() to begin, update_progress() each frame, stop() to fade and free.
 

@@ -55,6 +55,32 @@ type GroupMemberInfo struct {
 	Username string
 }
 
+// AbilityCatalogEntry is a single ability for wire transmission.
+type AbilityCatalogEntry struct {
+	ID          string
+	Name        string
+	School      string
+	AbilityType   string
+	Delivery    string
+	FluxCost    string
+	Description string
+	Cooldown    float32
+	Implemented bool
+	Affinity    string // "primary", "secondary", "off"
+
+	// Exact stats from AbilityDef (0 = not applicable).
+	FluxAmount   float32
+	BaseHeal     float32
+	BaseDamage   float32
+	Range        float32
+	GCD          float32
+	CommitTime   float32
+	ZoneRadius   float32
+	ZoneDuration float32
+	ZoneHealTick float32
+	Sustain      bool
+}
+
 // --- Private wire helpers ---
 // These helpers write primitives directly into buf without allocating.
 // Each calls append to ensure capacity (which may trigger a growth), then
@@ -83,6 +109,13 @@ func appendStr8(buf []byte, s string) []byte {
 	// string→[]byte conversion is unavoidable; we only do one allocation here.
 	b := []byte(s)
 	buf = append(buf, byte(len(b)))
+	return append(buf, b...)
+}
+
+func appendStr16(buf []byte, s string) []byte {
+	b := []byte(s)
+	buf = append(buf, 0, 0)
+	binary.LittleEndian.PutUint16(buf[len(buf)-2:], uint16(len(b)))
 	return append(buf, b...)
 }
 

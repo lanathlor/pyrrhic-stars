@@ -2,9 +2,9 @@ package ability
 
 import "codex-online/server/internal/entity"
 
-// bdTransitionSpells builds all 20 Blade Dancer transition spell definitions.
+// bdTransitionSpells builds all 20 Blade Dancer transition ability definitions.
 func bdTransitionSpells() []*AbilityDef {
-	type bdSpell struct {
+	type bdAbility struct {
 		id        string
 		name      string
 		originCfg int
@@ -29,7 +29,7 @@ func bdTransitionSpells() []*AbilityDef {
 		debuffDuration float32
 	}
 
-	spells := []bdSpell{
+	abilities := []bdAbility{
 		// From Orbit (Defense)
 		{"shielded_sweep", "Shielded Sweep", 0, 1, HitAoECircle, 8, 4, 0, 0, 0.85, 2.0, 0, 0, 0, "", "", 0, 0},
 		{"guarded_thrust", "Guarded Thrust", 0, 2, HitHitscan, 25, 0, 0, 8, 0, 0, 0, 0, 0, "", "", 0, 0},
@@ -57,8 +57,8 @@ func bdTransitionSpells() []*AbilityDef {
 		{"sovereign_scatter", "Sovereign Scatter", 4, 3, HitNearestN, 5, 0, 3, 0, 0, 0, 1.5, 12, 1, "bd_slow_ss", entity.DebuffSlow, 0.3, 2.0},
 	}
 
-	result := make([]*AbilityDef, 0, len(spells))
-	for _, s := range spells {
+	result := make([]*AbilityDef, 0, len(abilities))
+	for _, s := range abilities {
 		def := &AbilityDef{
 			ID:           s.id,
 			Name:         s.name,
@@ -120,7 +120,7 @@ func bdTransitionSpells() []*AbilityDef {
 			def.ShieldPerDamage = 0.8
 
 		case "commanding_ward":
-			// Cleanse one debuff from caster (stub — players can't receive debuffs yet)
+			// Cleanse one debuff from committer (stub — players can't receive debuffs yet)
 			def.Cleanse = 1
 
 		case "fortified_command":

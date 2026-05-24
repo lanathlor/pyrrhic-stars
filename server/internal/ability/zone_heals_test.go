@@ -64,13 +64,13 @@ func TestZoneHeals(t *testing.T) {
 				setup: func() (*entity.Player, []*entity.HealingZone) {
 					p := entity.NewPlayer(1, entity.ClassArcanotechnicien)
 					p.Health = 100
-					p.Resources["flux"].Current = 3
+					p.SetAllFluxPoolsCurrent(3) // need 8 biometabolic
 					return p, nil
 				},
 				wantOK:     false,
-				wantReason: "insufficient flux",
+				wantReason: "insufficient biometabolic flux",
 				wantHP:     100,
-				wantFlux:   3,
+				wantFlux:   -1, // skip (pool-managed)
 			},
 			{
 				name: "sets GCD",
@@ -92,14 +92,14 @@ func TestZoneHeals(t *testing.T) {
 				p, _ := tt.setup()
 				var spawned []*entity.HealingZone
 
-				ctx := &CastContext{
-					Caster: p,
+				ctx := &CommitContext{
+					Committer: p,
 					SpawnZone: func(zone *entity.HealingZone) {
 						spawned = append(spawned, zone)
 					},
 				}
 
-				result := eng.Cast("vital_bloom", ctx)
+				result := eng.Commit("vital_bloom", ctx)
 
 				if result.OK != tt.wantOK {
 					t.Fatalf("OK = %v, want %v (reason: %q)", result.OK, tt.wantOK, result.Reason)
@@ -111,7 +111,7 @@ func TestZoneHeals(t *testing.T) {
 					t.Errorf("Health = %.1f, want %.1f", p.Health, tt.wantHP)
 				}
 				flux := p.Resources["flux"]
-				if flux != nil && math.Abs(float64(flux.Current-tt.wantFlux)) > 0.5 {
+				if tt.wantFlux >= 0 && flux != nil && math.Abs(float64(flux.Current-tt.wantFlux)) > 0.5 {
 					t.Errorf("Flux = %.1f, want %.1f", flux.Current, tt.wantFlux)
 				}
 				if tt.wantZoneCount > 0 {
@@ -161,7 +161,7 @@ func TestZoneHeals(t *testing.T) {
 				wantOK:        true,
 				wantFlux:      110, // 160 - 50
 				wantZoneCount: 1,
-				wantHealTick:  12, // base 12, no identity
+				wantHealTick:  8, // base 8, no identity
 				wantCooldown:  true,
 			},
 			{
@@ -175,19 +175,19 @@ func TestZoneHeals(t *testing.T) {
 				wantOK:        true,
 				wantFlux:      110, // initial flux stays 160 (RecalcStats changes Max, not Current); 160 - 50
 				wantZoneCount: 1,
-				wantHealTick:  18, // 12 * (1 + 50/100) = 18
+				wantHealTick:  12, // 8 * (1 + 50/100) = 12
 				wantCooldown:  true,
 			},
 			{
 				name: "insufficient flux rejects before handler",
 				setup: func() *entity.Player {
 					p := entity.NewPlayer(1, entity.ClassArcanotechnicien)
-					p.Resources["flux"].Current = 20
+					p.SetAllFluxPoolsCurrent(20) // need 50 bioarcanotechnic
 					return p
 				},
 				wantOK:     false,
-				wantReason: "insufficient flux",
-				wantFlux:   20,
+				wantReason: "insufficient bioarcanotechnic flux",
+				wantFlux:   -1, // skip (pool-managed)
 			},
 			{
 				name: "rejected on GCD",
@@ -218,14 +218,14 @@ func TestZoneHeals(t *testing.T) {
 				p := tt.setup()
 				var spawned []*entity.HealingZone
 
-				ctx := &CastContext{
-					Caster: p,
+				ctx := &CommitContext{
+					Committer: p,
 					SpawnZone: func(zone *entity.HealingZone) {
 						spawned = append(spawned, zone)
 					},
 				}
 
-				result := eng.Cast("restoration_matrix", ctx)
+				result := eng.Commit("restoration_matrix", ctx)
 
 				if result.OK != tt.wantOK {
 					t.Fatalf("OK = %v, want %v (reason: %q)", result.OK, tt.wantOK, result.Reason)
@@ -234,7 +234,7 @@ func TestZoneHeals(t *testing.T) {
 					t.Errorf("Reason = %q, want %q", result.Reason, tt.wantReason)
 				}
 				flux := p.Resources["flux"]
-				if flux != nil && math.Abs(float64(flux.Current-tt.wantFlux)) > 0.5 {
+				if tt.wantFlux >= 0 && flux != nil && math.Abs(float64(flux.Current-tt.wantFlux)) > 0.5 {
 					t.Errorf("Flux = %.1f, want %.1f", flux.Current, tt.wantFlux)
 				}
 				if tt.wantZoneCount > 0 {

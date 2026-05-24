@@ -215,13 +215,15 @@ func test_weapon_scene_path_defined() -> void:
 func test_weapon_attaches_after_ready() -> void:
 	# call_deferred runs after the frame, so process one more frame
 	await get_tree().process_frame
-	# weapon_node is only non-null if the GLB asset loads as PackedScene
-	# (may fail in headless mode without full import)
-	var loaded = load(_vanguard.WEAPON_SCENE)
-	if loaded is PackedScene:
-		assert_that(_vanguard.character_model.weapon_node).is_not_null()
-	else:
+	# Weapon attachment is skipped in headless mode (purely visual)
+	if DisplayServer.get_name() == "headless":
 		assert_that(_vanguard.character_model.weapon_node).is_null()
+	else:
+		var loaded = load(_vanguard.WEAPON_SCENE)
+		if loaded is PackedScene:
+			assert_that(_vanguard.character_model.weapon_node).is_not_null()
+		else:
+			assert_that(_vanguard.character_model.weapon_node).is_null()
 
 
 func test_weapon_is_in_scene_tree() -> void:

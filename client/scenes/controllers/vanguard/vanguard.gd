@@ -447,7 +447,7 @@ func _physics_process(delta: float) -> void:
 		hud.update_devotion(_devotion_tier, _devotion_stacks)
 		(
 			hud
-			. update_spells(
+			. update_abilities(
 				[
 					{
 						name = "Shield Bash",
@@ -506,7 +506,7 @@ func _physics_process(delta: float) -> void:
 			tier_suffix = "++"
 		(
 			hud
-			. update_spells(
+			. update_abilities(
 				[
 					{
 						name = "Cleave" + tier_suffix,

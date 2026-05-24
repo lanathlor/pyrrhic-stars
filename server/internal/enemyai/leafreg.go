@@ -27,9 +27,8 @@ var leafRegistry = map[string]leafEntry{
 	"phase_transitioning":      {isCond: true, cond: condPhaseTransitioning},
 	"in_leash_range":           {isCond: true, cond: condInLeashRange},
 	"active_ability_is_charge": {isCond: true, cond: condActiveAbilityIsCharge},
-	"is_casting":               {isCond: true, cond: condIsCasting},
 	"is_committed":             {isCond: true, cond: condIsCommitted},
-	"can_cast":                 {isCond: true, cond: condCanCast},
+	"can_commit":               {isCond: true, cond: condCanCommit},
 	"can_move":                 {isCond: true, cond: condCanMove},
 
 	// Actions
@@ -47,7 +46,7 @@ var leafRegistry = map[string]leafEntry{
 	"execute_ability": {action: actionExecuteAbility},
 	"charge_dash":     {action: actionChargeDash},
 	"cooldown":        {action: actionCooldown},
-	"cast_weighted":   {action: actionCastWeighted},
+	"commit_weighted":   {action: actionCommitWeighted},
 	"wait_ability":    {action: actionWaitAbility},
 	"cancel_ability":  {action: actionCancelAbility},
 }
@@ -97,11 +96,11 @@ var paramFactories = map[string]func(string) (leafEntry, error){
 		}
 		return leafEntry{isCond: true, cond: condAnyBelowHPPct(float32(v))}, nil
 	},
-	"cast": func(arg string) (leafEntry, error) {
+	"commit": func(arg string) (leafEntry, error) {
 		if arg == "" {
-			return leafEntry{}, errors.New("cast: missing ability ID")
+			return leafEntry{}, errors.New("commit: missing ability ID")
 		}
-		return leafEntry{action: castByName(arg)}, nil
+		return leafEntry{action: commitByName(arg)}, nil
 	},
 	"ability_ready": func(arg string) (leafEntry, error) {
 		if arg == "" {

@@ -55,7 +55,7 @@ func TestIdentity_Gunner_EnhancedRound_PressureGeneratesBatch(t *testing.T) {
 
 	// Build pressure to max by consecutive hits on same target.
 	for i := 0; i < assaultPressureMax; i++ {
-		r := eng.Cast("fire_shot", castCtx(p, e))
+		r := eng.Commit("fire_shot", commitCtx(p, e))
 		if !r.OK {
 			t.Fatalf("shot %d failed: %s", i+1, r.Reason)
 		}
@@ -76,7 +76,7 @@ func TestIdentity_Gunner_EnhancedRound_NoEnhancedNoBonusDamage(t *testing.T) {
 	as.EnhancedLoaded = 0
 
 	// Fire one shot — no enhanced loaded, should deal base + small pressure bonus only.
-	r := eng.Cast("fire_shot", castCtx(p, e))
+	r := eng.Commit("fire_shot", commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("fire_shot failed: %s", r.Reason)
 	}
@@ -100,7 +100,7 @@ func TestIdentity_Gunner_EnhancedRound_IdentityScalesDamage(t *testing.T) {
 	as.PressureStacks = 5
 	as.PressureTarget = e.ID
 
-	r := eng.Cast("fire_shot", castCtx(p, e))
+	r := eng.Commit("fire_shot", commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("fire_shot failed: %s", r.Reason)
 	}
@@ -125,7 +125,7 @@ func TestIdentity_Gunner_EnhancedRound_ConsumedPerShot(t *testing.T) {
 	as.EnhancedLoaded = 3
 
 	for i := 0; i < 3; i++ {
-		r := eng.Cast("fire_shot", castCtx(p, e))
+		r := eng.Commit("fire_shot", commitCtx(p, e))
 		if !r.OK {
 			t.Fatalf("shot %d failed: %s", i+1, r.Reason)
 		}
@@ -136,7 +136,7 @@ func TestIdentity_Gunner_EnhancedRound_ConsumedPerShot(t *testing.T) {
 	}
 	// 4th shot should come from magazine, not enhanced
 	magBefore := as.MagCurrent
-	r := eng.Cast("fire_shot", castCtx(p, e))
+	r := eng.Commit("fire_shot", commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("4th shot failed: %s", r.Reason)
 	}
@@ -205,7 +205,7 @@ func TestIdentity_Vanguard_MeleeLightReducedCost(t *testing.T) {
 	e := enemyInFront(100, 1000)
 
 	staminaBefore := p.GetResource("stamina")
-	eng.Cast("cleave", castCtx(p, e))
+	eng.Commit("cleave", commitCtx(p, e))
 	staminaAfter := p.GetResource("stamina")
 
 	// Cost = 10 * TenacityEfficiency(100) = 10 * 0.6667 ≈ 6.667
@@ -223,7 +223,7 @@ func TestIdentity_Vanguard_BlockDrainReduced(t *testing.T) {
 	p.RecalcStats()
 	p.Resources["stamina"].Current = p.Resources["stamina"].Max
 
-	eng.Cast("vg_block", castCtx(p))
+	eng.Commit("vg_block", commitCtx(p))
 	staminaBefore := p.GetResource("stamina")
 
 	// Use small dt so regen delay (0.6s) prevents regen from kicking in
@@ -246,7 +246,7 @@ func TestIdentity_Vanguard_DodgeReducedCost(t *testing.T) {
 	p.Resources["stamina"].Current = p.Resources["stamina"].Max
 
 	staminaBefore := p.GetResource("stamina")
-	r := eng.Cast("dodge", castCtx(p))
+	r := eng.Commit("dodge", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("dodge failed: %s", r.Reason)
 	}
@@ -315,7 +315,7 @@ func TestIdentity_BD_TransitionAddsResonance(t *testing.T) {
 	e := enemyInFront(100, 1000)
 
 	// shielded_sweep: orbit → fan (has DestConfig)
-	r := eng.Cast("shielded_sweep", castCtx(p, e))
+	r := eng.Commit("shielded_sweep", commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("shielded_sweep failed: %s", r.Reason)
 	}
@@ -334,7 +334,7 @@ func TestIdentity_BD_TransitionScalesWithIdentity(t *testing.T) {
 	p.Config = entity.ConfigOrbit
 	e := enemyInFront(100, 1000)
 
-	eng.Cast("shielded_sweep", castCtx(p, e))
+	eng.Commit("shielded_sweep", commitCtx(p, e))
 	// Gain = 10 * (1 + 100/100) = 20
 	res := p.GetResource("resonance")
 	if res != 20 {
@@ -379,7 +379,7 @@ func TestIdentity_BD_ResonanceThreshold50(t *testing.T) {
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -3} // within AoECircle radius 4
 
 	hpBefore := e.Health
-	r := eng.Cast("shielded_sweep", castCtx(p, e))
+	r := eng.Commit("shielded_sweep", commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("shielded_sweep failed: %s", r.Reason)
 	}
@@ -413,7 +413,7 @@ func TestIdentity_BD_ResonanceThreshold100(t *testing.T) {
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -3} // within AoECircle radius 4
 
 	hpBefore := e.Health
-	r := eng.Cast("shielded_sweep", castCtx(p, e))
+	r := eng.Commit("shielded_sweep", commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("shielded_sweep failed: %s", r.Reason)
 	}
@@ -441,7 +441,7 @@ func TestIdentity_BD_ResonanceConsumedOnAmp(t *testing.T) {
 	p.Resources["resonance"].Current = 75
 	e := enemyInFront(100, 1000)
 
-	eng.Cast("shielded_sweep", castCtx(p, e))
+	eng.Commit("shielded_sweep", commitCtx(p, e))
 	// 75 ≥ 50, so amp activates (0.25 factor), resonance consumed to 0, then +10 from transition
 	res := p.GetResource("resonance")
 	if res != 10 {

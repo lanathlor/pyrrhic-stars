@@ -26,14 +26,14 @@ var bdMultiBladeSpec = SpecDef{
 	},
 	ActionMap: func() map[uint8]string {
 		m := map[uint8]string{3: "dodge", 4: "bd_guard"}
-		bdSpellIDs := []string{
+		bdAbilityIDs := []string{
 			"shielded_sweep", "guarded_thrust", "protected_scatter", "fortified_command",
 			"reaping_guard", "cleaving_pierce", "slashing_spread", "sweeping_hex",
 			"piercing_barrier", "focused_slash", "targeted_spread", "pinning_strike",
 			"dispersed_shield", "rain_of_blades", "converging_strike", "chaos_bind",
 			"commanding_ward", "royal_cleave", "decree_strike", "sovereign_scatter",
 		}
-		for i, id := range bdSpellIDs {
+		for i, id := range bdAbilityIDs {
 			m[uint8(30+i)] = id
 		}
 		return m

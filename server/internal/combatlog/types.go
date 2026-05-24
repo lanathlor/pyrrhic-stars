@@ -11,8 +11,8 @@ const (
 	EventBuffApply     EventType = 3
 	EventBuffRemove    EventType = 4
 	EventBuffTick      EventType = 5
-	EventCastStart     EventType = 6
-	EventCastEnd       EventType = 7
+	EventCommitStart     EventType = 6
+	EventCommitEnd       EventType = 7
 	EventCooldownStart EventType = 8
 	EventCooldownEnd   EventType = 9
 	EventDodge         EventType = 10

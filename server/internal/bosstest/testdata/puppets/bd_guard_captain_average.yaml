@@ -20,6 +20,6 @@ tree:
     # Positioning: get into melee range
     - sequence: [out_of_melee, advance]
     # Rotation: transitions (MechanicIQ=0.60 picks suboptimal order sometimes)
-    - sequence: [can_transition, cast_best_transition]
+    - sequence: [can_transition, commit_best_transition]
     # Filler
-    - cast_best_transition
+    - commit_best_transition

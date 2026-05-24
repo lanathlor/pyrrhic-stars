@@ -6,7 +6,7 @@ func TestDodge_CastsSuccessfully(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard() // has stamina
 
-	r := eng.Cast("dodge", castCtx(p))
+	r := eng.Commit("dodge", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("dodge failed: %s", r.Reason)
 	}
@@ -16,7 +16,7 @@ func TestDodge_CostsStamina(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard()
 
-	eng.Cast("dodge", castCtx(p))
+	eng.Commit("dodge", commitCtx(p))
 	if s := p.GetResource("stamina"); s != 80 {
 		t.Errorf("stamina = %f, want 80 (100 - 20)", s)
 	}
@@ -27,7 +27,7 @@ func TestDodge_InsufficientStamina(t *testing.T) {
 	p := newVanguard()
 	p.Resources["stamina"].Current = 10
 
-	r := eng.Cast("dodge", castCtx(p))
+	r := eng.Commit("dodge", commitCtx(p))
 	if r.OK {
 		t.Error("dodge should fail with insufficient stamina")
 	}
@@ -41,7 +41,7 @@ func TestDodge_NoDamageEvents(t *testing.T) {
 	p := newVanguard()
 	e := enemyInFront(100, 500)
 
-	r := eng.Cast("dodge", castCtx(p, e))
+	r := eng.Commit("dodge", commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("dodge failed: %s", r.Reason)
 	}
@@ -54,7 +54,7 @@ func TestDodge_NoStaminaResource(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner() // gunner has no stamina
 
-	r := eng.Cast("dodge", castCtx(p))
+	r := eng.Commit("dodge", commitCtx(p))
 	if r.OK {
 		t.Error("dodge should fail without stamina resource")
 	}

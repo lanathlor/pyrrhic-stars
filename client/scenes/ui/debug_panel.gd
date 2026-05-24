@@ -189,13 +189,13 @@ func _rebuild_ability_buttons() -> void:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 4)
 
-		var cast_btn := Button.new()
-		cast_btn.text = ability_id
-		cast_btn.custom_minimum_size = Vector2(0, 26)
-		cast_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		cast_btn.pressed.connect(_on_force_cast.bind(ability_id))
-		_style_button(cast_btn)
-		row.add_child(cast_btn)
+		var commit_btn := Button.new()
+		commit_btn.text = ability_id
+		commit_btn.custom_minimum_size = Vector2(0, 26)
+		commit_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		commit_btn.pressed.connect(_on_force_commit.bind(ability_id))
+		_style_button(commit_btn)
+		row.add_child(commit_btn)
 
 		var repeat_btn := Button.new()
 		repeat_btn.text = "R"
@@ -220,16 +220,16 @@ func _input(event: InputEvent) -> void:
 	if not visible:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
-		# Ctrl+1-9 = force-cast ability by index
+		# Ctrl+1-9 = force-commit ability by index
 		if event.ctrl_pressed:
 			var idx: int = event.keycode - KEY_1
 			if idx >= 0 and idx < _abilities.size():
-				_on_force_cast(_abilities[idx])
+				_on_force_commit(_abilities[idx])
 				get_viewport().set_input_as_handled()
 
 
-func _on_force_cast(ability_id: String) -> void:
-	NetworkManager.send_debug_force_cast(ability_id)
+func _on_force_commit(ability_id: String) -> void:
+	NetworkManager.send_debug_force_commit(ability_id)
 
 
 func _on_repeat_toggled(ability_id: String) -> void:

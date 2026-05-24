@@ -56,20 +56,20 @@ func (s *VgShieldBlockState) GetDevotionMult() float32 {
 	return s.DevotionMult
 }
 
-func vgShieldBlockHandler(_ *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func vgShieldBlockHandler(_ *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "invalid caster"}
+		return CommitResult{Reason: "invalid caster"}
 	}
 	if p.Cooldowns["vg_shield_block"] > 0 {
-		return CastResult{Reason: "cooldown"}
+		return CommitResult{Reason: "cooldown"}
 	}
 	state := getVgShieldBlockState(p)
 	if state.Active {
-		return CastResult{Reason: "already blocking"}
+		return CommitResult{Reason: "already blocking"}
 	}
 	if p.GetResource("stamina") <= 0 {
-		return CastResult{Reason: ReasonInsufficientStamina}
+		return CommitResult{Reason: ReasonInsufficientStamina}
 	}
 
 	state.Active = true
@@ -96,16 +96,16 @@ func vgShieldBlockHandler(_ *Engine, ctx *CastContext) CastResult {
 		Duration: 0, // permanent — managed by tick handler
 	})
 	p.State = entity.PlayerStateBlock
-	return CastResult{OK: true}
+	return CommitResult{OK: true}
 }
 
-func vgShieldBlockStopHandler(_ *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func vgShieldBlockStopHandler(_ *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "invalid caster"}
+		return CommitResult{Reason: "invalid caster"}
 	}
 	EndVgShieldBlock(p)
-	return CastResult{OK: true}
+	return CommitResult{OK: true}
 }
 
 // EndVgShieldBlock cleanly ends a shield block, removing buffs and setting cooldown.
@@ -138,7 +138,7 @@ func vgShieldBlockTick(eng *Engine, p *entity.Player, dt float32, ctx *TickConte
 
 	// Guard Parry reflect: resolve pending reflected damage
 	if state.ParryReflectPending && ctx != nil {
-		reflectDmg := state.ParryReflectDamage * guardParryReflectFraction * p.CasterDamageMult()
+		reflectDmg := state.ParryReflectDamage * guardParryReflectFraction * p.CommitterDamageMult()
 		state.ParryReflectPending = false
 		state.ParryReflectDamage = 0
 

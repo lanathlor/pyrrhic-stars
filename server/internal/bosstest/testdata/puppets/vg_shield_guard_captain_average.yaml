@@ -17,31 +17,31 @@ tree:
     # Charge: always dodge
     - sequence: [has_reacted_quick, in_charge_path, "strafe_charge(shield_bash)"]
     # AoE: hold block if already blocking (don't panic-drop mid-swing)
-    - sequence: [in_aoe_danger, is_blocking, "cast(shield_bash)"]
+    - sequence: [in_aoe_danger, is_blocking, "commit(shield_bash)"]
     # AoE: flee (instinct to dodge big ground hit)
     - sequence: [has_reacted_quick, in_aoe_danger, "flee_aoe(shield_bash)"]
 
     # Ranged: hold block if committed to soak
-    - sequence: [targeted_by_ranged, is_blocking, "cast(shield_bash)"]
+    - sequence: [targeted_by_ranged, is_blocking, "commit(shield_bash)"]
     # Ranged: soak with raw block (knows shield handles bullet-hell, no Brace)
-    - sequence: [has_reacted_quick, targeted_by_ranged, should_use_defensive, "cast(vg_shield_block)"]
+    - sequence: [has_reacted_quick, targeted_by_ranged, should_use_defensive, "commit(vg_shield_block)"]
     # Ranged: dodge if didn't commit to soak
     - sequence: [has_reacted_quick, targeted_by_ranged, "strafe_ranged(shield_bash)"]
     # Projectile: hold block if blocking (committed to soak)
-    - sequence: [projectile_incoming, is_blocking, "cast(shield_bash)"]
+    - sequence: [projectile_incoming, is_blocking, "commit(shield_bash)"]
     # Projectile: sidestep if not blocking
     - sequence: [projectile_incoming, sidestep_projectile]
 
     # Melee: hold block and bash through
-    - sequence: [in_melee_danger, is_blocking, "cast(shield_bash)"]
+    - sequence: [in_melee_danger, is_blocking, "commit(shield_bash)"]
     # Melee: raise shield to tank the hit (builds Devotion)
-    - sequence: [has_reacted_quick, in_melee_danger, "cast(vg_shield_block)"]
+    - sequence: [has_reacted_quick, in_melee_danger, "commit(vg_shield_block)"]
 
     # Retaliate when Devotion is empowered (auto-drops block)
-    - sequence: [has_devotion, "can_cast(retaliate)", "cast(retaliate)"]
+    - sequence: [has_devotion, "can_commit(retaliate)", "commit(retaliate)"]
     # Drop block when no active telegraph
-    - sequence: [is_blocking, "cast(vg_shield_block_stop)"]
+    - sequence: [is_blocking, "commit(vg_shield_block_stop)"]
     # Get into melee range
     - sequence: [out_of_melee, advance]
     # Shield bash filler
-    - "cast(shield_bash)"
+    - "commit(shield_bash)"

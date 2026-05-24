@@ -265,7 +265,7 @@ func _physics_process(delta: float) -> void:
 	_update_animation()
 	(
 		hud
-		. update_spells(
+		. update_abilities(
 			[
 				{
 					name = "Shoot",

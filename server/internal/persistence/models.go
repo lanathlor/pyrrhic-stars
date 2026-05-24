@@ -44,3 +44,25 @@ type CharacterEquipment struct {
 	SlotID      uint8 `gorm:"uniqueIndex:idx_char_slot"`
 	ItemID      uint  `gorm:"index"`
 }
+
+// CharacterFluxCommitment stores the flux school allocation for Arcanotechnicien characters.
+// One row per school. Total percentages must equal 100.
+type CharacterFluxCommitment struct {
+	ID          uint   `gorm:"primaryKey"`
+	CharacterID uint   `gorm:"uniqueIndex:idx_char_school"`
+	School      string `gorm:"size:40;uniqueIndex:idx_char_school"`
+	Percentage  uint8
+}
+
+// CharacterLoadout stores the 6-slot ability loadout for Arcanotechnicien characters.
+type CharacterLoadout struct {
+	ID          uint      `gorm:"primaryKey"`
+	CharacterID uint      `gorm:"uniqueIndex"`
+	Slot0       string    `gorm:"size:40"`
+	Slot1       string    `gorm:"size:40"`
+	Slot2       string    `gorm:"size:40"`
+	Slot3       string    `gorm:"size:40"`
+	Slot4       string    `gorm:"size:40"`
+	Slot5       string    `gorm:"size:40"`
+	UpdatedAt   time.Time
+}

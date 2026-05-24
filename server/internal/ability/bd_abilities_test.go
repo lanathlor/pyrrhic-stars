@@ -10,16 +10,16 @@ import (
 func TestBDSpells_AllRegistered(t *testing.T) {
 	eng := NewEngine(nil)
 
-	spellIDs := []string{
+	abilityIDs := []string{
 		"shielded_sweep", "guarded_thrust", "protected_scatter", "fortified_command",
 		"reaping_guard", "cleaving_pierce", "slashing_spread", "sweeping_hex",
 		"piercing_barrier", "focused_slash", "targeted_spread", "pinning_strike",
 		"dispersed_shield", "rain_of_blades", "converging_strike", "chaos_bind",
 		"commanding_ward", "royal_cleave", "decree_strike", "sovereign_scatter",
 	}
-	for _, id := range spellIDs {
+	for _, id := range abilityIDs {
 		if eng.GetAbility(id) == nil {
-			t.Errorf("BD spell %q not registered", id)
+			t.Errorf("BD ability %q not registered", id)
 		}
 	}
 }
@@ -28,7 +28,7 @@ func TestBDSpells_WrongConfigBlocked(t *testing.T) {
 	eng := NewEngine(nil)
 
 	tests := []struct {
-		spell    string
+		ability  string
 		wrongCfg int
 	}{
 		{"shielded_sweep", entity.ConfigFan},       // needs orbit
@@ -38,11 +38,11 @@ func TestBDSpells_WrongConfigBlocked(t *testing.T) {
 		{"commanding_ward", entity.ConfigLance},    // needs crown
 	}
 	for _, tt := range tests {
-		t.Run(tt.spell, func(t *testing.T) {
+		t.Run(tt.ability, func(t *testing.T) {
 			p := newBladeDancer()
 			p.Config = tt.wrongCfg
 
-			r := eng.Cast(tt.spell, castCtx(p))
+			r := eng.Commit(tt.ability, commitCtx(p))
 			if r.OK {
 				t.Error("should fail with wrong config")
 			}
@@ -56,9 +56,9 @@ func TestBDSpells_WrongConfigBlocked(t *testing.T) {
 func TestBDSpells_AllSetGCD(t *testing.T) {
 	eng := NewEngine(nil)
 
-	// Test one spell from each origin config
+	// Test one ability from each origin config
 	tests := []struct {
-		spell  string
+		ability string
 		config int
 	}{
 		{"shielded_sweep", entity.ConfigOrbit},
@@ -68,11 +68,11 @@ func TestBDSpells_AllSetGCD(t *testing.T) {
 		{"commanding_ward", entity.ConfigCrown},
 	}
 	for _, tt := range tests {
-		t.Run(tt.spell, func(t *testing.T) {
+		t.Run(tt.ability, func(t *testing.T) {
 			p := newBladeDancer()
 			p.Config = tt.config
 
-			eng.Cast(tt.spell, castCtx(p))
+			eng.Commit(tt.ability, commitCtx(p))
 			if p.GCDTimer != 0.5 {
 				t.Errorf("GCDTimer = %f, want 0.5", p.GCDTimer)
 			}
@@ -87,19 +87,19 @@ func TestBDSpells_ShieldCapped(t *testing.T) {
 	e := enemyInFront(100, 500)
 
 	// dispersed_shield grants 18 shield
-	eng.Cast("dispersed_shield", castCtx(p, e))
+	eng.Commit("dispersed_shield", commitCtx(p, e))
 	shield1 := p.GetResource("shield")
 	if shield1 != 18 {
-		t.Errorf("shield after first cast = %f, want 18", shield1)
+		t.Errorf("shield after first commit = %f, want 18", shield1)
 	}
 
-	// Second cast should cap at 25
+	// Second commit should cap at 25
 	p.Config = entity.ConfigOrbit // dispersed_shield dest is orbit
 	p.GCDTimer = 0
 	// commanding_ward is orbit→orbit(0), grants 20 shield
 	p.Config = entity.ConfigCrown
 	p.GCDTimer = 0
-	eng.Cast("commanding_ward", castCtx(p, e))
+	eng.Commit("commanding_ward", commitCtx(p, e))
 	shield2 := p.GetResource("shield")
 	if shield2 > 25 {
 		t.Errorf("shield = %f, should be capped at 25", shield2)
@@ -110,7 +110,7 @@ func TestBDSpells_ConfigTransitionPerOrigin(t *testing.T) {
 	eng := NewEngine(nil)
 
 	tests := []struct {
-		spell  string
+		ability string
 		origin int
 		dest   int
 	}{
@@ -121,14 +121,14 @@ func TestBDSpells_ConfigTransitionPerOrigin(t *testing.T) {
 		{"decree_strike", entity.ConfigCrown, entity.ConfigLance},
 	}
 	for _, tt := range tests {
-		t.Run(tt.spell, func(t *testing.T) {
+		t.Run(tt.ability, func(t *testing.T) {
 			p := newBladeDancer()
 			p.Config = tt.origin
 			e := enemyInFront(100, 1e6)
 
-			r := eng.Cast(tt.spell, castCtx(p, e))
+			r := eng.Commit(tt.ability, commitCtx(p, e))
 			if !r.OK {
-				t.Fatalf("cast failed: %s", r.Reason)
+				t.Fatalf("commit failed: %s", r.Reason)
 			}
 			if p.Config != tt.dest {
 				t.Errorf("config = %d, want %d", p.Config, tt.dest)
@@ -144,9 +144,9 @@ func TestBDSpells_HitscanMissesBehind(t *testing.T) {
 	e := enemyBehind(100, 500)
 
 	// cleaving_pierce is hitscan
-	r := eng.Cast("cleaving_pierce", castCtx(p, e))
+	r := eng.Commit("cleaving_pierce", commitCtx(p, e))
 	if !r.OK {
-		t.Fatalf("cast failed: %s", r.Reason)
+		t.Fatalf("commit failed: %s", r.Reason)
 	}
 	if len(r.Events) != 0 {
 		t.Error("hitscan should miss enemy behind")
@@ -164,9 +164,9 @@ func TestBDSpells_AoECircleHitsNearby(t *testing.T) {
 	e2.Position = entity.Vec3{X: 0, Y: 0, Z: 20} // far outside radius
 
 	// shielded_sweep is AoECircle, radius 4
-	r := eng.Cast("shielded_sweep", castCtx(p, e1, e2))
+	r := eng.Commit("shielded_sweep", commitCtx(p, e1, e2))
 	if !r.OK {
-		t.Fatalf("cast failed: %s", r.Reason)
+		t.Fatalf("commit failed: %s", r.Reason)
 	}
 
 	hitIDs := map[uint16]bool{}
@@ -188,7 +188,7 @@ func TestBDSpells_DRBuffApplied(t *testing.T) {
 	e := enemyInFront(100, 500)
 
 	// protected_scatter has DR 0.9, duration 1.5
-	eng.Cast("protected_scatter", castCtx(p, e))
+	eng.Commit("protected_scatter", commitCtx(p, e))
 	if !p.HasBuff("bd_dr") {
 		t.Error("DR buff should be applied")
 	}
@@ -205,9 +205,9 @@ func TestBDSpells_DoTAppliedAndTicks(t *testing.T) {
 	e := enemyInFront(100, 500)
 
 	// targeted_spread: hitscan + DoT (15 dmg, 2.0s, 1.0s interval)
-	r := eng.Cast("targeted_spread", castCtx(p, e))
+	r := eng.Commit("targeted_spread", commitCtx(p, e))
 	if !r.OK {
-		t.Fatalf("cast failed: %s", r.Reason)
+		t.Fatalf("commit failed: %s", r.Reason)
 	}
 	if len(p.DoTs) == 0 {
 		t.Fatal("DoT should be applied")
@@ -227,9 +227,9 @@ func TestBDSpells_SlowApplied(t *testing.T) {
 	e := enemyInFront(100, 500)
 
 	// fortified_command (Orbit→Crown) applies slow debuff
-	r := eng.Cast("fortified_command", castCtx(p, e))
+	r := eng.Commit("fortified_command", commitCtx(p, e))
 	if !r.OK {
-		t.Fatalf("cast failed: %s", r.Reason)
+		t.Fatalf("commit failed: %s", r.Reason)
 	}
 	if !e.HasDebuff(entity.DebuffSlow) {
 		t.Error("enemy should have slow debuff")
@@ -246,9 +246,9 @@ func TestBDSpells_RootApplied(t *testing.T) {
 	e := enemyInFront(100, 500)
 
 	// pinning_strike (Lance→Crown) applies root debuff
-	r := eng.Cast("pinning_strike", castCtx(p, e))
+	r := eng.Commit("pinning_strike", commitCtx(p, e))
 	if !r.OK {
-		t.Fatalf("cast failed: %s", r.Reason)
+		t.Fatalf("commit failed: %s", r.Reason)
 	}
 	if !e.HasDebuff(entity.DebuffRoot) {
 		t.Error("enemy should have root debuff")
@@ -262,7 +262,7 @@ func TestBDSpells_VulnerabilityApplied(t *testing.T) {
 	e := enemyInFront(100, 500)
 
 	// sweeping_hex (Fan→Crown) applies vulnerability debuff
-	eng.Cast("sweeping_hex", castCtx(p, e))
+	eng.Commit("sweeping_hex", commitCtx(p, e))
 	if !e.HasDebuff(entity.DebuffVulnerability) {
 		t.Fatal("enemy should have vulnerability debuff")
 	}
@@ -286,9 +286,9 @@ func TestBDSpells_CleavingPierceSplash(t *testing.T) {
 	secondary := entity.NewEnemy(101, 500, "mob2")
 	secondary.Position = entity.Vec3{X: 2, Y: 0, Z: -5}
 
-	r := eng.Cast("cleaving_pierce", castCtx(p, primary, secondary))
+	r := eng.Commit("cleaving_pierce", commitCtx(p, primary, secondary))
 	if !r.OK {
-		t.Fatalf("cast failed: %s", r.Reason)
+		t.Fatalf("commit failed: %s", r.Reason)
 	}
 
 	hitIDs := map[uint16]float32{}
@@ -312,9 +312,9 @@ func TestBDSpells_PiercingBarrierShieldScales(t *testing.T) {
 	p.Config = entity.ConfigLance
 	e := enemyInFront(100, 500)
 
-	r := eng.Cast("piercing_barrier", castCtx(p, e))
+	r := eng.Commit("piercing_barrier", commitCtx(p, e))
 	if !r.OK {
-		t.Fatalf("cast failed: %s", r.Reason)
+		t.Fatalf("commit failed: %s", r.Reason)
 	}
 
 	shield := p.GetResource("shield")
@@ -333,7 +333,7 @@ func TestBDSpells_CCImmunityBuffApplied(t *testing.T) {
 	p.Config = entity.ConfigOrbit
 	e := enemyInFront(100, 500)
 
-	eng.Cast("fortified_command", castCtx(p, e))
+	eng.Commit("fortified_command", commitCtx(p, e))
 	if !p.HasBuff("bd_cc_immune") {
 		t.Error("should have CC immunity buff")
 	}
@@ -344,7 +344,7 @@ func TestBDSpells_ThornsBuffApplied(t *testing.T) {
 	p := newBladeDancer()
 	p.Config = entity.ConfigScatter
 
-	eng.Cast("dispersed_shield", castCtx(p))
+	eng.Commit("dispersed_shield", commitCtx(p))
 	if !p.HasBuff("bd_thorns") {
 		t.Error("should have thorns buff")
 	}
@@ -363,9 +363,9 @@ func TestBDSpells_NearestNTargeting(t *testing.T) {
 		enemies[i].ThreatTable[p.ID] = 10 // must be in combat
 	}
 
-	r := eng.Cast("chaos_bind", castCtx(p, enemies...))
+	r := eng.Commit("chaos_bind", commitCtx(p, enemies...))
 	if !r.OK {
-		t.Fatalf("cast failed: %s", r.Reason)
+		t.Fatalf("commit failed: %s", r.Reason)
 	}
 	if len(r.Events) > 4 {
 		t.Errorf("hits = %d, want at most 4 (NearestN)", len(r.Events))

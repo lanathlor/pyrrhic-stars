@@ -275,7 +275,7 @@ func BenchmarkEncodeDamageEvent(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = codec.EncodeDamageEvent(1, 0, 25.0, 5.0, 1.5, 3.0, 1)
+		_ = codec.EncodeDamageEvent(1, 0, 25.0, 5.0, 1.5, 3.0, 1, 0)
 	}
 }
 
@@ -868,7 +868,7 @@ func BenchmarkPhysicsWithPatterns_10Active_32Count(b *testing.B) {
 
 // --- Gear/Stat hot-path benchmarks ---
 // These measure the impact of gear stats on the tick pipeline.
-// Players have full gear kits applied so TempoMult, CasterDamageMult,
+// Players have full gear kits applied so TempoMult, CommitterDamageMult,
 // Plating, and Identity scaling are exercised every frame.
 
 // applyGear sets gear stats on all players in the world, simulating
@@ -890,7 +890,7 @@ func applyGear(w *World) {
 
 // BenchmarkCombatSystemTick_WithGear measures CombatSystem.Tick when all
 // players have gear stats. Exercises TempoMult (cooldown scaling),
-// CasterDamageMult (Output), and Identity scaling in ability ticks.
+// CommitterDamageMult (Output), and Identity scaling in ability ticks.
 func BenchmarkCombatSystemTick_WithGear(b *testing.B) {
 	w := benchWorld()
 	applyGear(w)

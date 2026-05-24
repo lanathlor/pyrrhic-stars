@@ -80,9 +80,9 @@ func TestOnslaught_IncrementOnHits(t *testing.T) {
 	e2 := enemyInFront(101, 1e6)
 	e2.Position = entity.Vec3{X: 1, Y: 0, Z: -5}
 
-	r := eng.Cast("cleave", castCtx(p, e1, e2))
+	r := eng.Commit("cleave", commitCtx(p, e1, e2))
 	if !r.OK {
-		t.Fatalf("cast failed: %s", r.Reason)
+		t.Fatalf("commit failed: %s", r.Reason)
 	}
 
 	ons := getOnslaughtState(p)

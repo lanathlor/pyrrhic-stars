@@ -67,3 +67,71 @@ func DecodeRespawnRequest(payload []byte) (uint8, bool) {
 	}
 	return payload[0], true
 }
+
+// DecodeSetLoadout parses a client loadout change.
+// Wire format: [slot0:str8][slot1:str8]...[slot5:str8]
+func DecodeSetLoadout(payload []byte) ([6]string, bool) {
+	var slots [6]string
+	off := 0
+	for i := range 6 {
+		if off >= len(payload) {
+			return slots, false
+		}
+		sLen := int(payload[off])
+		off++
+		if off+sLen > len(payload) {
+			return slots, false
+		}
+		slots[i] = string(payload[off : off+sLen])
+		off += sLen
+	}
+	return slots, true
+}
+
+// FluxCommitEntry holds one school's commitment percentage.
+type FluxCommitEntry struct {
+	School     string
+	Percentage uint8 // 0–100
+}
+
+// DecodeFluxCommitment parses a client flux commitment change.
+// Wire format: [count:u8][per entry: school:str8 + pct:u8]
+func DecodeFluxCommitment(payload []byte) ([]FluxCommitEntry, bool) {
+	if len(payload) < 1 {
+		return nil, false
+	}
+	count := int(payload[0])
+	off := 1
+	entries := make([]FluxCommitEntry, 0, count)
+	for range count {
+		if off >= len(payload) {
+			return nil, false
+		}
+		sLen := int(payload[off])
+		off++
+		if off+sLen > len(payload) {
+			return nil, false
+		}
+		school := string(payload[off : off+sLen])
+		off += sLen
+		if off >= len(payload) {
+			return nil, false
+		}
+		pct := payload[off]
+		off++
+		entries = append(entries, FluxCommitEntry{School: school, Percentage: pct})
+	}
+	return entries, true
+}
+
+// EncodeFluxCommitState serializes flux commitment state.
+// Wire format: [count:u8][per entry: school:str8 + pct:u8]
+func EncodeFluxCommitState(entries []FluxCommitEntry) []byte {
+	buf := make([]byte, 0, 64)
+	buf = append(buf, byte(len(entries)))
+	for _, e := range entries {
+		buf = appendStr8(buf, e.School)
+		buf = append(buf, e.Percentage)
+	}
+	return buf
+}

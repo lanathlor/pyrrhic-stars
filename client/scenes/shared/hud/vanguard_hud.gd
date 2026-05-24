@@ -1,6 +1,6 @@
 extends Control
 
-## Vanguard HUD — lock-on reticle, damage/parry feedback, hit marker, shared spell bar.
+## Vanguard HUD — lock-on reticle, damage/parry feedback, hit marker, shared ability bar.
 
 const DAMAGE_FLASH_DURATION: float = 0.3
 const PARRY_FLASH_DURATION: float = 0.25
@@ -256,8 +256,8 @@ func _draw_devotion() -> void:
 			draw_rect(pip_rect, DEVOTION_DIM)
 
 
-func update_spells(spells: Array) -> void:
-	ability_bar.update_spells(spells)
+func update_abilities(abilities: Array) -> void:
+	ability_bar.update_abilities(abilities)
 
 
 func show_damage_flash() -> void:

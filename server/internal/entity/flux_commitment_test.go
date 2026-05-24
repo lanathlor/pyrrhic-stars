@@ -247,8 +247,8 @@ func TestNewPlayerHarmonistHasFluxCommitment(t *testing.T) {
 	if !approxEq(p.FluxCommit.TotalMax, 160) {
 		t.Errorf("TotalMax = %f, want 160", p.FluxCommit.TotalMax)
 	}
-	if !approxEq(p.FluxCommit.TotalRegen, 7) {
-		t.Errorf("TotalRegen = %f, want 7", p.FluxCommit.TotalRegen)
+	if !approxEq(p.FluxCommit.TotalRegen, 3) {
+		t.Errorf("TotalRegen = %f, want 3", p.FluxCommit.TotalRegen)
 	}
 	if len(p.FluxCommit.Pools) != 4 {
 		t.Fatalf("expected 4 pools, got %d", len(p.FluxCommit.Pools))
@@ -262,8 +262,8 @@ func TestNewPlayerHarmonistHasFluxCommitment(t *testing.T) {
 	if !approxEq(bio.Max, 80) {
 		t.Errorf("bioarcanotechnic.Max = %f, want 80", bio.Max)
 	}
-	if !approxEq(bio.Regen, 3.5) {
-		t.Errorf("bioarcanotechnic.Regen = %f, want 3.5", bio.Regen)
+	if !approxEq(bio.Regen, 1.5) {
+		t.Errorf("bioarcanotechnic.Regen = %f, want 1.5", bio.Regen)
 	}
 }
 

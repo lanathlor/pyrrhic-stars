@@ -27,6 +27,9 @@ signal character_list_received(data: Dictionary)
 signal character_error_received(data: Dictionary)
 signal debug_info_received(def_name: String, abilities: PackedStringArray)
 signal inventory_state_received(data: Dictionary)
+signal ability_catalog_received(catalog: Array)
+signal loadout_state_received(slots: Array)
+signal flux_commit_state_received(entries: Array)
 
 const DEFAULT_PORT := 7777
 
@@ -258,6 +261,14 @@ func _on_message(data: PackedByteArray) -> void:
 		NetSerializer.OP_INVENTORY_STATE:
 			_handle_inventory_state(payload)
 
+		# -- Loadout --
+		NetSerializer.OP_ABILITY_CATALOG:
+			_handle_ability_catalog(payload)
+		NetSerializer.OP_LOADOUT_STATE:
+			_handle_loadout_state(payload)
+		NetSerializer.OP_FLUX_COMMIT_STATE:
+			_handle_flux_commit_state(payload)
+
 		# -- Debug (dev mode) --
 		NetSerializer.OP_DEBUG_INFO:
 			_handle_debug_info(payload)
@@ -454,12 +465,43 @@ func send_unequip_item(slot_id: int) -> void:
 
 
 # =============================================================================
+# Loadout / Ability catalog
+# =============================================================================
+
+
+func _handle_ability_catalog(payload: PackedByteArray) -> void:
+	var catalog: Array = NetSerializer.decode_ability_catalog(payload)
+	print("[Net] Received ability catalog: %d abilities" % catalog.size())
+	ability_catalog_received.emit(catalog)
+
+
+func _handle_loadout_state(payload: PackedByteArray) -> void:
+	var slots: Array = NetSerializer.decode_loadout_state(payload)
+	print("[Net] Received loadout: %s" % [slots])
+	loadout_state_received.emit(slots)
+
+
+func send_set_loadout(slots: Array) -> void:
+	send_msg(NetSerializer.OP_SET_LOADOUT, NetSerializer.encode_set_loadout(slots))
+
+
+func _handle_flux_commit_state(payload: PackedByteArray) -> void:
+	var entries: Array = NetSerializer.decode_flux_commit_state(payload)
+	print("[Net] Received flux commitment: %s" % [entries])
+	flux_commit_state_received.emit(entries)
+
+
+func send_set_flux_commitment(entries: Array) -> void:
+	send_msg(NetSerializer.OP_SET_FLUX_COMMITMENT, NetSerializer.encode_set_flux_commitment(entries))
+
+
+# =============================================================================
 # Debug send helpers (dev mode)
 # =============================================================================
 
 
-func send_debug_force_cast(ability_id: String) -> void:
-	send_msg(NetSerializer.OP_DEBUG_FORCE_CAST, NetSerializer.encode_debug_str8(ability_id))
+func send_debug_force_commit(ability_id: String) -> void:
+	send_msg(NetSerializer.OP_DEBUG_FORCE_COMMIT, NetSerializer.encode_debug_str8(ability_id))
 
 
 func send_debug_set_phase(phase: int) -> void:

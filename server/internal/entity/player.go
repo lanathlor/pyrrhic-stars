@@ -24,8 +24,8 @@ type HarmonyState struct {
 }
 
 // ConfluenceState tracks the Arcanotechnicien class-wide Confluence mechanic.
-// Each completed spell adds 1 stack (max 5). Per stack: +8% spell power.
-// No cast for 4s triggers decay at 1 stack/sec. Interrupt drops all stacks.
+// Each completed ability adds 1 stack (max 5). Per stack: +8% ability power.
+// No commit for 4s triggers decay at 1 stack/sec. Interrupt drops all stacks.
 type ConfluenceState struct {
 	Stacks     int
 	MaxStacks  int
@@ -34,13 +34,13 @@ type ConfluenceState struct {
 	DecayTimer float32
 }
 
-// SpellPowerMult returns the spell power multiplier from Confluence stacks.
-func (c *ConfluenceState) SpellPowerMult() float32 {
+// AbilityPowerMult returns the ability power multiplier from Confluence stacks.
+func (c *ConfluenceState) AbilityPowerMult() float32 {
 	return 1.0 + float32(c.Stacks)*0.08
 }
 
-// OnSpellComplete adds a stack and resets the idle timer.
-func (c *ConfluenceState) OnSpellComplete() {
+// OnAbilityComplete adds a stack and resets the idle timer.
+func (c *ConfluenceState) OnAbilityComplete() {
 	if c.Stacks < c.MaxStacks {
 		c.Stacks++
 	}
@@ -128,7 +128,7 @@ const (
 	ActionGroundSlam uint8 = 21
 
 	// Blade Dancer: action IDs 30-49 encode (origin_config * 4 + dest_slot)
-	ActionBDSpellBase uint8 = 30
+	ActionBDAbilityBase uint8 = 30
 )
 
 // Blade Dancer configuration IDs.
@@ -140,9 +140,9 @@ const (
 	ConfigCrown   = 4
 )
 
-// Spellbook holds the 6 spell slots for classes with selectable loadouts
+// Loadout holds the 6 ability slots for classes with selectable loadouts
 // (e.g. Arcanotechnicien). Each slot maps to an ability ID from the class codex.
-type Spellbook struct {
+type Loadout struct {
 	Slots [6]string
 }
 
@@ -184,7 +184,7 @@ type Player struct {
 	GCDTimer     float32            // global cooldown timer
 	ActionMap    map[uint8]string   // wire action_id → ability_id
 	AbilityState map[string]any     // ability_id → custom handler state
-	Spellbook    *Spellbook         // selectable loadout (Arcanotechnicien)
+	Loadout    *Loadout         // selectable loadout (Arcanotechnicien)
 
 	// Active buffs
 	Buffs []ActiveBuff
@@ -208,9 +208,20 @@ type Player struct {
 	// FluxCommit tracks school-based flux pool distribution (Arcanotechnicien).
 	FluxCommit *FluxCommitment
 
+	// School affinity (copied from SpecDef at creation).
+	PrimarySchools   []string
+	SecondarySchools []string
+
 	// VitalCharge: stored HP drain from Life Swap, empowers next heal.
 	VitalCharge      float32
 	VitalChargeTimer float32
+
+	// HoTs: active heal-over-time effects (Regeneration Protocol).
+	HoTs []ActiveHoT
+
+	// Last Breath: death prevention tracking.
+	LastBreathPrevented float32 // accumulated prevented lethal damage
+	LastBreathCasterID  uint16  // peer who cast Last Breath on this player
 
 	// Blade Dancer config (visual state for client)
 	Config int // 0=orbit, 1=fan, 2=lance, 3=scatter, 4=crown
@@ -264,7 +275,7 @@ func NewPlayerWithSpec(peerID uint16, className, specID string) *Player {
 
 	// Copy the ActionMap so each player has an independent map.
 	// The spec/class ActionMap is shared, and per-player mutations (e.g.
-	// spellbook) must not affect other players.
+	// loadout) must not affect other players.
 	ownMap := make(map[uint8]string, len(actionMap))
 	for k, v := range actionMap {
 		ownMap[k] = v
@@ -281,8 +292,10 @@ func NewPlayerWithSpec(peerID uint16, className, specID string) *Player {
 		OnGround:     true,
 		Resources:    make(map[string]*Resource, len(resources)),
 		Cooldowns:    make(map[string]float32),
-		ActionMap:    ownMap,
-		AbilityState: make(map[string]any),
+		ActionMap:        ownMap,
+		AbilityState:     make(map[string]any),
+		PrimarySchools:   spec.PrimarySchools,
+		SecondarySchools: spec.SecondarySchools,
 	}
 
 	for name, tmpl := range resources {
@@ -298,9 +311,9 @@ func NewPlayerWithSpec(peerID uint16, className, specID string) *Player {
 		p.Confluence = &ConfluenceState{MaxStacks: 5, DecayRate: 1.0}
 		if spec.ID == "harmonist" {
 			p.Harmony = &HarmonyState{LastDelivery: make(map[uint16]DeliveryMethod)}
-			loadout := harmonistDefaultLoadout // copy so each player owns its spellbook
-			p.Spellbook = &loadout
-			p.ApplySpellbook()
+			loadout := harmonistDefaultLoadout // copy so each player owns its loadout
+			p.Loadout = &loadout
+			p.ApplyLoadout()
 		}
 
 		// Initialize flux commitment: distribute total flux across schools.
@@ -332,17 +345,31 @@ func NewPlayerNoPTR(peerID uint16, className string) Player {
 	return *p
 }
 
-// ApplySpellbook writes the spellbook slots into the player's ActionMap.
-// Slot i maps to action ID 50+i. Empty slots are skipped.
-func (p *Player) ApplySpellbook() {
-	if p.Spellbook == nil {
+// ApplyLoadout writes the loadout slots into the player's ActionMap.
+// Slot i maps to action ID 50+i. Empty slots delete stale bindings.
+func (p *Player) ApplyLoadout() {
+	if p.Loadout == nil {
 		return
 	}
-	for i, abilityID := range p.Spellbook.Slots {
+	for i, abilityID := range p.Loadout.Slots {
+		key := uint8(50 + i)
 		if abilityID != "" {
-			p.ActionMap[uint8(50+i)] = abilityID
+			p.ActionMap[key] = abilityID
+		} else {
+			delete(p.ActionMap, key)
 		}
 	}
+}
+
+// AllowedAbilities returns the ability IDs this player's spec (or class) permits.
+func (p *Player) AllowedAbilities() []string {
+	if cd, ok := Classes[p.ClassID]; ok {
+		if s := cd.GetSpec(p.SpecID); s != nil && s.Abilities != nil {
+			return s.Abilities
+		}
+		return cd.Abilities
+	}
+	return nil
 }
 
 // specResources returns the resource templates for the player's active spec,
@@ -500,6 +527,73 @@ func (p *Player) GetResourceMax(name string) float32 {
 	return 0
 }
 
+// AffinityCostMult returns the flux cost multiplier for a school based on the
+// player's spec affinity. Primary = 1.0, secondary = 1.25, off = 1.5.
+// Returns 1.0 for non-Arcanotechnicien classes (no schools configured).
+func (p *Player) AffinityCostMult(school string) float32 {
+	if len(p.PrimarySchools) == 0 && len(p.SecondarySchools) == 0 {
+		return 1.0
+	}
+	for _, s := range p.PrimarySchools {
+		if s == school {
+			return 1.0
+		}
+	}
+	for _, s := range p.SecondarySchools {
+		if s == school {
+			return 1.25
+		}
+	}
+	return 1.5
+}
+
+// SpendFluxBySchool deducts flux from a specific school's commitment pool.
+// The base amount is scaled by the player's school affinity multiplier.
+// Falls back to generic SpendResource if the player has no FluxCommitment.
+func (p *Player) SpendFluxBySchool(school string, baseAmount float32) bool {
+	amount := baseAmount * p.AffinityCostMult(school)
+	if p.FluxCommit != nil && len(p.FluxCommit.Pools) > 0 && school != "" {
+		if !p.FluxCommit.SpendFromSchool(school, amount) {
+			return false
+		}
+		p.SyncFluxAggregate()
+		return true
+	}
+	return p.SpendResource("flux", amount)
+}
+
+// SetAllFluxPoolsCurrent sets Current on every commitment pool and syncs the aggregate.
+// Useful in tests to simulate low flux across all schools.
+func (p *Player) SetAllFluxPoolsCurrent(v float32) {
+	if p.FluxCommit == nil {
+		return
+	}
+	for i := range p.FluxCommit.Pools {
+		p.FluxCommit.Pools[i].Current = v
+		if v > p.FluxCommit.Pools[i].Max {
+			p.FluxCommit.Pools[i].Current = p.FluxCommit.Pools[i].Max
+		}
+	}
+	p.SyncFluxAggregate()
+}
+
+// SyncFluxAggregate sets Resources["flux"].Current to the sum of all
+// commitment pool currents, keeping the generic resource in sync.
+func (p *Player) SyncFluxAggregate() {
+	if p.FluxCommit == nil {
+		return
+	}
+	r := p.Resources["flux"]
+	if r == nil {
+		return
+	}
+	var total float32
+	for i := range p.FluxCommit.Pools {
+		total += p.FluxCommit.Pools[i].Current
+	}
+	r.Current = total
+}
+
 // SpendResource deducts amount from a resource. Returns false if insufficient.
 func (p *Player) SpendResource(name string, amount float32) bool {
 	r, ok := p.Resources[name]
@@ -634,6 +728,12 @@ func (p *Player) ApplyDamage(amount float32) float32 {
 
 	p.Health -= amount
 	if p.Health <= 0 {
+		// Last Breath: prevent death, clamp to 1 HP, track prevented damage.
+		if p.GetBuff("last_breath") != nil {
+			p.LastBreathPrevented += -p.Health // amount below zero
+			p.Health = 1
+			return amount
+		}
 		p.Health = 0
 		p.State = PlayerStateDead
 		p.Alive = false
@@ -691,10 +791,10 @@ func (p *Player) AimDirection() Vec3 {
 	return Vec3{-sy * cp, sp, -cy * cp}
 }
 
-// --- Caster interface (overrides for player-specific behavior) ---
+// --- Committer interface (overrides for player-specific behavior) ---
 
-func (p *Player) CasterEyePos() Vec3 { return p.EyePosition() }
-func (p *Player) CasterAimDir() Vec3 { return p.AimDirection() }
+func (p *Player) CommitterEyePos() Vec3 { return p.EyePosition() }
+func (p *Player) CommitterAimDir() Vec3 { return p.AimDirection() }
 
 // TempoMult returns the speed multiplier from the Tempo gear stat.
 // 0 Tempo = 1.0x, 100 Tempo = 2.0x.
@@ -702,7 +802,7 @@ func (p *Player) TempoMult() float32 {
 	return 1.0 + p.GearStats.Tempo/100.0
 }
 
-func (p *Player) CasterDamageMult() float32 {
+func (p *Player) CommitterDamageMult() float32 {
 	m := p.DamageMult()
 	// Output: additive percentage. 0 Output = 1.0x, 100 Output = 2.0x.
 	m *= (1.0 + p.GearStats.Output/100.0)

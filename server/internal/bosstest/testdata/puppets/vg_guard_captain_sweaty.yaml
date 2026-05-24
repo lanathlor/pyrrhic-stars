@@ -26,10 +26,10 @@ tree:
     # Positioning: advance to melee range (blocked during AoE/charge by out_of_melee)
     - sequence: [out_of_melee, advance]
     # Rotation: vortex (80% DR + AoE damage)
-    - sequence: ["can_cast(vortex)", "cast(vortex)"]
+    - sequence: ["can_commit(vortex)", "commit(vortex)"]
     # Rotation: execution (high damage cone)
-    - sequence: ["can_cast(execution)", "cast(execution)"]
+    - sequence: ["can_commit(execution)", "commit(execution)"]
     # Rotation: upheaval
-    - sequence: ["can_cast(upheaval)", "cast(upheaval)"]
+    - sequence: ["can_commit(upheaval)", "commit(upheaval)"]
     # Filler: cleave combo
-    - "cast(cleave)"
+    - "commit(cleave)"

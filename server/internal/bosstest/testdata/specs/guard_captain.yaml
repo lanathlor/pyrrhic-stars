@@ -1,32 +1,38 @@
 boss: guard_captain
 runs: 600
 
+# Standard composition: 1 tank, 1 healer, 3 DPS
 compositions:
   - name: all_sweaty
-    classes: [gunner, vanguard, vanguard, blade_dancer, blade_dancer]
-    specs: [assault, shield, blade, multi_blade, multi_blade]
+    classes: [arcanotechnicien, vanguard, vanguard, gunner, blade_dancer]
+    specs: [harmonist, shield, blade, assault, multi_blade]
     profiles: [sweaty, sweaty, sweaty, sweaty, sweaty]
     win_rate:
       min: 0.60
-      max: 0.95
   - name: mixed_average
-    classes: [gunner, vanguard, vanguard, blade_dancer, blade_dancer]
-    specs: [assault, shield, blade, multi_blade, multi_blade]
+    classes: [arcanotechnicien, vanguard, vanguard, gunner, blade_dancer]
+    specs: [harmonist, shield, blade, assault, multi_blade]
     profiles: [average, average, average, average, average]
     win_rate:
       min: 0.25
-      max: 0.85
+      max: 0.95
   - name: all_bad
-    classes: [gunner, vanguard, vanguard, blade_dancer, blade_dancer]
-    specs: [assault, shield, blade, multi_blade, multi_blade]
+    classes: [arcanotechnicien, vanguard, vanguard, gunner, blade_dancer]
+    specs: [harmonist, shield, blade, assault, multi_blade]
     profiles: [bad, bad, bad, bad, bad]
+    loadouts:
+      - [siphon_pulse, mending_beam, mending_surge, restoration_matrix, life_swap, vital_bloom]
+      - []
+      - []
+      - []
+      - []
     win_rate:
       min: 0.0
-      max: 0.50
+      max: 0.60
 
 win_rate:
   min: 0.15
-  max: 0.90
+  max: 0.95
 
 duration:
   min_seconds: 15

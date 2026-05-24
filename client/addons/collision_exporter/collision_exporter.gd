@@ -129,8 +129,8 @@ func _extract_collision(node: Node, obstacles: Array) -> void:
 		var half := box.size / 2.0
 		obstacles.append({
 			"name": box.name,
-			"center": [snapf(pos.x, 0.01), snapf(pos.y, 0.01), snapf(pos.z, 0.01)],
-			"half_extents": [snapf(half.x, 0.01), snapf(half.y, 0.01), snapf(half.z, 0.01)],
+			"center": [snapped(pos.x, 0.01), snapped(pos.y, 0.01), snapped(pos.z, 0.01)],
+			"half_extents": [snapped(half.x, 0.01), snapped(half.y, 0.01), snapped(half.z, 0.01)],
 		})
 	elif node is StaticBody3D:
 		for child in node.get_children():
@@ -143,8 +143,8 @@ func _extract_collision(node: Node, obstacles: Array) -> void:
 					var half := box_shape.size / 2.0
 					obstacles.append({
 						"name": node.name + "/" + col.name,
-						"center": [snapf(pos.x, 0.01), snapf(pos.y, 0.01), snapf(pos.z, 0.01)],
-						"half_extents": [snapf(half.x, 0.01), snapf(half.y, 0.01), snapf(half.z, 0.01)],
+						"center": [snapped(pos.x, 0.01), snapped(pos.y, 0.01), snapped(pos.z, 0.01)],
+						"half_extents": [snapped(half.x, 0.01), snapped(half.y, 0.01), snapped(half.z, 0.01)],
 					})
 				else:
 					print("collision_exporter: skipping non-box shape in '%s/%s'" % [node.name, col.name])
@@ -155,8 +155,8 @@ func _extract_elevator(node: Node, elevators: Array) -> void:
 	var pos := n.global_position
 	elevators.append({
 		"name": str(n.name),
-		"center_x": snapf(pos.x + float(n.get_meta("offset_x", 0.0)), 0.01),
-		"center_z": snapf(pos.z + float(n.get_meta("offset_z", 0.0)), 0.01),
+		"center_x": snapped(pos.x + float(n.get_meta("offset_x", 0.0)), 0.01),
+		"center_z": snapped(pos.z + float(n.get_meta("offset_z", 0.0)), 0.01),
 		"half_x": float(n.get_meta("half_x", 4.0)),
 		"half_z": float(n.get_meta("half_z", 4.0)),
 		"bottom_y": float(n.get_meta("bottom_y", -200.0)),
@@ -169,9 +169,9 @@ func _extract_player_spawn(node: Node, player_spawns: Array) -> void:
 	var n := node as Node3D
 	var pos := n.global_position
 	var spawn: Dictionary = {
-		"x": snapf(pos.x, 0.01),
-		"y": snapf(pos.y, 0.01),
-		"z": snapf(pos.z, 0.01),
+		"x": snapped(pos.x, 0.01),
+		"y": snapped(pos.y, 0.01),
+		"z": snapped(pos.z, 0.01),
 	}
 	var cond: String = str(n.get_meta("condition", ""))
 	if cond != "":
@@ -185,12 +185,12 @@ func _extract_enemy_spawn(node: Node, enemy_spawns: Array) -> void:
 	var patrol_a: Vector3 = n.get_meta("patrol_a", pos)
 	var patrol_b: Vector3 = n.get_meta("patrol_b", pos)
 	var spawn: Dictionary = {
-		"x": snapf(pos.x, 0.01),
-		"y": snapf(pos.y, 0.01),
-		"z": snapf(pos.z, 0.01),
+		"x": snapped(pos.x, 0.01),
+		"y": snapped(pos.y, 0.01),
+		"z": snapped(pos.z, 0.01),
 		"def_name": str(n.get_meta("def_name", "")),
-		"patrol_a": {"x": snapf(patrol_a.x, 0.01), "y": snapf(patrol_a.y, 0.01), "z": snapf(patrol_a.z, 0.01)},
-		"patrol_b": {"x": snapf(patrol_b.x, 0.01), "y": snapf(patrol_b.y, 0.01), "z": snapf(patrol_b.z, 0.01)},
+		"patrol_a": {"x": snapped(patrol_a.x, 0.01), "y": snapped(patrol_a.y, 0.01), "z": snapped(patrol_a.z, 0.01)},
+		"patrol_b": {"x": snapped(patrol_b.x, 0.01), "y": snapped(patrol_b.y, 0.01), "z": snapped(patrol_b.z, 0.01)},
 		"aggro_radius": float(n.get_meta("aggro_radius", 10.0)),
 		"leash_radius": float(n.get_meta("leash_radius", 30.0)),
 	}
@@ -213,7 +213,7 @@ func _extract_enemy_spawn(node: Node, enemy_spawns: Array) -> void:
 		var curve: Curve3D = path_child.curve
 		for i in range(curve.point_count):
 			var p: Vector3 = path_child.global_transform * curve.get_point_position(i)
-			waypoints.append({"x": snapf(p.x, 0.01), "y": snapf(p.y, 0.01), "z": snapf(p.z, 0.01)})
+			waypoints.append({"x": snapped(p.x, 0.01), "y": snapped(p.y, 0.01), "z": snapped(p.z, 0.01)})
 		if waypoints.size() >= 2:
 			spawn["patrol_waypoints"] = waypoints
 	enemy_spawns.append(spawn)
@@ -238,10 +238,10 @@ func _extract_npc_spawn(node: Node, npc_spawns: Array) -> void:
 		var curve: Curve3D = path_child.curve
 		for i in range(curve.point_count):
 			var p: Vector3 = path_child.global_transform * curve.get_point_position(i)
-			waypoints.append({"x": snapf(p.x, 0.01), "y": snapf(p.y, 0.01), "z": snapf(p.z, 0.01)})
+			waypoints.append({"x": snapped(p.x, 0.01), "y": snapped(p.y, 0.01), "z": snapped(p.z, 0.01)})
 	if waypoints.is_empty():
 		# Fall back to node position as single waypoint
-		waypoints.append({"x": snapf(pos.x, 0.01), "y": snapf(pos.y, 0.01), "z": snapf(pos.z, 0.01)})
+		waypoints.append({"x": snapped(pos.x, 0.01), "y": snapped(pos.y, 0.01), "z": snapped(pos.z, 0.01)})
 	spawn["waypoints"] = waypoints
 	npc_spawns.append(spawn)
 
@@ -251,9 +251,9 @@ func _extract_portal(node: Node, portals: Array) -> void:
 	var pos := n.global_position
 	var portal: Dictionary = {
 		"name": str(n.name),
-		"x": snapf(pos.x, 0.01),
-		"y": snapf(pos.y, 0.01),
-		"z": snapf(pos.z, 0.01),
+		"x": snapped(pos.x, 0.01),
+		"y": snapped(pos.y, 0.01),
+		"z": snapped(pos.z, 0.01),
 		"target_zone": str(n.get_meta("target_zone", "")),
 		"interaction_radius": float(n.get_meta("interaction_radius", 4.0)),
 	}
@@ -279,7 +279,7 @@ func _extract_zone_trigger(node: Node, zone_triggers: Array) -> void:
 		"name": str(n.name),
 		"trigger_id": str(n.get_meta("trigger_id", "")),
 		"axis": axis,
-		"threshold": snapf(threshold, 0.01),
+		"threshold": snapped(threshold, 0.01),
 	})
 
 
@@ -312,12 +312,12 @@ func _compute_bounds(obstacles: Array) -> Dictionary:
 		min_z = minf(min_z, c[2] - h[2])
 		max_z = maxf(max_z, c[2] + h[2])
 	return {
-		"min_x": snapf(min_x - 1.0, 0.01),
-		"max_x": snapf(max_x + 1.0, 0.01),
-		"min_y": snapf(min_y - 1.0, 0.01),
-		"max_y": snapf(max_y + 1.0, 0.01),
-		"min_z": snapf(min_z - 1.0, 0.01),
-		"max_z": snapf(max_z + 1.0, 0.01),
+		"min_x": snapped(min_x - 1.0, 0.01),
+		"max_x": snapped(max_x + 1.0, 0.01),
+		"min_y": snapped(min_y - 1.0, 0.01),
+		"max_y": snapped(max_y + 1.0, 0.01),
+		"min_z": snapped(min_z - 1.0, 0.01),
+		"max_z": snapped(max_z + 1.0, 0.01),
 	}
 
 

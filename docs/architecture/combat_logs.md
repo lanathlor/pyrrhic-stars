@@ -56,7 +56,7 @@ type LogEntry struct {
     SourceClass   string
     Target        string
     EventType     EventType       // damage, heal, buff_apply, buff_remove, buff_tick,
-                                  // cast_start, cast_end, cooldown_start, cooldown_end,
+                                  // commit_start, commit_end, cooldown_start, cooldown_end,
                                   // dodge, death
     AbilityID     string
     Amount        float32
@@ -261,7 +261,7 @@ EntityState
 +-- resources: map[ResourceType] -> ResourceState
 +-- cooldowns: map[AbilityID] -> CooldownState
 +-- buffs: []BuffState
-+-- cast: CastState | null
++-- commit: CommitState | null
 +-- is_alive: bool
 +-- bt_trace: BTTrace | null       // only if deep inspection enabled
 
@@ -285,7 +285,7 @@ BuffState
 +-- is_debuff: bool
 +-- source: EntityID
 
-CastState
+CommitState
 +-- ability_id: string
 +-- elapsed: Duration
 +-- total: Duration
@@ -308,7 +308,7 @@ TickEvent
 +-- detail: string | null           // human-readable for log feed
 
 EventType: damage | heal | buff_apply | buff_remove | buff_tick
-         | cast_start | cast_end | cast_interrupt
+         | commit_start | commit_end | commit_interrupt
          | cooldown_start | cooldown_end
          | death | resurrect | phase_change
          | position_update
@@ -326,7 +326,7 @@ Detached camera with no entity binding. WASD movement, mouse-look, scroll to adj
 
 ### 4.2 Follow
 
-Bound to a selected entity. Third-person orbit camera (existing game camera behavior). Click any entity in the world to rebind. The HUD fully binds to the selected entity — their cooldowns, resources, buffs, cast bar.
+Bound to a selected entity. Third-person orbit camera (existing game camera behavior). Click any entity in the world to rebind. The HUD fully binds to the selected entity — their cooldowns, resources, buffs, commit bar.
 
 ### 4.3 First-Person Spectate
 
@@ -400,7 +400,7 @@ GET /api/v1/encounters/{instanceID}/export/bt   -> BT trace JSON (separate, opti
 			},
 			"events": [
 				{
-					"type": "cast_start",
+					"type": "commit_start",
 					"source": "player_1",
 					"ability_id": "rapid_fire"
 				}
@@ -459,7 +459,7 @@ Panel displayed when an entity is selected. Reads directly from EntityState at t
 -   Ability icons with cooldown sweep timers
 -   Buff/debuff bar with duration, stacks, source entity
 -   Resource bars (flux, energy, stamina, etc.)
--   Cast bar with ability name and progress
+-   Commit bar with ability name and progress
 
 No additional server-side work required — this data is already in the god-mode EntityState.
 
@@ -536,8 +536,8 @@ Event types required in the combat logger beyond damage/heal/death:
 | buff_apply     | buff_id, target, source, duration, stacks          |
 | buff_remove    | buff_id, target, reason (expired/dispelled/death)  |
 | buff_tick      | buff_id, target, amount, type (damage/heal)        |
-| cast_start     | ability_id, source, target, cast_time              |
-| cast_end       | ability_id, source, result (completed/interrupted) |
+| commit_start   | ability_id, source, target, commit_time            |
+| commit_end     | ability_id, source, result (completed/interrupted) |
 
 ---
 
@@ -547,7 +547,7 @@ Event types required in the combat logger beyond damage/heal/death:
 
 2. **Arena geometry**: The replay client needs the encounter arena to render a meaningful 3D scene. The export file should reference which arena to load via `arena_id`.
 
-3. **AoE and telegraph visualization**: Ground indicators and boss telegraphs are currently driven by game logic. The replay client needs to reconstruct these from events. Consider adding explicit `telegraph_start` / `telegraph_end` events to the log, or deriving them from ability metadata + cast timing.
+3. **AoE and telegraph visualization**: Ground indicators and boss telegraphs are currently driven by game logic. The replay client needs to reconstruct these from events. Consider adding explicit `telegraph_start` / `telegraph_end` events to the log, or deriving them from ability metadata + commit timing.
 
 4. **Replay file distribution**: For player-facing replays (post-launch), how are fight exports shared? Direct download from the API, or a replay listing/browser? Defer to post-launch planning.
 

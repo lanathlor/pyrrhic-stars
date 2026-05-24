@@ -19,7 +19,7 @@ const (
 )
 
 // AbilityRunner owns the commit→execute→cooldown lifecycle for one enemy.
-// The BT issues Cast/Cancel commands; the runner advances the state machine.
+// The BT issues Commit/Cancel commands; the runner advances the state machine.
 // Timer management: Brain.Tick decrements Enemy.StateTimer each tick.
 // The runner sets StateTimer at phase transitions and reads it to detect expiry.
 type AbilityRunner struct {
@@ -118,8 +118,8 @@ func (r *AbilityRunner) Start(ctx *EntityContext, abilityID string) bool {
 }
 
 // ForceStart unconditionally resets the runner and starts the given ability.
-// Used by dev mode force-cast: cancels any in-progress ability, clears the
-// ability's cooldown, and initiates the cast.
+// Used by dev mode force-commit: cancels any in-progress ability, clears the
+// ability's cooldown, and initiates the commit.
 func (r *AbilityRunner) ForceStart(ctx *EntityContext, abilityID string) bool {
 	// Reset runner and enemy state unconditionally.
 	r.Phase = RunnerIdle
@@ -294,7 +294,7 @@ func (r *AbilityRunner) tickExecute(ctx *EntityContext) {
 	resolved := ctx.Def.ResolveAbility(abil, e.Phase)
 	switch abil.Category {
 	case ability.CategoryMelee, ability.CategoryAoE:
-		ctx.CastMeleeOrAoE(resolved)
+		ctx.CommitMeleeOrAoE(resolved)
 	case ability.CategoryRanged:
 		ctx.SpawnProjectiles(resolved)
 	}

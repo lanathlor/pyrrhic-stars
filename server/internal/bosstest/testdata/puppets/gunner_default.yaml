@@ -16,8 +16,8 @@ tree:
     # Positioning: advance if too far
     - sequence: [too_far, advance]
     # Rotation: use overclock buff when available
-    - sequence: ["can_cast(overclock)", "cast(overclock)"]
+    - sequence: ["can_commit(overclock)", "commit(overclock)"]
     # Tactical reload when magazine is low (1.5s vs 2.2s empty auto-reload)
-    - sequence: [should_reload, "cast(reload)"]
+    - sequence: [should_reload, "commit(reload)"]
     # Filler: spam fire_shot
-    - "cast(fire_shot)"
+    - "commit(fire_shot)"

@@ -29,17 +29,17 @@ var restorationMatrixDef = AbilityDef{
 		{Resource: "flux", Amount: 50},
 	},
 	ZoneRadius:   5.0,
-	ZoneDuration: 10.0,
-	ZoneHealTick: 12,
+	ZoneDuration: 8.0,
+	ZoneHealTick: 8,
 	ZoneInterval: 1.0,
 	Delivery:     uint8(entity.DeliveryZone),
 	Handler:      "restoration_matrix",
 }
 
-func vitalBloomHandler(_ *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func vitalBloomHandler(_ *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "not a player"}
+		return CommitResult{Reason: "not a player"}
 	}
 
 	sacrifice := p.Health * 0.15
@@ -47,15 +47,15 @@ func vitalBloomHandler(_ *Engine, ctx *CastContext) CastResult {
 		sacrifice = p.Health - 1
 	}
 	if sacrifice <= 0 {
-		return CastResult{Reason: "too low HP"}
+		return CommitResult{Reason: "too low HP"}
 	}
 
 	p.Health -= sacrifice
-	p.SpendResource("flux", vitalBloomDef.Costs[0].Amount)
+	p.SpendFluxBySchool(vitalBloomDef.School, vitalBloomDef.Costs[0].Amount)
 
-	// Confluence: grant stack on spell completion.
+	// Confluence: grant stack on ability completion.
 	if p.Confluence != nil {
-		p.Confluence.OnSpellComplete()
+		p.Confluence.OnAbilityComplete()
 	}
 
 	healPerTick := sacrifice * 0.3
@@ -76,20 +76,20 @@ func vitalBloomHandler(_ *Engine, ctx *CastContext) CastResult {
 	}
 
 	p.GCDTimer = vitalBloomDef.GCD
-	return CastResult{OK: true}
+	return CommitResult{OK: true}
 }
 
-func restorationMatrixHandler(_ *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func restorationMatrixHandler(_ *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "not a player"}
+		return CommitResult{Reason: "not a player"}
 	}
 
-	p.SpendResource("flux", restorationMatrixDef.Costs[0].Amount)
+	p.SpendFluxBySchool(restorationMatrixDef.School, restorationMatrixDef.Costs[0].Amount)
 
-	// Confluence: grant stack on spell completion.
+	// Confluence: grant stack on ability completion.
 	if p.Confluence != nil {
-		p.Confluence.OnSpellComplete()
+		p.Confluence.OnAbilityComplete()
 	}
 
 	zonePos := p.Position
@@ -111,5 +111,5 @@ func restorationMatrixHandler(_ *Engine, ctx *CastContext) CastResult {
 	if restorationMatrixDef.Cooldown > 0 {
 		p.Cooldowns["restoration_matrix"] = restorationMatrixDef.Cooldown
 	}
-	return CastResult{OK: true}
+	return CommitResult{OK: true}
 }

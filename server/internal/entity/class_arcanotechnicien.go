@@ -15,12 +15,14 @@ var arcanotechnicienDestroyerSpec = SpecDef{
 	Resources: map[string]ResourceTemplate{
 		"flux": {Max: 200, Initial: 200, Regen: 8, RegenDelay: 0},
 	},
+	PrimarySchools:   []string{"fire", "frost", "electricity"},
+	SecondarySchools: []string{"gravitonic", "aerokinetic", "pure"},
 }
 
 var arcanotechnicienBattlemageSpec = SpecDef{
 	ID:          "battlemage",
 	Name:        "Battlemage",
-	Description: "Melee-range hybrid. Monotarget, constant damage.\nAlternating weapon strikes and spells.",
+	Description: "Melee-range hybrid. Monotarget, constant damage.\nAlternating weapon strikes and abilities.",
 	Role:        "DPS",
 	Implemented: false,
 	MaxHealth:   160,
@@ -32,18 +34,20 @@ var arcanotechnicienBattlemageSpec = SpecDef{
 	Resources: map[string]ResourceTemplate{
 		"flux": {Max: 120, Initial: 120, Regen: 6, RegenDelay: 0},
 	},
+	PrimarySchools:   []string{"electricity", "fire", "martial"},
+	SecondarySchools: []string{"shadow", "aerokinetic", "pure"},
 }
 
-// harmonistDefaultLoadout is the default spellbook for the Harmonist spec.
+// harmonistDefaultLoadout is the default loadout for the Harmonist spec.
 // Players can customize this by swapping abilities from the class codex.
-var harmonistDefaultLoadout = Spellbook{
+var harmonistDefaultLoadout = Loadout{
 	Slots: [6]string{
-		"mending_surge",
+		"siphon_pulse",
 		"mending_beam",
-		"vital_bloom",
+		"mending_surge",
 		"restoration_matrix",
 		"life_swap",
-		"transfusion",
+		"vital_drain",
 	},
 }
 
@@ -60,12 +64,12 @@ var arcanotechnicienHarmonistSpec = SpecDef{
 		RollSpeed: 11.0, RollDur: 0.35, RollCD: 1.8,
 	},
 	Resources: map[string]ResourceTemplate{
-		"flux": {Max: 160, Initial: 160, Regen: 7, RegenDelay: 0},
+		"flux": {Max: 160, Initial: 160, Regen: 3, RegenDelay: 0},
 	},
-	Abilities: []string{"mending_surge", "mending_beam", "vital_bloom", "restoration_matrix", "life_swap", "transfusion", "dodge"},
-	ActionMap: map[uint8]string{
-		3: "dodge",
-	},
+	Abilities:        []string{"siphon_pulse", "mending_surge", "mending_beam", "vital_bloom", "restoration_matrix", "life_swap", "transfusion", "vital_drain", "overclock_at", "neural_fortification", "regen_protocol", "vital_circuit", "metabolic_burst", "last_breath", "gust_step", "frost_ward"},
+	ActionMap:        map[uint8]string{},
+	PrimarySchools:   []string{"bioarcanotechnic", "biometabolic", "frost"},
+	SecondarySchools: []string{"aerokinetic", "hydrodynamic", "pure"},
 }
 
 var arcanotechnicienDef = ClassDef{

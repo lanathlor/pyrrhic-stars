@@ -391,15 +391,15 @@ func TestHandlePlayerInput_AcceptsNearbyPosition(t *testing.T) {
 		Level:    lvl,
 	}
 
-	// Move 2 units in Z (well within 10-unit teleport threshold)
-	payload := codec.EncodePlayerInput(nil, 0, 0.1, 46, 1.5, 100, 3, 0.1)
+	// Move 0.3 units in Z (within sprint speed per tick: 7.7 * 0.05 * 1.5 = 0.5775)
+	payload := codec.EncodePlayerInput(nil, 0, 0.1, 47.7, 1.5, 100, 3, 0.1)
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
 
 	is := &InputSystem{}
 	is.Tick(w, 0.05)
 
-	if p.Position.Z > 46.1 || p.Position.Z < 45.9 {
-		t.Errorf("position Z = %f, want ~46.0 (accepted)", p.Position.Z)
+	if p.Position.Z > 47.8 || p.Position.Z < 47.6 {
+		t.Errorf("position Z = %f, want ~47.7 (accepted)", p.Position.Z)
 	}
 	if p.RotationY != 1.5 {
 		t.Errorf("rotation = %f, want 1.5", p.RotationY)
@@ -476,14 +476,15 @@ func TestHandlePlayerInput_AfterSpawnGraceAccepts(t *testing.T) {
 		Level:    lvl,
 	}
 
-	payload := codec.EncodePlayerInput(nil, 1, 0.1, 47, 0, 100, 0, 0)
+	// Move 0.3 units (within sprint speed per tick: 7.7 * 0.05 * 1.5 = 0.5775)
+	payload := codec.EncodePlayerInput(nil, 0.3, 0.1, 48, 0, 100, 0, 0)
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
 
 	is := &InputSystem{}
 	is.Tick(w, 0.05)
 
-	if p.Position.X < 0.9 || p.Position.X > 1.1 {
-		t.Errorf("position X = %f, want ~1 (grace expired, should accept)", p.Position.X)
+	if p.Position.X < 0.2 || p.Position.X > 0.4 {
+		t.Errorf("position X = %f, want ~0.3 (grace expired, should accept)", p.Position.X)
 	}
 }
 

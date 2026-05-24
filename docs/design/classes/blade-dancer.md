@@ -10,22 +10,22 @@ The blades exist in configurations (states). Each of the 4 abilities does someth
 
 ## Multi Blade — Configuration System
 
-5 configurations, 4 spells each. Every spell transitions to a different configuration. No cooldowns, small GCD.
+5 configurations, 4 abilities each. Every ability transitions to a different configuration. No cooldowns, small GCD.
 
 ### Core Rule: Configuration Power Distribution
 
-Each configuration has a **core capability** (defense, AoE, single-target, etc.). When a spell transitions between configurations:
+Each configuration has a **core capability** (defense, AoE, single-target, etc.). When an ability transitions between configurations:
 
--   **~2/3 of the spell's power** comes from the configuration it's **going to** (the destination defines the spell's primary effect)
--   **~1/3 of the spell's power** comes from the configuration it's **leaving** (a residual echo of where you were)
+-   **~2/3 of the ability's power** comes from the configuration it's **going to** (the destination defines the ability's primary effect)
+-   **~1/3 of the ability's power** comes from the configuration it's **leaving** (a residual echo of where you were)
 
 This is a design guideline, not a strict formula. The intent is reactive gameplay: you move to the configuration you need right now, and you carry a trace of where you just were.
 
-**Example:** You're under pressure → go to Orbit (defensive). You defended successfully → leave Orbit toward Fan. That Fan spell is mostly AoE damage (destination) but carries a small defensive component (origin). The system rewards reading the fight and flowing between states naturally.
+**Example:** You're under pressure → go to Orbit (defensive). You defended successfully → leave Orbit toward Fan. That Fan ability is mostly AoE damage (destination) but carries a small defensive component (origin). The system rewards reading the fight and flowing between states naturally.
 
 ### Configurations
 
-Each configuration has a core capability and 4 spells that each transition to one of the other 4 configurations.
+Each configuration has a core capability and 4 abilities that each transition to one of the other 4 configurations.
 
 | Configuration | Core Capability      | Fantasy                                                                |
 | ------------- | -------------------- | ---------------------------------------------------------------------- |
@@ -37,7 +37,7 @@ Each configuration has a core capability and 4 spells that each transition to on
 
 ### Transition Table
 
-Each cell is a spell. Row = current configuration (leaving), Column = destination configuration (going to).
+Each cell is an ability. Row = current configuration (leaving), Column = destination configuration (going to).
 
 | From \ To   | → Orbit          | → Fan          | → Lance           | → Scatter         | → Crown           |
 | ----------- | ---------------- | -------------- | ----------------- | ----------------- | ----------------- |
@@ -47,7 +47,7 @@ Each cell is a spell. Row = current configuration (leaving), Column = destinatio
 | **Scatter** | Dispersed Shield | Rain of Blades | Converging Strike | —                 | Chaos Bind        |
 | **Crown**   | Commanding Ward  | Royal Cleave   | Decree Strike     | Sovereign Scatter | —                 |
 
-### Spell Definitions
+### Ability Definitions
 
 #### From Orbit (leaving Defense)
 
@@ -58,10 +58,10 @@ AoE damage sweep with defensive residue. Blades unfurl from orbit into a wide ar
 Focused single-target strike with defensive residue. Blades collapse from orbit into a piercing line at the target. On hit, grants a small personal shield (carried from defensive stance).
 
 **Protected Scatter** (Orbit → Scatter)
-Multi-target DoT application with defensive residue. Blades scatter outward from orbit, latching onto nearby enemies and ticking damage. Caster gains a small damage reduction per target hit (defensive echo scaling with exposure).
+Multi-target DoT application with defensive residue. Blades scatter outward from orbit, latching onto nearby enemies and ticking damage. Committer gains a small damage reduction per target hit (defensive echo scaling with exposure).
 
 **Fortified Command** (Orbit → Crown)
-Utility/CC with defensive residue. Blades rise from orbit into a halo, releasing a pulse that slows nearby enemies. Caster gains brief CC immunity (fortified transition from defensive state).
+Utility/CC with defensive residue. Blades rise from orbit into a halo, releasing a pulse that slows nearby enemies. Committer gains brief CC immunity (fortified transition from defensive state).
 
 ---
 
@@ -100,7 +100,7 @@ CC/debuff with single-target residue. Blades pull back into crown position. The 
 #### From Scatter (leaving Multi-target DoT)
 
 **Dispersed Shield** (Scatter → Orbit)
-Defensive barrier with DoT residue. Blades recall from all targets into orbit. The shield pulses with residual energy — enemies that strike the caster take minor ticking damage (thorns effect from carried DoT energy).
+Defensive barrier with DoT residue. Blades recall from all targets into orbit. The shield pulses with residual energy — enemies that strike the committer take minor ticking damage (thorns effect from carried DoT energy).
 
 **Rain of Blades** (Scatter → Fan)
 AoE damage with DoT residue. Blades converge from scattered positions through a sweeping arc. Large AoE hit that leaves a brief ground effect dealing damage over time (scattered energy pooling into one zone).
@@ -116,7 +116,7 @@ CC/debuff with DoT residue. Blades rise from scattered targets into crown. Each 
 #### From Crown (leaving Utility/Control)
 
 **Commanding Ward** (Crown → Orbit)
-Defensive shield with utility residue. Blades descend from halo into orbit. Strong shield that also cleanses one debuff from the caster (purifying command carried from crown authority).
+Defensive shield with utility residue. Blades descend from halo into orbit. Strong shield that also cleanses one debuff from the committer (purifying command carried from crown authority).
 
 **Royal Cleave** (Crown → Fan)
 AoE damage with utility residue. Blades descend from crown into a sweeping arc. AoE hit that also applies a brief slow to all targets struck (authoritative strike that commands enemies to halt).
@@ -138,7 +138,7 @@ No cooldowns, small GCD. Beginners mash and blades do stuff. Experts plan 2-3 tr
 | Spec        | Identity                 | Playstyle                                                                            |
 | ----------- | ------------------------ | ------------------------------------------------------------------------------------ |
 | Multi Blade | 4-6 blades, AoE constant | Full state machine, complex, highest skill ceiling in the game                       |
-| Dual Blade  | 2 blades, mono burst     | Each blade on its own GCD with 3 positions and 2 spells per position. Piano gameplay |
+| Dual Blade  | 2 blades, mono burst     | Each blade on its own GCD with 3 positions and 2 abilities per position. Piano gameplay |
 
 ## Dual Blade
 
@@ -154,7 +154,7 @@ Each position has 2 abilities per blade (12 abilities total across both blades).
 
 ### Resonance — The Burst Mechanic
 
-When both blades occupy the **same position**, a **Resonance** triggers automatically. Resonance is a powerful burst spell whose strength scales with the **number of actions (GCDs) spent across both blades since the last Resonance**.
+When both blades occupy the **same position**, a **Resonance** triggers automatically. Resonance is a powerful burst ability whose strength scales with the **number of actions (GCDs) spent across both blades since the last Resonance**.
 
 After Resonance, the blades **split** to the two remaining positions. The player chooses which blade goes where.
 
@@ -162,7 +162,7 @@ This creates the core tension: **keep the blades apart** to build charge, then *
 
 #### The 3 Resonances
 
-Each position produces a different Resonance spell:
+Each position produces a different Resonance ability:
 
 | Position | Resonance | Effect | Splits To |
 |---|---|---|---|

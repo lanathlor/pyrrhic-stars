@@ -37,6 +37,9 @@ static func spawn_circle(
 	t.edge_color = Color(
 		minf(p_color.r * 1.3, 1.0), minf(p_color.g * 1.3, 1.0), minf(p_color.b * 1.3, 1.0), 0.9
 	)
+	if parent == null:
+		t.free()
+		return null
 	parent.add_child(t)
 	t.global_position = pos + Vector3(0.0, 0.03, 0.0)
 	return t
@@ -58,6 +61,9 @@ static func spawn_cone(
 	t.edge_color = Color(
 		minf(p_color.r * 1.3, 1.0), minf(p_color.g * 1.3, 1.0), minf(p_color.b * 1.3, 1.0), 0.9
 	)
+	if parent == null:
+		t.free()
+		return null
 	parent.add_child(t)
 	t.global_position = pos + Vector3(0.0, 0.03, 0.0)
 	t.rotation.y = rot_y

@@ -28,10 +28,10 @@ func TestDamageEventWireFormat(t *testing.T) {
 		SourceType:   SourcePlayerAttack,
 	}
 
-	buf := codec.EncodeDamageEvent(evt.TargetPeerID, evt.SourcePeerID, evt.Amount, evt.HitPos.X, evt.HitPos.Y, evt.HitPos.Z, evt.SourceType)
+	buf := codec.EncodeDamageEvent(evt.TargetPeerID, evt.SourcePeerID, evt.Amount, evt.HitPos.X, evt.HitPos.Y, evt.HitPos.Z, evt.SourceType, evt.Overheal)
 
-	if len(buf) != 21 {
-		t.Fatalf("wire length = %d, want 21 bytes", len(buf))
+	if len(buf) != 25 {
+		t.Fatalf("wire length = %d, want 25 bytes", len(buf))
 	}
 
 	// Now decode like the client does (StreamPeerBuffer, little-endian)
@@ -49,6 +49,8 @@ func TestDamageEventWireFormat(t *testing.T) {
 	gotHitZ := math.Float32frombits(binary.LittleEndian.Uint32(buf[off : off+4]))
 	off += 4
 	gotType := buf[off]
+	off += 1
+	gotOverheal := math.Float32frombits(binary.LittleEndian.Uint32(buf[off : off+4]))
 
 	if gotTarget != 0 {
 		t.Errorf("target_peer_id = %d, want 0", gotTarget)
@@ -70,6 +72,9 @@ func TestDamageEventWireFormat(t *testing.T) {
 	}
 	if gotType != SourcePlayerAttack {
 		t.Errorf("source_type = %d, want %d", gotType, SourcePlayerAttack)
+	}
+	if gotOverheal != 0 {
+		t.Errorf("overheal = %f, want 0", gotOverheal)
 	}
 }
 
@@ -258,10 +263,10 @@ func TestEnemyDamageEventWireFormat(t *testing.T) {
 		SourceType:   SourceEnemyMelee,
 	}
 
-	buf := codec.EncodeDamageEvent(evt.TargetPeerID, evt.SourcePeerID, evt.Amount, evt.HitPos.X, evt.HitPos.Y, evt.HitPos.Z, evt.SourceType)
+	buf := codec.EncodeDamageEvent(evt.TargetPeerID, evt.SourcePeerID, evt.Amount, evt.HitPos.X, evt.HitPos.Y, evt.HitPos.Z, evt.SourceType, evt.Overheal)
 
-	if len(buf) != 21 {
-		t.Fatalf("wire length = %d, want 21", len(buf))
+	if len(buf) != 25 {
+		t.Fatalf("wire length = %d, want 25", len(buf))
 	}
 
 	off := 0

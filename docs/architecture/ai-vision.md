@@ -58,7 +58,7 @@ ctx.SiblingDiedThisTick() Entity
 ctx.SiblingHealthPct(id) float32
 ctx.SiblingPhase(id) string
 ctx.SiblingTarget(id) Entity
-ctx.SiblingIsCasting(id) bool
+ctx.SiblingIsChanneling(id) bool
 ctx.SiblingHasFlag(id, key) bool  // read their flags, never set
 ctx.SiblingPosition(id) Vec3
 ```
@@ -121,7 +121,7 @@ ctx.CentroidOfThreats() Vec3
 ctx.ThreatsClustered(radius) []Cluster
 ctx.MostIsolatedThreat() Entity
 
-ctx.ThreatsCasting() []Entity
+ctx.ThreatsChanneling() []Entity
 ctx.ThreatsBelowHealth(pct) []Entity
 ctx.ThreatsWithBuff(id) []Entity
 ctx.ThreatsTargetingMe() []Entity
@@ -163,7 +163,7 @@ ctx.IsAtPosition(pos, tolerance) bool
 ### 1.10 Extended Combat
 
 ```
-ctx.CastPatternDelayed(patternID, delay) PatternHandle
+ctx.CommitPatternDelayed(patternID, delay) PatternHandle
 ctx.ModifyActivePattern(params)
 ctx.ActivePatternCount() int
 ctx.CancelPattern(handle)
@@ -203,8 +203,8 @@ When the full API is available, entity references returned from queries gain add
 ```
 entity.RoleTag() string           // "dps", "tank", "healer", "support"
 entity.Facing() float32
-entity.CastID() string
-entity.CastRemaining() float32
+entity.CommitID() string
+entity.CommitRemaining() float32
 entity.HasBuff(id) bool
 entity.IsLockedOn(target) bool    // hybrid targeting
 entity.IsAimingAt(target, cone) bool
@@ -355,9 +355,9 @@ type Observation struct {
     BossHealthPct     float32
     BossPosition      [3]float32  // Vec3
     BossFacing        float32
-    BossIsCasting     float32
-    BossCastID        int
-    BossCastProgress  float32
+    BossIsChanneling   float32
+    BossCommitID       int
+    BossCommitProgress float32
     BossPhase         int
 
     Allies            [4]AllyObs
@@ -472,8 +472,8 @@ Content is organized into tiers that release sequentially:
 content/ (private repo)
   encounters/tier1/
   encounters/tier2/  (unreleased)
-  spells/tier1/
-  spells/tier2/
+  abilities/tier1/
+  abilities/tier2/
   leaves/tier1/
   leaves/tier2/
 ```
@@ -482,7 +482,7 @@ content/ (private repo)
 
 ```
 Tier development (private repo):
-  encounters/tierN/, leaves/tierN/, spells/tierN/
+  encounters/tierN/, leaves/tierN/, abilities/tierN/
 
 Tier goes live on server:
   Compiled binary from private repo. Players experience encounters blind.
@@ -499,7 +499,7 @@ World first claimed:
 #!/bin/bash
 TIER=$1
 cp -r "$PRIVATE_REPO/encounters/$TIER" "$PUBLIC_REPO/encounters/$TIER"
-cp -r "$PRIVATE_REPO/spells/$TIER" "$PUBLIC_REPO/spells/$TIER"
+cp -r "$PRIVATE_REPO/abilities/$TIER" "$PUBLIC_REPO/abilities/$TIER"
 cp -r "$PRIVATE_REPO/leaves/$TIER" "$PUBLIC_REPO/leaves/$TIER"
 cd "$PUBLIC_REPO"
 git add . && git commit -m "Release $TIER" && git tag "release-$TIER"

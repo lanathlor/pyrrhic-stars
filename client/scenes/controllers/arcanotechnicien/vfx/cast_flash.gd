@@ -1,7 +1,7 @@
 extends Node3D
 
-## Quick cast flash — brief green glow at caster's hands when casting a direct spell.
-## Gives immediate visual feedback that a spell was cast.
+## Quick commit flash — brief green glow at caster's hands when committing a direct ability.
+## Gives immediate visual feedback that an ability was committed.
 ## One-shot, auto-frees after 0.35s.
 
 const LIFETIME: float = 0.35

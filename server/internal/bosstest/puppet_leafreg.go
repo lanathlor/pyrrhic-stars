@@ -2,6 +2,7 @@ package bosstest
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"codex-online/server/internal/bt"
@@ -43,7 +44,7 @@ var puppetLeafRegistry = map[string]puppetLeafEntry{
 	"has_devotion":         {isCond: true, cond: condHasDevotion},
 	"stamina_low":          {isCond: true, cond: condStaminaLow},
 
-	// Actions — movement (no cast)
+	// Actions — movement (no commit)
 	"strafe_charge":       {action: actionStrafeCharge},
 	"flee_aoe":            {action: actionFleeAoE},
 	"sidestep_projectile": {action: actionSidestepProjectile},
@@ -54,12 +55,21 @@ var puppetLeafRegistry = map[string]puppetLeafEntry{
 	"kite_and_shoot":      {action: actionKiteAndShoot},
 
 	// Actions — abilities
-	"cast_best_transition": {action: actionCastBestTransition},
-	"cast_block":           {action: actionCastBlock},
+	"commit_best_transition": {action: actionCommitBestTransition},
+	"commit_block":           {action: actionCommitBlock},
+
+	// Conditions — healer
+	"ally_needs_emergency": {isCond: true, cond: condAllyNeedsEmergency},
+	"flux_low":             {isCond: true, cond: condFluxLow},
+	"has_vital_charge":     {isCond: true, cond: condHasVitalCharge},
+	"is_channeling":        {isCond: true, cond: condIsChanneling},
+
+	// Actions — healer movement
+	"move_to_center": {action: actionMoveToCenter},
 }
 
 // movementActions maps movement leaf names to their action functions.
-// When a movement action receives a parameter, it's wrapped with withCast.
+// When a movement action receives a parameter, it's wrapped with withCommit.
 var movementActions = map[string]func(any) bt.Result{
 	"strafe_charge":       actionStrafeCharge,
 	"flee_aoe":            actionFleeAoE,
@@ -72,11 +82,60 @@ var movementActions = map[string]func(any) bt.Result{
 
 // puppetParamFactories maps parameterized leaf base names to factories.
 var puppetParamFactories = map[string]func(string) (puppetLeafEntry, error){
-	"can_cast": func(arg string) (puppetLeafEntry, error) {
-		return puppetLeafEntry{isCond: true, cond: canCastAbility(arg)}, nil
+	"can_commit": func(arg string) (puppetLeafEntry, error) {
+		return puppetLeafEntry{isCond: true, cond: canCommitAbility(arg)}, nil
 	},
-	"cast": func(arg string) (puppetLeafEntry, error) {
-		return puppetLeafEntry{action: castAbilityAction(arg)}, nil
+	"commit": func(arg string) (puppetLeafEntry, error) {
+		return puppetLeafEntry{action: commitAbilityAction(arg)}, nil
+	},
+
+	// Healer conditions (parameterized)
+	"ally_below_hp": func(arg string) (puppetLeafEntry, error) {
+		pct, err := strconv.ParseFloat(arg, 32)
+		if err != nil {
+			return puppetLeafEntry{}, fmt.Errorf("ally_below_hp: invalid pct %q: %w", arg, err)
+		}
+		return puppetLeafEntry{isCond: true, cond: allyBelowHPPct(float32(pct))}, nil
+	},
+	"has_flux": func(arg string) (puppetLeafEntry, error) {
+		amount, err := strconv.ParseFloat(arg, 32)
+		if err != nil {
+			return puppetLeafEntry{}, fmt.Errorf("has_flux: invalid amount %q: %w", arg, err)
+		}
+		return puppetLeafEntry{isCond: true, cond: condHasFlux(float32(amount))}, nil
+	},
+	// has_school_flux(school:amount) — e.g. has_school_flux(bioarcanotechnic:40)
+	"has_school_flux": func(arg string) (puppetLeafEntry, error) {
+		parts := strings.SplitN(arg, ":", 2)
+		if len(parts) != 2 {
+			return puppetLeafEntry{}, fmt.Errorf("has_school_flux: expected school:amount, got %q", arg)
+		}
+		amount, err := strconv.ParseFloat(parts[1], 32)
+		if err != nil {
+			return puppetLeafEntry{}, fmt.Errorf("has_school_flux: invalid amount %q: %w", parts[1], err)
+		}
+		return puppetLeafEntry{isCond: true, cond: condHasSchoolFlux(parts[0], float32(amount))}, nil
+	},
+	// school_flux_low(school) — e.g. school_flux_low(biometabolic)
+	"school_flux_low": func(arg string) (puppetLeafEntry, error) {
+		return puppetLeafEntry{isCond: true, cond: condSchoolFluxLow(arg)}, nil
+	},
+	"zone_active": func(arg string) (puppetLeafEntry, error) {
+		return puppetLeafEntry{isCond: true, cond: condZoneActive(arg)}, nil
+	},
+
+	// Healer actions (parameterized)
+	"heal_lowest": func(arg string) (puppetLeafEntry, error) {
+		return puppetLeafEntry{action: healLowest(arg)}, nil
+	},
+	"heal_tank": func(arg string) (puppetLeafEntry, error) {
+		return puppetLeafEntry{action: healTank(arg)}, nil
+	},
+	"drain_healthiest": func(arg string) (puppetLeafEntry, error) {
+		return puppetLeafEntry{action: drainHealthiest(arg)}, nil
+	},
+	"place_zone": func(arg string) (puppetLeafEntry, error) {
+		return puppetLeafEntry{action: placeZone(arg)}, nil
 	},
 }
 
@@ -88,7 +147,7 @@ func puppetEntryToNode(e puppetLeafEntry) bt.Node {
 }
 
 // resolvePuppetLeaf converts a leaf name string into a bt.Node.
-// Handles "!" prefix, parameterized leaves, and movement+cast combos.
+// Handles "!" prefix, parameterized leaves, and movement+commit combos.
 func resolvePuppetLeaf(name string) (bt.Node, error) {
 	// Inverter prefix
 	if strings.HasPrefix(name, "!") {
@@ -108,7 +167,7 @@ func resolvePuppetLeaf(name string) (bt.Node, error) {
 		baseName := name[:idx]
 		arg := name[idx+1 : len(name)-1]
 
-		// Check explicit param factories first (can_cast, cast)
+		// Check explicit param factories first (can_commit, commit)
 		if factory, ok := puppetParamFactories[baseName]; ok {
 			entry, err := factory(arg)
 			if err != nil {
@@ -117,13 +176,13 @@ func resolvePuppetLeaf(name string) (bt.Node, error) {
 			return bt.Named(name, puppetEntryToNode(entry)), nil
 		}
 
-		// Movement action + ability = withCast (or withTransition for "transition")
+		// Movement action + ability = withCommit (or withTransition for "transition")
 		if moveAction, ok := movementActions[baseName]; ok {
 			if arg == "transition" {
 				wrapped := withTransition(moveAction)
 				return bt.Named(name, bt.NewAction(wrapped)), nil
 			}
-			wrapped := withCast(moveAction, arg)
+			wrapped := withCommit(moveAction, arg)
 			return bt.Named(name, bt.NewAction(wrapped)), nil
 		}
 

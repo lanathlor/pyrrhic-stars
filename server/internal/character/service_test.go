@@ -63,6 +63,14 @@ func (r *stubRepo) SetEquipment(uint, uint8, uint) error                        
 func (r *stubRepo) ClearEquipment(uint, uint8) error                                 { return nil }
 func (r *stubRepo) GetEquipment(uint) ([]*persistence.CharacterEquipment, error)     { return nil, nil }
 
+// Loadout stubs (not used by character service tests).
+func (r *stubRepo) UpsertLoadout(uint, [6]string) error                    { return nil }
+func (r *stubRepo) GetLoadout(uint) (*persistence.CharacterLoadout, error) { return nil, nil }
+
+// Flux commitment stubs (not used by character service tests).
+func (r *stubRepo) UpsertFluxCommitment(uint, []persistence.FluxCommitmentEntry) error { return nil }
+func (r *stubRepo) GetFluxCommitment(uint) ([]persistence.FluxCommitmentEntry, error)  { return nil, nil }
+
 func TestSelect(t *testing.T) {
 	repo := newStubRepo()
 	repo.chars[1] = &persistence.Character{ID: 1, UserID: "player-1", ClassName: "gunner", Name: "Hero"}

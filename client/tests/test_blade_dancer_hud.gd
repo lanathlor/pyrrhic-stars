@@ -1,7 +1,7 @@
 class_name TestBladeDancerHUD
 extends GdUnitTestSuite
 
-## Tests for the Blade Dancer HUD — config display, GCD, damage flash, hit marker, lock-on, spell bar.
+## Tests for the Blade Dancer HUD — config display, GCD, damage flash, hit marker, lock-on, ability bar.
 
 const BDScript := preload("res://scenes/controllers/blade_dancer/blade_dancer.gd")
 const BDHudScript := preload("res://scenes/shared/hud/blade_dancer_hud.gd")
@@ -127,29 +127,29 @@ func test_update_gcd_passes_to_ability_bar() -> void:
 	assert_float(bar._gcd_ratio).is_equal_approx(0.7, 0.01)
 
 
-# --- Spell bar ---
+# --- Ability bar ---
 
 
-func test_update_spells_enriches_keybinds() -> void:
-	var spells := [
-		{name = "Test Spell", desc = "A test.", dest = 1, dur = 0.3},
+func test_update_abilities_enriches_keybinds() -> void:
+	var abilities := [
+		{name = "Test Ability", desc = "A test.", dest = 1, dur = 0.3},
 	]
-	_hud.update_spells(spells)
+	_hud.update_abilities(abilities)
 	var bar: Control = _hud.get_node("AbilityBar")
-	assert_str(bar._spells[0].keybind).is_equal("LMB")
+	assert_str(bar._abilities[0].keybind).is_equal("LMB")
 
 
-func test_update_spells_passes_four_slots() -> void:
-	var spells := [
+func test_update_abilities_passes_four_slots() -> void:
+	var abilities := [
 		{name = "A", desc = "", dest = 1, dur = 0.3},
 		{name = "B", desc = "", dest = 2, dur = 0.3},
 		{name = "C", desc = "", dest = 3, dur = 0.4},
 		{name = "D", desc = "", dest = 4, dur = 0.5},
 	]
-	_hud.update_spells(spells)
+	_hud.update_abilities(abilities)
 	var bar: Control = _hud.get_node("AbilityBar")
-	assert_int(bar._spells.size()).is_equal(4)
-	assert_str(bar._spells[3].keybind).is_equal("E")
+	assert_int(bar._abilities.size()).is_equal(4)
+	assert_str(bar._abilities[3].keybind).is_equal("E")
 
 
 # --- Lock-on reticle ---

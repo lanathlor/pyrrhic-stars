@@ -20,48 +20,48 @@ tree:
 
     # === AoE SOAK ===
     # Brace while blocking (stamina drain → 20%)
-    - sequence: [has_reacted_quick, in_aoe_danger, is_blocking, "can_cast(brace)", "cast(brace)"]
+    - sequence: [has_reacted_quick, in_aoe_danger, is_blocking, "can_commit(brace)", "commit(brace)"]
     # Raise shield to prep Brace (next tick will Brace)
-    - sequence: [has_reacted_quick, in_aoe_danger, "!is_blocking", "can_cast(brace)", "cast(vg_shield_block)"]
+    - sequence: [has_reacted_quick, in_aoe_danger, "!is_blocking", "can_commit(brace)", "commit(vg_shield_block)"]
     # Hold block + bash during AoE (already committed to soak)
-    - sequence: [in_aoe_danger, is_blocking, "cast(shield_bash)"]
+    - sequence: [in_aoe_danger, is_blocking, "commit(shield_bash)"]
     # Soak without Brace if stamina OK (single AoE hit is manageable)
-    - sequence: [has_reacted_quick, in_aoe_danger, "!stamina_low", "cast(vg_shield_block)"]
+    - sequence: [has_reacted_quick, in_aoe_danger, "!stamina_low", "commit(vg_shield_block)"]
     # Flee only if stamina critical (guard break risk)
     - sequence: [has_reacted_quick, in_aoe_danger, "flee_aoe(shield_bash)"]
 
     # === RANGED BULLET-HELL SOAK ===
     # Brace while blocking (soak entire pattern for party DPS uptime)
-    - sequence: [has_reacted_quick, targeted_by_ranged, is_blocking, "can_cast(brace)", "cast(brace)"]
+    - sequence: [has_reacted_quick, targeted_by_ranged, is_blocking, "can_commit(brace)", "commit(brace)"]
     # Raise shield to prep Brace
-    - sequence: [has_reacted_quick, targeted_by_ranged, "!is_blocking", "can_cast(brace)", "cast(vg_shield_block)"]
+    - sequence: [has_reacted_quick, targeted_by_ranged, "!is_blocking", "can_commit(brace)", "commit(vg_shield_block)"]
     # Hold block if already soaking (Brace active or committed)
-    - sequence: [targeted_by_ranged, is_blocking, "cast(shield_bash)"]
+    - sequence: [targeted_by_ranged, is_blocking, "commit(shield_bash)"]
     # Strafe if Brace on CD (can't afford stamina drain from 30+ projectiles)
     - sequence: [has_reacted_quick, targeted_by_ranged, "strafe_ranged(shield_bash)"]
     # Projectile: hold block if committed (already soaking pattern)
-    - sequence: [projectile_incoming, is_blocking, "cast(shield_bash)"]
+    - sequence: [projectile_incoming, is_blocking, "commit(shield_bash)"]
     # Projectile: sidestep if caught unblocked
     - sequence: [projectile_incoming, "sidestep_projectile(shield_bash)"]
 
     # === MELEE TANK ===
     # Hold block and bash through (shield_bash doesn't cancel block)
-    - sequence: [in_melee_danger, is_blocking, "cast(shield_bash)"]
+    - sequence: [in_melee_danger, is_blocking, "commit(shield_bash)"]
     # Delayed block for parry window (DodgeGreed=0.70)
-    - sequence: [has_reacted, in_melee_danger, should_use_defensive, "cast(vg_shield_block)"]
+    - sequence: [has_reacted, in_melee_danger, should_use_defensive, "commit(vg_shield_block)"]
     # Bash through when block not rolled (stay in range, take hit)
-    - sequence: [has_reacted, in_melee_danger, "cast(shield_bash)"]
+    - sequence: [has_reacted, in_melee_danger, "commit(shield_bash)"]
 
     # === SAFE WINDOW ===
     # Drop stale block (DR decayed, re-raise for fresh parry window)
-    - sequence: [is_blocking, block_stale, "cast(vg_shield_block_stop)"]
+    - sequence: [is_blocking, block_stale, "commit(vg_shield_block_stop)"]
     # Devotion dump: Retaliate when empowered (auto-drops block)
-    - sequence: [has_devotion, "can_cast(retaliate)", "cast(retaliate)"]
+    - sequence: [has_devotion, "can_commit(retaliate)", "commit(retaliate)"]
     # Bull Rush for burst (auto-drops block, gated by stamina reserve)
-    - sequence: ["!stamina_low", "can_cast(bull_rush)", "cast(bull_rush)"]
+    - sequence: ["!stamina_low", "can_commit(bull_rush)", "commit(bull_rush)"]
     # Drop block when no active telegraph and no burst to spend
-    - sequence: [is_blocking, "cast(vg_shield_block_stop)"]
+    - sequence: [is_blocking, "commit(vg_shield_block_stop)"]
     # Get into melee range
     - sequence: [out_of_melee, advance]
     # Shield bash filler
-    - "cast(shield_bash)"
+    - "commit(shield_bash)"

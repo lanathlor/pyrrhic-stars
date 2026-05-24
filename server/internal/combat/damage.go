@@ -7,6 +7,7 @@ type DamageEvent struct {
 	TargetPeerID uint16
 	SourcePeerID uint16 // peer ID of the attacker (0 for enemy sources)
 	Amount       float32
+	Overheal     float32 // healing that exceeded MaxHealth (0 for non-heal events)
 	HitPos       entity.Vec3
 	SourceType   uint8 // 0=player_attack, 1=enemy_melee, 2=enemy_ranged, 3=enemy_aoe, 4=enemy_charge
 }

@@ -1,6 +1,6 @@
 extends Control
 
-## Micro menu bar — small clickable buttons on the right side, aligned with the spell bar.
+## Micro menu bar — small clickable buttons on the right side, aligned with the ability bar.
 ## Opens inventory panels and other menus via click.
 
 signal equip_pressed
@@ -18,8 +18,8 @@ const TOOLTIP_BG := Color(0.03, 0.035, 0.05, 0.92)
 const BTN_SIZE := 24.0
 const BTN_GAP := 3.0
 const BAR_PAD := 4.0
-const SPELL_SLOT_SIZE := 58.0
-const SPELL_BOTTOM_MARGIN := 14.0
+const ABILITY_SLOT_SIZE := 58.0
+const ABILITY_BOTTOM_MARGIN := 14.0
 
 const BUTTONS := [
 	{"label": "N", "tooltip": "Spec [N]"},
@@ -49,7 +49,7 @@ func _compute_layout() -> void:
 	var total_w := btn_count * BTN_SIZE + (btn_count - 1) * BTN_GAP + BAR_PAD * 2.0
 	var bar_x := vp.x * 0.75 - total_w / 2.0
 	var bar_y := (
-		vp.y - SPELL_SLOT_SIZE - SPELL_BOTTOM_MARGIN + (SPELL_SLOT_SIZE - BTN_SIZE) / 2.0 - BAR_PAD
+		vp.y - ABILITY_SLOT_SIZE - ABILITY_BOTTOM_MARGIN + (ABILITY_SLOT_SIZE - BTN_SIZE) / 2.0 - BAR_PAD
 	)
 	var bar_h := BTN_SIZE + BAR_PAD * 2.0
 	_bar_rect = Rect2(bar_x, bar_y, total_w, bar_h)

@@ -17,14 +17,14 @@ func (nopHandler) WithAttrs([]slog.Attr) slog.Handler        { return nopHandler
 func (nopHandler) WithGroup(string) slog.Handler             { return nopHandler{} }
 
 // HandlerFunc is a Go function that handles complex ability execution.
-type HandlerFunc func(eng *Engine, ctx *CastContext) CastResult
+type HandlerFunc func(eng *Engine, ctx *CommitContext) CommitResult
 
 // TickHandlerFunc is a Go function that handles per-tick logic for an ability.
 type TickHandlerFunc func(eng *Engine, p *entity.Player, dt float32, ctx *TickContext) []DamageResult
 
-// CastContext carries the state needed to resolve an ability.
-type CastContext struct {
-	Caster     entity.Caster
+// CommitContext carries the state needed to resolve an ability.
+type CommitContext struct {
+	Committer     entity.Committer
 	Targets    []entity.Target
 	Obstacles  []combat.Obstacle
 	SourceType uint8 // combat.SourcePlayerAttack, SourceEnemyMelee, etc.
@@ -35,6 +35,9 @@ type CastContext struct {
 
 	// Zone spawning (set by the system layer to inject zones into the world)
 	SpawnZone func(zone *entity.HealingZone)
+
+	// Link spawning (set by the system layer to inject damage links into the world)
+	SpawnLink func(link *entity.DamageLink)
 }
 
 // TickContext carries the state needed for per-tick ability updates.
@@ -43,7 +46,7 @@ type TickContext struct {
 	Obstacles []combat.Obstacle
 }
 
-// Common cast failure reasons.
+// Common commit failure reasons.
 const ReasonInsufficientStamina = "insufficient stamina"
 
 // HealResult is emitted by ability resolution when a heal is applied.
@@ -51,14 +54,15 @@ type HealResult struct {
 	TargetID      uint16
 	SourceID      uint16
 	Amount        float32
+	Overheal      float32
 	HitPos        entity.Vec3
 	SourceType    uint8
 	HarmonyProc   bool
 	HarmonyAmount float32
 }
 
-// CastResult is returned by the engine after attempting to cast an ability.
-type CastResult struct {
+// CommitResult is returned by the engine after attempting to commit an ability.
+type CommitResult struct {
 	OK     bool
 	Events []DamageResult
 	Heals  []HealResult
@@ -75,7 +79,7 @@ type Engine struct {
 	logInfo      bool // cached: handler enables Info level
 
 	// hitBuf is a reusable scratch buffer for hit resolution results.
-	// Valid only until the next Cast or TickPlayer call.
+	// Valid only until the next Commit or TickPlayer call.
 	hitBuf []DamageResult
 	// tickBuf is a reusable scratch buffer for TickPlayer DoT events.
 	// Valid only until the next TickPlayer call.
@@ -122,38 +126,38 @@ func (eng *Engine) GetAbility(id string) *AbilityDef {
 	return eng.abilities[id]
 }
 
-// Cast looks up an ability by ID and executes it.
-// The returned CastResult.Events slice is backed by an internal buffer and is
-// only valid until the next Cast or TickPlayer call.
-func (eng *Engine) Cast(abilityID string, ctx *CastContext) CastResult {
+// Commit looks up an ability by ID and executes it.
+// The returned CommitResult.Events slice is backed by an internal buffer and is
+// only valid until the next Commit or TickPlayer call.
+func (eng *Engine) Commit(abilityID string, ctx *CommitContext) CommitResult {
 	def := eng.abilities[abilityID]
 	if def == nil {
-		eng.logger.Warn("ability.cast.rejected",
+		eng.logger.Warn("ability.commit.rejected",
 			"ability", abilityID,
 			"reason", "unknown ability",
 		)
-		return CastResult{Reason: "unknown ability"}
+		return CommitResult{Reason: "unknown ability"}
 	}
-	return eng.doCast(abilityID, def, ctx)
+	return eng.doCommit(abilityID, def, ctx)
 }
 
-// CastDef executes an ability from a provided definition (not looked up by ID).
+// CommitDef executes an ability from a provided definition (not looked up by ID).
 // Use this when the caller has a modified/resolved copy (e.g. enemy phase overrides).
-func (eng *Engine) CastDef(def *AbilityDef, ctx *CastContext) CastResult {
-	return eng.doCast(def.ID, def, ctx)
+func (eng *Engine) CommitDef(def *AbilityDef, ctx *CommitContext) CommitResult {
+	return eng.doCommit(def.ID, def, ctx)
 }
 
-func (eng *Engine) doCast(abilityID string, def *AbilityDef, ctx *CastContext) CastResult {
+func (eng *Engine) doCommit(abilityID string, def *AbilityDef, ctx *CommitContext) CommitResult {
 	eng.hitBuf = eng.hitBuf[:0]
 
-	caster := ctx.Caster
+	caster := ctx.Committer
 
-	if !caster.CasterAlive() {
+	if !caster.CommitterAlive() {
 		if eng.logDebug {
-			eng.logger.Debug("ability.cast.rejected",
-				"ability", abilityID, "id", caster.CasterID(), "reason", "dead")
+			eng.logger.Debug("ability.commit.rejected",
+				"ability", abilityID, "id", caster.CommitterID(), "reason", "dead")
 		}
-		return CastResult{Reason: "dead"}
+		return CommitResult{Reason: "dead"}
 	}
 
 	// Player-specific validation
@@ -161,23 +165,23 @@ func (eng *Engine) doCast(abilityID string, def *AbilityDef, ctx *CastContext) C
 	if isPlayer {
 		if p.GCDTimer > 0 {
 			if eng.logDebug {
-				eng.logger.Debug("ability.cast.rejected",
-					"ability", abilityID, "id", caster.CasterID(),
+				eng.logger.Debug("ability.commit.rejected",
+					"ability", abilityID, "id", caster.CommitterID(),
 					"reason", "gcd", "gcd_remaining", p.GCDTimer)
 			}
-			return CastResult{Reason: "gcd"}
+			return CommitResult{Reason: "gcd"}
 		}
 
 		if cd, ok := p.Cooldowns[abilityID]; ok && cd > 0 {
 			if eng.logDebug {
-				eng.logger.Debug("ability.cast.rejected",
-					"ability", abilityID, "id", caster.CasterID(),
+				eng.logger.Debug("ability.commit.rejected",
+					"ability", abilityID, "id", caster.CommitterID(),
 					"reason", "cooldown", "cd_remaining", cd)
 			}
-			return CastResult{Reason: "cooldown"}
+			return CommitResult{Reason: "cooldown"}
 		}
 
-		// Cancel active Blade block when casting any other ability
+		// Cancel active Blade block when committing any other ability
 		if abilityID != "vg_block" && abilityID != "vg_block_stop" && p.HasBuff("vg_block") {
 			EndVgBlock(p)
 		}
@@ -190,22 +194,41 @@ func (eng *Engine) doCast(abilityID string, def *AbilityDef, ctx *CastContext) C
 
 		if def.OriginConfig >= 0 && def.OriginConfig != p.Config {
 			if eng.logDebug {
-				eng.logger.Debug("ability.cast.rejected",
-					"ability", abilityID, "id", caster.CasterID(),
+				eng.logger.Debug("ability.commit.rejected",
+					"ability", abilityID, "id", caster.CommitterID(),
 					"reason", "wrong config", "need", def.OriginConfig, "have", p.Config)
 			}
-			return CastResult{Reason: "wrong config"}
+			return CommitResult{Reason: "wrong config"}
 		}
 
 		for _, cost := range def.Costs {
+			// School-aware flux validation: check the specific school pool.
+			// Apply affinity cost scaling (primary 1.0x, secondary 1.25x, off 1.5x).
+			if cost.Resource == "flux" && def.School != "" && p.FluxCommit != nil && len(p.FluxCommit.Pools) > 0 {
+				scaledCost := cost.Amount * p.AffinityCostMult(def.School)
+				pool := p.FluxCommit.GetPool(def.School)
+				if pool == nil || pool.Current < scaledCost {
+					have := float32(0)
+					if pool != nil {
+						have = pool.Current
+					}
+					if eng.logDebug {
+						eng.logger.Debug("ability.commit.rejected",
+							"ability", abilityID, "id", caster.CommitterID(),
+							"reason", "insufficient "+def.School+" flux", "need", scaledCost, "have", have)
+					}
+					return CommitResult{Reason: "insufficient " + def.School + " flux"}
+				}
+				continue
+			}
 			r, ok := p.Resources[cost.Resource]
 			if !ok {
 				if eng.logDebug {
-					eng.logger.Debug("ability.cast.rejected",
-						"ability", abilityID, "id", caster.CasterID(),
+					eng.logger.Debug("ability.commit.rejected",
+						"ability", abilityID, "id", caster.CommitterID(),
 						"reason", "insufficient "+cost.Resource, "need", cost.Amount, "have", 0)
 				}
-				return CastResult{Reason: "insufficient " + cost.Resource}
+				return CommitResult{Reason: "insufficient " + cost.Resource}
 			}
 			effectiveCost := cost.Amount
 			if cost.Resource == "stamina" {
@@ -213,11 +236,11 @@ func (eng *Engine) doCast(abilityID string, def *AbilityDef, ctx *CastContext) C
 			}
 			if r.Current < effectiveCost {
 				if eng.logDebug {
-					eng.logger.Debug("ability.cast.rejected",
-						"ability", abilityID, "id", caster.CasterID(),
+					eng.logger.Debug("ability.commit.rejected",
+						"ability", abilityID, "id", caster.CommitterID(),
 						"reason", "insufficient "+cost.Resource, "need", effectiveCost, "have", r.Current)
 				}
-				return CastResult{Reason: "insufficient " + cost.Resource}
+				return CommitResult{Reason: "insufficient " + cost.Resource}
 			}
 		}
 	}
@@ -226,10 +249,10 @@ func (eng *Engine) doCast(abilityID string, def *AbilityDef, ctx *CastContext) C
 	if def.Handler != "" {
 		fn, ok := eng.handlers[def.Handler]
 		if !ok {
-			eng.logger.Warn("ability.cast.rejected",
-				"ability", abilityID, "id", caster.CasterID(),
+			eng.logger.Warn("ability.commit.rejected",
+				"ability", abilityID, "id", caster.CommitterID(),
 				"reason", "handler not found", "handler", def.Handler)
-			return CastResult{Reason: "handler not found: " + def.Handler}
+			return CommitResult{Reason: "handler not found: " + def.Handler}
 		}
 		result := fn(eng, ctx)
 		if eng.logInfo {
@@ -238,12 +261,12 @@ func (eng *Engine) doCast(abilityID string, def *AbilityDef, ctx *CastContext) C
 				for _, ev := range result.Events {
 					totalDmg += ev.Amount
 				}
-				eng.logger.Info("ability.cast",
-					"ability", abilityID, "id", caster.CasterID(),
+				eng.logger.Info("ability.commit",
+					"ability", abilityID, "id", caster.CommitterID(),
 					"handler", def.Handler, "hits", len(result.Events), "damage", totalDmg)
 			} else if eng.logDebug {
-				eng.logger.Debug("ability.cast.rejected",
-					"ability", abilityID, "id", caster.CasterID(),
+				eng.logger.Debug("ability.commit.rejected",
+					"ability", abilityID, "id", caster.CommitterID(),
 					"handler", def.Handler, "reason", result.Reason)
 			}
 		}
@@ -253,6 +276,10 @@ func (eng *Engine) doCast(abilityID string, def *AbilityDef, ctx *CastContext) C
 	// Spend resources (player only)
 	if isPlayer {
 		for _, cost := range def.Costs {
+			if cost.Resource == "flux" && def.School != "" && p.FluxCommit != nil && len(p.FluxCommit.Pools) > 0 {
+				p.SpendFluxBySchool(def.School, cost.Amount)
+				continue
+			}
 			effectiveCost := cost.Amount
 			if cost.Resource == "stamina" {
 				effectiveCost *= p.TenacityEfficiency()
@@ -279,7 +306,7 @@ func (eng *Engine) doCast(abilityID string, def *AbilityDef, ctx *CastContext) C
 	// Splash damage: AoE around primary hit target (excluding primary)
 	if def.SplashRadius > 0 && def.SplashDamageFraction > 0 && len(eng.hitBuf) > 0 {
 		primaryID := eng.hitBuf[0].TargetID
-		splashDmg := def.BaseDamage * caster.CasterDamageMult() * def.SplashDamageFraction
+		splashDmg := def.BaseDamage * caster.CommitterDamageMult() * def.SplashDamageFraction
 		// Build target list excluding primary to avoid double-damage
 		splashTargets := make([]entity.Target, 0, len(ctx.Targets))
 		for _, t := range ctx.Targets {
@@ -288,7 +315,7 @@ func (eng *Engine) doCast(abilityID string, def *AbilityDef, ctx *CastContext) C
 			}
 		}
 		eng.hitBuf = resolveAoECircle(eng.hitBuf, eng.hitBuf[0].Target.TargetPos(),
-			caster.CasterID(), splashTargets, ctx.Obstacles,
+			caster.CommitterID(), splashTargets, ctx.Obstacles,
 			def.SplashRadius, splashDmg, ctx.SourceType)
 	}
 
@@ -325,7 +352,7 @@ func (eng *Engine) doCast(abilityID string, def *AbilityDef, ctx *CastContext) C
 		}
 	}
 
-	// Player-specific post-cast effects
+	// Player-specific post-commit effects
 	if isPlayer {
 		for _, buff := range def.SelfBuffs {
 			p.AddBuff(entity.ActiveBuff{
@@ -425,12 +452,12 @@ func (eng *Engine) doCast(abilityID string, def *AbilityDef, ctx *CastContext) C
 		for _, ev := range events {
 			totalDmg += ev.Amount
 		}
-		eng.logger.Info("ability.cast",
-			"ability", abilityID, "id", caster.CasterID(),
+		eng.logger.Info("ability.commit",
+			"ability", abilityID, "id", caster.CommitterID(),
 			"hits", len(events), "damage", totalDmg)
 	}
 
-	return CastResult{OK: true, Events: events}
+	return CommitResult{OK: true, Events: events}
 }
 
 // TickPlayer updates cooldowns, buffs, resources, and DoTs for one player.
@@ -536,7 +563,12 @@ func (eng *Engine) TickPlayer(p *entity.Player, dt float32, ctx *TickContext) []
 	}
 
 	// Tick resources
-	for _, r := range p.Resources {
+	hasFluxCommit := p.FluxCommit != nil && len(p.FluxCommit.Pools) > 0
+	for name, r := range p.Resources {
+		// Skip generic flux regen for FluxCommitment players — handled by pool-based regen below.
+		if name == "flux" && hasFluxCommit {
+			continue
+		}
 		if r.DelayTimer > 0 {
 			r.DelayTimer -= dt
 			if r.DelayTimer < 0 {
@@ -559,6 +591,12 @@ func (eng *Engine) TickPlayer(p *entity.Player, dt float32, ctx *TickContext) []
 				r.Current = 0
 			}
 		}
+	}
+
+	// Per-school flux regen for FluxCommitment players.
+	if hasFluxCommit {
+		p.FluxCommit.TickRegen(dt * tempoMult)
+		p.SyncFluxAggregate()
 	}
 
 	// Tick DoTs

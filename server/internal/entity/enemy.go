@@ -220,12 +220,12 @@ func (e *Enemy) ClearThreat() {
 // MeleeRange is the melee hit check distance.
 const MeleeRange float32 = 3.0
 
-// --- Caster interface (overrides for enemy-specific behavior) ---
+// --- Committer interface (overrides for enemy-specific behavior) ---
 
-func (e *Enemy) CasterEyePos() Vec3        { return e.EyePos(1.5) }
-func (e *Enemy) CasterAimDir() Vec3        { return e.Forward() }
-func (e *Enemy) CasterAlive() bool         { return e.Alive && e.State != EnemyDead }
-func (e *Enemy) CasterDamageMult() float32 { return 1.0 }
+func (e *Enemy) CommitterEyePos() Vec3        { return e.EyePos(1.5) }
+func (e *Enemy) CommitterAimDir() Vec3        { return e.Forward() }
+func (e *Enemy) CommitterAlive() bool         { return e.Alive && e.State != EnemyDead }
+func (e *Enemy) CommitterDamageMult() float32 { return 1.0 }
 
 // --- Target interface (overrides for enemy-specific behavior) ---
 

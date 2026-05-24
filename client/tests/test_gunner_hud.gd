@@ -1,7 +1,7 @@
 class_name TestGunnerHUD
 extends GdUnitTestSuite
 
-## Tests for the Gunner HUD — hit feedback, damage flash, recoil, spell bar.
+## Tests for the Gunner HUD — hit feedback, damage flash, recoil, ability bar.
 
 const GunnerHudScript := preload("res://scenes/shared/hud/gunner_hud.gd")
 const GUNNER_SCENE := "res://scenes/controllers/gunner/gunner.tscn"
@@ -18,19 +18,19 @@ func before_test() -> void:
 	_hud = _gunner.hud as GunnerHudScript
 
 
-# --- Spell bar ---
+# --- Ability bar ---
 
 
-func test_update_spells_passes_to_ability_bar() -> void:
-	var spells := [
+func test_update_abilities_passes_to_ability_bar() -> void:
+	var abilities := [
 		{name = "Shoot", keybind = "LMB", desc = "10 dmg.", cooldown = 0.0, cooldown_max = 0.0},
 		{name = "Roll", keybind = "C", desc = "Dodge.", cooldown = 1.0, cooldown_max = 2.5},
 	]
-	_hud.update_spells(spells)
+	_hud.update_abilities(abilities)
 	var bar: Control = _hud.get_node("AbilityBar")
-	assert_int(bar._spells.size()).is_equal(2)
-	assert_str(bar._spells[0].name).is_equal("Shoot")
-	assert_str(bar._spells[1].name).is_equal("Roll")
+	assert_int(bar._abilities.size()).is_equal(2)
+	assert_str(bar._abilities[0].name).is_equal("Shoot")
+	assert_str(bar._abilities[1].name).is_equal("Roll")
 
 
 func test_ability_bar_accent_color_is_blue() -> void:

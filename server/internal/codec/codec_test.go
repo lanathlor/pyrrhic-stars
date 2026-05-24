@@ -463,6 +463,11 @@ func TestEncodeWorldStateWireFormat(t *testing.T) {
 		t.Errorf("speed_mult = %d, want 255", buf[off])
 	}
 	off++
+	// flux_pool_count (0 for non-Arcanotechnicien)
+	if buf[off] != 0 {
+		t.Errorf("flux_pool_count = %d, want 0 (gunner)", buf[off])
+	}
+	off++
 
 	// enemy count
 	if buf[off] != 1 {
@@ -617,10 +622,10 @@ func TestEncodeLobbyStateWireFormat(t *testing.T) {
 // =============================================================================
 
 func TestEncodeDamageEventWireFormat(t *testing.T) {
-	buf := EncodeDamageEvent(0, 42, 10.0, 1.5, 2.0, -3.5, 0 /* SourcePlayerAttack */)
+	buf := EncodeDamageEvent(0, 42, 10.0, 1.5, 2.0, -3.5, 0 /* SourcePlayerAttack */, 0)
 
-	if len(buf) != 21 {
-		t.Fatalf("len = %d, want 21", len(buf))
+	if len(buf) != 25 {
+		t.Fatalf("len = %d, want 25", len(buf))
 	}
 
 	off := 0
@@ -637,6 +642,8 @@ func TestEncodeDamageEventWireFormat(t *testing.T) {
 	hitZ := math.Float32frombits(binary.LittleEndian.Uint32(buf[off:]))
 	off += 4
 	srcType := buf[off]
+	off += 1
+	overheal := math.Float32frombits(binary.LittleEndian.Uint32(buf[off:]))
 
 	if target != 0 {
 		t.Errorf("target = %d, want 0", target)
@@ -658,6 +665,9 @@ func TestEncodeDamageEventWireFormat(t *testing.T) {
 	}
 	if srcType != 0 {
 		t.Errorf("source_type = %d, want 0", srcType)
+	}
+	if overheal != 0 {
+		t.Errorf("overheal = %f, want 0", overheal)
 	}
 }
 
@@ -1232,6 +1242,151 @@ func TestWorldStateArcanotechnicienEncoding(t *testing.T) {
 					gotFlag, tc.wantChannelFlag, dp.BuffFlags)
 			}
 		})
+	}
+}
+
+// =============================================================================
+// Loadout roundtrip tests
+// =============================================================================
+
+func TestLoadoutStateRoundtrip(t *testing.T) {
+	tests := []struct {
+		name  string
+		slots [6]string
+	}{
+		{
+			name:  "all slots filled",
+			slots: [6]string{"fireball", "ice_lance", "arcane_blast", "shield", "blink", "meteor"},
+		},
+		{
+			name:  "some empty slots",
+			slots: [6]string{"fireball", "", "arcane_blast", "", "", "meteor"},
+		},
+		{
+			name:  "all empty slots",
+			slots: [6]string{"", "", "", "", "", ""},
+		},
+		{
+			name:  "single slot filled",
+			slots: [6]string{"", "", "", "", "", "heal"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			buf := EncodeLoadoutState(tc.slots)
+			got, ok := DecodeSetLoadout(buf)
+			if !ok {
+				t.Fatal("DecodeSetLoadout returned !ok")
+			}
+			for i := range 6 {
+				if got[i] != tc.slots[i] {
+					t.Errorf("slot[%d] = %q, want %q", i, got[i], tc.slots[i])
+				}
+			}
+		})
+	}
+}
+
+func TestLoadoutStateEmptySlots(t *testing.T) {
+	slots := [6]string{"", "ice_lance", "", "shield", "", ""}
+	buf := EncodeLoadoutState(slots)
+	got, ok := DecodeSetLoadout(buf)
+	if !ok {
+		t.Fatal("DecodeSetLoadout returned !ok")
+	}
+	for i := range 6 {
+		if got[i] != slots[i] {
+			t.Errorf("slot[%d] = %q, want %q", i, got[i], slots[i])
+		}
+	}
+	// Verify empty slots produce a 1-byte (length=0) encoding each.
+	// Total: 4 empty slots * 1 byte + 2 filled slots * (1 + len) bytes
+	wantLen := 4*1 + (1 + len("ice_lance")) + (1 + len("shield"))
+	if len(buf) != wantLen {
+		t.Errorf("encoded len = %d, want %d", len(buf), wantLen)
+	}
+}
+
+func TestAbilityCatalogEncode(t *testing.T) {
+	entries := []AbilityCatalogEntry{
+		{
+			ID:          "fireball",
+			Name:        "Fireball",
+			School:      "destruction",
+			AbilityType:   "damage",
+			Delivery:    "projectile",
+			FluxCost:    "30",
+			Description: "Hurls a ball of fire at the target.",
+			Cooldown:    1.5,
+			CommitTime:    2.0,
+			Implemented: true,
+			Affinity:    "primary",
+		},
+		{
+			ID:          "heal",
+			Name:        "Heal",
+			School:      "restoration",
+			AbilityType:   "heal",
+			Delivery:    "direct",
+			FluxCost:    "50",
+			Description: "Restores health to the target.",
+			Cooldown:    0.0,
+			CommitTime:    1.0,
+			Implemented: false,
+			Affinity:    "secondary",
+		},
+		{
+			ID:          "shield",
+			Name:        "Shield",
+			School:      "protection",
+			AbilityType:   "buff",
+			Delivery:    "self",
+			FluxCost:    "20",
+			Description: "Grants a protective barrier.",
+			Cooldown:    10.0,
+			CommitTime:    0.0,
+			Implemented: true,
+			Affinity:    "off",
+		},
+	}
+
+	buf := EncodeAbilityCatalog(entries)
+
+	// First byte is the count.
+	if buf[0] != 3 {
+		t.Errorf("count byte = %d, want 3", buf[0])
+	}
+
+	// Verify total length is reasonable: count(1) + per entry overhead.
+	// Each entry: 6 str8 fields + 1 str16 field + 2 f32 + 1 u8 + 1 str8
+	// = (1+len)*7 for str8s + (2+len) for str16 + 4*2 for f32s + 1 for bool
+	// Minimum per entry with all empty strings: 7 + 2 + 8 + 1 = 18 bytes.
+	if len(buf) < 1+3*18 {
+		t.Errorf("encoded len = %d, suspiciously small", len(buf))
+	}
+
+	// Verify we can read back the first entry's ID as a spot check.
+	off := 1
+	idLen := int(buf[off])
+	off++
+	id := string(buf[off : off+idLen])
+	if id != "fireball" {
+		t.Errorf("first entry ID = %q, want %q", id, "fireball")
+	}
+}
+
+func TestDecodeSetLoadoutTooShort(t *testing.T) {
+	// A valid 6-slot loadout with all empty strings is 6 bytes (6 zero-length prefixes).
+	// Anything shorter should fail.
+	if _, ok := DecodeSetLoadout(nil); ok {
+		t.Error("nil payload should return !ok")
+	}
+	if _, ok := DecodeSetLoadout([]byte{0, 0, 0, 0, 0}); ok {
+		t.Error("5-byte payload (only 5 slots) should return !ok")
+	}
+	// Truncated string: length says 5 but only 2 bytes follow.
+	if _, ok := DecodeSetLoadout([]byte{5, 'a', 'b'}); ok {
+		t.Error("truncated string payload should return !ok")
 	}
 }
 

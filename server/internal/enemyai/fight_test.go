@@ -361,8 +361,8 @@ func TestFight_ChargeHitsMultiplePlayers(t *testing.T) {
 			map[string]any{"sequence": []any{"phase_transitioning", "wait_transition"}},
 			map[string]any{"sequence": []any{"!has_target", "aggro_or_patrol"}},
 			map[string]any{"sequence": []any{"!in_leash_range", "leash_reset"}},
-			map[string]any{"sequence": []any{"is_casting", "wait_ability"}},
-			map[string]any{"sequence": []any{"target_beyond(4)", "has_los", "cast(bull_charge)", "wait_ability"}},
+			map[string]any{"sequence": []any{"is_committed", "wait_ability"}},
+			map[string]any{"sequence": []any{"target_beyond(4)", "has_los", "commit(bull_charge)", "wait_ability"}},
 			"chase",
 		},
 	}

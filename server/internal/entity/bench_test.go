@@ -2,7 +2,7 @@ package entity
 
 import "testing"
 
-// --- Player stat-read hot path (called every tick or every ability cast) ---
+// --- Player stat-read hot path (called every tick or every ability commit) ---
 
 func benchPlayerWithGear() *Player {
 	p := NewPlayer(1, ClassGunner)
@@ -60,13 +60,13 @@ func BenchmarkTempoMult(b *testing.B) {
 	}
 }
 
-func BenchmarkCasterDamageMult(b *testing.B) {
+func BenchmarkCommitterDamageMult(b *testing.B) {
 	p := benchPlayerWithGear()
 	p.AddBuff(ActiveBuff{ID: "overclock", Type: BuffDamageMult, Value: 1.3, Duration: 5.0})
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		_ = p.CasterDamageMult()
+		_ = p.CommitterDamageMult()
 	}
 }
 

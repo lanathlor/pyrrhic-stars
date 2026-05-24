@@ -11,7 +11,7 @@ func TestExecution_InsufficientStamina(t *testing.T) {
 	p := newVanguard()
 	p.Resources["stamina"].Current = 10
 
-	r := eng.Cast("execution", castCtx(p))
+	r := eng.Commit("execution", commitCtx(p))
 	if r.OK {
 		t.Error("should fail with insufficient stamina")
 	}
@@ -22,11 +22,11 @@ func TestExecution_BlockedByCooldown(t *testing.T) {
 	p := newVanguard()
 	e := enemyInFront(100, 1e6)
 
-	eng.Cast("execution", castCtx(p, e))
+	eng.Commit("execution", commitCtx(p, e))
 	p.GCDTimer = 0
 	p.Resources["stamina"].Current = 100
 
-	r := eng.Cast("execution", castCtx(p, e))
+	r := eng.Commit("execution", commitCtx(p, e))
 	if r.OK {
 		t.Error("should be blocked by 8s cooldown")
 	}
@@ -41,9 +41,9 @@ func TestExecution_DamageMultApplied(t *testing.T) {
 		ID: "test_dmg", Type: entity.BuffDamageMult, Value: 2.0, Duration: 5.0,
 	})
 
-	r := eng.Cast("execution", castCtx(p, e))
+	r := eng.Commit("execution", commitCtx(p, e))
 	if !r.OK {
-		t.Fatalf("cast failed: %s", r.Reason)
+		t.Fatalf("commit failed: %s", r.Reason)
 	}
 	for _, ev := range r.Events {
 		if ev.Amount != 180 {
@@ -57,7 +57,7 @@ func TestExecution_SetsAttackState(t *testing.T) {
 	p := newVanguard()
 	e := enemyInFront(100, 500)
 
-	eng.Cast("execution", castCtx(p, e))
+	eng.Commit("execution", commitCtx(p, e))
 	if p.State != entity.PlayerStateAttack {
 		t.Errorf("state = %d, want %d (attack)", p.State, entity.PlayerStateAttack)
 	}
@@ -70,9 +70,9 @@ func TestExecution_NarrowCone(t *testing.T) {
 	e2 := enemyInFront(101, 500)
 	e2.Position.X = 4 // far off center — outside 30° cone
 
-	r := eng.Cast("execution", castCtx(p, e1, e2))
+	r := eng.Commit("execution", commitCtx(p, e1, e2))
 	if !r.OK {
-		t.Fatalf("cast failed: %s", r.Reason)
+		t.Fatalf("commit failed: %s", r.Reason)
 	}
 	hitIDs := map[uint16]bool{}
 	for _, ev := range r.Events {
@@ -90,7 +90,7 @@ func TestExecution_SetsCooldown(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard()
 
-	eng.Cast("execution", castCtx(p))
+	eng.Commit("execution", commitCtx(p))
 	if cd := p.Cooldowns["execution"]; cd != 8.0 {
 		t.Errorf("cooldown = %f, want 8.0", cd)
 	}
@@ -101,7 +101,7 @@ func TestExecution_BuildsOnslaught(t *testing.T) {
 	p := newVanguard()
 	e := enemyInFront(100, 1e6)
 
-	eng.Cast("execution", castCtx(p, e))
+	eng.Commit("execution", commitCtx(p, e))
 	ons := getOnslaughtState(p)
 	if ons.Stacks < 1 {
 		t.Error("expected onslaught stacks from execution hit")
@@ -118,9 +118,9 @@ func TestExecution_EmpoweredShockwave(t *testing.T) {
 	e := enemyInFront(100, 1e6)
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -2.5}
 
-	r := eng.Cast("execution", castCtx(p, e))
+	r := eng.Commit("execution", commitCtx(p, e))
 	if !r.OK {
-		t.Fatalf("cast failed: %s", r.Reason)
+		t.Fatalf("commit failed: %s", r.Reason)
 	}
 	// Empowered should deal more total damage (primary + shockwave)
 	var total float32

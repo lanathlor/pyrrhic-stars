@@ -63,9 +63,9 @@ func TestRunner_MeleeLifecycle(t *testing.T) {
 
 	ctx := testCtx(def, e, testPlayers(p))
 
-	// Cast melee ability
-	if !ctx.Cast(testMeleeID) {
-		t.Fatal("Cast should succeed when runner is idle")
+	// Commit melee ability
+	if !ctx.Commit(testMeleeID) {
+		t.Fatal("Commit should succeed when runner is idle")
 	}
 	if ctx.Runner.Phase != RunnerCommit {
 		t.Fatalf("expected RunnerCommit, got %d", ctx.Runner.Phase)
@@ -77,9 +77,9 @@ func TestRunner_MeleeLifecycle(t *testing.T) {
 		t.Fatalf("expected StateTimer=0.5, got %f", e.StateTimer)
 	}
 
-	// Double cast rejected
-	if ctx.Cast(testMeleeID) {
-		t.Error("double Cast should fail when runner is busy")
+	// Double commit rejected
+	if ctx.Commit(testMeleeID) {
+		t.Error("double Commit should fail when runner is busy")
 	}
 
 	// Tick through commit phase (10 ticks @ 0.05 = 0.5s)
@@ -135,7 +135,7 @@ func TestRunner_CancelDuringCommit(t *testing.T) {
 	p := testPlayer(1, entity.Vec3{X: 0, Z: 2})
 
 	ctx := testCtx(def, e, testPlayers(p))
-	ctx.Cast(testMeleeID)
+	ctx.Commit(testMeleeID)
 
 	if ctx.Runner.Phase != RunnerCommit {
 		t.Fatal("should be in commit phase")
@@ -162,7 +162,7 @@ func TestRunner_CancelRejected_NotCancellable(t *testing.T) {
 	p := testPlayer(1, entity.Vec3{X: 0, Z: 2})
 
 	ctx := testCtx(def, e, testPlayers(p))
-	ctx.Cast(testMeleeID)
+	ctx.Commit(testMeleeID)
 
 	if ctx.CancelAbility() {
 		t.Error("cancel should fail for non-cancellable ability")
@@ -182,7 +182,7 @@ func TestRunner_CancelRejected_DuringExecute(t *testing.T) {
 	p := testPlayer(1, entity.Vec3{X: 0, Z: 2})
 
 	ctx := testCtx(def, e, testPlayers(p))
-	ctx.Cast(testMeleeID)
+	ctx.Commit(testMeleeID)
 
 	// Tick past commit
 	for i := 0; i < 10; i++ {
@@ -208,7 +208,7 @@ func TestRunner_MovementEnforcement(t *testing.T) {
 	p := testPlayer(1, entity.Vec3{X: 0, Z: 2})
 
 	ctx := testCtx(def, e, testPlayers(p))
-	ctx.Cast(testMeleeID)
+	ctx.Commit(testMeleeID)
 
 	// Set velocity as if BT tried to move
 	e.Velocity = entity.Vec3{X: 5, Z: 5}
@@ -231,7 +231,7 @@ func TestRunner_MovementAllowed(t *testing.T) {
 	p := testPlayer(1, entity.Vec3{X: 0, Z: 2})
 
 	ctx := testCtx(def, e, testPlayers(p))
-	ctx.Cast(testMeleeID)
+	ctx.Commit(testMeleeID)
 
 	e.Velocity = entity.Vec3{X: 5, Z: 5}
 	e.StateTimer -= 0.05
@@ -251,7 +251,7 @@ func TestRunner_AbortOnDeath(t *testing.T) {
 	p := testPlayer(1, entity.Vec3{X: 0, Z: 2})
 
 	ctx := testCtx(def, e, testPlayers(p))
-	ctx.Cast(testMeleeID)
+	ctx.Commit(testMeleeID)
 
 	// Kill the enemy
 	e.Alive = false
@@ -271,7 +271,7 @@ func TestRunner_AbortOnPhaseTransition(t *testing.T) {
 	p := testPlayer(1, entity.Vec3{X: 0, Z: 2})
 
 	ctx := testCtx(def, e, testPlayers(p))
-	ctx.Cast(testMeleeID)
+	ctx.Commit(testMeleeID)
 
 	// Phase transition
 	e.State = entity.EnemyPhaseTransition
@@ -293,8 +293,8 @@ func TestRunner_ChargeLifecycle(t *testing.T) {
 
 	ctx := testCtx(def, e, testPlayers(p))
 
-	if !ctx.Cast("charge") {
-		t.Fatal("Cast should succeed")
+	if !ctx.Commit("charge") {
+		t.Fatal("Commit should succeed")
 	}
 	if e.State != entity.EnemyChargeTelegraph {
 		t.Fatalf("expected ChargeTelegraph, got %d", e.State)
@@ -338,8 +338,8 @@ func TestRunner_CastWeighted(t *testing.T) {
 
 	ctx := testCtx(def, e, testPlayers(p))
 
-	if !ctx.CastWeighted() {
-		t.Fatal("CastWeighted should succeed")
+	if !ctx.CommitWeighted() {
+		t.Fatal("CommitWeighted should succeed")
 	}
 	if ctx.Runner.Phase != RunnerCommit {
 		t.Fatalf("expected RunnerCommit, got %d", ctx.Runner.Phase)
@@ -353,11 +353,11 @@ func TestRunner_CastUnknownAbility(t *testing.T) {
 
 	ctx := testCtx(def, e, nil)
 
-	if ctx.Cast("nonexistent") {
-		t.Error("Cast should fail for unknown ability")
+	if ctx.Commit("nonexistent") {
+		t.Error("Commit should fail for unknown ability")
 	}
 	if ctx.Runner.Phase != RunnerIdle {
-		t.Error("runner should stay idle after failed cast")
+		t.Error("runner should stay idle after failed commit")
 	}
 }
 
@@ -378,10 +378,10 @@ func TestRunner_ContextQueries(t *testing.T) {
 		t.Error("should return empty string when idle")
 	}
 
-	// After cast
-	ctx.Cast(testMeleeID)
+	// After commit
+	ctx.Commit(testMeleeID)
 	if !ctx.IsRunnerBusy() {
-		t.Error("should be busy after cast")
+		t.Error("should be busy after commit")
 	}
 	if ctx.CurrentAbilityID() != testMeleeID {
 		t.Errorf("expected 'melee', got %q", ctx.CurrentAbilityID())

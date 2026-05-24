@@ -7,31 +7,31 @@ import (
 
 // Compile-time interface compliance checks.
 var (
-	_ Caster      = (*Player)(nil)
+	_ Committer      = (*Player)(nil)
 	_ Target      = (*Player)(nil)
-	_ Caster      = (*Enemy)(nil)
+	_ Committer      = (*Enemy)(nil)
 	_ Target      = (*Enemy)(nil)
 	_ Threateable = (*Enemy)(nil)
 )
 
-// --- Enemy Caster interface ---
+// --- Enemy Committer interface ---
 
-func TestEnemyCasterID(t *testing.T) {
+func TestEnemyCommitterID(t *testing.T) {
 	e := NewEnemy(42, 100, "test")
-	if got := e.CasterID(); got != 42 {
-		t.Errorf("CasterID() = %d, want 42", got)
+	if got := e.CommitterID(); got != 42 {
+		t.Errorf("CommitterID() = %d, want 42", got)
 	}
 }
 
-func TestEnemyCasterPos(t *testing.T) {
+func TestEnemyCommitterPos(t *testing.T) {
 	e := NewEnemy(1, 100, "test")
 	e.Position = Vec3{X: 3, Y: 1, Z: -7}
-	if got := e.CasterPos(); got != e.Position {
-		t.Errorf("CasterPos() = %v, want %v", got, e.Position)
+	if got := e.CommitterPos(); got != e.Position {
+		t.Errorf("CommitterPos() = %v, want %v", got, e.Position)
 	}
 }
 
-func TestEnemyCasterForward(t *testing.T) {
+func TestEnemyCommitterForward(t *testing.T) {
 	tests := []struct {
 		name  string
 		rotY  float32
@@ -47,7 +47,7 @@ func TestEnemyCasterForward(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			e := NewEnemy(1, 100, "test")
 			e.RotationY = tt.rotY
-			fwd := e.CasterForward()
+			fwd := e.CommitterForward()
 
 			if math.Abs(float64(fwd.X-tt.wantX)) > 0.001 {
 				t.Errorf("forward.X = %f, want %f", fwd.X, tt.wantX)
@@ -62,9 +62,9 @@ func TestEnemyCasterForward(t *testing.T) {
 	}
 }
 
-func TestEnemyCasterForwardIsUnitVector(t *testing.T) {
+func TestEnemyCommitterForwardIsUnitVector(t *testing.T) {
 	for _, rotY := range []float32{0, 0.5, 1.0, 2.0, float32(math.Pi), -1.5} {
-		fwd := (&Enemy{Combatant: Combatant{RotationY: rotY}}).CasterForward()
+		fwd := (&Enemy{Combatant: Combatant{RotationY: rotY}}).CommitterForward()
 		length := fwd.Length()
 		if math.Abs(float64(length-1.0)) > 0.001 {
 			t.Errorf("rotY=%f: forward length = %f, want 1.0", rotY, length)
@@ -72,25 +72,25 @@ func TestEnemyCasterForwardIsUnitVector(t *testing.T) {
 	}
 }
 
-func TestEnemyCasterEyePos(t *testing.T) {
+func TestEnemyCommitterEyePos(t *testing.T) {
 	e := NewEnemy(1, 100, "test")
 	e.Position = Vec3{X: 5, Y: 0, Z: 10}
-	eye := e.CasterEyePos()
+	eye := e.CommitterEyePos()
 	want := Vec3{X: 5, Y: 1.5, Z: 10}
 	if eye != want {
-		t.Errorf("CasterEyePos() = %v, want %v", eye, want)
+		t.Errorf("CommitterEyePos() = %v, want %v", eye, want)
 	}
 }
 
-func TestEnemyCasterAimDirMatchesForward(t *testing.T) {
+func TestEnemyCommitterAimDirMatchesForward(t *testing.T) {
 	e := NewEnemy(1, 100, "test")
 	e.RotationY = 1.23
-	if e.CasterAimDir() != e.CasterForward() {
-		t.Error("CasterAimDir() should equal CasterForward() for enemies")
+	if e.CommitterAimDir() != e.CommitterForward() {
+		t.Error("CommitterAimDir() should equal CommitterForward() for enemies")
 	}
 }
 
-func TestEnemyCasterAlive(t *testing.T) {
+func TestEnemyCommitterAlive(t *testing.T) {
 	tests := []struct {
 		name  string
 		alive bool
@@ -108,17 +108,17 @@ func TestEnemyCasterAlive(t *testing.T) {
 			e := NewEnemy(1, 100, "test")
 			e.Alive = tt.alive
 			e.State = tt.state
-			if got := e.CasterAlive(); got != tt.want {
-				t.Errorf("CasterAlive() = %v, want %v", got, tt.want)
+			if got := e.CommitterAlive(); got != tt.want {
+				t.Errorf("CommitterAlive() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestEnemyCasterDamageMult(t *testing.T) {
+func TestEnemyCommitterDamageMult(t *testing.T) {
 	e := NewEnemy(1, 100, "test")
-	if got := e.CasterDamageMult(); got != 1.0 {
-		t.Errorf("CasterDamageMult() = %f, want 1.0", got)
+	if got := e.CommitterDamageMult(); got != 1.0 {
+		t.Errorf("CommitterDamageMult() = %f, want 1.0", got)
 	}
 }
 
@@ -171,31 +171,31 @@ func TestEnemyTargetApplyDamage_DeadReturnsZero(t *testing.T) {
 	}
 }
 
-// --- Player Caster/Target interface ---
+// --- Player Committer/Target interface ---
 
-func TestPlayerCasterID(t *testing.T) {
+func TestPlayerCommitterID(t *testing.T) {
 	p := NewPlayer(7, ClassGunner)
-	if got := p.CasterID(); got != 7 {
-		t.Errorf("CasterID() = %d, want 7", got)
+	if got := p.CommitterID(); got != 7 {
+		t.Errorf("CommitterID() = %d, want 7", got)
 	}
 }
 
-func TestPlayerCasterPos(t *testing.T) {
+func TestPlayerCommitterPos(t *testing.T) {
 	p := NewPlayer(1, ClassGunner)
 	p.Position = Vec3{X: 1, Y: 2, Z: 3}
-	if got := p.CasterPos(); got != p.Position {
-		t.Errorf("CasterPos() = %v, want %v", got, p.Position)
+	if got := p.CommitterPos(); got != p.Position {
+		t.Errorf("CommitterPos() = %v, want %v", got, p.Position)
 	}
 }
 
-func TestPlayerCasterAlive(t *testing.T) {
+func TestPlayerCommitterAlive(t *testing.T) {
 	p := NewPlayer(1, ClassGunner)
-	if !p.CasterAlive() {
-		t.Error("CasterAlive() should be true")
+	if !p.CommitterAlive() {
+		t.Error("CommitterAlive() should be true")
 	}
 	p.Alive = false
-	if p.CasterAlive() {
-		t.Error("CasterAlive() should be false when dead")
+	if p.CommitterAlive() {
+		t.Error("CommitterAlive() should be false when dead")
 	}
 }
 
@@ -213,13 +213,13 @@ func TestPlayerTargetApplyDamage(t *testing.T) {
 
 // --- Benchmarks ---
 
-func BenchmarkEnemyCasterForward(b *testing.B) {
+func BenchmarkEnemyCommitterForward(b *testing.B) {
 	e := NewEnemy(1, 100, "test")
 	e.RotationY = 1.23
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		_ = e.CasterForward()
+		_ = e.CommitterForward()
 	}
 }
 

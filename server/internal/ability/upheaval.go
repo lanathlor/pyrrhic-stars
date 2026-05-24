@@ -28,23 +28,23 @@ var upheavalTiers = [3]upheavalTuning{
 
 const upheavalStaminaCost float32 = 20
 
-func upheavalHandler(eng *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func upheavalHandler(eng *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "invalid caster"}
+		return CommitResult{Reason: "invalid caster"}
 	}
 	if p.Cooldowns["upheaval"] > 0 {
-		return CastResult{Reason: "cooldown"}
+		return CommitResult{Reason: "cooldown"}
 	}
 	if !p.SpendResource("stamina", upheavalStaminaCost*p.TenacityEfficiency()) {
-		return CastResult{Reason: ReasonInsufficientStamina}
+		return CommitResult{Reason: ReasonInsufficientStamina}
 	}
 
 	ons := getOnslaughtState(p)
 	tier := ons.Tier()
 	tuning := upheavalTiers[tier]
 
-	damage := tuning.damage * p.CasterDamageMult() * ons.DamageMult(p.GearStats.Mastery)
+	damage := tuning.damage * p.CommitterDamageMult() * ons.DamageMult(p.GearStats.Mastery)
 
 	hit := HitDef{Type: HitAoECone, Range: 7, ArcDegrees: tuning.arc}
 	eng.hitBuf = resolveAoECone(eng.hitBuf, p, ctx.Targets, ctx.Obstacles, hit, damage, combat.SourcePlayerAttack)
@@ -61,7 +61,7 @@ func upheavalHandler(eng *Engine, ctx *CastContext) CastResult {
 				EnemyID:    evt.TargetID,
 				SourcePeer: p.ID,
 				AbilityID:  "upheaval",
-				Damage:     10.0 * p.CasterDamageMult(),
+				Damage:     10.0 * p.CommitterDamageMult(),
 				Remaining:  3.0,
 				Interval:   1.0,
 				TickTimer:  1.0,
@@ -80,5 +80,5 @@ func upheavalHandler(eng *Engine, ctx *CastContext) CastResult {
 	p.GCDTimer = tuning.lockout
 	p.State = entity.PlayerStateAttack
 
-	return CastResult{OK: true, Events: eng.hitBuf}
+	return CommitResult{OK: true, Events: eng.hitBuf}
 }

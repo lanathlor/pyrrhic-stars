@@ -103,7 +103,7 @@ func update_animation() -> void:
 			return
 		ctrl.State.CASTING:
 			ctrl._visual_state = NetSerializer.VS_BD_CASTING
-			var dur: float = ctrl._casting_spell.get("dur", 0.4)
+			var dur: float = ctrl._committing_ability.get("dur", 0.4)
 			ctrl.character_model.travel_timed("casting", dur)
 			return
 		ctrl.State.STAGGER:

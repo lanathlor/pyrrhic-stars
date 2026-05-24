@@ -40,7 +40,7 @@ func _scene_root() -> Node:
 	return ctrl.get_tree().current_scene if ctrl.get_tree() else null
 
 
-# --- Cast Flash (any direct spell) ---
+# --- Cast Flash (any direct ability) ---
 
 
 func spawn_cast_flash() -> void:

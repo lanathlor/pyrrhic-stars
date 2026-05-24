@@ -7,16 +7,16 @@ var overclockDef = AbilityDef{
 	Handler: "overclock",
 }
 
-func overclockHandler(_ *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func overclockHandler(_ *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "invalid caster"}
+		return CommitResult{Reason: "invalid caster"}
 	}
 	if p.HasBuff("overclock") {
-		return CastResult{Reason: "already active"}
+		return CommitResult{Reason: "already active"}
 	}
 	if cd := p.Cooldowns["overclock"]; cd > 0 {
-		return CastResult{Reason: "cooldown"}
+		return CommitResult{Reason: "cooldown"}
 	}
 	p.AddBuff(entity.ActiveBuff{
 		ID:       "overclock",
@@ -25,5 +25,5 @@ func overclockHandler(_ *Engine, ctx *CastContext) CastResult {
 		Duration: 7.0,
 	})
 	p.Cooldowns["overclock"] = 15.0
-	return CastResult{OK: true}
+	return CommitResult{OK: true}
 }

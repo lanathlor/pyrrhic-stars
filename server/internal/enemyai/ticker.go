@@ -16,7 +16,7 @@ type BrainTicker interface {
 	Enemy() *entity.Enemy
 
 	// Debug / dev mode methods.
-	ForceCast(abilityID string) bool
+	ForceCommit(abilityID string) bool
 	AbilityIDs() []string
 	DefName() string
 }

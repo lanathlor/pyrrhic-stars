@@ -9,12 +9,12 @@ func TestHarmonistDefaultLoadout(t *testing.T) {
 		action uint8
 		want   string
 	}{
-		{50, "mending_surge"},
+		{50, "siphon_pulse"},
 		{51, "mending_beam"},
-		{52, "vital_bloom"},
+		{52, "mending_surge"},
 		{53, "restoration_matrix"},
 		{54, "life_swap"},
-		{55, "transfusion"},
+		{55, "vital_drain"},
 	}
 	for _, tc := range tests {
 		got, ok := p.ActionMap[tc.action]
@@ -28,17 +28,17 @@ func TestHarmonistDefaultLoadout(t *testing.T) {
 	}
 }
 
-func TestApplySpellbookUpdatesActionMap(t *testing.T) {
+func TestApplyLoadoutUpdatesActionMap(t *testing.T) {
 	p := NewPlayer(1, ClassArcanotechnicien)
 
 	// Verify the initial state from default loadout.
-	if p.ActionMap[50] != "mending_surge" {
-		t.Fatalf("precondition: ActionMap[50] = %q, want mending_surge", p.ActionMap[50])
+	if p.ActionMap[50] != "siphon_pulse" {
+		t.Fatalf("precondition: ActionMap[50] = %q, want siphon_pulse", p.ActionMap[50])
 	}
 
-	// Overwrite the spellbook and re-apply.
-	p.Spellbook.Slots[0] = "new_heal_spell"
-	p.ApplySpellbook()
+	// Overwrite the loadout and re-apply.
+	p.Loadout.Slots[0] = "new_heal_spell"
+	p.ApplyLoadout()
 
 	if p.ActionMap[50] != "new_heal_spell" {
 		t.Errorf("ActionMap[50] = %q, want new_heal_spell after re-apply", p.ActionMap[50])
@@ -50,7 +50,7 @@ func TestApplySpellbookUpdatesActionMap(t *testing.T) {
 	}
 }
 
-func TestSpellbookSlotChangeUpdatesActionMap(t *testing.T) {
+func TestLoadoutSlotChangeUpdatesActionMap(t *testing.T) {
 	tests := []struct {
 		name    string
 		slot    int
@@ -67,8 +67,8 @@ func TestSpellbookSlotChangeUpdatesActionMap(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			p := NewPlayer(1, ClassArcanotechnicien)
-			p.Spellbook.Slots[tc.slot] = tc.ability
-			p.ApplySpellbook()
+			p.Loadout.Slots[tc.slot] = tc.ability
+			p.ApplyLoadout()
 			if p.ActionMap[tc.action] != tc.ability {
 				t.Errorf("ActionMap[%d] = %q, want %q", tc.action, p.ActionMap[tc.action], tc.ability)
 			}
@@ -76,22 +76,24 @@ func TestSpellbookSlotChangeUpdatesActionMap(t *testing.T) {
 	}
 }
 
-func TestDodgeStillWorksAfterSpellbook(t *testing.T) {
-	p := NewPlayer(1, ClassArcanotechnicien)
+func TestDodgeStillWorksAfterLoadout(t *testing.T) {
+	// Gunner has dodge mapped in ActionMap (arcanotechnicien handles dodge
+	// as a special case in InputSystem, not through ActionMap).
+	p := NewPlayer(1, ClassGunner)
 
 	got, ok := p.ActionMap[3]
 	if !ok {
-		t.Fatal("ActionMap[3] (dodge) missing after spellbook application")
+		t.Fatal("ActionMap[3] (dodge) missing after loadout application")
 	}
 	if got != "dodge" {
 		t.Errorf("ActionMap[3] = %q, want dodge", got)
 	}
 }
 
-func TestApplySpellbookNilIsNoop(t *testing.T) {
+func TestApplyLoadoutNilIsNoop(t *testing.T) {
 	p := NewPlayer(1, ClassGunner)
-	// Gunner has no spellbook; calling ApplySpellbook should not panic.
-	p.ApplySpellbook()
+	// Gunner has no loadout; calling ApplyLoadout should not panic.
+	p.ApplyLoadout()
 
 	// Verify ActionMap is unchanged (gunner action 0 = fire_shot).
 	if p.ActionMap[0] != "fire_shot" {
@@ -99,43 +101,43 @@ func TestApplySpellbookNilIsNoop(t *testing.T) {
 	}
 }
 
-func TestSpellbookEmptySlotsSkipped(t *testing.T) {
+func TestLoadoutEmptySlotsSkipped(t *testing.T) {
 	p := NewPlayer(1, ClassArcanotechnicien)
 
 	// Clear a slot and re-apply.
-	p.Spellbook.Slots[2] = ""
+	p.Loadout.Slots[2] = ""
 	// First, delete the key so we can verify it doesn't get re-added.
 	delete(p.ActionMap, 52)
-	p.ApplySpellbook()
+	p.ApplyLoadout()
 
 	if _, ok := p.ActionMap[52]; ok {
-		t.Error("ActionMap[52] should not be set for empty spellbook slot")
+		t.Error("ActionMap[52] should not be set for empty loadout slot")
 	}
 
 	// Non-empty slots should still be present.
-	if p.ActionMap[50] != "mending_surge" {
-		t.Errorf("ActionMap[50] = %q, want mending_surge", p.ActionMap[50])
+	if p.ActionMap[50] != "siphon_pulse" {
+		t.Errorf("ActionMap[50] = %q, want siphon_pulse", p.ActionMap[50])
 	}
 }
 
-func TestSpellbookIsolationBetweenPlayers(t *testing.T) {
+func TestLoadoutIsolationBetweenPlayers(t *testing.T) {
 	p1 := NewPlayer(1, ClassArcanotechnicien)
 	p2 := NewPlayer(2, ClassArcanotechnicien)
 
-	// Mutate p1's spellbook.
-	p1.Spellbook.Slots[0] = "custom_spell"
-	p1.ApplySpellbook()
+	// Mutate p1's loadout.
+	p1.Loadout.Slots[0] = "custom_spell"
+	p1.ApplyLoadout()
 
 	// p2 should still have the default.
-	if p2.ActionMap[50] != "mending_surge" {
-		t.Errorf("p2 ActionMap[50] = %q, want mending_surge (p1 mutation leaked)", p2.ActionMap[50])
+	if p2.ActionMap[50] != "siphon_pulse" {
+		t.Errorf("p2 ActionMap[50] = %q, want siphon_pulse (p1 mutation leaked)", p2.ActionMap[50])
 	}
-	if p2.Spellbook.Slots[0] != "mending_surge" {
-		t.Errorf("p2 Spellbook.Slots[0] = %q, want mending_surge (p1 mutation leaked)", p2.Spellbook.Slots[0])
+	if p2.Loadout.Slots[0] != "siphon_pulse" {
+		t.Errorf("p2 Loadout.Slots[0] = %q, want siphon_pulse (p1 mutation leaked)", p2.Loadout.Slots[0])
 	}
 }
 
-func TestNonArcanotechnicienHasNoSpellbook(t *testing.T) {
+func TestNonArcanotechnicienHasNoLoadout(t *testing.T) {
 	tests := []struct {
 		name  string
 		class string
@@ -147,8 +149,8 @@ func TestNonArcanotechnicienHasNoSpellbook(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			p := NewPlayer(1, tc.class)
-			if p.Spellbook != nil {
-				t.Errorf("%s should have nil Spellbook", tc.class)
+			if p.Loadout != nil {
+				t.Errorf("%s should have nil Loadout", tc.class)
 			}
 		})
 	}

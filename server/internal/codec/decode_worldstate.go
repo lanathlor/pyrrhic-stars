@@ -8,6 +8,11 @@ type DecodedWorldState struct {
 	Projectiles []DecodedProjectile
 }
 
+// DecodedFluxPool holds a single school's flux pool from a WorldState frame.
+type DecodedFluxPool struct {
+	Current, Max float32
+}
+
 // DecodedPlayer holds per-player fields from a WorldState frame.
 type DecodedPlayer struct {
 	PeerID               uint16
@@ -29,6 +34,8 @@ type DecodedPlayer struct {
 	// Gunner Assault state
 	Magazine, MagMax, StabilityQ, SteadinessQ, PressureStacks, EnhancedLoaded, AssaultFlags uint8
 	SpeedMultQ uint8 // quantized 0-255 → 0.0-1.0
+	// Flux commitment pools (fixed order: bioarcanotechnic, biometabolic, frost, aerokinetic)
+	FluxPools []DecodedFluxPool
 }
 
 // DecodedEnemy holds per-enemy fields from a WorldState frame.
@@ -173,6 +180,24 @@ func DecodeWorldState(buf []byte) (DecodedWorldState, bool) {
 		}
 		p.SpeedMultQ = buf[off]
 		off++
+		// Flux commitment pools
+		if off >= len(buf) {
+			return ws, false
+		}
+		poolCount := int(buf[off])
+		off++
+		if poolCount > 0 {
+			if off+poolCount*8 > len(buf) {
+				return ws, false
+			}
+			p.FluxPools = make([]DecodedFluxPool, poolCount)
+			for pi := range poolCount {
+				p.FluxPools[pi].Current = getF32(buf[off:])
+				off += 4
+				p.FluxPools[pi].Max = getF32(buf[off:])
+				off += 4
+			}
+		}
 	}
 
 	// Enemies

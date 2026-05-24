@@ -59,13 +59,13 @@ const CLASS_INFO := {
 	{
 		"name": "Blade Dancer",
 		"genre": "State Machine",
-		"desc": "5 configurations, 4 spells each.\nHighest skill ceiling."
+		"desc": "5 configurations, 4 abilities each.\nHighest skill ceiling."
 	},
 	"arcanotechnicien":
 	{
 		"name": "Arcanotechnicien",
 		"genre": "Tactical Caster",
-		"desc": "6 prepared spells, Flux channeling.\nPosition, channel, protect."
+		"desc": "6 prepared abilities, Flux channeling.\nPosition, channel, protect."
 	},
 }
 const SPEC_INFO := {
@@ -109,12 +109,12 @@ const SPEC_INFO := {
 	],
 	"arcanotechnicien": [
 		{"id": "destroyer", "name": "Destroyer", "role": "DPS", "target": "AoE", "damage": "Burst",
-		 "desc": "Massive AoE burst. Long channels, Overcharge risk/reward.\nGlass cannon with devastating spells.",
+		 "desc": "Massive AoE burst. Long channels, Overcharge risk/reward.\nGlass cannon with devastating abilities.",
 		 "mastery": "Overcharge — hold past completion for bonus damage. Miss the window, suffer backlash.",
 		 "implemented": false},
 		{"id": "battlemage", "name": "Battlemage", "role": "DPS", "target": "Monotarget", "damage": "Constant",
-		 "desc": "Melee-range hybrid. Alternate strikes and spells.\nWarrior-mage in constant motion.",
-		 "mastery": "Weave — alternating weapon strikes and spells stacks damage bonus (max 8).",
+		 "desc": "Melee-range hybrid. Alternate strikes and abilities.\nWarrior-mage in constant motion.",
+		 "mastery": "Weave — alternating weapon strikes and abilities stacks damage bonus (max 8).",
 		 "implemented": false},
 		{"id": "harmonist", "name": "Harmonist", "role": "Healer", "target": "Ally", "damage": "",
 		 "desc": "Flux-based positional healer. Zone, Beam, Direct.\nRedistribute life force, not whack-a-mole.",

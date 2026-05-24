@@ -28,6 +28,7 @@ type CompSpec struct {
 	Classes  []string   `yaml:"classes"`
 	Specs    []string   `yaml:"specs"`    // spec IDs (empty string = class default)
 	Profiles []string   `yaml:"profiles"`
+	Loadouts [][]string `yaml:"loadouts"` // optional per-player ability loadouts
 	WinRate  *RangeSpec `yaml:"win_rate"` // optional per-comp win rate assertion
 }
 
@@ -99,10 +100,15 @@ func (cs CompSpec) ToPartyConfigs() []PuppetConfig {
 		if i < len(cs.Specs) {
 			spec = cs.Specs[i]
 		}
+		var loadout []string
+		if i < len(cs.Loadouts) && len(cs.Loadouts[i]) > 0 {
+			loadout = cs.Loadouts[i]
+		}
 		configs[i] = PuppetConfig{
 			Class:   cs.Classes[i],
 			Spec:    spec,
 			Profile: profile,
+			Loadout: loadout,
 		}
 	}
 	return configs
@@ -144,6 +150,7 @@ func (cs CompSpec) expandSpecs() []CompSpec {
 			Classes:  cs.Classes,
 			Specs:    specs,
 			Profiles: cs.Profiles,
+			Loadouts: cs.Loadouts,
 			WinRate:  cs.WinRate,
 		}
 	}

@@ -19,10 +19,10 @@ var lifeSwapDef = AbilityDef{
 	Delivery: uint8(entity.DeliveryDirect),
 }
 
-func lifeSwapHandler(_ *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func lifeSwapHandler(_ *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "not a player"}
+		return CommitResult{Reason: "not a player"}
 	}
 
 	var target *entity.Player
@@ -32,7 +32,7 @@ func lifeSwapHandler(_ *Engine, ctx *CastContext) CastResult {
 		}
 	}
 	if target == nil {
-		return CastResult{Reason: "no valid target"}
+		return CommitResult{Reason: "no valid target"}
 	}
 
 	drain := target.Health * 0.20
@@ -40,10 +40,10 @@ func lifeSwapHandler(_ *Engine, ctx *CastContext) CastResult {
 		drain = target.Health - 1
 	}
 	if drain <= 0 {
-		return CastResult{Reason: "target too low"}
+		return CommitResult{Reason: "target too low"}
 	}
 
-	p.SpendResource("flux", lifeSwapDef.Costs[0].Amount)
+	p.SpendFluxBySchool(lifeSwapDef.School, lifeSwapDef.Costs[0].Amount)
 	target.Health -= drain
 
 	p.VitalCharge = drain
@@ -52,10 +52,10 @@ func lifeSwapHandler(_ *Engine, ctx *CastContext) CastResult {
 	p.GCDTimer = lifeSwapDef.GCD
 
 	if p.Confluence != nil {
-		p.Confluence.OnSpellComplete()
+		p.Confluence.OnAbilityComplete()
 	}
 
-	return CastResult{
+	return CommitResult{
 		OK: true,
 		Heals: []HealResult{{
 			TargetID:   target.ID,

@@ -24,7 +24,7 @@ type EntityContext struct {
 	Players       []*entity.Player
 	Obs           []combat.Obstacle
 	SpawnFn       func(pos, dir entity.Vec3, speed, damage, lifetime float32)
-	CastPatternFn func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3)
+	CommitPatternFn func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3)
 	Events        *[]combat.DamageEvent
 
 	// Runner owns the ability commit→execute→cooldown lifecycle.
@@ -44,20 +44,20 @@ type EntityContext struct {
 
 	// Reusable buffers
 	targetBuf []entity.Target
-	castCtx   ability.CastContext
+	commitCtx   ability.CommitContext
 }
 
 // Reset prepares the context for a new tick. Clears cached queries.
 func (ctx *EntityContext) Reset(dt float32, players []*entity.Player,
 	obstacles []combat.Obstacle,
 	spawnFn func(pos, dir entity.Vec3, speed, damage, lifetime float32),
-	castPatternFn func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3),
+	commitPatternFn func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3),
 	events *[]combat.DamageEvent) {
 	ctx.Dt = dt
 	ctx.Players = players
 	ctx.Obs = obstacles
 	ctx.SpawnFn = spawnFn
-	ctx.CastPatternFn = castPatternFn
+	ctx.CommitPatternFn = commitPatternFn
 	ctx.Events = events
 	ctx.nearestCached = false
 	ctx.farthestCached = false
@@ -281,16 +281,16 @@ func (ctx *EntityContext) ResolveCurrentAbility() ability.AbilityDef {
 	return ctx.Def.ResolveAbility(abil, ctx.Enemy.Phase)
 }
 
-// CastMeleeOrAoE resolves a melee/AoE hit via the ability engine and appends damage events.
-func (ctx *EntityContext) CastMeleeOrAoE(resolved ability.AbilityDef) {
+// CommitMeleeOrAoE resolves a melee/AoE hit via the ability engine and appends damage events.
+func (ctx *EntityContext) CommitMeleeOrAoE(resolved ability.AbilityDef) {
 	ctx.fillTargets()
 
-	ctx.castCtx.Caster = ctx.Enemy
-	ctx.castCtx.Targets = ctx.targetBuf
-	ctx.castCtx.Obstacles = ctx.Obs
-	ctx.castCtx.SourceType = resolved.DamageSource
+	ctx.commitCtx.Committer = ctx.Enemy
+	ctx.commitCtx.Targets = ctx.targetBuf
+	ctx.commitCtx.Obstacles = ctx.Obs
+	ctx.commitCtx.SourceType = resolved.DamageSource
 
-	result := ctx.Engine.CastDef(&resolved, &ctx.castCtx)
+	result := ctx.Engine.CommitDef(&resolved, &ctx.commitCtx)
 	for _, r := range result.Events {
 		*ctx.Events = append(*ctx.Events, combat.DamageEvent{
 			TargetPeerID: r.TargetID,
@@ -315,8 +315,8 @@ func (ctx *EntityContext) SpawnProjectiles(resolved ability.AbilityDef) {
 	baseDir := e.RangedTargetPos.Sub(origin).Normalized()
 
 	// Pattern engine path: multi-wave bullet-hell patterns
-	if resolved.Pattern != nil && ctx.CastPatternFn != nil {
-		ctx.CastPatternFn(resolved.Pattern, resolved.Name, origin, baseDir)
+	if resolved.Pattern != nil && ctx.CommitPatternFn != nil {
+		ctx.CommitPatternFn(resolved.Pattern, resolved.Name, origin, baseDir)
 		return
 	}
 
@@ -349,13 +349,13 @@ func (ctx *EntityContext) EnterCooldown() {
 
 // --- Runner API (BT interface) ---
 
-// Cast initiates an ability by ID. Returns true if accepted (runner was idle).
-func (ctx *EntityContext) Cast(abilityID string) bool {
+// Commit initiates an ability by ID. Returns true if accepted (runner was idle).
+func (ctx *EntityContext) Commit(abilityID string) bool {
 	return ctx.Runner.Start(ctx, abilityID)
 }
 
-// CastWeighted does weighted random selection then Cast. Returns true if cast started.
-func (ctx *EntityContext) CastWeighted() bool {
+// CommitWeighted does weighted random selection then Commit. Returns true if commit started.
+func (ctx *EntityContext) CommitWeighted() bool {
 	target := ctx.TargetPlayer()
 	if target == nil {
 		return false

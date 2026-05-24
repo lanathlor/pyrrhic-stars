@@ -14,28 +14,42 @@ var mendingBeamDef = AbilityDef{
 	ExecuteTime: 0.1,
 	GCD:         0.5,
 	Costs: []ResourceCost{
-		{Resource: "flux", Amount: 10}, // cost per second during channel
+		{Resource: "flux", Amount: 8}, // cost per second during channel
 	},
-	BaseHeal:         15, // heal per tick during channel
+	BaseHeal:         12, // heal per tick during channel
 	HealScaling:      "identity",
 	Delivery:         uint8(entity.DeliveryBeam),
 	Handler:          "mending_beam",
 	OnCommitTick:     "mending_beam",
 	CancelConditions: uint8(CancelOnMove) | uint8(CancelOnDamage),
+
+	Sustain:           true,
+	SustainCostPerSec: 8,
+	SustainEffect:     12,
+	SustainInterval:   0.5,
+	SustainScaling:    0.05,
+	SustainCooldown:   10.0,
 }
 
-// mendingBeamHandler validates the initial cast of Mending Beam.
+// mendingBeamHandler validates the initial commit of Mending Beam.
 // Resource spending per tick happens in the OnCommitTick handler.
-func mendingBeamHandler(_ *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func mendingBeamHandler(_ *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "not a player"}
+		return CommitResult{Reason: "not a player"}
 	}
 
-	flux := p.Resources["flux"]
-	if flux == nil || flux.Current < 10 {
-		return CastResult{Reason: "insufficient flux"}
+	if p.FluxCommit != nil && len(p.FluxCommit.Pools) > 0 {
+		pool := p.FluxCommit.GetPool(mendingBeamDef.School)
+		if pool == nil || pool.Current < mendingBeamDef.Costs[0].Amount*p.AffinityCostMult(mendingBeamDef.School) {
+			return CommitResult{Reason: "insufficient " + mendingBeamDef.School + " flux"}
+		}
+	} else {
+		flux := p.Resources["flux"]
+		if flux == nil || flux.Current < mendingBeamDef.Costs[0].Amount {
+			return CommitResult{Reason: "insufficient flux"}
+		}
 	}
 
-	return CastResult{OK: true}
+	return CommitResult{OK: true}
 }

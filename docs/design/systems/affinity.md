@@ -1,6 +1,6 @@
 # Affinity System
 
-Affinities determine what weapons and spells a character can use. Two types:
+Affinities determine what weapons and abilities a character can use. Two types:
 
 - General affinities: A.CAC (melee), A.Dist (ranged), A.Arc (arcanotechnique)
 - Specific affinities: A.Sword, A.Sniper, A.School[Givre], A.Type[Destruction], etc.

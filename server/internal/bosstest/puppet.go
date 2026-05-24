@@ -31,7 +31,7 @@ type ProfileParams struct {
 	DodgeGreed   float32 // seconds melee puppets keep attacking before dodging (uptime optimization)
 
 	// Rotation quality
-	RotationDelay float32 // max random wasted time between casts (seconds)
+	RotationDelay float32 // max random wasted time between commits (seconds)
 	CooldownWaste float32 // probability of skipping an off-CD ability this tick
 	DefensiveUse  float32 // probability of using defensives during telegraph
 
@@ -49,18 +49,20 @@ var profileTable = map[BotProfile]ProfileParams{
 
 // Preferred range per class (how far the puppet wants to stand from the boss).
 var classPreferredRange = map[string]float32{
-	entity.ClassGunner:      10.0,
-	entity.ClassVanguard:    2.5,
-	entity.ClassBladeDancer: 3.0,
+	entity.ClassGunner:            10.0,
+	entity.ClassVanguard:          2.5,
+	entity.ClassBladeDancer:       3.0,
+	entity.ClassArcanotechnicien:  7.0, // mid-range for Sympathetic Field coverage
 }
 
 // classSafetyScale reduces SafetyMargin for melee classes.
 // Melee classes need 0 margin — dodging happens at exact danger boundary.
 // SafetyMargin only helps ranged classes (wider buffer at no DPS cost).
 var classSafetyScale = map[string]float32{
-	entity.ClassGunner:      1.0,
-	entity.ClassVanguard:    0.3,
-	entity.ClassBladeDancer: 0.3,
+	entity.ClassGunner:            1.0,
+	entity.ClassVanguard:          0.3,
+	entity.ClassBladeDancer:       0.3,
+	entity.ClassArcanotechnicien:  0.8, // mostly ranged but needs to be near allies
 }
 
 // PuppetContext is the tick context passed to puppet BT leaves.
@@ -91,7 +93,7 @@ type PlayerPuppet struct {
 	lastBossState       entity.EnemyState
 	telegraphElapsed    float32 // time since last telegraph onset
 	dodgedThisTelegraph bool    // already dodged during current telegraph (prevents continuous dodging)
-	rotationWait        float32 // artificial delay before next cast
+	rotationWait        float32 // artificial delay before next commit
 }
 
 // NewPuppet creates a player puppet with the given profile and seeded RNG.
@@ -334,16 +336,16 @@ func (pp *PlayerPuppet) MovePerpendicular(threatDir entity.Vec3, dt float32) {
 	pp.Player.Position = pp.Player.Position.Add(perp.Scale(pp.Params.MoveSpeed * dt))
 }
 
-// TryCast pushes an ability input into the World's input queue.
+// TryCommit pushes an ability input into the World's input queue.
 // Returns true if the ability is expected to succeed (off cooldown, no GCD).
-func (pp *PlayerPuppet) TryCast(ctx *PuppetContext, abilityID string) bool {
-	// Rotation delay: simulate human hesitation between casts
+func (pp *PlayerPuppet) TryCommit(ctx *PuppetContext, abilityID string) bool {
+	// Rotation delay: simulate human hesitation between commits
 	if pp.rotationWait > 0 {
 		pp.rotationWait -= ctx.Dt
 		return false
 	}
 
-	// Cooldown waste: sometimes skip casting even when available
+	// Cooldown waste: sometimes skip committing even when available
 	if pp.Params.CooldownWaste > 0 && pp.Rng.Float32() < pp.Params.CooldownWaste {
 		return false
 	}
@@ -368,15 +370,50 @@ func (pp *PlayerPuppet) TryCast(ctx *PuppetContext, abilityID string) bool {
 		Payload: payload,
 	})
 
-	// Roll rotation delay for next cast
+	// Roll rotation delay for next commit
 	if pp.Params.RotationDelay > 0 {
 		pp.rotationWait = pp.Rng.Float32() * pp.Params.RotationDelay
 	}
 	return true
 }
 
-// CanCast checks if an ability is ready (off cooldown and GCD clear).
-func (pp *PlayerPuppet) CanCast(abilityID string) bool {
+// TryCommitTargeted pushes an ability input with an ally target into the input queue.
+// Used for heal abilities that need HitAllyTarget (mending_surge, mending_beam, etc.).
+func (pp *PlayerPuppet) TryCommitTargeted(ctx *PuppetContext, abilityID string, targetPeerID uint16) bool {
+	if pp.rotationWait > 0 {
+		pp.rotationWait -= ctx.Dt
+		return false
+	}
+	if pp.Params.CooldownWaste > 0 && pp.Rng.Float32() < pp.Params.CooldownWaste {
+		return false
+	}
+	if pp.Player.GCDTimer > 0 {
+		return false
+	}
+	if cd, ok := pp.Player.Cooldowns[abilityID]; ok && cd > 0 {
+		return false
+	}
+
+	action, ok := abilityNameToAction(pp.Player, abilityID)
+	if !ok {
+		return false
+	}
+
+	payload := codec.EncodeAbilityInputWithTarget(action, pp.Player.AimPitch, pp.Player.RotationY, targetPeerID)
+	ctx.World.InputQueue = append(ctx.World.InputQueue, system.InputMsg{
+		PeerID:  pp.Player.ID,
+		Opcode:  message.OpAbilityInput,
+		Payload: payload,
+	})
+
+	if pp.Params.RotationDelay > 0 {
+		pp.rotationWait = pp.Rng.Float32() * pp.Params.RotationDelay
+	}
+	return true
+}
+
+// CanCommit checks if an ability is ready (off cooldown and GCD clear).
+func (pp *PlayerPuppet) CanCommit(abilityID string) bool {
 	p := pp.Player
 	if p.GCDTimer > 0 {
 		return false
@@ -409,4 +446,86 @@ func isExecuteState(s entity.EnemyState) bool {
 		s == entity.EnemyRangedAttack ||
 		s == entity.EnemyAoESlam ||
 		s == entity.EnemyCharge
+}
+
+// --- PuppetContext ally helpers (used by healer BT leaves) ---
+
+// LowestHPAlly returns the alive puppet with the lowest HP percentage, excluding self.
+func (c *PuppetContext) LowestHPAlly() *PlayerPuppet {
+	var best *PlayerPuppet
+	bestPct := float32(2.0) // > 100%
+	for _, pp := range c.AllPuppets {
+		if pp == c.Puppet || !pp.Player.Alive {
+			continue
+		}
+		pct := pp.Player.Health / pp.Player.MaxHealth
+		if pct < bestPct {
+			bestPct = pct
+			best = pp
+		}
+	}
+	return best
+}
+
+// HealthiestAlly returns the alive puppet with the highest HP, excluding self.
+func (c *PuppetContext) HealthiestAlly() *PlayerPuppet {
+	var best *PlayerPuppet
+	bestHP := float32(-1)
+	for _, pp := range c.AllPuppets {
+		if pp == c.Puppet || !pp.Player.Alive {
+			continue
+		}
+		if pp.Player.Health > bestHP {
+			bestHP = pp.Player.Health
+			best = pp
+		}
+	}
+	return best
+}
+
+// TankAlly returns the first alive vanguard/shield puppet.
+func (c *PuppetContext) TankAlly() *PlayerPuppet {
+	for _, pp := range c.AllPuppets {
+		if pp == c.Puppet || !pp.Player.Alive {
+			continue
+		}
+		if pp.Player.ClassID == entity.ClassVanguard && pp.Player.SpecID == "shield" {
+			return pp
+		}
+	}
+	return nil
+}
+
+// AnyAllyBelowPct returns true if any alive ally is below the given HP percentage.
+func (c *PuppetContext) AnyAllyBelowPct(pct float32) bool {
+	for _, pp := range c.AllPuppets {
+		if pp == c.Puppet || !pp.Player.Alive {
+			continue
+		}
+		if pp.Player.Health/pp.Player.MaxHealth < pct {
+			return true
+		}
+	}
+	return false
+}
+
+// AllyCentroid returns the average position of all alive allies (including self).
+func (c *PuppetContext) AllyCentroid() entity.Vec3 {
+	var sum entity.Vec3
+	count := 0
+	for _, pp := range c.AllPuppets {
+		if !pp.Player.Alive {
+			continue
+		}
+		sum = sum.Add(pp.Player.Position)
+		count++
+	}
+	if count == 0 {
+		return c.Puppet.Player.Position
+	}
+	return entity.Vec3{
+		X: sum.X / float32(count),
+		Y: sum.Y / float32(count),
+		Z: sum.Z / float32(count),
+	}
 }

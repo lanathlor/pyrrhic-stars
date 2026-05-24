@@ -26,6 +26,10 @@ func handleServerMessage(gw *gateway, sess *session.Session, opcode uint16, payl
 		gw.handleInventoryMessage(sess, opcode, payload)
 		return
 	}
+	if message.IsLoadoutRelated(opcode) {
+		gw.handleLoadoutMessage(sess, opcode, payload)
+		return
+	}
 
 	switch opcode {
 	case message.OpJoinZone:

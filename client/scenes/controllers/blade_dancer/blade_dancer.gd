@@ -1,9 +1,9 @@
 extends CharacterBody3D
 
 ## Blade Dancer -- Positional state machine controller.
-## 5 blade configurations, 20 transition spells (4 per config).
+## 5 blade configurations, 20 transition abilities (4 per config).
 ## Third-person target-lock camera, no cooldowns, small GCD.
-## Sub-systems: spells, movement, blades, cam (child nodes).
+## Sub-systems: abilities, movement, blades, cam (child nodes).
 
 signal died
 
@@ -17,18 +17,18 @@ const NET_INTERP_SPEED := 15.0
 const BLADE_SCENE := "res://assets/models/weapons/weapon_floating_blade.glb"
 const TELEGRAPH_COLOR := Color(0.2, 0.75, 0.9, 0.4)
 
-# Input actions mapped to spell slots 0-3
-const SPELL_SLOT_ACTIONS: Array[StringName] = [
+# Input actions mapped to ability slots 0-3
+const ABILITY_SLOT_ACTIONS: Array[StringName] = [
 	&"light_attack",  # slot 0 -- LMB
 	&"block",  # slot 1 -- RMB
 	&"heavy_attack",  # slot 2 -- R
 	&"ability_2",  # slot 3 -- T
 ]
 
-## All 20 transition spells. SPELL_TABLE[origin_config][slot] -> spell dict.
-## Each spell transitions from origin_config to dest config.
+## All 20 transition abilities. ABILITY_TABLE[origin_config][slot] -> ability dict.
+## Each ability transitions from origin_config to dest config.
 ## action_id = 30 + origin_config * 4 + slot
-const SPELL_TABLE := {
+const ABILITY_TABLE := {
 	Config.ORBIT:
 	[
 		{
@@ -44,7 +44,7 @@ const SPELL_TABLE := {
 			name = "Protected Scatter",
 			dest = Config.SCATTER,
 			dur = 0.4,
-			action_id = 32,
+			action_id = 31,
 			telegraph = "none",
 			desc = "5 dmg x3 nearest. 1.5/tick DoT 12s. 10% DR."
 		},
@@ -52,7 +52,7 @@ const SPELL_TABLE := {
 			name = "Guarded Thrust",
 			dest = Config.LANCE,
 			dur = 0.3,
-			action_id = 31,
+			action_id = 32,
 			telegraph = "none",
 			desc = "25 dmg single. +8 shield."
 		},
@@ -81,7 +81,7 @@ const SPELL_TABLE := {
 			name = "Slashing Spread",
 			dest = Config.SCATTER,
 			dur = 0.4,
-			action_id = 36,
+			action_id = 35,
 			telegraph = "circle_target",
 			radius = 5.0,
 			desc = "8 dmg AoE at target (5m). 1.5/tick DoT 10s."
@@ -90,7 +90,7 @@ const SPELL_TABLE := {
 			name = "Cleaving Pierce",
 			dest = Config.LANCE,
 			dur = 0.3,
-			action_id = 35,
+			action_id = 36,
 			telegraph = "none",
 			desc = "30 dmg single target."
 		},
@@ -115,14 +115,6 @@ const SPELL_TABLE := {
 			desc = "18 dmg single. +15 shield."
 		},
 		{
-			name = "Targeted Spread",
-			dest = Config.SCATTER,
-			dur = 0.4,
-			action_id = 40,
-			telegraph = "none",
-			desc = "12 dmg single. 2.0/tick DoT 15s."
-		},
-		{
 			name = "Focused Slash",
 			dest = Config.FAN,
 			dur = 0.3,
@@ -130,6 +122,14 @@ const SPELL_TABLE := {
 			telegraph = "circle_target",
 			radius = 4.0,
 			desc = "15 dmg AoE at target (4m)."
+		},
+		{
+			name = "Targeted Spread",
+			dest = Config.SCATTER,
+			dur = 0.4,
+			action_id = 40,
+			telegraph = "none",
+			desc = "12 dmg single. 2.0/tick DoT 15s."
 		},
 		{
 			name = "Pinning Strike",
@@ -154,7 +154,7 @@ const SPELL_TABLE := {
 			name = "Converging Strike",
 			dest = Config.LANCE,
 			dur = 0.3,
-			action_id = 44,
+			action_id = 43,
 			telegraph = "none",
 			desc = "32 dmg single. 1.5/tick DoT 10s."
 		},
@@ -162,7 +162,7 @@ const SPELL_TABLE := {
 			name = "Rain of Blades",
 			dest = Config.FAN,
 			dur = 0.4,
-			action_id = 43,
+			action_id = 44,
 			telegraph = "circle_target",
 			radius = 5.0,
 			desc = "15 dmg AoE at target (5m). 1.0/tick DoT 10s."
@@ -190,7 +190,7 @@ const SPELL_TABLE := {
 			name = "Decree Strike",
 			dest = Config.LANCE,
 			dur = 0.3,
-			action_id = 48,
+			action_id = 47,
 			telegraph = "none",
 			desc = "28 dmg single target."
 		},
@@ -198,7 +198,7 @@ const SPELL_TABLE := {
 			name = "Royal Cleave",
 			dest = Config.FAN,
 			dur = 0.3,
-			action_id = 47,
+			action_id = 48,
 			telegraph = "circle",
 			radius = 5.0,
 			desc = "12 dmg AoE (5m)."
@@ -214,7 +214,7 @@ const SPELL_TABLE := {
 	],
 }
 
-const SpellsScript := preload("res://scenes/controllers/blade_dancer/blade_dancer_spells.gd")
+const AbilitiesScript := preload("res://scenes/controllers/blade_dancer/blade_dancer_abilities.gd")
 const MovementScript := preload("res://scenes/controllers/blade_dancer/blade_dancer_movement.gd")
 const BladesScript := preload("res://scenes/controllers/blade_dancer/blade_dancer_blades.gd")
 const CameraScript := preload("res://scenes/controllers/blade_dancer/blade_dancer_camera.gd")
@@ -238,7 +238,7 @@ const CameraScript := preload("res://scenes/controllers/blade_dancer/blade_dance
 @export var gcd_duration: float = 0.5
 
 # Cast range (all damage abilities are ranged)
-@export var cast_range: float = 20.0
+@export var ability_range: float = 20.0
 
 # Camera
 @export var camera_distance: float = 6.0
@@ -254,13 +254,13 @@ var state: State = State.MOVE
 var config: Config = Config.ORBIT
 
 # Sub-systems
-var spells: Node
+var abilities: Node
 var movement: Node
 var blades: Node
 var cam: Node
 
 var _cast_timer: float = 0.0
-var _casting_spell: Dictionary = {}
+var _committing_ability: Dictionary = {}
 var _state_timer: float = 0.0
 var _gcd_timer: float = 0.0
 var _is_invincible: bool = false
@@ -325,7 +325,7 @@ var _crown_material: StandardMaterial3D:
 
 func _ready() -> void:
 	# Create sub-systems
-	spells = _add_subsystem("Spells", SpellsScript)
+	abilities = _add_subsystem("Abilities", AbilitiesScript)
 	movement = _add_subsystem("Movement", MovementScript)
 	blades = _add_subsystem("Blades", BladesScript)
 	cam = _add_subsystem("Cam", CameraScript)
@@ -354,7 +354,7 @@ func _ready() -> void:
 	if _is_local():
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		hud.update_config(config)
-		hud.update_spells(SPELL_TABLE[config])
+		hud.update_abilities(ABILITY_TABLE[config])
 	else:
 		$HUDLayer.visible = false
 		camera.current = false
@@ -393,7 +393,7 @@ func apply_server_state(data: Dictionary) -> void:
 			if server_config >= 0 and server_config <= 4 and server_config != config:
 				config = server_config as Config
 				hud.update_config(config)
-				hud.update_spells(SPELL_TABLE[config])
+				hud.update_abilities(ABILITY_TABLE[config])
 		var server_shield: float = data.get("shield_hp", 0.0)
 		hud.update_shield(server_shield)
 		_flow_tier = data.get("flow_tier", 0)
@@ -463,7 +463,7 @@ func _physics_process(delta: float) -> void:
 		State.MOVE:
 			movement.process_move(delta)
 		State.CASTING:
-			spells.process_casting(delta)
+			abilities.process_casting(delta)
 		State.DASH:
 			movement.process_dash(delta)
 		State.STAGGER:
@@ -532,8 +532,8 @@ func _enter_state(new_state: State) -> void:
 # --- Delegate wrappers for test compatibility ---
 
 
-func _start_spell(slot: int) -> void:
-	spells.start_spell(slot)
+func _start_ability(slot: int) -> void:
+	abilities.start_ability(slot)
 
 
 func _start_dash() -> void:
@@ -541,7 +541,7 @@ func _start_dash() -> void:
 
 
 func _process_casting(delta: float) -> void:
-	spells.process_casting(delta)
+	abilities.process_casting(delta)
 
 
 func _process_dash(delta: float) -> void:

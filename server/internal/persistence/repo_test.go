@@ -262,3 +262,102 @@ func TestCountCharacters(t *testing.T) {
 		t.Errorf("count = %d after 2 creations, want 2", count)
 	}
 }
+
+// createTestCharacter is a helper that creates a user and character, returning the character ID.
+func createTestCharacter(t *testing.T, repo Repository, userID, username, charName string) uint {
+	t.Helper()
+	if err := repo.UpsertUser(userID, username); err != nil {
+		t.Fatalf("UpsertUser: %v", err)
+	}
+	c := &Character{UserID: userID, ClassName: "arcanotechnicien", Name: charName}
+	if err := repo.CreateCharacter(c); err != nil {
+		t.Fatalf("CreateCharacter: %v", err)
+	}
+	return c.ID
+}
+
+func TestUpsertLoadoutCreate(t *testing.T) {
+	repo := newTestRepo(t)
+	charID := createTestCharacter(t, repo, "88888888-9999-4aaa-8bbb-cccccccccccc", "Caster", "ArcaneOne")
+
+	slots := [6]string{"fireball", "ice_lance", "shield", "blink", "arcane_blast", "meteor"}
+	if err := repo.UpsertLoadout(charID, slots); err != nil {
+		t.Fatalf("UpsertLoadout (create): %v", err)
+	}
+
+	got, err := repo.GetLoadout(charID)
+	if err != nil {
+		t.Fatalf("GetLoadout: %v", err)
+	}
+	if got == nil {
+		t.Fatal("expected loadout, got nil")
+	}
+	gotSlots := [6]string{got.Slot0, got.Slot1, got.Slot2, got.Slot3, got.Slot4, got.Slot5}
+	if gotSlots != slots {
+		t.Errorf("slots = %v, want %v", gotSlots, slots)
+	}
+	if got.CharacterID != charID {
+		t.Errorf("CharacterID = %d, want %d", got.CharacterID, charID)
+	}
+}
+
+func TestUpsertLoadoutUpdate(t *testing.T) {
+	repo := newTestRepo(t)
+	charID := createTestCharacter(t, repo, "99999999-aaaa-4bbb-8ccc-dddddddddddd", "Updater", "ArcaneTwo")
+
+	initial := [6]string{"fireball", "ice_lance", "shield", "blink", "arcane_blast", "meteor"}
+	if err := repo.UpsertLoadout(charID, initial); err != nil {
+		t.Fatalf("UpsertLoadout (create): %v", err)
+	}
+
+	updated := [6]string{"chain_lightning", "ice_lance", "barrier", "teleport", "arcane_blast", "comet"}
+	if err := repo.UpsertLoadout(charID, updated); err != nil {
+		t.Fatalf("UpsertLoadout (update): %v", err)
+	}
+
+	got, err := repo.GetLoadout(charID)
+	if err != nil {
+		t.Fatalf("GetLoadout: %v", err)
+	}
+	if got == nil {
+		t.Fatal("expected loadout after update, got nil")
+	}
+	gotSlots := [6]string{got.Slot0, got.Slot1, got.Slot2, got.Slot3, got.Slot4, got.Slot5}
+	if gotSlots != updated {
+		t.Errorf("slots after update = %v, want %v", gotSlots, updated)
+	}
+}
+
+func TestGetLoadoutNotFound(t *testing.T) {
+	repo := newTestRepo(t)
+
+	got, err := repo.GetLoadout(99999)
+	if err != nil {
+		t.Fatalf("GetLoadout: %v", err)
+	}
+	if got != nil {
+		t.Errorf("expected nil for non-existent character, got %+v", got)
+	}
+}
+
+func TestUpsertLoadoutEmptySlots(t *testing.T) {
+	repo := newTestRepo(t)
+	charID := createTestCharacter(t, repo, "aaaaaaaa-bbbb-4ccc-8ddd-ffffffffffff", "Blank", "ArcaneEmpty")
+
+	empty := [6]string{"", "", "", "", "", ""}
+	if err := repo.UpsertLoadout(charID, empty); err != nil {
+		t.Fatalf("UpsertLoadout (empty): %v", err)
+	}
+
+	got, err := repo.GetLoadout(charID)
+	if err != nil {
+		t.Fatalf("GetLoadout: %v", err)
+	}
+	if got == nil {
+		t.Fatal("expected loadout with empty slots, got nil")
+	}
+	gotSlots := [6]string{got.Slot0, got.Slot1, got.Slot2, got.Slot3, got.Slot4, got.Slot5}
+	if gotSlots != empty {
+		t.Errorf("slots = %v, want all empty strings", gotSlots)
+	}
+}

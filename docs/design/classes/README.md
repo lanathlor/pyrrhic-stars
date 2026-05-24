@@ -32,8 +32,8 @@ Every DPS spec is positioned on two axes: **monotarget vs AoE** and **burst vs c
 | **Vanguard**     | Blade        | DPS    | AoE    | Burst    | Blade swirl, ground slam, commit-to-cleave     |
 |                  | Shield       | Tank   | —      | —        | Directional block, absorbs for allies          |
 |                  | Shadow       | DPS    | Mono   | Constant | Counters, flanking, sustained stealth pressure |
-| **Arcanotechnicien** | Destroyer    | DPS    | AoE    | Burst    | Massive spells, long channels, huge payoff     |
-|                  | Battlemage   | DPS    | Mono   | Constant | Melee hybrid, weaving strikes with spells      |
+| **Arcanotechnicien** | Destroyer    | DPS    | AoE    | Burst    | Massive abilities, long channels, huge payoff  |
+|                  | Battlemage   | DPS    | Mono   | Constant | Melee hybrid, weaving strikes with abilities   |
 |                  | Harmonist    | Healer | —      | —        | Channeled healing zones and beams              |
 | **Engineer**     | Architect    | DPS    | AoE    | Constant | Turrets, barricades, zone control              |
 |                  | Pilot        | DPS    | Mono   | Burst    | Single powerful drone, focused fire            |
@@ -47,5 +47,5 @@ Every DPS spec is positioned on two axes: **monotarget vs AoE** and **burst vs c
 ### Known Imbalances
 
 -   **Burst/mono is overcrowded** (4 specs) vs **burst/AoE** (2 specs). Mitigated by each spec playing a completely different genre.
--   **Chasseur** could shift to mono/constant (surgical anti-caster) to better match its Rainbow Six identity and differentiate from Assault.
+-   **Chasseur** could shift to mono/constant (surgical anti-channeler) to better match its Rainbow Six identity and differentiate from Assault.
 -   **Saboteur vs Destroyer** both occupy AoE/burst. Saboteur could shift to AoE/constant (persistent EMP fields, DoT hacking) to differentiate.

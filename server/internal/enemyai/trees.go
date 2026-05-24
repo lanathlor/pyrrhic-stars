@@ -40,7 +40,7 @@ func buildTree(def *EnemyDef, _ *EntityContext) *bt.Tree {
 //	└── wait_ability    (Running until runner returns to idle)
 func attackSubtree() bt.Node {
 	return bt.NewSequence(
-		bt.Named("cast_weighted", bt.NewAction(actionCastWeighted)),
+		bt.Named("commit_weighted", bt.NewAction(actionCommitWeighted)),
 		bt.Named("wait_ability", bt.NewAction(actionWaitAbility)),
 	)
 }
@@ -55,7 +55,7 @@ func combatSubtree() bt.Node {
 	return bt.NewReactiveSelector(
 		// Continue active ability (prevent interruption)
 		bt.NewSequence(
-			bt.Named("is_casting?", bt.NewCondition(condIsCasting)),
+			bt.Named("is_casting?", bt.NewCondition(condIsCommitted)),
 			bt.Named("wait_ability", bt.NewAction(actionWaitAbility)),
 		),
 		// In melee range with LoS → attack

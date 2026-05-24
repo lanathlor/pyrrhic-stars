@@ -178,36 +178,36 @@ tree:
     - sequence: ["!has_target", aggro_or_patrol]
     - sequence: ["!in_leash_range", leash_reset]
     # Active ability in progress — don't interrupt
-    - sequence: [is_casting, wait_ability]
+    - sequence: [is_committed, wait_ability]
 
     # === Phase 3: Enraged — relentless, void_barrage always seeks clusters ===
     - sequence:
         - phase_eq(3)
         - selector:
-            - sequence: ["target_beyond(10)", has_los, "ability_ready(bull_charge)", "cast(bull_charge)", wait_ability]
-            - sequence: ["ability_ready(ground_slam)", "cast(ground_slam)", wait_ability]
-            - sequence: ["ability_ready(void_barrage)", set_target_clustered, "cast(void_barrage)", wait_ability]
-            - sequence: [has_los, "ability_ready(fireball_burst)", "cast(fireball_burst)", wait_ability]
-            - sequence: [target_in_melee_range, has_los, "ability_ready(melee_swipe)", "cast(melee_swipe)", wait_ability]
+            - sequence: ["target_beyond(10)", has_los, "ability_ready(bull_charge)", "commit(bull_charge)", wait_ability]
+            - sequence: ["ability_ready(ground_slam)", "commit(ground_slam)", wait_ability]
+            - sequence: ["ability_ready(void_barrage)", set_target_clustered, "commit(void_barrage)", wait_ability]
+            - sequence: [has_los, "ability_ready(fireball_burst)", "commit(fireball_burst)", wait_ability]
+            - sequence: [target_in_melee_range, has_los, "ability_ready(melee_swipe)", "commit(melee_swipe)", wait_ability]
             - chase
 
     # === Phase 2: Aggressive — void_barrage prefers clusters, falls back nearest ===
     - sequence:
         - phase_eq(2)
         - selector:
-            - sequence: ["target_beyond(8)", has_los, "ability_ready(bull_charge)", "cast(bull_charge)", wait_ability]
-            - sequence: ["ability_ready(ground_slam)", "cast(ground_slam)", wait_ability]
-            - sequence: ["n_players_clustered(2)", "ability_ready(void_barrage)", set_target_clustered, "cast(void_barrage)", wait_ability]
-            - sequence: [has_los, "ability_ready(void_barrage)", set_target_nearest, "cast(void_barrage)", wait_ability]
-            - sequence: ["target_beyond(3)", has_los, "ability_ready(fireball_burst)", "cast(fireball_burst)", wait_ability]
-            - sequence: [target_in_melee_range, has_los, "ability_ready(melee_swipe)", "cast(melee_swipe)", wait_ability]
+            - sequence: ["target_beyond(8)", has_los, "ability_ready(bull_charge)", "commit(bull_charge)", wait_ability]
+            - sequence: ["ability_ready(ground_slam)", "commit(ground_slam)", wait_ability]
+            - sequence: ["n_players_clustered(2)", "ability_ready(void_barrage)", set_target_clustered, "commit(void_barrage)", wait_ability]
+            - sequence: [has_los, "ability_ready(void_barrage)", set_target_nearest, "commit(void_barrage)", wait_ability]
+            - sequence: ["target_beyond(3)", has_los, "ability_ready(fireball_burst)", "commit(fireball_burst)", wait_ability]
+            - sequence: [target_in_melee_range, has_los, "ability_ready(melee_swipe)", "commit(melee_swipe)", wait_ability]
             - chase
 
     # === Phase 1: Methodical — melee focused, void_barrage only on clusters ===
     - selector:
-        - sequence: [target_in_melee_range, has_los, "ability_ready(melee_swipe)", "cast(melee_swipe)", wait_ability]
-        - sequence: ["players_in_aoe(5)", "ability_ready(ground_slam)", "cast(ground_slam)", wait_ability]
-        - sequence: ["n_players_clustered(2)", "ability_ready(void_barrage)", set_target_clustered, "cast(void_barrage)", wait_ability]
-        - sequence: ["target_beyond(10)", has_los, "ability_ready(bull_charge)", "cast(bull_charge)", wait_ability]
-        - sequence: ["target_beyond(3)", has_los, "ability_ready(fireball_burst)", "cast(fireball_burst)", wait_ability]
+        - sequence: [target_in_melee_range, has_los, "ability_ready(melee_swipe)", "commit(melee_swipe)", wait_ability]
+        - sequence: ["players_in_aoe(5)", "ability_ready(ground_slam)", "commit(ground_slam)", wait_ability]
+        - sequence: ["n_players_clustered(2)", "ability_ready(void_barrage)", set_target_clustered, "commit(void_barrage)", wait_ability]
+        - sequence: ["target_beyond(10)", has_los, "ability_ready(bull_charge)", "commit(bull_charge)", wait_ability]
+        - sequence: ["target_beyond(3)", has_los, "ability_ready(fireball_burst)", "commit(fireball_burst)", wait_ability]
         - chase

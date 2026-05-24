@@ -22,8 +22,8 @@ tree:
     # Positioning: get into melee range
     - sequence: [out_of_melee, advance]
     # Full rotation (CooldownWaste=0.20 handles quality degradation)
-    - sequence: ["can_cast(vortex)", "cast(vortex)"]
-    - sequence: ["can_cast(execution)", "cast(execution)"]
-    - sequence: ["can_cast(upheaval)", "cast(upheaval)"]
+    - sequence: ["can_commit(vortex)", "commit(vortex)"]
+    - sequence: ["can_commit(execution)", "commit(execution)"]
+    - sequence: ["can_commit(upheaval)", "commit(upheaval)"]
     # Filler: cleave spam
-    - "cast(cleave)"
+    - "commit(cleave)"

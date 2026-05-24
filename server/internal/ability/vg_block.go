@@ -41,20 +41,20 @@ func (s *VgBlockState) SetParryPending() {
 	s.ParryCounterPending = true
 }
 
-func vgBlockHandler(_ *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func vgBlockHandler(_ *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "invalid caster"}
+		return CommitResult{Reason: "invalid caster"}
 	}
 	if p.Cooldowns["vg_block"] > 0 {
-		return CastResult{Reason: "cooldown"}
+		return CommitResult{Reason: "cooldown"}
 	}
 	state := getVgBlockState(p)
 	if state.Active {
-		return CastResult{Reason: "already blocking"}
+		return CommitResult{Reason: "already blocking"}
 	}
 	if p.GetResource("stamina") <= 0 {
-		return CastResult{Reason: ReasonInsufficientStamina}
+		return CommitResult{Reason: ReasonInsufficientStamina}
 	}
 
 	state.Active = true
@@ -74,16 +74,16 @@ func vgBlockHandler(_ *Engine, ctx *CastContext) CastResult {
 		Duration: 0, // permanent — managed by tick handler
 	})
 	p.State = entity.PlayerStateBlock
-	return CastResult{OK: true}
+	return CommitResult{OK: true}
 }
 
-func vgBlockStopHandler(_ *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func vgBlockStopHandler(_ *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "invalid caster"}
+		return CommitResult{Reason: "invalid caster"}
 	}
 	EndVgBlock(p)
-	return CastResult{OK: true}
+	return CommitResult{OK: true}
 }
 
 // EndVgBlock cleanly ends a vanguard block, removing buffs and setting cooldown.
@@ -115,7 +115,7 @@ func vgBlockTick(eng *Engine, p *entity.Player, dt float32, ctx *TickContext) []
 	// Blade Parry counter-swing: resolve pending parry hit
 	if state.ParryCounterPending && ctx != nil {
 		state.ParryCounterPending = false
-		damage := parryCounterDamage * p.CasterDamageMult()
+		damage := parryCounterDamage * p.CommitterDamageMult()
 		hit := HitDef{Type: HitMeleeArc, Range: parryCounterRange, ArcDegrees: parryCounterArc}
 		eng.hitBuf = resolveMeleeArc(eng.hitBuf[:0], p, ctx.Targets, ctx.Obstacles, hit, damage, combat.SourcePlayerAttack)
 

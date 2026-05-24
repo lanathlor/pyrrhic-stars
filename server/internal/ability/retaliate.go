@@ -22,13 +22,13 @@ var retaliateDef = AbilityDef{
 	Category: CategoryMelee,
 }
 
-func retaliateHandler(eng *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func retaliateHandler(eng *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "invalid caster"}
+		return CommitResult{Reason: "invalid caster"}
 	}
 	if p.GCDTimer > 0 {
-		return CastResult{Reason: "gcd"}
+		return CommitResult{Reason: "gcd"}
 	}
 
 	// Retaliate drops guard
@@ -40,8 +40,8 @@ func retaliateHandler(eng *Engine, ctx *CastContext) CastResult {
 	dev := getDevotionState(p)
 	charges := dev.ConsumeAll()
 
-	// Damage = base + charges * per_charge * (1 + mastery/100) * CasterDamageMult
-	damage := (retaliateBaseDamage + charges*retaliatePerCharge*(1.0+p.GearStats.Mastery/100.0)) * p.CasterDamageMult()
+	// Damage = base + charges * per_charge * (1 + mastery/100) * CommitterDamageMult
+	damage := (retaliateBaseDamage + charges*retaliatePerCharge*(1.0+p.GearStats.Mastery/100.0)) * p.CommitterDamageMult()
 
 	hit := HitDef{Type: HitAoECone, Range: retaliateRange, ArcDegrees: retaliateArc}
 	eng.hitBuf = resolveAoECone(eng.hitBuf[:0], p, ctx.Targets, ctx.Obstacles, hit, damage, combat.SourcePlayerAttack)
@@ -55,5 +55,5 @@ func retaliateHandler(eng *Engine, ctx *CastContext) CastResult {
 	p.GCDTimer = retaliateGCD
 	p.State = entity.PlayerStateAttack
 
-	return CastResult{OK: true, Events: eng.hitBuf}
+	return CommitResult{OK: true, Events: eng.hitBuf}
 }

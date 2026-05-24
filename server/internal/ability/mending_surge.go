@@ -12,40 +12,40 @@ var mendingSurgeDef = AbilityDef{
 	Cooldown: 1.5,
 	GCD:      0.8,
 	Costs: []ResourceCost{
-		{Resource: "flux", Amount: 40},
+		{Resource: "flux", Amount: 25},
 	},
-	BaseHeal:    80,
+	BaseHeal:    35,
 	HealScaling: "identity",
 	Delivery:    uint8(entity.DeliveryDirect),
 	Handler:     "mending_surge",
 }
 
-func mendingSurgeHandler(_ *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func mendingSurgeHandler(_ *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "invalid caster"}
+		return CommitResult{Reason: "invalid caster"}
 	}
 
 	result := resolveHeal(&mendingSurgeDef, p, ctx.Allies, ctx.TargetPeerID)
 
-	// Spend resource (engine validated sufficiency, handler spends)
-	p.SpendResource("flux", mendingSurgeDef.Costs[0].Amount)
+	// Spend resource from school pool (engine validated sufficiency, handler spends)
+	p.SpendFluxBySchool(mendingSurgeDef.School, mendingSurgeDef.Costs[0].Amount)
 	p.GCDTimer = mendingSurgeDef.GCD
 	if mendingSurgeDef.Cooldown > 0 {
 		p.Cooldowns["mending_surge"] = mendingSurgeDef.Cooldown
 	}
 
-	// Confluence: grant stack on spell completion.
+	// Confluence: grant stack on ability completion.
 	if p.Confluence != nil {
-		p.Confluence.OnSpellComplete()
+		p.Confluence.OnAbilityComplete()
 	}
 
 	if result == nil {
-		// Everyone at full HP -- cast succeeds, flux spent, no heal emitted.
-		return CastResult{OK: true}
+		// Everyone at full HP -- commit succeeds, flux spent, no heal emitted.
+		return CommitResult{OK: true}
 	}
 
-	return CastResult{
+	return CommitResult{
 		OK:    true,
 		Heals: []HealResult{*result},
 	}

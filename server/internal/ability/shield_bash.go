@@ -23,13 +23,13 @@ var shieldBashDef = AbilityDef{
 	Category: CategoryMelee,
 }
 
-func shieldBashHandler(eng *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func shieldBashHandler(eng *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "invalid caster"}
+		return CommitResult{Reason: "invalid caster"}
 	}
 	if p.GCDTimer > 0 {
-		return CastResult{Reason: "gcd"}
+		return CommitResult{Reason: "gcd"}
 	}
 
 	// Higher cost and slower GCD while blocking
@@ -42,10 +42,10 @@ func shieldBashHandler(eng *Engine, ctx *CastContext) CastResult {
 
 	cost := staminaCost * p.TenacityEfficiency()
 	if !p.SpendResource("stamina", cost) {
-		return CastResult{Reason: ReasonInsufficientStamina}
+		return CommitResult{Reason: ReasonInsufficientStamina}
 	}
 
-	damage := shieldBashDamage * p.CasterDamageMult()
+	damage := shieldBashDamage * p.CommitterDamageMult()
 	hit := HitDef{Type: HitMeleeArc, Range: shieldBashRange, ArcDegrees: shieldBashArc}
 	eng.hitBuf = resolveMeleeArc(eng.hitBuf[:0], p, ctx.Targets, ctx.Obstacles, hit, damage, combat.SourcePlayerAttack)
 
@@ -74,5 +74,5 @@ func shieldBashHandler(eng *Engine, ctx *CastContext) CastResult {
 	p.GCDTimer = gcd
 	p.State = entity.PlayerStateAttack
 
-	return CastResult{OK: true, Events: eng.hitBuf}
+	return CommitResult{OK: true, Events: eng.hitBuf}
 }

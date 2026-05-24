@@ -38,12 +38,22 @@ func registerAbilities(eng *Engine) {
 	}
 
 	// Arcanotechnicien — Harmonist
+	eng.Register(&siphonPulseDef)
 	eng.Register(&mendingSurgeDef)
 	eng.Register(&mendingBeamDef)
 	eng.Register(&vitalBloomDef)
 	eng.Register(&restorationMatrixDef)
 	eng.Register(&lifeSwapDef)
 	eng.Register(&transfusionDef)
+	eng.Register(&vitalDrainDef)
+	eng.Register(&overclockATDef)
+	eng.Register(&neuralFortificationDef)
+	eng.Register(&regenProtocolDef)
+	eng.Register(&vitalCircuitDef)
+	eng.Register(&metabolicBurstDef)
+	eng.Register(&lastBreathDef)
+	eng.Register(&gustStepDef)
+	eng.Register(&frostWardDef)
 }
 
 func registerHandlers(eng *Engine) {
@@ -67,12 +77,22 @@ func registerHandlers(eng *Engine) {
 	eng.RegisterHandler("upheaval_vg", upheavalHandler)
 	eng.RegisterHandler("execution_vg", executionVGHandler)
 
+	eng.RegisterHandler("siphon_pulse", siphonPulseHandler)
 	eng.RegisterHandler("mending_surge", mendingSurgeHandler)
 	eng.RegisterHandler("mending_beam", mendingBeamHandler)
 	eng.RegisterHandler("vital_bloom", vitalBloomHandler)
 	eng.RegisterHandler("restoration_matrix", restorationMatrixHandler)
 	eng.RegisterHandler("life_swap", lifeSwapHandler)
 	eng.RegisterHandler("transfusion", transfusionHandler)
+	eng.RegisterHandler("vital_drain", vitalDrainHandler)
+	eng.RegisterHandler("overclock_at", overclockATHandler)
+	eng.RegisterHandler("neural_fortification", neuralFortificationHandler)
+	eng.RegisterHandler("regen_protocol", regenProtocolHandler)
+	eng.RegisterHandler("vital_circuit", vitalCircuitHandler)
+	eng.RegisterHandler("metabolic_burst", metabolicBurstHandler)
+	eng.RegisterHandler("last_breath", lastBreathHandler)
+	eng.RegisterHandler("gust_step", gustStepHandler)
+	eng.RegisterHandler("frost_ward", frostWardHandler)
 
 	eng.RegisterTickHandler("rechamber", rechamberTick)
 	eng.RegisterTickHandler("vortex", vortexTick)
@@ -80,6 +100,7 @@ func registerHandlers(eng *Engine) {
 	eng.RegisterTickHandler("vg_shield_block", vgShieldBlockTick)
 	eng.RegisterTickHandler("gunner_assault", gunnerAssaultTick)
 	eng.RegisterTickHandler("bd_flow", bdFlowTick)
+	eng.RegisterTickHandler("frost_ward", frostWardTick)
 }
 
 // ApplyThreat adds threat for all damage results to any Threateable target.

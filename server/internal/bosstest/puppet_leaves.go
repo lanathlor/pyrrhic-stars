@@ -237,11 +237,11 @@ func condShouldUseDefensive(v any) bool {
 	return c.Puppet.Rng.Float32() < c.Puppet.Params.DefensiveUse
 }
 
-// canCastAbility creates a condition that checks if a specific ability is castable.
-func canCastAbility(abilityID string) func(any) bool {
+// canCommitAbility creates a condition that checks if a specific ability is committable.
+func canCommitAbility(abilityID string) func(any) bool {
 	return func(v any) bool {
 		c := pctx(v)
-		return c.Puppet.CanCast(abilityID)
+		return c.Puppet.CanCommit(abilityID)
 	}
 }
 
@@ -252,14 +252,14 @@ func condCanTransition(v any) bool {
 	if p.GCDTimer > 0 {
 		return false
 	}
-	// Find any transition spell that matches current config
+	// Find any transition ability that matches current config
 	config := p.Config
 	for action := uint8(30); action < 50; action++ {
 		abilID, ok := p.ActionMap[action]
 		if !ok {
 			continue
 		}
-		// Transition spells encode origin as (action-30)/4
+		// Transition abilities encode origin as (action-30)/4
 		originConfig := int(action-30) / 4
 		if originConfig == config {
 			if cd, ok := p.Cooldowns[abilID]; !ok || cd <= 0 {
@@ -373,11 +373,11 @@ func actionStrafeRanged(v any) bt.Result {
 	return bt.Success
 }
 
-// castAbilityAction creates an action that casts a specific ability.
-func castAbilityAction(abilityID string) func(any) bt.Result {
+// commitAbilityAction creates an action that casts a specific ability.
+func commitAbilityAction(abilityID string) func(any) bt.Result {
 	return func(v any) bt.Result {
 		c := pctx(v)
-		if c.Puppet.TryCast(c, abilityID) {
+		if c.Puppet.TryCommit(c, abilityID) {
 			return bt.Success
 		}
 		// GCD/cooldown blocked — not a BT failure, just waiting
@@ -388,13 +388,13 @@ func castAbilityAction(abilityID string) func(any) bt.Result {
 	}
 }
 
-// withCast wraps a dodge/movement action to also attempt casting an ability.
+// withCommit wraps a dodge/movement action to also attempt committing an ability.
 // This models skilled players who maintain DPS while repositioning.
-func withCast(moveAction func(any) bt.Result, abilityID string) func(any) bt.Result {
+func withCommit(moveAction func(any) bt.Result, abilityID string) func(any) bt.Result {
 	return func(v any) bt.Result {
 		result := moveAction(v)
 		c := pctx(v)
-		c.Puppet.TryCast(c, abilityID)
+		c.Puppet.TryCommit(c, abilityID)
 		return result
 	}
 }
@@ -404,7 +404,7 @@ func withCast(moveAction func(any) bt.Result, abilityID string) func(any) bt.Res
 func withTransition(moveAction func(any) bt.Result) func(any) bt.Result {
 	return func(v any) bt.Result {
 		result := moveAction(v)
-		actionCastBestTransition(v)
+		actionCommitBestTransition(v)
 		return result
 	}
 }
@@ -413,12 +413,12 @@ func withTransition(moveAction func(any) bt.Result) func(any) bt.Result {
 func actionKiteAndShoot(v any) bt.Result {
 	c := pctx(v)
 	c.Puppet.MoveAwayFrom(c.Boss.Position, c.Dt, 1.0)
-	c.Puppet.TryCast(c, "fire_shot")
+	c.Puppet.TryCommit(c, "fire_shot")
 	return bt.Success
 }
 
-// actionCastBestTransition picks the optimal blade dancer transition.
-func actionCastBestTransition(v any) bt.Result {
+// actionCommitBestTransition picks the optimal blade dancer transition.
+func actionCommitBestTransition(v any) bt.Result {
 	c := pctx(v)
 	p := c.Puppet.Player
 	config := p.Config
@@ -427,7 +427,7 @@ func actionCastBestTransition(v any) bt.Result {
 	// Collect available transitions from current config
 	type candidate struct {
 		abilID   string
-		canReach bool // true if spell can hit the boss at current distance
+		canReach bool // true if ability can hit the boss at current distance
 	}
 	var candidates []candidate
 
@@ -446,7 +446,7 @@ func actionCastBestTransition(v any) bt.Result {
 
 		canReach := true
 		if def := c.World.AbilityEngine.GetAbility(abilID); def != nil {
-			// AoECircle is caster-centered — can only hit if boss is within radius
+			// AoECircle is committer-centered — can only hit if boss is within radius
 			if def.Hit.Type == ability.HitAoECircle && distToBoss > def.Hit.Radius {
 				canReach = false
 			}
@@ -458,7 +458,7 @@ func actionCastBestTransition(v any) bt.Result {
 		return bt.Failure
 	}
 
-	// High MechanicIQ: prefer spells that can reach the boss
+	// High MechanicIQ: prefer abilities that can reach the boss
 	// Low MechanicIQ: random choice (ignores range)
 	var pick candidate
 	if c.Puppet.Rng.Float32() < c.Puppet.Params.MechanicIQ {
@@ -474,7 +474,7 @@ func actionCastBestTransition(v any) bt.Result {
 		pick = candidates[c.Puppet.Rng.IntN(len(candidates))]
 	}
 
-	if c.Puppet.TryCast(c, pick.abilID) {
+	if c.Puppet.TryCommit(c, pick.abilID) {
 		return bt.Success
 	}
 	if p.GCDTimer > 0 {
@@ -532,11 +532,200 @@ func condStaminaLow(v any) bool {
 	return r.Current < r.Max*0.3
 }
 
-// actionCastBlock casts vanguard block.
-func actionCastBlock(v any) bt.Result {
+// actionCommitBlock casts vanguard block.
+func actionCommitBlock(v any) bt.Result {
 	c := pctx(v)
-	if c.Puppet.TryCast(c, "vg_block") {
+	if c.Puppet.TryCommit(c, "vg_block") {
 		return bt.Success
 	}
 	return bt.Failure
+}
+
+// --- Harmonist (healer) conditions ---
+
+// condAllyNeedsEmergency returns true if any ally is below 30% HP.
+func condAllyNeedsEmergency(v any) bool {
+	return pctx(v).AnyAllyBelowPct(0.30)
+}
+
+// condFluxLow returns true if flux resource is below 25% of max.
+func condFluxLow(v any) bool {
+	c := pctx(v)
+	r := c.Puppet.Player.Resources["flux"]
+	if r == nil {
+		return true
+	}
+	return r.Current < r.Max*0.25
+}
+
+// condHasVitalCharge returns true if a Life Swap vital charge is stored and active.
+func condHasVitalCharge(v any) bool {
+	c := pctx(v)
+	return c.Puppet.Player.VitalCharge > 0 && c.Puppet.Player.VitalChargeTimer > 0
+}
+
+// condIsChanneling returns true if the puppet is channeling an ability.
+func condIsChanneling(v any) bool {
+	return pctx(v).Puppet.Player.ChannelPhase > 0
+}
+
+// allyBelowHPPct creates a condition that checks if any ally is below a given HP percentage.
+func allyBelowHPPct(pct float32) func(any) bool {
+	return func(v any) bool {
+		return pctx(v).AnyAllyBelowPct(pct)
+	}
+}
+
+// condHasFlux creates a condition that checks if flux >= the given amount.
+func condHasFlux(amount float32) func(any) bool {
+	return func(v any) bool {
+		c := pctx(v)
+		r := c.Puppet.Player.Resources["flux"]
+		if r == nil {
+			return false
+		}
+		return r.Current >= amount
+	}
+}
+
+// condHasSchoolFlux creates a condition that checks if a specific school pool has >= amount.
+// Falls back to generic flux check if the player has no FluxCommitment.
+func condHasSchoolFlux(school string, amount float32) func(any) bool {
+	return func(v any) bool {
+		c := pctx(v)
+		p := c.Puppet.Player
+		if p.FluxCommit != nil && len(p.FluxCommit.Pools) > 0 {
+			pool := p.FluxCommit.GetPool(school)
+			if pool == nil {
+				return false
+			}
+			return pool.Current >= amount
+		}
+		r := p.Resources["flux"]
+		if r == nil {
+			return false
+		}
+		return r.Current >= amount
+	}
+}
+
+// condSchoolFluxLow creates a condition that checks if a school pool is below 25% of its max.
+func condSchoolFluxLow(school string) func(any) bool {
+	return func(v any) bool {
+		c := pctx(v)
+		p := c.Puppet.Player
+		if p.FluxCommit != nil && len(p.FluxCommit.Pools) > 0 {
+			pool := p.FluxCommit.GetPool(school)
+			if pool == nil {
+				return true
+			}
+			return pool.Current < pool.Max*0.25
+		}
+		r := p.Resources["flux"]
+		if r == nil {
+			return true
+		}
+		return r.Current < r.Max*0.25
+	}
+}
+
+// condZoneActive creates a condition that checks if a healing zone from this puppet is active.
+func condZoneActive(abilID string) func(any) bool {
+	return func(v any) bool {
+		c := pctx(v)
+		for _, z := range c.World.HealingZones {
+			if z != nil && z.OwnerID == c.Puppet.Player.ID && z.AbilityID == abilID {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+// --- Harmonist (healer) actions ---
+
+// healLowest creates an action that heals the lowest HP ally with a targeted ability.
+func healLowest(abilID string) func(any) bt.Result {
+	return func(v any) bt.Result {
+		c := pctx(v)
+		target := c.LowestHPAlly()
+		if target == nil {
+			// No injured ally — heal self
+			if c.Puppet.TryCommitTargeted(c, abilID, c.Puppet.Player.ID) {
+				return bt.Success
+			}
+		} else {
+			if c.Puppet.TryCommitTargeted(c, abilID, target.Player.ID) {
+				return bt.Success
+			}
+		}
+		if c.Puppet.Player.GCDTimer > 0 {
+			return bt.Running
+		}
+		return bt.Failure
+	}
+}
+
+// healTank creates an action that heals the tank, falling back to lowest HP ally.
+func healTank(abilID string) func(any) bt.Result {
+	return func(v any) bt.Result {
+		c := pctx(v)
+		target := c.TankAlly()
+		if target == nil {
+			target = c.LowestHPAlly()
+		}
+		if target == nil {
+			target = c.Puppet // heal self
+		}
+		if c.Puppet.TryCommitTargeted(c, abilID, target.Player.ID) {
+			return bt.Success
+		}
+		if c.Puppet.Player.GCDTimer > 0 {
+			return bt.Running
+		}
+		return bt.Failure
+	}
+}
+
+// drainHealthiest creates an action for Life Swap: drain the healthiest ally.
+// Only drains if target is above 60% HP to avoid killing low allies.
+func drainHealthiest(abilID string) func(any) bt.Result {
+	return func(v any) bt.Result {
+		c := pctx(v)
+		target := c.HealthiestAlly()
+		if target == nil || target.Player.Health/target.Player.MaxHealth < 0.60 {
+			return bt.Failure
+		}
+		if c.Puppet.TryCommitTargeted(c, abilID, target.Player.ID) {
+			return bt.Success
+		}
+		if c.Puppet.Player.GCDTimer > 0 {
+			return bt.Running
+		}
+		return bt.Failure
+	}
+}
+
+// placeZone creates an action for zone heals (vital_bloom, restoration_matrix).
+// Zones use HitGroundPlacement and don't need a target peer ID.
+func placeZone(abilID string) func(any) bt.Result {
+	return func(v any) bt.Result {
+		c := pctx(v)
+		if c.Puppet.TryCommit(c, abilID) {
+			return bt.Success
+		}
+		if c.Puppet.Player.GCDTimer > 0 {
+			return bt.Running
+		}
+		return bt.Failure
+	}
+}
+
+// actionMoveToCenter moves the puppet toward the centroid of all alive allies.
+// Maintains Sympathetic Field coverage for the Harmonist.
+func actionMoveToCenter(v any) bt.Result {
+	c := pctx(v)
+	centroid := c.AllyCentroid()
+	c.Puppet.MoveToward(centroid, c.Dt)
+	return bt.Success
 }

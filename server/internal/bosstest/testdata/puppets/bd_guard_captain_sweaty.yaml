@@ -22,6 +22,6 @@ tree:
     # Positioning: advance if too far
     - sequence: [too_far, "advance(transition)"]
     # Rotation: all transitions (MechanicIQ=0.95 picks optimal)
-    - sequence: [can_transition, cast_best_transition]
+    - sequence: [can_transition, commit_best_transition]
     # Filler: best available transition
-    - cast_best_transition
+    - commit_best_transition

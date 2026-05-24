@@ -13,7 +13,7 @@ const CONFIG_COLORS: Array[Color] = [
 	Color(0.6, 0.2, 0.9, 1.0),  # Scatter -- purple
 	Color(1.0, 0.85, 0.3, 1.0),  # Crown -- gold
 ]
-const ABILITY_KEYBINDS: Array[String] = ["LMB", "RMB", "R", "T"]
+const ABILITY_KEYBINDS: Array[String] = ["LMB", "RMB", "R", "E"]
 const PANEL_BG := Color(0.02, 0.025, 0.035, 0.82)
 const PANEL_FILL := Color(0.04, 0.05, 0.07, 0.45)
 const PANEL_INSET := Color(0.11, 0.12, 0.15, 0.3)
@@ -27,7 +27,7 @@ var _damage_flash_timer: float = 0.0
 var _hit_marker_timer: float = 0.0
 var _current_config: int = 0
 var _gcd_ratio: float = 0.0
-var _current_spells: Array = []
+var _current_abilities: Array = []
 var _shield_hp: float = 0.0
 var _flow_tier: int = 0
 var _flow_stacks: int = 0
@@ -143,16 +143,16 @@ func update_config(config_value: int) -> void:
 	ability_bar.accent_color = _get_current_color()
 
 
-func update_spells(spells: Array) -> void:
-	_current_spells = spells
-	var bar_spells: Array = []
-	for i in spells.size():
-		var s: Dictionary = spells[i].duplicate()
+func update_abilities(abilities: Array) -> void:
+	_current_abilities = abilities
+	var bar_abilities: Array = []
+	for i in abilities.size():
+		var s: Dictionary = abilities[i].duplicate()
 		s["keybind"] = ABILITY_KEYBINDS[i] if i < ABILITY_KEYBINDS.size() else "?"
-		s["cooldown"] = 0.0  # BD uses GCD, not per-spell cooldowns
+		s["cooldown"] = 0.0  # BD uses GCD, not per-ability cooldowns
 		s["cooldown_max"] = 0.0
-		bar_spells.append(s)
-	ability_bar.update_spells(bar_spells)
+		bar_abilities.append(s)
+	ability_bar.update_abilities(bar_abilities)
 
 
 func update_gcd(ratio: float) -> void:
@@ -332,9 +332,9 @@ func _draw_config() -> void:
 # --- Custom tooltip content for Blade Dancer (config transitions) ---
 
 
-func _draw_custom_tooltip(bar: Control, spell: Dictionary, tip_rect: Rect2) -> void:
+func _draw_custom_tooltip(bar: Control, ability: Dictionary, tip_rect: Rect2) -> void:
 	var font := ThemeDB.fallback_font
-	var dest_cfg: int = spell.get("dest", 0)
+	var dest_cfg: int = ability.get("dest", 0)
 	var dest_name := _get_config_name(dest_cfg)
 	var dest_color := _get_config_color(dest_cfg)
 

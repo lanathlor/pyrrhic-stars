@@ -12,9 +12,9 @@ func TestShieldBash_HitsEnemy(t *testing.T) {
 	enemy := enemyInFront(100, 500)
 	enemy.Position.Z = -3 // within shield bash range (4)
 
-	r := eng.Cast("shield_bash", castCtx(p, enemy))
+	r := eng.Commit("shield_bash", commitCtx(p, enemy))
 	if !r.OK {
-		t.Fatalf("cast failed: %s", r.Reason)
+		t.Fatalf("commit failed: %s", r.Reason)
 	}
 	if len(r.Events) == 0 {
 		t.Error("expected damage events")
@@ -30,7 +30,7 @@ func TestShieldBash_AppliesSlowDebuff(t *testing.T) {
 	enemy := enemyInFront(100, 500)
 	enemy.Position.Z = -3
 
-	eng.Cast("shield_bash", castCtx(p, enemy))
+	eng.Commit("shield_bash", commitCtx(p, enemy))
 
 	if !enemy.HasDebuff(entity.DebuffSlow) {
 		t.Error("enemy should have slow debuff from Shield Bash")
@@ -42,7 +42,7 @@ func TestShieldBash_CostsStamina(t *testing.T) {
 	p := newShieldVanguard()
 	initial := p.GetResource("stamina")
 
-	eng.Cast("shield_bash", castCtx(p))
+	eng.Commit("shield_bash", commitCtx(p))
 
 	spent := initial - p.GetResource("stamina")
 	expected := shieldBashStamina * p.TenacityEfficiency()
@@ -55,10 +55,10 @@ func TestShieldBash_HigherCostWhenBlocking(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Cast("vg_shield_block", castCtx(p))
+	eng.Commit("vg_shield_block", commitCtx(p))
 	initial := p.GetResource("stamina")
 
-	eng.Cast("shield_bash", castCtx(p))
+	eng.Commit("shield_bash", commitCtx(p))
 
 	spent := initial - p.GetResource("stamina")
 	expected := shieldBashBlockedStamina * p.TenacityEfficiency()
@@ -72,7 +72,7 @@ func TestShieldBash_SlowerGCDWhenBlocking(t *testing.T) {
 	p := newShieldVanguard()
 
 	// Normal GCD (not blocking)
-	eng.Cast("shield_bash", castCtx(p))
+	eng.Commit("shield_bash", commitCtx(p))
 	normalGCD := p.GCDTimer
 	if normalGCD < shieldBashGCD-0.01 || normalGCD > shieldBashGCD+0.01 {
 		t.Errorf("normal GCD = %f, want %f", normalGCD, shieldBashGCD)
@@ -80,8 +80,8 @@ func TestShieldBash_SlowerGCDWhenBlocking(t *testing.T) {
 
 	// Blocked GCD
 	p.GCDTimer = 0
-	eng.Cast("vg_shield_block", castCtx(p))
-	eng.Cast("shield_bash", castCtx(p))
+	eng.Commit("vg_shield_block", commitCtx(p))
+	eng.Commit("shield_bash", commitCtx(p))
 	blockedGCD := p.GCDTimer
 	if blockedGCD < shieldBashBlockedGCD-0.01 || blockedGCD > shieldBashBlockedGCD+0.01 {
 		t.Errorf("blocked GCD = %f, want %f", blockedGCD, shieldBashBlockedGCD)
@@ -95,13 +95,13 @@ func TestShieldBash_WorksDuringBlock(t *testing.T) {
 	enemy.Position.Z = -3
 
 	// Start blocking
-	eng.Cast("vg_shield_block", castCtx(p, enemy))
+	eng.Commit("vg_shield_block", commitCtx(p, enemy))
 	if !p.HasBuff("vg_shield_block") {
 		t.Fatal("should be blocking")
 	}
 
 	// Shield Bash should work without cancelling block
-	r := eng.Cast("shield_bash", castCtx(p, enemy))
+	r := eng.Commit("shield_bash", commitCtx(p, enemy))
 	if !r.OK {
 		t.Fatalf("shield bash during block failed: %s", r.Reason)
 	}
@@ -116,7 +116,7 @@ func TestShieldBash_GeneratesDevotion(t *testing.T) {
 	enemy := enemyInFront(100, 500)
 	enemy.Position.Z = -3
 
-	eng.Cast("shield_bash", castCtx(p, enemy))
+	eng.Commit("shield_bash", commitCtx(p, enemy))
 
 	dev := getDevotionState(p)
 	if dev.Charges <= 0 {
@@ -129,7 +129,7 @@ func TestShieldBash_InsufficientStamina(t *testing.T) {
 	p := newShieldVanguard()
 	p.Resources["stamina"].Current = 0
 
-	r := eng.Cast("shield_bash", castCtx(p))
+	r := eng.Commit("shield_bash", commitCtx(p))
 	if r.OK {
 		t.Error("should fail with 0 stamina")
 	}
@@ -139,7 +139,7 @@ func TestShieldBash_SetsGCD(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Cast("shield_bash", castCtx(p))
+	eng.Commit("shield_bash", commitCtx(p))
 
 	if p.GCDTimer <= 0 {
 		t.Error("GCD should be set after Shield Bash")
@@ -151,9 +151,9 @@ func TestShieldBash_MissesEnemyBehind(t *testing.T) {
 	p := newShieldVanguard()
 	enemy := enemyBehind(100, 500)
 
-	r := eng.Cast("shield_bash", castCtx(p, enemy))
+	r := eng.Commit("shield_bash", commitCtx(p, enemy))
 	if !r.OK {
-		t.Fatalf("cast failed: %s", r.Reason)
+		t.Fatalf("commit failed: %s", r.Reason)
 	}
 	if len(r.Events) != 0 {
 		t.Error("should not hit enemy behind player")

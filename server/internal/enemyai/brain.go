@@ -61,8 +61,8 @@ func NewBrainSeeded(def *EnemyDef, enemy *entity.Enemy, engine *ability.Engine, 
 // Enemy returns the brain's enemy.
 func (b *Brain) Enemy() *entity.Enemy { return b.enemy }
 
-// ForceCast unconditionally interrupts any current ability and starts the given one.
-func (b *Brain) ForceCast(abilityID string) bool {
+// ForceCommit unconditionally interrupts any current ability and starts the given one.
+func (b *Brain) ForceCommit(abilityID string) bool {
 	return b.ctx.Runner.ForceStart(b.ctx, abilityID)
 }
 

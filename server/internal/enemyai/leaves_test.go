@@ -1131,13 +1131,13 @@ func TestCond_IsCasting(t *testing.T) {
 	p := testPlayer(1, entity.Vec3{X: 0, Z: 2})
 
 	ctx := testCtx(def, e, testPlayers(p))
-	if condIsCasting(ctx) {
+	if condIsCommitted(ctx) {
 		t.Error("should be false when idle")
 	}
 
-	ctx.Cast("melee")
-	if !condIsCasting(ctx) {
-		t.Error("should be true when casting")
+	ctx.Commit("melee")
+	if !condIsCommitted(ctx) {
+		t.Error("should be true when committing")
 	}
 }
 
@@ -1152,7 +1152,7 @@ func TestCond_IsCommitted(t *testing.T) {
 		t.Error("should be false when idle")
 	}
 
-	ctx.Cast("melee")
+	ctx.Commit("melee")
 	if !condIsCommitted(ctx) {
 		t.Error("should be true during commit")
 	}
@@ -1165,12 +1165,12 @@ func TestCond_CanCast(t *testing.T) {
 	p := testPlayer(1, entity.Vec3{X: 0, Z: 2})
 
 	ctx := testCtx(def, e, testPlayers(p))
-	if !condCanCast(ctx) {
+	if !condCanCommit(ctx) {
 		t.Error("should be true when idle")
 	}
 
-	ctx.Cast("melee")
-	if condCanCast(ctx) {
+	ctx.Commit("melee")
+	if condCanCommit(ctx) {
 		t.Error("should be false when busy")
 	}
 }
@@ -1189,7 +1189,7 @@ func TestCond_CanMove(t *testing.T) {
 	}
 
 	// Committed with CanMoveCommitted=false → cannot move
-	ctx.Cast("melee")
+	ctx.Commit("melee")
 	if condCanMove(ctx) {
 		t.Error("should be false during commit with CanMoveCommitted=false")
 	}
@@ -1205,7 +1205,7 @@ func TestAction_CastWeighted_Success(t *testing.T) {
 
 	ctx := testCtx(def, e, testPlayers(p))
 
-	r := actionCastWeighted(ctx)
+	r := actionCommitWeighted(ctx)
 	if r != bt.Success {
 		t.Errorf("should succeed, got %v", r)
 	}
@@ -1223,9 +1223,9 @@ func TestAction_CastWeighted_FailsWhenBusy(t *testing.T) {
 	p := testPlayer(1, entity.Vec3{X: 0, Z: 2})
 
 	ctx := testCtx(def, e, testPlayers(p))
-	ctx.Cast("melee")
+	ctx.Commit("melee")
 
-	r := actionCastWeighted(ctx)
+	r := actionCommitWeighted(ctx)
 	if r != bt.Failure {
 		t.Errorf("should fail when runner is busy, got %v", r)
 	}
@@ -1246,7 +1246,7 @@ func TestAction_WaitAbility(t *testing.T) {
 	}
 
 	// Busy → running
-	ctx.Cast("melee")
+	ctx.Commit("melee")
 	r = actionWaitAbility(ctx)
 	if r != bt.Running {
 		t.Errorf("should return Running when busy, got %v", r)
@@ -1261,7 +1261,7 @@ func TestAction_CancelAbility(t *testing.T) {
 	p := testPlayer(1, entity.Vec3{X: 0, Z: 2})
 
 	ctx := testCtx(def, e, testPlayers(p))
-	ctx.Cast("melee")
+	ctx.Commit("melee")
 
 	r := actionCancelAbility(ctx)
 	if r != bt.Success {
@@ -1279,7 +1279,7 @@ func TestAction_CastByName(t *testing.T) {
 
 	ctx := testCtx(def, e, testPlayers(p))
 
-	castMelee := castByName("melee")
+	castMelee := commitByName("melee")
 	r := castMelee(ctx)
 	if r != bt.Success {
 		t.Errorf("should succeed, got %v", r)
@@ -1296,7 +1296,7 @@ func TestAction_CastByName_UnknownAbility(t *testing.T) {
 
 	ctx := testCtx(def, e, nil)
 
-	castBogus := castByName("nonexistent")
+	castBogus := commitByName("nonexistent")
 	r := castBogus(ctx)
 	if r != bt.Failure {
 		t.Errorf("should fail for unknown ability, got %v", r)

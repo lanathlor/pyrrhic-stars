@@ -1,7 +1,7 @@
 class_name TestVanguardHUD
 extends GdUnitTestSuite
 
-## Tests for the Vanguard HUD — damage/parry flash, hit marker, lock-on reticle, spell bar.
+## Tests for the Vanguard HUD — damage/parry flash, hit marker, lock-on reticle, ability bar.
 
 const VanguardScript := preload("res://scenes/controllers/vanguard/vanguard.gd")
 const VanguardHudScript := preload("res://scenes/shared/hud/vanguard_hud.gd")
@@ -19,11 +19,11 @@ func before_test() -> void:
 	_hud = _vanguard.hud as VanguardHudScript
 
 
-# --- Spell bar ---
+# --- Ability bar ---
 
 
-func test_update_spells_passes_to_ability_bar() -> void:
-	var spells := [
+func test_update_abilities_passes_to_ability_bar() -> void:
+	var abilities := [
 		{
 			name = "Blade Swirl",
 			keybind = "F",
@@ -39,11 +39,11 @@ func test_update_spells_passes_to_ability_bar() -> void:
 			cooldown_max = 8.0
 		},
 	]
-	_hud.update_spells(spells)
+	_hud.update_abilities(abilities)
 	var bar: Control = _hud.get_node("AbilityBar")
-	assert_int(bar._spells.size()).is_equal(2)
-	assert_str(bar._spells[0].name).is_equal("Blade Swirl")
-	assert_float(bar._spells[0].cooldown).is_equal(5.0)
+	assert_int(bar._abilities.size()).is_equal(2)
+	assert_str(bar._abilities[0].name).is_equal("Blade Swirl")
+	assert_float(bar._abilities[0].cooldown).is_equal(5.0)
 
 
 func test_ability_bar_accent_color_is_orange() -> void:

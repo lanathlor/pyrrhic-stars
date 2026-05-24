@@ -25,6 +25,7 @@ type PuppetConfig struct {
 	Class   string
 	Spec    string // spec ID (empty = class default)
 	Profile BotProfile
+	Loadout []string // optional: ability IDs for loadout slots (overrides spec default)
 }
 
 // SimConfig configures a single simulation run.
@@ -56,6 +57,7 @@ type SimResult struct {
 	PhasesReached []int
 	TreeReport    *TreeReport
 	SpecDamage    map[string]float32        // spec → total damage dealt to boss
+	SpecHealing   map[string]float32        // spec → total healing done
 	SpecPlayers   map[string]int            // spec → number of players with that spec
 	AbilityStats  map[string]*AbilityResult // ability name → stats
 	CompName      string                    // composition name (set by runner)
@@ -104,6 +106,19 @@ func RunSimulation(cfg SimConfig) SimResult {
 	for i, pc := range cfg.Party {
 		pp := NewPuppet(uint16(i+1), pc.Class, pc.Spec, pc.Profile, cfg.Seed+uint64(i)*100, cfg.Boss, cfg.PuppetTrees)
 		pp.Player.SpawnTick = 0 // no spawn grace period
+
+		// Apply custom loadout if specified (overrides spec default).
+		if len(pc.Loadout) > 0 {
+			loadout := &entity.Loadout{}
+			for j, abilID := range pc.Loadout {
+				if j < 6 {
+					loadout.Slots[j] = abilID
+				}
+			}
+			pp.Player.Loadout = loadout
+			pp.Player.ApplyLoadout()
+		}
+
 		puppets[i] = pp
 		playerMap[pp.Player.ID] = pp.Player
 	}
@@ -135,6 +150,7 @@ func RunSimulation(cfg SimConfig) SimResult {
 		AbilityEngine:   engine,
 		PatternEngine:   combat.NewPatternEngine(),
 		PatternRng:      rng,
+		AbilityRunners:  make(map[uint16]*ability.PlayerAbilityRunner),
 		Clients:         make(map[uint16]*system.Client),
 		CombatLogSink:   cfg.Sink,
 		SendBuf:         make([]byte, 0, 4096),
@@ -184,6 +200,7 @@ func RunSimulation(cfg SimConfig) SimResult {
 	// Track phases reached
 	phasesReached := map[int]bool{1: true}
 	specDmg := make(map[string]float32)
+	specHealing := make(map[string]float32)
 	abilStats := make(map[string]*AbilityResult)
 	var replayBuf []byte
 
@@ -243,6 +260,15 @@ func RunSimulation(cfg SimConfig) SimResult {
 					if p, ok := w.Players[ev.SourcePeerID]; ok {
 						specDmg[p.SpecID] += ev.Amount
 					}
+				}
+			}
+		}
+
+		// --- Track healing done ---
+		for _, ev := range w.DamageEvents {
+			if ev.SourceType == combat.SourcePlayerHeal && ev.Amount > 0 {
+				if p, ok := w.Players[ev.SourcePeerID]; ok {
+					specHealing[p.SpecID] += ev.Amount
 				}
 			}
 		}
@@ -315,6 +341,7 @@ func RunSimulation(cfg SimConfig) SimResult {
 		PhasesReached: phases,
 		TreeReport:    instrumented.Report(),
 		SpecDamage:    specDmg,
+		SpecHealing:   specHealing,
 		SpecPlayers:   specPlayers,
 		AbilityStats:  abilStats,
 	}

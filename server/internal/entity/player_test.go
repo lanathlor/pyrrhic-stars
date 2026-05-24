@@ -380,8 +380,8 @@ func TestRecalcStatsArcanotechnicienFlux(t *testing.T) {
 		wantMax  float32
 		wantReg  float32
 	}{
-		{"harmonist zero identity", "harmonist", 0, 160, 7},
-		{"harmonist 100 identity", "harmonist", 100, 320, 10.5},
+		{"harmonist zero identity", "harmonist", 0, 160, 3},
+		{"harmonist 100 identity", "harmonist", 100, 320, 4.5},
 		{"destroyer zero identity", "destroyer", 0, 200, 8},
 		{"destroyer 100 identity", "destroyer", 100, 400, 12},
 		{"battlemage 50 identity", "battlemage", 50, 180, 7.5},

@@ -3,6 +3,7 @@ package integration
 import (
 	"context"
 	"encoding/binary"
+	"math"
 	"sync"
 	"testing"
 	"time"
@@ -248,15 +249,46 @@ func (tc *TestClient) SendAbilityInput(action uint8, aimPitch float32) {
 	tc.send(message.Encode(message.OpAbilityInput, 0, codec.EncodeAbilityInput(action, aimPitch)))
 }
 
-var senderBuffer = make([]byte, 0, 1024)
+// SendAbilityInputAimed sends an OpAbilityInput with explicit aimPitch and rotY.
+func (tc *TestClient) SendAbilityInputAimed(action uint8, aimPitch, rotY float32) {
+	tc.t.Helper()
+	tc.send(message.Encode(message.OpAbilityInput, 0, codec.EncodeAbilityInput(action, aimPitch, rotY)))
+}
 
 // SendPlayerInput sends an OpPlayerInput (position + rotation + tick + anim + aim_pitch).
-
 func (tc *TestClient) SendPlayerInput(posX, posY, posZ, rotY float32, tick uint32, aimPitch float32) {
 	tc.t.Helper()
-	buf := codec.EncodePlayerInput(senderBuffer, posX, posY, posZ, rotY, tick, 0, aimPitch)
+	buf := codec.EncodePlayerInput(nil, posX, posY, posZ, rotY, tick, 0, aimPitch)
 	tc.send(message.Encode(message.OpPlayerInput, 0, buf))
-	clear(senderBuffer)
+}
+
+// WalkTo gradually moves the client from (startX, startY, startZ) to (targetX, targetY, targetZ)
+// by sending incremental position updates within the per-tick speed limit.
+// stepSize should be <= sprint speed * tick dt (e.g. 0.35 for gunner).
+func (tc *TestClient) WalkTo(startX, startY, startZ, targetX, targetY, targetZ, stepSize float32) {
+	tc.t.Helper()
+	curX, curY, curZ := startX, startY, startZ
+	dx := targetX - curX
+	dz := targetZ - curZ
+	dist := float32(math.Sqrt(float64(dx*dx + dz*dz)))
+	if dist < 0.001 {
+		return
+	}
+	dirX := dx / dist
+	dirZ := dz / dist
+	tick := uint32(1)
+	for dist > stepSize {
+		curX += dirX * stepSize
+		curZ += dirZ * stepSize
+		tc.SendPlayerInput(curX, curY, curZ, 0, tick, 0)
+		time.Sleep(55 * time.Millisecond) // slightly over one tick period
+		tick++
+		dx = targetX - curX
+		dz = targetZ - curZ
+		dist = float32(math.Sqrt(float64(dx*dx + dz*dz)))
+	}
+	tc.SendPlayerInput(targetX, targetY, targetZ, 0, tick, 0)
+	time.Sleep(55 * time.Millisecond)
 }
 
 // WaitForWorldStateWithPlayerState waits for an OpWorldState that contains

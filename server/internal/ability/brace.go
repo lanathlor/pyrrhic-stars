@@ -20,20 +20,20 @@ var braceDef = AbilityDef{
 	Handler: "brace",
 }
 
-func braceHandler(_ *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func braceHandler(_ *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "invalid caster"}
+		return CommitResult{Reason: "invalid caster"}
 	}
 	// Must be actively shield blocking
 	if !p.HasBuff("vg_shield_block") {
-		return CastResult{Reason: "not blocking"}
+		return CommitResult{Reason: "not blocking"}
 	}
 	if p.Cooldowns["brace"] > 0 {
-		return CastResult{Reason: "cooldown"}
+		return CommitResult{Reason: "cooldown"}
 	}
 	if p.HasBuff("brace") {
-		return CastResult{Reason: "already braced"}
+		return CommitResult{Reason: "already braced"}
 	}
 
 	p.AddBuff(entity.ActiveBuff{
@@ -45,5 +45,5 @@ func braceHandler(_ *Engine, ctx *CastContext) CastResult {
 
 	p.Cooldowns["brace"] = braceCooldown
 
-	return CastResult{OK: true}
+	return CommitResult{OK: true}
 }

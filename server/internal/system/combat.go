@@ -98,7 +98,7 @@ func (s *CombatSystem) Tick(w *World, dt float32) {
 		}
 	}
 
-	// Tick player ability runners (commit→execute→cooldown lifecycle)
+	// Tick player ability runners (commit→execute→sustain→cooldown lifecycle)
 	for _, p := range w.Players {
 		if !p.Alive {
 			continue
@@ -107,48 +107,99 @@ func (s *CombatSystem) Tick(w *World, dt float32) {
 		if !ok || !runner.IsBusy() {
 			continue
 		}
-		shouldExecute := runner.Tick(dt)
-		runner.SyncToPlayer(p)
-		if shouldExecute {
-			w.enemyTargetBuf = enemiesToTargets(w.enemyTargetBuf, w.Enemies)
-			ctx := &ability.CastContext{
-				Caster:    p,
-				Targets:   w.enemyTargetBuf,
-				Obstacles: w.Level.Obstacles,
-				Allies:    w.Players,
+
+		// Enforce cancel conditions during sustain before ticking
+		if runner.Phase == ability.PRunnerSustain && runner.Def != nil {
+			cc := runner.Def.CancelConditions
+			if cc&uint8(ability.CancelOnDamage) != 0 && p.LastDamageTick > runner.SustainStartTick {
+				if id, cd := runner.SustainCooldownOnCancel(); cd > 0 {
+					p.Cooldowns[id] = cd
+				}
+				runner.Cancel()
+				if p.Confluence != nil {
+					p.Confluence.OnInterrupt()
+				}
+				runner.SyncToPlayer(p)
+				continue
 			}
-			result := w.AbilityEngine.Cast(runner.AbilityID, ctx)
-			for _, h := range result.Heals {
-				w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
-					TargetPeerID: h.TargetID,
-					SourcePeerID: h.SourceID,
-					Amount:       h.Amount,
-					HitPos:       h.HitPos,
-					SourceType:   h.SourceType,
-				})
-			}
-			for _, r := range result.Events {
-				w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
-					TargetPeerID: r.TargetID,
-					SourcePeerID: r.SourceID,
-					Amount:       r.Amount,
-					HitPos:       r.HitPos,
-					SourceType:   r.SourceType,
-				})
-				// Apply threat and handle enemy death
-				if enemy, ok := r.Target.(*entity.Enemy); ok {
-					enemy.AddThreat(p.ID, r.Amount)
-					w.AggroEnemy(enemy, p.ID)
-					if !enemy.Alive {
-						w.logCombatDeath(
-							combatlog.FormatEnemyID(r.TargetID),
-							combatlog.FormatPlayerID(p.ID),
-							p.ClassID,
-							runner.AbilityID,
-						)
-						checkEnemyGroupDead(w, enemy)
+			if cc&uint8(ability.CancelOnMove) != 0 {
+				dx := p.Position.X - runner.SustainStartPos.X
+				dz := p.Position.Z - runner.SustainStartPos.Z
+				if dx*dx+dz*dz > 0.25 {
+					if id, cd := runner.SustainCooldownOnCancel(); cd > 0 {
+						p.Cooldowns[id] = cd
 					}
-					w.logPhaseChange(enemy)
+					runner.Cancel()
+					if p.Confluence != nil {
+						p.Confluence.OnInterrupt()
+					}
+					runner.SyncToPlayer(p)
+					continue
+				}
+			}
+		}
+
+		prevPhase := runner.Phase
+		shouldFire := runner.Tick(dt)
+
+		// When entering sustain from execute, record start position and tick
+		if prevPhase == ability.PRunnerExecute && runner.Phase == ability.PRunnerSustain {
+			runner.SustainStartPos = p.Position
+			runner.SustainStartTick = w.TickNum
+		}
+
+		runner.SyncToPlayer(p)
+
+		if shouldFire {
+			switch runner.Phase {
+			case ability.PRunnerExecute, ability.PRunnerCooldown, ability.PRunnerSustain:
+				if prevPhase == ability.PRunnerCommit {
+					// Commit expired → execute ability
+					w.enemyTargetBuf = enemiesToTargets(w.enemyTargetBuf, w.Enemies)
+					ctx := &ability.CommitContext{
+						Committer:       p,
+						Targets:      w.enemyTargetBuf,
+						Obstacles:    w.Level.Obstacles,
+						Allies:       w.Players,
+						TargetPeerID: p.ChannelTargetID,
+					}
+					result := w.AbilityEngine.Commit(runner.AbilityID, ctx)
+					for _, h := range result.Heals {
+						w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
+							TargetPeerID: h.TargetID,
+							SourcePeerID: h.SourceID,
+							Amount:       h.Amount,
+							Overheal:     h.Overheal,
+							HitPos:       h.HitPos,
+							SourceType:   h.SourceType,
+						})
+					}
+					for _, r := range result.Events {
+						w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
+							TargetPeerID: r.TargetID,
+							SourcePeerID: r.SourceID,
+							Amount:       r.Amount,
+							HitPos:       r.HitPos,
+							SourceType:   r.SourceType,
+						})
+						if enemy, ok := r.Target.(*entity.Enemy); ok {
+							enemy.AddThreat(p.ID, r.Amount)
+							w.AggroEnemy(enemy, p.ID)
+							if !enemy.Alive {
+								w.logCombatDeath(
+									combatlog.FormatEnemyID(r.TargetID),
+									combatlog.FormatPlayerID(p.ID),
+									p.ClassID,
+									runner.AbilityID,
+								)
+								checkEnemyGroupDead(w, enemy)
+							}
+							w.logPhaseChange(enemy)
+						}
+					}
+				} else if prevPhase == ability.PRunnerSustain {
+					// Sustain tick → apply per-tick effect
+					applySustainTick(w, p, runner)
 				}
 			}
 		}
@@ -183,11 +234,13 @@ func (s *CombatSystem) Tick(w *World, dt float32) {
 					p.Health = p.MaxHealth
 				}
 				actual := p.Health - before
-				if actual > 0 {
+				overheal := healAmount - actual
+				if actual > 0 || overheal > 0 {
 					w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
 						TargetPeerID: p.ID,
 						SourcePeerID: zone.OwnerID,
 						Amount:       actual,
+						Overheal:     overheal,
 						HitPos:       p.Position.Add(entity.Vec3{Y: 1.0}),
 						SourceType:   combat.SourcePlayerHeal,
 					})
@@ -197,6 +250,132 @@ func (s *CombatSystem) Tick(w *World, dt float32) {
 		aliveZones = append(aliveZones, zone)
 	}
 	w.HealingZones = aliveZones
+
+	// Tick player HoTs (Regeneration Protocol)
+	for _, p := range w.Players {
+		if !p.Alive || len(p.HoTs) == 0 {
+			continue
+		}
+		alive := p.HoTs[:0]
+		for i := range p.HoTs {
+			hot := &p.HoTs[i]
+			hot.Remaining -= dt
+			if hot.Remaining <= 0 {
+				continue // expired
+			}
+			// Emergency burst: consume all remaining ticks when HP < threshold
+			if hot.BurstThreshold > 0 && p.Health < p.MaxHealth*hot.BurstThreshold {
+				remainingTicks := int(hot.Remaining/hot.Interval) + 1
+				burst := float32(remainingTicks) * hot.HealPerTick
+				before := p.Health
+				p.Health += burst
+				if p.Health > p.MaxHealth {
+					p.Health = p.MaxHealth
+				}
+				actual := p.Health - before
+				if actual > 0 {
+					w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
+						TargetPeerID: p.ID,
+						SourcePeerID: hot.SourcePeer,
+						Amount:       actual,
+						HitPos:       p.Position.Add(entity.Vec3{Y: 1.0}),
+						SourceType:   combat.SourcePlayerHeal,
+					})
+				}
+				continue // consumed
+			}
+			hot.TickTimer -= dt
+			if hot.TickTimer <= 0 {
+				hot.TickTimer += hot.Interval
+				before := p.Health
+				p.Health += hot.HealPerTick
+				if p.Health > p.MaxHealth {
+					p.Health = p.MaxHealth
+				}
+				actual := p.Health - before
+				if actual > 0 {
+					w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
+						TargetPeerID: p.ID,
+						SourcePeerID: hot.SourcePeer,
+						Amount:       actual,
+						HitPos:       p.Position.Add(entity.Vec3{Y: 1.0}),
+						SourceType:   combat.SourcePlayerHeal,
+					})
+				}
+			}
+			alive = append(alive, *hot)
+		}
+		p.HoTs = alive
+	}
+
+	// Tick damage links (Vital Circuit)
+	aliveLinks := w.DamageLinks[:0]
+	for _, link := range w.DamageLinks {
+		link.Duration -= dt
+		if link.Duration <= 0 {
+			// On expiry: heal the lower-HP ally for 30% of the HP difference
+			pa, okA := w.Players[link.PeerA]
+			pb, okB := w.Players[link.PeerB]
+			if okA && okB && pa.Alive && pb.Alive {
+				diff := pb.Health - pa.Health
+				var healTarget *entity.Player
+				if diff > 0 {
+					healTarget = pa
+				} else if diff < 0 {
+					healTarget = pb
+					diff = -diff
+				}
+				if healTarget != nil && diff > 0 {
+					healAmount := diff * 0.3
+					before := healTarget.Health
+					healTarget.Health += healAmount
+					if healTarget.Health > healTarget.MaxHealth {
+						healTarget.Health = healTarget.MaxHealth
+					}
+					actual := healTarget.Health - before
+					if actual > 0 {
+						w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
+							TargetPeerID: healTarget.ID,
+							SourcePeerID: link.SourcePeer,
+							Amount:       actual,
+							HitPos:       healTarget.Position.Add(entity.Vec3{Y: 1.0}),
+							SourceType:   combat.SourcePlayerHeal,
+						})
+					}
+				}
+			}
+			continue // expired
+		}
+		aliveLinks = append(aliveLinks, link)
+	}
+	w.DamageLinks = aliveLinks
+
+	// Last Breath expiry: when death prevention buff disappears, caster takes 50% of prevented damage
+	for _, p := range w.Players {
+		if !p.Alive || p.LastBreathCasterID == 0 {
+			continue
+		}
+		if !p.HasBuff("last_breath") {
+			// Buff expired — apply deferred damage to caster
+			if p.LastBreathPrevented > 0 {
+				if caster, ok := w.Players[p.LastBreathCasterID]; ok && caster.Alive {
+					selfDmg := p.LastBreathPrevented * 0.5
+					dealt := caster.ApplyDamage(selfDmg)
+					if dealt > 0 {
+						w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
+							TargetPeerID: caster.ID,
+							SourcePeerID: caster.ID,
+							Amount:       dealt,
+							HitPos:       caster.Position.Add(entity.Vec3{Y: 1.0}),
+							SourceType:   combat.SourcePlayerAttack,
+						})
+					}
+				}
+			}
+			p.LastBreathPrevented = 0
+			p.LastBreathCasterID = 0
+		}
+	}
 
 	// Update combat state per player
 	for _, p := range w.Players {
@@ -230,6 +409,188 @@ func (s *CombatSystem) Tick(w *World, dt float32) {
 			if p.Health > p.MaxHealth {
 				p.Health = p.MaxHealth
 			}
+		}
+	}
+}
+
+// applySustainTick applies a single sustain tick effect (heal or damage with scaling).
+func applySustainTick(w *World, p *entity.Player, runner *ability.PlayerAbilityRunner) {
+	def := runner.Def
+	if def == nil {
+		return
+	}
+
+	// Drain flux (school-aware for FluxCommitment players)
+	fluxCost := def.SustainCostPerSec * def.SustainInterval
+	if fluxCost > 0 {
+		var ok bool
+		if def.School != "" && p.FluxCommit != nil && len(p.FluxCommit.Pools) > 0 {
+			ok = p.SpendFluxBySchool(def.School, fluxCost)
+		} else {
+			ok = p.SpendResource("flux", fluxCost)
+		}
+		if !ok {
+			if id, cd := runner.SustainCooldownOnCancel(); cd > 0 {
+				p.Cooldowns[id] = cd
+			}
+			runner.Cancel()
+			if p.Confluence != nil {
+				p.Confluence.OnInterrupt()
+			}
+			runner.SyncToPlayer(p)
+			return
+		}
+	}
+
+	// Compute scaling multiplier
+	multiplier := float32(1.0) + runner.SustainElapsed*def.SustainScaling
+	amount := def.SustainEffect * multiplier
+
+	// Transfusion: drain target ally HP, heal all OTHER allies
+	if def.SustainHandler == "transfusion" {
+		targetID := p.ChannelTargetID
+		target, ok := w.Players[targetID]
+		if !ok || !target.Alive {
+			if id, cd := runner.SustainCooldownOnCancel(); cd > 0 {
+				p.Cooldowns[id] = cd
+			}
+			runner.Cancel()
+			runner.SyncToPlayer(p)
+			return
+		}
+		drainAmount := amount
+		if target.Health-drainAmount < 1 {
+			drainAmount = target.Health - 1
+		}
+		if drainAmount <= 0 {
+			if id, cd := runner.SustainCooldownOnCancel(); cd > 0 {
+				p.Cooldowns[id] = cd
+			}
+			runner.Cancel()
+			runner.SyncToPlayer(p)
+			return
+		}
+		target.Health -= drainAmount
+		w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
+			TargetPeerID: targetID,
+			SourcePeerID: p.ID,
+			Amount:       -drainAmount, // negative = drain
+			HitPos:       target.Position.Add(entity.Vec3{Y: 1.0}),
+			SourceType:   combat.SourcePlayerHeal,
+		})
+		// Heal all other allies within 10m of caster
+		for _, ally := range w.Players {
+			if ally.ID == targetID || ally.ID == p.ID || !ally.Alive {
+				continue
+			}
+			dx := p.Position.X - ally.Position.X
+			dz := p.Position.Z - ally.Position.Z
+			if dx*dx+dz*dz > 100 { // 10m radius
+				continue
+			}
+			before := ally.Health
+			ally.Health += drainAmount
+			if ally.Health > ally.MaxHealth {
+				ally.Health = ally.MaxHealth
+			}
+			actual := ally.Health - before
+			overheal := drainAmount - actual
+			if actual > 0 || overheal > 0 {
+				w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
+					TargetPeerID: ally.ID,
+					SourcePeerID: p.ID,
+					Amount:       actual,
+					Overheal:     overheal,
+					HitPos:       ally.Position.Add(entity.Vec3{Y: 1.0}),
+					SourceType:   combat.SourcePlayerHeal,
+				})
+			}
+		}
+		return
+	}
+
+	// Apply effect: heal ally target or damage enemy
+	if def.Hit.Type == ability.HitAllyTarget {
+		// Heal: target the channel target ally
+		targetID := p.ChannelTargetID
+		target, ok := w.Players[targetID]
+		if !ok || !target.Alive {
+			// Fallback: heal self
+			target = p
+			targetID = p.ID
+		}
+		before := target.Health
+		target.Health += amount
+		if target.Health > target.MaxHealth {
+			target.Health = target.MaxHealth
+		}
+		actual := target.Health - before
+		overheal := amount - actual
+		if actual > 0 || overheal > 0 {
+			w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
+				TargetPeerID: targetID,
+				SourcePeerID: p.ID,
+				Amount:       actual,
+				Overheal:     overheal,
+				HitPos:       target.Position.Add(entity.Vec3{Y: 1.0}),
+				SourceType:   combat.SourcePlayerHeal,
+			})
+		}
+	} else if def.Hit.Type == ability.HitNearestN {
+		// Damage: hit nearest alive enemy, heal lowest ally for 50%
+		for _, e := range w.Enemies {
+			if e == nil || !e.Alive {
+				continue
+			}
+			dealt := e.TargetApplyDamage(amount)
+			if dealt > 0 {
+				w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
+					TargetPeerID: e.ID,
+					SourcePeerID: p.ID,
+					Amount:       dealt,
+					HitPos:       e.Position.Add(entity.Vec3{Y: 1.0}),
+					SourceType:   combat.SourcePlayerAttack,
+				})
+				e.AddThreat(p.ID, dealt)
+				w.AggroEnemy(e, p.ID)
+				if !e.Alive {
+					w.logCombatDeath(combatlog.FormatEnemyID(e.ID), combatlog.FormatPlayerID(p.ID), p.ClassID, runner.AbilityID)
+					checkEnemyGroupDead(w, e)
+				}
+				w.logPhaseChange(e)
+
+				// Heal lowest ally for 50% of damage dealt
+				healAmount := dealt * 0.5
+				if healAmount > 0 {
+					var healTarget *entity.Player
+					var lowestHP float32 = 999999
+					for _, ally := range w.Players {
+						if ally.Alive && ally.Health < ally.MaxHealth && ally.Health < lowestHP {
+							lowestHP = ally.Health
+							healTarget = ally
+						}
+					}
+					if healTarget == nil {
+						healTarget = p
+					}
+					before := healTarget.Health
+					healTarget.Health += healAmount
+					if healTarget.Health > healTarget.MaxHealth {
+						healTarget.Health = healTarget.MaxHealth
+					}
+					actual := healTarget.Health - before
+					if actual > 0 {
+						w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
+							TargetPeerID: healTarget.ID,
+							SourcePeerID: p.ID,
+							Amount:       actual,
+							HitPos:       healTarget.Position.Add(entity.Vec3{Y: 1.0}),
+							SourceType:   combat.SourcePlayerHeal,
+						})
+					}
+				}
+			}
+			break // only hit nearest
 		}
 	}
 }

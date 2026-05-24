@@ -13,7 +13,7 @@
 server/
   internal/
     enemyai/          # BT executor, snapshot builder, leaf registry (currently FSM-based Brain)
-    combat/           # spell engine, damage calc, pattern engine
+    combat/           # ability engine, damage calc, pattern engine
     combatlog/        # logger, repo, API handlers (new)
     zone/             # instancing, zone management
     entity/           # Player, Enemy, Projectile, Vec3
@@ -21,7 +21,7 @@ server/
 content/              # data files (future: separate repo for world-race protection)
   encounters/         # encounter YAML definitions
   mobs/               # mob YAML definitions
-  spells/             # spell YAML definitions
+  abilities/          # ability YAML definitions
   leaves/
     shared/           # shared Go leaf functions (available to all entities)
     tier1/            # entity-specific Go leaves
@@ -114,9 +114,9 @@ tier: 2
 tree:
     selector:
         - sequence:
-              - condition: target_casting
+              - condition: target_channeling
               - condition: target_in_range(5)
-              - action: punish_caster
+              - action: punish_channeler
         - sequence:
               - condition: is_flanking
               - action: aggressive_melee
@@ -207,7 +207,7 @@ ctx.Position() Vec3
 ctx.Facing() float32              // radians
 ctx.IsAlive() bool
 ctx.Phase() string
-ctx.IsCasting() bool
+ctx.IsChanneling() bool
 ```
 
 #### Threat — "who is aware of me?"
@@ -231,7 +231,7 @@ entity.ClassTag() string          // "gunner", "vanguard", "blade_dancer"
 entity.HealthPct() float32
 entity.Position() Vec3
 entity.DistanceTo(other) float32
-entity.IsCasting() bool
+entity.IsChanneling() bool
 entity.IsAlive() bool
 ```
 
@@ -248,12 +248,12 @@ ctx.EntitiesInCone(angle, range, direction) []Entity
 #### Combat — "what can I do?"
 
 ```
-ctx.Cast(spellID, target?) Result
-ctx.CastAtPosition(spellID, pos) Result
-ctx.IsOnCooldown(spellID) bool
-ctx.CooldownRemaining(spellID) float32
+ctx.Commit(abilityID, target?) Result
+ctx.CommitAtPosition(abilityID, pos) Result
+ctx.IsOnCooldown(abilityID) bool
+ctx.CooldownRemaining(abilityID) float32
 ctx.AttackWeighted() Result
-ctx.CastPattern(patternID) PatternHandle
+ctx.CommitPattern(patternID) PatternHandle
 ```
 
 #### Movement — "where should I go?"
@@ -309,7 +309,7 @@ type ThreatEntry struct {
     Position  Vec3
     Distance  float32   // current distance to this NPC
     HealthPct float32
-    IsCasting bool
+    IsChanneling bool
     IsAlive   bool
 }
 ```
@@ -331,10 +331,10 @@ Threat is one input signal among many. A boss tree might use it, ignore it, or c
     - condition: { highest_threat_in_range: { min: 8, max: 15 } }
     - action: snipe_highest_threat
 
-# Punish a caster (uses perception, not threat)
+# Punish a channeler (uses perception, not threat)
 - sequence:
-    - condition: player_casting_in_range(5)
-    - action: interrupt_cast
+    - condition: player_channeling_in_range(5)
+    - action: interrupt_channel
 
 # Go for nearest player (ignores threat entirely)
 - action: attack_nearest
@@ -355,32 +355,32 @@ Threat is one input signal among many. A boss tree might use it, ignore it, or c
 
 ---
 
-## 6. Spell System
+## 6. Ability System
 
 ### 6.1 Design Split
 
-| Class        | Spell Implementation      | Rationale                                     |
-| ------------ | ------------------------- | --------------------------------------------- |
-| Gunner       | Pure YAML data            | Skillshots are data-driven projectiles.       |
-| Vanguard     | Pure YAML data            | Melee actions are data-driven effects.        |
-| Blade Dancer | Go actions (existing)     | Already implemented, performance-sensitive.   |
-| Arcanotechnicien | YAML + Go lifecycle hooks | Flux commitment, channeling, evolving spells. |
-| Engineer     | YAML + spawned entity AI  | Deployables use shared BT leaves.             |
-| Tutelaire    | YAML, minimal Go hooks    | Aura positioning logic.                       |
+| Class        | Ability Implementation      | Rationale                                       |
+| ------------ | --------------------------- | ----------------------------------------------- |
+| Gunner       | Pure YAML data              | Skillshots are data-driven projectiles.         |
+| Vanguard     | Pure YAML data              | Melee actions are data-driven effects.          |
+| Blade Dancer | Go actions (existing)       | Already implemented, performance-sensitive.     |
+| Arcanotechnicien | YAML + Go lifecycle hooks | Flux commitment, channeling, evolving abilities. |
+| Engineer     | YAML + spawned entity AI    | Deployables use shared BT leaves.               |
+| Tutelaire    | YAML, minimal Go hooks      | Aura positioning logic.                         |
 
-### 6.2 Spell Definition (YAML)
+### 6.2 Ability Definition (YAML)
 
 ```yaml
-spell: flux_bolt
+ability: flux_bolt
 class: arcanotechnicien
-cast_time: 1.2
+commit_time: 1.2
 cooldown: 0
 range: 30
 cost:
     flux: 10
 targeting:
     type: skillshot
-    origin: caster
+    origin: committer
     direction: camera_facing
     range: 40
     width: 0.5
@@ -406,7 +406,7 @@ effects:
 | `skillshot` | Projectile along camera facing     | Flux bolt, void lance          |
 | `entity`    | Tab-target or lock-on              | Siphon flux                    |
 | `smart`     | Engine picks via strategy function | Emergency heal (lowest_health) |
-| `self_aoe`  | AoE around caster                  | Frost nova, blinding flash     |
+| `self_aoe`  | AoE around channeler               | Frost nova, blinding flash     |
 | `ground`    | Player places a reticle            | Ice wall, flux turret          |
 
 Smart targeting strategies are Go functions registered to the leaf registry using the same pattern.
@@ -416,7 +416,7 @@ Smart targeting strategies are Go functions registered to the leaf registry usin
 Go provides built-in emitter types: `radial`, `cone`, `line`, `arc`, `ring_contract`, `targeted`, `random_zone`. Patterns are composed from emitters in YAML:
 
 ```yaml
-spell: void_spiral
+ability: void_spiral
 phases:
     - emitter: radial
       count: 24
@@ -439,11 +439,11 @@ safe_zones:
       direction: random
 ```
 
-Patterns can be dynamically modified mid-flight via `ctx.ModifyActivePattern()`. The same pattern engine powers both boss bullet-hell attacks and player spell effects.
+Patterns can be dynamically modified mid-flight via `ctx.ModifyActivePattern()`. The same pattern engine powers both boss bullet-hell attacks and player ability effects.
 
 ### 6.5 Lifecycle Hooks (Arcanotechnicien)
 
-Arcanotechnicien spells with Flux commitment, channeling, or evolving behavior use Go lifecycle hooks (`OnCastStart`, `OnCastComplete`, `OnChannelTick`, `OnHit`, `OnProc`, etc.). Most spells implement zero hooks. The hooks are optional methods on a `SpellController` interface.
+Arcanotechnicien abilities with Flux commitment, channeling, or evolving behavior use Go lifecycle hooks (`OnCommitStart`, `OnCommitComplete`, `OnChannelTick`, `OnHit`, `OnProc`, etc.). Most abilities implement zero hooks. The hooks are optional methods on an `AbilityController` interface.
 
 ---
 
@@ -462,9 +462,9 @@ phases:
       tree:
           selector:
               - sequence:
-                    - condition: target_casting
+                    - condition: target_channeling
                     - condition: target_in_range(3)
-                    - action: punish_caster
+                    - action: punish_channeler
               - sequence:
                     - condition: is_flanking
                     - action: aggressive_melee
@@ -569,7 +569,7 @@ patrol:
 | -------- | ------------------------------- | -------------------------------------------------------------------- |
 | **1**    | **BT executor + leaf registry** | Port existing boss from FSM to BT. Highest-leverage change.         |
 | **2**    | **Tier 1 data-driven mobs**     | Express existing mobs as YAML. Prove the system.                     |
-| **3**    | **Pattern engine**              | Bullet-hell patterns for bosses and Arcanotechnicien. Core differentiator.   |
+| **3**    | **Pattern engine**              | Bullet-hell patterns for bosses and Arcanotechnicien. Core differentiator.    |
 | **4**    | **TDD scenarios**               | Write tests for existing boss behavior. Build confidence.            |
 | **5**    | **Combat logger**               | Start writing events. Simplest version, no API yet.                  |
 | **6**    | **Fuzz tests + specs**          | Balance testing. Useful once 2+ encounters exist.                    |

@@ -1,0 +1,737 @@
+# Arcanotechnicien spell catalog.
+# Canonical source for all spell metadata. Loaded by server at startup,
+# sent to client via OpSpellCatalog on character connect.
+#
+# Only spells marked implemented: true have runtime AbilityDef + handler.
+# Others appear in the Codex UI but cannot be slotted.
+
+affinities:
+  harmonist:
+    primary: [bioarcanotechnic, biometabolic, frost]
+    secondary: [aerokinetic, hydrodynamic, pure]
+  destroyer:
+    primary: [fire, frost, electricity]
+    secondary: [gravitonic, aerokinetic, pure]
+  battlemage:
+    primary: [electricity, fire, martial]
+    secondary: [shadow, aerokinetic, pure]
+
+spells:
+  # ── Fire ──────────────────────────────────────────────────────────────
+  - id: fireball
+    name: Fireball
+    school: fire
+    spell_type: destruction
+    delivery: ""
+    flux_cost: high
+    cooldown: 0.0
+    cast_time: 3.0
+    description: >-
+      Channeled AoE explosion at target location. Supports early release —
+      radius and damage scale with channel completion. At full Overcharge,
+      leaves a brief burning ground effect. The Destroyer's signature nuke.
+    implemented: false
+
+  - id: ignition
+    name: Ignition
+    school: fire
+    spell_type: destruction
+    delivery: ""
+    flux_cost: medium
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Single-target burst that applies a strong burn DoT. Less raw damage
+      than Fireball but instant activation makes it Weave-compatible.
+    implemented: false
+
+  - id: burn
+    name: Burn
+    school: fire
+    spell_type: affliction
+    delivery: ""
+    flux_cost: low
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Applies a burn DoT to target. Low individual damage but efficient
+      Flux-per-damage ratio. Good filler for maintaining pressure and
+      building Confluence stacks.
+    implemented: false
+
+  - id: flame_wall
+    name: Flame Wall
+    school: fire
+    spell_type: protection
+    delivery: ""
+    flux_cost: medium
+    cooldown: 0.0
+    cast_time: 1.5
+    description: >-
+      Creates a wall of fire at target location for 6 seconds. Enemies
+      passing through take heavy damage and are briefly slowed. Zone
+      denial tool — forces enemies to path around or eat the damage.
+    implemented: false
+
+  # ── Frost ─────────────────────────────────────────────────────────────
+  - id: frost_nova
+    name: Frost Nova
+    school: frost
+    spell_type: destruction
+    delivery: ""
+    flux_cost: medium
+    cooldown: 0.0
+    cast_time: 1.5
+    description: >-
+      Channeled AoE burst centered on target location. Supports early
+      release. Deals damage and leaves a slow field for 4 seconds.
+      The control-damage hybrid.
+    implemented: false
+
+  - id: ice_javelin
+    name: Ice Javelin
+    school: frost
+    spell_type: destruction
+    delivery: ""
+    flux_cost: medium
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Single-target projectile with high damage. Applies a brief root on
+      hit. The Frost school's burst single-target option — pairs well
+      with Frostbite for a full immobilize.
+    implemented: false
+
+  - id: frostbite
+    name: Frostbite
+    school: frost
+    spell_type: affliction
+    delivery: ""
+    flux_cost: low
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Applies a stacking slow and damage-over-time. Each stack increases
+      slow magnitude. At 3 stacks, the target is immobilized for 2
+      seconds. Efficient control tool.
+    implemented: false
+
+  - id: frost_ward
+    name: Frost Ward
+    school: frost
+    spell_type: protection
+    delivery: direct
+    flux_cost: medium
+    cooldown: 12.0
+    cast_time: 0.2
+    description: >-
+      Applies a frost barrier to target ally that absorbs incoming damage.
+      When the barrier breaks or expires, it explodes for minor AoE damage
+      and applies Frostbite to nearby enemies. Defensive and offensive.
+    implemented: true
+
+  # ── Electricity ───────────────────────────────────────────────────────
+  - id: chain_lightning
+    name: Chain Lightning
+    school: electricity
+    spell_type: destruction
+    delivery: ""
+    flux_cost: medium
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Hits primary target then chains to up to 3 nearby enemies. Each
+      chain deals reduced damage. The instant AoE option — no channel,
+      no commitment, pure reactive damage.
+    implemented: false
+
+  - id: lightning
+    name: Lightning
+    school: electricity
+    spell_type: destruction
+    delivery: ""
+    flux_cost: high
+    cooldown: 0.0
+    cast_time: 2.5
+    description: >-
+      Channeled single-target devastating damage. Near-instant travel
+      time once released. The Electricity school's big single-target
+      nuke — less AoE than Fireball, more focused destruction.
+    implemented: false
+
+  - id: lightning_blade
+    name: Lightning Blade
+    school: electricity
+    spell_type: enhancement
+    delivery: ""
+    flux_cost: medium
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Infuses your weapon with electricity for 10 seconds. Weapon strikes
+      chain a small lightning arc to one nearby enemy. The Battlemage's
+      bread-and-butter enhancement spell.
+    implemented: false
+
+  - id: static_field
+    name: Static Field
+    school: electricity
+    spell_type: affliction
+    delivery: ""
+    flux_cost: medium
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Places a persistent field at target location for 8 seconds. Enemies
+      inside take ticking lightning damage and have reduced attack speed.
+      Zone control through sustained damage.
+    implemented: false
+
+  - id: surge
+    name: Surge
+    school: electricity
+    spell_type: enhancement
+    delivery: ""
+    flux_cost: medium
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Channels electromagnetic Flux along your limbs, granting +20%
+      attack speed for 6 seconds. Flux arcs visibly between your joints.
+      The Battlemage's burst window opener.
+    implemented: false
+
+  - id: flux_armor
+    name: Flux Armor
+    school: electricity
+    spell_type: protection
+    delivery: ""
+    flux_cost: medium
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Wraps the caster in a crackling electromagnetic field for 4 seconds.
+      Absorbs incoming damage. Enemies who strike the caster in melee take
+      shock damage. The Battlemage's defensive tool.
+    implemented: false
+
+  # ── Shadow ────────────────────────────────────────────────────────────
+  - id: shadow_step
+    name: Shadow Step
+    school: shadow
+    spell_type: displacement
+    delivery: displacement
+    flux_cost: low
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Short-range blink (8m) in facing direction. Leaves a shadow decoy
+      at origin for 2 seconds that draws one attack. The universal
+      repositioning tool — cheap, fast, and provides a distraction.
+    implemented: false
+
+  - id: veil
+    name: Veil
+    school: shadow
+    spell_type: enhancement
+    delivery: ""
+    flux_cost: medium
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Grants brief optical camouflage for 3 seconds. Reduces enemy
+      targeting priority. Not true invisibility — AoE still hits you —
+      but buys breathing room during dangerous phases.
+    implemented: false
+
+  - id: dread
+    name: Dread
+    school: shadow
+    spell_type: affliction
+    delivery: ""
+    flux_cost: medium
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Debuffs target: reduced damage output for 6 seconds. A strong
+      defensive debuff for high-damage phases. Stack with Frost Ward
+      for maximum damage reduction on the team.
+    implemented: false
+
+  # ── Aerokinetic ───────────────────────────────────────────────────────
+  - id: gale_force
+    name: Gale Force
+    school: aerokinetic
+    spell_type: destruction
+    delivery: ""
+    flux_cost: medium
+    cooldown: 0.0
+    cast_time: 2.0
+    description: >-
+      Channeled cone of pressurized wind. Supports early release. Pushes
+      enemies back and deals damage over the channel duration. Longer
+      channel means more pushback. Area denial meets damage.
+    implemented: false
+
+  - id: gale_shield
+    name: Gale Shield
+    school: aerokinetic
+    spell_type: protection
+    delivery: ""
+    flux_cost: medium
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Creates a swirling wind barrier around caster for 4 seconds.
+      Deflects incoming projectiles and reduces ranged damage taken.
+      Melee attacks are unaffected. Counters ranged-heavy encounters.
+    implemented: false
+
+  - id: gust_step
+    name: Gust Step
+    school: aerokinetic
+    spell_type: displacement
+    delivery: displacement
+    flux_cost: low
+    cooldown: 10.0
+    cast_time: 0.3
+    description: >-
+      Wind-propelled dash (10m) in facing direction. Faster than Shadow
+      Step with no decoy, but leaves a brief tailwind that gives allies
+      who pass through it +10% move speed for 2 seconds.
+    implemented: true
+
+  - id: soothing_wind
+    name: Soothing Wind
+    school: aerokinetic
+    spell_type: enhancement
+    delivery: zone
+    flux_cost: medium
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Places a gentle wind zone at target location for 8 seconds. Allies
+      inside gain minor move speed and heal per tick. The Harmonist's
+      off-school zone option for mobile fights.
+    implemented: false
+
+  # ── Gravitonic ────────────────────────────────────────────────────────
+  - id: gravitonic_collapse
+    name: Gravitonic Collapse
+    school: gravitonic
+    spell_type: destruction
+    delivery: ""
+    flux_cost: extreme
+    cooldown: 0.0
+    cast_time: 3.0
+    description: >-
+      Creates a gravity well at target location. Pulls all enemies within
+      10m toward center over 2 seconds, then detonates for massive AoE
+      damage. The ultimate group-and-nuke setup tool.
+    implemented: false
+
+  - id: force_shell
+    name: Force Shell
+    school: gravitonic
+    spell_type: protection
+    delivery: ""
+    flux_cost: medium
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Surrounds caster in a gravity field for 3 seconds. Incoming
+      projectiles are deflected. Melee attacks deal reduced damage.
+      Does not prevent telegraphed AoE — positioning still matters.
+    implemented: false
+
+  - id: gravity_crush
+    name: Gravity Crush
+    school: gravitonic
+    spell_type: destruction
+    delivery: ""
+    flux_cost: high
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Increases local gravity on the target. Heavy damage plus a 2-second
+      root — they can't move under the weight. Strong burst damage with
+      built-in crowd control.
+    implemented: false
+
+  # ── Hydrodynamic ──────────────────────────────────────────────────────
+  - id: torrent
+    name: Torrent
+    school: hydrodynamic
+    spell_type: destruction
+    delivery: ""
+    flux_cost: medium
+    cooldown: 0.0
+    cast_time: 3.0
+    description: >-
+      Directed stream of pressurized water at target. Sustained damage
+      that pushes the target slowly backward. Low damage per tick but
+      continuous and disruptive. Good for repositioning enemies.
+    implemented: false
+
+  - id: purifying_mist
+    name: Purifying Mist
+    school: hydrodynamic
+    spell_type: enhancement
+    delivery: zone
+    flux_cost: medium
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Places a water mist zone at target location for 6 seconds. Allies
+      inside are cleansed of one DoT on entry and gain minor damage
+      reduction. Situational but powerful in DoT-heavy encounters.
+    implemented: false
+
+  # ── Bioarcanotechnic ──────────────────────────────────────────────────
+  - id: mending_surge
+    name: Mending Surge
+    school: bioarcanotechnic
+    spell_type: enhancement
+    delivery: direct
+    flux_cost: high
+    cooldown: 0.0
+    cast_time: 0.4
+    description: >-
+      Massive single-target emergency heal. The biggest heal per cast in
+      the game. Burns through your Flux reserve fast — you can't spam
+      this, but when someone is about to die, nothing else compares.
+    implemented: true
+
+  - id: mending_beam
+    name: Mending Beam
+    school: bioarcanotechnic
+    spell_type: enhancement
+    delivery: beam
+    flux_cost: high
+    cooldown: 0.0
+    cast_time: 2.0
+    description: >-
+      Tethers caster to target ally. Heals for a large amount per tick
+      while channeled. Highest sustained single-target healing throughput.
+      Line-of-sight required. Expensive to maintain — drains Flux every tick.
+    implemented: true
+
+  - id: overclock
+    name: Overclock
+    school: bioarcanotechnic
+    spell_type: enhancement
+    delivery: direct
+    flux_cost: medium
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Buffs target for 6 seconds: +15% attack speed, +10% movement speed.
+      Works on self or ally. The offensive support tool — use on the DPS
+      during their burst window for maximum value.
+    implemented: false
+
+  - id: neural_fortification
+    name: Neural Fortification
+    school: bioarcanotechnic
+    spell_type: protection
+    delivery: direct
+    flux_cost: high
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Buffs target ally for 6 seconds: +20% damage reduction, immunity to
+      one interrupt effect. Cast on a Destroyer mid-channel to armor them
+      against interruption. The "protect the caster" spell.
+    implemented: false
+
+  - id: restoration_matrix
+    name: Restoration Matrix
+    school: bioarcanotechnic
+    spell_type: enhancement
+    delivery: zone
+    flux_cost: high
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Places a bioarcanotechnic healing zone at target location for 10
+      seconds. Allies inside heal at high throughput per tick. Expensive
+      to place but powerful sustained AoE healing. The primary-school Zone heal.
+    implemented: true
+
+  - id: neural_purge
+    name: Neural Purge
+    school: bioarcanotechnic
+    spell_type: enhancement
+    delivery: direct
+    flux_cost: medium
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Cleanses all Flux-based debuffs and one non-Flux debuff from target
+      ally. Grants 2-second debuff immunity after cleanse. Essential for
+      encounters with dangerous persistent debuffs.
+    implemented: false
+
+  - id: regeneration_protocol
+    name: Regeneration Protocol
+    school: bioarcanotechnic
+    spell_type: enhancement
+    delivery: direct
+    flux_cost: medium
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Applies a strong HoT to target ally for 12 seconds. If the ally
+      drops below 30% HP while active, remaining ticks are consumed
+      instantly as a burst heal. The "insurance policy" — place before
+      a dangerous phase.
+    implemented: false
+
+  # ── Biometabolic ──────────────────────────────────────────────────────
+  - id: life_swap
+    name: Life Swap
+    school: biometabolic
+    spell_type: enhancement
+    delivery: direct
+    flux_cost: low
+    cooldown: 6.0
+    cast_time: 0.3
+    description: >-
+      Drains a portion of target ally's HP and stores it as vital charge.
+      Your next heal within 4 seconds is empowered by the stored charge.
+      Take health from someone healthy to supercharge your next heal on
+      someone dying. Allies must trust their Harmonist.
+    implemented: true
+
+  - id: transfusion
+    name: Transfusion
+    school: biometabolic
+    spell_type: enhancement
+    delivery: zone
+    flux_cost: low
+    cooldown: 8.0
+    cast_time: 1.5
+    description: >-
+      Tethers caster to an ally, draining their HP per tick. Simultaneously
+      heals all other allies within 10m for the same amount. Best used on a
+      high-HP Shield Vanguard who can afford to donate. Interruptible.
+    implemented: true
+
+  - id: vital_circuit
+    name: Vital Circuit
+    school: biometabolic
+    spell_type: enhancement
+    delivery: direct
+    flux_cost: low
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Links two allies for 8 seconds. Damage taken by either is split
+      evenly between them. When the link expires, the ally with lower HP
+      is healed for a portion of the difference. HP equalization — keeps
+      both targets alive longer against focused damage.
+    implemented: false
+
+  - id: metabolic_burst
+    name: Metabolic Burst
+    school: biometabolic
+    spell_type: enhancement
+    delivery: direct
+    flux_cost: high
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Deals moderate damage to target enemy and heals all allies within
+      8m of the target for a portion of the damage dealt. No ally HP
+      cost but burns your Flux reserve. The "I need AoE healing NOW and
+      nobody is healthy enough to drain" emergency.
+    implemented: false
+
+  - id: vital_drain
+    name: Vital Drain
+    school: biometabolic
+    spell_type: destruction
+    delivery: beam
+    flux_cost: medium
+    cooldown: 0.0
+    cast_time: 3.0
+    description: >-
+      Tethers caster to target enemy. Drains health per tick, healing the
+      caster for a portion of damage dealt. Self-sustain option for any
+      Arcanotechnicien without a healer. Visible and interruptible.
+    implemented: false
+
+  - id: metabolic_disruption
+    name: Metabolic Disruption
+    school: biometabolic
+    spell_type: affliction
+    delivery: ""
+    flux_cost: medium
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Debuffs target: -15% healing received, -10% movement speed for 8
+      seconds. Reduces enemy sustain. Niche in PvE, powerful in PvP
+      against healing enemies.
+    implemented: false
+
+  - id: vital_bloom
+    name: Vital Bloom
+    school: biometabolic
+    spell_type: enhancement
+    delivery: zone
+    flux_cost: low
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Sacrifices a portion of the caster's HP to create a healing zone at
+      target location for 8 seconds. Heal per tick is proportional to HP
+      sacrificed — more health given, stronger zone. Self-sacrifice fits
+      the Biometabolic identity: HP is the currency.
+    implemented: true
+
+  - id: siphon_pulse
+    name: Siphon Pulse
+    school: biometabolic
+    spell_type: destruction
+    delivery: direct
+    flux_cost: low
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Deals minor damage to target enemy. If the target has any active
+      debuff, heals the nearest injured ally for a portion of the damage
+      dealt. Offensive filler that builds Confluence and trickle-heals.
+      Pairs with Frostbite or Burn for sustained damage+heal loops.
+    implemented: false
+
+  - id: last_breath
+    name: Last Breath
+    school: biometabolic
+    spell_type: enhancement
+    delivery: direct
+    flux_cost: high
+    cooldown: 60.0
+    cast_time: 0.0
+    description: >-
+      Target ally cannot die for 4 seconds — lethal damage reduces them
+      to 1 HP instead. When the effect expires, the caster takes 50% of
+      the damage prevented as self-damage. Save someone, pay the price.
+      The emergency cooldown.
+    implemented: false
+
+  # ── Martial (Battlemage only) ─────────────────────────────────────────
+  - id: adrenaline
+    name: Adrenaline
+    school: martial
+    spell_type: enhancement
+    delivery: ""
+    flux_cost: none
+    cooldown: 15.0
+    cast_time: 0.0
+    description: >-
+      +20% attack speed for 6 seconds. No Flux cost — uses cooldown only.
+      The Battlemage's burst window opener. Faster strikes mean faster
+      Weave stacking.
+    implemented: false
+
+  - id: combat_roll
+    name: Combat Roll
+    school: martial
+    spell_type: displacement
+    delivery: displacement
+    flux_cost: none
+    cooldown: 8.0
+    cast_time: 0.0
+    description: >-
+      Quick lateral roll with brief i-frames. No Flux cost. The
+      Battlemage's resource-free dodge — tight cooldown, always
+      available when you need it.
+    implemented: false
+
+  - id: precise_strike
+    name: Precise Strike
+    school: martial
+    spell_type: enhancement
+    delivery: ""
+    flux_cost: none
+    cooldown: 12.0
+    cast_time: 0.0
+    description: >-
+      Next melee hit within 4 seconds is guaranteed to critically hit.
+      No Flux cost. The Battlemage's burst punctuation — land this on the
+      3-hit combo finisher for massive damage.
+    implemented: false
+
+  # ── Illusion ──────────────────────────────────────────────────────────
+  - id: mirage
+    name: Mirage
+    school: illusion
+    spell_type: affliction
+    delivery: direct
+    flux_cost: medium
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Creates a false targeting signal on an ally's position for 4 seconds.
+      The next enemy ability targeting that ally is redirected to the
+      illusion. One-use bodyguard. Does not work on untargeted AoE.
+    implemented: false
+
+  - id: data_theft
+    name: Data Theft
+    school: illusion
+    spell_type: affliction
+    delivery: ""
+    flux_cost: high
+    cooldown: 0.0
+    cast_time: 2.0
+    description: >-
+      Hacks a target enemy's perception for 3 seconds: the target's next
+      ability is delayed by 1.5 seconds. Against bosses, shortens the
+      reaction window but does not prevent the ability. Powerful when
+      timed with party burst windows.
+    implemented: false
+
+  # ── Pure ──────────────────────────────────────────────────────────────
+  - id: flux_negation
+    name: Flux Negation
+    school: pure
+    spell_type: protection
+    delivery: direct
+    flux_cost: high
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Dispels one active Flux-based effect on target. On allies: removes
+      a debuff. On enemies: removes a buff. The counter-magic tool.
+      Essential for encounters with dispellable mechanics.
+    implemented: false
+
+  - id: flux_burn
+    name: Flux Burn
+    school: pure
+    spell_type: destruction
+    delivery: ""
+    flux_cost: high
+    cooldown: 0.0
+    cast_time: 0.0
+    description: >-
+      Deals damage proportional to the target's current Flux reserve.
+      Devastating against Flux-using enemies. Against non-Flux targets,
+      deals flat moderate damage. Niche but powerful in the right encounter.
+    implemented: false
+
+  - id: arcane_silence
+    name: Arcane Silence
+    school: pure
+    spell_type: affliction
+    delivery: ""
+    flux_cost: extreme
+    cooldown: 0.0
+    cast_time: 2.0
+    description: >-
+      Silences target enemy for 3 seconds — prevents all Flux-based
+      abilities. The ultimate shutdown for arcanotechnique-using bosses
+      or PvP targets. Enormous Flux cost makes it a serious commitment.
+    implemented: false

@@ -62,6 +62,10 @@ var _damage_totals: Dictionary = {}  # pid → float
 var _fight_active: bool = false
 var _fight_duration: float = 0.0
 
+# --- Healing Meter (bottom right, above damage meter) ---
+var _healing_totals: Dictionary = {}   # pid → float (effective healing)
+var _overheal_totals: Dictionary = {}  # pid → float (overheal amount)
+
 # --- Minimap (top right) ---
 var _enemy_positions: Array = []  # Array of Vector3 for all alive enemies
 var _npc_positions: Array = []  # Array of Vector3 for NPCs
@@ -114,6 +118,7 @@ func _draw() -> void:
 		_draw_boss_frame()
 	if _fight_active or _boss_visible or _fight_over:
 		_draw_damage_meter()
+		_draw_healing_meter()
 	if _hub_mode or _fight_active or _boss_visible or _fight_over:
 		_draw_minimap()
 
@@ -136,6 +141,8 @@ func clear_local_player() -> void:
 	_fight_active = false
 	_fight_over = false
 	_damage_totals.clear()
+	_healing_totals.clear()
+	_overheal_totals.clear()
 	_world_players.clear()
 
 
@@ -198,6 +205,15 @@ func on_damage_event(data: Dictionary) -> void:
 	var target: int = data.get("target_peer_id", -1)
 	var source: int = data.get("source_peer_id", 0)
 	var amount: float = data.get("amount", 0.0)
+	var overheal: float = data.get("overheal", 0.0)
+	var source_type: int = data.get("source_type", 0)
+
+	# Track healing (source_type 5 = player heal)
+	if source_type == 5 and source > 0:
+		_healing_totals[source] = _healing_totals.get(source, 0.0) + amount
+		if overheal > 0.0:
+			_overheal_totals[source] = _overheal_totals.get(source, 0.0) + overheal
+
 	# Only count damage TO enemies (enemy IDs are >= 1000)
 	if target >= 1000 and source > 0:
 		_damage_totals[source] = _damage_totals.get(source, 0.0) + amount
@@ -208,6 +224,8 @@ func on_fight_start() -> void:
 	_fight_over = false
 	# Boss visibility is driven by update_world_state — guard_captain presence
 	_damage_totals.clear()
+	_healing_totals.clear()
+	_overheal_totals.clear()
 	_fight_duration = 0.0
 
 
@@ -227,6 +245,8 @@ func on_enter_hub() -> void:
 	_fight_active = false
 	_fight_over = false
 	_damage_totals.clear()
+	_healing_totals.clear()
+	_overheal_totals.clear()
 	_fight_duration = 0.0
 	_world_players.clear()
 	_current_floor_id = ""
@@ -553,6 +573,122 @@ func _draw_damage_meter() -> void:
 			dmg_text,
 			HORIZONTAL_ALIGNMENT_RIGHT,
 			46,
+			10,
+			TEXT_PRIMARY
+		)
+
+
+# =============================================================================
+# Drawing — Healing Meter (bottom right, above damage meter)
+# =============================================================================
+
+
+func _draw_healing_meter() -> void:
+	if _healing_totals.is_empty():
+		return
+
+	var font := ThemeDB.fallback_font
+	var meter_w := 188.0
+	var meter_x := size.x - meter_w - 18.0
+	var entry_h := 18.0
+
+	# Sort players by effective healing (descending)
+	var sorted_pids: Array = _healing_totals.keys()
+	sorted_pids.sort_custom(func(a, b): return _healing_totals[a] > _healing_totals[b])
+	var max_heal: float = (
+		_healing_totals.get(sorted_pids[0], 1.0) if sorted_pids.size() > 0 else 1.0
+	)
+	if max_heal <= 0.0:
+		max_heal = 1.0
+
+	var entry_count := mini(sorted_pids.size(), 5)
+
+	# Compute total effective + overheal for title
+	var total_heal: float = 0.0
+	var total_overheal: float = 0.0
+	for pid in _healing_totals:
+		total_heal += _healing_totals[pid]
+	for pid in _overheal_totals:
+		total_overheal += _overheal_totals[pid]
+
+	# Position above the damage meter
+	var dmg_entry_count := mini(_damage_totals.size(), 5) if not _damage_totals.is_empty() else 0
+	var dmg_height := 0.0
+	if dmg_entry_count > 0:
+		dmg_height = 20.0 + dmg_entry_count * entry_h + 10.0  # title + entries + gap
+	var title_y := size.y - 154.0 - dmg_height
+
+	var title := "Healing"
+	if _fight_duration > 0.0:
+		var hps := total_heal / maxf(_fight_duration, 1.0)
+		var oh_pct := 0
+		if total_heal + total_overheal > 0.0:
+			oh_pct = int(total_overheal / (total_heal + total_overheal) * 100.0)
+		title = "Healing (%.0f HPS, %d%% OH)" % [hps, oh_pct]
+	draw_string(
+		font,
+		Vector2(meter_x, title_y + 8.0),
+		title,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		meter_w,
+		10,
+		TEXT_MUTED
+	)
+
+	var class_colors := {
+		"gunner": Color(0.24, 0.62, 0.95),
+		"vanguard": Color(0.82, 0.44, 0.24),
+		"blade_dancer": Color(0.36, 0.82, 0.66),
+		"arcanotechnicien": Color(0.3, 0.65, 0.85),
+	}
+
+	for i in entry_count:
+		var pid: int = sorted_pids[i]
+		var heal: float = _healing_totals[pid]
+		var oh: float = _overheal_totals.get(pid, 0.0)
+		var y := title_y + 20.0 + i * entry_h
+
+		# Bar — effective healing only
+		var ratio := heal / max_heal
+		var cls: String = "gunner"
+		if NetworkManager.player_info.has(pid):
+			cls = NetworkManager.player_info[pid].get("class_name", "gunner")
+		var bar_color: Color = class_colors.get(cls, Color(0.5, 0.5, 0.5))
+		_draw_status_bar(
+			Rect2(meter_x, y + 2.0, meter_w, entry_h - 6.0), ratio, Color(bar_color, 0.92)
+		)
+
+		var uname: String = _player_names.get(pid, "Player_%d" % pid)
+		if uname.length() > 10:
+			uname = uname.substr(0, 10)
+		draw_string(
+			font,
+			Vector2(meter_x + 4.0, y + 14.0),
+			uname,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			meter_w * 0.45,
+			10,
+			TEXT_PRIMARY
+		)
+
+		var heal_text: String
+		if heal >= 1000.0:
+			heal_text = "%.1fk" % (heal / 1000.0)
+		else:
+			heal_text = "%d" % int(heal)
+		if oh > 0.0:
+			var oh_text: String
+			if oh >= 1000.0:
+				oh_text = "%.1fk" % (oh / 1000.0)
+			else:
+				oh_text = "%d" % int(oh)
+			heal_text += " (%s)" % oh_text
+		draw_string(
+			font,
+			Vector2(meter_x + meter_w - 70.0, y + 14.0),
+			heal_text,
+			HORIZONTAL_ALIGNMENT_RIGHT,
+			66,
 			10,
 			TEXT_PRIMARY
 		)

@@ -16,7 +16,7 @@ func EncodeDebugInfo(defName string, abilityIDs []string) []byte {
 }
 
 // DecodeDebugStr8 reads a str8 (length-prefixed string) from the payload.
-// Used by force-cast and repeat-ability opcodes.
+// Used by force-commit and repeat-ability opcodes.
 func DecodeDebugStr8(payload []byte) (string, bool) {
 	if len(payload) < 1 {
 		return "", false

@@ -21,32 +21,32 @@ type RechamberState struct {
 // GetPhase implements the phaser interface for network encoding.
 func (s *RechamberState) GetPhase() uint8 { return s.Phase }
 
-func rechamberHandler(_ *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func rechamberHandler(_ *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "invalid caster"}
+		return CommitResult{Reason: "invalid caster"}
 	}
 	state := getRechamberState(p)
 	if state.Phase != 0 {
-		return CastResult{Reason: "rechamber in progress"}
+		return CommitResult{Reason: "rechamber in progress"}
 	}
 	if cd := p.Cooldowns["fire_shot"]; cd > 0 {
-		return CastResult{Reason: "fire cooldown"}
+		return CommitResult{Reason: "fire cooldown"}
 	}
 	state.Phase = 1
 	state.Timer = 0.6
 	p.Cooldowns["fire_shot"] = 0.6
-	return CastResult{OK: true}
+	return CommitResult{OK: true}
 }
 
-func rechamberConfirmHandler(_ *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func rechamberConfirmHandler(_ *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "invalid caster"}
+		return CommitResult{Reason: "invalid caster"}
 	}
 	state := getRechamberState(p)
 	if state.Phase != 2 {
-		return CastResult{Reason: "not in timing window"}
+		return CommitResult{Reason: "not in timing window"}
 	}
 	p.AddBuff(entity.ActiveBuff{
 		ID:       "rechamber_buff",
@@ -56,7 +56,7 @@ func rechamberConfirmHandler(_ *Engine, ctx *CastContext) CastResult {
 	})
 	state.Phase = 0
 	state.Timer = 0
-	return CastResult{OK: true}
+	return CommitResult{OK: true}
 }
 
 func rechamberTick(_ *Engine, p *entity.Player, dt float32, _ *TickContext) []DamageResult {

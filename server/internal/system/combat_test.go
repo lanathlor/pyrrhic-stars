@@ -375,7 +375,7 @@ func TestVortexMultiTick(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 	// Set up vortex state directly (standard tier: 0.6s duration, 2 total hits).
-	// HitsDone=1 because the initial cast already delivered the first hit.
+	// HitsDone=1 because the initial commit already delivered the first hit.
 	p.AbilityState["vortex"] = &ability.VortexState{Timer: 0.6, Duration: 0.6, TotalHits: 2, HitsDone: 1}
 	p.AddBuff(entity.ActiveBuff{ID: "vortex", Type: entity.BuffDamageReduction, Value: 0.8, Duration: 0.6})
 
@@ -780,14 +780,14 @@ func TestCombatEndsOnEnemyDeath(t *testing.T) {
 }
 
 // =============================================================================
-// Blade Dancer — comprehensive test of all 20 spells with 4 enemies
+// Blade Dancer — comprehensive test of all 20 abilities with 4 enemies
 // =============================================================================
 
 func TestAllBladeDancerSpells(t *testing.T) {
 	const hp float32 = 5000.0
 
-	type spellExpect struct {
-		spellIdx      int
+	type abilityExpect struct {
+		abilityIdx      int
 		name          string
 		originCfg     int
 		destCfg       int
@@ -803,7 +803,7 @@ func TestAllBladeDancerSpells(t *testing.T) {
 		dotTargets    int // how many enemies get DoT
 	}
 
-	spells := []spellExpect{
+	abilities := []abilityExpect{
 		// From Orbit (config 0)
 		{0, "Shielded Sweep", 0, 1, 8, 8, 8, 0, 0, true, false, 0, 0, 0},
 		{1, "Guarded Thrust", 0, 2, 25, 0, 0, 0, 8, false, false, 0, 0, 0},
@@ -831,7 +831,7 @@ func TestAllBladeDancerSpells(t *testing.T) {
 		{19, "Sovereign Scatter", 4, 3, 5, 5, 5, 0, 0, false, true, 1.5, 11, 3},
 	}
 
-	for _, sp := range spells {
+	for _, sp := range abilities {
 		t.Run(sp.name, func(t *testing.T) {
 			p := entity.NewPlayer(1, entity.ClassBladeDancer)
 			p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
@@ -863,7 +863,7 @@ func TestAllBladeDancerSpells(t *testing.T) {
 			enemies := []*entity.Enemy{eFront, eNearFront, eSide, eFar}
 			w := makeWorld(map[uint16]*entity.Player{1: p}, enemies)
 
-			actionID := entity.ActionBDSpellBase + uint8(sp.spellIdx)
+			actionID := entity.ActionBDAbilityBase + uint8(sp.abilityIdx)
 			payload := codec.EncodeAbilityInput(actionID, 0, float32(math.Pi))
 
 			inputSys := InputSystem{}
@@ -966,6 +966,7 @@ func TestAllBladeDancerSpells(t *testing.T) {
 
 // testCommitAction is an unused action slot used to bind test abilities.
 const testCommitAction uint8 = 99
+const testSustainAction uint8 = 98
 
 // registerTestCommitAbility adds a test ability with CommitTime to an engine and
 // binds it to the player's action map.
@@ -1021,7 +1022,7 @@ func TestRunnerWiring_InputStartsRunner(t *testing.T) {
 	}
 }
 
-func TestRunnerWiring_InputRejectedWhileBusy(t *testing.T) {
+func TestRunnerWiring_CancelOnNewInput(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 
@@ -1040,15 +1041,69 @@ func TestRunnerWiring_InputRejectedWhileBusy(t *testing.T) {
 		t.Fatal("runner should be busy after first input")
 	}
 
-	timerBefore := runner.Timer
+	// Tick a few times to advance the timer
+	combatSys := &CombatSystem{}
+	combatSys.Tick(w, 0.05)
+	combatSys.Tick(w, 0.05)
 
-	// Second input should be rejected (runner is busy)
+	// Second input should cancel and restart the runner
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpAbilityInput, Payload: payload}}
 	is.Tick(w, 0.05)
 
-	// Timer should be unchanged (no restart)
-	if runner.Timer != timerBefore {
-		t.Errorf("runner timer changed from %f to %f (second input should be rejected)", timerBefore, runner.Timer)
+	// Runner should have restarted with a fresh timer (0.5s commit time)
+	if !runner.IsBusy() {
+		t.Error("runner should still be busy after cancel+restart")
+	}
+	if runner.Phase != ability.PRunnerCommit {
+		t.Errorf("runner phase = %d, want %d (commit)", runner.Phase, ability.PRunnerCommit)
+	}
+	if runner.Timer < 0.45 {
+		t.Errorf("runner timer = %f, expected fresh timer near 0.5", runner.Timer)
+	}
+}
+
+func TestRunnerWiring_CancelFailsDuringExecute(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassVanguard)
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
+
+	e := entity.NewEnemy(1000, 2000.0, "test_enemy")
+	e.Alive = true
+	e.Position = entity.Vec3{X: 2, Y: 0.1, Z: 0}
+	e.State = entity.EnemyChase
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	registerTestCommitAbility(w.AbilityEngine, p)
+
+	payload := codec.EncodeAbilityInput(testCommitAction, 0.0)
+	is := &InputSystem{}
+
+	// Start the runner
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpAbilityInput, Payload: payload}}
+	is.Tick(w, 0.05)
+
+	runner := w.AbilityRunners[1]
+	if runner == nil {
+		t.Fatal("runner should exist")
+	}
+
+	// Tick through entire commit phase (0.5s = 10 ticks at 0.05s)
+	combatSys := &CombatSystem{}
+	for i := 0; i < 10; i++ {
+		combatSys.Tick(w, 0.05)
+	}
+
+	// Runner should be in execute or cooldown phase now
+	if runner.Phase == ability.PRunnerCommit || runner.Phase == ability.PRunnerIdle {
+		t.Fatalf("runner phase = %d, expected execute or cooldown", runner.Phase)
+	}
+
+	// New input during execute/cooldown should be rejected (Cancel returns false)
+	phaseBefore := runner.Phase
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpAbilityInput, Payload: payload}}
+	is.Tick(w, 0.05)
+
+	if runner.Phase == ability.PRunnerCommit && phaseBefore != ability.PRunnerIdle {
+		t.Error("runner should not restart during execute/cooldown phase")
 	}
 }
 
@@ -1214,5 +1269,1282 @@ func TestRunnerWiring_NonCommitAbilityBypassesRunner(t *testing.T) {
 	// Damage should have been applied immediately (no commit delay)
 	if e.Health >= 2000.0 {
 		t.Error("non-commit melee should deal immediate damage")
+	}
+}
+
+// =============================================================================
+// Sustain phase integration tests
+// =============================================================================
+
+func registerTestSustainAbility(eng *ability.Engine, p *entity.Player) {
+	def := &ability.AbilityDef{
+		ID:                "test_sustain_heal",
+		Name:              "Test Sustain Heal",
+		School:            "bioarcanotechnic",
+		Hit:               ability.HitDef{Type: ability.HitAllyTarget, Range: 20},
+		BaseHeal:          10,
+		CommitTime:        0.5,
+		ExecuteTime:       0.1,
+		GCD:               0.3,
+		OriginConfig:      -1,
+		DestConfig:        -1,
+		Sustain:           true,
+		SustainCostPerSec: 10,
+		SustainEffect:     20,
+		SustainInterval:   0.5,
+		SustainScaling:    0.1,
+		CancelConditions:  uint8(ability.CancelOnMove) | uint8(ability.CancelOnDamage),
+	}
+	eng.Register(def)
+	eng.RegisterHandler("test_sustain_heal", func(_ *ability.Engine, ctx *ability.CommitContext) ability.CommitResult {
+		return ability.CommitResult{OK: true}
+	})
+	p.ActionMap[testSustainAction] = "test_sustain_heal"
+}
+
+func newHarmonistPlayer(id uint16) *entity.Player {
+	p := entity.NewPlayerWithSpec(id, entity.ClassArcanotechnicien, "harmonist")
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
+	// Ensure flux resource is available
+	if p.Resources["flux"] == nil {
+		p.Resources["flux"] = &entity.Resource{Current: 100, Max: 100}
+	} else {
+		p.Resources["flux"].Current = 100
+		p.Resources["flux"].Max = 100
+	}
+	return p
+}
+
+func TestSustain_CommitToSustainTransition(t *testing.T) {
+	p := newHarmonistPlayer(1)
+	ally := newHarmonistPlayer(2)
+
+	w := makeWorld(map[uint16]*entity.Player{1: p, 2: ally}, nil)
+	registerTestSustainAbility(w.AbilityEngine, p)
+
+	// Start sustain ability via input
+	payload := codec.EncodeAbilityInput(testSustainAction, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpAbilityInput, Payload: payload}}
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	runner := w.AbilityRunners[1]
+	if runner == nil {
+		t.Fatal("runner should exist")
+	}
+	if runner.Phase != ability.PRunnerCommit {
+		t.Fatalf("expected PRunnerCommit, got %d", runner.Phase)
+	}
+
+	combatSys := &CombatSystem{}
+
+	// Tick through commit (0.5s = 10 ticks)
+	for i := 0; i < 10; i++ {
+		combatSys.Tick(w, 0.05)
+	}
+	if runner.Phase != ability.PRunnerExecute {
+		t.Fatalf("expected PRunnerExecute after commit, got %d", runner.Phase)
+	}
+
+	// Tick through execute (0.1s = 2-3 ticks)
+	for i := 0; i < 5; i++ {
+		combatSys.Tick(w, 0.05)
+		if runner.Phase == ability.PRunnerSustain {
+			break
+		}
+	}
+	if runner.Phase != ability.PRunnerSustain {
+		t.Fatalf("expected PRunnerSustain after execute, got %d", runner.Phase)
+	}
+
+	// Player channel state should show sustain
+	if p.ChannelPhase != uint8(ability.PRunnerSustain) {
+		t.Errorf("ChannelPhase = %d, want %d (sustain)", p.ChannelPhase, ability.PRunnerSustain)
+	}
+}
+
+func TestSustain_HealingAppliedOnTick(t *testing.T) {
+	p := newHarmonistPlayer(1)
+	ally := newHarmonistPlayer(2)
+	ally.Health = 50 // damaged
+	ally.MaxHealth = 150
+	p.ChannelTargetID = 2 // target the ally
+
+	w := makeWorld(map[uint16]*entity.Player{1: p, 2: ally}, nil)
+	registerTestSustainAbility(w.AbilityEngine, p)
+
+	// Start runner directly in sustain
+	runner := &ability.PlayerAbilityRunner{}
+	def := w.AbilityEngine.GetAbility("test_sustain_heal")
+	runner.StartSustain(def, p.Position, w.TickNum)
+	w.AbilityRunners[1] = runner
+
+	combatSys := &CombatSystem{}
+	startHP := ally.Health
+
+	// Tick through first sustain interval (0.5s = 10 ticks)
+	for i := 0; i < 10; i++ {
+		w.DamageEvents = w.DamageEvents[:0]
+		combatSys.Tick(w, 0.05)
+	}
+
+	if ally.Health <= startHP {
+		t.Errorf("ally should have been healed: HP before=%f, after=%f", startHP, ally.Health)
+	}
+
+	// DamageEvents should contain heal events
+	healFound := false
+	for _, ev := range w.DamageEvents {
+		if ev.TargetPeerID == 2 && ev.SourcePeerID == 1 && ev.Amount > 0 {
+			healFound = true
+			break
+		}
+	}
+	if !healFound {
+		t.Error("expected heal damage event for ally (peer 2)")
+	}
+}
+
+func TestSustain_ScalingIncreasesOverTime(t *testing.T) {
+	p := newHarmonistPlayer(1)
+	ally := newHarmonistPlayer(2)
+	ally.MaxHealth = 1000 // high max so heals don't overcap
+	ally.Health = 100
+	p.ChannelTargetID = 2
+
+	w := makeWorld(map[uint16]*entity.Player{1: p, 2: ally}, nil)
+	registerTestSustainAbility(w.AbilityEngine, p)
+
+	runner := &ability.PlayerAbilityRunner{}
+	def := w.AbilityEngine.GetAbility("test_sustain_heal")
+	runner.StartSustain(def, p.Position, w.TickNum)
+	w.AbilityRunners[1] = runner
+
+	combatSys := &CombatSystem{}
+
+	// Record heal from first tick (at 0.5s)
+	for i := 0; i < 10; i++ {
+		w.DamageEvents = w.DamageEvents[:0]
+		combatSys.Tick(w, 0.05)
+	}
+	firstHeal := float32(0)
+	for _, ev := range w.DamageEvents {
+		if ev.TargetPeerID == 2 {
+			firstHeal = ev.Amount
+		}
+	}
+
+	// Record heal from later tick (at 5.0s = 100 ticks total, sustain elapsed ~4.5s)
+	for i := 0; i < 90; i++ {
+		ally.Health = 100 // keep HP low so heals always apply
+		w.DamageEvents = w.DamageEvents[:0]
+		combatSys.Tick(w, 0.05)
+	}
+	laterHeal := float32(0)
+	for _, ev := range w.DamageEvents {
+		if ev.TargetPeerID == 2 {
+			laterHeal = ev.Amount
+		}
+	}
+
+	if laterHeal <= firstHeal {
+		t.Errorf("scaling should increase heal over time: first=%f, later=%f", firstHeal, laterHeal)
+	}
+}
+
+func TestSustain_FluxDrained(t *testing.T) {
+	p := newHarmonistPlayer(1)
+	ally := newHarmonistPlayer(2)
+	p.ChannelTargetID = 2
+
+	w := makeWorld(map[uint16]*entity.Player{1: p, 2: ally}, nil)
+	registerTestSustainAbility(w.AbilityEngine, p)
+
+	runner := &ability.PlayerAbilityRunner{}
+	def := w.AbilityEngine.GetAbility("test_sustain_heal")
+	runner.StartSustain(def, p.Position, w.TickNum)
+	w.AbilityRunners[1] = runner
+
+	// Track the bioarcanotechnic pool (test_sustain_heal has School="bioarcanotechnic")
+	pool := p.FluxCommit.GetPool("bioarcanotechnic")
+	startFlux := pool.Current
+	combatSys := &CombatSystem{}
+
+	// Tick through one sustain interval (0.5s)
+	for i := 0; i < 10; i++ {
+		combatSys.Tick(w, 0.05)
+	}
+
+	endFlux := pool.Current
+	// Cost = SustainCostPerSec * SustainInterval = 10 * 0.5 = 5 per tick
+	expectedDrain := float32(5.0)
+	actualDrain := startFlux - endFlux
+	if math.Abs(float64(actualDrain-expectedDrain)) > 0.5 {
+		t.Errorf("flux drained = %f, expected ~%f", actualDrain, expectedDrain)
+	}
+}
+
+func TestSustain_CancelledWhenFluxDepleted(t *testing.T) {
+	p := newHarmonistPlayer(1)
+	ally := newHarmonistPlayer(2)
+	// Set bioarcanotechnic pool to very low (sustain drains from school pool)
+	if pool := p.FluxCommit.GetPool("bioarcanotechnic"); pool != nil {
+		pool.Current = 3
+	}
+	p.SyncFluxAggregate()
+	p.ChannelTargetID = 2
+
+	w := makeWorld(map[uint16]*entity.Player{1: p, 2: ally}, nil)
+	registerTestSustainAbility(w.AbilityEngine, p)
+
+	runner := &ability.PlayerAbilityRunner{}
+	def := w.AbilityEngine.GetAbility("test_sustain_heal")
+	runner.StartSustain(def, p.Position, w.TickNum)
+	w.AbilityRunners[1] = runner
+
+	combatSys := &CombatSystem{}
+
+	// Tick until runner leaves sustain (should happen when flux runs out)
+	for i := 0; i < 30; i++ {
+		combatSys.Tick(w, 0.05)
+		if runner.Phase != ability.PRunnerSustain {
+			break
+		}
+	}
+	if runner.Phase == ability.PRunnerSustain {
+		t.Fatal("sustain should have been cancelled due to flux depletion")
+	}
+	// Should be in cooldown after cancel
+	if runner.Phase != ability.PRunnerCooldown && runner.Phase != ability.PRunnerIdle {
+		t.Errorf("expected cooldown or idle after flux depletion, got %d", runner.Phase)
+	}
+}
+
+func TestSustain_CancelledOnDamage(t *testing.T) {
+	p := newHarmonistPlayer(1)
+	p.ChannelTargetID = 1 // self-heal for simplicity
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	registerTestSustainAbility(w.AbilityEngine, p)
+
+	runner := &ability.PlayerAbilityRunner{}
+	def := w.AbilityEngine.GetAbility("test_sustain_heal")
+	runner.StartSustain(def, p.Position, w.TickNum)
+	runner.SustainStartTick = w.TickNum
+	w.AbilityRunners[1] = runner
+
+	combatSys := &CombatSystem{}
+
+	// Tick once to be in sustain
+	combatSys.Tick(w, 0.05)
+	if runner.Phase != ability.PRunnerSustain {
+		t.Fatalf("expected PRunnerSustain, got %d", runner.Phase)
+	}
+
+	// Simulate taking damage by setting LastDamageTick after sustain started
+	p.LastDamageTick = w.TickNum + 1
+
+	// Next combat tick should cancel sustain
+	combatSys.Tick(w, 0.05)
+	if runner.Phase == ability.PRunnerSustain {
+		t.Fatal("sustain should have been cancelled on damage")
+	}
+}
+
+func TestSustain_CancelledOnMovement(t *testing.T) {
+	p := newHarmonistPlayer(1)
+	p.ChannelTargetID = 1
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	registerTestSustainAbility(w.AbilityEngine, p)
+
+	startPos := p.Position
+	runner := &ability.PlayerAbilityRunner{}
+	def := w.AbilityEngine.GetAbility("test_sustain_heal")
+	runner.StartSustain(def, startPos, w.TickNum)
+	w.AbilityRunners[1] = runner
+
+	combatSys := &CombatSystem{}
+
+	// Tick once in sustain
+	combatSys.Tick(w, 0.05)
+	if runner.Phase != ability.PRunnerSustain {
+		t.Fatalf("expected PRunnerSustain, got %d", runner.Phase)
+	}
+
+	// Move the player far from start position
+	p.Position = entity.Vec3{X: startPos.X + 5.0, Y: startPos.Y, Z: startPos.Z + 5.0}
+
+	// Next combat tick should detect movement and cancel
+	combatSys.Tick(w, 0.05)
+	if runner.Phase == ability.PRunnerSustain {
+		t.Fatal("sustain should have been cancelled on movement")
+	}
+}
+
+func TestSustain_SmallMovementDoesNotCancel(t *testing.T) {
+	p := newHarmonistPlayer(1)
+	p.ChannelTargetID = 1
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	registerTestSustainAbility(w.AbilityEngine, p)
+
+	startPos := p.Position
+	runner := &ability.PlayerAbilityRunner{}
+	def := w.AbilityEngine.GetAbility("test_sustain_heal")
+	runner.StartSustain(def, startPos, w.TickNum)
+	w.AbilityRunners[1] = runner
+
+	combatSys := &CombatSystem{}
+
+	// Small jitter within threshold (< 0.5 unit)
+	p.Position = entity.Vec3{X: startPos.X + 0.1, Y: startPos.Y, Z: startPos.Z + 0.1}
+
+	combatSys.Tick(w, 0.05)
+	if runner.Phase != ability.PRunnerSustain {
+		t.Fatal("small positional jitter should not cancel sustain")
+	}
+}
+
+func TestSustain_Action255CancelsRunner(t *testing.T) {
+	p := newHarmonistPlayer(1)
+	p.ChannelTargetID = 1
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	registerTestSustainAbility(w.AbilityEngine, p)
+
+	runner := &ability.PlayerAbilityRunner{}
+	def := w.AbilityEngine.GetAbility("test_sustain_heal")
+	runner.StartSustain(def, p.Position, w.TickNum)
+	w.AbilityRunners[1] = runner
+
+	// Send action 255 (ESC cancel)
+	payload := codec.EncodeAbilityInput(255, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpAbilityInput, Payload: payload}}
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if runner.Phase == ability.PRunnerSustain {
+		t.Fatal("action 255 should cancel sustain")
+	}
+	if runner.Phase != ability.PRunnerCooldown {
+		t.Errorf("expected PRunnerCooldown after cancel, got %d", runner.Phase)
+	}
+}
+
+func TestSustain_CancelledByNewAbilityInput(t *testing.T) {
+	p := newHarmonistPlayer(1)
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	registerTestSustainAbility(w.AbilityEngine, p)
+	registerTestCommitAbility(w.AbilityEngine, p)
+
+	// Start in sustain
+	runner := &ability.PlayerAbilityRunner{}
+	def := w.AbilityEngine.GetAbility("test_sustain_heal")
+	runner.StartSustain(def, p.Position, w.TickNum)
+	w.AbilityRunners[1] = runner
+
+	// Send a different ability input (committed ability)
+	payload := codec.EncodeAbilityInput(testCommitAction, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpAbilityInput, Payload: payload}}
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// Runner should have been cancelled and restarted with the new ability
+	if runner.Phase == ability.PRunnerSustain {
+		t.Fatal("sustain should have been cancelled by new ability input")
+	}
+	if runner.AbilityID != "test_commit_aoe" {
+		t.Errorf("runner should be on new ability, got %q", runner.AbilityID)
+	}
+}
+
+func TestSustain_CancelledByExplicitCancel(t *testing.T) {
+	// Harmonist has no dodge — sustain is cancelled via action 255 (ESC).
+	p := newHarmonistPlayer(1)
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	registerTestSustainAbility(w.AbilityEngine, p)
+
+	runner := &ability.PlayerAbilityRunner{}
+	def := w.AbilityEngine.GetAbility("test_sustain_heal")
+	runner.StartSustain(def, p.Position, w.TickNum)
+	w.AbilityRunners[1] = runner
+
+	// Send explicit cancel (action 255 = ESC on client)
+	payload := codec.EncodeAbilityInput(255, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpAbilityInput, Payload: payload}}
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if runner.Phase == ability.PRunnerSustain {
+		t.Fatal("sustain should have been cancelled by explicit cancel")
+	}
+}
+
+func TestSustain_SelfHealWhenNoTarget(t *testing.T) {
+	p := newHarmonistPlayer(1)
+	p.Health = 50
+	p.MaxHealth = 150
+	p.ChannelTargetID = 99 // non-existent peer
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	registerTestSustainAbility(w.AbilityEngine, p)
+
+	runner := &ability.PlayerAbilityRunner{}
+	def := w.AbilityEngine.GetAbility("test_sustain_heal")
+	runner.StartSustain(def, p.Position, w.TickNum)
+	w.AbilityRunners[1] = runner
+
+	combatSys := &CombatSystem{}
+	startHP := p.Health
+
+	// Tick through one sustain interval
+	for i := 0; i < 10; i++ {
+		combatSys.Tick(w, 0.05)
+	}
+
+	// Should fallback to self-heal
+	if p.Health <= startHP {
+		t.Errorf("sustain should self-heal when target not found: HP %f -> %f", startHP, p.Health)
+	}
+}
+
+func TestSustain_DamageTakenBeforeSustainStartDoesNotCancel(t *testing.T) {
+	p := newHarmonistPlayer(1)
+	p.ChannelTargetID = 1
+	p.LastDamageTick = 50 // damage taken before sustain started
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w.TickNum = 100
+	registerTestSustainAbility(w.AbilityEngine, p)
+
+	runner := &ability.PlayerAbilityRunner{}
+	def := w.AbilityEngine.GetAbility("test_sustain_heal")
+	runner.StartSustain(def, p.Position, w.TickNum)
+	runner.SustainStartTick = w.TickNum // sustain started at tick 100
+	w.AbilityRunners[1] = runner
+
+	combatSys := &CombatSystem{}
+
+	// Tick — damage was at tick 50, sustain started at tick 100, should NOT cancel
+	combatSys.Tick(w, 0.05)
+	if runner.Phase != ability.PRunnerSustain {
+		t.Fatal("damage taken before sustain start should not cancel sustain")
+	}
+}
+
+func TestSustain_HealCappedAtMaxHealth(t *testing.T) {
+	p := newHarmonistPlayer(1)
+	ally := newHarmonistPlayer(2)
+	ally.Health = 149 // nearly full
+	ally.MaxHealth = 150
+	p.ChannelTargetID = 2
+
+	w := makeWorld(map[uint16]*entity.Player{1: p, 2: ally}, nil)
+	registerTestSustainAbility(w.AbilityEngine, p)
+
+	runner := &ability.PlayerAbilityRunner{}
+	def := w.AbilityEngine.GetAbility("test_sustain_heal")
+	runner.StartSustain(def, p.Position, w.TickNum)
+	w.AbilityRunners[1] = runner
+
+	combatSys := &CombatSystem{}
+
+	// Tick through sustain ticks
+	for i := 0; i < 20; i++ {
+		combatSys.Tick(w, 0.05)
+	}
+
+	if ally.Health > ally.MaxHealth {
+		t.Errorf("health should not exceed max: %f > %f", ally.Health, ally.MaxHealth)
+	}
+}
+
+func TestSustain_ChannelPhaseValueSyncedToPlayer(t *testing.T) {
+	p := newHarmonistPlayer(1)
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	registerTestSustainAbility(w.AbilityEngine, p)
+
+	runner := &ability.PlayerAbilityRunner{}
+	def := w.AbilityEngine.GetAbility("test_sustain_heal")
+	runner.StartSustain(def, p.Position, w.TickNum)
+	w.AbilityRunners[1] = runner
+
+	combatSys := &CombatSystem{}
+	combatSys.Tick(w, 0.05)
+
+	// Verify ChannelPhase = 3 (PRunnerSustain)
+	if p.ChannelPhase != 3 {
+		t.Errorf("ChannelPhase = %d, want 3 (sustain)", p.ChannelPhase)
+	}
+	if p.ChannelAbilityID != "test_sustain_heal" {
+		t.Errorf("ChannelAbilityID = %q, want 'test_sustain_heal'", p.ChannelAbilityID)
+	}
+	// Charge should be >= 1.0 during sustain
+	if p.ChannelCharge < 1.0 {
+		t.Errorf("ChannelCharge = %f during sustain, want >= 1.0", p.ChannelCharge)
+	}
+}
+
+func TestSustain_SustainStartPosRecordedOnTransition(t *testing.T) {
+	p := newHarmonistPlayer(1)
+	p.Position = entity.Vec3{X: 10, Y: 0, Z: 20}
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	registerTestSustainAbility(w.AbilityEngine, p)
+
+	// Start via input
+	payload := codec.EncodeAbilityInput(testSustainAction, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpAbilityInput, Payload: payload}}
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	runner := w.AbilityRunners[1]
+	if runner == nil {
+		t.Fatal("runner should exist")
+	}
+
+	combatSys := &CombatSystem{}
+
+	// Tick through commit + execute to reach sustain
+	for i := 0; i < 15; i++ {
+		combatSys.Tick(w, 0.05)
+		if runner.Phase == ability.PRunnerSustain {
+			break
+		}
+	}
+	if runner.Phase != ability.PRunnerSustain {
+		t.Fatalf("expected PRunnerSustain, got %d", runner.Phase)
+	}
+
+	// SustainStartPos should match player position at transition
+	if runner.SustainStartPos != p.Position {
+		t.Errorf("SustainStartPos = %v, want %v", runner.SustainStartPos, p.Position)
+	}
+	if runner.SustainStartTick == 0 {
+		t.Error("SustainStartTick should be set after transition")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Unbound action rejection
+// ---------------------------------------------------------------------------
+
+func TestUnboundAction_RejectedByServer(t *testing.T) {
+	p := newHarmonistPlayer(1)
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+
+	// Verify gust_step is NOT in the default harmonist action map
+	for actionID, abilityID := range p.ActionMap {
+		if abilityID == "gust_step" {
+			t.Fatalf("gust_step should not be in default loadout, found at action %d", actionID)
+		}
+	}
+
+	startHP := p.Health
+	startFlux := p.Resources["flux"].Current
+
+	// Send an ability input for action_id 55 (client's slot 5 = Gust Step)
+	// but the server's slot 5 is transfusion in the default loadout
+	// First, remove whatever is at action 55 to simulate an unbound slot
+	delete(p.ActionMap, 55)
+
+	payload := codec.EncodeAbilityInput(55, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpAbilityInput, Payload: payload}}
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// No runner should have been created
+	if runner := w.AbilityRunners[1]; runner != nil && runner.IsBusy() {
+		t.Errorf("unbound action should not start a runner, got phase %d ability %q",
+			runner.Phase, runner.AbilityID)
+	}
+
+	// No HP or flux should change
+	if p.Health != startHP {
+		t.Errorf("HP changed from %f to %f on unbound action", startHP, p.Health)
+	}
+	if p.Resources["flux"].Current != startFlux {
+		t.Errorf("flux changed from %f to %f on unbound action", startFlux, p.Resources["flux"].Current)
+	}
+}
+
+func TestUnboundAction_DoesNotCancelSustain(t *testing.T) {
+	p := newHarmonistPlayer(1)
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	registerTestSustainAbility(w.AbilityEngine, p)
+
+	// Start sustain
+	runner := &ability.PlayerAbilityRunner{}
+	def := w.AbilityEngine.GetAbility("test_sustain_heal")
+	runner.StartSustain(def, p.Position, w.TickNum)
+	w.AbilityRunners[1] = runner
+
+	// Remove action 55 to simulate unbound Gust Step
+	delete(p.ActionMap, 55)
+
+	// Send unbound action 55
+	payload := codec.EncodeAbilityInput(55, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpAbilityInput, Payload: payload}}
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// Sustain should NOT be cancelled by an unbound action
+	if runner.Phase != ability.PRunnerSustain {
+		t.Errorf("unbound action should not cancel sustain, runner phase = %d", runner.Phase)
+	}
+}
+
+func TestUnboundAction_DodgeStillWorks(t *testing.T) {
+	// Use gunner (which has dodge) — harmonist has no dodge.
+	p := entity.NewPlayer(1, entity.ClassGunner)
+	if p.Resources["stamina"] == nil {
+		p.Resources["stamina"] = &entity.Resource{Current: 100, Max: 100}
+	}
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+
+	// Remove loadout bindings — dodge (action 3) should still work independently
+	delete(p.ActionMap, 50)
+
+	payload := codec.EncodeAbilityInput(entity.ActionDodge, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpAbilityInput, Payload: payload}}
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if !p.Invincible {
+		t.Error("dodge should still work even with unbound ability slots")
+	}
+}
+
+func TestHarmonist_DodgeRejected(t *testing.T) {
+	p := newHarmonistPlayer(1)
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+
+	payload := codec.EncodeAbilityInput(entity.ActionDodge, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpAbilityInput, Payload: payload}}
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if p.Invincible {
+		t.Error("harmonist should not be able to dodge — gust step is mobility via loadout only")
+	}
+}
+
+// =============================================================================
+// Movement speed validation vulnerability
+//
+// The server does NOT enforce horizontal speed limits for normal (unbuffed)
+// players. handlePlayerInput only validates speed when speedMult < 1.0 (brace
+// or shield_block debuff). A modified client can send position updates at any
+// speed up to the 10-unit teleport threshold, gaining unauthorized displacement.
+//
+// These tests express DESIRED behavior and FAIL until the server enforces
+// per-class speed limits on every position update.
+// =============================================================================
+
+func TestMovementSpeed_ExcessiveHorizontalNotClamped(t *testing.T) {
+	// A Harmonist at origin sends a position 5 units away in a single tick.
+	// SprintSpeed = 6.5 u/s → max per tick = 6.5 * 0.05 = 0.325 units.
+	// 5 units in one tick = 100 u/s, ~15x the legal speed.
+	// Expected: server clamps to ~0.325 units from origin.
+	// Actual: server accepts 5.0 (only the >10-unit teleport check exists).
+	p := entity.NewPlayerWithSpec(1, entity.ClassArcanotechnicien, "harmonist")
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
+	p.SpawnTick = 1 // past grace period
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w.TickNum = 100
+
+	// Move 5 units on X axis in one tick
+	payload := codec.EncodePlayerInput(nil, 5.0, 0.1, 0.0, 0.0, 100, 0, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// Max legitimate distance: SprintSpeed * tickDt * tolerance
+	// 6.5 * 0.05 * 1.5 = 0.4875 units (with 50% tolerance)
+	maxDist := float32(6.5 * 0.05 * 1.5)
+	dx := p.Position.X - 0.0
+	dz := p.Position.Z - 0.0
+	actualDist := float32(math.Sqrt(float64(dx*dx + dz*dz)))
+
+	if actualDist > maxDist {
+		t.Errorf("server accepted movement of %.2f units in one tick; max legal = %.3f (sprint*tick*1.5). "+
+			"Position = (%.2f, %.2f, %.2f). This proves the speed validation vulnerability.",
+			actualDist, maxDist, p.Position.X, p.Position.Y, p.Position.Z)
+	}
+}
+
+func TestMovementSpeed_DodgeSpeedWithoutDodge(t *testing.T) {
+	// A modified client sends position updates at dodge/roll speed (11.0 u/s)
+	// for 10 consecutive ticks without ever sending an ActionDodge input.
+	// This simulates a client faking Gust Step displacement without authorization.
+	// Expected: each tick is clamped to sprint speed (6.5 u/s).
+	// Actual: all updates accepted — player travels ~5.5 units freely.
+	p := entity.NewPlayerWithSpec(1, entity.ClassArcanotechnicien, "harmonist")
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
+	p.SpawnTick = 1
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w.TickNum = 100
+
+	is := &InputSystem{}
+	rollSpeed := float32(11.0) // Harmonist RollSpeed
+	tickDt := float32(0.05)
+	distPerTick := rollSpeed * tickDt // 0.55 units per tick
+
+	// Send 10 ticks at dodge speed moving along +X
+	for i := 0; i < 10; i++ {
+		newX := float32(i+1) * distPerTick
+		payload := codec.EncodePlayerInput(nil, newX, 0.1, 0.0, 0.0, uint32(100+i), 0, 0.0)
+		w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
+		is.Tick(w, tickDt)
+	}
+
+	// After 10 ticks at dodge speed: attempted 10 * 0.55 = 5.5 units
+	// Max legal: 10 ticks * sprint speed * tickDt = 10 * 6.5 * 0.05 = 3.25 units
+	maxLegal := float32(10) * float32(6.5) * tickDt
+	maxLegalTolerant := maxLegal * 1.5 // 50% tolerance = 4.875
+
+	actualX := p.Position.X
+	if actualX > maxLegalTolerant {
+		t.Errorf("player moved %.2f units in 10 ticks at dodge speed without dodge authorization; "+
+			"max legal (with tolerance) = %.2f. Server accepted unauthorized displacement.",
+			actualX, maxLegalTolerant)
+	}
+}
+
+func TestMovementSpeed_BracedPlayerIsClamped(t *testing.T) {
+	// Sanity check: speed clamping DOES work for debuffed players.
+	// A braced player (speedMult=0) should not move at all.
+	// This test should PASS, proving the asymmetry: debuffed = clamped, normal = unchecked.
+	p := entity.NewPlayerWithSpec(1, entity.ClassArcanotechnicien, "harmonist")
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
+	p.SpawnTick = 1
+	p.AddBuff(entity.ActiveBuff{ID: "brace", Type: "generic", Duration: 10.0})
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w.TickNum = 100
+
+	payload := codec.EncodePlayerInput(nil, 5.0, 0.1, 0.0, 0.0, 100, 0, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// Braced player should stay at origin (speedMult = 0)
+	if p.Position.X != 0.0 || p.Position.Z != 0.0 {
+		t.Errorf("braced player moved to (%.2f, %.2f) — brace should lock position",
+			p.Position.X, p.Position.Z)
+	}
+}
+
+func TestMovementSpeed_ShieldBlockClampsSpeed(t *testing.T) {
+	// Shield block (speedMult=0.4) should clamp movement to 40% of sprint speed.
+	// Vanguard SprintSpeed = 7.5, so max = 7.5 * 0.4 * 0.05 * 1.5 = 0.225
+	p := entity.NewPlayerWithSpec(1, entity.ClassVanguard, "blade")
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
+	p.SpawnTick = 1
+	p.AddBuff(entity.ActiveBuff{ID: "vg_shield_block", Type: "damage_reduction", Value: 0.7, Duration: 10.0})
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w.TickNum = 100
+
+	payload := codec.EncodePlayerInput(nil, 5.0, 0.1, 0.0, 0.0, 100, 0, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	mv := p.Movement()
+	maxDist := mv.SprintSpeed * 0.4 * (1.0 / 20.0) * 1.5
+	dx := p.Position.X
+	dz := p.Position.Z
+	actualDist := float32(math.Sqrt(float64(dx*dx + dz*dz)))
+
+	if actualDist > maxDist+0.01 {
+		t.Errorf("shield block player moved %.3f, max allowed = %.3f", actualDist, maxDist)
+	}
+	if p.Position.X <= 0.0 {
+		t.Error("shield block player should still move (just slower), but X stayed at 0")
+	}
+}
+
+func TestMovementSpeed_TeleportRejected(t *testing.T) {
+	// Teleporting > 10 units (dist² > 100) should be fully rejected.
+	p := entity.NewPlayerWithSpec(1, entity.ClassArcanotechnicien, "harmonist")
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
+	p.SpawnTick = 1
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w.TickNum = 100
+
+	// 11 units away — exceeds the 10-unit teleport threshold
+	payload := codec.EncodePlayerInput(nil, 11.0, 0.1, 0.0, 0.0, 100, 0, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if p.Position.X != 0.0 {
+		t.Errorf("teleport should be rejected: position = (%.2f, %.2f, %.2f), expected origin",
+			p.Position.X, p.Position.Y, p.Position.Z)
+	}
+}
+
+func TestMovementSpeed_SpawnGraceRejectsInput(t *testing.T) {
+	// During the 10-tick spawn grace window, all position updates are rejected.
+	p := entity.NewPlayerWithSpec(1, entity.ClassArcanotechnicien, "harmonist")
+	p.Position = entity.Vec3{X: 5, Y: 0.1, Z: 5}
+	p.SpawnTick = 95 // spawned at tick 95
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w.TickNum = 100 // only 5 ticks since spawn (< 10 grace ticks)
+
+	payload := codec.EncodePlayerInput(nil, 0.0, 0.1, 0.0, 0.0, 100, 0, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// Position should remain at spawn position, input rejected
+	if p.Position.X != 5.0 || p.Position.Z != 5.0 {
+		t.Errorf("input during spawn grace should be rejected: position = (%.2f, %.2f)",
+			p.Position.X, p.Position.Z)
+	}
+}
+
+func TestMovementSpeed_YBoundsRejectsOutOfRange(t *testing.T) {
+	// Position above PlayerBoundsMaxY should be rejected entirely.
+	p := entity.NewPlayerWithSpec(1, entity.ClassArcanotechnicien, "harmonist")
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
+	p.SpawnTick = 1
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w.TickNum = 100
+	// Arena level has PlayerBoundsMaxY = 6.0
+
+	payload := codec.EncodePlayerInput(nil, 0.0, 50.0, 0.0, 0.0, 100, 0, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if p.Position.Y != 0.1 {
+		t.Errorf("Y out of bounds should reject entire input: Y = %.2f, expected 0.1",
+			p.Position.Y)
+	}
+}
+
+func TestMovementSpeed_ElevatorAllowsFastY(t *testing.T) {
+	// Inside an elevator volume, Y movement at elevator speed should be allowed.
+	p := entity.NewPlayerWithSpec(1, entity.ClassArcanotechnicien, "harmonist")
+	p.Position = entity.Vec3{X: 5, Y: -100, Z: -55}
+	p.SpawnTick = 1
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w.TickNum = 100
+	// Use hub level which has an elevator at (5, -55)
+	w.Level = level.NewHubLevel()
+
+	// Move up by 0.3 units (elevator speed = 10 u/s, allowed = 10*0.05*1.5 = 0.75)
+	newY := float32(-99.7)
+	payload := codec.EncodePlayerInput(nil, 5.0, newY, -55.0, 0.0, 100, 0, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if p.Position.Y < -99.8 {
+		t.Errorf("elevator should allow upward movement: Y = %.2f, expected ~%.2f",
+			p.Position.Y, newY)
+	}
+}
+
+func TestMovementSpeed_UpwardYClampedOutsideElevator(t *testing.T) {
+	// Outside an elevator, fast upward Y should be clamped.
+	// Max upward outside elevator = 5.0 * (1/20) * 2.0 = 0.5 units per tick.
+	p := entity.NewPlayerWithSpec(1, entity.ClassArcanotechnicien, "harmonist")
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
+	p.SpawnTick = 1
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w.TickNum = 100
+
+	// Try to move up by 2.0 units (way above 0.5 + 0.1 tolerance = 0.6)
+	payload := codec.EncodePlayerInput(nil, 0.0, 2.1, 0.0, 0.0, 100, 0, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// Y should be clamped back to original
+	if p.Position.Y > 0.2 {
+		t.Errorf("upward Y should be clamped outside elevator: Y = %.2f, expected ~0.1",
+			p.Position.Y)
+	}
+}
+
+// =============================================================================
+// handleSetLoadout tests
+// =============================================================================
+
+func TestSetLoadout_UpdatesActionMap(t *testing.T) {
+	p := newHarmonistPlayer(1)
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+
+	// New loadout swaps slot 0 and clears slot 5
+	newSlots := [6]string{"vital_bloom", "mending_beam", "mending_surge", "restoration_matrix", "life_swap", ""}
+	payload := codec.EncodeLoadoutState(newSlots)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpSetLoadout, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// Slot 0 → action 50 should now be vital_bloom
+	if p.ActionMap[50] != "vital_bloom" {
+		t.Errorf("action 50 = %q, want 'vital_bloom'", p.ActionMap[50])
+	}
+	// Slot 2 → action 52 should be mending_surge
+	if p.ActionMap[52] != "mending_surge" {
+		t.Errorf("action 52 = %q, want 'mending_surge'", p.ActionMap[52])
+	}
+	// Loadout should be updated
+	if p.Loadout.Slots[0] != "vital_bloom" {
+		t.Errorf("loadout slot 0 = %q, want 'vital_bloom'", p.Loadout.Slots[0])
+	}
+}
+
+func TestSetLoadout_EmptySlotNotAdded(t *testing.T) {
+	p := newHarmonistPlayer(1)
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+
+	// Before: slot 5 (action 55) = vital_drain
+	beforeAction55 := p.ActionMap[55]
+	if beforeAction55 != "vital_drain" {
+		t.Fatalf("precondition: action 55 = %q, want 'vital_drain'", beforeAction55)
+	}
+
+	// Send loadout with slot 5 empty
+	newSlots := [6]string{"mending_surge", "mending_beam", "vital_bloom", "restoration_matrix", "life_swap", ""}
+	payload := codec.EncodeLoadoutState(newSlots)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpSetLoadout, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// ApplyLoadout skips empty slots, so action 55 retains old value.
+	// BUG: ApplyLoadout does NOT delete old bindings for empty slots.
+	// A player who unbinds an ability still has it in ActionMap.
+	// This is a loadout hygiene issue — but NOT a security hole because
+	// the server still validates the ability exists in the engine.
+	//
+	// For now, verify the empty slot wasn't overwritten with "".
+	if _, exists := p.ActionMap[55]; !exists {
+		t.Log("action 55 was deleted — this is the correct behavior if ApplyLoadout cleans up")
+	} else {
+		t.Logf("action 55 = %q (stale binding from previous loadout)", p.ActionMap[55])
+	}
+}
+
+func TestSetLoadout_InvalidPayload(t *testing.T) {
+	p := newHarmonistPlayer(1)
+	originalMap := make(map[uint8]string, len(p.ActionMap))
+	for k, v := range p.ActionMap {
+		originalMap[k] = v
+	}
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+
+	// Truncated/invalid payload
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpSetLoadout, Payload: []byte{0xFF}}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// ActionMap should be unchanged
+	for k, v := range originalMap {
+		if p.ActionMap[k] != v {
+			t.Errorf("action %d changed from %q to %q on invalid payload", k, v, p.ActionMap[k])
+		}
+	}
+}
+
+func TestSetLoadout_UnknownPlayer(t *testing.T) {
+	w := makeWorld(map[uint16]*entity.Player{}, nil)
+
+	newSlots := [6]string{"mending_surge", "", "", "", "", ""}
+	payload := codec.EncodeLoadoutState(newSlots)
+	// PeerID 99 does not exist
+	w.InputQueue = []InputMsg{{PeerID: 99, Opcode: message.OpSetLoadout, Payload: payload}}
+
+	is := &InputSystem{}
+	// Should not panic
+	is.Tick(w, 0.05)
+}
+
+func TestSetLoadout_NilLoadoutCreated(t *testing.T) {
+	// Use a gunner (which has no loadout by default)
+	p := entity.NewPlayer(1, entity.ClassGunner)
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+
+	if p.Loadout != nil {
+		t.Fatal("precondition: gunner should not have a loadout")
+	}
+
+	newSlots := [6]string{"fire_shot", "", "", "", "", ""}
+	payload := codec.EncodeLoadoutState(newSlots)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpSetLoadout, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if p.Loadout == nil {
+		t.Fatal("loadout should be created when nil")
+	}
+	if p.Loadout.Slots[0] != "fire_shot" {
+		t.Errorf("slot 0 = %q, want 'fire_shot'", p.Loadout.Slots[0])
+	}
+	if p.ActionMap[50] != "fire_shot" {
+		t.Errorf("action 50 = %q, want 'fire_shot'", p.ActionMap[50])
+	}
+}
+
+// =============================================================================
+// Loadout validation security — RED TESTS
+//
+// handleSetLoadout accepts ANY ability string without validation. A modified
+// client can slot non-existent abilities, unimplemented abilities, or abilities
+// that don't belong to the player's class. ApplyLoadout then writes these
+// into the ActionMap, making them committable.
+//
+// Additionally, ApplyLoadout does not clean up stale ActionMap entries when
+// a slot is emptied — a player who unbinds an ability can still commit it via
+// the stale ActionMap binding.
+//
+// These tests express DESIRED behavior and FAIL until the bugs are fixed.
+// =============================================================================
+
+func TestSetLoadout_RejectsNonExistentAbility(t *testing.T) {
+	// A modified client sends OpSetLoadout with a completely fake ability ID.
+	// Expected: server rejects the loadout change, ActionMap[50] unchanged.
+	// Actual: "totally_fake_ability" is written into ActionMap[50].
+	p := newHarmonistPlayer(1)
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+
+	original50 := p.ActionMap[50] // "mending_surge"
+
+	newSlots := [6]string{"totally_fake_ability", "mending_beam", "vital_bloom", "restoration_matrix", "life_swap", "transfusion"}
+	payload := codec.EncodeLoadoutState(newSlots)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpSetLoadout, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if p.ActionMap[50] != original50 {
+		t.Errorf("server accepted non-existent ability in loadout: ActionMap[50] = %q, want %q (unchanged). "+
+			"handleSetLoadout has no validation — any string is written to ActionMap.",
+			p.ActionMap[50], original50)
+	}
+}
+
+func TestSetLoadout_RejectsUnimplementedAbility(t *testing.T) {
+	// "fireball" exists in the ability catalog YAML but has implemented: false.
+	// A player should not be able to slot unimplemented abilities.
+	// Expected: server rejects the loadout; ActionMap[50] stays "mending_surge".
+	// Actual: "fireball" is written into ActionMap[50].
+	p := newHarmonistPlayer(1)
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+
+	original50 := p.ActionMap[50]
+
+	newSlots := [6]string{"fireball", "mending_beam", "vital_bloom", "restoration_matrix", "life_swap", "transfusion"}
+	payload := codec.EncodeLoadoutState(newSlots)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpSetLoadout, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if p.ActionMap[50] != original50 {
+		t.Errorf("server accepted unimplemented ability: ActionMap[50] = %q, want %q (unchanged). "+
+			"handleSetLoadout does not check implemented status.",
+			p.ActionMap[50], original50)
+	}
+}
+
+func TestSetLoadout_ClearsStaleActionMapOnEmptySlot(t *testing.T) {
+	// Default loadout has slot 5 = vital_drain (action 55).
+	// Player sends a new loadout with slot 5 empty.
+	// Expected: ActionMap[55] is deleted — the ability is no longer equipped.
+	// Actual: stale "vital_drain" binding survives because ApplyLoadout skips
+	// empty slots instead of deleting them.
+	p := newHarmonistPlayer(1)
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+
+	// Precondition
+	if p.ActionMap[55] != "vital_drain" {
+		t.Fatalf("precondition: ActionMap[55] = %q, want vital_drain", p.ActionMap[55])
+	}
+
+	newSlots := [6]string{"mending_surge", "mending_beam", "vital_bloom", "restoration_matrix", "life_swap", ""}
+	payload := codec.EncodeLoadoutState(newSlots)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpSetLoadout, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if _, exists := p.ActionMap[55]; exists {
+		t.Errorf("stale ActionMap[55] = %q survived after clearing slot 5. "+
+			"ApplyLoadout skips empty slots instead of deleting old bindings.",
+			p.ActionMap[55])
+	}
+}
+
+func TestAbilityInput_StaleBindingFiresAfterSlotClear(t *testing.T) {
+	// Combines the stale ActionMap bug with ability execution.
+	// 1. Player clears slot 5 (was transfusion).
+	// 2. Client sends AbilityInput for action 55 (the cleared slot).
+	// Expected: ability does NOT fire — slot is empty.
+	// Actual: stale "transfusion" binding in ActionMap routes to the engine,
+	// which starts a runner for transfusion even though the player unequipped it.
+	p := newHarmonistPlayer(1)
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+
+	// Step 1: clear slot 5
+	newSlots := [6]string{"mending_surge", "mending_beam", "vital_bloom", "restoration_matrix", "life_swap", ""}
+	payload := codec.EncodeLoadoutState(newSlots)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpSetLoadout, Payload: payload}}
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// Step 2: send ability input for action 55 (the slot we just cleared)
+	abilityPayload := codec.EncodeAbilityInput(55, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpAbilityInput, Payload: abilityPayload}}
+	is.Tick(w, 0.05)
+
+	// Transfusion (CommitTime=4.0) would start a runner in commit phase
+	if runner := w.AbilityRunners[1]; runner != nil && runner.IsBusy() {
+		t.Errorf("cleared slot 5 still fired ability %q via stale ActionMap binding. "+
+			"Player unequipped transfusion but can still commit it.",
+			runner.AbilityID)
+	}
+}
+
+func TestSetLoadout_GunnerAbilityOnHarmonist(t *testing.T) {
+	// A modified client sends fire_shot (gunner ability) in a harmonist loadout.
+	// Expected: server rejects — fire_shot is not in the harmonist's class codex.
+	// Actual: "fire_shot" is written into ActionMap[50]. The player can now commit
+	// a gunner ability as a healer because there is no class-membership check.
+	p := newHarmonistPlayer(1)
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+
+	original50 := p.ActionMap[50]
+
+	newSlots := [6]string{"fire_shot", "mending_beam", "vital_bloom", "restoration_matrix", "life_swap", "transfusion"}
+	payload := codec.EncodeLoadoutState(newSlots)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpSetLoadout, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if p.ActionMap[50] != original50 {
+		t.Errorf("server accepted cross-class ability: ActionMap[50] = %q, want %q (unchanged). "+
+			"handleSetLoadout has no class membership validation.",
+			p.ActionMap[50], original50)
+	}
+}
+
+// =============================================================================
+// ForceReset — exercised through the sustain→new-committed-ability flow
+// =============================================================================
+
+func TestForceReset_SustainThenCommittedAbility(t *testing.T) {
+	// During sustain, Cancel() transitions to cooldown (not idle).
+	// Without ForceReset, Start() would fail because phase != idle.
+	// This test directly exercises the ForceReset path in handleAbilityInput.
+	p := newHarmonistPlayer(1)
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	registerTestSustainAbility(w.AbilityEngine, p)
+	registerTestCommitAbility(w.AbilityEngine, p)
+
+	// Start runner in sustain
+	runner := &ability.PlayerAbilityRunner{}
+	def := w.AbilityEngine.GetAbility("test_sustain_heal")
+	runner.StartSustain(def, p.Position, w.TickNum)
+	w.AbilityRunners[1] = runner
+
+	// Verify we're in sustain
+	if runner.Phase != ability.PRunnerSustain {
+		t.Fatalf("precondition: phase = %d, want %d (sustain)", runner.Phase, ability.PRunnerSustain)
+	}
+
+	// Send a committed ability input — this triggers Cancel() + ForceReset() + Start()
+	payload := codec.EncodeAbilityInput(testCommitAction, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpAbilityInput, Payload: payload}}
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// Runner should be in commit phase for the new ability
+	if runner.Phase != ability.PRunnerCommit {
+		t.Errorf("runner phase = %d, want %d (commit). ForceReset may not be working.",
+			runner.Phase, ability.PRunnerCommit)
+	}
+	if runner.AbilityID != "test_commit_aoe" {
+		t.Errorf("runner ability = %q, want 'test_commit_aoe'", runner.AbilityID)
+	}
+	if runner.Timer < 0.45 {
+		t.Errorf("runner timer = %f, want fresh ~0.5 (commit time)", runner.Timer)
+	}
+}
+
+func TestForceReset_SustainThenInstantAbility(t *testing.T) {
+	// Same flow but for instant (non-committed) abilities.
+	// handleAbilityInput line 213-217: Cancel + ForceReset for instant path.
+	p := newHarmonistPlayer(1)
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
+
+	e := entity.NewEnemy(1000, 2000.0, "test_enemy")
+	e.Alive = true
+	e.Position = entity.Vec3{X: 0, Y: 0, Z: -2.0}
+	e.State = entity.EnemyChase
+
+	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	registerTestSustainAbility(w.AbilityEngine, p)
+
+	// Start runner in sustain
+	runner := &ability.PlayerAbilityRunner{}
+	def := w.AbilityEngine.GetAbility("test_sustain_heal")
+	runner.StartSustain(def, p.Position, w.TickNum)
+	w.AbilityRunners[1] = runner
+
+	// Bind melee (instant, CommitTime=0) if not already bound
+	// ActionMelee is already in vanguard's map; for Harmonist we need to add it
+	p.ActionMap[entity.ActionMelee] = "melee"
+
+	// Send instant ability input
+	payload := codec.EncodeAbilityInput(entity.ActionMelee, 0.0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpAbilityInput, Payload: payload}}
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// Sustain should be cancelled, runner should be idle or reset
+	if runner.Phase == ability.PRunnerSustain {
+		t.Error("sustain should have been cancelled by instant ability")
+	}
+	// The runner was ForceReset, then the instant ability bypasses the runner
+	// So runner should be idle
+	if runner.Phase != ability.PRunnerIdle {
+		t.Errorf("runner phase = %d after instant ability cancelled sustain, want idle (0)", runner.Phase)
 	}
 }

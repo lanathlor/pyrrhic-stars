@@ -46,12 +46,12 @@ func enemyBehind(id uint16, hp float32) *entity.Enemy {
 	return e
 }
 
-func castCtx(p *entity.Player, enemies ...*entity.Enemy) *CastContext {
+func commitCtx(p *entity.Player, enemies ...*entity.Enemy) *CommitContext {
 	targets := make([]entity.Target, len(enemies))
 	for i, e := range enemies {
 		targets[i] = e
 	}
-	return &CastContext{Caster: p, Targets: targets}
+	return &CommitContext{Committer: p, Targets: targets}
 }
 
 func tickCtx(enemies ...*entity.Enemy) *TickContext {
@@ -88,7 +88,7 @@ func TestGetAbility_Unknown(t *testing.T) {
 	}
 }
 
-// --- Cast validation (table-driven) ---
+// --- Commit validation (table-driven) ---
 
 func TestCast_Validation(t *testing.T) {
 	tests := []struct {
@@ -139,7 +139,7 @@ func TestCast_Validation(t *testing.T) {
 			name: "wrong BD config",
 			setup: func(_ *Engine) (*entity.Player, []*entity.Enemy) {
 				p := newBladeDancer()
-				p.Config = entity.ConfigFan // origin is fan, spell needs orbit
+				p.Config = entity.ConfigFan // origin is fan, ability needs orbit
 				return p, nil
 			},
 			ability: "shielded_sweep", // origin_config = 0 (orbit)
@@ -161,9 +161,9 @@ func TestCast_Validation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			eng := NewEngine(nil)
 			p, enemies := tt.setup(eng)
-			result := eng.Cast(tt.ability, castCtx(p, enemies...))
+			result := eng.Commit(tt.ability, commitCtx(p, enemies...))
 			if result.OK {
-				t.Error("expected cast to fail")
+				t.Error("expected commit to fail")
 			}
 			if result.Reason != tt.reason {
 				t.Errorf("reason = %q, want %q", result.Reason, tt.reason)
@@ -172,16 +172,16 @@ func TestCast_Validation(t *testing.T) {
 	}
 }
 
-// --- Cast data-driven abilities ---
+// --- Commit data-driven abilities ---
 
 func TestCast_FireShot_HitsEnemy(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 200)
 
-	result := eng.Cast("fire_shot", castCtx(p, e))
+	result := eng.Commit("fire_shot", commitCtx(p, e))
 	if !result.OK {
-		t.Fatalf("cast failed: %s", result.Reason)
+		t.Fatalf("commit failed: %s", result.Reason)
 	}
 	if len(result.Events) != 1 {
 		t.Fatalf("events = %d, want 1", len(result.Events))
@@ -201,9 +201,9 @@ func TestCast_FireShot_MissesBehind(t *testing.T) {
 	p := newGunner()
 	e := enemyBehind(100, 200)
 
-	result := eng.Cast("fire_shot", castCtx(p, e))
+	result := eng.Commit("fire_shot", commitCtx(p, e))
 	if !result.OK {
-		t.Fatal("cast should succeed even with no hits")
+		t.Fatal("commit should succeed even with no hits")
 	}
 	if len(result.Events) != 0 {
 		t.Errorf("events = %d, want 0 (enemy behind)", len(result.Events))
@@ -216,13 +216,13 @@ func TestCast_FireShot_ObstacleBlocksLOS(t *testing.T) {
 	e := enemyInFront(100, 200)
 	obs := combat.Obstacle{CX: 0, CZ: -2.5, HX: 2, HZ: 0.5, Height: 3}
 
-	result := eng.Cast("fire_shot", &CastContext{
-		Caster:    p,
+	result := eng.Commit("fire_shot", &CommitContext{
+		Committer:    p,
 		Targets:   []entity.Target{e},
 		Obstacles: []combat.Obstacle{obs},
 	})
 	if !result.OK {
-		t.Fatal("cast should succeed")
+		t.Fatal("commit should succeed")
 	}
 	if len(result.Events) != 0 {
 		t.Error("expected 0 hits through obstacle")
@@ -236,9 +236,9 @@ func TestCast_Execution_AoECone(t *testing.T) {
 	e1 := enemyInFront(100, 200)
 	e3 := enemyBehind(102, 200)
 
-	result := eng.Cast("execution", castCtx(p, e1, e3))
+	result := eng.Commit("execution", commitCtx(p, e1, e3))
 	if !result.OK {
-		t.Fatalf("cast failed: %s", result.Reason)
+		t.Fatalf("commit failed: %s", result.Reason)
 	}
 	hitIDs := map[uint16]bool{}
 	for _, ev := range result.Events {
@@ -264,9 +264,9 @@ func TestCast_BDGuard_SelfBuff(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newBladeDancer()
 
-	result := eng.Cast("bd_guard", castCtx(p))
+	result := eng.Commit("bd_guard", commitCtx(p))
 	if !result.OK {
-		t.Fatalf("cast failed: %s", result.Reason)
+		t.Fatalf("commit failed: %s", result.Reason)
 	}
 	if !p.HasBuff("guard") {
 		t.Error("guard buff not applied")
@@ -288,9 +288,9 @@ func TestCast_DamageMult_Applied(t *testing.T) {
 		ID: "test_dmg", Type: entity.BuffDamageMult, Value: 2.0, Duration: 5.0,
 	})
 
-	result := eng.Cast("fire_shot", castCtx(p, e))
+	result := eng.Commit("fire_shot", commitCtx(p, e))
 	if !result.OK {
-		t.Fatal("cast failed")
+		t.Fatal("commit failed")
 	}
 	if len(result.Events) != 1 {
 		t.Fatal("expected 1 event")
@@ -304,13 +304,13 @@ func TestCast_SetsAttackState(t *testing.T) {
 	p := newGunner()
 	e := enemyInFront(100, 200)
 
-	eng.Cast("fire_shot", castCtx(p, e))
+	eng.Commit("fire_shot", commitCtx(p, e))
 	if p.State != entity.PlayerStateAttack {
 		t.Errorf("state = %d, want %d (attack)", p.State, entity.PlayerStateAttack)
 	}
 }
 
-// --- BD spell mechanics ---
+// --- BD ability mechanics ---
 
 func TestCast_BDSpell_ConfigTransition(t *testing.T) {
 	eng := NewEngine(nil)
@@ -319,9 +319,9 @@ func TestCast_BDSpell_ConfigTransition(t *testing.T) {
 	e := enemyInFront(100, 500)
 
 	// shielded_sweep: orbit → fan
-	result := eng.Cast("shielded_sweep", castCtx(p, e))
+	result := eng.Commit("shielded_sweep", commitCtx(p, e))
 	if !result.OK {
-		t.Fatalf("cast failed: %s", result.Reason)
+		t.Fatalf("commit failed: %s", result.Reason)
 	}
 	if p.Config != entity.ConfigFan {
 		t.Errorf("config = %d, want %d (fan)", p.Config, entity.ConfigFan)
@@ -335,9 +335,9 @@ func TestCast_BDSpell_ShieldGrant(t *testing.T) {
 	e := enemyInFront(100, 500) // guarded_thrust is hitscan, needs a target
 
 	// guarded_thrust: orbit→lance, shieldHP=8
-	result := eng.Cast("guarded_thrust", castCtx(p, e))
+	result := eng.Commit("guarded_thrust", commitCtx(p, e))
 	if !result.OK {
-		t.Fatalf("cast failed: %s", result.Reason)
+		t.Fatalf("commit failed: %s", result.Reason)
 	}
 	shield := p.GetResource("shield")
 	if shield != 8 {
@@ -352,9 +352,9 @@ func TestCast_BDSpell_DoTApplied(t *testing.T) {
 	e := enemyInFront(100, 500)
 
 	// targeted_spread is HitHitscan with a DoT
-	result := eng.Cast("targeted_spread", castCtx(p, e))
+	result := eng.Commit("targeted_spread", commitCtx(p, e))
 	if !result.OK {
-		t.Fatalf("cast failed: %s", result.Reason)
+		t.Fatalf("commit failed: %s", result.Reason)
 	}
 	if len(result.Events) == 0 {
 		t.Fatal("hitscan should hit enemy in front")
@@ -374,7 +374,7 @@ func TestCast_BDSpell_DRBuff(t *testing.T) {
 	e := enemyInFront(100, 500)
 
 	// shielded_sweep has DR buff (0.85)
-	eng.Cast("shielded_sweep", castCtx(p, e))
+	eng.Commit("shielded_sweep", commitCtx(p, e))
 	if !p.HasBuff("bd_dr") {
 		t.Error("DR buff not applied")
 	}
@@ -388,7 +388,7 @@ func TestCast_BDSpell_GCD(t *testing.T) {
 	p := newBladeDancer()
 	p.Config = entity.ConfigOrbit
 
-	eng.Cast("shielded_sweep", castCtx(p))
+	eng.Commit("shielded_sweep", commitCtx(p))
 	if p.GCDTimer != 0.5 {
 		t.Errorf("GCDTimer = %f, want 0.5", p.GCDTimer)
 	}
@@ -401,7 +401,7 @@ func TestRechamber_StartAndConfirm(t *testing.T) {
 	p := newGunner()
 
 	// Start rechamber
-	r := eng.Cast("rechamber", castCtx(p))
+	r := eng.Commit("rechamber", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("rechamber start failed: %s", r.Reason)
 	}
@@ -414,7 +414,7 @@ func TestRechamber_StartAndConfirm(t *testing.T) {
 	}
 
 	// Can't start again while in progress
-	r = eng.Cast("rechamber", castCtx(p))
+	r = eng.Commit("rechamber", commitCtx(p))
 	if r.OK {
 		t.Error("should not be able to start rechamber while in progress")
 	}
@@ -426,7 +426,7 @@ func TestRechamber_StartAndConfirm(t *testing.T) {
 	}
 
 	// Confirm in timing window
-	r = eng.Cast("rechamber_confirm", castCtx(p))
+	r = eng.Commit("rechamber_confirm", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("rechamber_confirm failed: %s", r.Reason)
 	}
@@ -442,7 +442,7 @@ func TestRechamber_MissedWindow(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 
-	eng.Cast("rechamber", castCtx(p))
+	eng.Commit("rechamber", commitCtx(p))
 	state, ok := p.AbilityState["rechamber"].(*RechamberState)
 	if !ok {
 		t.Fatal("rechamber state not set")
@@ -461,7 +461,7 @@ func TestRechamber_MissedWindow(t *testing.T) {
 	}
 
 	// Confirm should fail during lockout
-	r := eng.Cast("rechamber_confirm", castCtx(p))
+	r := eng.Commit("rechamber_confirm", commitCtx(p))
 	if r.OK {
 		t.Error("confirm should fail during lockout")
 	}
@@ -477,7 +477,7 @@ func TestOverclock_AppliesBuff(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 
-	r := eng.Cast("overclock", castCtx(p))
+	r := eng.Commit("overclock", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("overclock failed: %s", r.Reason)
 	}
@@ -489,7 +489,7 @@ func TestOverclock_AppliesBuff(t *testing.T) {
 	}
 
 	// Can't use again while active
-	r = eng.Cast("overclock", castCtx(p))
+	r = eng.Commit("overclock", commitCtx(p))
 	if r.OK {
 		t.Error("should not be able to overclock while active")
 	}
@@ -499,7 +499,7 @@ func TestVGBlock_ParryAndBlock(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard()
 
-	r := eng.Cast("vg_block", castCtx(p))
+	r := eng.Commit("vg_block", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("vg_block failed: %s", r.Reason)
 	}
@@ -520,7 +520,7 @@ func TestVGBlock_ParryAndBlock(t *testing.T) {
 	}
 
 	// Can't block again while blocking
-	r = eng.Cast("vg_block", castCtx(p))
+	r = eng.Commit("vg_block", commitCtx(p))
 	if r.OK {
 		t.Error("should not be able to block while blocking")
 	}
@@ -531,8 +531,8 @@ func TestCleaveVG_Repeatable(t *testing.T) {
 	p := newVanguard()
 	e := enemyInFront(100, 1e6)
 
-	// Cast cleave twice — same damage each time, no combo escalation
-	r1 := eng.Cast("cleave", castCtx(p, e))
+	// Commit cleave twice — same damage each time, no combo escalation
+	r1 := eng.Commit("cleave", commitCtx(p, e))
 	if !r1.OK {
 		t.Fatalf("cleave 1 failed: %s", r1.Reason)
 	}
@@ -541,7 +541,7 @@ func TestCleaveVG_Repeatable(t *testing.T) {
 	p.Cooldowns["cleave"] = 0
 	p.GCDTimer = 0
 
-	r2 := eng.Cast("cleave", castCtx(p, e))
+	r2 := eng.Commit("cleave", commitCtx(p, e))
 	if !r2.OK {
 		t.Fatalf("cleave 2 failed: %s", r2.Reason)
 	}
@@ -561,7 +561,7 @@ func TestUpheavalVG(t *testing.T) {
 	p := newVanguard()
 	e := enemyInFront(100, 500)
 
-	r := eng.Cast("upheaval", castCtx(p, e))
+	r := eng.Commit("upheaval", commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("upheaval failed: %s", r.Reason)
 	}
@@ -583,7 +583,7 @@ func TestVortex_Handler(t *testing.T) {
 	e := enemyInFront(100, 1000)
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -3} // within 4 radius
 
-	r := eng.Cast("vortex", castCtx(p, e))
+	r := eng.Commit("vortex", commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("vortex failed: %s", r.Reason)
 	}
@@ -609,7 +609,7 @@ func TestVortex_TickDamage(t *testing.T) {
 	e := enemyInFront(100, 1000)
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -3}
 
-	eng.Cast("vortex", castCtx(p, e))
+	eng.Commit("vortex", commitCtx(p, e))
 	hpAfterCast := e.Health
 
 	// Standard tier: 2 hits, interval = 0.6/2 = 0.3s. Tick past 0.3s.
@@ -789,9 +789,9 @@ func TestTickPlayer_AttackStateReset(t *testing.T) {
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
-	eng.Cast("fire_shot", castCtx(p, e))
+	eng.Commit("fire_shot", commitCtx(p, e))
 	if p.State != entity.PlayerStateAttack {
-		t.Fatal("expected attack state after cast")
+		t.Fatal("expected attack state after commit")
 	}
 
 	// Tick past cooldown (0.18s)
@@ -806,7 +806,7 @@ func TestTickPlayer_AttackStatePersistsDuringLockout(t *testing.T) {
 	p := newVanguard()
 	e := enemyInFront(100, 500)
 
-	eng.Cast("execution", castCtx(p, e))
+	eng.Commit("execution", commitCtx(p, e))
 	if p.State != entity.PlayerStateAttack {
 		t.Fatal("expected attack state")
 	}
@@ -925,10 +925,10 @@ func TestCast_CooldownMultBuff(t *testing.T) {
 	e := enemyInFront(100, 500)
 
 	// Overclock gives cooldown_mult of 0.556
-	eng.Cast("overclock", castCtx(p))
+	eng.Commit("overclock", commitCtx(p))
 	p.Cooldowns = make(map[string]float32) // clear overclock CD for test
 
-	eng.Cast("fire_shot", castCtx(p, e))
+	eng.Commit("fire_shot", commitCtx(p, e))
 	cd := p.Cooldowns["fire_shot"]
 	// 0.18 * 0.556 ≈ 0.10
 	if math.Abs(float64(cd-0.18*0.556)) > 0.01 {
@@ -962,7 +962,7 @@ func BenchmarkCast_FireShot(b *testing.B) {
 	eng := NewEngine(nil)
 	p := newGunner()
 	e := enemyInFront(100, 1e9) // huge HP so it never dies
-	ctx := castCtx(p, e)
+	ctx := commitCtx(p, e)
 	as := getGunnerAssaultState(p)
 
 	b.ResetTimer()
@@ -972,7 +972,7 @@ func BenchmarkCast_FireShot(b *testing.B) {
 		as.MagCurrent = as.MagMax
 		as.Reloading = false
 		as.MagDumpActive = false
-		eng.Cast("fire_shot", ctx)
+		eng.Commit("fire_shot", ctx)
 	}
 }
 
@@ -984,14 +984,14 @@ func BenchmarkCast_GroundSlam(b *testing.B) {
 		enemies[i] = enemyInFront(uint16(i+1), 1e9)
 		enemies[i].Position = entity.Vec3{X: float32(i-2) * 2, Z: -4}
 	}
-	ctx := castCtx(p, enemies...)
+	ctx := commitCtx(p, enemies...)
 
 	b.ResetTimer()
 	for b.Loop() {
 		clear(p.Cooldowns)
 		p.GCDTimer = 0
 		p.Resources["stamina"].Current = 100
-		eng.Cast("execution", ctx)
+		eng.Commit("execution", ctx)
 	}
 }
 
@@ -999,27 +999,27 @@ func BenchmarkCast_BDSpell(b *testing.B) {
 	eng := NewEngine(nil)
 	p := newBladeDancer()
 	e := enemyInFront(100, 1e9)
-	ctx := castCtx(p, e)
+	ctx := commitCtx(p, e)
 
 	b.ResetTimer()
 	for b.Loop() {
 		p.Config = entity.ConfigOrbit
 		p.GCDTimer = 0
 		clear(p.Cooldowns)
-		eng.Cast("shielded_sweep", ctx)
+		eng.Commit("shielded_sweep", ctx)
 	}
 }
 
 func BenchmarkCast_Overclock(b *testing.B) {
 	eng := NewEngine(nil)
 	p := newGunner()
-	ctx := castCtx(p)
+	ctx := commitCtx(p)
 
 	b.ResetTimer()
 	for b.Loop() {
 		clear(p.Cooldowns)
 		p.RemoveBuff("overclock")
-		eng.Cast("overclock", ctx)
+		eng.Commit("overclock", ctx)
 	}
 }
 

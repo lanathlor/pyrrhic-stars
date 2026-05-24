@@ -21,8 +21,8 @@ tree:
     # Positioning: walk toward boss when too far
     - sequence: [too_far, advance]
     # Rotation: overclock on cooldown (single button, easy)
-    - sequence: ["can_cast(overclock)", "cast(overclock)"]
+    - sequence: ["can_commit(overclock)", "commit(overclock)"]
     # Tactical reload when magazine is low
-    - sequence: [should_reload, "cast(reload)"]
+    - sequence: [should_reload, "commit(reload)"]
     # Filler: hold M1
-    - "cast(fire_shot)"
+    - "commit(fire_shot)"

@@ -27,7 +27,7 @@ type ProjectileDef struct {
 	Speed    float32 `yaml:"speed"`
 	Damage   float32 `yaml:"damage"`
 	Spread   float32 `yaml:"spread"`   // angle between projectiles (radians)
-	OriginY  float32 `yaml:"origin_y"` // Y offset from caster position
+	OriginY  float32 `yaml:"origin_y"` // Y offset from committer position
 	Lifetime float32 `yaml:"lifetime"`
 }
 
@@ -67,13 +67,13 @@ type HitDef struct {
 	TargetCount int     `yaml:"target_count"`
 }
 
-// ResourceCost describes a resource cost for casting an ability.
+// ResourceCost describes a resource cost for committing an ability.
 type ResourceCost struct {
 	Resource string  `yaml:"resource"`
 	Amount   float32 `yaml:"amount"`
 }
 
-// BuffEffect describes a buff applied on cast.
+// BuffEffect describes a buff applied on commit.
 type BuffEffect struct {
 	ID       string  `yaml:"id"`
 	Type     string  `yaml:"type"`
@@ -88,7 +88,7 @@ type DoTEffect struct {
 	Interval float32 `yaml:"interval"`
 }
 
-// DebuffEffect describes a debuff applied to hit enemy targets on cast.
+// DebuffEffect describes a debuff applied to hit enemy targets on commit.
 type DebuffEffect struct {
 	ID       string  `yaml:"id"`
 	Type     string  `yaml:"type"`     // entity.DebuffSlow, DebuffRoot, DebuffVulnerability
@@ -110,7 +110,7 @@ type AbilityDef struct {
 
 	// Timing
 	Cooldown float32 `yaml:"cooldown"` // per-ability cooldown in seconds
-	GCD      float32 `yaml:"gcd"`      // global cooldown applied after cast
+	GCD      float32 `yaml:"gcd"`      // global cooldown applied after commit
 
 	// Resource costs
 	Costs []ResourceCost `yaml:"costs"`
@@ -118,7 +118,7 @@ type AbilityDef struct {
 	// Damage
 	BaseDamage float32 `yaml:"base_damage"`
 
-	// Caster effects
+	// Committer effects
 	SelfBuffs   []BuffEffect `yaml:"self_buffs"`
 	ShieldGrant float32      `yaml:"shield_grant"` // added to "shield" resource
 
@@ -145,13 +145,13 @@ type AbilityDef struct {
 	ShieldScalesWithDamage bool    `yaml:"shield_scales_with_damage"`
 	ShieldPerDamage        float32 `yaml:"shield_per_damage"`
 
-	// Cleanse: number of debuffs to remove from caster (0 = none, stub for future)
+	// Cleanse: number of debuffs to remove from committer (0 = none, stub for future)
 	Cleanse int `yaml:"cleanse"`
 
 	// Complex behavior (overrides data-driven resolution)
 	Handler string `yaml:"handler"`
 
-	// BD spell data
+	// BD ability data
 	OriginConfig int `yaml:"origin_config"` // required blade config (-1 = any)
 	DestConfig   int `yaml:"dest_config"`   // config to transition to (-1 = no change)
 
@@ -198,4 +198,13 @@ type AbilityDef struct {
 	// Player channel control
 	CancelConditions uint8  `yaml:"cancel_conditions"` // bitmask: which events cancel during commit
 	OnCommitTick     string `yaml:"on_commit_tick"`     // handler name called each tick during commit
+
+	// Sustain (extended channel after execute — Arcanotechnicien class mechanic)
+	Sustain           bool    `yaml:"sustain"`              // ability supports extended channel
+	SustainCostPerSec float32 `yaml:"sustain_cost_per_sec"` // flux drained per second
+	SustainEffect     float32 `yaml:"sustain_effect"`       // base effect per tick (heal or damage)
+	SustainInterval   float32 `yaml:"sustain_interval"`     // seconds between sustain ticks
+	SustainScaling    float32 `yaml:"sustain_scaling"`      // effect multiplier increase per second held
+	SustainHandler    string  `yaml:"sustain_handler"`      // optional per-tick handler name
+	SustainCooldown   float32 `yaml:"sustain_cooldown"`     // cooldown applied to ability when sustain is cancelled
 }

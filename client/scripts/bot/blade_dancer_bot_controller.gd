@@ -1,6 +1,6 @@
 extends Node
 
-## Combat bot AI for the Blade Dancer. Uses the 5-config 20-spell system,
+## Combat bot AI for the Blade Dancer. Uses the 5-config 20-ability system,
 ## cycling through transitions and dodging enemy attacks.
 ## Attach as a child of a BladeDancer CharacterBody3D.
 
@@ -109,7 +109,7 @@ func _physics_process(delta: float) -> void:
 			_player._start_dash()
 		return
 
-	# --- Priority 6: DPS rotation (cast spells from range) ---
+	# --- Priority 6: DPS rotation (commit abilities from range) ---
 	if _player.state == _player.State.MOVE and _player._gcd_timer <= 0.0 and distance <= 18.0:
 		_do_dps_rotation()
 		return
@@ -129,10 +129,10 @@ func _physics_process(delta: float) -> void:
 
 
 func _do_dps_rotation() -> void:
-	# Simple: always cast slot 0, cycling through configs.
+	# Simple: always commit slot 0, cycling through configs.
 	# This creates a rotation: ORBIT->FAN->ORBIT->FAN... via slot 0
 	# More advanced bots could pick optimal transitions.
-	_player._start_spell(0)
+	_player._start_ability(0)
 
 
 # --- Targeting ---

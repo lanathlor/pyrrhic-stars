@@ -10,9 +10,9 @@ func TestShieldBlock_StartAppliesBuffsAndState(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	r := eng.Cast("vg_shield_block", castCtx(p))
+	r := eng.Commit("vg_shield_block", commitCtx(p))
 	if !r.OK {
-		t.Fatalf("cast failed: %s", r.Reason)
+		t.Fatalf("commit failed: %s", r.Reason)
 	}
 	if !p.HasBuff("vg_shield_parry") {
 		t.Error("shield parry buff should be applied")
@@ -39,7 +39,7 @@ func TestShieldBlock_ParryExpires(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Cast("vg_shield_block", castCtx(p))
+	eng.Commit("vg_shield_block", commitCtx(p))
 	eng.TickPlayer(p, 0.15, tickCtx())
 	if p.HasBuff("vg_shield_parry") {
 		t.Error("shield parry should have expired after 0.15s")
@@ -53,7 +53,7 @@ func TestShieldBlock_DRDecays(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Cast("vg_shield_block", castCtx(p))
+	eng.Commit("vg_shield_block", commitCtx(p))
 
 	// At start: DR should be shieldBlockDRStart (0.10)
 	b := p.GetBuff("vg_shield_block")
@@ -86,14 +86,14 @@ func TestShieldBlock_NoPersecondStaminaDrain(t *testing.T) {
 	p := newShieldVanguard()
 	initialStamina := p.GetResource("stamina")
 
-	eng.Cast("vg_shield_block", castCtx(p))
+	eng.Commit("vg_shield_block", commitCtx(p))
 	// Tick 1 second — Shield block should NOT drain stamina per-second
 	for range 20 {
 		eng.TickPlayer(p, 0.05, tickCtx())
 	}
 
 	stam := p.GetResource("stamina")
-	// Stamina should be unchanged (no per-second drain; regen delay timer is reset on cast)
+	// Stamina should be unchanged (no per-second drain; regen delay timer is reset on commit)
 	if stam < initialStamina-1 {
 		t.Errorf("stamina = %f, want ~%f (no per-second drain)", stam, initialStamina)
 	}
@@ -103,7 +103,7 @@ func TestShieldBlock_DamageDrainsStamina(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Cast("vg_shield_block", castCtx(p))
+	eng.Commit("vg_shield_block", commitCtx(p))
 	// Expire parry
 	eng.TickPlayer(p, 0.2, tickCtx())
 
@@ -124,7 +124,7 @@ func TestShieldBlock_DamageGeneratesDevotion(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Cast("vg_shield_block", castCtx(p))
+	eng.Commit("vg_shield_block", commitCtx(p))
 	eng.TickPlayer(p, 0.2, tickCtx()) // expire parry
 
 	p.ApplyDamage(100)
@@ -139,7 +139,7 @@ func TestShieldBlock_DevotionMultDecays(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Cast("vg_shield_block", castCtx(p))
+	eng.Commit("vg_shield_block", commitCtx(p))
 
 	// During parry window: DevotionMult should be 1.0
 	state := getVgShieldBlockState(p)
@@ -168,14 +168,14 @@ func TestShieldBlock_SustainedBlockReducesDevotion(t *testing.T) {
 
 	// Fresh block: apply damage immediately after parry expires
 	p1 := newShieldVanguard()
-	eng.Cast("vg_shield_block", castCtx(p1))
+	eng.Commit("vg_shield_block", commitCtx(p1))
 	eng.TickPlayer(p1, 0.15, tickCtx()) // just past parry
 	p1.ApplyDamage(100)
 	freshCharges := getDevotionState(p1).Charges
 
 	// Stale block: apply damage after full decay
 	p2 := newShieldVanguard()
-	eng.Cast("vg_shield_block", castCtx(p2))
+	eng.Commit("vg_shield_block", commitCtx(p2))
 	eng.TickPlayer(p2, 2.0, tickCtx()) // well past decay
 	p2.ApplyDamage(100)
 	staleCharges := getDevotionState(p2).Charges
@@ -195,7 +195,7 @@ func TestShieldBlock_GuardParryReflect(t *testing.T) {
 	p := newShieldVanguard()
 	enemy := enemyInFront(100, 500)
 
-	eng.Cast("vg_shield_block", castCtx(p, enemy))
+	eng.Commit("vg_shield_block", commitCtx(p, enemy))
 
 	// Parry is active — take damage to trigger reflect
 	p.ApplyDamage(100)
@@ -218,7 +218,7 @@ func TestShieldBlock_GuardBreakOnStaminaDepletion(t *testing.T) {
 	p := newShieldVanguard()
 	p.Resources["stamina"].Current = 1 // very low stamina
 
-	eng.Cast("vg_shield_block", castCtx(p))
+	eng.Commit("vg_shield_block", commitCtx(p))
 	eng.TickPlayer(p, 0.2, tickCtx()) // expire parry
 
 	// Take heavy damage — should drain remaining stamina below 0
@@ -246,8 +246,8 @@ func TestShieldBlock_StopAction(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Cast("vg_shield_block", castCtx(p))
-	r := eng.Cast("vg_shield_block_stop", castCtx(p))
+	eng.Commit("vg_shield_block", commitCtx(p))
+	r := eng.Commit("vg_shield_block_stop", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("stop failed: %s", r.Reason)
 	}
@@ -263,10 +263,10 @@ func TestShieldBlock_CooldownPreventsReblock(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Cast("vg_shield_block", castCtx(p))
-	eng.Cast("vg_shield_block_stop", castCtx(p))
+	eng.Commit("vg_shield_block", commitCtx(p))
+	eng.Commit("vg_shield_block_stop", commitCtx(p))
 
-	r := eng.Cast("vg_shield_block", castCtx(p))
+	r := eng.Commit("vg_shield_block", commitCtx(p))
 	if r.OK {
 		t.Error("should not re-block during cooldown")
 	}
@@ -276,11 +276,11 @@ func TestShieldBlock_CooldownExpires(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Cast("vg_shield_block", castCtx(p))
-	eng.Cast("vg_shield_block_stop", castCtx(p))
+	eng.Commit("vg_shield_block", commitCtx(p))
+	eng.Commit("vg_shield_block_stop", commitCtx(p))
 	eng.TickPlayer(p, 2.0, tickCtx())
 
-	r := eng.Cast("vg_shield_block", castCtx(p))
+	r := eng.Commit("vg_shield_block", commitCtx(p))
 	if !r.OK {
 		t.Fatalf("re-block after cooldown should succeed: %s", r.Reason)
 	}
@@ -291,7 +291,7 @@ func TestShieldBlock_ZeroStaminaPreventsStart(t *testing.T) {
 	p := newShieldVanguard()
 	p.Resources["stamina"].Current = 0
 
-	r := eng.Cast("vg_shield_block", castCtx(p))
+	r := eng.Commit("vg_shield_block", commitCtx(p))
 	if r.OK {
 		t.Error("should not block with 0 stamina")
 	}
@@ -311,7 +311,7 @@ func TestShieldBlock_BraceFreezesDRDecay(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Cast("vg_shield_block", castCtx(p))
+	eng.Commit("vg_shield_block", commitCtx(p))
 	// Tick past parry window to start decay
 	eng.TickPlayer(p, 0.3, tickCtx())
 
@@ -319,8 +319,8 @@ func TestShieldBlock_BraceFreezesDRDecay(t *testing.T) {
 	b := p.GetBuff("vg_shield_block")
 	drBeforeBrace := b.Value
 
-	// Cast Brace
-	eng.Cast("brace", castCtx(p))
+	// Commit Brace
+	eng.Commit("brace", commitCtx(p))
 
 	// Tick 2 seconds — DR should NOT decay further while braced
 	eng.TickPlayer(p, 2.0, tickCtx())
@@ -338,13 +338,13 @@ func TestShieldBlock_BraceFreezesDevotionDecay(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Cast("vg_shield_block", castCtx(p))
+	eng.Commit("vg_shield_block", commitCtx(p))
 	eng.TickPlayer(p, 0.3, tickCtx())
 
 	state := getVgShieldBlockState(p)
 	devMultBeforeBrace := state.DevotionMult
 
-	eng.Cast("brace", castCtx(p))
+	eng.Commit("brace", commitCtx(p))
 	eng.TickPlayer(p, 2.0, tickCtx())
 
 	state = getVgShieldBlockState(p)
@@ -357,8 +357,8 @@ func TestShieldBlock_EndResetsDevotionMult(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Cast("vg_shield_block", castCtx(p))
-	eng.Cast("vg_shield_block_stop", castCtx(p))
+	eng.Commit("vg_shield_block", commitCtx(p))
+	eng.Commit("vg_shield_block_stop", commitCtx(p))
 
 	state := getVgShieldBlockState(p)
 	if state.DevotionMult != 0 {

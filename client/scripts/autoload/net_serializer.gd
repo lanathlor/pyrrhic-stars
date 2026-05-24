@@ -57,6 +57,15 @@ const OP_UNEQUIP_ITEM := 0x0071
 # Inventory — server → client
 const OP_INVENTORY_STATE := 0x0080
 
+# Loadout — client → server
+const OP_SET_LOADOUT := 0x0090
+const OP_SET_FLUX_COMMITMENT := 0x0091
+
+# Loadout — server → client
+const OP_LOADOUT_STATE := 0x00A0
+const OP_ABILITY_CATALOG := 0x00A1
+const OP_FLUX_COMMIT_STATE := 0x00A2
+
 # Game flow event types
 const FLOW_SPAWN_PLAYERS := 1
 const FLOW_FIGHT_START := 2
@@ -100,9 +109,10 @@ const VS_AT_CHANNELING := 41
 const VS_AT_STAGGER := 42
 const VS_AT_CHANNELING_BEAM := 43
 const VS_AT_CHANNELING_ZONE := 44
+const VS_AT_SUSTAINING := 45
 
 # Debug — client → server (dev mode only)
-const OP_DEBUG_FORCE_CAST := 0x00D0
+const OP_DEBUG_FORCE_COMMIT := 0x00D0
 const OP_DEBUG_SET_PHASE := 0x00D1
 const OP_DEBUG_GOD_MODE := 0x00D2
 const OP_DEBUG_TIME_SCALE := 0x00D3
@@ -507,6 +517,19 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 		var enhanced_loaded := buf.get_u8() if buf.get_position() < buf.get_size() else 0
 		var assault_flags := buf.get_u8() if buf.get_position() < buf.get_size() else 0
 		var speed_mult_q := buf.get_u8() if buf.get_position() < buf.get_size() else 255
+		# Flux commitment pools (Arcanotechnicien school breakdown)
+		var flux_pool_count := buf.get_u8() if buf.get_position() < buf.get_size() else 0
+		var flux_pools: Array = []
+		var _school_order: Array[String] = ["bioarcanotechnic", "biometabolic", "frost", "aerokinetic"]
+		for pool_i in range(flux_pool_count):
+			var pool_current := buf.get_float() if buf.get_position() + 4 <= buf.get_size() else 0.0
+			var pool_max := buf.get_float() if buf.get_position() + 4 <= buf.get_size() else 0.0
+			if pool_i < _school_order.size():
+				flux_pools.append({
+					"school": _school_order[pool_i],
+					"current": pool_current,
+					"max": pool_max,
+				})
 		(
 			players
 			. append(
@@ -531,6 +554,7 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 					"onslaught_stacks": onslaught_stacks,
 					"flow_tier": (buff_flags >> 6) & 0x03 if class_name_str == "blade_dancer" else 0,
 					"flow_stacks": onslaught_stacks if class_name_str == "blade_dancer" else 0,
+					"channel_phase": (buff_flags >> 6) & 0x03 if class_name_str == "arcanotechnicien" else 0,
 					"config": config,
 					"stamina": server_stamina,
 					"shield_hp": shield_hp,
@@ -547,6 +571,7 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 					"speed_mult": float(speed_mult_q) / 255.0,
 					"flux": player_flux,
 					"max_flux": max_flux,
+					"flux_pools": flux_pools,
 				}
 			)
 		)
@@ -653,21 +678,26 @@ func decode_world_state(data: PackedByteArray) -> Dictionary:
 # =============================================================================
 
 
-## Format: [target_peer_id:u16][source_peer_id:u16][amount:f32][hit_x:f32][hit_y:f32][hit_z:f32][source_type:u8]
+## Format: [target_peer_id:u16][source_peer_id:u16][amount:f32][hit_x:f32][hit_y:f32][hit_z:f32][source_type:u8][overheal:f32]
 func decode_damage_event(data: PackedByteArray) -> Dictionary:
 	var buf := StreamPeerBuffer.new()
 	buf.data_array = data
-	return {
+	var result := {
 		"target_peer_id": buf.get_u16(),
 		"source_peer_id": buf.get_u16(),
 		"amount": buf.get_float(),
 		"hit_pos": Vector3(buf.get_float(), buf.get_float(), buf.get_float()),
 		"source_type": buf.get_u8(),
+		"overheal": 0.0,
 	}
+	if buf.get_position() < data.size():
+		result["overheal"] = buf.get_float()
+	return result
 
 
 func encode_damage_event(
-	target_peer_id: int, source_peer_id: int, amount: float, hit_pos: Vector3, source_type: int
+	target_peer_id: int, source_peer_id: int, amount: float, hit_pos: Vector3,
+	source_type: int, overheal: float = 0.0
 ) -> PackedByteArray:
 	var buf := StreamPeerBuffer.new()
 	buf.put_u16(target_peer_id)
@@ -675,6 +705,7 @@ func encode_damage_event(
 	buf.put_float(amount)
 	_put_vec3(buf, hit_pos)
 	buf.put_u8(source_type)
+	buf.put_float(overheal)
 	return buf.data_array
 
 
@@ -937,7 +968,7 @@ func encode_group_invite_reply(group_id: int, accept: bool) -> PackedByteArray:
 # =============================================================================
 
 
-## Encode force-cast: [str8: ability_id]
+## Encode force-commit: [str8: ability_id]
 func encode_debug_str8(s: String) -> PackedByteArray:
 	var buf := StreamPeerBuffer.new()
 	_put_str8(buf, s)
@@ -1079,3 +1110,121 @@ func encode_equip_item(item_id: int, slot_id: int) -> PackedByteArray:
 ## Encode OpUnequipItem payload: [slot_id:u8]
 func encode_unequip_item(slot_id: int) -> PackedByteArray:
 	return PackedByteArray([slot_id])
+
+
+# =============================================================================
+# Loadout / Ability catalog
+# =============================================================================
+
+
+## Encode a loadout change: 6 ability ID strings as str8.
+func encode_set_loadout(slots: Array) -> PackedByteArray:
+	var buf := StreamPeerBuffer.new()
+	for i in 6:
+		var id: String = slots[i] if i < slots.size() else ""
+		_put_str8(buf, id)
+	return buf.data_array
+
+
+## Decode loadout state: 6 str8 ability IDs.
+func decode_loadout_state(data: PackedByteArray) -> Array:
+	var buf := StreamPeerBuffer.new()
+	buf.data_array = data
+	var slots: Array = []
+	for i in 6:
+		if buf.get_position() >= buf.get_size():
+			slots.append("")
+			continue
+		slots.append(_get_str8(buf))
+	return slots
+
+
+## Encode flux commitment: [count:u8][per: school:str8 + pct:u8]
+func encode_set_flux_commitment(entries: Array) -> PackedByteArray:
+	var buf := StreamPeerBuffer.new()
+	buf.put_u8(entries.size())
+	for entry in entries:
+		_put_str8(buf, entry["school"])
+		buf.put_u8(entry["percentage"])
+	return buf.data_array
+
+
+## Decode flux commitment state: [count:u8][per: school:str8 + pct:u8]
+func decode_flux_commit_state(data: PackedByteArray) -> Array:
+	var buf := StreamPeerBuffer.new()
+	buf.data_array = data
+	var entries: Array = []
+	if buf.get_size() < 1:
+		return entries
+	var count: int = buf.get_u8()
+	for _i in count:
+		if buf.get_position() >= buf.get_size():
+			break
+		var school: String = _get_str8(buf)
+		var pct: int = buf.get_u8() if buf.get_position() < buf.get_size() else 0
+		entries.append({"school": school, "percentage": pct})
+	return entries
+
+
+## Decode ability catalog: [count:u8][per: id:str8, name:str8, school:str8,
+## ability_type:str8, delivery:str8, flux_cost:str8, description:str16,
+## cooldown:f32, commit_time:f32, implemented:u8, affinity:str8,
+## flux_amount:f32, base_heal:f32, base_damage:f32, range:f32, gcd:f32,
+## commit_time:f32, zone_radius:f32, zone_duration:f32, zone_heal_tick:f32]
+func decode_ability_catalog(data: PackedByteArray) -> Array:
+	var entries: Array = []
+	if data.size() < 1:
+		return entries
+	var buf := StreamPeerBuffer.new()
+	buf.data_array = data
+	var count: int = buf.get_u8()
+	for _i in count:
+		var entry: Dictionary = {}
+		# str8 fields: id, name, school, ability_type, delivery, flux_cost
+		for key in ["id", "name", "school", "ability_type", "delivery", "flux_cost"]:
+			if buf.get_position() >= buf.get_size():
+				break
+			entry[key] = _get_str8(buf)
+		# str16 field: description (2-byte length)
+		if buf.get_position() + 2 <= buf.get_size():
+			var dlen: int = buf.get_u16()
+			if buf.get_position() + dlen <= buf.get_size():
+				if dlen > 0:
+					var result := buf.get_data(dlen)
+					if result[0] == OK:
+						entry["description"] = (result[1] as PackedByteArray).get_string_from_utf8()
+					else:
+						entry["description"] = ""
+				else:
+					entry["description"] = ""
+			else:
+				entry["description"] = ""
+		else:
+			entry["description"] = ""
+		# f32 fields: cooldown, commit_time
+		if buf.get_position() + 4 <= buf.get_size():
+			entry["cooldown"] = buf.get_float()
+		if buf.get_position() + 4 <= buf.get_size():
+			entry["commit_time"] = buf.get_float()
+		# u8: implemented
+		if buf.get_position() < buf.get_size():
+			entry["implemented"] = buf.get_u8() != 0
+		# str8: affinity
+		if buf.get_position() < buf.get_size():
+			entry["affinity"] = _get_str8(buf)
+		else:
+			entry["affinity"] = "off"
+		# 9 x f32: exact ability stats
+		for key in ["flux_amount", "base_heal", "base_damage", "range", "gcd",
+				"commit_time", "zone_radius", "zone_duration", "zone_heal_tick"]:
+			if buf.get_position() + 4 <= buf.get_size():
+				entry[key] = buf.get_float()
+			else:
+				entry[key] = 0.0
+		# u8: sustain flag
+		if buf.get_position() < buf.get_size():
+			entry["sustain"] = buf.get_u8() != 0
+		else:
+			entry["sustain"] = false
+		entries.append(entry)
+	return entries

@@ -18,23 +18,38 @@ var transfusionDef = AbilityDef{
 	OnCommitTick:     "transfusion",
 	CancelConditions: uint8(CancelOnMove) | uint8(CancelOnDamage),
 	Delivery:         uint8(entity.DeliveryBeam),
+
+	Sustain:           true,
+	SustainCostPerSec: 3,
+	SustainEffect:     8,
+	SustainInterval:   0.5,
+	SustainScaling:    0.05,
+	SustainCooldown:   12.0,
+	SustainHandler:    "transfusion",
 }
 
-// transfusionHandler validates the initial cast of Transfusion.
+// transfusionHandler validates the initial commit of Transfusion.
 // Per-tick drain + AoE heal happens in the OnCommitTick handler.
-func transfusionHandler(_ *Engine, ctx *CastContext) CastResult {
-	p, ok := ctx.Caster.(*entity.Player)
+func transfusionHandler(_ *Engine, ctx *CommitContext) CommitResult {
+	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CastResult{Reason: "not a player"}
+		return CommitResult{Reason: "not a player"}
 	}
 
-	flux := p.Resources["flux"]
-	if flux == nil || flux.Current < 3 {
-		return CastResult{Reason: "insufficient flux"}
+	if p.FluxCommit != nil && len(p.FluxCommit.Pools) > 0 {
+		pool := p.FluxCommit.GetPool(transfusionDef.School)
+		if pool == nil || pool.Current < transfusionDef.Costs[0].Amount*p.AffinityCostMult(transfusionDef.School) {
+			return CommitResult{Reason: "insufficient " + transfusionDef.School + " flux"}
+		}
+	} else {
+		flux := p.Resources["flux"]
+		if flux == nil || flux.Current < transfusionDef.Costs[0].Amount {
+			return CommitResult{Reason: "insufficient flux"}
+		}
 	}
 
 	// Store the channel target for per-tick drain
 	p.ChannelTargetID = ctx.TargetPeerID
 
-	return CastResult{OK: true}
+	return CommitResult{OK: true}
 }

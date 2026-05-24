@@ -8,11 +8,11 @@ Three values define a character's Flux capability:
 - **Afflux per Tick**: how much Flux can be mobilized per server tick (translates from TTRPG "per turn"). This is throughput, not capacity
 - **Natural Recovery**: passive Flux regeneration per tick
 
-## Spellcasting Rules
+## Ability Usage Rules
 
-- If Afflux per Tick >= spell cost: spell is instant
-- If Afflux per Tick < spell cost: spell requires channeling over multiple ticks. Channeling is visible to all players and interruptible by damage or CC
-- On interruption: half accumulated Flux is lost
+- If Afflux per Tick >= ability cost: ability is instant
+- If Afflux per Tick < ability cost: ability requires channeling over multiple ticks. Channeling is visible to all players and interruptible by damage or CC
+- On interruption: ability is cancelled, Confluence stacks are reset (no Flux lost)
 
 ## Flux Commitment System
 
@@ -27,6 +27,6 @@ Before entering combat (or at rest areas), Flux-using classes commit percentages
 
 This creates meaningful pre-fight decisions and endless theorycrafting: "What's the optimal commitment split for this Mythic+ dungeon?"
 
-## Spell Slots
+## Ability Slots
 
-Each character has limited prepared spell slots (base 2 + Intelligence/5, minimum 4). Spells are selected from the full codex if affinity requirements are met. Swappable at rest areas.
+Each character has limited prepared ability slots (base 2 + Intelligence/5, minimum 4). Abilities are selected from the full codex if affinity requirements are met. Swappable at rest areas.

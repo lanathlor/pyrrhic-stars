@@ -185,48 +185,48 @@ func TestFlow_IntegrationWithCast(t *testing.T) {
 	p := newBladeDancer()
 	e := enemyInFront(100, 1e6)
 
-	// Cast 1: shielded_sweep (Orbit→Fan) — first transition, no flow bonus
+	// Commit 1: shielded_sweep (Orbit→Fan) — first transition, no flow bonus
 	p.Config = entity.ConfigOrbit
 	p.GCDTimer = 0
-	r1 := eng.Cast("shielded_sweep", castCtx(p, e))
+	r1 := eng.Commit("shielded_sweep", commitCtx(p, e))
 	if !r1.OK {
-		t.Fatalf("cast 1 failed: %s", r1.Reason)
+		t.Fatalf("commit 1 failed: %s", r1.Reason)
 	}
 
 	flow := getFlowState(p)
 	if flow.ChainLen != 1 {
-		t.Errorf("after cast 1: chainLen = %d, want 1", flow.ChainLen)
+		t.Errorf("after commit 1: chainLen = %d, want 1", flow.ChainLen)
 	}
 
-	// Cast 2: cleaving_pierce (Fan→Lance) — second transition, 5% bonus
+	// Commit 2: cleaving_pierce (Fan→Lance) — second transition, 5% bonus
 	p.GCDTimer = 0
 	hpBefore := e.Health
-	r2 := eng.Cast("cleaving_pierce", castCtx(p, e))
+	r2 := eng.Commit("cleaving_pierce", commitCtx(p, e))
 	if !r2.OK {
-		t.Fatalf("cast 2 failed: %s", r2.Reason)
+		t.Fatalf("commit 2 failed: %s", r2.Reason)
 	}
 	dmg2 := hpBefore - e.Health
 	// BaseDamage=30, flowMult=1.05, so dealt should be ~31.5
 	if dmg2 < 31.0 || dmg2 > 32.0 {
-		t.Errorf("cast 2 damage = %f, want ~31.5 (30 * 1.05)", dmg2)
+		t.Errorf("commit 2 damage = %f, want ~31.5 (30 * 1.05)", dmg2)
 	}
 
 	if flow.ChainLen != 2 {
-		t.Errorf("after cast 2: chainLen = %d, want 2", flow.ChainLen)
+		t.Errorf("after commit 2: chainLen = %d, want 2", flow.ChainLen)
 	}
 
-	// Cast 3: repeat shielded_sweep (Orbit→Fan) — already used! Chain breaks.
+	// Commit 3: repeat shielded_sweep (Orbit→Fan) — already used! Chain breaks.
 	// But wait — we're in Lance config now, not Orbit. We need to be in Orbit.
 	// Let's do a different chain: piercing_barrier (Lance→Orbit) first.
 	p.GCDTimer = 0
-	eng.Cast("piercing_barrier", castCtx(p, e)) // Lance→Orbit, chainLen=3
+	eng.Commit("piercing_barrier", commitCtx(p, e)) // Lance→Orbit, chainLen=3
 	if flow.ChainLen != 3 {
-		t.Errorf("after cast 3: chainLen = %d, want 3", flow.ChainLen)
+		t.Errorf("after commit 3: chainLen = %d, want 3", flow.ChainLen)
 	}
 
-	// Now in Orbit — cast shielded_sweep again (Orbit→Fan) which IS a repeat
+	// Now in Orbit — commit shielded_sweep again (Orbit→Fan) which IS a repeat
 	p.GCDTimer = 0
-	eng.Cast("shielded_sweep", castCtx(p, e))
+	eng.Commit("shielded_sweep", commitCtx(p, e))
 	if flow.ChainLen != 0 {
 		t.Errorf("after repeat: chainLen = %d, want 0 (chain broken)", flow.ChainLen)
 	}

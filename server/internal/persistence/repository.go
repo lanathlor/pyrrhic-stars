@@ -46,4 +46,22 @@ type Repository interface {
 
 	// GetEquipment returns all equipped slot mappings for a character.
 	GetEquipment(charID uint) ([]*CharacterEquipment, error)
+
+	// UpsertLoadout creates or updates the loadout for a character.
+	UpsertLoadout(charID uint, slots [6]string) error
+
+	// GetLoadout returns the loadout for a character, or nil if none exists.
+	GetLoadout(charID uint) (*CharacterLoadout, error)
+
+	// UpsertFluxCommitment replaces the flux commitment for a character.
+	UpsertFluxCommitment(charID uint, entries []FluxCommitmentEntry) error
+
+	// GetFluxCommitment returns the flux commitment for a character.
+	GetFluxCommitment(charID uint) ([]FluxCommitmentEntry, error)
+}
+
+// FluxCommitmentEntry is a school+percentage pair for the repo interface.
+type FluxCommitmentEntry struct {
+	School     string
+	Percentage uint8
 }

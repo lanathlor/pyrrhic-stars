@@ -1,7 +1,7 @@
 extends Control
 
 ## Arcanotechnicien HUD -- Harmonist healer HUD.
-## Components: flux bar, spell bar, confluence display, party frames, channel bar,
+## Components: flux bar, ability bar, confluence display, party frames, channel bar,
 ## lock-on reticle, damage/heal flash, hit marker.
 
 const DAMAGE_FLASH_DURATION: float = 0.3
@@ -24,8 +24,23 @@ const HEALTH_GOOD := Color(0.28, 0.78, 0.4, 1.0)
 const HEALTH_BAD := Color(0.82, 0.24, 0.24, 1.0)
 const FLUX_COLOR := Color(0.25, 0.55, 0.9, 1.0)
 const FLUX_LOW_COLOR := Color(0.6, 0.3, 0.8, 1.0)
+
+# -- School colors for segmented flux bar --
+const SCHOOL_COLORS := {
+	"bioarcanotechnic": Color(0.25, 0.55, 0.9, 1.0),
+	"biometabolic": Color(0.45, 0.8, 0.35, 1.0),
+	"frost": Color(0.6, 0.85, 0.95, 1.0),
+	"aerokinetic": Color(0.8, 0.85, 0.65, 1.0),
+}
+const SCHOOL_LABELS := {
+	"bioarcanotechnic": "BIO",
+	"biometabolic": "META",
+	"frost": "FROST",
+	"aerokinetic": "AERO",
+}
 const CHANNEL_BG := Color(0.04, 0.05, 0.07, 0.75)
 const CHANNEL_FILL := Color(0.3, 0.65, 0.85, 0.9)
+const SUSTAIN_FILL := Color(0.4, 0.8, 0.6, 0.9)
 
 # -- Class max HP lookup for party frames --
 const CLASS_MAX_HP := {
@@ -57,17 +72,22 @@ var _gcd_ratio: float = 0.0
 # -- Flux bar --
 var _flux_current: float = 100.0
 var _flux_max: float = 100.0
+var _flux_pools: Array = []  # [{school, current, max}, ...]
 
 # -- Channel bar --
 var _channel_progress: float = 0.0  # 0.0 = just started, 1.0 = complete
-var _channel_spell_name: String = ""
+var _channel_ability_name: String = ""
 var _channel_active: bool = false
+var _sustain_active: bool = false
+var _sustain_elapsed: float = 0.0
 
 # -- Party frames --
 var _party_data: Array = []  # Array[Dictionary] with: peer_id, name, health, max_health, class_name
 var _hovered_party_index: int = -1
 var _party_frame_rects: Array[Rect2] = []  # cached rects for hover detection
 var _selected_peer_id: int = -1  # click-selected target peer_id
+
+var _codex_panel: Control
 
 @onready var damage_overlay: ColorRect = $DamageOverlay
 @onready var lock_on_reticle: Control = $LockOnReticle
@@ -82,6 +102,15 @@ func _ready() -> void:
 	# WoW-style: reticle shows "SELECTED" instead of lock-on hints
 	lock_on_reticle.hint_text = ""
 	lock_on_reticle.lock_label = "SELECTED"
+
+	# Codex panel (full-screen overlay, hidden by default)
+	var CodexPanelScript := preload("res://scenes/shared/hud/codex_panel.gd")
+	_codex_panel = CodexPanelScript.new()
+	_codex_panel.name = "CodexPanel"
+	_codex_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_codex_panel)
+	_codex_panel.loadout_applied.connect(_on_loadout_applied)
+	_codex_panel.commitment_applied.connect(_on_commitment_applied)
 
 
 func _process(delta: float) -> void:
@@ -121,8 +150,8 @@ func update_confluence(tier: int, stacks: int) -> void:
 	_confluence_stacks = stacks
 
 
-func update_spells(spells: Array) -> void:
-	ability_bar.update_spells(spells)
+func update_abilities(abilities: Array) -> void:
+	ability_bar.update_abilities(abilities)
 
 
 func update_gcd(ratio: float) -> void:
@@ -130,21 +159,31 @@ func update_gcd(ratio: float) -> void:
 	ability_bar.update_gcd(ratio)
 
 
-func update_flux(current: float, max_value: float) -> void:
+func update_flux(current: float, max_value: float, pools: Array = []) -> void:
 	_flux_current = current
 	_flux_max = max_value
+	_flux_pools = pools
 
 
-func update_channel(progress: float, spell_name: String) -> void:
+func update_channel(progress: float, ability_name: String) -> void:
 	_channel_progress = clampf(progress, 0.0, 1.0)
-	_channel_spell_name = spell_name
-	_channel_active = progress > 0.0 and progress < 1.0
+	_channel_ability_name = ability_name
+	_channel_active = true
+	_sustain_active = false
+
+
+func update_sustain(ability_name: String, elapsed: float) -> void:
+	_channel_ability_name = ability_name
+	_sustain_active = true
+	_sustain_elapsed = elapsed
+	_channel_active = true
 
 
 func hide_channel() -> void:
 	_channel_active = false
+	_sustain_active = false
 	_channel_progress = 0.0
-	_channel_spell_name = ""
+	_channel_ability_name = ""
 
 
 func update_party(party: Array) -> void:
@@ -195,6 +234,22 @@ func show_damage_flash() -> void:
 
 func show_heal_flash() -> void:
 	_heal_flash_timer = HEAL_FLASH_DURATION
+
+
+func toggle_codex() -> void:
+	if _codex_panel.is_open():
+		_codex_panel.close()
+	else:
+		_codex_panel.open()
+
+
+func close_codex() -> void:
+	if _codex_panel and _codex_panel.is_open():
+		_codex_panel.close()
+
+
+func is_codex_open() -> bool:
+	return _codex_panel and _codex_panel.is_open()
 
 
 func show_hit_marker() -> void:
@@ -339,6 +394,13 @@ func _draw_flux_bar() -> void:
 	var bar_x := center_x - bar_w / 2.0
 	var bar_y := size.y - 108.0
 
+	if _flux_pools.size() > 0:
+		_draw_segmented_flux_bar(font, bar_x, bar_y, bar_w, bar_h)
+	else:
+		_draw_single_flux_bar(font, bar_x, bar_y, bar_w, bar_h)
+
+
+func _draw_single_flux_bar(font: Font, bar_x: float, bar_y: float, bar_w: float, bar_h: float) -> void:
 	var ratio := clampf(_flux_current / maxf(_flux_max, 1.0), 0.0, 1.0)
 
 	# Flux color shifts to purple when low (below 20%)
@@ -371,6 +433,75 @@ func _draw_flux_bar() -> void:
 	)
 
 	# Value text
+	var flux_text := "%d / %d" % [int(_flux_current), int(_flux_max)]
+	draw_string(
+		font,
+		Vector2(bar_x + bar_w - 80.0, bar_y + 9.0),
+		flux_text,
+		HORIZONTAL_ALIGNMENT_RIGHT,
+		74.0,
+		9,
+		TEXT_PRIMARY
+	)
+
+
+func _draw_segmented_flux_bar(font: Font, bar_x: float, bar_y: float, bar_w: float, bar_h: float) -> void:
+	var total_max := maxf(_flux_max, 1.0)
+
+	# Background for entire bar
+	draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), PANEL_BG)
+
+	# Draw each school segment
+	var seg_x := bar_x
+	for i in range(_flux_pools.size()):
+		var pool: Dictionary = _flux_pools[i]
+		var school: String = pool.get("school", "")
+		var current: float = pool.get("current", 0.0)
+		var pool_max: float = pool.get("max", 0.0)
+
+		var seg_w := (pool_max / total_max) * bar_w
+		if seg_w < 1.0:
+			seg_x += seg_w
+			continue
+
+		var fill_ratio := clampf(current / maxf(pool_max, 0.1), 0.0, 1.0)
+		var school_color: Color = SCHOOL_COLORS.get(school, FLUX_COLOR)
+
+		# Dim color when low (below 20%)
+		if fill_ratio < 0.2 and fill_ratio > 0.0:
+			school_color = school_color.lerp(FLUX_LOW_COLOR, 0.5)
+
+		# Fill
+		if fill_ratio > 0.0:
+			draw_rect(Rect2(seg_x, bar_y, seg_w * fill_ratio, bar_h), school_color)
+
+		# Separator line between segments (skip first)
+		if i > 0:
+			draw_line(
+				Vector2(seg_x, bar_y),
+				Vector2(seg_x, bar_y + bar_h),
+				PANEL_BORDER, 1.0
+			)
+
+		# School label above segment (only if wide enough)
+		var label: String = SCHOOL_LABELS.get(school, "")
+		if label != "" and seg_w > 24.0:
+			draw_string(
+				font,
+				Vector2(seg_x + 2.0, bar_y - 2.0),
+				label,
+				HORIZONTAL_ALIGNMENT_LEFT,
+				seg_w - 4.0,
+				7,
+				TEXT_MUTED.lerp(school_color, 0.4)
+			)
+
+		seg_x += seg_w
+
+	# Border around entire bar
+	draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), PANEL_BORDER, false, 1.0)
+
+	# Aggregate value text below bar
 	var flux_text := "%d / %d" % [int(_flux_current), int(_flux_max)]
 	draw_string(
 		font,
@@ -510,6 +641,19 @@ func _update_party_hover() -> void:
 # =============================================================================
 
 
+func _on_loadout_applied(slots: Array) -> void:
+	NetworkManager.send_set_loadout(slots)
+
+
+func _on_commitment_applied(entries: Array) -> void:
+	NetworkManager.send_set_flux_commitment(entries)
+
+
+# =============================================================================
+# Drawing -- Channel Bar (center screen, above confluence)
+# =============================================================================
+
+
 func _draw_channel_bar() -> void:
 	if not _channel_active:
 		return
@@ -525,32 +669,47 @@ func _draw_channel_bar() -> void:
 	# Background
 	draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), CHANNEL_BG)
 
-	# Fill (progresses left to right)
-	if _channel_progress > 0.0:
-		var fill_w := bar_w * _channel_progress
-		draw_rect(Rect2(bar_x, bar_y, fill_w, bar_h), CHANNEL_FILL)
+	if _sustain_active:
+		# Sustain mode: pulsing full bar with scaling glow
+		var pulse := 0.7 + 0.3 * absf(sin(float(Time.get_ticks_msec()) / 400.0))
+		var fill_color := SUSTAIN_FILL
+		fill_color.a = pulse
+		draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), fill_color)
+	else:
+		# Normal channel: fill bar progressively
+		if _channel_progress > 0.0:
+			var fill_w := bar_w * _channel_progress
+			draw_rect(Rect2(bar_x, bar_y, fill_w, bar_h), CHANNEL_FILL)
 
 	# Border
 	draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), PANEL_BORDER, false, 1.0)
 
-	# Spell name (centered above bar)
-	if _channel_spell_name != "":
+	# Ability name (centered above bar)
+	if _channel_ability_name != "":
+		var label: String = _channel_ability_name
+		if _sustain_active:
+			label = _channel_ability_name + " (SUSTAIN)"
 		draw_string(
 			font,
 			Vector2(bar_x, bar_y - 4.0),
-			_channel_spell_name,
+			label,
 			HORIZONTAL_ALIGNMENT_CENTER,
 			bar_w,
 			11,
-			ARCANOTECHNICIEN_COLOR
+			SUSTAIN_FILL if _sustain_active else ARCANOTECHNICIEN_COLOR
 		)
 
-	# Progress percentage (inside bar, right-aligned)
-	var pct_text := "%d%%" % int(_channel_progress * 100.0)
+	# Status text (inside bar, right-aligned)
+	var status_text: String
+	if _sustain_active:
+		var scaling := 100.0 + _sustain_elapsed * 5.0  # 5% per second
+		status_text = "+%d%%" % int(scaling - 100.0)
+	else:
+		status_text = "%d%%" % int(_channel_progress * 100.0)
 	draw_string(
 		font,
 		Vector2(bar_x + bar_w - 40.0, bar_y + 13.0),
-		pct_text,
+		status_text,
 		HORIZONTAL_ALIGNMENT_RIGHT,
 		36.0,
 		10,

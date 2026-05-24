@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestConfluenceOnSpellComplete(t *testing.T) {
+func TestConfluenceOnAbilityComplete(t *testing.T) {
 	tests := []struct {
 		name       string
 		initial    int
@@ -23,7 +23,7 @@ func TestConfluenceOnSpellComplete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &ConfluenceState{Stacks: tt.initial, MaxStacks: 5, DecayRate: 1.0}
 			for i := 0; i < tt.casts; i++ {
-				c.OnSpellComplete()
+				c.OnAbilityComplete()
 			}
 			if c.Stacks != tt.wantStacks {
 				t.Errorf("Stacks = %d, want %d", c.Stacks, tt.wantStacks)
@@ -32,7 +32,7 @@ func TestConfluenceOnSpellComplete(t *testing.T) {
 	}
 }
 
-func TestConfluenceSpellPowerMult(t *testing.T) {
+func TestConfluenceAbilityPowerMult(t *testing.T) {
 	tests := []struct {
 		name     string
 		stacks   int
@@ -49,9 +49,9 @@ func TestConfluenceSpellPowerMult(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &ConfluenceState{Stacks: tt.stacks, MaxStacks: 5}
-			got := c.SpellPowerMult()
+			got := c.AbilityPowerMult()
 			if math.Abs(float64(got-tt.wantMult)) > 0.001 {
-				t.Errorf("SpellPowerMult() = %f, want %f", got, tt.wantMult)
+				t.Errorf("AbilityPowerMult() = %f, want %f", got, tt.wantMult)
 			}
 		})
 	}
@@ -141,17 +141,17 @@ func TestConfluenceTickZeroStacksNoop(t *testing.T) {
 	}
 }
 
-func TestConfluenceOnSpellCompleteResetsIdleTimer(t *testing.T) {
+func TestConfluenceOnAbilityCompleteResetsIdleTimer(t *testing.T) {
 	c := &ConfluenceState{Stacks: 2, MaxStacks: 5, DecayRate: 1.0}
 	// Advance idle timer close to decay threshold.
 	c.Tick(3.5)
 	if c.IdleTimer < 3.0 {
 		t.Fatalf("IdleTimer should be ~3.5, got %f", c.IdleTimer)
 	}
-	// Cast a spell, which should reset idle timer.
-	c.OnSpellComplete()
+	// Complete an ability, which should reset idle timer.
+	c.OnAbilityComplete()
 	if c.IdleTimer != 0 {
-		t.Errorf("IdleTimer after spell = %f, want 0", c.IdleTimer)
+		t.Errorf("IdleTimer after ability = %f, want 0", c.IdleTimer)
 	}
 	if c.Stacks != 3 {
 		t.Errorf("Stacks = %d, want 3", c.Stacks)

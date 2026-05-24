@@ -6,8 +6,8 @@ import (
 )
 
 // resolveHeal selects an ally target and applies healing from the ability definition.
-// Returns nil if the ability has no BaseHeal, no valid target is found, or the
-// target is already at full health.
+// Returns nil if the ability has no BaseHeal or no valid target is found.
+// Always returns a result for valid targets, even if the heal is 100% overheal.
 func resolveHeal(def *AbilityDef, caster *entity.Player, allies map[uint16]*entity.Player, targetPeerID uint16) *HealResult {
 	if def.BaseHeal <= 0 {
 		return nil
@@ -56,9 +56,9 @@ func resolveHeal(def *AbilityDef, caster *entity.Player, allies map[uint16]*enti
 	heal := def.BaseHeal
 	heal *= (1.0 + caster.GearStats.Identity/100.0)
 
-	// Confluence: Arcanotechnicien class-wide spell power bonus.
+	// Confluence: Arcanotechnicien class-wide ability power bonus.
 	if caster.Confluence != nil {
-		heal *= caster.Confluence.SpellPowerMult()
+		heal *= caster.Confluence.AbilityPowerMult()
 	}
 
 	// VitalCharge: consume stored drain from Life Swap to empower this heal.
@@ -84,10 +84,7 @@ func resolveHeal(def *AbilityDef, caster *entity.Player, allies map[uint16]*enti
 		target.Health = target.MaxHealth
 	}
 	actual := target.Health - before
-
-	if actual <= 0 {
-		return nil
-	}
+	overheal := heal - actual
 
 	// Harmony: bonus heal when delivery method differs from last heal on target.
 	deliveryMethod := entity.DeliveryMethod(def.Delivery)
@@ -103,12 +100,14 @@ func resolveHeal(def *AbilityDef, caster *entity.Player, allies map[uint16]*enti
 		}
 		harmonyAmount = target.Health - beforeBonus
 		actual += harmonyAmount
+		overheal += harmonyBonus - harmonyAmount
 	}
 
 	return &HealResult{
 		TargetID:      target.ID,
 		SourceID:      caster.ID,
 		Amount:        actual,
+		Overheal:      overheal,
 		HitPos:        target.Position.Add(entity.Vec3{Y: 1.0}),
 		SourceType:    combat.SourcePlayerHeal,
 		HarmonyProc:   harmonyProc,
