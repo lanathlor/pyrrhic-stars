@@ -35,13 +35,14 @@ func benchWorld() *World {
 
 	enemies := make([]*entity.Enemy, 9)
 	brains := make([]enemyai.BrainTicker, 9)
-	for i := 0; i < 9; i++ {
+	for i := range 9 {
 		var def *enemyai.EnemyDef
-		if i == 8 {
+		switch {
+		case i == 8:
 			def = enemyai.DefRegistry["guard_captain"]
-		} else if i%2 == 0 {
+		case i%2 == 0:
 			def = enemyai.DefRegistry["hallway_melee"]
-		} else {
+		default:
 			def = enemyai.DefRegistry["hallway_ranged"]
 		}
 		e := entity.NewEnemy(uint16(100+i), def.MaxHealth, def.Name)
@@ -61,7 +62,7 @@ func benchWorld() *World {
 	}
 
 	projs := make([]*entity.Projectile, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		projs[i] = entity.NewProjectile(uint32(i+1), 0, i%9,
 			entity.Vec3{X: float32(i - 5), Y: 1.5, Z: float32(15 + i)},
 			entity.Vec3{X: 0, Z: -1},
@@ -95,8 +96,8 @@ func BenchmarkCombatSystemTick(b *testing.B) {
 	w := benchWorld()
 	sys := CombatSystem{}
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		w.DamageEvents = w.DamageEvents[:0]
 		sys.Tick(w, 0.05)
 	}
@@ -106,8 +107,8 @@ func BenchmarkAISystemTick(b *testing.B) {
 	w := benchWorld()
 	sys := AISystem{}
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		w.DamageEvents = w.DamageEvents[:0]
 		w.Projectiles = w.Projectiles[:0]
 		sys.Tick(w, 0.05)
@@ -118,8 +119,8 @@ func BenchmarkPhysicsSystemTick(b *testing.B) {
 	w := benchWorld()
 	sys := PhysicsSystem{}
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		// Reset projectiles each iteration
 		for j := range w.Projectiles {
 			w.Projectiles[j].Alive = true
@@ -146,8 +147,8 @@ func BenchmarkInputSystemTick(b *testing.B) {
 		}
 	}
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		w.InputQueue = inputs
 		sys.Tick(w, 0.05)
 	}
@@ -157,8 +158,8 @@ func BenchmarkHandlePlayerInput(b *testing.B) {
 	w := benchWorld()
 	payload := codec.EncodePlayerInput(nil, 3.0, 0.1, 6.0, 0.5, 101, 0, 0.1)
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		// Reset player position so teleport check doesn't reject
 		w.Players[1].Position = entity.Vec3{X: 2, Y: 0.1, Z: 5}
 		handlePlayerInput(w, 1, payload)
@@ -169,8 +170,8 @@ func BenchmarkHandleAbilityInput(b *testing.B) {
 	w := benchWorld()
 	payload := codec.EncodeAbilityInput(entity.ActionShoot, 0.1, 0.5)
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		delete(w.Players[1].Cooldowns, "fire_shot")
 		w.DamageEvents = w.DamageEvents[:0]
 		handleAbilityInput(w, 1, payload)
@@ -181,8 +182,8 @@ func BenchmarkHandleInteractInput(b *testing.B) {
 	w := benchWorld()
 	payload := codec.EncodeInteractInput(message.InteractClassSelect, entity.ClassVanguard)
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		handleInteractInput(w, 1, payload)
 	}
 }
@@ -192,8 +193,8 @@ func BenchmarkHandleRespawnRequest(b *testing.B) {
 	w.State = StateFightOver
 	payload := codec.EncodeRespawnRequest(0) // arena respawn
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		w.Players[1].Alive = false
 		handleRespawnRequest(w, 1, payload)
 	}
@@ -216,8 +217,8 @@ func BenchmarkFullTickPipeline(b *testing.B) {
 	}
 
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		w.InputQueue = inputs
 		w.DamageEvents = w.DamageEvents[:0]
 		w.GameFlowEvents = w.GameFlowEvents[:0]
@@ -234,8 +235,8 @@ func BenchmarkFullTickPipeline(b *testing.B) {
 func BenchmarkEncodeWorldState(b *testing.B) {
 	w := benchWorld()
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = codec.EncodeWorldState(w.TickNum, w.Players, w.Enemies, w.Projectiles)
 	}
 }
@@ -246,8 +247,8 @@ func BenchmarkAppendEncodeWorldState(b *testing.B) {
 	w := benchWorld()
 	buf := make([]byte, 0, 4096)
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		buf = buf[:0]
 		buf = codec.AppendEncodeWorldState(buf, w.TickNum, w.Players, w.Enemies, w.Projectiles, nil)
 	}
@@ -256,8 +257,8 @@ func BenchmarkAppendEncodeWorldState(b *testing.B) {
 func BenchmarkDecodePlayerInput(b *testing.B) {
 	payload := codec.EncodePlayerInput(nil, 5.0, 0.1, 10.0, 1.5, 500, 0, 0.2)
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_, _ = codec.DecodePlayerInput(payload)
 	}
 }
@@ -265,16 +266,16 @@ func BenchmarkDecodePlayerInput(b *testing.B) {
 func BenchmarkDecodeAbilityInput(b *testing.B) {
 	payload := codec.EncodeAbilityInput(0, 0.5, 1.2)
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = codec.DecodeAbilityInput(payload)
 	}
 }
 
 func BenchmarkEncodeDamageEvent(b *testing.B) {
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = codec.EncodeDamageEvent(1, 0, 25.0, 5.0, 1.5, 3.0, 1, 0)
 	}
 }
@@ -291,8 +292,8 @@ func BenchmarkBroadcastDamageEventPooled(b *testing.B) {
 		w.Clients[i] = &Client{PeerID: i, Send: func([]byte) {}}
 	}
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		broadcastDamageEvents(w)
 	}
 }
@@ -305,8 +306,8 @@ func BenchmarkCheckHitscan(b *testing.B) {
 	target := entity.Vec3{X: 0, Y: 0.1, Z: 0}
 	obs := level.NewArenaLevel().Obstacles
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		combat.CheckHitscan(origin, dir, target, 0.5, 50, obs)
 	}
 }
@@ -317,8 +318,8 @@ func BenchmarkCheckMeleeArc(b *testing.B) {
 	target := entity.Vec3{X: 1, Y: 0.1, Z: -2}
 	obs := level.NewArenaLevel().Obstacles
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		combat.CheckMeleeArc(attacker, forward, target, 3.0, 180, obs)
 	}
 }
@@ -328,8 +329,8 @@ func BenchmarkCheckAoERadius(b *testing.B) {
 	target := entity.Vec3{X: 3, Y: 0.1, Z: 0}
 	obs := level.NewArenaLevel().Obstacles
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		combat.CheckAoERadius(center, target, 5.0, obs)
 	}
 }
@@ -339,8 +340,8 @@ func BenchmarkSegmentHitsObstacle(b *testing.B) {
 	target := entity.Vec3{X: 5, Y: 1.0, Z: -5}
 	obs := level.NewArenaLevel().Obstacles
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		combat.SegmentHitsObstacle(a, target, obs)
 	}
 }
@@ -348,8 +349,8 @@ func BenchmarkSegmentHitsObstacle(b *testing.B) {
 func BenchmarkPushOutOfObstacles(b *testing.B) {
 	obs := level.NewArenaLevel().Obstacles
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		pos := entity.Vec3{X: -7.5, Y: 0.1, Z: -5.5}
 		combat.PushOutOfObstacles(&pos, obs, 1.0)
 	}
@@ -368,7 +369,7 @@ func benchArenaInstance(instanceID uint16) *World {
 
 	// 5 players spread across the boss room
 	players := make(map[uint16]*entity.Player, 5)
-	for i := uint16(0); i < 5; i++ {
+	for i := range uint16(5) {
 		peerID := instanceID*10 + i + 1
 		p := entity.NewPlayer(peerID, entity.ClassGunner)
 		p.Position = entity.Vec3{X: float32(i) * 2, Y: 0.1, Z: 5}
@@ -383,13 +384,14 @@ func benchArenaInstance(instanceID uint16) *World {
 	// 8 trash enemies (alternating melee/ranged) + 1 boss
 	enemies := make([]*entity.Enemy, 9)
 	brains := make([]enemyai.BrainTicker, 9)
-	for i := 0; i < 9; i++ {
+	for i := range 9 {
 		var def *enemyai.EnemyDef
-		if i == 8 {
+		switch {
+		case i == 8:
 			def = enemyai.DefRegistry["guard_captain"]
-		} else if i%2 == 0 {
+		case i%2 == 0:
 			def = enemyai.DefRegistry["hallway_melee"]
-		} else {
+		default:
 			def = enemyai.DefRegistry["hallway_ranged"]
 		}
 		e := entity.NewEnemy(uint16(10000+int(instanceID)*10+i), def.MaxHealth, def.Name)
@@ -415,7 +417,7 @@ func benchArenaInstance(instanceID uint16) *World {
 
 	// 10 projectiles mid-flight
 	projs := make([]*entity.Projectile, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		projs[i] = entity.NewProjectile(uint32(1000+int(instanceID)*10+i), 0, i%9,
 			entity.Vec3{X: float32(i - 5), Y: 1.5, Z: float32(7 + i)},
 			entity.Vec3{X: 0, Z: -1},
@@ -426,7 +428,7 @@ func benchArenaInstance(instanceID uint16) *World {
 	// polluting benchmark results. The full encode + broadcast path still runs;
 	// only the test-side accumulation buffer is removed.
 	clients := make(map[uint16]*Client, 5)
-	for i := uint16(0); i < 5; i++ {
+	for i := range uint16(5) {
 		peerID := instanceID*10 + i + 1
 		clients[peerID] = &Client{
 			PeerID: peerID,
@@ -457,7 +459,7 @@ func benchArenaInstance(instanceID uint16) *World {
 // buildInputs creates 5 player inputs for an instance.
 func buildInputs(instanceID uint16) []InputMsg {
 	inputs := make([]InputMsg, 5)
-	for i := uint16(0); i < 5; i++ {
+	for i := range uint16(5) {
 		peerID := instanceID*10 + i + 1
 		inputs[i] = InputMsg{
 			PeerID:  peerID,
@@ -495,8 +497,8 @@ func BenchmarkMultiInstance5(b *testing.B) {
 	}
 
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		for j := range instances {
 			instances[j].InputQueue = allInputs[j]
 			tickInstance(instances[j], allInputs[j])
@@ -514,8 +516,8 @@ func BenchmarkMultiInstance10(b *testing.B) {
 	}
 
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		for j := range instances {
 			instances[j].InputQueue = allInputs[j]
 			tickInstance(instances[j], allInputs[j])
@@ -534,8 +536,8 @@ func BenchmarkMultiInstance20(b *testing.B) {
 	}
 
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		for j := range instances {
 			instances[j].InputQueue = allInputs[j]
 			tickInstance(instances[j], allInputs[j])
@@ -554,8 +556,8 @@ func BenchmarkMultiInstance50(b *testing.B) {
 	}
 
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		for j := range instances {
 			instances[j].InputQueue = allInputs[j]
 			tickInstance(instances[j], allInputs[j])
@@ -574,8 +576,8 @@ func BenchmarkMultiInstance100(b *testing.B) {
 	}
 
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		for j := range instances {
 			instances[j].InputQueue = allInputs[j]
 			tickInstance(instances[j], allInputs[j])
@@ -595,8 +597,8 @@ func BenchmarkMultiInstance50Parallel(b *testing.B) {
 	}
 
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		var wg sync.WaitGroup
 		for j := range instances {
 			w, inputs := instances[j], allInputs[j]
@@ -619,8 +621,8 @@ func BenchmarkMultiInstance100Parallel(b *testing.B) {
 	}
 
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		var wg sync.WaitGroup
 		for j := range instances {
 			w, inputs := instances[j], allInputs[j]
@@ -637,8 +639,8 @@ func BenchmarkMultiInstance100Parallel(b *testing.B) {
 func BenchmarkBroadcastOnly(b *testing.B) {
 	w := benchArenaInstance(0)
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		(&NetworkSystem{}).Tick(w, 0.05)
 	}
 }
@@ -663,8 +665,8 @@ func BenchmarkBrainTickChase(b *testing.B) {
 	obs := level.NewArenaLevel().Obstacles
 
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		e.State = entity.EnemyChase
 		e.ChaseTimer = 0
 		e.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
@@ -687,8 +689,8 @@ func BenchmarkBrainTickMeleeAttack(b *testing.B) {
 	obs := level.NewArenaLevel().Obstacles
 
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		e.State = entity.EnemyMeleeAttack
 		e.StateTimer = 0
 		e.ActiveAbility = 0
@@ -718,8 +720,8 @@ func BenchmarkBrainTickMeleeAttackMiss(b *testing.B) {
 	obs := level.NewArenaLevel().Obstacles
 
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		e.State = entity.EnemyMeleeAttack
 		e.StateTimer = 0
 		e.ActiveAbility = 0
@@ -735,8 +737,8 @@ func BenchmarkVec3DistanceTo(b *testing.B) {
 	a := entity.Vec3{X: 1, Y: 2, Z: 3}
 	o := entity.Vec3{X: 10, Y: 20, Z: 30}
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = a.DistanceTo(o)
 	}
 }
@@ -744,8 +746,8 @@ func BenchmarkVec3DistanceTo(b *testing.B) {
 func BenchmarkVec3Normalized(b *testing.B) {
 	v := entity.Vec3{X: 3, Y: 4, Z: 5}
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = v.Normalized()
 	}
 }

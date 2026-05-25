@@ -14,7 +14,7 @@ func BenchmarkScalingFactor_Hull(b *testing.B) {
 func BenchmarkScalingFactor_AllStats(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
-		for s := StatID(0); s < StatCount; s++ {
+		for s := range StatCount {
 			scalingFactor(s, 35)
 		}
 	}

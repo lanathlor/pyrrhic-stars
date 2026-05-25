@@ -391,7 +391,7 @@ func (g *gateway) loadFluxCommitment(charID uint) []codec.FluxCommitEntry {
 // buildInventoryInfos converts equipped items to codec-compatible structs.
 func buildInventoryInfos(equipped []*item.Item) []codec.InventoryItemInfo {
 	var out []codec.InventoryItemInfo
-	for slot := item.SlotID(0); slot < item.SlotCount; slot++ {
+	for slot := range item.SlotCount {
 		it := equipped[slot]
 		if it == nil {
 			continue

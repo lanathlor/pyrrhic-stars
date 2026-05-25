@@ -363,14 +363,12 @@ func TestCheckFightEnd(t *testing.T) {
 					}
 					t.Errorf("expected flow type %d in events, got %v", tc.wantFlowType, types)
 				}
-			} else {
-				if len(w.GameFlowEvents) > 0 {
-					types := make([]uint8, len(w.GameFlowEvents))
-					for i, evt := range w.GameFlowEvents {
-						types[i] = evt.FlowType
-					}
-					t.Errorf("expected no game flow events, got %v", types)
+			} else if len(w.GameFlowEvents) > 0 {
+				types := make([]uint8, len(w.GameFlowEvents))
+				for i, evt := range w.GameFlowEvents {
+					types[i] = evt.FlowType
 				}
+				t.Errorf("expected no game flow events, got %v", types)
 			}
 		})
 	}

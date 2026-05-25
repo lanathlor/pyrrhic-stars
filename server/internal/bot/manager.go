@@ -65,7 +65,7 @@ func (m *Manager) SpawnBot(ownerID uint16, className, specID string, w *system.W
 		pp.Player.Position = owner.Position
 	}
 	pp.Player.SpawnTick = w.TickNum
-	pp.Player.Username = fmt.Sprintf("[BOT] %s", className)
+	pp.Player.Username = "[BOT] " + className
 	pp.Player.Ready = true
 
 	// Randomize follow offset so multiple bots don't stack.

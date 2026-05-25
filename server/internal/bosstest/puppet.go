@@ -232,16 +232,17 @@ func (pp *PlayerPuppet) clampToBossRoom() {
 // through the full attack lifecycle (telegraph → execute → damage resolution).
 func (pp *PlayerPuppet) updateTelegraphTracking(ctx *PuppetContext) {
 	currentState := ctx.Boss.State
-	if isTelegraphState(currentState) {
+	switch {
+	case isTelegraphState(currentState):
 		if !isTelegraphState(pp.lastBossState) && !isExecuteState(pp.lastBossState) {
 			pp.telegraphElapsed = 0
 			pp.dodgedThisTelegraph = false
 		} else {
 			pp.telegraphElapsed += ctx.Dt
 		}
-	} else if isExecuteState(currentState) {
+	case isExecuteState(currentState):
 		pp.telegraphElapsed += ctx.Dt
-	} else {
+	default:
 		pp.telegraphElapsed = 0
 		pp.dodgedThisTelegraph = false
 	}

@@ -8,6 +8,18 @@ linters:
     - revive
     - gocognit
     - funlen
+    - errorlint
+    - forcetypeassert
+    - gocritic
+    - nilerr
+    - dupword
+    - modernize
+    - perfsprint
+    - unconvert
+    - wastedassign
+    - gochecknoinits
+    - predeclared
+    - recvcheck
   settings:
     goconst:
       min-occurrences: 4
@@ -201,6 +213,9 @@ linters:
         linters:
           - funlen
           - gocognit
+          - forcetypeassert
+      - path: _test\.go
+        text: SA5011
 
 issues:
   max-issues-per-linter: 0

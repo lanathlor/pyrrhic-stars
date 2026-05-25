@@ -6,6 +6,7 @@ package abilitycatalog
 import (
 	"fmt"
 	"os"
+	"slices"
 
 	"gopkg.in/yaml.v3"
 )
@@ -94,15 +95,11 @@ func (c *Catalog) GetAffinityTier(specID, school string) string {
 		return "off"
 	}
 
-	for _, s := range aff.Primary {
-		if s == school {
-			return "primary"
-		}
+	if slices.Contains(aff.Primary, school) {
+		return "primary"
 	}
-	for _, s := range aff.Secondary {
-		if s == school {
-			return "secondary"
-		}
+	if slices.Contains(aff.Secondary, school) {
+		return "secondary"
 	}
 	return "off"
 }

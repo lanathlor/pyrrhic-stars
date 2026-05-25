@@ -101,7 +101,7 @@ func TestPlayerRunner_CommitToExecute(t *testing.T) {
 	fired := false
 
 	// Tick 10 times at 0.05 = 0.5s total, should exhaust commit
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		if r.Tick(dt) {
 			fired = true
 		}
@@ -158,7 +158,7 @@ func TestPlayerRunner_FullLifecycle(t *testing.T) {
 	dt := float32(0.05)
 
 	// Phase 1: Commit (0.5s = 10 ticks)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		r.Tick(dt)
 	}
 	if r.Phase != PRunnerExecute {
@@ -166,7 +166,7 @@ func TestPlayerRunner_FullLifecycle(t *testing.T) {
 	}
 
 	// Phase 2: Execute (0.2s = 4 ticks, +1 for float rounding)
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		r.Tick(dt)
 		if r.Phase != PRunnerExecute {
 			break
@@ -177,7 +177,7 @@ func TestPlayerRunner_FullLifecycle(t *testing.T) {
 	}
 
 	// Phase 3: Cooldown (0.3s = 6 ticks, +1 for float rounding)
-	for i := 0; i < 7; i++ {
+	for range 7 {
 		r.Tick(dt)
 		if r.Phase != PRunnerCooldown {
 			break
@@ -281,7 +281,7 @@ func TestPlayerRunner_ReStartAfterFullCycle(t *testing.T) {
 	dt := float32(0.05)
 
 	// Burn through entire lifecycle
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		r.Tick(dt)
 		if r.Phase == PRunnerIdle {
 			break
@@ -325,7 +325,7 @@ func TestPlayerRunner_SustainAfterExecute(t *testing.T) {
 	dt := float32(0.05)
 
 	// Burn through commit (1.0s = 20 ticks)
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		r.Tick(dt)
 	}
 	if r.Phase != PRunnerExecute {
@@ -333,7 +333,7 @@ func TestPlayerRunner_SustainAfterExecute(t *testing.T) {
 	}
 
 	// Burn through execute (0.1s = 2 ticks) — tick until sustain is reached
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		r.Tick(dt)
 		if r.Phase == PRunnerSustain {
 			break
@@ -357,7 +357,7 @@ func TestPlayerRunner_SustainTicksFire(t *testing.T) {
 	tickCount := 0
 
 	// Run for 1.0s (20 ticks). With 0.5s interval, expect 2 sustain ticks.
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		if r.Tick(dt) {
 			tickCount++
 		}
@@ -381,7 +381,7 @@ func TestPlayerRunner_SustainScaling(t *testing.T) {
 	dt := float32(0.05)
 
 	// Run for 2.0s
-	for i := 0; i < 40; i++ {
+	for range 40 {
 		r.Tick(dt)
 	}
 
@@ -442,7 +442,7 @@ func TestPlayerRunner_NonSustainSkipsSustainPhase(t *testing.T) {
 	dt := float32(0.05)
 
 	// Burn through commit + execute
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		r.Tick(dt)
 	}
 
@@ -461,7 +461,7 @@ func TestPlayerRunner_SustainSyncToPlayer(t *testing.T) {
 	r.StartSustain(def, entity.Vec3{}, 0)
 
 	// Tick for 1.0s
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		r.Tick(0.05)
 	}
 
@@ -488,7 +488,7 @@ func TestPlayerRunner_SustainFullLifecycle(t *testing.T) {
 	dt := float32(0.05)
 
 	// Phase 1: Commit (1.0s = 20 ticks)
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		r.Tick(dt)
 	}
 	if r.Phase != PRunnerExecute {
@@ -496,7 +496,7 @@ func TestPlayerRunner_SustainFullLifecycle(t *testing.T) {
 	}
 
 	// Phase 2: Execute (0.1s = ~2 ticks)
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		r.Tick(dt)
 		if r.Phase != PRunnerExecute {
 			break
@@ -507,7 +507,7 @@ func TestPlayerRunner_SustainFullLifecycle(t *testing.T) {
 	}
 
 	// Phase 3: Sustain (hold for 2.0s = 40 ticks)
-	for i := 0; i < 40; i++ {
+	for range 40 {
 		r.Tick(dt)
 	}
 	if r.Phase != PRunnerSustain {
@@ -523,7 +523,7 @@ func TestPlayerRunner_SustainFullLifecycle(t *testing.T) {
 	}
 
 	// Phase 5: Cooldown → Idle (0.3s = 6 ticks, +1 margin)
-	for i := 0; i < 7; i++ {
+	for range 7 {
 		r.Tick(dt)
 		if r.Phase == PRunnerIdle {
 			break
@@ -546,7 +546,7 @@ func TestPlayerRunner_SustainResetFieldsAfterCancel(t *testing.T) {
 	r.StartSustain(def, entity.Vec3{X: 5, Y: 0, Z: 5}, 100)
 
 	// Tick to accumulate state
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		r.Tick(0.05)
 	}
 	if r.SustainElapsed < 0.4 {
@@ -556,7 +556,7 @@ func TestPlayerRunner_SustainResetFieldsAfterCancel(t *testing.T) {
 	// Cancel → cooldown
 	r.Cancel()
 	// Tick through cooldown to idle
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		r.Tick(0.05)
 	}
 	if r.Phase != PRunnerIdle {
@@ -613,7 +613,7 @@ func TestPlayerRunner_SustainChargeIncreasesMonotonically(t *testing.T) {
 	dt := float32(0.05)
 	prevCharge := r.Charge
 
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		r.Tick(dt)
 		if r.Charge < prevCharge {
 			t.Fatalf("Charge decreased at tick %d: %f -> %f", i, prevCharge, r.Charge)
@@ -633,7 +633,7 @@ func TestPlayerRunner_SustainDoesNotExpire(t *testing.T) {
 
 	dt := float32(0.05)
 	// Tick for 60 seconds (1200 ticks) — should never leave sustain
-	for i := 0; i < 1200; i++ {
+	for range 1200 {
 		r.Tick(dt)
 	}
 	if r.Phase != PRunnerSustain {
@@ -651,7 +651,7 @@ func TestPlayerRunner_SustainCancelThenRestart(t *testing.T) {
 	r.Cancel()
 
 	// Tick through cooldown
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		r.Tick(0.05)
 	}
 	if r.Phase != PRunnerIdle {

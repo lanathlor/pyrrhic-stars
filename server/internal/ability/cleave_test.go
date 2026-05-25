@@ -103,7 +103,7 @@ func TestCleave_RepeatsWithoutCombo(t *testing.T) {
 	e := enemyInFront(100, 1e6)
 
 	// Hit multiple times — damage should be consistent (no combo escalation)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		p.Cooldowns = make(map[string]float32)
 		hpBefore := e.Health
 		eng.Commit("cleave", commitCtx(p, e))

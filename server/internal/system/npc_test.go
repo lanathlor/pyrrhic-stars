@@ -134,7 +134,7 @@ func TestNPCSystem_SingleWaypointStaysIdle(t *testing.T) {
 	sys := &NPCSystem{}
 
 	// Even after many ticks, single-waypoint NPC stays idle
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		sys.Tick(w, 0.05)
 	}
 	if npc.State != entity.NPCIdle {

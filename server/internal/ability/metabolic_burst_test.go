@@ -2,6 +2,7 @@ package ability
 
 import (
 	"math"
+	"slices"
 	"testing"
 
 	"codex-online/server/internal/entity"
@@ -305,13 +306,7 @@ func TestMetabolicBurstRegistered(t *testing.T) {
 
 func TestMetabolicBurstInAbilitiesList(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassArcanotechnicien)
-	found := false
-	for _, a := range p.AllowedAbilities() {
-		if a == "metabolic_burst" {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(p.AllowedAbilities(), "metabolic_burst")
 	if !found {
 		t.Error("metabolic_burst not in AllowedAbilities for Harmonist")
 	}

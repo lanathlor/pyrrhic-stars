@@ -1,5 +1,7 @@
 package enemyai
 
+import "slices"
+
 // Blackboard provides per-entity BT memory: flags, counters, timers, and
 // arbitrary typed values. Timers are decremented each tick via TickTimers.
 type Blackboard struct {
@@ -66,12 +68,7 @@ func (bb *Blackboard) StartTimer(key string, duration float32) {
 // TimerExpired returns true if the named timer does not exist (never started
 // or already expired).
 func (bb *Blackboard) TimerExpired(key string) bool {
-	for _, k := range bb.timerKeys {
-		if k == key {
-			return false
-		}
-	}
-	return true
+	return !slices.Contains(bb.timerKeys, key)
 }
 
 // TimerRemaining returns the seconds left on a timer, or 0 if expired/absent.

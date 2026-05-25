@@ -201,7 +201,7 @@ func TestCreateCharacter_MultiplePerClass(t *testing.T) {
 	playerUUID := uuid.New().String()
 
 	// Create 3 gunners.
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		name := "Gun_" + uuid.New().String()[:8]
 		c := DialWithUUID(t, addr, playerUUID, "MultiClass")
 		c.WaitCharacterList(5 * time.Second)

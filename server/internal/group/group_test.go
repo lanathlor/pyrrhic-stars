@@ -1,6 +1,7 @@
 package group
 
 import (
+	"errors"
 	"testing"
 )
 
@@ -25,7 +26,7 @@ func TestCreateGroupAlreadyInGroup(t *testing.T) {
 	m := NewManager()
 	_, _ = m.CreateGroup(1)
 	_, err := m.CreateGroup(1)
-	if err != ErrAlreadyInGroup {
+	if !errors.Is(err, ErrAlreadyInGroup) {
 		t.Errorf("expected ErrAlreadyInGroup, got %v", err)
 	}
 }
@@ -55,7 +56,7 @@ func TestInviteAndDecline(t *testing.T) {
 	_, _ = m.InvitePlayer(1, 2)
 	m.DeclineInvite(2, g.ID)
 	_, err := m.AcceptInvite(2, g.ID)
-	if err != ErrInviteExpired {
+	if !errors.Is(err, ErrInviteExpired) {
 		t.Errorf("expected ErrInviteExpired after decline, got %v", err)
 	}
 }
@@ -66,7 +67,7 @@ func TestInviteNotLeader(t *testing.T) {
 	inv, _ := m.InvitePlayer(1, 2)
 	_, _ = m.AcceptInvite(2, inv.GroupID)
 	_, err := m.InvitePlayer(2, 3) // player 2 is not leader
-	if err != ErrNotLeader {
+	if !errors.Is(err, ErrNotLeader) {
 		t.Errorf("expected ErrNotLeader, got %v", err)
 	}
 }
@@ -120,7 +121,7 @@ func TestGroupFull(t *testing.T) {
 		_, _ = m.AcceptInvite(i, inv.GroupID)
 	}
 	_, err := m.InvitePlayer(1, MaxGroupSize+1)
-	if err != ErrGroupFull {
+	if !errors.Is(err, ErrGroupFull) {
 		t.Errorf("expected ErrGroupFull, got %v", err)
 	}
 }

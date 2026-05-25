@@ -77,7 +77,7 @@ func decodeShooterState(payload []byte, targetPeerID uint16) (state uint8, visua
 	playerCount := int(payload[off])
 	off++
 
-	for i := 0; i < playerCount; i++ {
+	for range playerCount {
 		if off+2 > len(payload) {
 			return
 		}
@@ -157,7 +157,7 @@ func TestGunnerFire_RemoteClientTracerDetection(t *testing.T) {
 	z, shooterID, _, observerCol := setupTwoPlayerFight(t)
 
 	// Run a few idle ticks so the observer has baseline state
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		z.processTick()
 	}
 
@@ -263,7 +263,7 @@ func TestGunnerSustainedFire_RemoteTracerCount(t *testing.T) {
 	z, shooterID, _, observerCol := setupTwoPlayerFight(t)
 
 	// Run 3 idle ticks for baseline
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		z.processTick()
 	}
 

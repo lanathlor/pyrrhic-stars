@@ -58,7 +58,7 @@ func TestBotRespawnAfterTrashDeath(t *testing.T) {
 	ticksNeeded := int(BotRespawnDelay/dt) + 1
 	inputSys := &system.InputSystem{}
 
-	for i := 0; i < ticksNeeded; i++ {
+	for range ticksNeeded {
 		w.InputQueue = w.InputQueue[:0]
 		m.TickAll(w, dt)
 		inputSys.Tick(w, dt)
@@ -95,7 +95,7 @@ func TestBotNoRespawnDuringBossFight(t *testing.T) {
 	ticksNeeded := int(BotRespawnDelay/dt) + 20 // well past the delay
 	inputSys := &system.InputSystem{}
 
-	for i := 0; i < ticksNeeded; i++ {
+	for range ticksNeeded {
 		w.InputQueue = w.InputQueue[:0]
 		m.TickAll(w, dt)
 		inputSys.Tick(w, dt)
@@ -129,7 +129,7 @@ func TestBotRespawnAfterWipe(t *testing.T) {
 	ticksNeeded := int(BotRespawnDelay/dt) + 1
 	inputSys := &system.InputSystem{}
 
-	for i := 0; i < ticksNeeded; i++ {
+	for range ticksNeeded {
 		w.InputQueue = w.InputQueue[:0]
 		m.TickAll(w, dt)
 		inputSys.Tick(w, dt)

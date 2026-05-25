@@ -22,7 +22,7 @@ func TestHoT_TicksHealTarget(t *testing.T) {
 	sys := CombatSystem{}
 
 	// Tick for 1.1 seconds — should fire one HoT tick
-	for i := 0; i < 22; i++ {
+	for range 22 {
 		sys.Tick(w, 0.05)
 	}
 
@@ -47,7 +47,7 @@ func TestHoT_Expires(t *testing.T) {
 	sys := CombatSystem{}
 
 	// Tick for 1 second — HoT should expire
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		sys.Tick(w, 0.05)
 	}
 

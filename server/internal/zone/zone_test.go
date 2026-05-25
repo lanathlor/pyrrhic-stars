@@ -210,7 +210,7 @@ func setupMultiPlayerFightZone(t *testing.T, n int) (*Zone, []uint16) {
 		boss.Position = entity.Vec3{X: 0, Y: 0, Z: 0}
 	}
 	var ids []uint16
-	for i := 0; i < n; i++ {
+	for i := range n {
 		pid := uint16(i + 1)
 		p := entity.NewPlayer(pid, entity.ClassGunner)
 		p.Position = entity.Vec3{X: float32(i) * 2, Y: 0.1, Z: 10}
@@ -688,7 +688,7 @@ func extractPlayerState(msg []byte, wantPeer uint16) int {
 	// tick:4, player_count:1
 	playerCount := int(payload[4])
 	off := 5
-	for i := 0; i < playerCount; i++ {
+	for range playerCount {
 		if off+2 > len(payload) {
 			return -1
 		}
@@ -820,7 +820,7 @@ func TestGunnerAttackStateResetsAfterCooldown(t *testing.T) {
 	z.processTick()
 
 	// Run enough ticks for cooldown to expire (0.18s / 0.05s = 3.6 -> 4 ticks)
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		*msgs = (*msgs)[:0]
 		z.processTick()
 	}

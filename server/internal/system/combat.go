@@ -63,7 +63,7 @@ func logExpiredBuffs(w *World, p *entity.Player, prevBuffs [8]string, nPrev int)
 	if len(w.CombatLogs) == 0 {
 		return
 	}
-	for i := 0; i < nPrev; i++ {
+	for i := range nPrev {
 		found := false
 		for j := range p.Buffs {
 			if p.Buffs[j].ID == prevBuffs[i] {

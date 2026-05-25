@@ -57,7 +57,7 @@ func TestSpawnBotMaxLimit(t *testing.T) {
 	owner := entity.NewPlayer(1, entity.ClassGunner)
 	w.Players[1] = owner
 
-	for i := 0; i < MaxBotsPerPlayer; i++ {
+	for i := range MaxBotsPerPlayer {
 		_, err := m.SpawnBot(1, entity.ClassGunner, "assault", w)
 		if err != nil {
 			t.Fatalf("SpawnBot %d: %v", i, err)

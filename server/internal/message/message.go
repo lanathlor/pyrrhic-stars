@@ -137,10 +137,7 @@ func AppendEncode(buf []byte, opcode, senderID uint16, payload []byte) []byte {
 	needed := len(buf) + HeaderSize + len(payload)
 	if cap(buf) < needed {
 		// Grow: at least double, or exact if large
-		newCap := cap(buf) * 2
-		if newCap < needed {
-			newCap = needed
-		}
+		newCap := max(cap(buf)*2, needed)
 		newBuf := make([]byte, len(buf), newCap)
 		copy(newBuf, buf)
 		buf = newBuf

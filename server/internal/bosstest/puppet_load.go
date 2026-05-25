@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"codex-online/server/internal/bt"
@@ -170,10 +171,5 @@ func matchScore(spec string, bosses, profiles []string) int {
 }
 
 func containsStr(list []string, s string) bool {
-	for _, v := range list {
-		if v == s {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(list, s)
 }

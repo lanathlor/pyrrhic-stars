@@ -19,7 +19,7 @@ func TestVitalDrainSustainLifecycle(t *testing.T) {
 	t.Logf("after Start: phase=%d (Commit=%d)", runner.Phase, PRunnerCommit)
 
 	// Tick through 1.0s commit + 0.1s execute = 1.1s
-	for i := 0; i < 24; i++ {
+	for range 24 {
 		runner.Tick(0.05)
 	}
 	t.Logf("after 1.2s: phase=%d (Sustain=%d)", runner.Phase, PRunnerSustain)
@@ -29,7 +29,7 @@ func TestVitalDrainSustainLifecycle(t *testing.T) {
 
 	// Tick sustain and count fires
 	fires := 0
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		if runner.Tick(0.05) {
 			fires++
 			t.Logf("  sustain tick %d at elapsed=%.2f", fires, runner.SustainElapsed)

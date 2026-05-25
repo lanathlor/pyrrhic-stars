@@ -1,6 +1,7 @@
 package system
 
 import (
+	"maps"
 	"math"
 	"testing"
 
@@ -545,7 +546,7 @@ func TestBladeSwirl3xIntegration(t *testing.T) {
 	startHP := e.Health
 	t.Logf("start: enemy HP=%.0f, player stamina=%.0f", e.Health, p.Resources["stamina"].Current)
 
-	for swirl := 0; swirl < 3; swirl++ {
+	for swirl := range 3 {
 		// Fire blade swirl
 		w.DamageEvents = w.DamageEvents[:0]
 		w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: payload}}
@@ -561,7 +562,7 @@ func TestBladeSwirl3xIntegration(t *testing.T) {
 		totalDamageEvents += eventsFromInput
 
 		// Tick combat system for the full 1.5s duration + 1 extra tick for float rounding
-		for tick := 0; tick < 32; tick++ {
+		for range 32 {
 			w.DamageEvents = w.DamageEvents[:0]
 			combatSys.Tick(w, 0.05)
 			totalDamageEvents += len(w.DamageEvents)
@@ -575,7 +576,7 @@ func TestBladeSwirl3xIntegration(t *testing.T) {
 		}
 
 		// Tick down cooldowns: 10s swirl CD already partially ticked
-		for tick := 0; tick < 200; tick++ { // 10s at 0.05s/tick
+		for range 200 { // 10s at 0.05s/tick
 			combatSys.Tick(w, 0.05)
 		}
 
@@ -662,7 +663,7 @@ func TestSwirlSlamSwirlSlamIntegration(t *testing.T) {
 
 		// If blade swirl, tick through its full duration (1.6s = 32 ticks)
 		if isSwirl {
-			for tick := 0; tick < 32; tick++ {
+			for range 32 {
 				w.DamageEvents = w.DamageEvents[:0]
 				combatSys.Tick(w, 0.05)
 				totalEvents += len(w.DamageEvents)
@@ -674,7 +675,7 @@ func TestSwirlSlamSwirlSlamIntegration(t *testing.T) {
 
 		// Tick down ALL cooldowns: swirl (10s), slam (8s)
 		// Tick 220 times (11s) to clear everything
-		for tick := 0; tick < 220; tick++ {
+		for range 220 {
 			combatSys.Tick(w, 0.05)
 		}
 
@@ -935,7 +936,7 @@ func TestAllBladeDancerSpells(t *testing.T) {
 				frontHPBefore := eFront.Health
 				dotDuration := p.DoTs[0].Remaining
 				ticks := int((dotDuration+1.0)/0.05) + 1
-				for i := 0; i < ticks; i++ {
+				for range ticks {
 					w.DamageEvents = w.DamageEvents[:0]
 					combatSys.Tick(w, 0.05)
 				}
@@ -1089,7 +1090,7 @@ func TestRunnerWiring_CancelFailsDuringExecute(t *testing.T) {
 
 	// Tick through entire commit phase (0.5s = 10 ticks at 0.05s)
 	combatSys := &CombatSystem{}
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		combatSys.Tick(w, 0.05)
 	}
 
@@ -1136,7 +1137,7 @@ func TestRunnerWiring_CombatTickFiresCast(t *testing.T) {
 
 	// Tick through commit phase (0.5s = 10 ticks at 0.05s)
 	// During commit, no damage should be dealt
-	for i := 0; i < 9; i++ {
+	for range 9 {
 		w.DamageEvents = w.DamageEvents[:0]
 		combatSys.Tick(w, 0.05)
 	}
@@ -1181,7 +1182,7 @@ func TestRunnerWiring_SyncsPlayerChannelState(t *testing.T) {
 	combatSys := &CombatSystem{}
 
 	// Tick a few times during commit — charge should increase
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		combatSys.Tick(w, 0.05)
 	}
 	if p.ChannelCharge <= 0 {
@@ -1192,7 +1193,7 @@ func TestRunnerWiring_SyncsPlayerChannelState(t *testing.T) {
 	}
 
 	// Tick through the rest until idle
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		combatSys.Tick(w, 0.05)
 	}
 
@@ -1230,7 +1231,7 @@ func TestRunnerWiring_ThreatAndAggroOnExecute(t *testing.T) {
 	combatSys := &CombatSystem{}
 
 	// Tick through commit (10 ticks at 0.05s = 0.5s)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		combatSys.Tick(w, 0.05)
 	}
 
@@ -1340,7 +1341,7 @@ func TestSustain_CommitToSustainTransition(t *testing.T) {
 	combatSys := &CombatSystem{}
 
 	// Tick through commit (0.5s = 10 ticks)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		combatSys.Tick(w, 0.05)
 	}
 	if runner.Phase != ability.PRunnerExecute {
@@ -1348,7 +1349,7 @@ func TestSustain_CommitToSustainTransition(t *testing.T) {
 	}
 
 	// Tick through execute (0.1s = 2-3 ticks)
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		combatSys.Tick(w, 0.05)
 		if runner.Phase == ability.PRunnerSustain {
 			break
@@ -1384,7 +1385,7 @@ func TestSustain_HealingAppliedOnTick(t *testing.T) {
 	startHP := ally.Health
 
 	// Tick through first sustain interval (0.5s = 10 ticks)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		w.DamageEvents = w.DamageEvents[:0]
 		combatSys.Tick(w, 0.05)
 	}
@@ -1424,7 +1425,7 @@ func TestSustain_ScalingIncreasesOverTime(t *testing.T) {
 	combatSys := &CombatSystem{}
 
 	// Record heal from first tick (at 0.5s)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		w.DamageEvents = w.DamageEvents[:0]
 		combatSys.Tick(w, 0.05)
 	}
@@ -1436,7 +1437,7 @@ func TestSustain_ScalingIncreasesOverTime(t *testing.T) {
 	}
 
 	// Record heal from later tick (at 5.0s = 100 ticks total, sustain elapsed ~4.5s)
-	for i := 0; i < 90; i++ {
+	for range 90 {
 		ally.Health = 100 // keep HP low so heals always apply
 		w.DamageEvents = w.DamageEvents[:0]
 		combatSys.Tick(w, 0.05)
@@ -1472,7 +1473,7 @@ func TestSustain_FluxDrained(t *testing.T) {
 	combatSys := &CombatSystem{}
 
 	// Tick through one sustain interval (0.5s)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		combatSys.Tick(w, 0.05)
 	}
 
@@ -1506,7 +1507,7 @@ func TestSustain_CancelledWhenFluxDepleted(t *testing.T) {
 	combatSys := &CombatSystem{}
 
 	// Tick until runner leaves sustain (should happen when flux runs out)
-	for i := 0; i < 30; i++ {
+	for range 30 {
 		combatSys.Tick(w, 0.05)
 		if runner.Phase != ability.PRunnerSustain {
 			break
@@ -1702,7 +1703,7 @@ func TestSustain_SelfHealWhenNoTarget(t *testing.T) {
 	startHP := p.Health
 
 	// Tick through one sustain interval
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		combatSys.Tick(w, 0.05)
 	}
 
@@ -1754,7 +1755,7 @@ func TestSustain_HealCappedAtMaxHealth(t *testing.T) {
 	combatSys := &CombatSystem{}
 
 	// Tick through sustain ticks
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		combatSys.Tick(w, 0.05)
 	}
 
@@ -1811,7 +1812,7 @@ func TestSustain_SustainStartPosRecordedOnTransition(t *testing.T) {
 	combatSys := &CombatSystem{}
 
 	// Tick through commit + execute to reach sustain
-	for i := 0; i < 15; i++ {
+	for range 15 {
 		combatSys.Tick(w, 0.05)
 		if runner.Phase == ability.PRunnerSustain {
 			break
@@ -2002,7 +2003,7 @@ func TestMovementSpeed_DodgeSpeedWithoutDodge(t *testing.T) {
 	distPerTick := rollSpeed * tickDt // 0.55 units per tick
 
 	// Send 10 ticks at dodge speed moving along +X
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		newX := float32(i+1) * distPerTick
 		payload := codec.EncodePlayerInput(nil, newX, 0.1, 0.0, 0.0, uint32(100+i), 0, 0.0)
 		w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpPlayerInput, Payload: payload}}
@@ -2260,9 +2261,7 @@ func TestSetLoadout_EmptySlotNotAdded(t *testing.T) {
 func TestSetLoadout_InvalidPayload(t *testing.T) {
 	p := newHarmonistPlayer(1)
 	originalMap := make(map[uint8]string, len(p.ActionMap))
-	for k, v := range p.ActionMap {
-		originalMap[k] = v
-	}
+	maps.Copy(originalMap, p.ActionMap)
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 

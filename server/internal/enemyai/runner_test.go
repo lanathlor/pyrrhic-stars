@@ -83,7 +83,7 @@ func TestRunner_MeleeLifecycle(t *testing.T) {
 	}
 
 	// Tick through commit phase (10 ticks @ 0.05 = 0.5s)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		e.StateTimer -= 0.05
 		ctx.Runner.Tick(ctx)
 	}
@@ -96,7 +96,7 @@ func TestRunner_MeleeLifecycle(t *testing.T) {
 	}
 
 	// Tick through execute phase (0.2s execute time)
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		e.StateTimer -= 0.05
 		ctx.Runner.Tick(ctx)
 		if ctx.Runner.Phase != RunnerExecute {
@@ -112,7 +112,7 @@ func TestRunner_MeleeLifecycle(t *testing.T) {
 	}
 
 	// Tick through cooldown (10 ticks @ 0.05 = 0.5s)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		e.StateTimer -= 0.05
 		ctx.Runner.Tick(ctx)
 	}
@@ -185,7 +185,7 @@ func TestRunner_CancelRejected_DuringExecute(t *testing.T) {
 	ctx.Commit(testMeleeID)
 
 	// Tick past commit
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		e.StateTimer -= 0.05
 		ctx.Runner.Tick(ctx)
 	}
@@ -301,7 +301,7 @@ func TestRunner_ChargeLifecycle(t *testing.T) {
 	}
 
 	// Tick through commit
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		e.StateTimer -= 0.05
 		ctx.Runner.Tick(ctx)
 	}
@@ -314,7 +314,7 @@ func TestRunner_ChargeLifecycle(t *testing.T) {
 	}
 
 	// Tick charge until max distance (12 speed * 0.05dt = 0.6 per tick, 15/0.6 = 25 ticks)
-	for i := 0; i < 30; i++ {
+	for range 30 {
 		e.StateTimer -= 0.05
 		ctx.Runner.Tick(ctx)
 		// Apply velocity like Brain.Tick does

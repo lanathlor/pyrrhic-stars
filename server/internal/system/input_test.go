@@ -69,7 +69,7 @@ func TestDodge_RepeatedDrainsStamina(t *testing.T) {
 	w := makeHubWorld(map[uint16]*entity.Player{1: p})
 	is := &InputSystem{}
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionDodge)}}
 		is.Tick(w, 0.05)
 	}
@@ -205,7 +205,7 @@ func TestDodge_IFramesExpireAfterTimer(t *testing.T) {
 	is.Tick(w, 0.05)
 
 	// Tick past the i-frame duration (0.15s = 3 ticks at 0.05s)
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		w.AbilityEngine.TickPlayer(p, 0.05, nil)
 	}
 

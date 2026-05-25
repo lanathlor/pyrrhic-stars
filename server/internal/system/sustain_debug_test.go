@@ -52,7 +52,7 @@ func TestVitalDrainSustainDamage(t *testing.T) {
 	cs := &CombatSystem{}
 
 	// Tick through commit (1.0s) + execute (0.1s) = 22 ticks at 0.05
-	for i := 0; i < 25; i++ {
+	for i := range 25 {
 		w.TickNum = uint32(i + 1)
 		w.DamageEvents = w.DamageEvents[:0]
 		cs.Tick(&w, 0.05)
@@ -65,7 +65,7 @@ func TestVitalDrainSustainDamage(t *testing.T) {
 
 	// Now tick sustain for 1 second — should get 2 sustain ticks
 	totalDmg := float32(0)
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		w.TickNum = uint32(26 + i)
 		w.DamageEvents = w.DamageEvents[:0]
 		cs.Tick(&w, 0.05)

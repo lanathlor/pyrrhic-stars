@@ -586,8 +586,7 @@ func BenchmarkJoinZone(b *testing.B) {
 		Class:    entity.ClassGunner,
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		gw.joinZone(sess, zi, joinResponseZoneJoined)
 		// Reset for next iteration.
 		zi.zone.RemoveClient(sess.PeerID)
@@ -656,8 +655,8 @@ func BenchmarkLeaveZone(b *testing.B) {
 
 	// Pre-join so leaveZone has something to leave.
 	// Each iteration: join + leave. The join cost is included but consistent.
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		gw.joinZone(sess, zi, joinResponseZoneJoined)
 		gw.leaveZone(sess)
 	}
@@ -684,8 +683,8 @@ func BenchmarkTransferPlayer(b *testing.B) {
 	}
 
 	// Each iteration: join hub, transfer to arena, clean up arena client.
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		gw.joinZone(sess, hubZI, joinResponseZoneJoined)
 		gw.transferPlayer(sess, "arena_bench", zone.ZoneTypeInstanced, 1)
 		arenaZI.zone.RemoveClient(sess.PeerID)

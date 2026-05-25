@@ -26,10 +26,7 @@ func AppendEncodeWorldState(buf []byte, tick uint32, players map[uint16]*entity.
 	// Per player: ~84 bytes. Per enemy: ~60 bytes. Per projectile: ~28 bytes.
 	estCap := 512 + len(players)*120 + len(enemies)*60 + len(projectiles)*28
 	if cap(buf) < estCap {
-		newCap := cap(buf) * 2
-		if newCap < estCap {
-			newCap = estCap
-		}
+		newCap := max(cap(buf)*2, estCap)
 		newBuf := make([]byte, len(buf), newCap)
 		copy(newBuf, buf)
 		buf = newBuf

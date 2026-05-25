@@ -32,7 +32,7 @@ func TestTransfusionSustain_DrainsTargetHealsOthers(t *testing.T) {
 
 	// Tick enough for one sustain tick (SustainInterval = 0.5s)
 	sys := CombatSystem{}
-	for i := 0; i < 12; i++ {
+	for range 12 {
 		sys.Tick(w, 0.05)
 	}
 
@@ -66,7 +66,7 @@ func TestTransfusionSustain_DoesNotHealTarget(t *testing.T) {
 	targetBefore := target.Health
 
 	sys := CombatSystem{}
-	for i := 0; i < 12; i++ {
+	for range 12 {
 		sys.Tick(w, 0.05)
 	}
 
@@ -95,7 +95,7 @@ func TestTransfusionSustain_CancelsWhenTargetDead(t *testing.T) {
 	caster.ChannelTargetID = 2
 
 	sys := CombatSystem{}
-	for i := 0; i < 12; i++ {
+	for range 12 {
 		sys.Tick(w, 0.05)
 	}
 

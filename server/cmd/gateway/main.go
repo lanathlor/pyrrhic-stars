@@ -49,16 +49,17 @@ func main() {
 
 	repo, err := initDatabase(devMode)
 	if err != nil {
-		os.Exit(1)
+		slog.Error("fatal: database init failed")
+		return
 	}
 
 	if err := loadGameData(); err != nil {
-		os.Exit(1)
+		return
 	}
 
 	combatSink, logQueryRepo, err := initCombatLogSink(ctx, devMode)
 	if err != nil {
-		os.Exit(1)
+		return
 	}
 	defer func() {
 		if err := combatSink.Close(); err != nil {
@@ -84,7 +85,6 @@ func main() {
 	mux := setupHTTPServer(gw, logQueryRepo)
 	if err := runHTTPServer(mux); err != nil {
 		slog.Error("listen failed", "error", err)
-		os.Exit(1)
 	}
 }
 

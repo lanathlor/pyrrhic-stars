@@ -95,7 +95,7 @@ func TestConfluence_DropsOnInsufficientFlux(t *testing.T) {
 
 	// Tick enough times for a sustain tick to fire (0.5s at 0.05 per tick = 10 ticks)
 	sys := CombatSystem{}
-	for i := 0; i < 12; i++ {
+	for range 12 {
 		sys.Tick(w, 0.05)
 	}
 

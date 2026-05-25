@@ -3,6 +3,7 @@ package bosstest
 import (
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -212,10 +213,7 @@ func (r *FuzzReport) printSingleCompDetail(sb *strings.Builder, cd compDetailRep
 			if i > 0 {
 				sb.WriteString("  ")
 			}
-			n := cd.SpecPlayerCount[c.Name]
-			if n < 1 {
-				n = 1
-			}
+			n := max(cd.SpecPlayerCount[c.Name], 1)
 			playerDPS := c.RawDmg / cd.TotalDurationSec / float64(n)
 			fmt.Fprintf(sb, "%s %.1f/s", c.Name, playerDPS)
 		}
@@ -230,10 +228,7 @@ func (r *FuzzReport) printSingleCompDetail(sb *strings.Builder, cd compDetailRep
 			if i > 0 {
 				sb.WriteString("  ")
 			}
-			n := cd.SpecPlayerCount[h.Name]
-			if n < 1 {
-				n = 1
-			}
+			n := max(cd.SpecPlayerCount[h.Name], 1)
 			playerHPS := h.RawDmg / cd.TotalDurationSec / float64(n)
 			fmt.Fprintf(sb, "%s %.1f/s (%.0f%%)", h.Name, playerHPS, h.Share)
 		}
@@ -287,7 +282,6 @@ func (fr *FuzzResults) AssertAll(t *testing.T) *FuzzReport {
 	t.Run("win_rate", func(t *testing.T) { fr.assertWinRate(t, report) })
 	t.Run("duration", func(t *testing.T) { fr.assertDuration(t, report) })
 	for _, ps := range fr.Spec.PhaseReach {
-		ps := ps
 		t.Run("phase_reach/"+itoa(ps.Phase), func(t *testing.T) {
 			fr.assertPhaseReach(t, ps, report)
 		})
@@ -601,7 +595,7 @@ func (fr *FuzzResults) assertCompWinRates(t *testing.T, report *FuzzReport) {
 				pass = false
 			}
 			report.add(
-				fmt.Sprintf("  %s", comp.Name),
+				"  "+comp.Name,
 				fmt.Sprintf("%.1f%%", rate*100),
 				fmt.Sprintf("[%.0f%%-%.0f%%]", comp.WinRate.Min*100, comp.WinRate.Max*100),
 				pass,
@@ -636,11 +630,8 @@ func (fr *FuzzResults) assertPhaseReach(t *testing.T, ps PhaseSpec, report *Fuzz
 	t.Helper()
 	reached := 0
 	for _, r := range fr.Results {
-		for _, p := range r.PhasesReached {
-			if p == ps.Phase {
-				reached++
-				break
-			}
+		if slices.Contains(r.PhasesReached, ps.Phase) {
+			reached++
 		}
 	}
 	rate := float64(reached) / float64(len(fr.Results))

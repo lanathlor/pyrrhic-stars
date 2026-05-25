@@ -54,7 +54,7 @@ func TestIdentity_Gunner_EnhancedRound_PressureGeneratesBatch(t *testing.T) {
 	as := getGunnerAssaultState(p)
 
 	// Build pressure to max by consecutive hits on same target.
-	for i := 0; i < assaultPressureMax; i++ {
+	for i := range assaultPressureMax {
 		r := eng.Commit("fire_shot", commitCtx(p, e))
 		if !r.OK {
 			t.Fatalf("shot %d failed: %s", i+1, r.Reason)
@@ -124,7 +124,7 @@ func TestIdentity_Gunner_EnhancedRound_ConsumedPerShot(t *testing.T) {
 	// Load 3 enhanced rounds
 	as.EnhancedLoaded = 3
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		r := eng.Commit("fire_shot", commitCtx(p, e))
 		if !r.OK {
 			t.Fatalf("shot %d failed: %s", i+1, r.Reason)

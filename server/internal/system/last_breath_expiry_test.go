@@ -26,7 +26,7 @@ func TestLastBreath_ExpiryDamagesCaster(t *testing.T) {
 
 	sys := CombatSystem{}
 	// Tick enough for the buff to expire
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		sys.Tick(w, 0.05)
 	}
 
@@ -67,7 +67,7 @@ func TestLastBreath_NoDamageWhenNothingPrevented(t *testing.T) {
 	casterHPBefore := caster.Health
 
 	sys := CombatSystem{}
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		sys.Tick(w, 0.05)
 	}
 

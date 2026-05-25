@@ -80,7 +80,7 @@ func TestGunner_FireShot_RapidFire(t *testing.T) {
 	e := enemyInFront(100, 1e6)
 
 	// Simulate 10 shots with proper cooldown ticks
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		r := eng.Commit("fire_shot", commitCtx(p, e))
 		if !r.OK {
 			t.Fatalf("shot %d failed: %s", i+1, r.Reason)
@@ -137,7 +137,7 @@ func TestGunner_Overclock_CanFireDuring(t *testing.T) {
 	eng.Commit("overclock", commitCtx(p))
 
 	// Fire 5 rapid shots during overclock
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		r := eng.Commit("fire_shot", commitCtx(p, e))
 		if !r.OK {
 			t.Fatalf("shot %d during overclock failed: %s", i+1, r.Reason)
@@ -518,7 +518,7 @@ func TestGunner_FullRotation_Fire_Rechamber_Fire(t *testing.T) {
 	e := enemyInFront(100, 1e6)
 
 	// 1. Fire a few shots
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		r := eng.Commit("fire_shot", commitCtx(p, e))
 		if !r.OK {
 			t.Fatalf("initial shot %d failed: %s", i+1, r.Reason)
@@ -576,7 +576,7 @@ func TestGunner_FullRotation_Overclock_Fire(t *testing.T) {
 	}
 
 	// 2. Rapid fire with reduced cooldowns
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		r = eng.Commit("fire_shot", commitCtx(p, e))
 		if !r.OK {
 			t.Fatalf("overclocked shot %d failed: %s", i+1, r.Reason)

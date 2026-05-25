@@ -2,6 +2,7 @@ package system
 
 import (
 	"math"
+	"slices"
 
 	"codex-online/server/internal/ability"
 	"codex-online/server/internal/codec"
@@ -486,13 +487,7 @@ func handleSetLoadout(w *World, peerID uint16, payload []byte) {
 		if id == "" {
 			continue
 		}
-		valid := false
-		for _, a := range allowed {
-			if a == id {
-				valid = true
-				break
-			}
-		}
+		valid := slices.Contains(allowed, id)
 		if !valid {
 			return
 		}

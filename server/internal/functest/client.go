@@ -291,7 +291,7 @@ func decodeCharacterList(data []byte) CharacterList {
 	count := int(data[off])
 	off++
 
-	for i := 0; i < count; i++ {
+	for range count {
 		e := CharacterListEntry{}
 		e.CharID = leU32(data[off:])
 		off += 4
@@ -478,7 +478,7 @@ func decodeWorldState(data []byte) (*WorldState, error) { //nolint:funlen // tes
 	playerCount := int(data[off])
 	off++
 
-	for i := 0; i < playerCount; i++ {
+	for i := range playerCount {
 		if off+2 > len(data) {
 			return nil, fmt.Errorf("truncated player %d header", i)
 		}
@@ -551,7 +551,7 @@ func decodeWorldState(data []byte) (*WorldState, error) { //nolint:funlen // tes
 	enemyCount := int(data[off])
 	off++
 
-	for i := 0; i < enemyCount; i++ {
+	for range enemyCount {
 		e := EnemyState{}
 		e.Alive = data[off] == 1
 		off++
@@ -598,7 +598,7 @@ func decodeWorldState(data []byte) (*WorldState, error) { //nolint:funlen // tes
 	npcCount := int(data[off])
 	off++
 
-	for i := 0; i < npcCount; i++ {
+	for range npcCount {
 		n := NPCState{}
 		n.ID = leU16(data[off:])
 		off += 2

@@ -140,8 +140,8 @@ func TestFlow_AllTwentyTransitions(t *testing.T) {
 	s := &FlowState{}
 
 	count := 0
-	for origin := 0; origin < 5; origin++ {
-		for dest := 0; dest < 5; dest++ {
+	for origin := range 5 {
+		for dest := range 5 {
 			if origin == dest {
 				continue
 			}

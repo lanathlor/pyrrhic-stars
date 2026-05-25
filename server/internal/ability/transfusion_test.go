@@ -1,6 +1,7 @@
 package ability
 
 import (
+	"slices"
 	"testing"
 
 	"codex-online/server/internal/entity"
@@ -140,13 +141,7 @@ func TestTransfusion(t *testing.T) {
 
 	t.Run("harmonist spec includes transfusion in abilities list", func(t *testing.T) {
 		p := entity.NewPlayer(1, entity.ClassArcanotechnicien)
-		found := false
-		for _, a := range p.AllowedAbilities() {
-			if a == "transfusion" {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(p.AllowedAbilities(), "transfusion")
 		if !found {
 			t.Error("transfusion not in AllowedAbilities (may not be in default loadout but should be equippable)")
 		}

@@ -105,7 +105,7 @@ func (r *Repo) GetInstance(ctx context.Context, instanceID string) (*combatlog.I
 		&inst.ZoneID, &inst.RunID, &mobGroupID,
 		&startedAt, &durationMS, &outcome, &source,
 	); err != nil {
-		if err == io.EOF || errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, io.EOF) || errors.Is(err, sql.ErrNoRows) {
 			return nil, combatlog.ErrNotFound
 		}
 		return nil, fmt.Errorf("get instance: %w", err)
@@ -417,7 +417,7 @@ func (r *Repo) GetReplay(ctx context.Context, instanceID string) ([][]byte, erro
 
 	var encoded string
 	if err := row.Scan(&encoded); err != nil {
-		if err == io.EOF || errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, io.EOF) || errors.Is(err, sql.ErrNoRows) {
 			return nil, combatlog.ErrNotFound
 		}
 		return nil, fmt.Errorf("get replay: %w", err)
@@ -436,7 +436,7 @@ func (r *Repo) GetReplay(ctx context.Context, instanceID string) ([][]byte, erro
 	offset := 4
 	frames := make([][]byte, 0, frameCount)
 
-	for i := uint32(0); i < frameCount; i++ {
+	for i := range frameCount {
 		if offset+2 > len(blob) {
 			return nil, fmt.Errorf("replay data truncated at frame %d header", i)
 		}

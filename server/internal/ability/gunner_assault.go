@@ -513,19 +513,16 @@ func tickGunnerSteadiness(state *GunnerAssaultState, p *entity.Player, dt float3
 func magDumpTick(eng *Engine, p *entity.Player, state *GunnerAssaultState, ctx *TickContext) []DamageResult {
 	var events []DamageResult
 
-	roundsThisTick := assaultMagDumpRPS
-	if roundsThisTick > state.MagDumpShotsLeft {
-		roundsThisTick = state.MagDumpShotsLeft
-	}
+	roundsThisTick := min(assaultMagDumpRPS, state.MagDumpShotsLeft)
 
 	// Lock stability during dump
 	origStability := state.Stability
 	state.Stability = assaultMagDumpStab
 
-	for i := 0; i < roundsThisTick; i++ {
+	for range roundsThisTick {
 		// Consume ammo
 		usingEnhanced := false
-		if state.EnhancedLoaded > 0 {
+		if state.EnhancedLoaded > 0 { //nolint:gocritic // ifElseChain: break targets the for loop, switch would change semantics
 			state.EnhancedLoaded--
 			usingEnhanced = true
 		} else if state.MagCurrent > 0 {

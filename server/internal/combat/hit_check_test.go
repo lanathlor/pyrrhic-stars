@@ -248,7 +248,7 @@ func TestCheckHitscanRealisticGunner(t *testing.T) {
 			targetCenter := sc.enemyPos.Add(entity.Vec3{Y: 1.0})
 
 			// Compute direction exactly like the Godot client + server AimDirection:
-			// AimDirection: dir = (-sin(yaw)*cos(pitch), sin(pitch), -cos(yaw)*cos(pitch))
+			// dir = (-sin(yaw)*cos(pitch), sin(pitch), -cos(yaw)*cos(pitch))
 			// Solving for yaw: -sin(yaw) = dir.X/cos(pitch), -cos(yaw) = dir.Z/cos(pitch)
 			// So yaw = atan2(-dir.X, -dir.Z) = atan2(sin(yaw), cos(yaw))
 			// For a desired direction toward the enemy:

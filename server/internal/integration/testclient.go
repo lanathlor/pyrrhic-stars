@@ -349,7 +349,7 @@ func parsePlayerStateFromWorldState(payload []byte, wantPeer uint16) int {
 	// tick:4, player_count:1
 	playerCount := int(payload[4])
 	off := 5
-	for i := 0; i < playerCount; i++ {
+	for range playerCount {
 		if off+2 > len(payload) {
 			return -1
 		}

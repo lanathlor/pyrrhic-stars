@@ -48,7 +48,7 @@ func shouldRunBoss(name string) bool {
 	if *flagOnly == "" {
 		return true
 	}
-	for _, b := range strings.Split(*flagOnly, ",") {
+	for b := range strings.SplitSeq(*flagOnly, ",") {
 		if strings.TrimSpace(b) == name {
 			return true
 		}

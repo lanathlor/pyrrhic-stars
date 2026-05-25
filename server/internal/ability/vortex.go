@@ -103,10 +103,7 @@ func vortexTick(eng *Engine, p *entity.Player, dt float32, ctx *TickContext) []D
 		interval := state.Duration / float32(state.TotalHits)
 		elapsed := state.Duration - state.Timer
 		// +1 because hit 0 already happened at elapsed=0
-		expectedHits := int(elapsed/interval) + 1
-		if expectedHits > state.TotalHits {
-			expectedHits = state.TotalHits
-		}
+		expectedHits := min(int(elapsed/interval)+1, state.TotalHits)
 
 		if expectedHits > state.HitsDone {
 			ons := getOnslaughtState(p)

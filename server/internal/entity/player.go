@@ -1,6 +1,10 @@
 package entity
 
-import "math"
+import (
+	"maps"
+	"math"
+	"slices"
+)
 
 // platingMinDamageFraction is the minimum fraction of original damage that
 // always passes through Plating. Plating can never reduce a hit below this.
@@ -290,9 +294,7 @@ func NewPlayerWithSpec(peerID uint16, className, specID string) *Player {
 	// The spec/class ActionMap is shared, and per-player mutations (e.g.
 	// loadout) must not affect other players.
 	ownMap := make(map[uint8]string, len(sp.actionMap))
-	for k, v := range sp.actionMap {
-		ownMap[k] = v
-	}
+	maps.Copy(ownMap, sp.actionMap)
 
 	p := &Player{
 		Combatant: Combatant{
@@ -552,15 +554,11 @@ func (p *Player) AffinityCostMult(school string) float32 {
 	if len(p.PrimarySchools) == 0 && len(p.SecondarySchools) == 0 {
 		return 1.0
 	}
-	for _, s := range p.PrimarySchools {
-		if s == school {
-			return 1.0
-		}
+	if slices.Contains(p.PrimarySchools, school) {
+		return 1.0
 	}
-	for _, s := range p.SecondarySchools {
-		if s == school {
-			return 1.25
-		}
+	if slices.Contains(p.SecondarySchools, school) {
+		return 1.25
 	}
 	return 1.5
 }

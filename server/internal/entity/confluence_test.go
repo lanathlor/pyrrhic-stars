@@ -115,12 +115,12 @@ func TestConfluenceTickDecayAfterIdle(t *testing.T) {
 			c := &ConfluenceState{Stacks: tt.initial, MaxStacks: 5, DecayRate: 1.0}
 			// Use 0.25s ticks to avoid float32 precision issues with 0.05.
 			idleSteps := int(tt.idleTime / 0.25)
-			for i := 0; i < idleSteps; i++ {
+			for range idleSteps {
 				c.Tick(0.25)
 			}
 			// Now advance decay time.
 			decaySteps := int(tt.decayTime / 0.25)
-			for i := 0; i < decaySteps; i++ {
+			for range decaySteps {
 				c.Tick(0.25)
 			}
 			if c.Stacks != tt.wantStacks {

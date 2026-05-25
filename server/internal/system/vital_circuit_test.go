@@ -22,7 +22,7 @@ func TestVitalCircuit_LinkExpiryHealsLowerHP(t *testing.T) {
 	})
 
 	sys := CombatSystem{}
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		sys.Tick(w, 0.05)
 	}
 

@@ -93,11 +93,12 @@ func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
 
 	// Resolve level: use provided level or create default from zone type.
 	var l *level.Level
-	if len(lvl) > 0 && lvl[0] != nil {
+	switch {
+	case len(lvl) > 0 && lvl[0] != nil:
 		l = lvl[0]
-	} else if zoneType == ZoneTypeInstanced {
+	case zoneType == ZoneTypeInstanced:
 		l = level.NewArenaLevel()
-	} else {
+	default:
 		l = level.NewHubLevel()
 	}
 

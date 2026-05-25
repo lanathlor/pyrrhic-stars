@@ -10,7 +10,7 @@ import (
 	"codex-online/server/internal/entity"
 )
 
-func ctx(v any) *EntityContext { return v.(*EntityContext) } //nolint:revive // unchecked assertion intentional: hot path, panic on wrong type is a programming error
+func ctx(v any) *EntityContext { return v.(*EntityContext) } //nolint:revive,forcetypeassert // intentional: panic on wrong type is a programming error
 
 // --- Conditions ---
 
@@ -449,14 +449,15 @@ func actionChase(v any) bt.Result {
 		e.Velocity = entity.Vec3{X: dir.X * spd, Z: dir.Z * spd}
 	} else {
 		margin := preferred * 0.2
-		if distance < preferred-margin {
+		switch {
+		case distance < preferred-margin:
 			bspd := def.CurrentBackpedalSpeed(e.Phase) * slowMult
 			dir := toTarget.Normalized().Neg().Flat()
 			e.Velocity = entity.Vec3{X: dir.X * bspd, Z: dir.Z * bspd}
-		} else if distance > preferred+margin {
+		case distance > preferred+margin:
 			dir := c.AvoidObstacles(toTarget.Normalized(), e.Position, target.Position)
 			e.Velocity = entity.Vec3{X: dir.X * spd, Z: dir.Z * spd}
-		} else {
+		default:
 			e.Velocity = entity.Vec3{}
 		}
 	}
