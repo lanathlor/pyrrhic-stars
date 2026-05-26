@@ -2,6 +2,10 @@ stages:
   - test
   - build
 
+default:
+  tags:
+    - k8s
+
 variables:
   GODOT_VERSION: "4.5.1"
 
