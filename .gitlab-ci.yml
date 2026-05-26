@@ -5,30 +5,68 @@ stages:
 variables:
   GODOT_VERSION: "4.5.1"
 
-# --- Test Stage ---
+# --- Test Stage: Server ---
 
 lint-server:
   stage: test
-  image: golangci/golangci-lint:v2-alpine
+  image: golangci/golangci-lint:v2.1-alpine
   script:
     - cd server
     - golangci-lint run ./...
+
+fmt-server:
+  stage: test
+  image: golang:1.25-alpine
+  script:
+    - go install golang.org/x/tools/cmd/goimports@latest
+    - cd server
+    - |
+      OUT=$(goimports -l cmd/ internal/)
+      if [ -n "$OUT" ]; then
+        echo "Files need formatting:" >&2
+        echo "$OUT" >&2
+        exit 1
+      fi
 
 test-server:
   stage: test
   image: golang:1.25-alpine
   script:
     - cd server
-    - go test ./...
+    - go test ./... -count=1
+
+# --- Test Stage: Client ---
+
+lint-client:
+  stage: test
+  image: python:3.12-alpine
+  script:
+    - pip install --quiet gdtoolkit==4.*
+    - cd client
+    - gdlint scripts/ scenes/
+    - cd tests/ && gdlint .
+
+fmt-client:
+  stage: test
+  image: python:3.12-alpine
+  script:
+    - pip install --quiet gdtoolkit==4.*
+    - cd client
+    - gdformat --check scripts/ scenes/ tests/
+
+funlen-client:
+  stage: test
+  image: python:3.12-alpine
+  script:
+    - cd client
+    - python3 scripts/tools/check_func_length.py scripts/ scenes/
 
 test-client:
   stage: test
   image: barichello/godot-ci:${GODOT_VERSION}
   variables:
-    # Godot needs a display for some operations even in headless mode
     DISPLAY: ":0"
   before_script:
-    # Import project to generate .godot/ cache
     - cd client
     - godot --headless --import
   script:
