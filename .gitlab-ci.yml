@@ -66,10 +66,12 @@ test-client:
   image: barichello/godot-ci:${GODOT_VERSION}
   variables:
     DISPLAY: ":0"
+  cache:
+    key: godot-import-${GODOT_VERSION}
+    paths:
+      - client/.godot/
   before_script:
     - cd client
-    # Skip heavy 3D asset import in CI — tests don't need models/animations
-    - touch assets/models/.gdignore assets/animations/.gdignore
     - godot --headless --import
   script:
     - godot --headless -s addons/gdUnit4/bin/GdUnitCmdTool.gd -a res://tests --ignoreHeadlessMode
@@ -80,6 +82,10 @@ test-client:
 build-client-linux:
   stage: build
   image: barichello/godot-ci:${GODOT_VERSION}
+  cache:
+    key: godot-import-${GODOT_VERSION}
+    paths:
+      - client/.godot/
   before_script:
     - mkdir -p build/linux
     - cd client
@@ -99,6 +105,10 @@ build-client-linux:
 build-client-windows:
   stage: build
   image: barichello/godot-ci:${GODOT_VERSION}
+  cache:
+    key: godot-import-${GODOT_VERSION}
+    paths:
+      - client/.godot/
   before_script:
     - mkdir -p build/windows
     - cd client
