@@ -13,12 +13,12 @@ variables:
 
 lint-server:
   stage: test
+  tags:
+    - k8s-big
   image: golangci/golangci-lint:v2.12-alpine
-  variables:
-    GOGC: "50"
   script:
     - cd server
-    - golangci-lint run --concurrency=2 ./...
+    - golangci-lint run ./...
 
 fmt-server:
   stage: test
@@ -36,6 +36,8 @@ fmt-server:
 
 test-server:
   stage: test
+  tags:
+    - k8s-big
   image: golang:1.25-alpine
   script:
     - cd server
@@ -69,6 +71,8 @@ funlen-client:
 
 test-client:
   stage: test
+  tags:
+    - k8s-big
   image: barichello/godot-ci:${GODOT_VERSION}
   variables:
     DISPLAY: ":0"
