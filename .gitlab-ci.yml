@@ -68,9 +68,11 @@ test-client:
     DISPLAY: ":0"
   before_script:
     - cd client
+    # Skip heavy 3D asset import in CI — tests don't need models/animations
+    - touch assets/models/.gdignore assets/animations/.gdignore
     - godot --headless --import
   script:
-    - godot --headless -s addons/gdUnit4/bin/GdUnitCmdTool.gd -a res://tests
+    - godot --headless -s addons/gdUnit4/bin/GdUnitCmdTool.gd -a res://tests --ignoreHeadlessMode
   allow_failure: true  # GdUnit in CI can be flaky — remove once stable
 
 # --- Build Stage ---
