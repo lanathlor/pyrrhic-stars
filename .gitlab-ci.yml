@@ -10,9 +10,11 @@ variables:
 lint-server:
   stage: test
   image: golangci/golangci-lint:v2.12-alpine
+  variables:
+    GOGC: "50"
   script:
     - cd server
-    - golangci-lint run ./...
+    - golangci-lint run --concurrency=2 ./...
 
 fmt-server:
   stage: test
