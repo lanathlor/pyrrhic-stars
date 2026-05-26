@@ -218,18 +218,18 @@ func _run_tests() -> void:
 	root.add_child(fake_player)
 	hud.set_local_player(fake_player, "gunner", 1)
 
-	hud._detect_floor(Vector3(5.0, -200.0, -55.0))
+	hud._minimap._detect_floor(Vector3(5.0, -200.0, -55.0))
 
 	_check(
 		"minimap_lower_district_has_rects",
-		hud._floor_rects.size() > 0,
-		"Minimap should have rects for lower district, got %d" % hud._floor_rects.size()
+		hud._minimap.floor_rects.size() > 0,
+		"Minimap should have rects for lower district, got %d" % hud._minimap.floor_rects.size()
 	)
 
 	_check(
 		"minimap_lower_district_min_15",
-		hud._floor_rects.size() >= 15,
-		"Minimap expected >= 15 rects, got %d" % hud._floor_rects.size()
+		hud._minimap.floor_rects.size() >= 15,
+		"Minimap expected >= 15 rects, got %d" % hud._minimap.floor_rects.size()
 	)
 
 	fake_player.queue_free()
@@ -332,8 +332,8 @@ func _run_tests() -> void:
 	hud_rescan.set_local_player(fp, "gunner", 1)
 
 	# First detect — populates floor rects
-	hud_rescan._detect_floor(Vector3(0.0, 0.0, -20.0))
-	var first_count: int = hud_rescan._floor_rects.size()
+	hud_rescan._minimap._detect_floor(Vector3(0.0, 0.0, -20.0))
+	var first_count: int = hud_rescan._minimap.floor_rects.size()
 	_check(
 		"rescan_first_detect_has_rects",
 		first_count > 0,
@@ -341,11 +341,11 @@ func _run_tests() -> void:
 	)
 
 	# Manually corrupt the cached data to simulate stale state
-	hud_rescan._floor_rects.clear()
+	hud_rescan._minimap.floor_rects.clear()
 
 	# Second detect on the SAME floor — should rescan, not skip
-	hud_rescan._detect_floor(Vector3(0.0, 0.0, -20.0))
-	var second_count: int = hud_rescan._floor_rects.size()
+	hud_rescan._minimap._detect_floor(Vector3(0.0, 0.0, -20.0))
+	var second_count: int = hud_rescan._minimap.floor_rects.size()
 	_check(
 		"rescan_second_detect_repopulates",
 		second_count == first_count,
@@ -401,10 +401,10 @@ func _run_tests() -> void:
 	fake_player2.global_position = Vector3(0.0, 0.0, -20.0)
 	root.add_child(fake_player2)
 	hud2.set_local_player(fake_player2, "gunner", 1)
-	hud2._detect_floor(Vector3(0.0, 0.0, -20.0))
+	hud2._minimap._detect_floor(Vector3(0.0, 0.0, -20.0))
 
 	var found_in_minimap := false
-	for entry in hud2._floor_rects:
+	for entry in hud2._minimap.floor_rects:
 		var r: Rect2 = entry["rect"] if entry is Dictionary else entry
 		if absf(r.size.x - 6.0) < 0.5 and absf(r.size.y - 57.0) < 1.0:
 			found_in_minimap = true

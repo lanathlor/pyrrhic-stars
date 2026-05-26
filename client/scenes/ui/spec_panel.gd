@@ -37,14 +37,12 @@ func _ready() -> void:
 	layer = 17
 	visible = false
 
-	# Full-screen dark wash
 	_bg = ColorRect.new()
 	_bg.color = Color(0.0, 0.0, 0.0, 0.6)
 	_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_bg.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_bg)
 
-	# Margin around the whole thing
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	margin.add_theme_constant_override("margin_left", 80)
@@ -54,14 +52,21 @@ func _ready() -> void:
 	margin.mouse_filter = Control.MOUSE_FILTER_PASS
 	_bg.add_child(margin)
 
-	# Outer frame
+	var outer_vbox := _build_outer_frame(margin)
+	_build_title_bar(outer_vbox)
+	_build_body_panel(outer_vbox)
+
+
+func _build_outer_frame(parent: Control) -> VBoxContainer:
 	var outer_vbox := VBoxContainer.new()
 	outer_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	outer_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	outer_vbox.add_theme_constant_override("separation", 0)
-	margin.add_child(outer_vbox)
+	parent.add_child(outer_vbox)
+	return outer_vbox
 
-	# Title bar
+
+func _build_title_bar(parent: VBoxContainer) -> void:
 	var title_panel := PanelContainer.new()
 	title_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var title_style := StyleBoxFlat.new()
@@ -74,7 +79,7 @@ func _ready() -> void:
 	title_style.content_margin_top = 10
 	title_style.content_margin_bottom = 10
 	title_panel.add_theme_stylebox_override("panel", title_style)
-	outer_vbox.add_child(title_panel)
+	parent.add_child(title_panel)
 
 	var title := Label.new()
 	title.text = "SPECIALIZATION"
@@ -83,7 +88,8 @@ func _ready() -> void:
 	title.add_theme_color_override("font_color", UI_TEXT_ACCENT)
 	title_panel.add_child(title)
 
-	# Main body panel
+
+func _build_body_panel(parent: VBoxContainer) -> void:
 	_outer_panel = PanelContainer.new()
 	_outer_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_outer_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -99,9 +105,8 @@ func _ready() -> void:
 	body_style.content_margin_top = 16
 	body_style.content_margin_bottom = 16
 	_outer_panel.add_theme_stylebox_override("panel", body_style)
-	outer_vbox.add_child(_outer_panel)
+	parent.add_child(_outer_panel)
 
-	# Columns container (specs go here side by side)
 	_columns_container = HBoxContainer.new()
 	_columns_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_columns_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -130,54 +135,50 @@ func set_specs(specs: Array, current_spec: String) -> void:
 
 func _build_column(spec: Dictionary, is_current: bool) -> void:
 	var spec_id: String = spec.get("id", "")
-	var spec_name: String = spec.get("name", "???")
-	var role: String = spec.get("role", "")
-	var target: String = spec.get("target", "")
-	var damage: String = spec.get("damage", "")
-	var desc: String = spec.get("desc", "")
-	var mastery: String = spec.get("mastery", "")
 	var implemented: bool = spec.get("implemented", false)
-
-	# Column panel — each spec is a tall column
-	var column := PanelContainer.new()
-	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
 	var border_width: int = 2 if is_current else 1
 	var bg_color: Color = UI_SURFACE_ACTIVE if is_current else UI_SURFACE
 	var border_color: Color = UI_BORDER_ACTIVE if is_current else UI_BORDER
-	var style := _make_column_style(bg_color, border_color, border_width)
-	column.add_theme_stylebox_override("panel", style)
 
+	var column := PanelContainer.new()
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var col_style := _make_column_style(bg_color, border_color, border_width)
+	column.add_theme_stylebox_override("panel", col_style)
 	if not implemented and not is_current:
 		column.modulate.a = 0.55
-
 	_columns_container.add_child(column)
 
-	# Inner VBox — all content centered
 	var vbox := VBoxContainer.new()
 	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_theme_constant_override("separation", 0)
 	column.add_child(vbox)
 
-	# -- Top spacer (pushes content down a bit) --
-	var top_spacer := Control.new()
-	top_spacer.custom_minimum_size = Vector2(0, 30)
-	vbox.add_child(top_spacer)
+	_build_column_header(vbox, spec)
+	_build_column_description(vbox, spec)
+	_build_column_mastery(vbox, spec.get("mastery", ""))
+	_build_column_bottom(vbox, spec_id, is_current, implemented)
+	_add_spacer(vbox, 16)
 
-	# -- Spec name --
+	if implemented and not is_current:
+		_build_column_hover_overlay(column, spec_id, bg_color, border_color, border_width)
+
+
+func _build_column_header(vbox: VBoxContainer, spec: Dictionary) -> void:
+	_add_spacer(vbox, 30)
+
 	var name_label := Label.new()
-	name_label.text = spec_name
+	name_label.text = spec.get("name", "???")
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.add_theme_font_size_override("font_size", 24)
 	name_label.add_theme_color_override("font_color", UI_TEXT)
 	vbox.add_child(name_label)
 
-	# -- Spacer --
 	_add_spacer(vbox, 6)
 
-	# -- Role badge --
+	var role: String = spec.get("role", "")
 	var role_label := Label.new()
 	role_label.text = role
 	role_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -185,15 +186,14 @@ func _build_column(spec: Dictionary, is_current: bool) -> void:
 	role_label.add_theme_color_override("font_color", ROLE_COLORS.get(role, UI_TEXT_MUTED))
 	vbox.add_child(role_label)
 
-	# -- Separator --
 	_add_spacer(vbox, 12)
-	var sep := _make_separator()
-	vbox.add_child(sep)
+	vbox.add_child(_make_separator())
 	_add_spacer(vbox, 12)
 
-	# -- Description --
+
+func _build_column_description(vbox: VBoxContainer, spec: Dictionary) -> void:
 	var desc_label := Label.new()
-	desc_label.text = desc
+	desc_label.text = spec.get("desc", "")
 	desc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	desc_label.add_theme_font_size_override("font_size", 13)
 	desc_label.add_theme_color_override("font_color", UI_TEXT_ACCENT)
@@ -201,7 +201,8 @@ func _build_column(spec: Dictionary, is_current: bool) -> void:
 	desc_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(desc_label)
 
-	# -- Target / Damage type --
+	var target: String = spec.get("target", "")
+	var damage: String = spec.get("damage", "")
 	if target != "" and damage != "":
 		_add_spacer(vbox, 8)
 		var info_label := Label.new()
@@ -211,13 +212,12 @@ func _build_column(spec: Dictionary, is_current: bool) -> void:
 		info_label.add_theme_color_override("font_color", UI_TEXT_MUTED)
 		vbox.add_child(info_label)
 
-	# -- Separator --
 	_add_spacer(vbox, 14)
-	var sep2 := _make_separator()
-	vbox.add_child(sep2)
+	vbox.add_child(_make_separator())
 	_add_spacer(vbox, 14)
 
-	# -- Mastery section --
+
+func _build_column_mastery(vbox: VBoxContainer, mastery: String) -> void:
 	var mastery_header := Label.new()
 	mastery_header.text = "Mastery"
 	mastery_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -236,12 +236,14 @@ func _build_column(spec: Dictionary, is_current: bool) -> void:
 	mastery_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(mastery_label)
 
-	# -- Flexible spacer (pushes button to bottom) --
 	var flex_spacer := Control.new()
 	flex_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(flex_spacer)
 
-	# -- Bottom: Activate button / Active text / Coming Soon --
+
+func _build_column_bottom(
+	vbox: VBoxContainer, spec_id: String, is_current: bool, implemented: bool
+) -> void:
 	var bottom_container := CenterContainer.new()
 	bottom_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bottom_container.custom_minimum_size = Vector2(0, 40)
@@ -267,26 +269,25 @@ func _build_column(spec: Dictionary, is_current: bool) -> void:
 		activate_btn.pressed.connect(_on_card_pressed.bind(spec_id))
 		bottom_container.add_child(activate_btn)
 
-	# -- Bottom spacer --
-	_add_spacer(vbox, 16)
 
-	# -- Invisible hover overlay for the whole column --
-	if implemented and not is_current:
-		var hover_btn := Button.new()
-		hover_btn.flat = true
-		hover_btn.set_anchors_preset(Control.PRESET_FULL_RECT)
-		hover_btn.mouse_filter = Control.MOUSE_FILTER_PASS
-		var empty_style := StyleBoxEmpty.new()
-		hover_btn.add_theme_stylebox_override("normal", empty_style)
-		hover_btn.add_theme_stylebox_override("hover", empty_style)
-		hover_btn.add_theme_stylebox_override("pressed", empty_style)
-		hover_btn.add_theme_stylebox_override("focus", empty_style)
-		hover_btn.pressed.connect(_on_card_pressed.bind(spec_id))
-		hover_btn.mouse_entered.connect(_on_column_hover_enter.bind(column))
-		hover_btn.mouse_exited.connect(
-			_on_column_hover_exit.bind(column, bg_color, border_color, border_width)
-		)
-		column.add_child(hover_btn)
+func _build_column_hover_overlay(
+	column: PanelContainer, spec_id: String, bg_color: Color, border_color: Color, border_width: int
+) -> void:
+	var hover_btn := Button.new()
+	hover_btn.flat = true
+	hover_btn.set_anchors_preset(Control.PRESET_FULL_RECT)
+	hover_btn.mouse_filter = Control.MOUSE_FILTER_PASS
+	var empty_style := StyleBoxEmpty.new()
+	hover_btn.add_theme_stylebox_override("normal", empty_style)
+	hover_btn.add_theme_stylebox_override("hover", empty_style)
+	hover_btn.add_theme_stylebox_override("pressed", empty_style)
+	hover_btn.add_theme_stylebox_override("focus", empty_style)
+	hover_btn.pressed.connect(_on_card_pressed.bind(spec_id))
+	hover_btn.mouse_entered.connect(_on_column_hover_enter.bind(column))
+	hover_btn.mouse_exited.connect(
+		_on_column_hover_exit.bind(column, bg_color, border_color, border_width)
+	)
+	column.add_child(hover_btn)
 
 
 func _on_card_pressed(spec_id: String) -> void:

@@ -61,7 +61,13 @@ func _build_ui() -> void:
 	title.add_theme_font_size_override("font_size", 22)
 	vbox.add_child(title)
 
-	# Filter bar
+	_build_filter_bar(vbox)
+	_build_header_row(vbox)
+	_build_scroll_area(vbox)
+	_build_bottom_buttons(vbox)
+
+
+func _build_filter_bar(vbox: VBoxContainer) -> void:
 	var filter_bar := HBoxContainer.new()
 	filter_bar.add_theme_constant_override("separation", 12)
 	vbox.add_child(filter_bar)
@@ -102,7 +108,8 @@ func _build_ui() -> void:
 	_player_filter.text_changed.connect(func(_t: String) -> void: _apply_filters())
 	filter_bar.add_child(_player_filter)
 
-	# Header row
+
+func _build_header_row(vbox: VBoxContainer) -> void:
 	var header := _make_row_container()
 	vbox.add_child(header)
 	for i in _COL_NAMES.size():
@@ -114,7 +121,8 @@ func _build_ui() -> void:
 		lbl.modulate = Color(0.7, 0.7, 0.7)
 		header.add_child(lbl)
 
-	# Scroll area
+
+func _build_scroll_area(vbox: VBoxContainer) -> void:
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(scroll)
@@ -129,7 +137,8 @@ func _build_ui() -> void:
 	_loading_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_list_container.add_child(_loading_label)
 
-	# Bottom buttons
+
+func _build_bottom_buttons(vbox: VBoxContainer) -> void:
 	var bottom := HBoxContainer.new()
 	bottom.alignment = BoxContainer.ALIGNMENT_CENTER
 	bottom.add_theme_constant_override("separation", 12)

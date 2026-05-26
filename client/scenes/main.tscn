@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=22 format=3]
 
 [ext_resource type="Script" path="res://scenes/main.gd" id="4"]
 [ext_resource type="Script" path="res://scenes/main/entity_manager.gd" id="entity_mgr"]
@@ -7,6 +7,10 @@
 [ext_resource type="Script" path="res://scenes/main/group_manager.gd" id="group_mgr"]
 [ext_resource type="Script" path="res://scenes/main/environment_builder.gd" id="env_builder"]
 [ext_resource type="Script" path="res://scenes/main/ui_controller.gd" id="ui_ctrl"]
+[ext_resource type="Script" path="res://scenes/main/game_flow_manager.gd" id="game_flow"]
+[ext_resource type="Script" path="res://scenes/main/dev_mode_manager.gd" id="dev_mgr"]
+[ext_resource type="Script" path="res://scenes/main/replay_manager.gd" id="replay_mgr"]
+[ext_resource type="Script" path="res://scenes/main/character_manager.gd" id="char_mgr"]
 [ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="pause_menu"]
 [ext_resource type="PackedScene" path="res://scenes/ui/menu.tscn" id="menu_ui"]
 [ext_resource type="PackedScene" path="res://scenes/ui/character_select.tscn" id="char_select"]
@@ -38,6 +42,18 @@ script = ExtResource("env_builder")
 
 [node name="UIController" type="Node" parent="."]
 script = ExtResource("ui_ctrl")
+
+[node name="GameFlowManager" type="Node" parent="."]
+script = ExtResource("game_flow")
+
+[node name="DevModeManager" type="Node" parent="."]
+script = ExtResource("dev_mgr")
+
+[node name="ReplayManager" type="Node" parent="."]
+script = ExtResource("replay_mgr")
+
+[node name="CharacterManager" type="Node" parent="."]
+script = ExtResource("char_mgr")
 
 [node name="Players" type="Node3D" parent="."]
 

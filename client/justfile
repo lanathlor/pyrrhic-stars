@@ -21,10 +21,15 @@ fmt-diff:
 
 # Lint all GDScript files
 lint:
-    gdlint scripts/ scenes/ tests/
+    gdlint scripts/ scenes/
+    cd tests/ && gdlint .
+
+# Check function body length (max 60 lines)
+funlen:
+    python3 scripts/tools/check_func_length.py scripts/ scenes/
 
 # Run both lint and format check
-check: fmt-check lint
+check: fmt-check lint funlen
 
 # --- Tests ---
 

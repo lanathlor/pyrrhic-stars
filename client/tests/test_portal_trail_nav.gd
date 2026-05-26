@@ -225,9 +225,11 @@ func _point_inside_building(point: Vector3, bld: Dictionary) -> bool:
 	)
 
 
-func _segment_intersects_aabb(
-	a: Vector3, b: Vector3, min_x: float, max_x: float, min_z: float, max_z: float
-) -> bool:
+func _segment_intersects_aabb(a: Vector3, b: Vector3, bounds: Rect2) -> bool:
+	var min_x := bounds.position.x
+	var max_x := bounds.end.x
+	var min_z := bounds.position.y
+	var max_z := bounds.end.y
 	var dx := b.x - a.x
 	var dz := b.z - a.z
 	var p := [-dx, dx, -dz, dz]
@@ -255,7 +257,7 @@ func _segment_intersects_building(a: Vector3, b: Vector3, bld: Dictionary) -> bo
 	var bcz: float = bld["center"].z
 	var bsx: float = bld["size"].x / 2.0
 	var bsz: float = bld["size"].z / 2.0
-	return _segment_intersects_aabb(a, b, bcx - bsx, bcx + bsx, bcz - bsz, bcz + bsz)
+	return _segment_intersects_aabb(a, b, Rect2(bcx - bsx, bcz - bsz, bsx * 2.0, bsz * 2.0))
 
 
 func _path_violated_buildings(path: PackedVector3Array) -> Array[int]:

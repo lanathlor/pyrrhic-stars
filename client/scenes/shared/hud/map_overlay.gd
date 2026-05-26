@@ -178,41 +178,38 @@ func _draw() -> void:
 	if not visible:
 		return
 
-	var font := ThemeDB.fallback_font
-
-	# Full-screen background (void)
 	draw_rect(Rect2(Vector2.ZERO, size), BG_COLOR)
+	_draw_floor_geometry()
+	_draw_waypoints()
+	_draw_entities()
 
-	# Draw in layers: floors -> gardens -> paths -> green details -> walls
-	# Pass 1: large floor surfaces (plaza ground, lobby floor)
-	for entry in _scanned_rects:
-		if entry["type"] == "floor":
-			draw_rect(_world_rect_to_screen(entry["rect"]), FLOOR_COLOR)
+	var self_screen := _world_to_screen(_player_pos)
+	_draw_arrow(self_screen, _player_rot_y, SELF_COLOR, 10.0)
 
-	# Pass 2: garden areas (large grass)
-	for entry in _scanned_rects:
-		if entry["type"] == "garden":
-			draw_rect(_world_rect_to_screen(entry["rect"]), GARDEN_COLOR)
+	_draw_labels()
+	_draw_legend()
 
-	# Pass 3: paths and sidewalks
-	for entry in _scanned_rects:
-		if entry["type"] == "ground":
-			draw_rect(_world_rect_to_screen(entry["rect"]), GROUND_COLOR)
 
-	# Pass 4: small greenery (hedges, planters)
-	for entry in _scanned_rects:
-		if entry["type"] == "green":
-			draw_rect(_world_rect_to_screen(entry["rect"]), GREEN_COLOR)
+func _draw_floor_geometry() -> void:
+	var layer_colors := {
+		"floor": FLOOR_COLOR,
+		"garden": GARDEN_COLOR,
+		"ground": GROUND_COLOR,
+		"green": GREEN_COLOR,
+	}
+	for layer in ["floor", "garden", "ground", "green"]:
+		for entry in _scanned_rects:
+			if entry["type"] == layer:
+				draw_rect(_world_rect_to_screen(entry["rect"]), layer_colors[layer])
+
+	# Green cylinders
 	for circ in _scanned_circles:
-		var sp := _world_to_screen(Vector3(circ["center"].x, 0.0, circ["center"].y))
-		var screen_radius: float = circ["radius"] * _map_scale
-		if screen_radius < 1.5:
-			screen_radius = 1.5
-		var is_green: bool = circ.get("green", false)
-		if is_green:
-			draw_circle(sp, screen_radius, GREEN_COLOR)
+		if circ.get("green", false):
+			var sp := _world_to_screen(Vector3(circ["center"].x, 0.0, circ["center"].y))
+			var sr: float = maxf(circ["radius"] * _map_scale, 1.5)
+			draw_circle(sp, sr, GREEN_COLOR)
 
-	# Pass 3: walls/buildings (on top)
+	# Walls on top
 	for entry in _scanned_rects:
 		if entry["type"] == "wall":
 			var sr := _world_rect_to_screen(entry["rect"])
@@ -223,62 +220,59 @@ func _draw() -> void:
 	for circ in _scanned_circles:
 		if not circ.get("green", false):
 			var sp := _world_to_screen(Vector3(circ["center"].x, 0.0, circ["center"].y))
-			var screen_radius: float = circ["radius"] * _map_scale
-			if screen_radius < 1.5:
-				screen_radius = 1.5
-			draw_circle(sp, screen_radius, WALL_COLOR)
+			var sr: float = maxf(circ["radius"] * _map_scale, 1.5)
+			draw_circle(sp, sr, WALL_COLOR)
 
-	# Waypoint path
+
+func _draw_waypoints() -> void:
 	if _waypoint_path.size() >= 2:
 		for i in range(1, _waypoint_path.size()):
 			var a := _world_to_screen(_waypoint_path[i - 1])
 			var b := _world_to_screen(_waypoint_path[i])
 			draw_line(a, b, WAYPOINT_COLOR, 2.0)
 
-	# Waypoint target diamond
 	if _has_waypoint:
-		var wp_screen := _world_to_screen(_waypoint_target)
-		_draw_diamond(wp_screen, 8.0, WAYPOINT_COLOR)
+		_draw_diamond(_world_to_screen(_waypoint_target), 8.0, WAYPOINT_COLOR)
 
-	# NPCs
+
+func _draw_entities() -> void:
+	var font := ThemeDB.fallback_font
+
 	for npc_pos in _npc_positions:
 		var sp := _world_to_screen(npc_pos)
 		if _is_on_map(sp):
 			draw_circle(sp, 4.0, NPC_COLOR)
 
-	# Enemies
 	for epos in _enemy_positions:
 		var sp := _world_to_screen(epos)
 		if _is_on_map(sp):
 			draw_circle(sp, 5.0, ENEMY_COLOR)
 
-	# Other players
 	for pid in _world_players:
 		if pid == _local_peer_id:
 			continue
 		var pdata: Dictionary = _world_players[pid]
 		var sp := _world_to_screen(pdata.get("pos", Vector3.ZERO))
-		if _is_on_map(sp):
-			draw_circle(sp, 4.0, PLAYER_COLOR)
-			var uname: String = _player_names.get(pid, "")
-			if uname != "":
-				if uname.length() > 12:
-					uname = uname.substr(0, 12)
-				draw_string(
-					font,
-					sp + Vector2(-20.0, -8.0),
-					uname,
-					HORIZONTAL_ALIGNMENT_CENTER,
-					40,
-					10,
-					PLAYER_COLOR
-				)
+		if not _is_on_map(sp):
+			continue
+		draw_circle(sp, 4.0, PLAYER_COLOR)
+		var uname: String = _player_names.get(pid, "")
+		if uname != "":
+			if uname.length() > 12:
+				uname = uname.substr(0, 12)
+			draw_string(
+				font,
+				sp + Vector2(-20.0, -8.0),
+				uname,
+				HORIZONTAL_ALIGNMENT_CENTER,
+				40,
+				10,
+				PLAYER_COLOR
+			)
 
-	# Self arrow
-	var self_screen := _world_to_screen(_player_pos)
-	_draw_arrow(self_screen, _player_rot_y, SELF_COLOR, 10.0)
 
-	# Floor name at top center
+func _draw_labels() -> void:
+	var font := ThemeDB.fallback_font
 	draw_string(
 		font,
 		Vector2(size.x / 2.0 - 60.0, 30.0),
@@ -288,8 +282,6 @@ func _draw() -> void:
 		16,
 		Color(0.8, 0.8, 0.85, 0.9)
 	)
-
-	# Close hint at bottom
 	draw_string(
 		font,
 		Vector2(size.x / 2.0 - 30.0, size.y - 20.0),
@@ -300,49 +292,36 @@ func _draw() -> void:
 		Color(0.5, 0.5, 0.5, 0.6)
 	)
 
-	# Legend at bottom-left
+
+func _draw_legend() -> void:
+	var font := ThemeDB.fallback_font
 	var legend_y := size.y - 80.0
 	var legend_x := 20.0
-	draw_circle(Vector2(legend_x, legend_y), 4.0, SELF_COLOR)
-	draw_string(
-		font,
-		Vector2(legend_x + 10.0, legend_y + 4.0),
-		"You",
-		HORIZONTAL_ALIGNMENT_LEFT,
-		40,
-		10,
-		Color(0.6, 0.6, 0.6, 0.7)
-	)
-	draw_circle(Vector2(legend_x, legend_y + 16.0), 4.0, PLAYER_COLOR)
-	draw_string(
-		font,
-		Vector2(legend_x + 10.0, legend_y + 20.0),
-		"Player",
-		HORIZONTAL_ALIGNMENT_LEFT,
-		40,
-		10,
-		Color(0.6, 0.6, 0.6, 0.7)
-	)
-	draw_circle(Vector2(legend_x, legend_y + 32.0), 4.0, NPC_COLOR)
-	draw_string(
-		font,
-		Vector2(legend_x + 10.0, legend_y + 36.0),
-		"NPC",
-		HORIZONTAL_ALIGNMENT_LEFT,
-		40,
-		10,
-		Color(0.6, 0.6, 0.6, 0.7)
-	)
-	_draw_diamond(Vector2(legend_x, legend_y + 48.0), 4.0, WAYPOINT_COLOR)
-	draw_string(
-		font,
-		Vector2(legend_x + 10.0, legend_y + 52.0),
-		"Objective",
-		HORIZONTAL_ALIGNMENT_LEFT,
-		60,
-		10,
-		Color(0.6, 0.6, 0.6, 0.7)
-	)
+	var label_color := Color(0.6, 0.6, 0.6, 0.7)
+
+	var entries: Array = [
+		[SELF_COLOR, "You", 0.0, false],
+		[PLAYER_COLOR, "Player", 16.0, false],
+		[NPC_COLOR, "NPC", 32.0, false],
+		[WAYPOINT_COLOR, "Objective", 48.0, true],
+	]
+	for entry in entries:
+		var y_off: float = entry[2]
+		var is_diamond: bool = entry[3]
+		var pos := Vector2(legend_x, legend_y + y_off)
+		if is_diamond:
+			_draw_diamond(pos, 4.0, entry[0])
+		else:
+			draw_circle(pos, 4.0, entry[0])
+		draw_string(
+			font,
+			Vector2(legend_x + 10.0, legend_y + y_off + 4.0),
+			entry[1],
+			HORIZONTAL_ALIGNMENT_LEFT,
+			60,
+			10,
+			label_color
+		)
 
 
 # =============================================================================

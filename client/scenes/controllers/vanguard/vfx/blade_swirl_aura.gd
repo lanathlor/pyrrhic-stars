@@ -27,56 +27,67 @@ func start(target: Node3D) -> void:
 	_target = target
 	global_position = target.global_position
 
-	# Define arc layers: each has a radius, height, arc span, width, speed multiplier
-	var arc_defs: Array[Dictionary] = [
-		# Outer ground ring — radius matches 4.0 server hit area
+	var arc_defs: Array[Dictionary] = _build_arc_defs()
+	for def in arc_defs:
+		_create_arc_layer(def)
+
+	_setup_light()
+
+
+func _build_arc_defs() -> Array[Dictionary]:
+	return [
+		# Outer ground ring -- radius matches 4.0 server hit area
 		{radius = 3.8, y = 0.15, arc_deg = 300.0, height = 0.25, speed_mult = 1.0, phase = 0.0},
 		{radius = 3.5, y = 0.15, arc_deg = 240.0, height = 0.2, speed_mult = -0.8, phase = 2.0},
 		# Mid-height arcs
 		{radius = 2.8, y = 0.7, arc_deg = 270.0, height = 0.4, speed_mult = 1.3, phase = 1.0},
 		{radius = 2.4, y = 1.0, arc_deg = 200.0, height = 0.35, speed_mult = -1.1, phase = 3.5},
-		# Upper arcs — smaller, faster
+		# Upper arcs -- smaller, faster
 		{radius = 1.8, y = 1.5, arc_deg = 220.0, height = 0.3, speed_mult = 1.6, phase = 0.5},
 		{radius = 2.0, y = 1.8, arc_deg = 180.0, height = 0.3, speed_mult = -1.4, phase = 4.0},
 		# Tight inner accent
 		{radius = 1.2, y = 1.2, arc_deg = 160.0, height = 0.3, speed_mult = 2.0, phase = 2.5},
 	]
 
-	for def in arc_defs:
-		var mesh_inst := MeshInstance3D.new()
-		mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		mesh_inst.custom_aabb = HUGE_AABB
-		add_child(mesh_inst)
 
-		var mat := ShaderMaterial.new()
-		mat.shader = TRAIL_SHADER
-		# Inner arcs are brighter, outer arcs deeper red
-		var brightness: float = 1.0 - (def.radius / 4.0) * 0.4
-		mat.set_shader_parameter("core_color", Color(1.0, 0.4 * brightness, 0.2 * brightness, 1.0))
-		mat.set_shader_parameter(
-			"trail_color", Color(0.9, 0.15 * brightness, 0.1 * brightness, 0.9)
+func _create_arc_layer(def: Dictionary) -> void:
+	var mesh_inst := MeshInstance3D.new()
+	mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mesh_inst.custom_aabb = HUGE_AABB
+	add_child(mesh_inst)
+
+	var mat := ShaderMaterial.new()
+	mat.shader = TRAIL_SHADER
+	# Inner arcs are brighter, outer arcs deeper red
+	var brightness: float = 1.0 - (def.radius / 4.0) * 0.4
+	mat.set_shader_parameter("core_color", Color(1.0, 0.4 * brightness, 0.2 * brightness, 1.0))
+	mat.set_shader_parameter("trail_color", Color(0.9, 0.15 * brightness, 0.1 * brightness, 0.9))
+	mat.set_shader_parameter("emission_boost", 2.5 + brightness)
+
+	var arc_mesh := _build_arc_mesh(
+		{
+			radius = def.radius,
+			y_center = def.y,
+			height = def.height,
+			arc_span = deg_to_rad(def.arc_deg),
+			segments = 32,
+		},
+		mat
+	)
+	mesh_inst.mesh = arc_mesh
+
+	(
+		_arcs
+		. append(
+			{
+				mesh = mesh_inst,
+				material = mat,
+				speed_mult = def.speed_mult,
+				phase = def.phase,
+				angle = def.phase,
+			}
 		)
-		mat.set_shader_parameter("emission_boost", 2.5 + brightness)
-
-		var arc_mesh := _build_arc_mesh(
-			def.radius, def.y, def.height, deg_to_rad(def.arc_deg), 32, mat
-		)
-		mesh_inst.mesh = arc_mesh
-
-		(
-			_arcs
-			. append(
-				{
-					mesh = mesh_inst,
-					material = mat,
-					speed_mult = def.speed_mult,
-					phase = def.phase,
-					angle = def.phase,
-				}
-			)
-		)
-
-	_setup_light()
+	)
 
 
 func stop() -> void:
@@ -112,14 +123,12 @@ func _process(delta: float) -> void:
 			queue_free()
 
 
-func _build_arc_mesh(
-	radius: float,
-	y_center: float,
-	height: float,
-	arc_span: float,
-	segments: int,
-	mat: ShaderMaterial
-) -> ArrayMesh:
+func _build_arc_mesh(arc: Dictionary, mat: ShaderMaterial) -> ArrayMesh:
+	var radius: float = arc.radius
+	var y_center: float = arc.y_center
+	var height: float = arc.height
+	var arc_span: float = arc.arc_span
+	var segments: int = arc.segments
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
 	st.set_material(mat)

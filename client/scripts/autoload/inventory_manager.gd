@@ -47,12 +47,12 @@ func _on_inventory_state(data: Dictionary) -> void:
 
 ## Request to equip an item. Server validates and sends back new state.
 func equip_item(item_id: int, slot_id: int) -> void:
-	NetworkManager.send_equip_item(item_id, slot_id)
+	NetworkManager.loadout.send_equip_item(item_id, slot_id)
 
 
 ## Request to unequip an item from a slot. Server validates and sends back new state.
 func unequip_item(slot_id: int) -> void:
-	NetworkManager.send_unequip_item(slot_id)
+	NetworkManager.loadout.send_unequip_item(slot_id)
 
 
 ## Returns the equipped item for a slot, or null.

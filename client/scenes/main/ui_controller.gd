@@ -100,32 +100,17 @@ func apply_overlay_label(label: Label, font_size: int, color: Color = UI_TEXT) -
 
 
 func populate_char_select() -> void:
-	# Update welcome label.
 	if ctrl._account_username != "":
 		ctrl._char_select_welcome.text = "Welcome, %s" % ctrl._account_username
 	else:
 		ctrl._char_select_welcome.text = ""
 
-	# Clear existing rows.
 	for child in ctrl._char_list_container.get_children():
 		child.queue_free()
 
 	var characters: Array = ctrl._char_list_data.get("characters", [])
-	var last_id: int = ctrl._char_list_data.get("last_char_id", 0)
-
-	var normal_style := StyleBoxFlat.new()
-	normal_style.bg_color = UI_SURFACE
-	normal_style.border_color = UI_BORDER
-	normal_style.set_border_width_all(1)
-	normal_style.set_corner_radius_all(0)
-	normal_style.set_content_margin_all(10)
-
-	var selected_style := StyleBoxFlat.new()
-	selected_style.bg_color = UI_SURFACE_ACTIVE
-	selected_style.border_color = UI_BORDER_ACTIVE
-	selected_style.set_border_width_all(1)
-	selected_style.set_corner_radius_all(0)
-	selected_style.set_content_margin_all(10)
+	var normal_style := _make_char_row_style(UI_SURFACE, UI_BORDER)
+	var selected_style := _make_char_row_style(UI_SURFACE_ACTIVE, UI_BORDER_ACTIVE)
 
 	if characters.is_empty():
 		var empty_label := Label.new()
@@ -137,49 +122,62 @@ func populate_char_select() -> void:
 		return
 
 	ctrl._enter_world_btn.disabled = false
-
 	for ch in characters:
-		var char_id: int = ch.char_id
-		var class_display: String = CLASS_INFO.get(ch.class_name, {}).get("name", ch.class_name)
+		_build_char_row(ch, normal_style, selected_style)
 
-		var row := PanelContainer.new()
-		row.custom_minimum_size.y = 44.0
-		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.set_meta("char_id", char_id)
-		row.set_meta("normal_style", normal_style)
-		row.set_meta("selected_style", selected_style)
-		if char_id == ctrl._selected_char_id:
-			row.add_theme_stylebox_override("panel", selected_style)
-		else:
-			row.add_theme_stylebox_override("panel", normal_style)
-		ctrl._char_list_container.add_child(row)
-
-		var hbox := HBoxContainer.new()
-		hbox.add_theme_constant_override("separation", 14)
-		row.add_child(hbox)
-
-		var name_lbl := Label.new()
-		name_lbl.text = ch.char_name
-		apply_overlay_label(name_lbl, 16, UI_TEXT)
-		name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		hbox.add_child(name_lbl)
-
-		var class_lbl := Label.new()
-		class_lbl.text = class_display
-		apply_overlay_label(class_lbl, 14, UI_BORDER_ACTIVE)
-		hbox.add_child(class_lbl)
-
-		# Click detection
-		var btn := Button.new()
-		btn.flat = true
-		btn.anchor_right = 1.0
-		btn.anchor_bottom = 1.0
-		btn.mouse_filter = Control.MOUSE_FILTER_STOP
-		var id_capture: int = char_id
-		var cls_capture: String = ch.class_name
-		btn.pressed.connect(func(): ctrl._select_character_row(id_capture, cls_capture))
-		row.add_child(btn)
-
-	# Auto-select last played if none selected.
 	if ctrl._selected_char_id == 0 and not characters.is_empty():
 		ctrl._select_character_row(characters[0].char_id, characters[0].class_name)
+
+
+func _make_char_row_style(bg: Color, border: Color) -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = bg
+	s.border_color = border
+	s.set_border_width_all(1)
+	s.set_corner_radius_all(0)
+	s.set_content_margin_all(10)
+	return s
+
+
+func _build_char_row(
+	ch: Dictionary, normal_style: StyleBoxFlat, selected_style: StyleBoxFlat
+) -> void:
+	var char_id: int = ch.char_id
+	var class_display: String = CLASS_INFO.get(ch.class_name, {}).get("name", ch.class_name)
+
+	var row := PanelContainer.new()
+	row.custom_minimum_size.y = 44.0
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.set_meta("char_id", char_id)
+	row.set_meta("normal_style", normal_style)
+	row.set_meta("selected_style", selected_style)
+	if char_id == ctrl._selected_char_id:
+		row.add_theme_stylebox_override("panel", selected_style)
+	else:
+		row.add_theme_stylebox_override("panel", normal_style)
+	ctrl._char_list_container.add_child(row)
+
+	var hbox := HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 14)
+	row.add_child(hbox)
+
+	var name_lbl := Label.new()
+	name_lbl.text = ch.char_name
+	apply_overlay_label(name_lbl, 16, UI_TEXT)
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox.add_child(name_lbl)
+
+	var class_lbl := Label.new()
+	class_lbl.text = class_display
+	apply_overlay_label(class_lbl, 14, UI_BORDER_ACTIVE)
+	hbox.add_child(class_lbl)
+
+	var btn := Button.new()
+	btn.flat = true
+	btn.anchor_right = 1.0
+	btn.anchor_bottom = 1.0
+	btn.mouse_filter = Control.MOUSE_FILTER_STOP
+	var id_capture: int = char_id
+	var cls_capture: String = ch.class_name
+	btn.pressed.connect(func(): ctrl._select_character_row(id_capture, cls_capture))
+	row.add_child(btn)

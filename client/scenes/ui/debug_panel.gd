@@ -34,7 +34,7 @@ func _ready() -> void:
 func toggle() -> void:
 	visible = !visible
 	if visible and not _info_requested:
-		NetworkManager.send_debug_request_info()
+		NetworkManager.debug.send_request_info()
 		_info_requested = true
 
 
@@ -62,23 +62,30 @@ func _build_ui() -> void:
 	_vbox.add_theme_constant_override("separation", 6)
 	_panel.add_child(_vbox)
 
-	# Header
+	_build_header_section()
+	_build_boss_section()
+	_build_phase_section()
+	_build_god_mode_section()
+	_build_time_scale_section()
+	_build_action_buttons()
+
+
+func _build_header_section() -> void:
 	var title := Label.new()
 	title.text = "DEBUG PANEL"
 	title.add_theme_color_override("font_color", UI_ACCENT)
 	title.add_theme_font_size_override("font_size", 14)
 	_vbox.add_child(title)
-
 	_add_separator()
 
-	# Boss name
+
+func _build_boss_section() -> void:
 	_repeat_label = Label.new()
 	_repeat_label.text = "Waiting for boss info..."
 	_repeat_label.add_theme_color_override("font_color", UI_TEXT_MUTED)
 	_repeat_label.add_theme_font_size_override("font_size", 11)
 	_vbox.add_child(_repeat_label)
 
-	# Ability buttons container
 	var ability_label := Label.new()
 	ability_label.text = "ABILITIES"
 	ability_label.add_theme_color_override("font_color", UI_TEXT_MUTED)
@@ -88,10 +95,10 @@ func _build_ui() -> void:
 	_ability_container = VBoxContainer.new()
 	_ability_container.add_theme_constant_override("separation", 3)
 	_vbox.add_child(_ability_container)
-
 	_add_separator()
 
-	# Phase buttons
+
+func _build_phase_section() -> void:
 	var phase_label := Label.new()
 	phase_label.text = "PHASE"
 	phase_label.add_theme_color_override("font_color", UI_TEXT_MUTED)
@@ -108,10 +115,10 @@ func _build_ui() -> void:
 		_style_button(btn)
 		phase_row.add_child(btn)
 	_vbox.add_child(phase_row)
-
 	_add_separator()
 
-	# God mode toggle (on by default — server auto-enables in dev mode)
+
+func _build_god_mode_section() -> void:
 	_god_mode_check = CheckButton.new()
 	_god_mode_check.text = "God Mode"
 	_god_mode_check.button_pressed = true
@@ -119,10 +126,10 @@ func _build_ui() -> void:
 	_god_mode_check.add_theme_font_size_override("font_size", 12)
 	_god_mode_check.toggled.connect(_on_god_mode_toggled)
 	_vbox.add_child(_god_mode_check)
-
 	_add_separator()
 
-	# Time scale
+
+func _build_time_scale_section() -> void:
 	var ts_label := Label.new()
 	ts_label.text = "TIME SCALE"
 	ts_label.add_theme_color_override("font_color", UI_TEXT_MUTED)
@@ -148,10 +155,10 @@ func _build_ui() -> void:
 	_time_scale_label.custom_minimum_size = Vector2(35, 0)
 	ts_row.add_child(_time_scale_label)
 	_vbox.add_child(ts_row)
-
 	_add_separator()
 
-	# Action buttons
+
+func _build_action_buttons() -> void:
 	var actions_row := HBoxContainer.new()
 	actions_row.add_theme_constant_override("separation", 4)
 
@@ -229,42 +236,42 @@ func _input(event: InputEvent) -> void:
 
 
 func _on_force_commit(ability_id: String) -> void:
-	NetworkManager.send_debug_force_commit(ability_id)
+	NetworkManager.debug.send_force_commit(ability_id)
 
 
 func _on_repeat_toggled(ability_id: String) -> void:
 	if _repeat_ability == ability_id:
 		_repeat_ability = ""
-		NetworkManager.send_debug_repeat_ability("")
+		NetworkManager.debug.send_repeat_ability("")
 		_repeat_label.text = "Boss: %s" % _def_name
 	else:
 		_repeat_ability = ability_id
-		NetworkManager.send_debug_repeat_ability(ability_id)
+		NetworkManager.debug.send_repeat_ability(ability_id)
 		_repeat_label.text = "Boss: %s [REPEAT: %s]" % [_def_name, ability_id]
 
 
 func _on_phase_pressed(phase: int) -> void:
-	NetworkManager.send_debug_set_phase(phase)
+	NetworkManager.debug.send_set_phase(phase)
 
 
 func _on_god_mode_toggled(enabled: bool) -> void:
 	_god_mode = enabled
-	NetworkManager.send_debug_god_mode(enabled)
+	NetworkManager.debug.send_god_mode(enabled)
 
 
 func _on_time_scale_changed(value: float) -> void:
 	_time_scale_label.text = "%.1fx" % value
-	NetworkManager.send_debug_time_scale(value)
+	NetworkManager.debug.send_time_scale(value)
 
 
 func _on_reset_pressed() -> void:
-	NetworkManager.send_debug_reset_boss()
+	NetworkManager.debug.send_reset_boss()
 	_repeat_ability = ""
 	_repeat_label.text = "Boss: %s" % _def_name
 
 
 func _on_reload_pressed() -> void:
-	NetworkManager.send_debug_reload_yaml()
+	NetworkManager.debug.send_reload_yaml()
 
 
 func _add_separator() -> void:

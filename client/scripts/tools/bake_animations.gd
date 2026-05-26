@@ -34,7 +34,6 @@ func _run_bake() -> void:
 		push_error("[BakeAnimations] No animations in manifest")
 		return
 
-	# Load base model to verify it exists
 	var base_scene := load(base_model_path) as PackedScene
 	if not base_scene:
 		push_error("[BakeAnimations] Could not load base model: %s" % base_model_path)
@@ -42,53 +41,46 @@ func _run_bake() -> void:
 
 	var library := AnimationLibrary.new()
 	var count := 0
-
 	for anim_name: String in animations:
-		var entry: Dictionary = animations[anim_name]
-		var fbx_path: String = entry.get("fbx", "")
-		var should_loop: bool = entry.get("loop", false)
+		if _bake_single_anim(library, anim_name, animations[anim_name]):
+			count += 1
 
-		if fbx_path == "":
-			push_warning("[BakeAnimations] Skipping '%s' — no fbx path" % anim_name)
-			continue
-
-		var anim := _extract_animation(fbx_path)
-		if not anim:
-			push_warning("[BakeAnimations] Could not extract animation from '%s'" % fbx_path)
-			continue
-
-		var anim_copy := anim.duplicate() as Animation
-		_strip_root_motion(anim_copy)
-
-		if should_loop:
-			anim_copy.loop_mode = Animation.LOOP_LINEAR
-		else:
-			anim_copy.loop_mode = Animation.LOOP_NONE
-
-		var err := library.add_animation(anim_name, anim_copy)
-		if err != OK:
-			push_warning("[BakeAnimations] Failed to add '%s': error %d" % [anim_name, err])
-			continue
-
-		count += 1
-		print(
-			(
-				"[BakeAnimations]   Baked: %s (%.2fs, %s)"
-				% [
-					anim_name,
-					anim_copy.length,
-					"loop" if should_loop else "once",
-				]
-			)
-		)
-
-	# Save the library
 	var err := ResourceSaver.save(library, OUTPUT_PATH)
 	if err != OK:
 		push_error("[BakeAnimations] Failed to save library: error %d" % err)
 		return
-
 	print("[BakeAnimations] Done! Saved %d animations to %s" % [count, OUTPUT_PATH])
+
+
+func _bake_single_anim(library: AnimationLibrary, anim_name: String, entry: Dictionary) -> bool:
+	var fbx_path: String = entry.get("fbx", "")
+	var should_loop: bool = entry.get("loop", false)
+
+	if fbx_path == "":
+		push_warning("[BakeAnimations] Skipping '%s' — no fbx path" % anim_name)
+		return false
+
+	var anim := _extract_animation(fbx_path)
+	if not anim:
+		push_warning("[BakeAnimations] Could not extract animation from '%s'" % fbx_path)
+		return false
+
+	var anim_copy := anim.duplicate() as Animation
+	_strip_root_motion(anim_copy)
+	anim_copy.loop_mode = Animation.LOOP_LINEAR if should_loop else Animation.LOOP_NONE
+
+	var err := library.add_animation(anim_name, anim_copy)
+	if err != OK:
+		push_warning("[BakeAnimations] Failed to add '%s': error %d" % [anim_name, err])
+		return false
+
+	print(
+		(
+			"[BakeAnimations]   Baked: %s (%.2fs, %s)"
+			% [anim_name, anim_copy.length, "loop" if should_loop else "once"]
+		)
+	)
+	return true
 
 
 ## Extract the first real animation from an FBX file.

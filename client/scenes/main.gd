@@ -42,174 +42,9 @@ const CLASS_SCENES := {
 	"blade_dancer": "res://scenes/controllers/blade_dancer/blade_dancer.tscn",
 	"arcanotechnicien": "res://scenes/controllers/arcanotechnicien/arcanotechnicien.tscn",
 }
-const CLASS_INFO := {
-	"gunner":
-	{
-		"name": "Gunner",
-		"genre": "FPS",
-		"desc": "Fast movement, high fire rate.\nRelentless aggression."
-	},
-	"vanguard":
-	{
-		"name": "Vanguard",
-		"genre": "Souls-like",
-		"desc": "Big AoE swings, punish windows.\nHeavy and deliberate."
-	},
-	"blade_dancer":
-	{
-		"name": "Blade Dancer",
-		"genre": "State Machine",
-		"desc": "5 configurations, 4 abilities each.\nHighest skill ceiling."
-	},
-	"arcanotechnicien":
-	{
-		"name": "Arcanotechnicien",
-		"genre": "Tactical Caster",
-		"desc": "6 prepared abilities, Flux channeling.\nPosition, channel, protect."
-	},
-}
-const SPEC_INFO := {
-	"gunner":
-	[
-		{
-			"id": "assault",
-			"name": "Assault",
-			"role": "DPS",
-			"target": "Monotarget",
-			"damage": "Constant",
-			"desc":
-			"High fire rate, aggressive repositioning.\nRelentless aggression with movement mastery.",
-			"mastery": "Pressure — consecutive hits stack damage (max 10). Resets on miss or swap.",
-			"implemented": true
-		},
-		{
-			"id": "marksman",
-			"name": "Marksman",
-			"role": "DPS",
-			"target": "Monotarget",
-			"damage": "Burst",
-			"desc": "Slow, deliberate, perfect shots.\nSniper Elite — hold breath, one shot.",
-			"mastery": "Patience — next shot bonus scales with time since last shot (caps 5s).",
-			"implemented": false
-		},
-		{
-			"id": "chasseur",
-			"name": "Chasseur",
-			"role": "DPS",
-			"target": "AoE",
-			"damage": "Burst",
-			"desc": "Grenades, EMP, area denial.\nRainbow Six tactical disruption.",
-			"mastery": "Quarry — disrupting a target's ability grants a damage bonus window.",
-			"implemented": false
-		},
-	],
-	"vanguard":
-	[
-		{
-			"id": "blade",
-			"name": "Blade",
-			"role": "DPS",
-			"target": "AoE",
-			"damage": "Burst",
-			"desc":
-			"Blade swirl, ground slam, commit-to-cleave.\nAoE burst damage, Dynasty Warriors meets Dark Souls.",
-			"mastery": "Onslaught — successive hits without taking damage stack bonus damage.",
-			"implemented": true
-		},
-		{
-			"id": "shield",
-			"name": "Shield",
-			"role": "Tank",
-			"target": "",
-			"damage": "",
-			"desc":
-			"Directional block, absorbs for allies.\nMonster Hunter lance — slow, unbreakable.",
-			"mastery": "Devotion — absorb ally damage, charges your next ability.",
-			"implemented": true
-		},
-		{
-			"id": "shadow",
-			"name": "Shadow",
-			"role": "DPS",
-			"target": "Monotarget",
-			"damage": "Constant",
-			"desc":
-			"Counters, flanking, sustained stealth pressure.\nSekiro — dodge, punish, repeat.",
-			"mastery": "Afterimage — dodging an attack grants bonus damage on next hit.",
-			"implemented": false
-		},
-	],
-	"blade_dancer":
-	[
-		{
-			"id": "multi_blade",
-			"name": "Multi Blade",
-			"role": "DPS",
-			"target": "AoE",
-			"damage": "Constant",
-			"desc":
-			"4-6 blades, scattered multi-target sustained.\nFlowing between 5 configurations.",
-			"mastery": "Flow — unique config transitions extend and amplify the chain.",
-			"implemented": true
-		},
-		{
-			"id": "dual_blade",
-			"name": "Dual Blade",
-			"role": "DPS",
-			"target": "Monotarget",
-			"damage": "Burst",
-			"desc":
-			"2 blades, separate GCDs, piano burst combos.\nHighest skill ceiling in the game.",
-			"mastery": "Convergence — staying in one config builds energy for a burst.",
-			"implemented": false
-		},
-	],
-	"arcanotechnicien":
-	[
-		{
-			"id": "destroyer",
-			"name": "Destroyer",
-			"role": "DPS",
-			"target": "AoE",
-			"damage": "Burst",
-			"desc":
-			"Massive AoE burst. Long channels, Overcharge risk/reward.\nGlass cannon with devastating abilities.",
-			"mastery":
-			"Overcharge — hold past completion for bonus damage. Miss the window, suffer backlash.",
-			"implemented": false
-		},
-		{
-			"id": "battlemage",
-			"name": "Battlemage",
-			"role": "DPS",
-			"target": "Monotarget",
-			"damage": "Constant",
-			"desc":
-			"Melee-range hybrid. Alternate strikes and abilities.\nWarrior-mage in constant motion.",
-			"mastery":
-			"Weave — alternating weapon strikes and abilities stacks damage bonus (max 8).",
-			"implemented": false
-		},
-		{
-			"id": "harmonist",
-			"name": "Harmonist",
-			"role": "Healer",
-			"target": "Ally",
-			"damage": "",
-			"desc":
-			"Flux-based positional healer. Zone, Beam, Direct.\nRedistribute life force, not whack-a-mole.",
-			"mastery":
-			"Harmony — cycling delivery methods (Zone/Beam/Direct) triggers bonus heals.",
-			"implemented": true
-		},
-	],
-}
-const DEFAULT_SPECS := {
-	"gunner": "assault",
-	"vanguard": "blade",
-	"blade_dancer": "multi_blade",
-	"arcanotechnicien": "harmonist",
-}
+const CLASS_INFO := SpecData.CLASS_INFO
+const SPEC_INFO := SpecData.SPEC_INFO
+const DEFAULT_SPECS := SpecData.DEFAULT_SPECS
 const SERVER_ADDRESS := "90.29.26.144"
 const USERNAME_SAVE_PATH := "user://username.txt"
 const UI_SURFACE := Color(0.035, 0.045, 0.065, 0.88)
@@ -225,12 +60,6 @@ const UI_DANGER := Color(0.86, 0.28, 0.28, 0.96)
 var state: GameState = GameState.MENU
 var paused: bool = false
 var dev_mode: bool = false
-var _debug_panel: CanvasLayer = null
-var _bot_panel: CanvasLayer = null
-var _server_pid: int = -1
-var _dev_class: String = "gunner"
-var _dev_zone: String = "arena"
-var _dev_connected: bool = false
 var _local_class: String = "gunner":
 	set(value):
 		_local_class = value
@@ -246,8 +75,6 @@ var _player_names: Dictionary = {}  # peer_id -> username
 var _cursor_toggled: bool = false  # backtick toggle state
 var _alt_held: bool = false  # alt hold state
 var _local_player_dead: bool = false
-var _replay_browser: CanvasLayer = null
-var _replay_scene: Node3D = null
 var _char_list_data: Dictionary = {}
 var _selected_char_id: int = 0
 var _account_username: String = ""
@@ -297,6 +124,10 @@ var _portal_trail: Node3D:
 @onready var group_mgr: Node = $GroupManager
 @onready var env_builder: Node = $EnvironmentBuilder
 @onready var ui_ctrl: Node = $UIController
+@onready var game_flow: Node = $GameFlowManager
+@onready var dev_mgr: Node = $DevModeManager
+@onready var replay_mgr: Node = $ReplayManager
+@onready var char_mgr: Node = $CharacterManager
 # UI scenes (static instances in main.tscn)
 @onready var _pause_layer: CanvasLayer = $PauseMenu
 @onready var _menu_layer: CanvasLayer = $MenuUI
@@ -314,7 +145,33 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	InventoryManager.current_class = _local_class
 
-	# Resolve inner UI element references from static scenes
+	_init_ui_references()
+	_connect_ui_signals()
+
+	# Load saved username
+	var saved: String = char_mgr.load_saved_username()
+	if saved != "":
+		_username = saved
+		_username_input.visible = false
+		_menu_welcome_label.text = "Welcome back, %s" % saved
+		_menu_welcome_label.visible = true
+
+	_shared_hud.set_player_names(_player_names)
+	_connect_network_signals()
+
+	# Dev mode: --dev CLI arg enables debug panel + auto-start server
+	var user_args := OS.get_cmdline_user_args()
+	if "--dev" in OS.get_cmdline_args() or "--dev" in user_args:
+		dev_mode = true
+		dev_mgr.initialize(user_args)
+
+	if dev_mode:
+		dev_mgr.dev_auto_start()
+	else:
+		_enter_menu()
+
+
+func _init_ui_references() -> void:
 	_username_input = _menu_layer.username_input
 	_menu_welcome_label = _menu_layer.welcome_label
 	_char_list_container = _char_select_layer.char_list_container
@@ -338,7 +195,8 @@ func _ready() -> void:
 	_respawn_btn = _death_overlay_layer.respawn_btn
 	_respawn_hub_btn = _death_overlay_layer.respawn_hub_btn
 
-	# Connect UI signals
+
+func _connect_ui_signals() -> void:
 	_pause_layer.resume_btn.pressed.connect(_toggle_pause)
 	_pause_layer.menu_btn.pressed.connect(
 		func():
@@ -348,87 +206,48 @@ func _ready() -> void:
 			_enter_menu()
 	)
 	_pause_layer.quit_btn.pressed.connect(func(): get_tree().quit())
-	_menu_layer.play_btn.pressed.connect(_on_connect_pressed)
-	_menu_layer.replays_btn.pressed.connect(_enter_replay_browser)
+	_menu_layer.play_btn.pressed.connect(char_mgr.on_connect_pressed)
+	_menu_layer.replays_btn.pressed.connect(replay_mgr.enter_replay_browser)
 	_char_select_layer.back_btn.pressed.connect(
 		func():
 			NetworkManager.disconnect_game()
 			_enter_menu()
 	)
-	_char_select_layer.create_btn.pressed.connect(_enter_create_character)
-	_enter_world_btn.pressed.connect(_on_enter_world_pressed)
+	_char_select_layer.create_btn.pressed.connect(char_mgr.enter_create_character)
+	_enter_world_btn.pressed.connect(char_mgr.on_enter_world_pressed)
 	_char_create_layer.back_btn.pressed.connect(
 		func():
 			_char_create_layer.visible = false
-			_enter_character_select()
+			char_mgr.enter_character_select()
 	)
-	_char_create_btn.pressed.connect(_on_create_character_pressed)
+	_char_create_btn.pressed.connect(char_mgr.on_create_character_pressed)
 	_group_leave_btn.pressed.connect(func(): NetworkManager.send_group_leave())
 	_invite_popup.accept_btn.pressed.connect(group_mgr.accept_invite)
 	_invite_popup.decline_btn.pressed.connect(group_mgr.decline_invite)
-	_respawn_btn.pressed.connect(_on_respawn)
-	_respawn_hub_btn.pressed.connect(_on_respawn_hub)
-	# inventory keybinds handled in _input()
-	_inventory_layer.toolbar_panel.spec_pressed.connect(_toggle_spec_panel)
+	_respawn_btn.pressed.connect(game_flow.on_respawn)
+	_respawn_hub_btn.pressed.connect(game_flow.on_respawn_hub)
+	_inventory_layer.toolbar_panel.spec_pressed.connect(char_mgr.toggle_spec_panel)
 	_inventory_layer.toolbar_panel.equip_pressed.connect(_toggle_equip_panel)
 	_inventory_layer.toolbar_panel.bag_pressed.connect(_toggle_bag_panel)
-	# spec panel
-	_spec_panel.spec_selected.connect(_on_spec_selected)
+	_spec_panel.spec_selected.connect(char_mgr.on_spec_selected)
 	_spec_panel.closed.connect(_update_cursor_mode)
 	_spec_panel.closed.connect(_sync_toolbar_active)
 
-	# Load saved username
-	var saved: String = _load_saved_username()
-	if saved != "":
-		_username = saved
-		_username_input.visible = false
-		_menu_welcome_label.text = "Welcome back, %s" % saved
-		_menu_welcome_label.visible = true
 
-	# Set player names on shared HUD
-	_shared_hud.set_player_names(_player_names)
-
-	# Connect network signals
-	NetworkManager.player_disconnected.connect(_on_net_player_disconnected)
-	NetworkManager.connection_succeeded.connect(_on_net_connected)
-	NetworkManager.connection_failed.connect(_on_net_connection_failed)
-	# Server-authoritative signals
-	NetworkManager.game_flow_event.connect(_on_game_flow_event)
+func _connect_network_signals() -> void:
+	NetworkManager.player_disconnected.connect(char_mgr.on_net_player_disconnected)
+	NetworkManager.connection_succeeded.connect(char_mgr.on_net_connected)
+	NetworkManager.connection_failed.connect(char_mgr.on_net_connection_failed)
+	NetworkManager.game_flow_event.connect(game_flow.on_game_flow_event)
 	NetworkManager.world_state_received.connect(world_sync.on_world_state)
 	NetworkManager.damage_event_received.connect(world_sync.on_damage_event)
-	NetworkManager.zone_transfer_received.connect(_on_zone_transfer)
+	NetworkManager.zone_transfer_received.connect(game_flow.on_zone_transfer)
 	NetworkManager.group_state_updated.connect(group_mgr.on_group_state)
 	NetworkManager.group_invite_received.connect(group_mgr.on_group_invite)
 	NetworkManager.group_error_received.connect(group_mgr.on_group_error)
-	NetworkManager.character_state_received.connect(_on_character_state)
-	NetworkManager.character_list_received.connect(_on_character_list)
-	NetworkManager.character_error_received.connect(_on_character_error)
-
-	# Dev mode: --dev CLI arg enables debug panel + auto-start server
-	var user_args := OS.get_cmdline_user_args()
-	if "--dev" in OS.get_cmdline_args() or "--dev" in user_args:
-		dev_mode = true
-		# Parse optional --class=X and --zone=X overrides
-		for arg in user_args:
-			if arg.begins_with("--class="):
-				_dev_class = arg.split("=")[1]
-			elif arg.begins_with("--zone="):
-				_dev_zone = arg.split("=")[1]
-		# Load editor config (CLI args take priority, already parsed above)
-		_load_dev_config()
-		var DebugPanelScript := preload("res://scenes/ui/debug_panel.gd")
-		_debug_panel = DebugPanelScript.new()
-		add_child(_debug_panel)
-		var BotPanelScript := preload("res://scenes/ui/bot_panel.gd")
-		_bot_panel = BotPanelScript.new()
-		_bot_panel.closed.connect(_update_cursor_mode)
-		add_child(_bot_panel)
-		print("[Main] Dev mode enabled — class=%s zone=%s" % [_dev_class, _dev_zone])
-
-	if dev_mode:
-		_dev_auto_start()
-	else:
-		_enter_menu()
+	NetworkManager.character_state_received.connect(char_mgr.on_character_state)
+	NetworkManager.character_list_received.connect(char_mgr.on_character_list)
+	NetworkManager.character_error_received.connect(char_mgr.on_character_error)
 
 
 func _input(event: InputEvent) -> void:
@@ -444,111 +263,111 @@ func _input(event: InputEvent) -> void:
 		_toggle_pause()
 		get_viewport().set_input_as_handled()
 
-	# Cursor mode: Alt (hold) + backtick/tilde (toggle)
-	if (
-		not paused
-		and (
-			state == GameState.FIGHT
-			or state == GameState.FIGHT_OVER
-			or state == GameState.HUB
-			or state == GameState.ARENA_LOBBY
-		)
-	):
-		if event is InputEventKey:
-			# Backtick toggle
-			if event.physical_keycode == KEY_QUOTELEFT and event.pressed and not event.echo:
-				_cursor_toggled = not _cursor_toggled
-				_update_cursor_mode()
-				get_viewport().set_input_as_handled()
-			# Alt hold
-			elif event.keycode == KEY_ALT:
-				_alt_held = event.pressed
-				_update_cursor_mode()
+	_handle_cursor_input(event)
+	_handle_debug_input(event)
+	_handle_menu_input(event)
+	_handle_gameplay_input(event)
 
-	# Debug panel toggle: Ctrl+D
-	if _debug_panel and event is InputEventKey and event.pressed and not event.echo:
+
+func _handle_cursor_input(event: InputEvent) -> void:
+	if paused:
+		return
+	if state not in [GameState.FIGHT, GameState.FIGHT_OVER, GameState.HUB, GameState.ARENA_LOBBY]:
+		return
+	if not event is InputEventKey:
+		return
+	if event.physical_keycode == KEY_QUOTELEFT and event.pressed and not event.echo:
+		_cursor_toggled = not _cursor_toggled
+		_update_cursor_mode()
+		get_viewport().set_input_as_handled()
+	elif event.keycode == KEY_ALT:
+		_alt_held = event.pressed
+		_update_cursor_mode()
+
+
+func _handle_debug_input(event: InputEvent) -> void:
+	if not dev_mgr.debug_panel:
+		return
+	if event is InputEventKey and event.pressed and not event.echo:
 		if event.ctrl_pressed and event.keycode == KEY_D:
-			_debug_panel.toggle()
+			dev_mgr.toggle_debug_panel()
 			get_viewport().set_input_as_handled()
 
+
+func _handle_menu_input(event: InputEvent) -> void:
+	if paused or state == GameState.MENU:
+		return
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+
 	# Full map toggle
-	if not paused and state != GameState.MENU:
-		if event is InputEventKey and event.pressed and not event.echo:
-			if event.physical_keycode == KEY_M:
-				if _map_overlay:
-					var my_id: int = NetworkManager.get_my_id()
-					if (
-						my_id in entity_mgr.spawned_players
-						and is_instance_valid(entity_mgr.spawned_players[my_id])
-					):
-						var player: CharacterBody3D = entity_mgr.spawned_players[my_id]
-						_map_overlay._player_pos = player.global_position
-						_map_overlay._player_rot_y = player.rotation.y
-					_map_overlay.toggle()
-					if _map_overlay.visible:
-						# Scan collision geometry from the live scene
-						_map_overlay.scan_environment(env_builder.current_env)
-						_map_overlay._recompute_scale()
-						if env_builder.portal_trail:
-							if (
-								my_id in entity_mgr.spawned_players
-								and is_instance_valid(entity_mgr.spawned_players[my_id])
-							):
-								_map_overlay.set_waypoint_path(
-									env_builder.portal_trail.get_path_to_target(
-										entity_mgr.spawned_players[my_id].global_position
-									)
-								)
-					get_viewport().set_input_as_handled()
+	if event.physical_keycode == KEY_M and _map_overlay:
+		_toggle_map_overlay()
+		get_viewport().set_input_as_handled()
+		return
 
-	# Inventory: I = equipment, B = bag
-	if (
-		not paused
-		and state != GameState.MENU
-		and state != GameState.CHARACTER_SELECT
-		and state != GameState.CREATE_CHARACTER
-	):
-		if event is InputEventKey and event.pressed and not event.echo:
-			if event.physical_keycode == KEY_I:
-				_toggle_equip_panel()
-				get_viewport().set_input_as_handled()
-			elif event.physical_keycode == KEY_B:
-				_toggle_bag_panel()
-				get_viewport().set_input_as_handled()
-			elif event.physical_keycode == KEY_N:
-				_toggle_spec_panel()
-				get_viewport().set_input_as_handled()
+	# Inventory: I = equipment, B = bag, N = spec
+	if state in [GameState.CHARACTER_SELECT, GameState.CREATE_CHARACTER]:
+		return
+	if event.physical_keycode == KEY_I:
+		_toggle_equip_panel()
+		get_viewport().set_input_as_handled()
+	elif event.physical_keycode == KEY_B:
+		_toggle_bag_panel()
+		get_viewport().set_input_as_handled()
+	elif event.physical_keycode == KEY_N:
+		char_mgr.toggle_spec_panel()
+		get_viewport().set_input_as_handled()
 
-	# Hub / arena lobby interactions (portal, lift, invite)
-	if (
-		state in [GameState.HUB, GameState.ARENA_LOBBY, GameState.FIGHT, GameState.FIGHT_OVER]
-		and not paused
-	):
-		if event is InputEventKey and event.pressed:
-			if event.physical_keycode == KEY_E:
-				if hub_interact.near_lift:
-					hub_interact.interact_lift()
-				elif hub_interact.near_portal:
-					NetworkManager.send_enter_portal()
-				elif hub_interact.aimed_peer_id > 0:
-					NetworkManager.send_group_invite(hub_interact.aimed_peer_id)
-			elif event.physical_keycode == KEY_G and event.ctrl_pressed:
-				if dev_mode:
-					_toggle_bot_panel()
-					get_viewport().set_input_as_handled()
-			elif event.physical_keycode == KEY_G and not event.ctrl_pressed:
-				# Toggle group: create if not in group, leave if in group
-				if group_mgr.group_data.get("group_id", 0) > 0:
-					NetworkManager.send_group_leave()
-				else:
-					NetworkManager.send_group_create()
 
-	# Arena exit portal interaction
-	if state == GameState.FIGHT_OVER and not paused:
-		if event is InputEventKey and event.pressed:
-			if event.physical_keycode == KEY_E:
-				if env_builder.is_near_exit_portal():
-					NetworkManager.send_interact(2)  # InteractExitPortal
+func _toggle_map_overlay() -> void:
+	var my_id: int = NetworkManager.get_my_id()
+	if my_id in entity_mgr.spawned_players and is_instance_valid(entity_mgr.spawned_players[my_id]):
+		var player: CharacterBody3D = entity_mgr.spawned_players[my_id]
+		_map_overlay._player_pos = player.global_position
+		_map_overlay._player_rot_y = player.rotation.y
+	_map_overlay.toggle()
+	if _map_overlay.visible:
+		_map_overlay.scan_environment(env_builder.current_env)
+		_map_overlay._recompute_scale()
+		if env_builder.portal_trail:
+			if (
+				my_id in entity_mgr.spawned_players
+				and is_instance_valid(entity_mgr.spawned_players[my_id])
+			):
+				_map_overlay.set_waypoint_path(
+					env_builder.portal_trail.get_path_to_target(
+						entity_mgr.spawned_players[my_id].global_position
+					)
+				)
+
+
+func _handle_gameplay_input(event: InputEvent) -> void:
+	if paused:
+		return
+	if state not in [GameState.HUB, GameState.ARENA_LOBBY, GameState.FIGHT, GameState.FIGHT_OVER]:
+		return
+	if not (event is InputEventKey and event.pressed):
+		return
+
+	if event.physical_keycode == KEY_E:
+		if hub_interact.near_lift:
+			hub_interact.interact_lift()
+		elif hub_interact.near_portal:
+			NetworkManager.send_enter_portal()
+		elif hub_interact.aimed_peer_id > 0:
+			NetworkManager.send_group_invite(hub_interact.aimed_peer_id)
+		elif state == GameState.FIGHT_OVER and env_builder.is_near_exit_portal():
+			NetworkManager.send_interact(2)  # InteractExitPortal
+	elif event.physical_keycode == KEY_G and event.ctrl_pressed:
+		if dev_mode:
+			dev_mgr.toggle_bot_panel()
+			get_viewport().set_input_as_handled()
+	elif event.physical_keycode == KEY_G and not event.ctrl_pressed:
+		if group_mgr.group_data.get("group_id", 0) > 0:
+			NetworkManager.send_group_leave()
+		else:
+			NetworkManager.send_group_create()
 
 
 func _physics_process(_delta: float) -> void:
@@ -562,586 +381,24 @@ func _physics_process(_delta: float) -> void:
 
 
 # =============================================================================
-# Menu
+# Menu / Hub (delegated to game_flow)
 # =============================================================================
 
 
 func _enter_menu() -> void:
-	state = GameState.MENU
-	NetworkManager.disconnect_game()
-	_menu_layer.visible = true
-	_hub_layer.visible = false
-	_char_select_layer.visible = false
-	_char_create_layer.visible = false
-	_pause_layer.visible = false
-	_inventory_layer.equip_panel.visible = false
-	_inventory_layer.bag_panel.visible = false
-	_inventory_layer.toolbar_panel.visible = false
-	_spec_panel.visible = false
-	_sync_toolbar_active()
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-	env_builder.unload_environment()
-	if _enter_world_btn:
-		_enter_world_btn.disabled = false
-	# Show welcome or username input depending on saved state.
-	var saved: String = _load_saved_username()
-	if saved != "":
-		_username = saved
-		_username_input.visible = false
-		_menu_welcome_label.text = "Welcome back, %s" % saved
-		_menu_welcome_label.visible = true
-	else:
-		_username_input.visible = true
-		_menu_welcome_label.visible = false
-
-
-func _on_connect_pressed() -> void:
-	# If no saved username, require input.
-	if _username == "":
-		_username = _username_input.text.strip_edges()
-		if _username == "":
-			_username_input.grab_focus()
-			return
-		_save_username(_username)
-
-	NetworkManager.username = _username
-	NetworkManager.disconnect_game()
-	var err: int = NetworkManager.connect_to_server(SERVER_ADDRESS)
-	if err != OK:
-		print("[Main] Failed to connect: %s" % error_string(err))
-		return
-	print("[Main] Connecting to %s:%d..." % [SERVER_ADDRESS, NetworkManager.DEFAULT_PORT])
-	_menu_layer.visible = false
-
-
-func _load_saved_username() -> String:
-	if not FileAccess.file_exists(USERNAME_SAVE_PATH):
-		return ""
-	var f: FileAccess = FileAccess.open(USERNAME_SAVE_PATH, FileAccess.READ)
-	if f == null:
-		return ""
-	var uname: String = f.get_as_text().strip_edges()
-	f.close()
-	return uname
-
-
-func _save_username(uname: String) -> void:
-	var f: FileAccess = FileAccess.open(USERNAME_SAVE_PATH, FileAccess.WRITE)
-	if f == null:
-		return
-	f.store_string(uname)
-	f.close()
-
-
-# =============================================================================
-# Dev Mode: auto-start server + connect
-# =============================================================================
-
-
-## Load .dev_config.json written by the debug_launcher editor plugin.
-## Only sets values not already overridden by CLI args.
-func _load_dev_config() -> void:
-	var config_path: String = ProjectSettings.globalize_path("res://.dev_config.json")
-	if not FileAccess.file_exists(config_path):
-		return
-	var f: FileAccess = FileAccess.open(config_path, FileAccess.READ)
-	if f == null:
-		return
-	var json := JSON.new()
-	if json.parse(f.get_as_text()) != OK:
-		return
-	var data: Dictionary = json.data
-	# CLI args (already parsed) take priority — only apply config if still default
-	var has_class_arg := false
-	var has_zone_arg := false
-	for arg in OS.get_cmdline_user_args():
-		if arg.begins_with("--class="):
-			has_class_arg = true
-		elif arg.begins_with("--zone="):
-			has_zone_arg = true
-	if not has_class_arg and data.has("class"):
-		_dev_class = data["class"]
-	if not has_zone_arg and data.has("zone"):
-		_dev_zone = data["zone"]
-
-
-## Start the Go gateway server and connect automatically.
-func _dev_auto_start() -> void:
-	_menu_layer.visible = false
-	_local_class = _dev_class
-
-	# Start server subprocess.
-	# Uses bash to cd into server dir, build (cached), then exec the binary
-	# so the PID points directly to the gateway process.
-	var client_dir: String = ProjectSettings.globalize_path("res://").rstrip("/")
-	var project_root: String = client_dir.get_base_dir()
-	var server_dir: String = project_root + "/server"
-	OS.set_environment("CODEX_DEV", "1")
-	OS.set_environment("GOPATH", project_root + "/.go")
-	print("[Main] Starting dev server from %s..." % server_dir)
-	_server_pid = (
-		OS
-		. create_process(
-			"bash",
-			[
-				"-c",
-				"cd '%s' && go build -o bin/gateway ./cmd/gateway && exec bin/gateway" % server_dir,
-			]
-		)
-	)
-	if _server_pid <= 0:
-		push_error("[Main] Failed to start dev server — falling back to menu")
-		_enter_menu()
-		return
-	print("[Main] Dev server started (PID %d)" % _server_pid)
-
-	# Connect with retries (server needs a moment to build + bind)
-	NetworkManager.username = "Dev"
-	NetworkManager.dev_params = {"class": _dev_class, "zone": _dev_zone}
-	await _dev_connect_with_retry()
-
-
-## Retry connecting to the dev server until it's ready.
-## Waits for zone_transfer_received signal which fires when dev auto-join completes.
-func _dev_connect_with_retry() -> void:
-	_dev_connected = false
-	NetworkManager.zone_transfer_received.connect(_on_dev_zone_transfer, CONNECT_ONE_SHOT)
-
-	var max_attempts: int = 40  # 40 * 0.5s = 20s max wait (build + start)
-	for attempt in range(max_attempts):
-		if _dev_connected:
-			print("[Main] Dev server connected on attempt %d" % (attempt + 1))
-			return
-		# Only initiate a new connection if the previous attempt failed.
-		if not NetworkManager.is_active:
-			NetworkManager.connect_to_server("127.0.0.1")
-		await get_tree().create_timer(0.5).timeout
-
-	# Cleanup
-	if NetworkManager.zone_transfer_received.is_connected(_on_dev_zone_transfer):
-		NetworkManager.zone_transfer_received.disconnect(_on_dev_zone_transfer)
-	push_error("[Main] Could not connect to dev server after %d attempts" % max_attempts)
-	_stop_dev_server()
-	_enter_menu()
-
-
-func _on_dev_zone_transfer(_zone_type: int, _peer_id: int) -> void:
-	_dev_connected = true
-
-
-func _stop_dev_server() -> void:
-	if _server_pid > 0:
-		OS.kill(_server_pid)
-		print("[Main] Dev server stopped (PID %d)" % _server_pid)
-		_server_pid = -1
-
-
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_CLOSE_REQUEST:
-		_stop_dev_server()
-
-
-func _exit_tree() -> void:
-	_stop_dev_server()
-
-
-# =============================================================================
-# Replay System
-# =============================================================================
-
-
-func _enter_replay_browser() -> void:
-	state = GameState.REPLAY_BROWSER
-	_menu_layer.visible = false
-
-	var browser_script: GDScript = load("res://scripts/replay/replay_browser.gd")
-	_replay_browser = CanvasLayer.new()
-	_replay_browser.set_script(browser_script)
-	add_child(_replay_browser)
-	_replay_browser.replay_selected.connect(_on_replay_selected)
-	_replay_browser.browser_closed.connect(_on_browser_closed)
-
-
-func _on_replay_selected(replay: Variant) -> void:
-	# Clean up browser
-	if _replay_browser:
-		_replay_browser.queue_free()
-		_replay_browser = null
-
-	state = GameState.REPLAY
-
-	# Create replay scene
-	var scene_script: GDScript = load("res://scripts/replay/replay_scene.gd")
-	_replay_scene = Node3D.new()
-	_replay_scene.set_script(scene_script)
-	add_child(_replay_scene)
-	_replay_scene.replay_exited.connect(_on_replay_exited)
-	_replay_scene.start_replay(replay)
-
-
-func _on_browser_closed() -> void:
-	if _replay_browser:
-		_replay_browser.queue_free()
-		_replay_browser = null
-	state = GameState.MENU
-	_menu_layer.visible = true
-
-
-func _on_replay_exited() -> void:
-	if _replay_scene:
-		_replay_scene.queue_free()
-		_replay_scene = null
-	state = GameState.MENU
-	_menu_layer.visible = true
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-
-
-# =============================================================================
-# Character state callbacks
-# =============================================================================
-
-
-func _on_character_state(data: Dictionary) -> void:
-	# Server confirmed character selection. Restore position and enter hub.
-	_selected_char_id = data.get("char_id", 0)
-	if data.class_name != "":
-		_local_class = data.class_name
-	if data.position != Vector3.ZERO:
-		_saved_hub_position = data.position
-		_saved_hub_rot_y = data.rot_y
-		_has_saved_state = true
-	print(
-		(
-			"[Main] Character confirmed: id=%d class=%s name=%s pos=%s"
-			% [_selected_char_id, _local_class, data.get("char_name", ""), _saved_hub_position]
-		)
-	)
-
-
-func _on_character_list(data: Dictionary) -> void:
-	_char_list_data = data
-	_account_username = data.get("username", "")
-	var last_id: int = data.get("last_char_id", 0)
-	_selected_char_id = last_id
-	# Set local class from the last played character.
-	for ch in data.get("characters", []):
-		if ch.char_id == last_id:
-			_local_class = ch.class_name
-			break
-	print(
-		(
-			"[Main] Character list: %d characters, username=%s"
-			% [data.characters.size(), _account_username]
-		)
-	)
-	_enter_character_select()
-
-
-func _on_character_error(data: Dictionary) -> void:
-	print("[Main] Character error: %s" % data.message)
-	if _char_create_error_label:
-		_char_create_error_label.text = data.message
-		_char_create_error_label.visible = true
-	if _char_create_btn:
-		_char_create_btn.disabled = false
-
-
-func _on_net_connected() -> void:
-	if state == GameState.CHARACTER_SELECT or state == GameState.CREATE_CHARACTER:
-		# ZoneJoined after character selection/creation — enter hub
-		print("[Main] Joined hub as peer %d" % NetworkManager.get_my_id())
-		_enter_hub()
-	else:
-		print("[Main] Connected, waiting for character list...")
-
-
-func _on_net_connection_failed() -> void:
-	print("[Main] Connection failed")
-	_enter_menu()
-
-
-func _on_net_player_disconnected(peer_id: int) -> void:
-	print("[Main] Peer %d disconnected" % peer_id)
-	if peer_id in entity_mgr.spawned_players:
-		var player: CharacterBody3D = entity_mgr.spawned_players[peer_id]
-		if is_instance_valid(player):
-			player.queue_free()
-		entity_mgr.spawned_players.erase(peer_id)
-
-
-# =============================================================================
-# Hub
-# =============================================================================
+	game_flow.enter_menu()
 
 
 func _show_portal_prompt_only() -> void:
-	_hub_layer.visible = true
-	_hub_class_label.visible = false
-	_hub_status_label.visible = false
-	if _lift_prompt:
-		_lift_prompt.visible = false
-	_group_panel.visible = false
-	_portal_prompt.visible = false
-	hub_interact.near_portal = false
+	game_flow.show_portal_prompt_only()
 
 
 func _enter_hub() -> void:
-	state = GameState.HUB
-	get_tree().paused = false
-	paused = false
-	_pause_layer.visible = false
-	_menu_layer.visible = false
-	_char_select_layer.visible = false
-	_char_create_layer.visible = false
-	_hub_layer.visible = true
-	_inventory_layer.toolbar_panel.visible = true
-	if not _is_cursor_always_visible_class():
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-	else:
-		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-	hub_interact.near_portal = false
-	_portal_prompt.visible = false
-	hub_interact.near_lift = false
-	if _lift_prompt:
-		_lift_prompt.visible = false
-
-	# Load hub scene if not already loaded
-	if env_builder.current_env == null or env_builder.current_env.name != "Hub":
-		env_builder.unload_environment()
-		env_builder.load_environment(HUB_SCENE)
-
-	# Despawn existing players
-	entity_mgr.despawn_all_players()
-
-	# Spawn local player in hub (use saved position if returning player)
-	var my_id: int = NetworkManager.get_my_id()
-	if my_id > 0:
-		var spawn_pos: Vector3 = HUB_SPAWNS[0]
-		if _has_saved_state:
-			spawn_pos = _saved_hub_position
-			_has_saved_state = false
-		entity_mgr.spawn_player(my_id, _local_class, spawn_pos, _local_spec)
-		if _saved_hub_rot_y != 0.0:
-			var player: CharacterBody3D = entity_mgr.spawned_players.get(my_id)
-			if player:
-				player.rotation.y = _saved_hub_rot_y
-			_saved_hub_rot_y = 0.0
-
-	hub_interact.update_hub_display()
-	group_mgr.update_group_panel()
-	if _shared_hud:
-		_shared_hud.on_enter_hub()
-	if _map_overlay:
-		_map_overlay.reset_floor()
-	env_builder.create_portal_trail()
+	game_flow.enter_hub()
 
 
 # =============================================================================
-# Arena warmup
-# =============================================================================
-
-
-func _enter_arena_warmup() -> void:
-	state = GameState.ARENA_LOBBY
-	get_tree().paused = false
-	paused = false
-	_pause_layer.visible = false
-	_menu_layer.visible = false
-	env_builder.remove_exit_portal()
-	_show_portal_prompt_only()
-	if _shared_hud:
-		_shared_hud.on_enter_arena()
-	if _map_overlay:
-		_map_overlay.set_floor("arena", "Arena")
-
-	# Load arena scene if not already loaded
-	if env_builder.current_env == null or env_builder.current_env.name != "Arena":
-		env_builder.unload_environment()
-		env_builder.load_environment(ARENA_SCENE)
-
-
-func _select_class(class_name_str: String) -> void:
-	_local_class = class_name_str
-	if NetworkManager.is_active:
-		NetworkManager.set_player_class(class_name_str)
-	hub_interact.update_hub_display()
-
-
-func _toggle_bot_panel() -> void:
-	if _bot_panel != null:
-		_bot_panel.toggle()
-		_update_cursor_mode()
-
-
-func _respawn_bots_after_transfer() -> void:
-	if _bot_panel == null:
-		return
-	var configs: Array = _bot_panel.get_bot_configs()
-	for cfg in configs:
-		NetworkManager.send_debug_spawn_bot(cfg["class"], cfg["spec"])
-
-
-func _toggle_spec_panel() -> void:
-	_spec_panel.set_specs(SPEC_INFO.get(_local_class, []), _local_spec)
-	_spec_panel.toggle()
-	_update_cursor_mode()
-	_sync_toolbar_active()
-
-
-func _on_spec_selected(spec_id: String) -> void:
-	if spec_id == _local_spec:
-		return
-	_local_spec = spec_id
-	if NetworkManager.is_active:
-		NetworkManager.set_player_spec(spec_id)
-	_spec_panel.set_specs(SPEC_INFO.get(_local_class, []), _local_spec)
-	hub_interact.update_hub_display()
-	# Immediately switch the live player's spec (don't wait for server round-trip).
-	var my_id: int = NetworkManager.get_my_id()
-	if my_id in entity_mgr.spawned_players:
-		var player: CharacterBody3D = entity_mgr.spawned_players[my_id]
-		if is_instance_valid(player) and "spec_id" in player:
-			player._switch_spec(spec_id, true)
-
-
-# =============================================================================
-# Spawning
-# =============================================================================
-
-
-func _spawn_multiplayer_players() -> void:
-	var spawn_idx := 0
-	for pid in NetworkManager.player_info:
-		var info: Dictionary = NetworkManager.player_info[pid]
-		var class_name_str: String = info["class_name"]
-		if not CLASS_SCENES.has(class_name_str):
-			push_error("[Main] Unknown class: %s" % class_name_str)
-			continue
-		var spawn_pos: Vector3 = PLAYER_SPAWNS[spawn_idx % PLAYER_SPAWNS.size()]
-		var spec: String = _local_spec if pid == NetworkManager.get_my_id() else ""
-		entity_mgr.spawn_player(pid, class_name_str, spawn_pos, spec)
-		spawn_idx += 1
-
-	if not _is_cursor_always_visible_class():
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-	else:
-		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-
-
-# =============================================================================
-# Fight
-# =============================================================================
-
-
-func _start_fight() -> void:
-	state = GameState.FIGHT
-	_show_portal_prompt_only()
-	_cursor_toggled = false
-	_alt_held = false
-	_inventory_layer.equip_panel.visible = false
-	_inventory_layer.bag_panel.visible = false
-	_sync_toolbar_active()
-
-	# Enemies are managed dynamically via update_enemies from world state
-	CombatLog.start_fight()
-	if _shared_hud:
-		_shared_hud.on_fight_start()
-
-
-func _on_boss_dead() -> void:
-	state = GameState.FIGHT_OVER
-	env_builder.open_boss_gate()
-	env_builder.spawn_exit_portal()
-	if _local_player_dead and _death_overlay_layer.visible:
-		_respawn_btn.disabled = false
-	CombatLog.end_fight("VICTORY")
-	if _shared_hud:
-		_shared_hud.on_fight_end()
-
-
-func _on_all_dead() -> void:
-	state = GameState.FIGHT_OVER
-	env_builder.open_boss_gate()
-	if _local_player_dead and _death_overlay_layer.visible:
-		_respawn_btn.disabled = false
-	CombatLog.end_fight("WIPE")
-	if _shared_hud:
-		_shared_hud.on_fight_end()
-
-
-# =============================================================================
-# Zone transfer
-# =============================================================================
-
-
-func _on_zone_transfer(zone_type: int, _new_peer_id: int) -> void:
-	print("[Main] Zone transfer: type=%d, new_peer=%d" % [zone_type, _new_peer_id])
-	_hide_death_overlay()
-	env_builder.remove_exit_portal()
-	entity_mgr.despawn_all_players()
-	entity_mgr.clear_all_enemies()
-	if _map_overlay:
-		_map_overlay.visible = false
-	_inventory_layer.equip_panel.visible = false
-	_inventory_layer.bag_panel.visible = false
-	_sync_toolbar_active()
-	entity_mgr.clear_all_npcs()
-
-	if zone_type == NetSerializer.ZONE_TYPE_ARENA:
-		env_builder.unload_environment()
-		env_builder.load_environment(ARENA_SCENE)
-		# Spawn local player in warmup room immediately
-		state = GameState.ARENA_LOBBY
-		_show_portal_prompt_only()
-		_menu_layer.visible = false
-		_char_select_layer.visible = false
-		_char_create_layer.visible = false
-		if _shared_hud:
-			_shared_hud.on_enter_arena()
-		if not _is_cursor_always_visible_class():
-			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-		else:
-			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-		var my_id: int = NetworkManager.get_my_id()
-		if my_id > 0:
-			entity_mgr.spawn_player(my_id, _local_class, LOBBY_SPAWN, _local_spec)
-	else:
-		env_builder.unload_environment()
-		env_builder.load_environment(HUB_SCENE)
-		_enter_hub()
-
-	# Re-spawn bots after zone transfer (they are zone-local on the server)
-	_respawn_bots_after_transfer()
-
-
-# =============================================================================
-# Server-authoritative signal handlers
-# =============================================================================
-
-
-func _on_game_flow_event(flow_type: int, _text: String) -> void:
-	match flow_type:
-		NetSerializer.FLOW_SPAWN_PLAYERS:
-			_spawn_multiplayer_players()
-		NetSerializer.FLOW_FIGHT_START:
-			_start_fight()
-		NetSerializer.FLOW_BOSS_DEAD:
-			_on_boss_dead()
-		NetSerializer.FLOW_ALL_DEAD:
-			_on_all_dead()
-		NetSerializer.FLOW_RETURN_LOBBY:
-			_hide_death_overlay()
-			entity_mgr.clear_all_enemies()
-			entity_mgr.clear_all_npcs()
-			_enter_arena_warmup()
-		NetSerializer.FLOW_BOSS_ACTIVATED:
-			env_builder.close_boss_gate()
-		NetSerializer.FLOW_BOSS_RESET:
-			env_builder.open_boss_gate()
-
-
-# =============================================================================
-# Pause
+# Pause / cursor / inventory
 # =============================================================================
 
 
@@ -1173,7 +430,7 @@ func _update_cursor_mode() -> void:
 		return
 	var inv_open: bool = _inventory_layer.equip_panel.visible or _inventory_layer.bag_panel.visible
 	var spec_open: bool = _spec_panel.visible
-	var bot_open: bool = _bot_panel != null and _bot_panel.visible
+	var bot_open: bool = dev_mgr.bot_panel != null and dev_mgr.bot_panel.visible
 	var want_cursor: bool = _cursor_toggled or _alt_held or inv_open or spec_open or bot_open
 	if want_cursor:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
@@ -1206,106 +463,31 @@ func _sync_toolbar_active() -> void:
 
 
 # =============================================================================
-# Character Select logic
-# =============================================================================
-
-
-func _enter_character_select() -> void:
-	state = GameState.CHARACTER_SELECT
-	_menu_layer.visible = false
-	_hub_layer.visible = false
-	_char_create_layer.visible = false
-	_char_select_layer.visible = true
-	_inventory_layer.toolbar_panel.visible = false
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-	ui_ctrl.populate_char_select()
-
-
-func _select_character_row(char_id: int, class_name_str: String) -> void:
-	_selected_char_id = char_id
-	_local_class = class_name_str
-	# Update row highlights.
-	for row in _char_list_container.get_children():
-		if row is PanelContainer and row.has_meta("char_id"):
-			if row.get_meta("char_id") == char_id:
-				row.add_theme_stylebox_override("panel", row.get_meta("selected_style"))
-			else:
-				row.add_theme_stylebox_override("panel", row.get_meta("normal_style"))
-
-
-func _on_enter_world_pressed() -> void:
-	if _selected_char_id == 0:
-		return
-	_enter_world_btn.disabled = true
-	NetworkManager.send_select_character(_selected_char_id)
-
-
-# =============================================================================
-# Create Character logic
-# =============================================================================
-
-
-func _enter_create_character() -> void:
-	state = GameState.CREATE_CHARACTER
-	_char_select_layer.visible = false
-	_char_create_layer.visible = true
-	_inventory_layer.toolbar_panel.visible = false
-	_char_create_error_label.visible = false
-	_char_name_input.text = ""
-	_char_create_btn.disabled = false
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-	# Default select gunner.
-	_select_create_class("gunner")
-
-
-func _select_create_class(cls: String) -> void:
-	_local_class = cls
-	for c_name in _char_create_cards:
-		var card: PanelContainer = _char_create_cards[c_name]
-		if c_name == cls:
-			card.add_theme_stylebox_override("panel", card.get_meta("selected_style"))
-		else:
-			card.add_theme_stylebox_override("panel", card.get_meta("normal_style"))
-
-
-func _on_create_character_pressed() -> void:
-	var char_name: String = _char_name_input.text.strip_edges()
-	if char_name.length() < 2 or char_name.length() > 20:
-		_char_create_error_label.text = "Name must be 2-20 characters."
-		_char_create_error_label.visible = true
-		return
-	_char_create_error_label.visible = false
-	_char_create_btn.disabled = true
-	NetworkManager.send_create_character(_local_class, char_name)
-
-
-# =============================================================================
-# Death overlay
+# Delegate wrappers (called externally via ctrl.XXX)
 # =============================================================================
 
 
 func _on_local_player_died() -> void:
-	_local_player_dead = true
-	_death_overlay_layer.visible = true
-	_respawn_btn.disabled = (state == GameState.FIGHT)
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	game_flow.on_local_player_died()
 
 
-func _on_respawn() -> void:
-	NetworkManager.send_respawn_request(0)
-	_hide_death_overlay()
-	if not _is_cursor_always_visible_class():
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-	else:
-		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+func _select_character_row(char_id: int, class_name_str: String) -> void:
+	char_mgr.select_character_row(char_id, class_name_str)
 
 
-func _on_respawn_hub() -> void:
-	NetworkManager.send_respawn_request(1)
-	_hide_death_overlay()
+func _select_create_class(cls: String) -> void:
+	char_mgr.select_create_class(cls)
 
 
-func _hide_death_overlay() -> void:
-	_local_player_dead = false
-	_death_overlay_layer.visible = false
-	_respawn_btn.disabled = true
+# =============================================================================
+# Lifecycle
+# =============================================================================
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		dev_mgr.stop_dev_server()
+
+
+func _exit_tree() -> void:
+	dev_mgr.stop_dev_server()

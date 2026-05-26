@@ -79,6 +79,25 @@ func update_blade_visual(delta: float) -> void:
 	_blade_spin += delta * 2.0
 	_blade_orbit_angle += 120.0 * delta
 
+	var result: Array = _compute_formation_targets()
+	var targets: Array[Vector3] = result[0]
+	var target_rots: Array[float] = result[1]
+	var mat: StandardMaterial3D = result[2]
+	var lerp_speed: float = result[3]
+
+	for i in _blade_nodes.size():
+		if i >= targets.size():
+			break
+		_blade_nodes[i].position = _blade_nodes[i].position.lerp(targets[i], lerp_speed * delta)
+		_blade_nodes[i].rotation.y = lerp_angle(
+			_blade_nodes[i].rotation.y, target_rots[i], lerp_speed * delta
+		)
+		_blade_nodes[i].rotation.x = sin(_blade_spin + i * 2.0) * 0.15
+		_apply_blade_material(_blade_nodes[i], mat)
+
+
+## Returns [targets, target_rots, material, lerp_speed] for the current state.
+func _compute_formation_targets() -> Array:
 	var targets: Array[Vector3] = []
 	var target_rots: Array[float] = []
 	var mat: StandardMaterial3D
@@ -86,32 +105,11 @@ func update_blade_visual(delta: float) -> void:
 
 	match ctrl.state:
 		ctrl.State.CASTING:
-			# During committing, blend toward destination config formation
-			var dest_cfg: int = ctrl._committing_ability.get("dest", ctrl.Config.ORBIT)
-			mat = get_config_material(dest_cfg)
+			var casting_result := _compute_casting_formation()
+			targets = casting_result[0]
+			target_rots = casting_result[1]
+			mat = casting_result[2]
 			lerp_speed = 20.0
-			var dur: float = ctrl._committing_ability.get("dur", 0.4)
-			var progress: float = 1.0 - (ctrl._cast_timer / dur) if dur > 0.0 else 1.0
-			progress = clampf(progress, 0.0, 1.0)
-
-			# Sweep blades forward during first half, settle into dest formation second half
-			if progress < 0.5:
-				var sweep: float = progress * 2.0  # 0->1 in first half
-				var sweep_angle: float = lerpf(-60.0, 60.0, sweep)
-				for i in _blade_nodes.size():
-					var a: float = deg_to_rad(sweep_angle + (i - 2.5) * 12.0)
-					var r: float = 1.8
-					targets.append(Vector3(sin(a) * r, 0.9, -cos(a) * r))
-					target_rots.append(a)
-			else:
-				var settle: float = (progress - 0.5) * 2.0  # 0->1 in second half
-				var dest_targets: Array[Vector3] = _get_formation_positions(dest_cfg)
-				var dest_rots: Array[float] = _get_formation_rotations(dest_cfg)
-				for i in _blade_nodes.size():
-					var sweep_a: float = deg_to_rad(60.0 + (i - 2.5) * 12.0)
-					var sweep_pos := Vector3(sin(sweep_a) * 1.8, 0.9, -cos(sweep_a) * 1.8)
-					targets.append(sweep_pos.lerp(dest_targets[i], settle))
-					target_rots.append(lerp_angle(sweep_a, dest_rots[i], settle))
 
 		ctrl.State.DASH:
 			mat = get_config_material(ctrl.config)
@@ -127,15 +125,38 @@ func update_blade_visual(delta: float) -> void:
 			targets = _get_formation_positions(ctrl.config)
 			target_rots = _get_formation_rotations(ctrl.config)
 
-	for i in _blade_nodes.size():
-		if i >= targets.size():
-			break
-		_blade_nodes[i].position = _blade_nodes[i].position.lerp(targets[i], lerp_speed * delta)
-		_blade_nodes[i].rotation.y = lerp_angle(
-			_blade_nodes[i].rotation.y, target_rots[i], lerp_speed * delta
-		)
-		_blade_nodes[i].rotation.x = sin(_blade_spin + i * 2.0) * 0.15
-		_apply_blade_material(_blade_nodes[i], mat)
+	return [targets, target_rots, mat, lerp_speed]
+
+
+## Compute blade positions during casting: sweep then settle into dest formation.
+func _compute_casting_formation() -> Array:
+	var targets: Array[Vector3] = []
+	var target_rots: Array[float] = []
+	var dest_cfg: int = ctrl._committing_ability.get("dest", ctrl.Config.ORBIT)
+	var mat: StandardMaterial3D = get_config_material(dest_cfg)
+	var dur: float = ctrl._committing_ability.get("dur", 0.4)
+	var progress: float = 1.0 - (ctrl._cast_timer / dur) if dur > 0.0 else 1.0
+	progress = clampf(progress, 0.0, 1.0)
+
+	if progress < 0.5:
+		var sweep: float = progress * 2.0  # 0->1 in first half
+		var sweep_angle: float = lerpf(-60.0, 60.0, sweep)
+		for i in _blade_nodes.size():
+			var a: float = deg_to_rad(sweep_angle + (i - 2.5) * 12.0)
+			var r: float = 1.8
+			targets.append(Vector3(sin(a) * r, 0.9, -cos(a) * r))
+			target_rots.append(a)
+	else:
+		var settle: float = (progress - 0.5) * 2.0  # 0->1 in second half
+		var dest_targets: Array[Vector3] = _get_formation_positions(dest_cfg)
+		var dest_rots: Array[float] = _get_formation_rotations(dest_cfg)
+		for i in _blade_nodes.size():
+			var sweep_a: float = deg_to_rad(60.0 + (i - 2.5) * 12.0)
+			var sweep_pos := Vector3(sin(sweep_a) * 1.8, 0.9, -cos(sweep_a) * 1.8)
+			targets.append(sweep_pos.lerp(dest_targets[i], settle))
+			target_rots.append(lerp_angle(sweep_a, dest_rots[i], settle))
+
+	return [targets, target_rots, mat]
 
 
 ## Get idle formation positions for a given config.

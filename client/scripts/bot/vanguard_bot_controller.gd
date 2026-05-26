@@ -44,79 +44,88 @@ func _physics_process(delta: float) -> void:
 	_update_strafe(delta)
 	_release_movement()
 
-	# Let committed states (dodge, stagger) play out
-	if _player.state in [_player.State.DODGE, _player.State.STAGGER]:
-		return
-
-	# Let cleave play out
-	if _player.state == _player.State.CLEAVE:
-		return
-
-	# Let upheaval windup / upheaval / vortex / execution play out
+	# Let committed states play out
 	if (
 		_player.state
 		in [
+			_player.State.DODGE,
+			_player.State.STAGGER,
+			_player.State.CLEAVE,
 			_player.State.UPHEAVAL_WINDUP,
 			_player.State.UPHEAVAL,
 			_player.State.VORTEX,
 			_player.State.EXECUTION_WINDUP,
-			_player.State.EXECUTION
+			_player.State.EXECUTION,
 		]
 	):
 		return
 
 	var melee_range: float = _player.melee_range
+	if _handle_evasion(target, dir, distance, melee_range):
+		return
+	if _handle_offense(target, dir, distance, melee_range):
+		return
+	_handle_positioning(dir, distance, melee_range)
 
+
+func _can_dodge() -> bool:
+	return (
+		_player.stamina >= _player.dodge_stamina_cost
+		and _player.is_on_floor()
+		and _player.state == _player.State.MOVE
+	)
+
+
+func _handle_evasion(target: Node3D, dir: Vector3, distance: float, melee_range: float) -> bool:
+	if _handle_telegraph_dodge(target, dir, distance, melee_range):
+		return true
+	return _handle_reactive_defense(target, dir, distance, melee_range)
+
+
+func _handle_telegraph_dodge(
+	target: Node3D, dir: Vector3, distance: float, melee_range: float
+) -> bool:
 	# --- Priority 1: Dodge AoE slam telegraph ---
 	if _is_enemy_state(target, "AOE_TELEGRAPH") and distance < 8.0:
-		if (
-			_player.stamina >= _player.dodge_stamina_cost
-			and _player.is_on_floor()
-			and _player.state == _player.State.MOVE
-		):
+		if _can_dodge():
 			_move_away(dir)
 			_player._start_dodge()
-			return
-		if _player.state == _player.State.MOVE:
+		elif _player.state == _player.State.MOVE:
 			_move_away(dir)
 			Input.action_press("sprint")
-			return
+		return true
 
 	# --- Priority 2: Dodge charge telegraph ---
 	if _is_enemy_state(target, "CHARGE_TELEGRAPH"):
-		if (
-			_player.stamina >= _player.dodge_stamina_cost
-			and _player.is_on_floor()
-			and _player.state == _player.State.MOVE
-		):
+		if _can_dodge():
 			_move_strafe(dir)
 			_player._start_dodge()
-			return
-		if _player.state == _player.State.MOVE:
+		elif _player.state == _player.State.MOVE:
 			Input.action_press("block")
-			return
+		return true
 
 	# --- Priority 3: Dodge melee telegraph ---
 	if _is_enemy_state(target, "MELEE_TELEGRAPH") and distance < melee_range * 1.8:
-		if (
-			_player.stamina >= _player.dodge_stamina_cost
-			and _player.is_on_floor()
-			and _player.state == _player.State.MOVE
-		):
+		if _can_dodge():
 			_move_strafe(dir)
 			_player._start_dodge()
-			return
-		if _player.state == _player.State.MOVE:
+		elif _player.state == _player.State.MOVE:
 			Input.action_press("block")
-			return
+		return true
 
 	# --- Priority 4: Strafe during ranged telegraph ---
 	if _is_enemy_state(target, "RANGED_TELEGRAPH"):
 		_move_strafe(dir)
 		if distance > melee_range:
 			_move_toward(dir)
-		return
+		return true
 
+	return false
+
+
+func _handle_reactive_defense(
+	target: Node3D, dir: Vector3, distance: float, melee_range: float
+) -> bool:
 	# --- Priority 5: Block active melee swing or charge ---
 	if (
 		(_is_enemy_state(target, "MELEE_ATTACK") or _is_enemy_state(target, "CHARGE"))
@@ -124,15 +133,19 @@ func _physics_process(delta: float) -> void:
 	):
 		if _player.state == _player.State.MOVE:
 			Input.action_press("block")
-		return
+		return true
 
 	# --- Priority 6: Recover stamina when low ---
 	if _player.stamina < 20.0:
 		if distance < melee_range * 1.5:
 			_move_away(dir)
-		return
+		return true
 
-	# --- Priority 7: Attack when in range (during cooldown, chase, or aoe telegraph) ---
+	return false
+
+
+func _handle_offense(target: Node3D, _dir: Vector3, distance: float, melee_range: float) -> bool:
+	# --- Priority 7: Attack when in range during punish window ---
 	var is_punish_window := (
 		_is_enemy_state(target, "COOLDOWN")
 		or _is_enemy_state(target, "CHASE")
@@ -141,21 +154,23 @@ func _physics_process(delta: float) -> void:
 	)
 	if distance <= melee_range * 0.95 and _player.state == _player.State.MOVE and is_punish_window:
 		if _attack_timer <= 0.0:
-			# Heavy during enemy cooldown (big punish window)
 			if _is_enemy_state(target, "COOLDOWN") and _player.stamina >= _player.UPHEAVAL_STAMINA:
 				_player._start_upheaval()
 				_attack_timer = 1.0
 			elif _player.stamina >= _player.CLEAVE_STAMINA:
 				_player._start_cleave()
 				_attack_timer = 0.15
-		return
+		return true
 
 	# --- Priority 8: Block during enemy ranged attack ---
 	if _is_enemy_state(target, "RANGED_ATTACK") and _player.state == _player.State.MOVE:
 		Input.action_press("block")
-		return
+		return true
 
-	# --- Priority 9: Close distance (always rush in) ---
+	return false
+
+
+func _handle_positioning(dir: Vector3, distance: float, melee_range: float) -> void:
 	if distance > melee_range * 0.7:
 		_move_toward(dir)
 		if distance > melee_range * 1.5:

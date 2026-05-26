@@ -91,7 +91,14 @@ func _rebuild_arcs() -> void:
 		mat.set_shader_parameter("emission_boost", 2.0 + brightness_mult)
 
 		var arc_mesh := _build_arc_mesh(
-			def.radius, def.y, def.height, deg_to_rad(def.arc_deg), 24, mat
+			{
+				radius = def.radius,
+				y_center = def.y,
+				height = def.height,
+				arc_span = deg_to_rad(def.arc_deg),
+				segments = 24,
+			},
+			mat
 		)
 		mesh_inst.mesh = arc_mesh
 
@@ -125,14 +132,12 @@ func _process(delta: float) -> void:
 		_light.light_energy = (1.0 + _current_tier) * (1.0 + sin(_time * 4.0) * 0.2)
 
 
-func _build_arc_mesh(
-	radius: float,
-	y_center: float,
-	height: float,
-	arc_span: float,
-	segments: int,
-	mat: ShaderMaterial,
-) -> ArrayMesh:
+func _build_arc_mesh(arc: Dictionary, mat: ShaderMaterial) -> ArrayMesh:
+	var radius: float = arc.radius
+	var y_center: float = arc.y_center
+	var height: float = arc.height
+	var arc_span: float = arc.arc_span
+	var segments: int = arc.segments
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
 	st.set_material(mat)

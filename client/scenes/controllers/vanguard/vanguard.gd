@@ -96,6 +96,8 @@ const MovementScript := preload("res://scenes/controllers/vanguard/vanguard_move
 const CameraScript := preload("res://scenes/controllers/vanguard/vanguard_camera.gd")
 const AnimScript := preload("res://scenes/controllers/vanguard/vanguard_animation.gd")
 const VfxScript := preload("res://scenes/controllers/vanguard/vfx/vanguard_vfx.gd")
+const RemoteScript := preload("res://scenes/controllers/vanguard/vanguard_remote.gd")
+const HudUpdaterScript := preload("res://scenes/controllers/vanguard/vanguard_hud_updater.gd")
 
 # Movement
 @export var run_speed: float = 5.0
@@ -147,6 +149,8 @@ var movement: Node
 var cam: Node
 var anim: Node
 var vfx: Node
+var remote: Node
+var hud_updater: Node
 
 var spec_id: String = "blade"
 var _spec_grace: float = 0.0  # prevents server revert during client-initiated spec change
@@ -158,37 +162,23 @@ var _is_invincible: bool = false
 var _parry_timer: float = 0.0
 var _stagger_duration: float = 0.3
 
-# Onslaught (Blade) — read from server state
+# Onslaught (Blade) / Devotion (Shield) — read from server state
 var _onslaught_tier: int = 0
 var _onslaught_stacks: int = 0
-
-# Devotion (Shield) — read from server state (same wire bytes as onslaught)
 var _devotion_tier: int = 0
 var _devotion_stacks: int = 0
 
-# Vortex (F) — Blade
+# Ability cooldowns
 var _vortex_cooldown: float = 0.0
-
-# Execution (T) — Blade
 var _execution_cooldown: float = 0.0
-
-# Bull Rush (R) — Shield
 var _bull_rush_cooldown: float = 0.0
-
-# Brace (F) — Shield
 var _brace_cooldown: float = 0.0
-
-# Retaliate (T) — Shield
 var _retaliate_cooldown: float = 0.0
-
-# Shield Block (RMB) — Shield
 var _shield_block_cooldown: float = 0.0
 
-# Camera
+# Camera / Lock-on
 var _camera_yaw: float = 0.0
 var _camera_pitch: float = -0.3
-
-# Lock-on
 var _lock_target: Node3D = null
 var _lock_on_active: bool = false
 
@@ -216,6 +206,8 @@ func _ready() -> void:
 	cam = _add_subsystem("Cam", CameraScript)
 	anim = _add_subsystem("Anim", AnimScript)
 	vfx = _add_subsystem("Vfx", VfxScript)
+	remote = _add_subsystem("Remote", RemoteScript)
+	hud_updater = _add_subsystem("HudUpdater", HudUpdaterScript)
 
 	GameManager.register_player(self)
 	_net_position = global_position
@@ -363,7 +355,7 @@ func _physics_process(delta: float) -> void:
 		var prev_pos := global_position
 		global_position = global_position.move_toward(_net_position, 12.0 * delta)
 		rotation.y = lerp_angle(rotation.y, _net_rotation_y, 8.0 * delta)
-		_drive_remote_animation(prev_pos, delta)
+		remote.drive_remote_animation(prev_pos, delta)
 		return
 
 	if not is_on_floor():
@@ -375,7 +367,27 @@ func _physics_process(delta: float) -> void:
 	anim.update_flash(delta)
 	cam.update_camera()
 	movement.update_stamina(delta)
-	_update_parry(delta)
+	_tick_cooldowns(delta)
+	_process_combat_state(delta)
+
+	move_and_slide()
+	if global_position.y < -250.0:
+		global_position.y = -199.0
+
+	anim.update_animation()
+	anim.update_weapon_visual()
+	_update_lock_on_state()
+
+	hud_updater.update_hud()
+
+	# Send position + visual state to server
+	if NetworkManager.is_active:
+		NetworkManager.send_player_position(global_position, rotation.y, _visual_state)
+
+
+func _tick_cooldowns(delta: float) -> void:
+	if _parry_timer > 0.0:
+		_parry_timer -= delta
 	_block_cooldown = maxf(_block_cooldown - delta, 0.0)
 	_vortex_cooldown = maxf(_vortex_cooldown - delta, 0.0)
 	_execution_cooldown = maxf(_execution_cooldown - delta, 0.0)
@@ -385,12 +397,13 @@ func _physics_process(delta: float) -> void:
 	_retaliate_cooldown = maxf(_retaliate_cooldown - delta, 0.0)
 	_shield_block_cooldown = maxf(_shield_block_cooldown - delta, 0.0)
 
+
+func _process_combat_state(delta: float) -> void:
 	match state:
 		State.MOVE:
 			movement.process_move(delta)
 		State.DODGE:
 			combat.process_dodge(delta)
-		# Blade states
 		State.CLEAVE:
 			combat.process_cleave(delta)
 		State.UPHEAVAL_WINDUP:
@@ -407,7 +420,6 @@ func _physics_process(delta: float) -> void:
 			combat.process_execution_windup(delta)
 		State.EXECUTION:
 			combat.process_execution(delta)
-		# Shield states
 		State.SHIELD_BLOCK:
 			combat.process_shield_block(delta)
 		State.SHIELD_BASH:
@@ -426,12 +438,8 @@ func _physics_process(delta: float) -> void:
 			velocity.x = 0.0
 			velocity.z = 0.0
 
-	move_and_slide()
-	if global_position.y < -250.0:
-		global_position.y = -199.0
 
-	anim.update_animation()
-	anim.update_weapon_visual()
+func _update_lock_on_state() -> void:
 	# Clear lock if target is dead, freed, or hidden
 	if _lock_on_active and _lock_target:
 		if (
@@ -443,215 +451,9 @@ func _physics_process(delta: float) -> void:
 	if _lock_on_active and _lock_target:
 		hud.update_lock_on(_lock_target, camera)
 
-	if spec_id == "shield":
-		hud.update_devotion(_devotion_tier, _devotion_stacks)
-		(
-			hud
-			. update_abilities(
-				[
-					{
-						name = "Shield Bash",
-						keybind = "LMB",
-						desc = "Quick bash. Works during block.",
-						cooldown = 0.0,
-						cooldown_max = 0.0,
-						stamina_cost = SHIELD_BASH_STAMINA
-					},
-					{
-						name = "Shield Block",
-						keybind = "RMB",
-						desc = "Block damage. Drain stamina on hit.",
-						cooldown = _shield_block_cooldown,
-						cooldown_max = SHIELD_BLOCK_COOLDOWN
-					},
-					{
-						name = "Bull Rush",
-						keybind = "R",
-						desc = "Charge forward. AoE at end.",
-						cooldown = _bull_rush_cooldown,
-						cooldown_max = BULL_RUSH_COOLDOWN,
-						stamina_cost = BULL_RUSH_STAMINA
-					},
-					{
-						name = "Dodge",
-						keybind = "C",
-						desc = "I-frame dodge.",
-						cooldown = 0.0,
-						cooldown_max = 0.0,
-						stamina_cost = dodge_stamina_cost
-					},
-					{
-						name = "Brace",
-						keybind = "F",
-						desc = "Plant feet. Reduces stamina drain while blocking.",
-						cooldown = _brace_cooldown,
-						cooldown_max = BRACE_COOLDOWN
-					},
-					{
-						name = "Retaliate",
-						keybind = "T",
-						desc = "Consume Devotion. Massive frontal slam.",
-						cooldown = _retaliate_cooldown,
-						cooldown_max = RETALIATE_COOLDOWN
-					},
-				]
-			)
-		)
-	else:
-		hud.update_onslaught(_onslaught_tier, _onslaught_stacks)
-		var tier_suffix: String = ""
-		if _onslaught_tier == 1:
-			tier_suffix = "+"
-		elif _onslaught_tier == 2:
-			tier_suffix = "++"
-		(
-			hud
-			. update_abilities(
-				[
-					{
-						name = "Cleave" + tier_suffix,
-						keybind = "LMB",
-						desc = "Fast sweep. Arc widens with Onslaught.",
-						cooldown = 0.0,
-						cooldown_max = 0.0,
-						stamina_cost = CLEAVE_STAMINA
-					},
-					{
-						name = "Block",
-						keybind = "RMB",
-						desc = "Parry counter-swing builds Onslaught.",
-						cooldown = _block_cooldown,
-						cooldown_max = 3.0
-					},
-					{
-						name = "Upheaval" + tier_suffix,
-						keybind = "R",
-						desc = "Cone slam. Wider at empowered, DoT at max.",
-						cooldown = 0.0,
-						cooldown_max = 0.0,
-						stamina_cost = UPHEAVAL_STAMINA
-					},
-					{
-						name = "Dodge",
-						keybind = "C",
-						desc = "I-frame dodge. Preserves Onslaught.",
-						cooldown = 0.0,
-						cooldown_max = 0.0,
-						stamina_cost = dodge_stamina_cost
-					},
-					{
-						name = "Vortex" + tier_suffix,
-						keybind = "F",
-						desc = "Forward spin dash. More hits at higher tier.",
-						cooldown = _vortex_cooldown,
-						cooldown_max = VORTEX_COOLDOWN,
-						stamina_cost = VORTEX_STAMINA
-					},
-					{
-						name = "Execution" + tier_suffix,
-						keybind = "T",
-						desc = "Devastating chop. Shockwave at empowered+.",
-						cooldown = _execution_cooldown,
-						cooldown_max = EXECUTION_COOLDOWN,
-						stamina_cost = EXECUTION_STAMINA
-					},
-				]
-			)
-		)
-
-	# Send position + visual state to server
-	if NetworkManager.is_active:
-		NetworkManager.send_player_position(global_position, rotation.y, _visual_state)
-
-
-# --- Parry timer (shared between combat states) ---
-
-
-func _update_parry(delta: float) -> void:
-	if _parry_timer > 0.0:
-		_parry_timer -= delta
-
-
-# --- Damage (server-authoritative) ---
-
 
 func take_damage(_amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
 	pass  # Server handles all damage
-
-
-func _drive_remote_animation(prev_pos: Vector3, delta: float) -> void:
-	var vs_changed: bool = _visual_state != _prev_remote_vs
-
-	# VFX transitions on state change
-	if vs_changed:
-		_drive_remote_vfx(_prev_remote_vs, _visual_state)
-		_prev_remote_vs = _visual_state
-
-	match _visual_state:
-		NetSerializer.VS_DODGE:
-			character_model.travel("dodge")
-		NetSerializer.VS_VG_LIGHT_1:
-			character_model.travel("cleave")
-		NetSerializer.VS_VG_LIGHT_2, NetSerializer.VS_VG_LIGHT_3:
-			character_model.travel("cleave")
-		NetSerializer.VS_VG_HEAVY_WINDUP, NetSerializer.VS_VG_HEAVY:
-			character_model.travel("upheaval")
-		NetSerializer.VS_VG_BLOCK:
-			character_model.travel("block")
-		NetSerializer.VS_VG_STAGGER:
-			character_model.travel("stagger")
-		NetSerializer.VS_VG_VORTEX:
-			character_model.travel("vortex", 2.0)
-		NetSerializer.VS_VG_EXECUTION_WINDUP, NetSerializer.VS_VG_EXECUTION:
-			character_model.travel("execution")
-		NetSerializer.VS_DEAD:
-			character_model.travel("dead")
-		_:  # VS_MOVE or unknown — derive from velocity
-			var vel := (global_position - prev_pos) / delta if delta > 0 else Vector3.ZERO
-			var speed := Vector2(vel.x, vel.z).length()
-			if speed > 0.5:
-				character_model.travel("run", clampf(speed / sprint_speed, 0.5, 1.5))
-			else:
-				character_model.travel("idle")
-
-
-func _drive_remote_vfx(old_vs: int, new_vs: int) -> void:
-	# Stop effects from previous state
-	var attack_states := [
-		NetSerializer.VS_VG_LIGHT_1,
-		NetSerializer.VS_VG_LIGHT_2,
-		NetSerializer.VS_VG_LIGHT_3,
-		NetSerializer.VS_VG_HEAVY_WINDUP,
-		NetSerializer.VS_VG_HEAVY,
-	]
-	if old_vs in attack_states and new_vs not in attack_states:
-		vfx.stop_swing_trail()
-	if old_vs == NetSerializer.VS_VG_BLOCK and new_vs != NetSerializer.VS_VG_BLOCK:
-		if spec_id == "shield":
-			vfx.hide_tower_shield()
-		else:
-			vfx.hide_block_shield()
-	if old_vs == NetSerializer.VS_VG_VORTEX and new_vs != NetSerializer.VS_VG_VORTEX:
-		vfx.stop_vortex()
-
-	# Start effects for new state
-	if new_vs in attack_states and old_vs not in attack_states:
-		vfx.start_swing_trail()
-	if new_vs == NetSerializer.VS_VG_BLOCK and old_vs != NetSerializer.VS_VG_BLOCK:
-		if spec_id == "shield":
-			vfx.show_tower_shield()
-		else:
-			vfx.show_block_shield()
-	if new_vs == NetSerializer.VS_VG_VORTEX and old_vs != NetSerializer.VS_VG_VORTEX:
-		vfx.start_vortex()
-	if new_vs == NetSerializer.VS_VG_EXECUTION and old_vs == NetSerializer.VS_VG_EXECUTION_WINDUP:
-		if spec_id == "shield":
-			vfx.spawn_retaliate_slam(global_position, rotation.y)
-		else:
-			vfx.spawn_execution_shockwave(global_position, rotation.y)
-
-
-# --- State helpers ---
 
 
 func _enter_state(new_state: State) -> void:
@@ -661,9 +463,6 @@ func _enter_state(new_state: State) -> void:
 	state = new_state
 	if "_has_hit_this_attack" in combat:
 		combat._has_hit_this_attack = false
-
-
-# --- Delegate wrappers for test/bot compatibility ---
 
 
 func _consume_stamina(amount: float) -> void:
@@ -694,101 +493,5 @@ func _process_upheaval_windup(delta: float) -> void:
 	combat.process_upheaval_windup(delta)
 
 
-func _process_upheaval(delta: float) -> void:
-	combat.process_upheaval(delta)
-
-
-func _process_block(delta: float) -> void:
-	combat.process_block(delta)
-
-
-func _process_stagger() -> void:
-	combat.process_stagger()
-
-
-func _start_vortex() -> void:
-	combat.start_vortex()
-
-
-func _process_vortex(delta: float) -> void:
-	combat.process_vortex(delta)
-
-
-func _start_execution() -> void:
-	combat.start_execution()
-
-
-func _process_execution_windup(delta: float) -> void:
-	combat.process_execution_windup(delta)
-
-
-func _process_execution(delta: float) -> void:
-	combat.process_execution(delta)
-
-
-func _perform_melee_hit(damage: float) -> void:
-	combat.perform_melee_hit(damage)
-
-
 func _toggle_lock_on() -> void:
 	cam.toggle_lock_on()
-
-
-func _find_lock_target() -> Node3D:
-	return cam.find_lock_target()
-
-
-func _update_camera() -> void:
-	cam.update_camera()
-
-
-func _apply_camera_collision(from: Vector3, to: Vector3) -> Vector3:
-	return cam.apply_camera_collision(from, to)
-
-
-func _nearest_enemy_distance() -> float:
-	return cam.nearest_enemy_distance()
-
-
-func _update_animation() -> void:
-	anim.update_animation()
-
-
-func _update_weapon_visual() -> void:
-	anim.update_weapon_visual()
-
-
-func _show_body_flash() -> void:
-	anim.show_body_flash()
-
-
-func _update_flash(delta: float) -> void:
-	anim.update_flash(delta)
-
-
-func _get_camera_wish_dir() -> Vector3:
-	return movement.get_camera_wish_dir()
-
-
-func _process_move(delta: float) -> void:
-	movement.process_move(delta)
-
-
-func _update_stamina(delta: float) -> void:
-	movement.update_stamina(delta)
-
-
-func _face_direction(dir: Vector3, delta: float) -> void:
-	movement.face_direction(dir, delta)
-
-
-func _face_target(delta: float) -> void:
-	movement.face_target(delta)
-
-
-func _face_attack_direction(delta: float) -> void:
-	movement.face_attack_direction(delta)
-
-
-func _apply_attack_movement(delta: float) -> void:
-	movement.apply_attack_movement(delta)

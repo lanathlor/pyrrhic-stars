@@ -6,17 +6,8 @@ signal speed_changed(speed: float)
 signal frame_seeked(frame: int)
 signal back_pressed
 
+const Draw := preload("res://scripts/replay/replay_hud_draw.gd")
 const SPEEDS := [0.25, 0.5, 1.0, 2.0, 4.0]
-const CLASS_MAX_HP := {
-	"gunner": 150.0,
-	"vanguard": 200.0,
-	"blade_dancer": 150.0,
-}
-const CLASS_COLORS := {
-	"gunner": Color(0.24, 0.62, 0.95),
-	"vanguard": Color(0.82, 0.44, 0.24),
-	"blade_dancer": Color(0.36, 0.82, 0.66),
-}
 
 var _speed_index: int = 2  # start at 1.0x
 var _playing: bool = true
@@ -93,7 +84,6 @@ func update_enemies(enemies: Array) -> void:
 func _build_ui() -> void:
 	layer = 10
 
-	# Player status overlay (top-left HP bars)
 	_status_overlay = Control.new()
 	_status_overlay.name = "StatusOverlay"
 	_status_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -110,13 +100,16 @@ func _build_ui() -> void:
 	vbox.add_theme_constant_override("separation", 4)
 	panel.add_child(vbox)
 
-	# Top row: encounter info
 	_encounter_label = Label.new()
 	_encounter_label.text = ""
 	_encounter_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(_encounter_label)
 
-	# Timeline row
+	_build_timeline(vbox)
+	_build_controls(vbox)
+
+
+func _build_timeline(vbox: VBoxContainer) -> void:
 	var timeline := HBoxContainer.new()
 	timeline.add_theme_constant_override("separation", 8)
 	vbox.add_child(timeline)
@@ -141,7 +134,8 @@ func _build_ui() -> void:
 	_total_label.custom_minimum_size.x = 60
 	timeline.add_child(_total_label)
 
-	# Controls row
+
+func _build_controls(vbox: VBoxContainer) -> void:
 	var controls := HBoxContainer.new()
 	controls.alignment = BoxContainer.ALIGNMENT_CENTER
 	controls.add_theme_constant_override("separation", 6)
@@ -288,260 +282,9 @@ func rebuild_damage(up_to_frame: int) -> void:
 
 
 func _draw_player_status() -> void:
-	var font := ThemeDB.fallback_font
-	var x := 12.0
-	var y := 12.0
-	var panel_w := 200.0
-	var name_h := 18.0
-	var bar_h := 16.0
-	var panel_h := name_h + bar_h + 4.0
-	var gap := 4.0
-
-	for pdata in _current_players:
-		var hp: float = pdata.get("health", 0.0)
-		var cls: String = pdata.get("class_name", "gunner")
-		var max_hp: float = CLASS_MAX_HP.get(cls, 150.0)
-		var username: String = pdata.get("username", "Player")
-		var ratio := clampf(hp / maxf(max_hp, 1.0), 0.0, 1.0)
-		var dead := hp <= 0.0
-
-		# Panel background
-		_status_overlay.draw_rect(Rect2(x, y, panel_w, panel_h), Color(0.05, 0.05, 0.08, 0.85))
-
-		# Player name
-		var name_color := Color(0.4, 0.4, 0.4) if dead else Color.WHITE
-		_status_overlay.draw_string(
-			font,
-			Vector2(x + 6, y + 14),
-			username,
-			HORIZONTAL_ALIGNMENT_LEFT,
-			panel_w - 12,
-			12,
-			name_color
+	Draw.draw_player_status(_status_overlay, _current_players)
+	Draw.draw_damage_meter(_status_overlay, _damage_totals, _current_tick, _tick_rate, _replay)
+	if _boss_visible:
+		Draw.draw_boss_frame(
+			_status_overlay, _boss_name, _boss_health, _boss_max_health, _boss_phase
 		)
-
-		# HP bar background
-		var bar_y := y + name_h
-		_status_overlay.draw_rect(
-			Rect2(x + 4, bar_y, panel_w - 8, bar_h), Color(0.15, 0.15, 0.15, 0.9)
-		)
-
-		# HP fill
-		if not dead:
-			var bar_color := Color(0.8, 0.2, 0.2) if ratio <= 0.3 else Color(0.2, 0.75, 0.3)
-			_status_overlay.draw_rect(Rect2(x + 4, bar_y, (panel_w - 8) * ratio, bar_h), bar_color)
-
-		# Class label (left)
-		var class_label := cls.replace("_", " ").to_upper()
-		var text_color := Color(0.5, 0.5, 0.5) if dead else Color(0.8, 0.8, 0.8, 0.7)
-		_status_overlay.draw_string(
-			font,
-			Vector2(x + 8, bar_y + 12),
-			class_label,
-			HORIZONTAL_ALIGNMENT_LEFT,
-			80,
-			9,
-			text_color
-		)
-
-		# HP text (right) or DEAD
-		var hp_text := "DEAD" if dead else "%d / %d" % [int(hp), int(max_hp)]
-		var hp_color := Color(0.6, 0.2, 0.2) if dead else Color.WHITE
-		_status_overlay.draw_string(
-			font,
-			Vector2(x + panel_w - 100, bar_y + 12),
-			hp_text,
-			HORIZONTAL_ALIGNMENT_RIGHT,
-			88,
-			9,
-			hp_color
-		)
-
-		y += panel_h + gap
-
-	_draw_damage_meter()
-	_draw_boss_frame()
-
-
-func _draw_boss_frame() -> void:
-	if not _boss_visible:
-		return
-
-	var font := ThemeDB.fallback_font
-	var vp_size := _status_overlay.get_viewport_rect().size
-	var center_x := vp_size.x / 2.0
-	var panel_x := center_x - 216.0
-	var panel_w := 432.0
-	var panel_y := 14.0
-
-	# Boss name (left)
-	_status_overlay.draw_string(
-		font,
-		Vector2(panel_x, panel_y + 9.0),
-		_boss_name,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		240.0,
-		12,
-		Color(0.93, 0.9, 0.8, 0.97)
-	)
-
-	# Phase label (right)
-	var phase_text := "P%d" % _boss_phase
-	var phase_color: Color
-	match _boss_phase:
-		1:
-			phase_color = Color(0.56, 0.74, 0.28)
-		2:
-			phase_color = Color(0.93, 0.7, 0.25)
-		3:
-			phase_color = Color(0.93, 0.34, 0.34)
-		_:
-			phase_color = Color(0.5, 0.5, 0.5)
-	_status_overlay.draw_string(
-		font,
-		Vector2(panel_x + panel_w - 36.0, panel_y + 9.0),
-		phase_text,
-		HORIZONTAL_ALIGNMENT_RIGHT,
-		32.0,
-		11,
-		phase_color
-	)
-
-	# HP bar
-	var bar_rect := Rect2(panel_x, panel_y + 14.0, panel_w, 12.0)
-	var hp_ratio := clampf(_boss_health / maxf(_boss_max_health, 1.0), 0.0, 1.0)
-	var bar_color: Color
-	match _boss_phase:
-		1:
-			bar_color = Color(0.56, 0.22, 0.22)
-		2:
-			bar_color = Color(0.74, 0.44, 0.18)
-		3:
-			bar_color = Color(0.78, 0.18, 0.18)
-		_:
-			bar_color = Color(0.5, 0.5, 0.5)
-
-	# Bar background
-	_status_overlay.draw_rect(bar_rect, Color(0.08, 0.08, 0.1, 0.9))
-	# Bar fill
-	if hp_ratio > 0.0:
-		_status_overlay.draw_rect(
-			Rect2(bar_rect.position, Vector2(bar_rect.size.x * hp_ratio, bar_rect.size.y)),
-			bar_color
-		)
-	# Bar border
-	_status_overlay.draw_rect(bar_rect, Color(0.25, 0.25, 0.3, 0.8), false, 1.0)
-
-	# HP text
-	var hp_text := "%d / %d" % [int(_boss_health), int(_boss_max_health)]
-	_status_overlay.draw_string(
-		font,
-		Vector2(bar_rect.position.x + bar_rect.size.x - 118.0, bar_rect.position.y + 12.0),
-		hp_text,
-		HORIZONTAL_ALIGNMENT_RIGHT,
-		110.0,
-		10,
-		Color(0.9, 0.92, 0.96, 0.95)
-	)
-
-
-func _draw_damage_meter() -> void:
-	if _damage_totals.is_empty():
-		return
-
-	var font := ThemeDB.fallback_font
-	var vp_size := _status_overlay.get_viewport_rect().size
-	var meter_w := 200.0
-	var meter_x := vp_size.x - meter_w - 12.0
-	var entry_h := 20.0
-	var title_h := 22.0
-	var y := 12.0
-
-	# Sort by damage descending
-	var sorted_ids: Array = _damage_totals.keys()
-	sorted_ids.sort_custom(func(a, b): return _damage_totals[a] > _damage_totals[b])
-	var max_damage: float = _damage_totals.get(sorted_ids[0], 1.0) if sorted_ids.size() > 0 else 1.0
-	if max_damage <= 0.0:
-		max_damage = 1.0
-
-	var entry_count := mini(sorted_ids.size(), 5)
-
-	# Background panel
-	var panel_h := title_h + entry_count * entry_h + 4.0
-	_status_overlay.draw_rect(Rect2(meter_x, y, meter_w, panel_h), Color(0.05, 0.05, 0.08, 0.85))
-
-	# Title with DPS
-	var title := "Damage"
-	var elapsed: float = float(_current_tick) / float(_tick_rate)
-	if elapsed > 0.0:
-		var total_dmg: float = 0.0
-		for eid in _damage_totals:
-			total_dmg += _damage_totals[eid]
-		var dps := total_dmg / maxf(elapsed, 1.0)
-		title = "Damage (%.0f DPS)" % dps
-
-	_status_overlay.draw_string(
-		font,
-		Vector2(meter_x + 6, y + 15),
-		title,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		meter_w - 12,
-		11,
-		Color(0.7, 0.7, 0.7)
-	)
-
-	# Player entries
-	for i in entry_count:
-		var eid: String = sorted_ids[i]
-		var dmg: float = _damage_totals[eid]
-		var ey := y + title_h + i * entry_h
-
-		# Class-colored bar
-		var cls: String = _get_participant_class(eid)
-		var bar_color: Color = CLASS_COLORS.get(cls, Color(0.5, 0.5, 0.5))
-		var ratio := dmg / max_damage
-		_status_overlay.draw_rect(
-			Rect2(meter_x + 4, ey + 2, (meter_w - 8) * ratio, entry_h - 4), Color(bar_color, 0.85)
-		)
-
-		# Player name
-		var pname: String = _replay.get_participant_name(eid) if _replay else eid
-		if pname.length() > 12:
-			pname = pname.substr(0, 12)
-		_status_overlay.draw_string(
-			font,
-			Vector2(meter_x + 8, ey + 15),
-			pname,
-			HORIZONTAL_ALIGNMENT_LEFT,
-			meter_w * 0.5,
-			10,
-			Color.WHITE
-		)
-
-		# Damage amount + per-player DPS
-		var dmg_text: String
-		if dmg >= 1000.0:
-			dmg_text = "%.1fk" % (dmg / 1000.0)
-		else:
-			dmg_text = "%d" % int(dmg)
-		if elapsed > 0.0:
-			var pdps := dmg / maxf(elapsed, 1.0)
-			dmg_text += " (%.0f)" % pdps
-		_status_overlay.draw_string(
-			font,
-			Vector2(meter_x + meter_w - 94, ey + 15),
-			dmg_text,
-			HORIZONTAL_ALIGNMENT_RIGHT,
-			86,
-			10,
-			Color.WHITE
-		)
-
-
-func _get_participant_class(entity_id: String) -> String:
-	if _replay == null:
-		return "gunner"
-	for p in _replay.participants:
-		if p.get("entity_id", "") == entity_id:
-			return p.get("class", "gunner")
-	return "gunner"

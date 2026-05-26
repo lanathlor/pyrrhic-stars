@@ -93,113 +93,107 @@ func _bake_floor(floor_y: float, walkable_faces: PackedVector3Array, obstruction
 
 func _add_box_faces(sg: NavigationMeshSourceGeometryData3D, center: Vector3, size: Vector3) -> void:
 	## Add the 6 faces of a box to the source geometry.
-	var hx := size.x / 2.0
-	var hy := size.y / 2.0
-	var hz := size.z / 2.0
-	var cx := center.x
-	var cy := center.y
-	var cz := center.z
-	# Bottom
-	(
-		sg
-		. add_faces(
-			PackedVector3Array(
-				[
-					Vector3(cx - hx, cy - hy, cz - hz),
-					Vector3(cx + hx, cy - hy, cz - hz),
-					Vector3(cx + hx, cy - hy, cz + hz),
-					Vector3(cx - hx, cy - hy, cz - hz),
-					Vector3(cx + hx, cy - hy, cz + hz),
-					Vector3(cx - hx, cy - hy, cz + hz),
-				]
-			),
-			Transform3D.IDENTITY
+	var h := size / 2.0
+	# Bottom + Top (Y axis faces)
+	_add_quad(sg, center, h, Vector3.UP, false)
+	_add_quad(sg, center, h, Vector3.UP, true)
+	# Front + Back (Z axis faces)
+	_add_quad(sg, center, h, Vector3.BACK, false)
+	_add_quad(sg, center, h, Vector3.BACK, true)
+	# Left + Right (X axis faces)
+	_add_quad(sg, center, h, Vector3.LEFT, false)
+	_add_quad(sg, center, h, Vector3.LEFT, true)
+
+
+func _add_quad(
+	sg: NavigationMeshSourceGeometryData3D,
+	c: Vector3,
+	h: Vector3,
+	axis: Vector3,
+	positive: bool,
+) -> void:
+	var verts: PackedVector3Array
+	if axis == Vector3.UP:
+		verts = _quad_y(c, h, positive)
+	elif axis == Vector3.BACK:
+		verts = _quad_z(c, h, positive)
+	else:
+		verts = _quad_x(c, h, positive)
+	sg.add_faces(verts, Transform3D.IDENTITY)
+
+
+func _quad_y(c: Vector3, h: Vector3, positive: bool) -> PackedVector3Array:
+	var y := c.y + h.y if positive else c.y - h.y
+	if positive:
+		return PackedVector3Array(
+			[
+				Vector3(c.x - h.x, y, c.z - h.z),
+				Vector3(c.x + h.x, y, c.z + h.z),
+				Vector3(c.x + h.x, y, c.z - h.z),
+				Vector3(c.x - h.x, y, c.z - h.z),
+				Vector3(c.x - h.x, y, c.z + h.z),
+				Vector3(c.x + h.x, y, c.z + h.z),
+			]
 		)
+	return PackedVector3Array(
+		[
+			Vector3(c.x - h.x, y, c.z - h.z),
+			Vector3(c.x + h.x, y, c.z - h.z),
+			Vector3(c.x + h.x, y, c.z + h.z),
+			Vector3(c.x - h.x, y, c.z - h.z),
+			Vector3(c.x + h.x, y, c.z + h.z),
+			Vector3(c.x - h.x, y, c.z + h.z),
+		]
 	)
-	# Top
-	(
-		sg
-		. add_faces(
-			PackedVector3Array(
-				[
-					Vector3(cx - hx, cy + hy, cz - hz),
-					Vector3(cx + hx, cy + hy, cz + hz),
-					Vector3(cx + hx, cy + hy, cz - hz),
-					Vector3(cx - hx, cy + hy, cz - hz),
-					Vector3(cx - hx, cy + hy, cz + hz),
-					Vector3(cx + hx, cy + hy, cz + hz),
-				]
-			),
-			Transform3D.IDENTITY
+
+
+func _quad_z(c: Vector3, h: Vector3, positive: bool) -> PackedVector3Array:
+	var z := c.z + h.z if positive else c.z - h.z
+	if positive:
+		return PackedVector3Array(
+			[
+				Vector3(c.x - h.x, c.y - h.y, z),
+				Vector3(c.x + h.x, c.y - h.y, z),
+				Vector3(c.x + h.x, c.y + h.y, z),
+				Vector3(c.x - h.x, c.y - h.y, z),
+				Vector3(c.x + h.x, c.y + h.y, z),
+				Vector3(c.x - h.x, c.y + h.y, z),
+			]
 		)
+	return PackedVector3Array(
+		[
+			Vector3(c.x - h.x, c.y - h.y, z),
+			Vector3(c.x + h.x, c.y + h.y, z),
+			Vector3(c.x + h.x, c.y - h.y, z),
+			Vector3(c.x - h.x, c.y - h.y, z),
+			Vector3(c.x - h.x, c.y + h.y, z),
+			Vector3(c.x + h.x, c.y + h.y, z),
+		]
 	)
-	# Front (Z-)
-	(
-		sg
-		. add_faces(
-			PackedVector3Array(
-				[
-					Vector3(cx - hx, cy - hy, cz - hz),
-					Vector3(cx + hx, cy + hy, cz - hz),
-					Vector3(cx + hx, cy - hy, cz - hz),
-					Vector3(cx - hx, cy - hy, cz - hz),
-					Vector3(cx - hx, cy + hy, cz - hz),
-					Vector3(cx + hx, cy + hy, cz - hz),
-				]
-			),
-			Transform3D.IDENTITY
+
+
+func _quad_x(c: Vector3, h: Vector3, positive: bool) -> PackedVector3Array:
+	var x := c.x + h.x if positive else c.x - h.x
+	if positive:
+		return PackedVector3Array(
+			[
+				Vector3(x, c.y - h.y, c.z - h.z),
+				Vector3(x, c.y + h.y, c.z + h.z),
+				Vector3(x, c.y - h.y, c.z + h.z),
+				Vector3(x, c.y - h.y, c.z - h.z),
+				Vector3(x, c.y + h.y, c.z - h.z),
+				Vector3(x, c.y + h.y, c.z + h.z),
+			]
 		)
-	)
-	# Back (Z+)
-	(
-		sg
-		. add_faces(
-			PackedVector3Array(
-				[
-					Vector3(cx - hx, cy - hy, cz + hz),
-					Vector3(cx + hx, cy - hy, cz + hz),
-					Vector3(cx + hx, cy + hy, cz + hz),
-					Vector3(cx - hx, cy - hy, cz + hz),
-					Vector3(cx + hx, cy + hy, cz + hz),
-					Vector3(cx - hx, cy + hy, cz + hz),
-				]
-			),
-			Transform3D.IDENTITY
-		)
-	)
-	# Left (X-)
-	(
-		sg
-		. add_faces(
-			PackedVector3Array(
-				[
-					Vector3(cx - hx, cy - hy, cz - hz),
-					Vector3(cx - hx, cy - hy, cz + hz),
-					Vector3(cx - hx, cy + hy, cz + hz),
-					Vector3(cx - hx, cy - hy, cz - hz),
-					Vector3(cx - hx, cy + hy, cz + hz),
-					Vector3(cx - hx, cy + hy, cz - hz),
-				]
-			),
-			Transform3D.IDENTITY
-		)
-	)
-	# Right (X+)
-	(
-		sg
-		. add_faces(
-			PackedVector3Array(
-				[
-					Vector3(cx + hx, cy - hy, cz - hz),
-					Vector3(cx + hx, cy + hy, cz + hz),
-					Vector3(cx + hx, cy - hy, cz + hz),
-					Vector3(cx + hx, cy - hy, cz - hz),
-					Vector3(cx + hx, cy + hy, cz - hz),
-					Vector3(cx + hx, cy + hy, cz + hz),
-				]
-			),
-			Transform3D.IDENTITY
-		)
+	return PackedVector3Array(
+		[
+			Vector3(x, c.y - h.y, c.z - h.z),
+			Vector3(x, c.y - h.y, c.z + h.z),
+			Vector3(x, c.y + h.y, c.z + h.z),
+			Vector3(x, c.y - h.y, c.z - h.z),
+			Vector3(x, c.y + h.y, c.z + h.z),
+			Vector3(x, c.y + h.y, c.z - h.z),
+		]
 	)
 
 

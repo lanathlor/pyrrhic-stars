@@ -87,14 +87,10 @@ func despawn_all_projectiles() -> void:
 	spawned_projectiles.clear()
 
 
-func spawn_projectile(
-	proj_id: int,
-	pos: Vector3,
-	dir: Vector3,
-	spd: float = 22.0,
-	ang_vel: float = 0.0,
-	tag: String = ""
-) -> void:
+func spawn_projectile(proj_id: int, pos: Vector3, dir: Vector3, opts: Dictionary = {}) -> void:
+	var spd: float = opts.get("speed", 22.0)
+	var ang_vel: float = opts.get("angular_velocity", 0.0)
+	var tag: String = opts.get("tag", "")
 	var scene: PackedScene = (
 		load("res://scenes/enemies/basic_enemy/enemy_projectile.tscn") as PackedScene
 	)

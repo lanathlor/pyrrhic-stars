@@ -118,7 +118,7 @@ func test_arcanotechnicien_field_order() -> void:
 		3,            # mastery_stacks (confluence)
 	)
 
-	var ws: Dictionary = NetSerializer.decode_world_state(data)
+	var ws: Dictionary = NetSerializer.World.decode_world_state(data)
 	assert_int(ws["tick"]).is_equal(1)
 	assert_int(ws["players"].size()).is_equal(1)
 
@@ -152,7 +152,7 @@ func test_gunner_resource_fields() -> void:
 		0,            # mastery_stacks
 	)
 
-	var ws: Dictionary = NetSerializer.decode_world_state(data)
+	var ws: Dictionary = NetSerializer.World.decode_world_state(data)
 	var p: Dictionary = ws["players"][0]
 
 	assert_float(p["health"]).is_equal(100.0)
@@ -183,7 +183,7 @@ func test_vanguard_mastery_stacks() -> void:
 		(2 << 6),     # buff_flags: onslaught tier 2 in bits 6-7
 	)
 
-	var ws: Dictionary = NetSerializer.decode_world_state(data)
+	var ws: Dictionary = NetSerializer.World.decode_world_state(data)
 	var p: Dictionary = ws["players"][0]
 
 	assert_float(p["stamina"]).is_equal(100.0)
@@ -211,7 +211,7 @@ func test_two_players_no_offset_drift() -> void:
 	buf.put_u8(0)
 	buf.put_u8(0)
 
-	var ws: Dictionary = NetSerializer.decode_world_state(buf.data_array)
+	var ws: Dictionary = NetSerializer.World.decode_world_state(buf.data_array)
 	assert_int(ws["tick"]).is_equal(42)
 	assert_int(ws["players"].size()).is_equal(2)
 
@@ -245,7 +245,7 @@ func test_player_plus_enemy() -> void:
 	buf.put_u8(0)
 	buf.put_u8(0)
 
-	var ws: Dictionary = NetSerializer.decode_world_state(buf.data_array)
+	var ws: Dictionary = NetSerializer.World.decode_world_state(buf.data_array)
 	assert_int(ws["players"].size()).is_equal(1)
 	assert_int(ws["enemies"].size()).is_equal(1)
 
@@ -351,7 +351,7 @@ func test_arcanotechnicien_buffer_fully_consumed() -> void:
 	# 0 npcs
 	buf.put_u8(0)
 
-	var ws: Dictionary = NetSerializer.decode_world_state(buf.data_array)
+	var ws: Dictionary = NetSerializer.World.decode_world_state(buf.data_array)
 
 	assert_int(ws["players"].size()).is_equal(1)
 	assert_int(ws["enemies"].size()).is_equal(1)

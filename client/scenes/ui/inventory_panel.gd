@@ -116,60 +116,75 @@ func _draw() -> void:
 	for i in range(6):
 		_draw_slot(i, font)
 
-	# ── Character sheet below grid ──
-	var cls := InventoryManager.current_class
-	var stats := InventoryManager.computed_stats
+	# Character sheet below grid
 	var lx := _panel_rect.position.x + PAD
 	var rw := _panel_rect.size.x - PAD * 2.0
 	var sy := _slot_rects[2].end.y  # bottom of left column
-
-	# Core section — derived values from Hull/Output/Plating
-	var hull: float = stats.get("hull", 0.0)
-	var output: float = stats.get("output", 0.0)
-	var plating: float = stats.get("plating", 0.0)
-	if hull > 0.0 or output > 0.0 or plating > 0.0:
-		sy += SECTION_GAP
-		_draw_section_header(font, lx, sy, rw, "Core")
-		sy += SECTION_H
-		if hull > 0.0:
-			var base_hp: float = ItemData.CLASS_BASE_HP.get(cls, 150.0)
-			_draw_sheet_line(
-				font, lx, sy, rw, "Health", "%.0f HP" % (base_hp + hull), STAT_COLORS["hull"]
-			)
-			sy += SHEET_LINE_H
-		if output > 0.0:
-			_draw_sheet_line(font, lx, sy, rw, "Damage", "+%.0f%%" % output, STAT_COLORS["output"])
-			sy += SHEET_LINE_H
-		if plating > 0.0:
-			_draw_sheet_line(
-				font, lx, sy, rw, "Mitigation", "-%.0f per hit" % plating, STAT_COLORS["plating"]
-			)
-			sy += SHEET_LINE_H
-
-	# Class section — class-specific stat names and descriptions
-	var tempo: float = stats.get("tempo", 0.0)
-	var identity: float = stats.get("identity", 0.0)
-	var mastery: float = stats.get("mastery", 0.0)
-	if tempo > 0.0 or identity > 0.0 or mastery > 0.0:
-		var class_label: String = cls.replace("_", " ").capitalize()
-		sy += SECTION_GAP
-		_draw_section_header(font, lx, sy, rw, class_label)
-		sy += SECTION_H
-		if tempo > 0.0:
-			_draw_class_stat_line(font, lx, sy, rw, 3, tempo, cls)
-			sy += SHEET_LINE_H
-		if identity > 0.0:
-			_draw_class_stat_line(font, lx, sy, rw, 4, identity, cls)
-			sy += SHEET_LINE_H
-		if mastery > 0.0:
-			_draw_class_stat_line(font, lx, sy, rw, 5, mastery, cls)
-			sy += SHEET_LINE_H
+	sy = _draw_core_section(font, lx, rw, sy)
+	_draw_class_section(font, lx, rw, sy)
 
 	# Tooltip
 	if _hovered_slot >= 0:
 		var item: Variant = InventoryManager.get_equipped(_hovered_slot)
 		if item != null:
 			_draw_item_tooltip(item, _slot_rects[_hovered_slot])
+
+
+func _draw_core_section(font: Font, lx: float, rw: float, sy: float) -> float:
+	var stats := InventoryManager.computed_stats
+	var cls := InventoryManager.current_class
+	var hull: float = stats.get("hull", 0.0)
+	var output: float = stats.get("output", 0.0)
+	var plating: float = stats.get("plating", 0.0)
+	if hull <= 0.0 and output <= 0.0 and plating <= 0.0:
+		return sy
+	sy += SECTION_GAP
+	_draw_section_header(font, lx, sy, rw, "Core")
+	sy += SECTION_H
+	if hull > 0.0:
+		var base_hp: float = ItemData.CLASS_BASE_HP.get(cls, 150.0)
+		_draw_sheet_line(
+			font, Rect2(lx, sy, rw, 0), "Health", "%.0f HP" % (base_hp + hull), STAT_COLORS["hull"]
+		)
+		sy += SHEET_LINE_H
+	if output > 0.0:
+		_draw_sheet_line(
+			font, Rect2(lx, sy, rw, 0), "Damage", "+%.0f%%" % output, STAT_COLORS["output"]
+		)
+		sy += SHEET_LINE_H
+	if plating > 0.0:
+		_draw_sheet_line(
+			font,
+			Rect2(lx, sy, rw, 0),
+			"Mitigation",
+			"-%.0f per hit" % plating,
+			STAT_COLORS["plating"]
+		)
+		sy += SHEET_LINE_H
+	return sy
+
+
+func _draw_class_section(font: Font, lx: float, rw: float, sy: float) -> void:
+	var stats := InventoryManager.computed_stats
+	var cls := InventoryManager.current_class
+	var tempo: float = stats.get("tempo", 0.0)
+	var identity: float = stats.get("identity", 0.0)
+	var mastery_val: float = stats.get("mastery", 0.0)
+	if tempo <= 0.0 and identity <= 0.0 and mastery_val <= 0.0:
+		return
+	var class_label: String = cls.replace("_", " ").capitalize()
+	sy += SECTION_GAP
+	_draw_section_header(font, lx, sy, rw, class_label)
+	sy += SECTION_H
+	if tempo > 0.0:
+		_draw_class_stat_line(font, Rect2(lx, sy, rw, 0), 3, tempo, cls)
+		sy += SHEET_LINE_H
+	if identity > 0.0:
+		_draw_class_stat_line(font, Rect2(lx, sy, rw, 0), 4, identity, cls)
+		sy += SHEET_LINE_H
+	if mastery_val > 0.0:
+		_draw_class_stat_line(font, Rect2(lx, sy, rw, 0), 5, mastery_val, cls)
+		sy += SHEET_LINE_H
 
 
 ## Section header: "── Label ──────────"
@@ -185,8 +200,11 @@ func _draw_section_header(font: Font, x: float, y: float, w: float, label: Strin
 
 ## Core stat line: "Label          Value" (label muted left, derived value colored right)
 func _draw_sheet_line(
-	font: Font, x: float, y: float, w: float, label: String, value_str: String, color: Color
+	font: Font, area: Rect2, label: String, value_str: String, color: Color
 ) -> void:
+	var x := area.position.x
+	var y := area.position.y
+	var w := area.size.x
 	draw_string(
 		font, Vector2(x, y + 12.0), label, HORIZONTAL_ALIGNMENT_LEFT, w * 0.5, 10, TEXT_MUTED
 	)
@@ -195,8 +213,11 @@ func _draw_sheet_line(
 
 ## Class stat line: "ClassName  value  description"
 func _draw_class_stat_line(
-	font: Font, x: float, y: float, w: float, stat_id: int, value: float, cls: String
+	font: Font, area: Rect2, stat_id: int, value: float, cls: String
 ) -> void:
+	var x := area.position.x
+	var y := area.position.y
+	var w := area.size.x
 	var skey: String = STAT_NAMES_ORDERED[stat_id]
 	var color: Color = STAT_COLORS.get(skey, TEXT_MUTED)
 	var stat_name := ItemData.class_stat_name(stat_id, cls)
@@ -238,43 +259,7 @@ func _draw_slot(slot_id: int, font: Font) -> void:
 
 	var inner := Rect2(r.position + Vector2(1.5, 1.5), r.size - Vector2(3.0, 3.0))
 	if item != null:
-		var ilvl: int = item.get("ilvl", 1)
-		var ic := ItemData.ilvl_color(ilvl)
-		if hovered:
-			draw_rect(inner, Color(ic, 0.8), false, 2.0)
-		else:
-			draw_rect(inner, Color(ic, 0.35), false, 1.5)
-		draw_string(
-			font,
-			Vector2(r.end.x - 20.0, r.position.y + 12.0),
-			"%d" % ilvl,
-			HORIZONTAL_ALIGNMENT_RIGHT,
-			16.0,
-			9,
-			ic
-		)
-		draw_string(
-			font,
-			Vector2(r.position.x + 4.0, r.end.y - 4.0),
-			SLOT_LABELS[slot_id],
-			HORIZONTAL_ALIGNMENT_LEFT,
-			30.0,
-			8,
-			TEXT_DIM
-		)
-		var stat_lines: Array = item.get("stat_lines", [])
-		if stat_lines.size() > 0:
-			var sid: int = stat_lines[0].get("stat", 0)
-			var skey: String = STAT_NAMES_ORDERED[sid] if sid < 6 else "hull"
-			var sc: Color = STAT_COLORS.get(skey, TEXT_MUTED)
-			draw_rect(Rect2(r.position.x + 4.0, r.position.y + 4.0, 6.0, 6.0), sc)
-			if stat_lines.size() > 1:
-				var sid2: int = stat_lines[1].get("stat", 0)
-				var skey2: String = STAT_NAMES_ORDERED[sid2] if sid2 < 6 else "hull"
-				draw_rect(
-					Rect2(r.position.x + 12.0, r.position.y + 4.0, 6.0, 6.0),
-					STAT_COLORS.get(skey2, TEXT_MUTED)
-				)
+		_draw_filled_slot(font, r, slot_id, item, hovered)
 	else:
 		draw_rect(inner, Color(HUD_BORDER, 0.2), false, 1.0)
 		draw_string(
@@ -285,6 +270,51 @@ func _draw_slot(slot_id: int, font: Font) -> void:
 			ICON_SIZE - 4.0,
 			9,
 			TEXT_DIM
+		)
+
+
+func _draw_filled_slot(font: Font, r: Rect2, slot_id: int, item: Dictionary, hovered: bool) -> void:
+	var inner := Rect2(r.position + Vector2(1.5, 1.5), r.size - Vector2(3.0, 3.0))
+	var ilvl: int = item.get("ilvl", 1)
+	var ic := ItemData.ilvl_color(ilvl)
+	if hovered:
+		draw_rect(inner, Color(ic, 0.8), false, 2.0)
+	else:
+		draw_rect(inner, Color(ic, 0.35), false, 1.5)
+	draw_string(
+		font,
+		Vector2(r.end.x - 20.0, r.position.y + 12.0),
+		"%d" % ilvl,
+		HORIZONTAL_ALIGNMENT_RIGHT,
+		16.0,
+		9,
+		ic
+	)
+	draw_string(
+		font,
+		Vector2(r.position.x + 4.0, r.end.y - 4.0),
+		SLOT_LABELS[slot_id],
+		HORIZONTAL_ALIGNMENT_LEFT,
+		30.0,
+		8,
+		TEXT_DIM
+	)
+	_draw_slot_stat_dots(r, item.get("stat_lines", []))
+
+
+func _draw_slot_stat_dots(r: Rect2, stat_lines: Array) -> void:
+	if stat_lines.size() == 0:
+		return
+	var sid: int = stat_lines[0].get("stat", 0)
+	var skey: String = STAT_NAMES_ORDERED[sid] if sid < 6 else "hull"
+	var dot_r := Rect2(r.position.x + 4.0, r.position.y + 4.0, 6.0, 6.0)
+	draw_rect(dot_r, STAT_COLORS.get(skey, TEXT_MUTED))
+	if stat_lines.size() > 1:
+		var sid2: int = stat_lines[1].get("stat", 0)
+		var skey2: String = STAT_NAMES_ORDERED[sid2] if sid2 < 6 else "hull"
+		draw_rect(
+			Rect2(r.position.x + 12.0, r.position.y + 4.0, 6.0, 6.0),
+			STAT_COLORS.get(skey2, TEXT_MUTED)
 		)
 
 
@@ -301,18 +331,26 @@ func _draw_item_tooltip(item: Dictionary, slot_rect: Rect2) -> void:
 
 	var tip_w := 230.0
 	var tip_h := 48.0 + merged_count * STAT_LINE_H + (8.0 if has_divider else 0.0)
+	var tr := _position_tooltip(slot_rect, tip_w, tip_h)
 
+	_draw_tooltip_frame(tr, item)
+	_draw_tooltip_header(font, tr, item)
+	_draw_tooltip_stats(font, tr.position, tip_w, p_stats, s_stats)
+
+
+func _position_tooltip(slot_rect: Rect2, tip_w: float, tip_h: float) -> Rect2:
 	var tip_x := slot_rect.position.x + ICON_SIZE / 2.0 - tip_w / 2.0
 	var tip_y := slot_rect.position.y - tip_h - 6.0
 	tip_x = clampf(tip_x, 4.0, get_viewport_rect().size.x - tip_w - 4.0)
 	if tip_y < 4.0:
 		tip_y = slot_rect.end.y + 6.0
+	return Rect2(tip_x, tip_y, tip_w, tip_h)
 
-	var tr := Rect2(tip_x, tip_y, tip_w, tip_h)
+
+func _draw_tooltip_frame(tr: Rect2, item: Dictionary) -> void:
 	draw_rect(tr, HUD_PANEL)
 	draw_rect(tr, HUD_BORDER, false, 1.0)
-	var ilvl: int = item.get("ilvl", 1)
-	var ic := ItemData.ilvl_color(ilvl)
+	var ic := ItemData.ilvl_color(item.get("ilvl", 1))
 	draw_rect(
 		Rect2(tr.position + Vector2(1.0, 1.0), tr.size - Vector2(2.0, 2.0)),
 		Color(ic, 0.2),
@@ -320,10 +358,16 @@ func _draw_item_tooltip(item: Dictionary, slot_rect: Rect2) -> void:
 		1.0
 	)
 
+
+func _draw_tooltip_header(font: Font, tr: Rect2, item: Dictionary) -> void:
+	var tip_x := tr.position.x
+	var tip_y := tr.position.y
+	var tip_w := tr.size.x
+	var ilvl: int = item.get("ilvl", 1)
+	var ic := ItemData.ilvl_color(ilvl)
 	var name_str: String = item.get("name", item.get("def_id", "???"))
 	var slot_id: int = item.get("slot_id", 0)
 	var slot_name: String = SLOT_FULL[slot_id] if slot_id < 6 else "?"
-
 	draw_string(
 		font,
 		Vector2(tip_x + 8.0, tip_y + 14.0),
@@ -352,27 +396,34 @@ func _draw_item_tooltip(item: Dictionary, slot_rect: Rect2) -> void:
 		TEXT_DIM
 	)
 
-	var sy := tip_y + 42.0
-	for sl in p_stats:
-		_draw_tooltip_stat(font, tip_x, sy, tip_w, sl, cls, 11)
-		sy += STAT_LINE_H
 
+func _draw_tooltip_stats(
+	font: Font, origin: Vector2, tip_w: float, p_stats: Array, s_stats: Array
+) -> float:
+	var cls := InventoryManager.current_class
+	var has_divider := p_stats.size() > 0 and s_stats.size() > 0
+	var tip_x := origin.x
+	var sy := origin.y + 42.0
+	for sl in p_stats:
+		_draw_tooltip_stat(font, Rect2(tip_x, sy, tip_w, 0), sl, cls, 11)
+		sy += STAT_LINE_H
 	if has_divider:
 		sy += 2.0
 		draw_line(
 			Vector2(tip_x + 8.0, sy), Vector2(tip_x + tip_w - 8.0, sy), Color(HUD_BORDER, 0.5), 1.0
 		)
 		sy += 6.0
-
 	for sl in s_stats:
-		_draw_tooltip_stat(font, tip_x, sy, tip_w, sl, cls, 9)
+		_draw_tooltip_stat(font, Rect2(tip_x, sy, tip_w, 0), sl, cls, 9)
 		sy += STAT_LINE_H
+	return sy
 
 
 ## Draw a single stat line in a tooltip with class-aware name and effect description.
-func _draw_tooltip_stat(
-	font: Font, tx: float, sy: float, tw: float, sl: Dictionary, cls: String, fs: int
-) -> void:
+func _draw_tooltip_stat(font: Font, area: Rect2, sl: Dictionary, cls: String, fs: int) -> void:
+	var tx := area.position.x
+	var sy := area.position.y
+	var tw := area.size.x
 	var sid: int = sl.get("stat", 0)
 	var sval: float = sl.get("value", 0.0)
 	var skey: String = STAT_NAMES_ORDERED[sid] if sid < 6 else "hull"

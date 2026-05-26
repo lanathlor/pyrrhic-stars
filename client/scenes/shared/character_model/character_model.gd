@@ -30,64 +30,16 @@ var _flash_tween: Tween = null
 
 
 func _ready() -> void:
-	var model_path: String = (
-		base_model_override if base_model_override != "" else DEFAULT_BASE_MODEL
-	)
-
-	# Base model is a static child (BaseModel) in the scene — use it unless overridden
-	var instance: Node = null
-	if base_model_override == "":
-		instance = get_node_or_null("BaseModel")
-
+	var instance := _load_base_model()
 	if not instance:
-		# Remove default BaseModel if we're overriding
-		var old := get_node_or_null("BaseModel")
-		if old:
-			old.queue_free()
-		var base_scene := load(model_path) as PackedScene
-		if not base_scene:
-			push_warning("CharacterModel: could not load base model %s" % model_path)
-			return
-		instance = base_scene.instantiate()
-		instance.name = "BaseModel"
-		instance.rotation.y = PI
-		add_child(instance)
+		return
 
-	# Find nodes in the imported scene tree
 	_anim_player = _find_child_of_type(instance, "AnimationPlayer") as AnimationPlayer
 	_mesh_instances = _find_all_mesh_instances(instance)
 	_skeleton = _find_child_of_type(instance, "Skeleton3D") as Skeleton3D
 
-	# Normalize bone names so all Mixamo skeletons match the animation library.
-	# Some Mixamo exports use "mixamorig1_" instead of "mixamorig_".
-	# Must rename in both the Skeleton3D and all Skin bind names.
-	if _skeleton:
-		var needs_remap := false
-		for i in _skeleton.get_bone_count():
-			var bname := _skeleton.get_bone_name(i)
-			if bname.begins_with("mixamorig1_"):
-				_skeleton.set_bone_name(i, "mixamorig_" + bname.substr(len("mixamorig1_")))
-				needs_remap = true
-		if needs_remap:
-			for mesh in _find_all_mesh_instances(instance):
-				var skin: Skin = mesh.skin
-				if not skin:
-					continue
-				skin = skin.duplicate() as Skin
-				for i in skin.get_bind_count():
-					var bind_name := skin.get_bind_name(i)
-					if bind_name.begins_with("mixamorig1_"):
-						skin.set_bind_name(i, "mixamorig_" + bind_name.substr(len("mixamorig1_")))
-				mesh.skin = skin
-
-	# Find root bone and hips bone to strip root motion
-	if _skeleton:
-		for i in _skeleton.get_bone_count():
-			if _skeleton.get_bone_parent(i) == -1:
-				_root_bone_idx = i
-			var bone_name := _skeleton.get_bone_name(i).to_lower()
-			if "hips" in bone_name:
-				_hips_bone_idx = i
+	_normalize_bone_names(instance)
+	_find_root_and_hips_bones()
 
 	for mesh in _mesh_instances:
 		for i in mesh.get_surface_override_material_count():
@@ -96,7 +48,67 @@ func _ready() -> void:
 	if not _anim_player:
 		return
 
-	# Load pre-baked animation library
+	_load_animation_library()
+	if "idle" in _loaded_anims:
+		play_anim("idle")
+
+
+func _load_base_model() -> Node:
+	var model_path: String = (
+		base_model_override if base_model_override != "" else DEFAULT_BASE_MODEL
+	)
+	var instance: Node = null
+	if base_model_override == "":
+		instance = get_node_or_null("BaseModel")
+	if not instance:
+		var old := get_node_or_null("BaseModel")
+		if old:
+			old.queue_free()
+		var base_scene := load(model_path) as PackedScene
+		if not base_scene:
+			push_warning("CharacterModel: could not load base model %s" % model_path)
+			return null
+		instance = base_scene.instantiate()
+		instance.name = "BaseModel"
+		instance.rotation.y = PI
+		add_child(instance)
+	return instance
+
+
+func _normalize_bone_names(instance: Node) -> void:
+	if not _skeleton:
+		return
+	var needs_remap := false
+	for i in _skeleton.get_bone_count():
+		var bname := _skeleton.get_bone_name(i)
+		if bname.begins_with("mixamorig1_"):
+			_skeleton.set_bone_name(i, "mixamorig_" + bname.substr(len("mixamorig1_")))
+			needs_remap = true
+	if needs_remap:
+		for mesh in _find_all_mesh_instances(instance):
+			var skin: Skin = mesh.skin
+			if not skin:
+				continue
+			skin = skin.duplicate() as Skin
+			for i in skin.get_bind_count():
+				var bind_name := skin.get_bind_name(i)
+				if bind_name.begins_with("mixamorig1_"):
+					skin.set_bind_name(i, "mixamorig_" + bind_name.substr(len("mixamorig1_")))
+			mesh.skin = skin
+
+
+func _find_root_and_hips_bones() -> void:
+	if not _skeleton:
+		return
+	for i in _skeleton.get_bone_count():
+		if _skeleton.get_bone_parent(i) == -1:
+			_root_bone_idx = i
+		var bone_name := _skeleton.get_bone_name(i).to_lower()
+		if "hips" in bone_name:
+			_hips_bone_idx = i
+
+
+func _load_animation_library() -> void:
 	var library := load(ANIM_LIBRARY) as AnimationLibrary
 	if library:
 		if _anim_player.has_animation_library(""):
@@ -105,10 +117,6 @@ func _ready() -> void:
 		_loaded_anims = PackedStringArray(library.get_animation_list())
 	else:
 		push_warning("CharacterModel: could not load animation library %s" % ANIM_LIBRARY)
-
-	# Start at idle
-	if "idle" in _loaded_anims:
-		play_anim("idle")
 
 
 func _physics_process(_delta: float) -> void:

@@ -99,6 +99,12 @@ const CameraScript := preload(
 	"res://scenes/controllers/arcanotechnicien/arcanotechnicien_camera.gd"
 )
 const VfxScript := preload("res://scenes/controllers/arcanotechnicien/vfx/harmonist_vfx.gd")
+const HudUpdaterScript := preload(
+	"res://scenes/controllers/arcanotechnicien/arcanotechnicien_hud_updater.gd"
+)
+const TargetingScript := preload(
+	"res://scenes/controllers/arcanotechnicien/arcanotechnicien_targeting.gd"
+)
 
 # Movement
 @export var run_speed: float = 5.5
@@ -142,6 +148,8 @@ var combat: Node
 var movement: Node
 var cam: Node
 var vfx: Node
+var hud_updater: Node
+var targeting: Node
 
 var spec_id: String = "harmonist"
 
@@ -188,6 +196,8 @@ func _ready() -> void:
 	movement = _add_subsystem("Movement", MovementScript)
 	cam = _add_subsystem("Cam", CameraScript)
 	vfx = _add_subsystem("Vfx", VfxScript)
+	hud_updater = _add_subsystem("HudUpdater", HudUpdaterScript)
+	targeting = _add_subsystem("Targeting", TargetingScript)
 
 	GameManager.register_player(self)
 	_net_position = global_position
@@ -216,7 +226,7 @@ func _ready() -> void:
 
 	if _is_local():
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-		_update_hud_abilities()
+		hud_updater.update_abilities()
 	else:
 		$HUDLayer.visible = false
 		camera.current = false
@@ -318,7 +328,7 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 		if _selected_target != null:
-			_clear_selection()
+			targeting.clear_selection()
 			get_viewport().set_input_as_handled()
 
 
@@ -358,7 +368,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	# Left-click targeting
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		_try_click_target(event.position)
+		targeting.try_click_target(event.position)
 
 
 func _physics_process(delta: float) -> void:
@@ -366,7 +376,7 @@ func _physics_process(delta: float) -> void:
 		var prev_pos := global_position
 		global_position = global_position.move_toward(_net_position, 12.0 * delta)
 		rotation.y = lerp_angle(rotation.y, _net_rotation_y, 8.0 * delta)
-		_drive_remote_animation(prev_pos, delta)
+		cam.drive_remote_animation(prev_pos, delta)
 		return
 
 	if not is_on_floor():
@@ -405,121 +415,15 @@ func _physics_process(delta: float) -> void:
 	# Clear selection if target is dead, freed, or hidden
 	if _selected_target:
 		if not is_instance_valid(_selected_target) or not _selected_target.visible:
-			_clear_selection()
+			targeting.clear_selection()
 		else:
 			hud.update_selected_target(_selected_target, camera)
 
-	_update_hud_abilities()
-	hud.update_gcd(_gcd_timer / gcd_duration if _gcd_timer > 0.0 else 0.0)
-	hud.update_confluence(_confluence_tier, _confluence_stacks)
-	if vfx:
-		vfx.update_confluence(_confluence_tier, _confluence_stacks)
-	hud.update_flux(flux, max_flux, flux_pools)
-	_update_hud_channel()
-	_update_hud_party()
+	hud_updater.update_hud()
 
 	# Send position + visual state to server
 	if NetworkManager.is_active:
 		NetworkManager.send_player_position(global_position, rotation.y, _visual_state)
-
-
-func _update_hud_abilities() -> void:
-	var ability_data: Array = []
-	# Use server catalog if populated, otherwise fall back to hardcoded HARMONIST_ABILITIES.
-	if AbilityCatalog.catalog.size() > 0:
-		for i in 6:
-			var ability_id: String = (
-				AbilityCatalog.current_loadout[i]
-				if i < AbilityCatalog.current_loadout.size()
-				else ""
-			)
-			if ability_id == "":
-				ability_data.append(
-					{
-						name = "Empty",
-						keybind = SLOT_KEYBINDS[i],
-						desc = "",
-						cooldown = 0.0,
-						cooldown_max = 0.0
-					}
-				)
-				continue
-			var entry: Dictionary = AbilityCatalog.get_ability(ability_id)
-			(
-				ability_data
-				. append(
-					{
-						name = entry.get("name", ability_id),
-						keybind = SLOT_KEYBINDS[i],
-						desc = entry.get("description", ""),
-						cooldown = _cooldowns[i],
-						cooldown_max = entry.get("cooldown", 0.0),
-					}
-				)
-			)
-	else:
-		for i in HARMONIST_ABILITIES.size():
-			var ability: Dictionary = HARMONIST_ABILITIES[i]
-			(
-				ability_data
-				. append(
-					{
-						name = ability.name,
-						keybind = ability.keybind,
-						desc = ability.desc,
-						cooldown = _cooldowns[i],
-						cooldown_max = ability.cooldown_max,
-					}
-				)
-			)
-	hud.update_abilities(ability_data)
-
-
-func _update_hud_channel() -> void:
-	if state == State.CHANNELING and not _committing_ability.is_empty():
-		if combat._sustaining:
-			hud.update_sustain(_committing_ability.get("name", ""), combat._sustain_elapsed)
-		else:
-			var total_dur: float = _committing_ability.get(
-				"dur", _committing_ability.get("commit_time", 1.0)
-			)
-			var elapsed: float = total_dur - _cast_timer
-			var progress: float = clampf(elapsed / maxf(total_dur, 0.01), 0.0, 1.0)
-			hud.update_channel(progress, _committing_ability.get("name", ""))
-	else:
-		hud.hide_channel()
-
-
-func _update_hud_party() -> void:
-	var party: Array = []
-	for p in GameManager.players:
-		if not is_instance_valid(p) or not p.visible:
-			continue
-		if p == self:
-			continue
-		var pid: int = p.peer_id if "peer_id" in p else 0
-		var p_health: float = p.health if "health" in p else 0.0
-		var p_max_health: float = p.max_health if "max_health" in p else 150.0
-		var cls: String = "unknown"
-		var uname: String = "Player_%d" % pid
-		if NetworkManager.player_info.has(pid):
-			cls = NetworkManager.player_info[pid].get("class_name", "unknown")
-			var info_name: String = NetworkManager.player_info[pid].get("username", "")
-			if info_name != "":
-				uname = info_name
-		(
-			party
-			. append(
-				{
-					"peer_id": pid,
-					"name": uname,
-					"health": p_health,
-					"max_health": p_max_health,
-					"class_name": cls,
-				}
-			)
-		)
-	hud.update_party(party)
 
 
 # --- Damage (server-authoritative) ---
@@ -527,33 +431,6 @@ func _update_hud_party() -> void:
 
 func take_damage(_amount: float, _hit_position: Vector3 = Vector3.ZERO) -> void:
 	pass  # Server handles all damage
-
-
-func _drive_remote_animation(prev_pos: Vector3, delta: float) -> void:
-	# Drive remote VFX on visual state change
-	if _visual_state != _prev_remote_vs:
-		if vfx:
-			vfx.drive_remote_vfx(_prev_remote_vs, _visual_state)
-		_prev_remote_vs = _visual_state
-
-	match _visual_state:
-		NetSerializer.VS_DODGE:
-			character_model.travel("dodge")
-		NetSerializer.VS_AT_CASTING:
-			character_model.travel("casting")
-		NetSerializer.VS_AT_CHANNELING, NetSerializer.VS_AT_CHANNELING_BEAM, NetSerializer.VS_AT_CHANNELING_ZONE:
-			character_model.travel("channeling")
-		NetSerializer.VS_AT_STAGGER:
-			character_model.travel("stagger")
-		NetSerializer.VS_DEAD:
-			character_model.travel("dead")
-		_:  # VS_MOVE or unknown -- derive from velocity
-			var vel := (global_position - prev_pos) / delta if delta > 0 else Vector3.ZERO
-			var speed := Vector2(vel.x, vel.z).length()
-			if speed > 0.5:
-				character_model.travel("run", clampf(speed / sprint_speed, 0.5, 1.5))
-			else:
-				character_model.travel("idle")
 
 
 # --- State helpers ---
@@ -603,100 +480,8 @@ func _process_stagger() -> void:
 	combat.process_stagger()
 
 
-func _update_camera() -> void:
-	cam.update_camera()
-
-
-func _apply_camera_collision(from: Vector3, to: Vector3) -> Vector3:
-	return cam.apply_camera_collision(from, to)
-
-
-func _get_camera_wish_dir() -> Vector3:
-	return movement.get_camera_wish_dir()
-
-
-func _process_move(delta: float) -> void:
-	movement.process_move(delta)
-
-
-func _face_direction(dir: Vector3, delta: float) -> void:
-	movement.face_direction(dir, delta)
-
-
-func _face_target(delta: float) -> void:
-	movement.face_target(delta)
-
-
-func _face_attack_direction(delta: float) -> void:
-	movement.face_attack_direction(delta)
-
-
-func _show_body_flash() -> void:
-	cam.show_body_flash()
-
-
-func _update_flash(delta: float) -> void:
-	cam.update_flash(delta)
-
-
-func _update_animation() -> void:
-	cam.update_animation()
-
-
-# --- WoW-style click targeting ---
-
-
-func _try_click_target(screen_pos: Vector2) -> void:
-	# Check HUD party frames first (UI priority over world)
-	if hud and hud.has_method("get_clicked_target"):
-		var party_pid: int = hud.get_clicked_target(screen_pos)
-		if party_pid > 0:
-			_select_target_by_peer_id(party_pid)
-			return
-
-	# Raycast into 3D world: mask 6 = layer 2 (Player) | layer 3 (Enemy)
-	var from: Vector3 = camera.project_ray_origin(screen_pos)
-	var dir: Vector3 = camera.project_ray_normal(screen_pos)
-	var to: Vector3 = from + dir * 100.0
-	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
-	if not space:
-		return
-	var query := PhysicsRayQueryParameters3D.create(from, to, 6)
-	query.exclude = [get_rid()]
-	var result: Dictionary = space.intersect_ray(query)
-	if result:
-		var hit_node: Node3D = result.collider
-		# Walk up to find a node with peer_id (player or enemy)
-		while hit_node and not ("peer_id" in hit_node):
-			hit_node = hit_node.get_parent()
-		if hit_node and "peer_id" in hit_node and hit_node != self:
-			_select_target(hit_node)
-			return
-	# Clicked empty space — clear selection
-	_clear_selection()
-
-
-func _select_target(target: Node3D) -> void:
-	_selected_target = target
-	hud.show_selected_target(target, camera)
-
-
-func _select_target_by_peer_id(pid: int) -> void:
-	for player in GameManager.players:
-		if is_instance_valid(player) and player.visible and "peer_id" in player:
-			if player.peer_id == pid and player != self:
-				_select_target(player)
-				return
-	for enemy in GameManager.enemies:
-		if is_instance_valid(enemy) and enemy.visible and "peer_id" in enemy:
-			if enemy.peer_id == pid:
-				_select_target(enemy)
-				return
-
-
-func _clear_selection() -> void:
-	_selected_target = null
-	hud.hide_selected_target()
+func _update_hud_channel() -> void:
+	hud_updater.update_channel()
 
 
 ## Stub for spec switching (only harmonist implemented for now).

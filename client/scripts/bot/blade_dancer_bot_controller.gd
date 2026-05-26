@@ -50,71 +50,80 @@ func _physics_process(delta: float) -> void:
 	if _player.state in [_player.State.DASH, _player.State.STAGGER, _player.State.CASTING]:
 		return
 
+	if _handle_evasion(target, dir, distance):
+		return
+	if _handle_offense(target, dir, distance):
+		return
+	_handle_positioning(dir, distance)
+
+
+func _can_dash() -> bool:
+	return (
+		_player._gcd_timer <= 0.0 and _player.is_on_floor() and _player.state == _player.State.MOVE
+	)
+
+
+func _handle_evasion(target: Node3D, dir: Vector3, distance: float) -> bool:
+	if _handle_telegraph_dodge(target, dir, distance):
+		return true
+	return _handle_active_attack_dodge(target, dir, distance)
+
+
+func _handle_telegraph_dodge(target: Node3D, dir: Vector3, distance: float) -> bool:
 	# --- Priority 1: Dodge AoE slam telegraph ---
 	if _is_enemy_state(target, "AOE_TELEGRAPH") and distance < 8.0:
-		if (
-			_player._gcd_timer <= 0.0
-			and _player.is_on_floor()
-			and _player.state == _player.State.MOVE
-		):
+		if _can_dash():
 			_move_away(dir)
 			_player._start_dash()
-			return
-		if _player.state == _player.State.MOVE:
+		elif _player.state == _player.State.MOVE:
 			_move_away(dir)
 			Input.action_press("sprint")
-			return
+		return true
 
 	# --- Priority 2: Dodge charge telegraph ---
 	if _is_enemy_state(target, "CHARGE_TELEGRAPH"):
-		if (
-			_player._gcd_timer <= 0.0
-			and _player.is_on_floor()
-			and _player.state == _player.State.MOVE
-		):
+		if _can_dash():
 			_move_strafe(dir)
 			_player._start_dash()
-			return
-		if _player.state == _player.State.MOVE:
+		elif _player.state == _player.State.MOVE:
 			_move_strafe(dir)
-			return
+		return true
 
 	# --- Priority 3: Dodge during melee telegraph ---
 	if _is_enemy_state(target, "MELEE_TELEGRAPH") and distance < 5.0:
-		if (
-			_player._gcd_timer <= 0.0
-			and _player.state == _player.State.MOVE
-			and _player.is_on_floor()
-		):
+		if _can_dash():
 			_player._start_dash()
-			return
+			return true
 
 	# --- Priority 4: Strafe during ranged telegraph ---
 	if _is_enemy_state(target, "RANGED_TELEGRAPH"):
 		_move_strafe(dir)
 		if distance > 3.0:
 			_move_toward(dir)
-		return
+		return true
 
-	# --- Priority 5: Dodge during active melee/charge ---
+	return false
+
+
+func _handle_active_attack_dodge(target: Node3D, _dir: Vector3, distance: float) -> bool:
 	if (
 		(_is_enemy_state(target, "MELEE_ATTACK") or _is_enemy_state(target, "CHARGE"))
 		and distance < 5.0
 	):
-		if (
-			_player._gcd_timer <= 0.0
-			and _player.state == _player.State.MOVE
-			and _player.is_on_floor()
-		):
+		if _can_dash():
 			_player._start_dash()
-		return
+		return true
+	return false
 
-	# --- Priority 6: DPS rotation (commit abilities from range) ---
+
+func _handle_offense(_target: Node3D, _dir: Vector3, distance: float) -> bool:
 	if _player.state == _player.State.MOVE and _player._gcd_timer <= 0.0 and distance <= 18.0:
 		_do_dps_rotation()
-		return
+		return true
+	return false
 
-	# --- Priority 7: Maintain optimal range (8-12m) ---
+
+func _handle_positioning(dir: Vector3, distance: float) -> void:
 	if distance > 14.0:
 		_move_toward(dir)
 		if distance > 18.0:

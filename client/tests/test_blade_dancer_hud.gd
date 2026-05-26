@@ -1,7 +1,8 @@
 class_name TestBladeDancerHUD
 extends GdUnitTestSuite
 
-## Tests for the Blade Dancer HUD — config display, GCD, damage flash, hit marker, lock-on, ability bar.
+## Tests for the Blade Dancer HUD — config display, GCD,
+## damage flash, hit marker, lock-on, ability bar.
 
 const BDScript := preload("res://scenes/controllers/blade_dancer/blade_dancer.gd")
 const BDHudScript := preload("res://scenes/shared/hud/blade_dancer_hud.gd")

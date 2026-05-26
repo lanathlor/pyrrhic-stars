@@ -25,6 +25,7 @@ const WEAPON_SCENE := "res://assets/models/weapons/weapon_rifle.glb"
 
 const WeaponScript := preload("res://scenes/controllers/gunner/gunner_weapon.gd")
 const AbilitiesScript := preload("res://scenes/controllers/gunner/gunner_abilities.gd")
+const MovementScript := preload("res://scenes/controllers/gunner/gunner_movement.gd")
 
 # Stability (client-optimistic bloom)
 const STABILITY_DECAY: float = 0.08
@@ -70,6 +71,7 @@ var peer_id: int = 0
 # Sub-systems
 var weapon: Node
 var abilities: Node
+var movement: Node
 
 var _alive: bool = true
 var _fire_cooldown: float = 0.0
@@ -141,6 +143,7 @@ func _ready() -> void:
 	# Create sub-systems
 	weapon = _add_subsystem("Weapon", WeaponScript)
 	abilities = _add_subsystem("Abilities", AbilitiesScript)
+	movement = _add_subsystem("Movement", MovementScript)
 
 	GameManager.register_player(self)
 	_net_position = global_position
@@ -210,7 +213,7 @@ func _physics_process(delta: float) -> void:
 		var prev_pos := global_position
 		global_position = global_position.move_toward(_net_position, 12.0 * delta)
 		rotation.y = lerp_angle(rotation.y, _net_rotation_y, 8.0 * delta)
-		_drive_remote_animation(prev_pos, delta)
+		movement.drive_remote_animation(prev_pos, delta)
 		return
 
 	# Dead: freeze movement and abilities, but keep sending position
@@ -222,118 +225,24 @@ func _physics_process(delta: float) -> void:
 
 	_roll_cooldown_timer = maxf(_roll_cooldown_timer - delta, 0.0)
 	_mag_dump_cooldown = maxf(_mag_dump_cooldown - delta, 0.0)
-	_apply_gravity(delta)
-
-	# Stability recovery (client-optimistic prediction)
-	_stability_timer += delta
-	if _stability_timer > STABILITY_DELAY and _stability < 1.0:
-		var rate: float = STABILITY_RATE
-		if _overclock_active:
-			rate *= STABILITY_OVERCLOCK_MULT
-		_stability = minf(_stability + rate * delta, 1.0)
-
-	# Reload tick (client-side prediction, Tempo-scaled to match server)
-	if _reloading:
-		var tempo_mult: float = 1.0 + InventoryManager.get_stat("tempo") / 100.0
-		_reload_timer -= delta * tempo_mult
-		if _reload_timer <= 0.0:
-			_magazine = _mag_max
-			_reloading = false
-			_reload_timer = 0.0
-			_reload_total = 0.0
-			# Mark as acked so server completion doesn't re-trigger reload
-			_reload_server_acked = true
+	movement.apply_gravity(delta)
+	_recover_stability(delta)
+	_tick_reload(delta)
 
 	if _is_rolling:
 		abilities.process_roll(delta)
 	else:
-		_handle_jump()
+		movement.handle_jump()
 		abilities.handle_dodge()
-		_handle_movement(delta)
+		movement.handle_movement(delta)
 
 	move_and_slide()
-
-	if not _is_rolling and not Input.is_action_pressed("sprint") and not _mag_dump_active:
-		weapon.handle_shooting(delta)
-		abilities.handle_overclock(delta)
-		abilities.handle_rechamber(delta)
-		abilities.handle_reload()
-		abilities.handle_load_enhanced()
-		abilities.handle_mag_dump()
+	_handle_combat_input(delta)
 
 	weapon.update_muzzle_flash(delta)
 	weapon.update_viewmodel(delta)
-	_update_animation()
-	(
-		hud
-		. update_abilities(
-			[
-				{
-					name = "Shoot",
-					keybind = "LMB",
-					desc = "Hitscan. Builds Pressure.",
-					cooldown = 0.0,
-					cooldown_max = 0.0
-				},
-				{
-					name = "Roll",
-					keybind = "C",
-					desc = "Dodge roll with i-frames.",
-					cooldown = _roll_cooldown_timer,
-					cooldown_max = roll_cooldown
-				},
-				{
-					name = "Overclock",
-					keybind = "F",
-					desc = "7s fire rate + speed boost.",
-					cooldown = _overclock_cooldown if not _overclock_active else 0.0,
-					cooldown_max = OVERCLOCK_COOLDOWN,
-					active = _overclock_active,
-					active_remaining = _overclock_timer,
-					active_max = OVERCLOCK_DURATION
-				},
-				{
-					name = "Rechamber",
-					keybind = "T",
-					desc = "Timed dmg buff.",
-					cooldown = 0.0,
-					cooldown_max = 0.0,
-					active = _rechamber_buff,
-					active_remaining = _rechamber_buff_timer,
-					active_max = RECHAMBER_BUFF_DURATION,
-					status_text = _get_rechamber_status()
-				},
-				{
-					name = "Mag Dump",
-					keybind = "V",
-					desc = "Empty magazine in burst.",
-					cooldown = _mag_dump_cooldown,
-					cooldown_max = 12.0
-				},
-				{
-					name = "Enhanced",
-					keybind = "Q",
-					desc = "Load enhanced rounds.",
-					cooldown = 0.0,
-					cooldown_max = 0.0,
-					active = _enhanced_loaded > 0,
-					active_remaining = float(_enhanced_loaded),
-					active_max = float(_max_munitions)
-				},
-			]
-		)
-	)
-	hud.update_assault_state(
-		_magazine,
-		_mag_max,
-		_stability,
-		_steadiness,
-		_pressure_stacks,
-		_munitions,
-		_enhanced_loaded,
-		_reloading,
-		(1.0 - _reload_timer / _reload_total) if _reload_total > 0.0 else 0.0
-	)
+	movement.update_animation()
+	_update_hud()
 
 	# Send position + visual state to server
 	if NetworkManager.is_active:
@@ -342,43 +251,116 @@ func _physics_process(delta: float) -> void:
 		)
 
 
-func _apply_gravity(delta: float) -> void:
-	if not is_on_floor():
-		velocity.y -= _gravity * delta
-	else:
-		velocity.y = -0.5  # keep pressed to floor so is_on_floor() stays reliable
+func _recover_stability(delta: float) -> void:
+	_stability_timer += delta
+	if _stability_timer > STABILITY_DELAY and _stability < 1.0:
+		var rate: float = STABILITY_RATE
+		if _overclock_active:
+			rate *= STABILITY_OVERCLOCK_MULT
+		_stability = minf(_stability + rate * delta, 1.0)
 
 
-func _handle_jump() -> void:
-	if Input.is_action_just_pressed("jump") and is_on_floor():
-		velocity.y = jump_velocity
+func _tick_reload(delta: float) -> void:
+	if not _reloading:
+		return
+	var tempo_mult: float = 1.0 + InventoryManager.get_stat("tempo") / 100.0
+	_reload_timer -= delta * tempo_mult
+	if _reload_timer <= 0.0:
+		_magazine = _mag_max
+		_reloading = false
+		_reload_timer = 0.0
+		_reload_total = 0.0
+		# Mark as acked so server completion doesn't re-trigger reload
+		_reload_server_acked = true
 
 
-func _handle_movement(delta: float) -> void:
-	var on_floor := is_on_floor()
-	var speed: float = sprint_speed if Input.is_action_pressed("sprint") else walk_speed
-	if _overclock_active:
-		speed *= OVERCLOCK_SPEED_MULT
-	var accel: float = ground_accel if on_floor else air_accel
-	var decel: float = ground_decel if on_floor else air_decel
+func _handle_combat_input(delta: float) -> void:
+	if _is_rolling or Input.is_action_pressed("sprint") or _mag_dump_active:
+		return
+	weapon.handle_shooting(delta)
+	abilities.handle_overclock(delta)
+	abilities.handle_rechamber(delta)
+	abilities.handle_reload()
+	abilities.handle_load_enhanced()
+	abilities.handle_mag_dump()
 
-	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
-	var wish_dir := (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
 
-	var flat_vel := Vector3(velocity.x, 0.0, velocity.z)
+func _update_hud() -> void:
+	hud.update_abilities(_build_ability_bar())
+	(
+		hud
+		. update_assault_state(
+			{
+				magazine = _magazine,
+				mag_max = _mag_max,
+				stability = _stability,
+				steadiness = _steadiness,
+				pressure = _pressure_stacks,
+				munitions = _munitions,
+				enhanced_loaded = _enhanced_loaded,
+				reloading = _reloading,
+				reload_progress =
+				(1.0 - _reload_timer / _reload_total) if _reload_total > 0.0 else 0.0,
+			}
+		)
+	)
 
-	if wish_dir.length() > 0.1:
-		# Accelerate toward desired direction
-		var target_vel := wish_dir * speed
-		flat_vel.x = move_toward(flat_vel.x, target_vel.x, accel * delta)
-		flat_vel.z = move_toward(flat_vel.z, target_vel.z, accel * delta)
-	else:
-		# Decelerate to stop
-		flat_vel.x = move_toward(flat_vel.x, 0.0, decel * delta)
-		flat_vel.z = move_toward(flat_vel.z, 0.0, decel * delta)
 
-	velocity.x = flat_vel.x
-	velocity.z = flat_vel.z
+func _build_ability_bar() -> Array[Dictionary]:
+	return [
+		{
+			name = "Shoot",
+			keybind = "LMB",
+			desc = "Hitscan. Builds Pressure.",
+			cooldown = 0.0,
+			cooldown_max = 0.0
+		},
+		{
+			name = "Roll",
+			keybind = "C",
+			desc = "Dodge roll with i-frames.",
+			cooldown = _roll_cooldown_timer,
+			cooldown_max = roll_cooldown
+		},
+		{
+			name = "Overclock",
+			keybind = "F",
+			desc = "7s fire rate + speed boost.",
+			cooldown = _overclock_cooldown if not _overclock_active else 0.0,
+			cooldown_max = OVERCLOCK_COOLDOWN,
+			active = _overclock_active,
+			active_remaining = _overclock_timer,
+			active_max = OVERCLOCK_DURATION
+		},
+		{
+			name = "Rechamber",
+			keybind = "T",
+			desc = "Timed dmg buff.",
+			cooldown = 0.0,
+			cooldown_max = 0.0,
+			active = _rechamber_buff,
+			active_remaining = _rechamber_buff_timer,
+			active_max = RECHAMBER_BUFF_DURATION,
+			status_text = abilities.get_rechamber_status()
+		},
+		{
+			name = "Mag Dump",
+			keybind = "V",
+			desc = "Empty magazine in burst.",
+			cooldown = _mag_dump_cooldown,
+			cooldown_max = 12.0
+		},
+		{
+			name = "Enhanced",
+			keybind = "Q",
+			desc = "Load enhanced rounds.",
+			cooldown = 0.0,
+			cooldown_max = 0.0,
+			active = _enhanced_loaded > 0,
+			active_remaining = float(_enhanced_loaded),
+			active_max = float(_max_munitions)
+		},
+	]
 
 
 ## Called by main.gd when server confirms this player hit an enemy.
@@ -405,114 +387,88 @@ func apply_server_state(data: Dictionary) -> void:
 	if data.has("max_health") and data["max_health"] > 0.0:
 		max_health = data["max_health"]
 	if _is_local():
-		health = data.health
-		# Sync buff states from server truth
-		_overclock_active = data.get("overclock_active", false)
-		_rechamber_buff = data.get("rechamber_buff", false)
-		var server_phase: int = data.get("rechamber_phase", 0)
-		if server_phase != _rechamber_phase and server_phase == 0:
-			_rechamber_phase = 0  # server reset overrides client
-		_munitions = data.get("munitions", 0.0)
-		# Assault state — server authoritative with client prediction
-		var server_mag: int = data.get("magazine", _magazine)
-		_mag_max = data.get("mag_max", _mag_max)
-		var server_reloading: bool = data.get("reloading", false)
-		# Reload sync: _reload_server_acked tracks whether the server has
-		# confirmed our client-predicted reload. Without this, stale server
-		# state (reloading=false from before it saw our request) would cancel
-		# the client reload immediately.
-		if _reloading and server_reloading:
-			# Server confirms our reload — track ack
-			_reload_server_acked = true
-		elif _reloading and not server_reloading and _reload_server_acked:
-			# Server confirmed reload then said done — accept completion
-			_magazine = server_mag
-			_reloading = false
-			_reload_timer = 0.0
-			_reload_total = 0.0
-			_reload_server_acked = false
-		elif not _reloading and server_reloading and not _reload_server_acked:
-			# Server started reload we didn't predict (and we didn't just finish one)
-			_reloading = true
-			_reload_server_acked = true
-			_magazine = server_mag
-		elif not _reloading and server_reloading and _reload_server_acked:
-			# Client already completed, server still catching up — ignore stale state
-			pass
-		elif not _reloading and not server_reloading:
-			# Both agree: not reloading. Clear ack flag for next reload cycle.
-			_reload_server_acked = false
-			if server_mag < _magazine:
-				print("[misfire] server correction: client=%d server=%d" % [_magazine, server_mag])
-				_magazine = server_mag
-		elif server_mag < _magazine:
-			# Server has fewer rounds — genuine correction
+		_apply_local_server_state(data)
+	else:
+		_apply_remote_server_state(data)
+
+
+func _apply_local_server_state(data: Dictionary) -> void:
+	health = data.health
+	# Sync buff states from server truth
+	_overclock_active = data.get("overclock_active", false)
+	_rechamber_buff = data.get("rechamber_buff", false)
+	var server_phase: int = data.get("rechamber_phase", 0)
+	if server_phase != _rechamber_phase and server_phase == 0:
+		_rechamber_phase = 0  # server reset overrides client
+	_munitions = data.get("munitions", 0.0)
+	_sync_weapon_state(data)
+	_pressure_stacks = data.get("pressure_stacks", 0)
+	_enhanced_loaded = data.get("enhanced_loaded", 0)
+	_mag_dump_active = data.get("mag_dump_active", false)
+	# Stability: lerp toward server value for smooth correction
+	_stability = lerpf(_stability, data.get("stability", 1.0), 0.3)
+	# Steadiness: server-authoritative, lerp for smooth visual
+	_steadiness = lerpf(_steadiness, data.get("steadiness", 1.0), 0.3)
+	if health <= 0.0 and _alive:
+		_alive = false
+		died.emit()
+	elif health > 0.0 and not _alive:
+		_alive = true
+		# Snap to server position on respawn
+		global_position = data.pos
+		_net_position = data.pos
+
+
+func _sync_weapon_state(data: Dictionary) -> void:
+	# Assault state -- server authoritative with client prediction
+	var server_mag: int = data.get("magazine", _magazine)
+	_mag_max = data.get("mag_max", _mag_max)
+	var server_reloading: bool = data.get("reloading", false)
+	# Reload sync: _reload_server_acked tracks whether the server has
+	# confirmed our client-predicted reload. Without this, stale server
+	# state (reloading=false from before it saw our request) would cancel
+	# the client reload immediately.
+	if _reloading and server_reloading:
+		# Server confirms our reload -- track ack
+		_reload_server_acked = true
+	elif _reloading and not server_reloading and _reload_server_acked:
+		# Server confirmed reload then said done -- accept completion
+		_magazine = server_mag
+		_reloading = false
+		_reload_timer = 0.0
+		_reload_total = 0.0
+		_reload_server_acked = false
+	elif not _reloading and server_reloading and not _reload_server_acked:
+		# Server started reload we didn't predict (and we didn't just finish one)
+		_reloading = true
+		_reload_server_acked = true
+		_magazine = server_mag
+	elif not _reloading and server_reloading and _reload_server_acked:
+		# Client already completed, server still catching up -- ignore stale state
+		pass
+	elif not _reloading and not server_reloading:
+		# Both agree: not reloading. Clear ack flag for next reload cycle.
+		_reload_server_acked = false
+		if server_mag < _magazine:
 			print("[misfire] server correction: client=%d server=%d" % [_magazine, server_mag])
 			_magazine = server_mag
-		# else: server_mag >= _magazine — server behind due to latency, keep prediction
-		_pressure_stacks = data.get("pressure_stacks", 0)
-		_enhanced_loaded = data.get("enhanced_loaded", 0)
-		_mag_dump_active = data.get("mag_dump_active", false)
-		# Stability: lerp toward server value for smooth correction
-		var server_stability: float = data.get("stability", 1.0)
-		_stability = lerpf(_stability, server_stability, 0.3)
-		# Steadiness: server-authoritative, lerp for smooth visual
-		var server_steadiness: float = data.get("steadiness", 1.0)
-		_steadiness = lerpf(_steadiness, server_steadiness, 0.3)
-		if health <= 0.0 and _alive:
-			_alive = false
-			died.emit()
-		elif health > 0.0 and not _alive:
-			_alive = true
-			# Snap to server position on respawn
-			global_position = data.pos
-			_net_position = data.pos
-	else:
-		# Remote player: apply all state
-		_net_position = data.pos
-		_net_rotation_y = data.rot_y
-		health = data.health
-		_visual_state = data.get("visual_state", 0)
-		_net_aim_pitch = data.get("aim_pitch", 0.0)
-		var new_state: int = data.get("state", 0)
-		if new_state == 2 and _net_state != 2:  # transition into attack
-			weapon.fire_remote_tracer()
-		_net_state = new_state
+	elif server_mag < _magazine:
+		# Server has fewer rounds -- genuine correction
+		print("[misfire] server correction: client=%d server=%d" % [_magazine, server_mag])
+		_magazine = server_mag
+	# else: server_mag >= _magazine -- server behind due to latency, keep prediction
 
 
-func _update_animation() -> void:
-	if _is_rolling:
-		_visual_state = NetSerializer.VS_DODGE
-		character_model.travel_timed("roll", roll_duration)
-		return
-	if not is_on_floor():
-		_visual_state = NetSerializer.VS_AIRBORNE
-		character_model.travel("jump", 2.0)
-		return
-	_visual_state = NetSerializer.VS_MOVE
-	var flat_vel := Vector3(velocity.x, 0.0, velocity.z)
-	if flat_vel.length() > 0.5:
-		var speed_ratio := flat_vel.length() / sprint_speed
-		character_model.travel("run", clampf(speed_ratio, 0.5, 1.5))
-	else:
-		character_model.travel("idle")
-
-
-func _drive_remote_animation(prev_pos: Vector3, delta: float) -> void:
-	match _visual_state:
-		NetSerializer.VS_DODGE:
-			character_model.travel("roll")
-		NetSerializer.VS_AIRBORNE:
-			character_model.travel("jump", 2.0)
-		NetSerializer.VS_DEAD:
-			character_model.travel("idle")
-		_:  # VS_MOVE or unknown — derive from velocity
-			var vel := (global_position - prev_pos) / delta if delta > 0 else Vector3.ZERO
-			var speed := Vector2(vel.x, vel.z).length()
-			if speed > 0.5:
-				character_model.travel("run", clampf(speed / sprint_speed, 0.5, 1.5))
-			else:
-				character_model.travel("idle")
+func _apply_remote_server_state(data: Dictionary) -> void:
+	_net_position = data.pos
+	_net_rotation_y = data.rot_y
+	health = data.health
+	_visual_state = data.get("visual_state", 0)
+	_net_aim_pitch = data.get("aim_pitch", 0.0)
+	var new_state: int = data.get("state", 0)
+	if new_state == 2 and _net_state != 2:  # transition into attack
+		weapon.fire_remote_tracer()
+	_net_state = new_state
 
 
 # --- Delegate wrappers for test/bot compatibility ---
@@ -528,19 +484,3 @@ func _process_roll(delta: float) -> void:
 
 func _handle_shooting(delta: float) -> void:
 	weapon.handle_shooting(delta)
-
-
-func _handle_overclock(delta: float) -> void:
-	abilities.handle_overclock(delta)
-
-
-func _handle_rechamber(delta: float) -> void:
-	abilities.handle_rechamber(delta)
-
-
-func _get_rechamber_status() -> String:
-	return abilities.get_rechamber_status()
-
-
-func _spawn_tracer(from_pos: Vector3, to_pos: Vector3) -> void:
-	weapon.spawn_tracer(from_pos, to_pos)

@@ -46,10 +46,20 @@ var player_info: Dictionary = {}
 
 var dev_params: Dictionary = {}  # Set by main.gd in dev mode: {class, zone}
 
+## Sub-handlers for debug and loadout/inventory operations.
+var debug: NetworkDebugHandler
+var loadout: NetworkLoadoutHandler
+
 var _ws := WebSocketPeer.new()
 var _my_peer_id: int = 0
 var _was_connected := false
 var _input_tick: int = 0
+
+
+func _ready() -> void:
+	debug = NetworkDebugHandler.new(self)
+	loadout = NetworkLoadoutHandler.new(self)
+
 
 # =============================================================================
 # Connection
@@ -116,14 +126,15 @@ func send_player_position(
 	_input_tick += 1
 	send_msg(
 		NetSerializer.OP_PLAYER_INPUT,
-		NetSerializer.encode_player_input(pos, rot_y, _input_tick, visual_state, aim_pitch)
+		NetSerializer.Inp.encode_player_input(pos, rot_y, _input_tick, visual_state, aim_pitch)
 	)
 
 
 ## Send a combat action to the server.
 func send_ability(action_id: int, aim_pitch: float = 0.0, rot_y: float = 0.0) -> void:
 	send_msg(
-		NetSerializer.OP_ABILITY_INPUT, NetSerializer.encode_ability(action_id, aim_pitch, rot_y)
+		NetSerializer.OP_ABILITY_INPUT,
+		NetSerializer.Inp.encode_ability(action_id, aim_pitch, rot_y)
 	)
 
 
@@ -133,13 +144,13 @@ func send_ability_targeted(
 ) -> void:
 	send_msg(
 		NetSerializer.OP_ABILITY_INPUT,
-		NetSerializer.encode_ability_targeted(action_id, aim_pitch, rot_y, target_peer_id)
+		NetSerializer.Inp.encode_ability_targeted(action_id, aim_pitch, rot_y, target_peer_id)
 	)
 
 
 ## Send a generic interaction to the server (class select, ready toggle, etc.).
 func send_interact(action: int, data: String = "") -> void:
-	send_msg(NetSerializer.OP_INTERACT_INPUT, NetSerializer.encode_interact_input(action, data))
+	send_msg(NetSerializer.OP_INTERACT_INPUT, NetSerializer.Inp.encode_interact_input(action, data))
 
 
 # =============================================================================
@@ -169,6 +180,55 @@ func reset_ready_states() -> void:
 	if not is_active:
 		return
 	send_interact(2)  # InteractResetReady = 2
+
+
+# =============================================================================
+# Group / social send helpers
+# =============================================================================
+
+
+func send_group_create() -> void:
+	send_msg(NetSerializer.OP_GROUP_CREATE)
+
+
+func send_group_invite(target_peer_id: int) -> void:
+	send_msg(NetSerializer.OP_GROUP_INVITE, NetSerializer.Char.encode_group_invite(target_peer_id))
+
+
+func send_group_invite_reply(group_id: int, accept: bool) -> void:
+	send_msg(
+		NetSerializer.OP_GROUP_INVITE_REPLY,
+		NetSerializer.Char.encode_group_invite_reply(group_id, accept)
+	)
+
+
+func send_group_leave() -> void:
+	send_msg(NetSerializer.OP_GROUP_LEAVE)
+
+
+func send_enter_portal() -> void:
+	send_msg(NetSerializer.OP_ENTER_PORTAL)
+
+
+## Send a respawn request. type: 0 = arena, 1 = hub.
+func send_respawn_request(type: int) -> void:
+	send_msg(NetSerializer.OP_RESPAWN_REQUEST, PackedByteArray([type]))
+
+
+# =============================================================================
+# Character management
+# =============================================================================
+
+
+func send_select_character(char_id: int) -> void:
+	send_msg(NetSerializer.OP_SELECT_CHARACTER, NetSerializer.Char.encode_select_character(char_id))
+
+
+func send_create_character(class_name_str: String, char_name: String) -> void:
+	send_msg(
+		NetSerializer.OP_CREATE_CHARACTER,
+		NetSerializer.Char.encode_create_character(class_name_str, char_name)
+	)
 
 
 # =============================================================================
@@ -223,8 +283,19 @@ func _on_message(data: PackedByteArray) -> void:
 	var sender_id: int = parsed.sender_id
 	var payload: PackedByteArray = parsed.payload
 
+	if _handle_zone_opcodes(opcode, payload):
+		return
+	if _handle_state_opcodes(opcode, payload):
+		return
+	if _handle_group_opcodes(opcode, payload):
+		return
+	if _handle_delegated_opcodes(opcode, payload):
+		return
+	message_received.emit(opcode, sender_id, payload)
+
+
+func _handle_zone_opcodes(opcode: int, payload: PackedByteArray) -> bool:
 	match opcode:
-		# -- Zone management --
 		NetSerializer.OP_CHARACTER_STATE:
 			_handle_character_state(payload)
 		NetSerializer.OP_CHARACTER_LIST:
@@ -239,8 +310,13 @@ func _on_message(data: PackedByteArray) -> void:
 			_handle_peer_disconnected(payload)
 		NetSerializer.OP_ZONE_TRANSFER:
 			_handle_zone_transfer(payload)
+		_:
+			return false
+	return true
 
-		# -- Server-authoritative state --
+
+func _handle_state_opcodes(opcode: int, payload: PackedByteArray) -> bool:
+	match opcode:
 		NetSerializer.OP_LOBBY_STATE:
 			_handle_lobby_state(payload)
 		NetSerializer.OP_WORLD_STATE:
@@ -249,36 +325,41 @@ func _on_message(data: PackedByteArray) -> void:
 			_handle_damage_event(payload)
 		NetSerializer.OP_GAME_FLOW_EVENT:
 			_handle_game_flow_event(payload)
+		_:
+			return false
+	return true
 
-		# -- Group --
+
+func _handle_group_opcodes(opcode: int, payload: PackedByteArray) -> bool:
+	match opcode:
 		NetSerializer.OP_GROUP_STATE:
 			_handle_group_state(payload)
 		NetSerializer.OP_GROUP_INVITE_RECV:
 			_handle_group_invite(payload)
 		NetSerializer.OP_GROUP_ERROR:
 			_handle_group_error(payload)
-
-		# -- Inventory --
-		NetSerializer.OP_INVENTORY_STATE:
-			_handle_inventory_state(payload)
-
-		# -- Loadout --
-		NetSerializer.OP_ABILITY_CATALOG:
-			_handle_ability_catalog(payload)
-		NetSerializer.OP_LOADOUT_STATE:
-			_handle_loadout_state(payload)
-		NetSerializer.OP_FLUX_COMMIT_STATE:
-			_handle_flux_commit_state(payload)
-		NetSerializer.OP_PRESET_LIST:
-			_handle_preset_list(payload)
-
-		# -- Debug (dev mode) --
-		NetSerializer.OP_DEBUG_INFO:
-			_handle_debug_info(payload)
-
-		# -- Anything else (legacy or unknown) --
 		_:
-			message_received.emit(opcode, sender_id, payload)
+			return false
+	return true
+
+
+func _handle_delegated_opcodes(opcode: int, payload: PackedByteArray) -> bool:
+	match opcode:
+		NetSerializer.OP_INVENTORY_STATE:
+			loadout.handle_inventory_state(payload)
+		NetSerializer.OP_ABILITY_CATALOG:
+			loadout.handle_ability_catalog(payload)
+		NetSerializer.OP_LOADOUT_STATE:
+			loadout.handle_loadout_state(payload)
+		NetSerializer.OP_FLUX_COMMIT_STATE:
+			loadout.handle_flux_commit_state(payload)
+		NetSerializer.OP_PRESET_LIST:
+			loadout.handle_preset_list(payload)
+		NetSerializer.OP_DEBUG_INFO:
+			debug.handle_debug_info(payload)
+		_:
+			return false
+	return true
 
 
 # =============================================================================
@@ -287,7 +368,7 @@ func _on_message(data: PackedByteArray) -> void:
 
 
 func _handle_zone_joined(payload: PackedByteArray) -> void:
-	var info := NetSerializer.decode_zone_joined(payload)
+	var info := NetSerializer.Char.decode_zone_joined(payload)
 	if info.is_empty():
 		return
 	_my_peer_id = info.peer_id
@@ -301,7 +382,7 @@ func _handle_zone_joined(payload: PackedByteArray) -> void:
 
 
 func _handle_peer_connected(payload: PackedByteArray) -> void:
-	var peer_id := NetSerializer.decode_peer_id(payload)
+	var peer_id := NetSerializer.Char.decode_peer_id(payload)
 	if peer_id == 0 or peer_id == _my_peer_id:
 		return
 	print("[Net] Peer %d connected" % peer_id)
@@ -312,7 +393,7 @@ func _handle_peer_connected(payload: PackedByteArray) -> void:
 
 
 func _handle_peer_disconnected(payload: PackedByteArray) -> void:
-	var peer_id := NetSerializer.decode_peer_id(payload)
+	var peer_id := NetSerializer.Char.decode_peer_id(payload)
 	if peer_id == 0:
 		return
 	print("[Net] Peer %d disconnected" % peer_id)
@@ -327,7 +408,7 @@ func _handle_peer_disconnected(payload: PackedByteArray) -> void:
 
 
 func _handle_lobby_state(payload: PackedByteArray) -> void:
-	var data := NetSerializer.decode_lobby_state(payload)
+	var data := NetSerializer.Char.decode_lobby_state(payload)
 	player_info.clear()
 	for p in data.players:
 		player_info[p.peer_id] = {
@@ -338,17 +419,17 @@ func _handle_lobby_state(payload: PackedByteArray) -> void:
 
 
 func _handle_world_state(payload: PackedByteArray) -> void:
-	var data := NetSerializer.decode_world_state(payload)
+	var data := NetSerializer.World.decode_world_state(payload)
 	world_state_received.emit(data)
 
 
 func _handle_damage_event(payload: PackedByteArray) -> void:
-	var data := NetSerializer.decode_damage_event(payload)
+	var data := NetSerializer.World.decode_damage_event(payload)
 	damage_event_received.emit(data)
 
 
 func _handle_game_flow_event(payload: PackedByteArray) -> void:
-	var data := NetSerializer.decode_game_flow_event(payload)
+	var data := NetSerializer.World.decode_game_flow_event(payload)
 	game_flow_event.emit(data.flow_type, data.text)
 	# Emit all_players_ready for legacy compatibility when server sends FLOW_SPAWN_PLAYERS
 	if data.flow_type == NetSerializer.FLOW_SPAWN_PLAYERS:
@@ -356,13 +437,13 @@ func _handle_game_flow_event(payload: PackedByteArray) -> void:
 
 
 func _handle_character_state(payload: PackedByteArray) -> void:
-	var data := NetSerializer.decode_character_state(payload)
+	var data := NetSerializer.Char.decode_character_state(payload)
 	print("[Net] Character state: class=%s pos=%s" % [data.class_name, data.position])
 	character_state_received.emit(data)
 
 
 func _handle_character_list(payload: PackedByteArray) -> void:
-	var data := NetSerializer.decode_character_list(payload)
+	var data := NetSerializer.Char.decode_character_list(payload)
 	print(
 		(
 			"[Net] Character list: %d characters, last_char_id=%d"
@@ -372,25 +453,14 @@ func _handle_character_list(payload: PackedByteArray) -> void:
 	character_list_received.emit(data)
 
 
-func send_select_character(char_id: int) -> void:
-	send_msg(NetSerializer.OP_SELECT_CHARACTER, NetSerializer.encode_select_character(char_id))
-
-
-func send_create_character(class_name_str: String, char_name: String) -> void:
-	send_msg(
-		NetSerializer.OP_CREATE_CHARACTER,
-		NetSerializer.encode_create_character(class_name_str, char_name)
-	)
-
-
 func _handle_character_error(payload: PackedByteArray) -> void:
-	var data := NetSerializer.decode_character_error(payload)
+	var data := NetSerializer.Char.decode_character_error(payload)
 	print("[Net] Character error: code=%d msg=%s" % [data.error_code, data.message])
 	character_error_received.emit(data)
 
 
 func _handle_zone_transfer(payload: PackedByteArray) -> void:
-	var data := NetSerializer.decode_zone_transfer(payload)
+	var data := NetSerializer.Char.decode_zone_transfer(payload)
 	if data.is_empty():
 		return
 	_my_peer_id = data.new_peer_id
@@ -401,177 +471,15 @@ func _handle_zone_transfer(payload: PackedByteArray) -> void:
 
 
 func _handle_group_state(payload: PackedByteArray) -> void:
-	var data := NetSerializer.decode_group_state(payload)
+	var data := NetSerializer.Char.decode_group_state(payload)
 	group_state_updated.emit(data)
 
 
 func _handle_group_invite(payload: PackedByteArray) -> void:
-	var data := NetSerializer.decode_group_invite_received(payload)
+	var data := NetSerializer.Char.decode_group_invite_received(payload)
 	group_invite_received.emit(data.group_id, data.leader_name)
 
 
 func _handle_group_error(payload: PackedByteArray) -> void:
-	var data := NetSerializer.decode_group_error(payload)
+	var data := NetSerializer.Char.decode_group_error(payload)
 	group_error_received.emit(data.error_code, data.message)
-
-
-# =============================================================================
-# Group / social send helpers
-# =============================================================================
-
-
-func send_group_create() -> void:
-	send_msg(NetSerializer.OP_GROUP_CREATE)
-
-
-func send_group_invite(target_peer_id: int) -> void:
-	send_msg(NetSerializer.OP_GROUP_INVITE, NetSerializer.encode_group_invite(target_peer_id))
-
-
-func send_group_invite_reply(group_id: int, accept: bool) -> void:
-	send_msg(
-		NetSerializer.OP_GROUP_INVITE_REPLY,
-		NetSerializer.encode_group_invite_reply(group_id, accept)
-	)
-
-
-func send_group_leave() -> void:
-	send_msg(NetSerializer.OP_GROUP_LEAVE)
-
-
-func send_enter_portal() -> void:
-	send_msg(NetSerializer.OP_ENTER_PORTAL)
-
-
-## Send a respawn request. type: 0 = arena, 1 = hub.
-func send_respawn_request(type: int) -> void:
-	send_msg(NetSerializer.OP_RESPAWN_REQUEST, PackedByteArray([type]))
-
-
-# =============================================================================
-# Inventory
-# =============================================================================
-
-
-func _handle_inventory_state(payload: PackedByteArray) -> void:
-	var data := NetSerializer.decode_inventory_state(payload)
-	print("[Net] Inventory: %d equipped, %d bag" % [data.equipped.size(), data.bag.size()])
-	inventory_state_received.emit(data)
-
-
-func send_equip_item(item_id: int, slot_id: int) -> void:
-	send_msg(NetSerializer.OP_EQUIP_ITEM, NetSerializer.encode_equip_item(item_id, slot_id))
-
-
-func send_unequip_item(slot_id: int) -> void:
-	send_msg(NetSerializer.OP_UNEQUIP_ITEM, NetSerializer.encode_unequip_item(slot_id))
-
-
-# =============================================================================
-# Loadout / Ability catalog
-# =============================================================================
-
-
-func _handle_ability_catalog(payload: PackedByteArray) -> void:
-	var catalog: Array = NetSerializer.decode_ability_catalog(payload)
-	print("[Net] Received ability catalog: %d abilities" % catalog.size())
-	ability_catalog_received.emit(catalog)
-
-
-func _handle_loadout_state(payload: PackedByteArray) -> void:
-	var slots: Array = NetSerializer.decode_loadout_state(payload)
-	print("[Net] Received loadout: %s" % [slots])
-	loadout_state_received.emit(slots)
-
-
-func send_set_loadout(slots: Array) -> void:
-	send_msg(NetSerializer.OP_SET_LOADOUT, NetSerializer.encode_set_loadout(slots))
-
-
-func _handle_flux_commit_state(payload: PackedByteArray) -> void:
-	var entries: Array = NetSerializer.decode_flux_commit_state(payload)
-	print("[Net] Received flux commitment: %s" % [entries])
-	flux_commit_state_received.emit(entries)
-
-
-func send_set_flux_commitment(entries: Array) -> void:
-	send_msg(
-		NetSerializer.OP_SET_FLUX_COMMITMENT, NetSerializer.encode_set_flux_commitment(entries)
-	)
-
-
-func _handle_preset_list(payload: PackedByteArray) -> void:
-	var presets: Array = NetSerializer.decode_preset_list(payload)
-	preset_list_received.emit(presets)
-
-
-func send_save_preset(preset_name: String, slots: Array, commitment: String) -> void:
-	send_msg(
-		NetSerializer.OP_SAVE_PRESET,
-		NetSerializer.encode_save_preset(preset_name, slots, commitment)
-	)
-
-
-func send_delete_preset(preset_id: int) -> void:
-	send_msg(NetSerializer.OP_DELETE_PRESET, NetSerializer.encode_delete_preset(preset_id))
-
-
-# =============================================================================
-# Debug send helpers (dev mode)
-# =============================================================================
-
-
-func send_debug_force_commit(ability_id: String) -> void:
-	send_msg(NetSerializer.OP_DEBUG_FORCE_COMMIT, NetSerializer.encode_debug_str8(ability_id))
-
-
-func send_debug_set_phase(phase: int) -> void:
-	send_msg(NetSerializer.OP_DEBUG_SET_PHASE, NetSerializer.encode_debug_phase(phase))
-
-
-func send_debug_god_mode(enabled: bool) -> void:
-	send_msg(NetSerializer.OP_DEBUG_GOD_MODE, NetSerializer.encode_debug_god_mode(enabled))
-
-
-func send_debug_time_scale(scale: float) -> void:
-	send_msg(NetSerializer.OP_DEBUG_TIME_SCALE, NetSerializer.encode_debug_time_scale(scale))
-
-
-func send_debug_reset_boss() -> void:
-	send_msg(NetSerializer.OP_DEBUG_RESET_BOSS)
-
-
-func send_debug_repeat_ability(ability_id: String) -> void:
-	send_msg(NetSerializer.OP_DEBUG_REPEAT_ABILITY, NetSerializer.encode_debug_str8(ability_id))
-
-
-func send_debug_reload_yaml() -> void:
-	send_msg(NetSerializer.OP_DEBUG_RELOAD_YAML)
-
-
-func send_debug_request_info() -> void:
-	send_msg(NetSerializer.OP_DEBUG_REQUEST_INFO)
-
-
-func send_debug_spawn_bot(cls_name: String, spec_id: String) -> void:
-	var payload := PackedByteArray()
-	var cls := cls_name.to_utf8_buffer()
-	payload.append(cls.size())
-	payload.append_array(cls)
-	var spec := spec_id.to_utf8_buffer()
-	payload.append(spec.size())
-	payload.append_array(spec)
-	send_msg(NetSerializer.OP_DEBUG_SPAWN_BOT, payload)
-
-
-func send_debug_dismiss_bot(bot_id: int = 0) -> void:
-	var payload := PackedByteArray()
-	payload.resize(2)
-	payload.encode_u16(0, bot_id)
-	send_msg(NetSerializer.OP_DEBUG_DISMISS_BOT, payload)
-
-
-func _handle_debug_info(payload: PackedByteArray) -> void:
-	var data := NetSerializer.decode_debug_info(payload)
-	print("[Net] Debug info: boss=%s abilities=%s" % [data.def_name, data.abilities])
-	debug_info_received.emit(data.def_name, data.abilities)

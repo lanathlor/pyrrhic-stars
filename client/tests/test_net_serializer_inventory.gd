@@ -23,13 +23,13 @@ func after_test() -> void:
 
 
 func test_encode_equip_item_size() -> void:
-	var buf := _ser.encode_equip_item(42, 3)
+	var buf := NetSerializer.Inv.encode_equip_item(42, 3)
 	# u32 (4 bytes) + u8 (1 byte) = 5
 	assert_int(buf.size()).is_equal(5)
 
 
 func test_encode_equip_item_values() -> void:
-	var buf := _ser.encode_equip_item(12345, 2)
+	var buf := NetSerializer.Inv.encode_equip_item(12345, 2)
 	var reader := StreamPeerBuffer.new()
 	reader.data_array = buf
 	assert_int(reader.get_u32()).is_equal(12345)
@@ -37,7 +37,7 @@ func test_encode_equip_item_values() -> void:
 
 
 func test_encode_equip_item_zero() -> void:
-	var buf := _ser.encode_equip_item(0, 0)
+	var buf := NetSerializer.Inv.encode_equip_item(0, 0)
 	var reader := StreamPeerBuffer.new()
 	reader.data_array = buf
 	assert_int(reader.get_u32()).is_equal(0)
@@ -50,12 +50,12 @@ func test_encode_equip_item_zero() -> void:
 
 
 func test_encode_unequip_item_size() -> void:
-	var buf := _ser.encode_unequip_item(5)
+	var buf := NetSerializer.Inv.encode_unequip_item(5)
 	assert_int(buf.size()).is_equal(1)
 
 
 func test_encode_unequip_item_value() -> void:
-	var buf := _ser.encode_unequip_item(3)
+	var buf := NetSerializer.Inv.encode_unequip_item(3)
 	assert_int(buf[0]).is_equal(3)
 
 
@@ -108,7 +108,7 @@ func _write_item(buf: StreamPeerBuffer, item: Dictionary) -> void:
 
 func test_decode_empty_inventory() -> void:
 	var payload := _build_inventory_payload([], [], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-	var result: Dictionary = _ser.decode_inventory_state(payload)
+	var result: Dictionary = NetSerializer.Inv.decode_inventory_state(payload)
 	assert_array(result["equipped"]).is_empty()
 	assert_array(result["bag"]).is_empty()
 	for key in ["hull", "output", "plating", "tempo", "identity", "mastery"]:
@@ -125,7 +125,7 @@ func test_decode_single_equipped_item() -> void:
 		"stat_lines": [{"stat": 0, "value": 10.0}],
 	}
 	var payload := _build_inventory_payload([item], [], [10.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-	var result: Dictionary = _ser.decode_inventory_state(payload)
+	var result: Dictionary = NetSerializer.Inv.decode_inventory_state(payload)
 	assert_int(result["equipped"].size()).is_equal(1)
 	var decoded: Dictionary = result["equipped"][0]
 	assert_int(decoded["slot_id"]).is_equal(0)
@@ -153,7 +153,7 @@ func test_decode_multiple_stat_lines() -> void:
 		],
 	}
 	var payload := _build_inventory_payload([item], [], [0.0, 15.0, 0.0, 8.0, 0.0, 3.5])
-	var result: Dictionary = _ser.decode_inventory_state(payload)
+	var result: Dictionary = NetSerializer.Inv.decode_inventory_state(payload)
 	var decoded: Dictionary = result["equipped"][0]
 	assert_int(decoded["stat_lines"].size()).is_equal(3)
 	assert_float(decoded["stat_lines"][1]["value"]).is_equal_approx(8.0, 0.01)
@@ -170,7 +170,7 @@ func test_decode_bag_items() -> void:
 		"stat_lines": [{"stat": 4, "value": 5.0}],
 	}
 	var payload := _build_inventory_payload([], [bag_item], [0.0, 0.0, 0.0, 0.0, 5.0, 0.0])
-	var result: Dictionary = _ser.decode_inventory_state(payload)
+	var result: Dictionary = NetSerializer.Inv.decode_inventory_state(payload)
 	assert_array(result["equipped"]).is_empty()
 	assert_int(result["bag"].size()).is_equal(1)
 	assert_str(result["bag"][0]["name"]).is_equal("Augment X")
@@ -178,7 +178,7 @@ func test_decode_bag_items() -> void:
 
 func test_decode_computed_stats() -> void:
 	var payload := _build_inventory_payload([], [], [50.0, 12.5, 8.0, 3.0, 1.0, 0.5])
-	var result: Dictionary = _ser.decode_inventory_state(payload)
+	var result: Dictionary = NetSerializer.Inv.decode_inventory_state(payload)
 	assert_float(result["stats"]["hull"]).is_equal_approx(50.0, 0.01)
 	assert_float(result["stats"]["output"]).is_equal_approx(12.5, 0.01)
 	assert_float(result["stats"]["plating"]).is_equal_approx(8.0, 0.01)
@@ -205,7 +205,7 @@ func test_decode_mixed_equipped_and_bag() -> void:
 		"stat_lines": [{"stat": 0, "value": 30.0}, {"stat": 2, "value": 8.0}],
 	}
 	var payload := _build_inventory_payload([eq], [bag], [20.0, 0.0, 5.0, 0.0, 0.0, 0.0])
-	var result: Dictionary = _ser.decode_inventory_state(payload)
+	var result: Dictionary = NetSerializer.Inv.decode_inventory_state(payload)
 	assert_int(result["equipped"].size()).is_equal(1)
 	assert_int(result["bag"].size()).is_equal(1)
 	assert_str(result["equipped"][0]["def_id"]).is_equal("core_a")
@@ -222,5 +222,5 @@ func test_decode_high_ilvl() -> void:
 		"stat_lines": [],
 	}
 	var payload := _build_inventory_payload([item], [], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-	var result: Dictionary = _ser.decode_inventory_state(payload)
+	var result: Dictionary = NetSerializer.Inv.decode_inventory_state(payload)
 	assert_int(result["equipped"][0]["ilvl"]).is_equal(50)

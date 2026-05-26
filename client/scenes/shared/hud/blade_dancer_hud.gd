@@ -57,85 +57,79 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	var center := size / 2.0
-
-	# GCD arc on crosshair
-	if _gcd_ratio > 0.01:
-		var radius := 22.0
-		var thickness := 3.0
-		var arc_color := _get_current_color()
-		arc_color.a = 0.7
-		var start_angle := -PI / 2.0
-		var sweep_angle := _gcd_ratio * TAU
-		var segments := 32
-		for i in range(segments):
-			var a1 := start_angle + sweep_angle * (float(i) / float(segments))
-			var a2 := start_angle + sweep_angle * (float(i + 1) / float(segments))
-			draw_line(
-				center + Vector2(cos(a1), sin(a1)) * radius,
-				center + Vector2(cos(a2), sin(a2)) * radius,
-				arc_color,
-				thickness,
-				true
-			)
-
-	# Hit marker
-	if _hit_marker_timer > 0.0:
-		var t: float = _hit_marker_timer / HIT_MARKER_DURATION
-		var color := Color(1.0, 0.2, 0.2, t)
-		var gap: float = 5.0
-		var x_len: float = 10.0
-		var thick: float = 2.5
-		draw_line(
-			center + Vector2(-gap - x_len, -gap - x_len),
-			center + Vector2(-gap, -gap),
-			color,
-			thick,
-			true
-		)
-		draw_line(
-			center + Vector2(gap + x_len, -gap - x_len),
-			center + Vector2(gap, -gap),
-			color,
-			thick,
-			true
-		)
-		draw_line(
-			center + Vector2(-gap - x_len, gap + x_len),
-			center + Vector2(-gap, gap),
-			color,
-			thick,
-			true
-		)
-		draw_line(
-			center + Vector2(gap + x_len, gap + x_len),
-			center + Vector2(gap, gap),
-			color,
-			thick,
-			true
-		)
-
+	_draw_gcd_arc(center)
+	_draw_hit_marker(center)
 	_draw_flow()
+	_draw_shield_bar(center)
+	config_display.queue_redraw()
 
-	# Shield bar — shown above ability bar when shield > 0
-	if _shield_hp > 0.1:
-		var bar_w := 120.0
-		var bar_h := 8.0
-		var bar_x := center.x - bar_w / 2.0
-		var bar_y := size.y - 136.0
-		var fill := clampf(_shield_hp / SHIELD_MAX, 0.0, 1.0)
-		_draw_status_bar(Rect2(bar_x, bar_y, bar_w, bar_h), fill, Color(0.7, 0.9, 1.0, 0.85))
-		var shield_text := "%.0f" % _shield_hp
-		draw_string(
-			ThemeDB.fallback_font,
-			Vector2(bar_x + bar_w + 6.0, bar_y + 7.0),
-			shield_text,
-			HORIZONTAL_ALIGNMENT_LEFT,
-			40.0,
-			10,
-			Color(0.7, 0.9, 1.0, 0.9)
+
+func _draw_gcd_arc(center: Vector2) -> void:
+	if _gcd_ratio <= 0.01:
+		return
+	var radius := 22.0
+	var thickness := 3.0
+	var arc_color := _get_current_color()
+	arc_color.a = 0.7
+	var start_angle := -PI / 2.0
+	var sweep_angle := _gcd_ratio * TAU
+	var segments := 32
+	for i in range(segments):
+		var a1 := start_angle + sweep_angle * (float(i) / float(segments))
+		var a2 := start_angle + sweep_angle * (float(i + 1) / float(segments))
+		draw_line(
+			center + Vector2(cos(a1), sin(a1)) * radius,
+			center + Vector2(cos(a2), sin(a2)) * radius,
+			arc_color,
+			thickness,
+			true
 		)
 
-	config_display.queue_redraw()
+
+func _draw_hit_marker(center: Vector2) -> void:
+	if _hit_marker_timer <= 0.0:
+		return
+	var t: float = _hit_marker_timer / HIT_MARKER_DURATION
+	var color := Color(1.0, 0.2, 0.2, t)
+	var gap: float = 5.0
+	var x_len: float = 10.0
+	var thick: float = 2.5
+	draw_line(
+		center + Vector2(-gap - x_len, -gap - x_len),
+		center + Vector2(-gap, -gap),
+		color,
+		thick,
+		true
+	)
+	draw_line(
+		center + Vector2(gap + x_len, -gap - x_len), center + Vector2(gap, -gap), color, thick, true
+	)
+	draw_line(
+		center + Vector2(-gap - x_len, gap + x_len), center + Vector2(-gap, gap), color, thick, true
+	)
+	draw_line(
+		center + Vector2(gap + x_len, gap + x_len), center + Vector2(gap, gap), color, thick, true
+	)
+
+
+func _draw_shield_bar(center: Vector2) -> void:
+	if _shield_hp <= 0.1:
+		return
+	var bar_w := 120.0
+	var bar_h := 8.0
+	var bar_x := center.x - bar_w / 2.0
+	var bar_y := size.y - 136.0
+	var fill := clampf(_shield_hp / SHIELD_MAX, 0.0, 1.0)
+	_draw_status_bar(Rect2(bar_x, bar_y, bar_w, bar_h), fill, Color(0.7, 0.9, 1.0, 0.85))
+	draw_string(
+		ThemeDB.fallback_font,
+		Vector2(bar_x + bar_w + 6.0, bar_y + 7.0),
+		"%.0f" % _shield_hp,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		40.0,
+		10,
+		Color(0.7, 0.9, 1.0, 0.9)
+	)
 
 
 func update_config(config_value: int) -> void:
@@ -218,54 +212,50 @@ func _get_config_name(cfg: int) -> String:
 func _draw_flow() -> void:
 	var font := ThemeDB.fallback_font
 	var center_x := size.x / 2.0
-	# Position above shield bar / ability bar area
 	var y := size.y - 160.0
 
-	# --- Stack counter (big number) ---
-	var count_text := "%d" % _flow_stacks
-	var count_color: Color
-	if _flow_tier >= 2:
-		count_color = FLOW_MAXIMUM
-		count_color.a = 0.7 + 0.3 * absf(sin(float(Time.get_ticks_msec()) / 250.0))
-	elif _flow_tier == 1:
-		count_color = FLOW_EMPOWERED
-	else:
-		count_color = Color(0.3, 0.45, 0.5, 0.6) if _flow_stacks > 0 else FLOW_DIM
+	_draw_flow_counter(font, center_x, y)
+	_draw_flow_label(font, center_x, y)
+	_draw_flow_pips(center_x, y)
 
+
+func _get_flow_color() -> Color:
+	if _flow_tier >= 2:
+		var c := FLOW_MAXIMUM
+		c.a = 0.7 + 0.3 * absf(sin(float(Time.get_ticks_msec()) / 250.0))
+		return c
+	if _flow_tier == 1:
+		return FLOW_EMPOWERED
+	if _flow_stacks > 0:
+		return Color(0.3, 0.45, 0.5, 0.6)
+	return FLOW_DIM
+
+
+func _draw_flow_counter(font: Font, center_x: float, y: float) -> void:
 	draw_string(
 		font,
 		Vector2(center_x - 10.0, y + 6.0),
-		count_text,
+		"%d" % _flow_stacks,
 		HORIZONTAL_ALIGNMENT_CENTER,
 		20.0,
 		24,
-		count_color
+		_get_flow_color()
 	)
 
-	# --- Label (right of number) ---
-	var label := "FLOW"
-	var label_color: Color
-	if _flow_tier >= 2:
-		label_color = FLOW_MAXIMUM
-		label_color.a = 0.7 + 0.3 * absf(sin(float(Time.get_ticks_msec()) / 250.0))
-	elif _flow_tier == 1:
-		label_color = FLOW_EMPOWERED
-	elif _flow_stacks > 0:
-		label_color = Color(0.3, 0.45, 0.5, 0.6)
-	else:
-		label_color = FLOW_DIM
 
+func _draw_flow_label(font: Font, center_x: float, y: float) -> void:
 	draw_string(
 		font,
 		Vector2(center_x + 14.0, y - 6.0),
-		label,
+		"FLOW",
 		HORIZONTAL_ALIGNMENT_LEFT,
 		90.0,
 		11,
-		label_color
+		_get_flow_color()
 	)
 
-	# --- Tier pips (3 bars below the number) ---
+
+func _draw_flow_pips(center_x: float, y: float) -> void:
 	var pip_w := 14.0
 	var pip_h := 3.0
 	var pip_gap := 4.0
@@ -276,22 +266,10 @@ func _draw_flow() -> void:
 	for i in 3:
 		var px := pip_x + i * (pip_w + pip_gap)
 		var pip_rect := Rect2(px, pip_y, pip_w, pip_h)
-		var lit: bool
-		if _flow_tier == 0:
-			lit = false
-		elif _flow_tier == 1:
-			lit = i < 2
-		else:
-			lit = true
+		var lit := _flow_tier >= 2 or (_flow_tier == 1 and i < 2)
 
 		if lit:
-			var pip_color: Color
-			if _flow_tier >= 2:
-				pip_color = FLOW_MAXIMUM
-				pip_color.a = 0.7 + 0.3 * absf(sin(float(Time.get_ticks_msec()) / 250.0))
-			else:
-				pip_color = FLOW_EMPOWERED
-			draw_rect(pip_rect, pip_color)
+			draw_rect(pip_rect, _get_flow_color())
 		else:
 			draw_rect(pip_rect, FLOW_DIM)
 

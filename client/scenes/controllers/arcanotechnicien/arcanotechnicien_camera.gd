@@ -12,7 +12,7 @@ func _ready() -> void:
 
 func update_camera() -> void:
 	var player_pos: Vector3 = ctrl.global_position + Vector3(0.0, ctrl.camera_height_offset, 0.0)
-	var cam_offset := Vector3(0.0, 0.0, ctrl.camera_distance)
+	var cam_offset: Vector3 = Vector3(0.0, 0.0, ctrl.camera_distance)
 	cam_offset = cam_offset.rotated(Vector3.RIGHT, ctrl._camera_pitch)
 	cam_offset = cam_offset.rotated(Vector3.UP, ctrl._camera_yaw)
 	var desired_cam_pos: Vector3 = player_pos + cam_offset
@@ -80,9 +80,42 @@ func update_animation() -> void:
 		return
 
 	ctrl._visual_state = NetSerializer.VS_MOVE
-	var flat_vel := Vector3(ctrl.velocity.x, 0.0, ctrl.velocity.z)
+	var flat_vel: Vector3 = Vector3(ctrl.velocity.x, 0.0, ctrl.velocity.z)
 	if flat_vel.length() > 0.5:
 		var speed_ratio: float = flat_vel.length() / ctrl.sprint_speed
 		ctrl.character_model.travel("run", clampf(speed_ratio, 0.5, 1.5))
 	else:
 		ctrl.character_model.travel("idle")
+
+
+func drive_remote_animation(prev_pos: Vector3, delta: float) -> void:
+	# Drive remote VFX on visual state change
+	if ctrl._visual_state != ctrl._prev_remote_vs:
+		if ctrl.vfx:
+			ctrl.vfx.drive_remote_vfx(ctrl._prev_remote_vs, ctrl._visual_state)
+		ctrl._prev_remote_vs = ctrl._visual_state
+
+	match ctrl._visual_state:
+		NetSerializer.VS_DODGE:
+			ctrl.character_model.travel("dodge")
+		NetSerializer.VS_AT_CASTING:
+			ctrl.character_model.travel("casting")
+		NetSerializer.VS_AT_CHANNELING:
+			ctrl.character_model.travel("channeling")
+		NetSerializer.VS_AT_CHANNELING_BEAM:
+			ctrl.character_model.travel("channeling")
+		NetSerializer.VS_AT_CHANNELING_ZONE:
+			ctrl.character_model.travel("channeling")
+		NetSerializer.VS_AT_STAGGER:
+			ctrl.character_model.travel("stagger")
+		NetSerializer.VS_DEAD:
+			ctrl.character_model.travel("dead")
+		_:  # VS_MOVE or unknown -- derive from velocity
+			var vel: Vector3 = (
+				(ctrl.global_position - prev_pos) / delta if delta > 0 else Vector3.ZERO
+			)
+			var speed: float = Vector2(vel.x, vel.z).length()
+			if speed > 0.5:
+				ctrl.character_model.travel("run", clampf(speed / ctrl.sprint_speed, 0.5, 1.5))
+			else:
+				ctrl.character_model.travel("idle")

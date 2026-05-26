@@ -191,14 +191,14 @@ func test_filter_frost_school() -> void:
 
 func test_slot_for_ability_found() -> void:
 	_panel.open()
-	assert_int(_panel._get_slot_for_ability("mending_surge")).is_equal(0)
-	assert_int(_panel._get_slot_for_ability("frost_ward")).is_equal(2)
+	assert_int(CodexPanelTheme.get_slot_for_ability("mending_surge")).is_equal(0)
+	assert_int(CodexPanelTheme.get_slot_for_ability("frost_ward")).is_equal(2)
 
 
 func test_slot_for_ability_not_in_loadout() -> void:
 	_panel.open()
-	assert_int(_panel._get_slot_for_ability("fireball")).is_equal(-1)
-	assert_int(_panel._get_slot_for_ability("nonexistent")).is_equal(-1)
+	assert_int(CodexPanelTheme.get_slot_for_ability("fireball")).is_equal(-1)
+	assert_int(CodexPanelTheme.get_slot_for_ability("nonexistent")).is_equal(-1)
 
 
 func test_pending_loadout_edit() -> void:
@@ -258,13 +258,13 @@ func test_not_dirty_after_revert() -> void:
 
 func test_wrap_empty_string() -> void:
 	var font: Font = ThemeDB.fallback_font
-	var lines: Array[String] = _panel._wrap_text(font, "", 200.0, 10)
+	var lines: Array[String] = CodexPanelTheme.wrap_text(font, "", 200.0, 10)
 	assert_array(lines).is_empty()
 
 
 func test_wrap_short_string_single_line() -> void:
 	var font: Font = ThemeDB.fallback_font
-	var lines: Array[String] = _panel._wrap_text(font, "Short text.", 500.0, 10)
+	var lines: Array[String] = CodexPanelTheme.wrap_text(font, "Short text.", 500.0, 10)
 	assert_int(lines.size()).is_equal(1)
 	assert_str(lines[0]).is_equal("Short text.")
 
@@ -276,7 +276,7 @@ func test_wrap_long_string_multiple_lines() -> void:
 		+ " in the game. Burns Flux fast but nothing else saves a dying"
 		+ " ally this quickly."
 	)
-	var lines: Array[String] = _panel._wrap_text(font, long_text, 200.0, 10)
+	var lines: Array[String] = CodexPanelTheme.wrap_text(font, long_text, 200.0, 10)
 	assert_int(lines.size()).is_greater(1)
 	# All words should be preserved across lines
 	var rejoined := " ".join(lines)
@@ -286,7 +286,7 @@ func test_wrap_long_string_multiple_lines() -> void:
 func test_wrap_preserves_all_words() -> void:
 	var font: Font = ThemeDB.fallback_font
 	var text := "one two three four five six seven eight nine ten"
-	var lines: Array[String] = _panel._wrap_text(font, text, 80.0, 10)
+	var lines: Array[String] = CodexPanelTheme.wrap_text(font, text, 80.0, 10)
 	var rejoined := " ".join(lines)
 	assert_str(rejoined).is_equal(text)
 

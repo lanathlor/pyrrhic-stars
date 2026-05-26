@@ -32,8 +32,8 @@ func test_loadout_roundtrip_full() -> void:
 		"life_swap",
 		"transfusion"
 	]
-	var encoded := _ser.encode_set_loadout(slots)
-	var decoded := _ser.decode_loadout_state(encoded)
+	var encoded := NetSerializer.Inv.encode_set_loadout(slots)
+	var decoded := NetSerializer.Inv.decode_loadout_state(encoded)
 	assert_array(decoded).has_size(6)
 	for i in 6:
 		assert_str(decoded[i]).is_equal(slots[i])
@@ -41,8 +41,8 @@ func test_loadout_roundtrip_full() -> void:
 
 func test_loadout_roundtrip_empty_slots() -> void:
 	var slots: Array = ["", "", "", "", "", ""]
-	var encoded := _ser.encode_set_loadout(slots)
-	var decoded := _ser.decode_loadout_state(encoded)
+	var encoded := NetSerializer.Inv.encode_set_loadout(slots)
+	var decoded := NetSerializer.Inv.decode_loadout_state(encoded)
 	assert_array(decoded).has_size(6)
 	for i in 6:
 		assert_str(decoded[i]).is_equal("")
@@ -50,8 +50,8 @@ func test_loadout_roundtrip_empty_slots() -> void:
 
 func test_loadout_roundtrip_partial() -> void:
 	var slots: Array = ["mending_surge", "", "frost_ward", "", "", "gust_step"]
-	var encoded := _ser.encode_set_loadout(slots)
-	var decoded := _ser.decode_loadout_state(encoded)
+	var encoded := NetSerializer.Inv.encode_set_loadout(slots)
+	var decoded := NetSerializer.Inv.decode_loadout_state(encoded)
 	assert_str(decoded[0]).is_equal("mending_surge")
 	assert_str(decoded[1]).is_equal("")
 	assert_str(decoded[2]).is_equal("frost_ward")
@@ -61,14 +61,14 @@ func test_loadout_roundtrip_partial() -> void:
 func test_loadout_encode_size() -> void:
 	# Each str8 is 1 byte len + N bytes string. 6 slots.
 	var slots: Array = ["ab", "cd", "ef", "gh", "ij", "kl"]
-	var encoded := _ser.encode_set_loadout(slots)
+	var encoded := NetSerializer.Inv.encode_set_loadout(slots)
 	# 6 * (1 + 2) = 18 bytes
 	assert_int(encoded.size()).is_equal(18)
 
 
 func test_loadout_encode_all_empty_size() -> void:
 	var slots: Array = ["", "", "", "", "", ""]
-	var encoded := _ser.encode_set_loadout(slots)
+	var encoded := NetSerializer.Inv.encode_set_loadout(slots)
 	# 6 * (1 + 0) = 6 bytes (just length bytes)
 	assert_int(encoded.size()).is_equal(6)
 
@@ -78,18 +78,17 @@ func test_loadout_encode_all_empty_size() -> void:
 # =============================================================================
 
 
-func _build_catalog_entry(
-	id: String,
-	name: String,
-	school: String,
-	ability_type: String,
-	delivery: String,
-	flux_cost: String,
-	description: String,
-	cooldown: float,
-	commit_time: float,
-	stats: Dictionary = {},
-) -> void:
+func _build_catalog_entry(entry: Dictionary) -> void:
+	var id: String = entry.get("id", "")
+	var name: String = entry.get("name", "")
+	var school: String = entry.get("school", "")
+	var ability_type: String = entry.get("type", "")
+	var delivery: String = entry.get("delivery", "")
+	var flux_cost: String = entry.get("flux_cost", "")
+	var description: String = entry.get("desc", "")
+	var cooldown: float = entry.get("cooldown", 0.0)
+	var commit_time: float = entry.get("commit_time", 0.0)
+	var stats: Dictionary = entry.get("stats", {})
 	# Helper: appends one entry to _catalog_buf
 	var affinity: String = stats.get("affinity", "")
 	var implemented: bool = stats.get("implemented", false)
@@ -132,24 +131,27 @@ func test_decode_catalog_single_entry() -> void:
 	_catalog_buf = StreamPeerBuffer.new()
 	_catalog_buf.put_u8(1)  # count
 	_build_catalog_entry(
-		"mending_surge",
-		"Mending Surge",
-		"bioarcanotechnic",
-		"enhancement",
-		"direct",
-		"high",
-		"Emergency heal.",
-		0.0,
-		0.4,
 		{
-			implemented = true,
-			affinity = "primary",
-			flux_amount = 40.0,
-			base_heal = 80.0,
-			gcd = 0.8,
-		},
+			id = "mending_surge",
+			name = "Mending Surge",
+			school = "bioarcanotechnic",
+			type = "enhancement",
+			delivery = "direct",
+			flux_cost = "high",
+			desc = "Emergency heal.",
+			cooldown = 0.0,
+			commit_time = 0.4,
+			stats =
+			{
+				implemented = true,
+				affinity = "primary",
+				flux_amount = 40.0,
+				base_heal = 80.0,
+				gcd = 0.8,
+			},
+		}
 	)
-	var entries := _ser.decode_ability_catalog(_catalog_buf.data_array)
+	var entries := NetSerializer.Inv.decode_ability_catalog(_catalog_buf.data_array)
 	assert_int(entries.size()).is_equal(1)
 	var e: Dictionary = entries[0]
 	assert_str(e["id"]).is_equal("mending_surge")
@@ -173,30 +175,34 @@ func test_decode_catalog_multiple_entries() -> void:
 	_catalog_buf = StreamPeerBuffer.new()
 	_catalog_buf.put_u8(2)  # count
 	_build_catalog_entry(
-		"mending_surge",
-		"Mending Surge",
-		"bioarcanotechnic",
-		"enhancement",
-		"direct",
-		"high",
-		"Big heal.",
-		0.0,
-		0.4,
-		{implemented = true, affinity = "primary"},
+		{
+			id = "mending_surge",
+			name = "Mending Surge",
+			school = "bioarcanotechnic",
+			type = "enhancement",
+			delivery = "direct",
+			flux_cost = "high",
+			desc = "Big heal.",
+			cooldown = 0.0,
+			commit_time = 0.4,
+			stats = {implemented = true, affinity = "primary"},
+		}
 	)
 	_build_catalog_entry(
-		"fireball",
-		"Fireball",
-		"fire",
-		"destruction",
-		"zone",
-		"high",
-		"AoE explosion.",
-		0.0,
-		3.0,
-		{affinity = "off"},
+		{
+			id = "fireball",
+			name = "Fireball",
+			school = "fire",
+			type = "destruction",
+			delivery = "zone",
+			flux_cost = "high",
+			desc = "AoE explosion.",
+			cooldown = 0.0,
+			commit_time = 3.0,
+			stats = {affinity = "off"},
+		}
 	)
-	var entries := _ser.decode_ability_catalog(_catalog_buf.data_array)
+	var entries := NetSerializer.Inv.decode_ability_catalog(_catalog_buf.data_array)
 	assert_int(entries.size()).is_equal(2)
 	assert_str(entries[0]["id"]).is_equal("mending_surge")
 	assert_str(entries[1]["id"]).is_equal("fireball")
@@ -208,12 +214,12 @@ func test_decode_catalog_multiple_entries() -> void:
 func test_decode_catalog_empty() -> void:
 	_catalog_buf = StreamPeerBuffer.new()
 	_catalog_buf.put_u8(0)  # count = 0
-	var entries := _ser.decode_ability_catalog(_catalog_buf.data_array)
+	var entries := NetSerializer.Inv.decode_ability_catalog(_catalog_buf.data_array)
 	assert_array(entries).is_empty()
 
 
 func test_decode_catalog_empty_buffer() -> void:
-	var entries := _ser.decode_ability_catalog(PackedByteArray())
+	var entries := NetSerializer.Inv.decode_ability_catalog(PackedByteArray())
 	assert_array(entries).is_empty()
 
 
@@ -222,18 +228,20 @@ func test_decode_catalog_long_description() -> void:
 	_catalog_buf.put_u8(1)
 	var long_desc := "A".repeat(300)
 	_build_catalog_entry(
-		"test_ability",
-		"Test Ability",
-		"frost",
-		"destruction",
-		"bolt",
-		"medium",
-		long_desc,
-		8.0,
-		1.5,
-		{affinity = "secondary"},
+		{
+			id = "test_ability",
+			name = "Test Ability",
+			school = "frost",
+			type = "destruction",
+			delivery = "bolt",
+			flux_cost = "medium",
+			desc = long_desc,
+			cooldown = 8.0,
+			commit_time = 1.5,
+			stats = {affinity = "secondary"},
+		}
 	)
-	var entries := _ser.decode_ability_catalog(_catalog_buf.data_array)
+	var entries := NetSerializer.Inv.decode_ability_catalog(_catalog_buf.data_array)
 	assert_int(entries.size()).is_equal(1)
 	assert_int(entries[0]["description"].length()).is_equal(300)
 	assert_float(entries[0]["cooldown"]).is_equal_approx(8.0, 0.01)
@@ -244,17 +252,19 @@ func test_decode_catalog_unimplemented() -> void:
 	_catalog_buf = StreamPeerBuffer.new()
 	_catalog_buf.put_u8(1)
 	_build_catalog_entry(
-		"chain_lightning",
-		"Chain Lightning",
-		"electricity",
-		"destruction",
-		"bolt",
-		"medium",
-		"Bouncing bolt.",
-		6.0,
-		0.8,
-		{affinity = "secondary"},
+		{
+			id = "chain_lightning",
+			name = "Chain Lightning",
+			school = "electricity",
+			type = "destruction",
+			delivery = "bolt",
+			flux_cost = "medium",
+			desc = "Bouncing bolt.",
+			cooldown = 6.0,
+			commit_time = 0.8,
+			stats = {affinity = "secondary"},
+		}
 	)
-	var entries := _ser.decode_ability_catalog(_catalog_buf.data_array)
+	var entries := NetSerializer.Inv.decode_ability_catalog(_catalog_buf.data_array)
 	assert_bool(entries[0]["implemented"]).is_false()
 	assert_str(entries[0]["affinity"]).is_equal("secondary")

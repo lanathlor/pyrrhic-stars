@@ -72,18 +72,16 @@ func _build_particles() -> void:
 	_particles.randomness = 0.5
 	_particles.fixed_fps = 30
 	_particles.visibility_aabb = AABB(Vector3(-4, -1, -4), Vector3(8, 3, 8))
+	_particles.process_material = _build_particle_process_mat()
+	_particles.draw_pass_1 = _build_particle_draw_mesh()
+	add_child(_particles)
 
-	# Determine plane dimensions
+
+func _build_particle_process_mat() -> ParticleProcessMaterial:
 	var is_x_facing := beam_size.x < beam_size.z
-	var plane_width: float
+	var plane_width: float = beam_size.z if is_x_facing else beam_size.x
 	var plane_height: float = beam_size.y
 
-	if is_x_facing:
-		plane_width = beam_size.z
-	else:
-		plane_width = beam_size.x
-
-	# Process material — controls particle behavior
 	var proc_mat := ParticleProcessMaterial.new()
 	proc_mat.direction = Vector3(0.0, 1.0, 0.0)
 	proc_mat.spread = 15.0
@@ -92,27 +90,20 @@ func _build_particles() -> void:
 	proc_mat.gravity = Vector3.ZERO
 	proc_mat.damping_min = 0.5
 	proc_mat.damping_max = 1.0
-
-	# Emission shape: box covering the beam plane
 	proc_mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
 	if is_x_facing:
 		proc_mat.emission_box_extents = Vector3(0.05, plane_height * 0.4, plane_width * 0.45)
 	else:
 		proc_mat.emission_box_extents = Vector3(plane_width * 0.45, plane_height * 0.4, 0.05)
-
-	# Color: blue to white, fading out
 	proc_mat.color = Color(0.4, 0.7, 1.0, 0.8)
-
-	# Scale: small sparkles that shrink over lifetime
 	proc_mat.scale_min = 0.6
 	proc_mat.scale_max = 1.0
+	return proc_mat
 
-	_particles.process_material = proc_mat
 
-	# Draw pass: tiny quad billboard for each particle
+func _build_particle_draw_mesh() -> QuadMesh:
 	var particle_mesh := QuadMesh.new()
 	particle_mesh.size = Vector2(0.04, 0.04)
-
 	var particle_mat := StandardMaterial3D.new()
 	particle_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	particle_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -121,8 +112,5 @@ func _build_particles() -> void:
 	particle_mat.emission_enabled = true
 	particle_mat.emission = Color(0.3, 0.6, 1.0)
 	particle_mat.emission_energy_multiplier = 2.0
-
 	particle_mesh.material = particle_mat
-	_particles.draw_pass_1 = particle_mesh
-
-	add_child(_particles)
+	return particle_mesh

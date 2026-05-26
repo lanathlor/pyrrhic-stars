@@ -43,131 +43,150 @@ func _draw() -> void:
 	var total_w := SLOT_SIZE * slot_count + SLOT_GAP * (slot_count - 1)
 	var start_x := (size.x - total_w) / 2.0
 	var y := size.y - SLOT_SIZE - 14.0
+
+	_draw_ability_slots(start_x, y, slot_count)
+	_draw_gcd_overlay(start_x, y, slot_count)
+	_update_hovered_slot(start_x, y, slot_count)
+
+	if _hovered_slot >= 0 and _hovered_slot < _abilities.size():
+		_draw_tooltip(start_x, y)
+
+
+func _draw_ability_slots(start_x: float, y: float, slot_count: int) -> void:
 	var font := ThemeDB.fallback_font
-
-	var bg_color := Color(0.04, 0.05, 0.07, 0.75)
-	var text_color := TEXT_PRIMARY
-	var keybind_color := TEXT_MUTED
-
 	for i in slot_count:
 		var x := start_x + i * (SLOT_SIZE + SLOT_GAP)
-		var slot_rect := Rect2(x, y, SLOT_SIZE, SLOT_SIZE)
 		var ability: Dictionary = _abilities[i]
-		var slot_color: Color = ability.get("color", accent_color)
+		_draw_single_slot(font, ability, x, y)
 
-		draw_rect(slot_rect, bg_color)
-		draw_rect(slot_rect, PANEL_BORDER, false, 1.0)
 
-		var inner := Rect2(x + 1.5, y + 1.5, SLOT_SIZE - 3.0, SLOT_SIZE - 3.0)
-		var is_active: bool = ability.get("active", false)
-		if is_active:
-			var pulse := 0.6 + 0.4 * absf(sin(float(Time.get_ticks_msec()) / 300.0))
-			draw_rect(inner, Color(slot_color, pulse), false, 2.0)
-		else:
-			draw_rect(inner, Color(slot_color, 0.35), false, 1.5)
+func _draw_single_slot(font: Font, ability: Dictionary, x: float, y: float) -> void:
+	var bg_color := Color(0.04, 0.05, 0.07, 0.75)
+	var slot_color: Color = ability.get("color", accent_color)
+	var slot_rect := Rect2(x, y, SLOT_SIZE, SLOT_SIZE)
 
-		var keybind: String = ability.get("keybind", "?")
+	draw_rect(slot_rect, bg_color)
+	draw_rect(slot_rect, PANEL_BORDER, false, 1.0)
+
+	var inner := Rect2(x + 1.5, y + 1.5, SLOT_SIZE - 3.0, SLOT_SIZE - 3.0)
+	var is_active: bool = ability.get("active", false)
+	if is_active:
+		var pulse := 0.6 + 0.4 * absf(sin(float(Time.get_ticks_msec()) / 300.0))
+		draw_rect(inner, Color(slot_color, pulse), false, 2.0)
+	else:
+		draw_rect(inner, Color(slot_color, 0.35), false, 1.5)
+
+	_draw_slot_keybind(font, ability, x, y)
+	_draw_slot_label(font, ability, x, y, slot_color)
+
+	var cd: float = ability.get("cooldown", 0.0)
+	var cd_max: float = ability.get("cooldown_max", 0.0)
+	if cd > 0.01 and cd_max > 0.0:
+		_draw_cooldown_overlay(x, y, cd, cd_max)
+
+	if is_active:
+		_draw_active_arc(ability, x, y, slot_color)
+
+
+func _draw_slot_keybind(font: Font, ability: Dictionary, x: float, y: float) -> void:
+	var keybind: String = ability.get("keybind", "?")
+	draw_string(
+		font,
+		Vector2(x + 5.0, y + 12.0),
+		keybind,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		SLOT_SIZE - 10.0,
+		9,
+		TEXT_MUTED
+	)
+
+	var stam_cost: float = ability.get("stamina_cost", 0.0)
+	if stam_cost > 0.0:
+		var stam_text := "%d" % int(stam_cost)
 		draw_string(
 			font,
-			Vector2(x + 5.0, y + 12.0),
-			keybind,
-			HORIZONTAL_ALIGNMENT_LEFT,
-			SLOT_SIZE - 10.0,
+			Vector2(x + SLOT_SIZE - 18.0, y + 12.0),
+			stam_text,
+			HORIZONTAL_ALIGNMENT_RIGHT,
+			16.0,
 			9,
-			keybind_color
+			Color(0.85, 0.75, 0.2, 0.8)
 		)
 
-		var stam_cost: float = ability.get("stamina_cost", 0.0)
-		if stam_cost > 0.0:
-			var stam_text := "%d" % int(stam_cost)
-			draw_string(
-				font,
-				Vector2(x + SLOT_SIZE - 18.0, y + 12.0),
-				stam_text,
-				HORIZONTAL_ALIGNMENT_RIGHT,
-				16.0,
-				9,
-				Color(0.85, 0.75, 0.2, 0.8)
-			)
 
-		var ability_name: String = ability.get("name", "???")
-		var status_text: String = ability.get("status_text", "")
-		if status_text != "":
-			draw_string(
-				font,
-				Vector2(x + 3.0, y + SLOT_SIZE / 2.0 + 5.0),
-				status_text,
-				HORIZONTAL_ALIGNMENT_CENTER,
-				SLOT_SIZE - 6.0,
-				14,
-				slot_color
-			)
-		else:
-			var parts := ability_name.split(" ", true, 1)
-			if parts.size() == 2:
-				draw_string(
-					font,
-					Vector2(x + 3.0, y + SLOT_SIZE - 16.0),
-					parts[0],
-					HORIZONTAL_ALIGNMENT_LEFT,
-					SLOT_SIZE - 6.0,
-					9,
-					text_color
-				)
-				draw_string(
-					font,
-					Vector2(x + 3.0, y + SLOT_SIZE - 5.0),
-					parts[1],
-					HORIZONTAL_ALIGNMENT_LEFT,
-					SLOT_SIZE - 6.0,
-					9,
-					text_color
-				)
-			else:
-				draw_string(
-					font,
-					Vector2(x + 3.0, y + SLOT_SIZE - 6.0),
-					ability_name,
-					HORIZONTAL_ALIGNMENT_LEFT,
-					SLOT_SIZE - 6.0,
-					9,
-					text_color
-				)
+func _draw_slot_label(
+	font: Font, ability: Dictionary, x: float, y: float, slot_color: Color
+) -> void:
+	var ability_name: String = ability.get("name", "???")
+	var status_text: String = ability.get("status_text", "")
+	if status_text != "":
+		draw_string(
+			font,
+			Vector2(x + 3.0, y + SLOT_SIZE / 2.0 + 5.0),
+			status_text,
+			HORIZONTAL_ALIGNMENT_CENTER,
+			SLOT_SIZE - 6.0,
+			14,
+			slot_color
+		)
+		return
 
-		var cd: float = ability.get("cooldown", 0.0)
-		var cd_max: float = ability.get("cooldown_max", 0.0)
-		if cd > 0.01 and cd_max > 0.0:
-			_draw_cooldown_overlay(x, y, cd, cd_max)
+	var parts := ability_name.split(" ", true, 1)
+	if parts.size() == 2:
+		draw_string(
+			font,
+			Vector2(x + 3.0, y + SLOT_SIZE - 16.0),
+			parts[0],
+			HORIZONTAL_ALIGNMENT_LEFT,
+			SLOT_SIZE - 6.0,
+			9,
+			TEXT_PRIMARY
+		)
+		draw_string(
+			font,
+			Vector2(x + 3.0, y + SLOT_SIZE - 5.0),
+			parts[1],
+			HORIZONTAL_ALIGNMENT_LEFT,
+			SLOT_SIZE - 6.0,
+			9,
+			TEXT_PRIMARY
+		)
+	else:
+		draw_string(
+			font,
+			Vector2(x + 3.0, y + SLOT_SIZE - 6.0),
+			ability_name,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			SLOT_SIZE - 6.0,
+			9,
+			TEXT_PRIMARY
+		)
 
-		if is_active:
-			var active_rem: float = ability.get("active_remaining", 0.0)
-			var active_max: float = ability.get("active_max", 0.0)
-			if active_max > 0.0 and active_rem > 0.0:
-				var ratio := active_rem / active_max
-				var arc_center := Vector2(x + SLOT_SIZE - 10.0, y + 10.0)
-				var arc_radius := 6.0
-				draw_arc(
-					arc_center, arc_radius, 0.0, TAU, 16, Color(0.2, 0.2, 0.25, 0.5), 2.0, true
-				)
-				var start_angle := -PI / 2.0
-				var end_angle := start_angle + ratio * TAU
-				draw_arc(
-					arc_center,
-					arc_radius,
-					start_angle,
-					end_angle,
-					16,
-					Color(slot_color, 0.9),
-					2.0,
-					true
-				)
 
-	if _gcd_ratio > 0.01:
-		for gi in slot_count:
-			var gx := start_x + gi * (SLOT_SIZE + SLOT_GAP)
-			var sweep_h := SLOT_SIZE * _gcd_ratio
-			draw_rect(Rect2(gx, y, SLOT_SIZE, sweep_h), Color(0.0, 0.0, 0.0, 0.35))
+func _draw_active_arc(ability: Dictionary, x: float, y: float, slot_color: Color) -> void:
+	var active_rem: float = ability.get("active_remaining", 0.0)
+	var active_max: float = ability.get("active_max", 0.0)
+	if active_max <= 0.0 or active_rem <= 0.0:
+		return
+	var ratio := active_rem / active_max
+	var arc_center := Vector2(x + SLOT_SIZE - 10.0, y + 10.0)
+	var arc_radius := 6.0
+	draw_arc(arc_center, arc_radius, 0.0, TAU, 16, Color(0.2, 0.2, 0.25, 0.5), 2.0, true)
+	var start_angle := -PI / 2.0
+	var end_angle := start_angle + ratio * TAU
+	draw_arc(arc_center, arc_radius, start_angle, end_angle, 16, Color(slot_color, 0.9), 2.0, true)
 
+
+func _draw_gcd_overlay(start_x: float, y: float, slot_count: int) -> void:
+	if _gcd_ratio <= 0.01:
+		return
+	for gi in slot_count:
+		var gx := start_x + gi * (SLOT_SIZE + SLOT_GAP)
+		var sweep_h := SLOT_SIZE * _gcd_ratio
+		draw_rect(Rect2(gx, y, SLOT_SIZE, sweep_h), Color(0.0, 0.0, 0.0, 0.35))
+
+
+func _update_hovered_slot(start_x: float, y: float, slot_count: int) -> void:
 	_hovered_slot = -1
 	if Input.get_mouse_mode() == Input.MOUSE_MODE_VISIBLE:
 		var mouse_pos := get_local_mouse_position()
@@ -177,9 +196,6 @@ func _draw() -> void:
 			if hover_rect.has_point(mouse_pos) and hi < _abilities.size():
 				_hovered_slot = hi
 				break
-
-	if _hovered_slot >= 0 and _hovered_slot < _abilities.size():
-		_draw_tooltip(start_x, y)
 
 
 func _draw_cooldown_overlay(x: float, y: float, cd: float, cd_max: float) -> void:
@@ -214,42 +230,45 @@ func _draw_cooldown_overlay(x: float, y: float, cd: float, cd_max: float) -> voi
 
 
 func _draw_tooltip(start_x: float, slot_y: float) -> void:
-	var font := ThemeDB.fallback_font
 	var ability: Dictionary = _abilities[_hovered_slot]
-	var ability_name: String = ability.get("name", "???")
-	var ability_desc: String = ability.get("desc", "")
-	var cd_max: float = ability.get("cooldown_max", 0.0)
-	var commit_time: float = ability.get("dur", 0.0)
-
 	var tip_w := 220.0
-	var tip_h := 80.0
-
-	# Check if custom tooltip needs more space
 	var has_custom_tooltip := custom_tooltip_draw.is_valid()
-	if has_custom_tooltip:
-		tip_h = 95.0
+	var tip_h := 95.0 if has_custom_tooltip else 80.0
 
 	var slot_x := start_x + _hovered_slot * (SLOT_SIZE + SLOT_GAP)
-	var tip_x := slot_x + SLOT_SIZE / 2.0 - tip_w / 2.0
+	var tip_x := clampf(slot_x + SLOT_SIZE / 2.0 - tip_w / 2.0, 4.0, size.x - tip_w - 4.0)
 	var tip_y := slot_y - tip_h - 8.0
-
-	tip_x = clampf(tip_x, 4.0, size.x - tip_w - 4.0)
-
 	var tip_rect := Rect2(tip_x, tip_y, tip_w, tip_h)
 
 	_draw_panel(tip_rect, Color(accent_color, 0.2))
+	_draw_tooltip_header(ability, tip_rect)
+
+	var desc_y := tip_y + 32.0
+	if has_custom_tooltip:
+		custom_tooltip_draw.call(self, ability, tip_rect)
+		desc_y = tip_y + 46.0
+
+	_draw_tooltip_body(ability.get("desc", ""), tip_rect.position.x, desc_y, tip_w)
+
+
+func _draw_tooltip_header(ability: Dictionary, tip_rect: Rect2) -> void:
+	var font := ThemeDB.fallback_font
+	var tip_x := tip_rect.position.x
+	var tip_y := tip_rect.position.y
+	var tip_w := tip_rect.size.x
 
 	var name_color: Color = ability.get("color", accent_color)
 	draw_string(
 		font,
 		Vector2(tip_x + 8.0, tip_y + 16.0),
-		ability_name,
+		ability.get("name", "???"),
 		HORIZONTAL_ALIGNMENT_LEFT,
 		tip_w - 16.0,
 		14,
 		name_color
 	)
 
+	var commit_time: float = ability.get("dur", 0.0)
 	if commit_time > 0.01:
 		draw_string(
 			font,
@@ -265,68 +284,57 @@ func _draw_tooltip(start_x: float, slot_y: float) -> void:
 	var stam_cost: float = ability.get("stamina_cost", 0.0)
 	if stam_cost > 0.0:
 		info_parts.append("%d stamina" % int(stam_cost))
+	var cd_max: float = ability.get("cooldown_max", 0.0)
 	if cd_max > 0.01:
 		info_parts.append("CD: %ds" % ceili(cd_max))
 	if info_parts.size() > 0:
-		var info_text := " | ".join(info_parts)
 		draw_string(
 			font,
 			Vector2(tip_x + 8.0, tip_y + 30.0),
-			info_text,
+			" | ".join(info_parts),
 			HORIZONTAL_ALIGNMENT_LEFT,
 			tip_w - 16.0,
 			10,
 			Color(0.85, 0.75, 0.2, 0.8)
 		)
 
-	var desc_y := tip_y + 32.0
-	if has_custom_tooltip:
-		custom_tooltip_draw.call(self, ability, tip_rect)
-		desc_y = tip_y + 46.0
 
-	if ability_desc != "":
-		var desc_color := Color(0.8, 0.8, 0.8, 0.9)
-		if ability_desc.length() > 35:
-			var split_pos := ability_desc.find(" ", 30)
-			if split_pos > 0:
-				draw_string(
-					font,
-					Vector2(tip_x + 8.0, desc_y + 14.0),
-					ability_desc.left(split_pos),
-					HORIZONTAL_ALIGNMENT_LEFT,
-					tip_w - 16.0,
-					10,
-					desc_color
-				)
-				draw_string(
-					font,
-					Vector2(tip_x + 8.0, desc_y + 26.0),
-					ability_desc.substr(split_pos + 1),
-					HORIZONTAL_ALIGNMENT_LEFT,
-					tip_w - 16.0,
-					10,
-					desc_color
-				)
-			else:
-				draw_string(
-					font,
-					Vector2(tip_x + 8.0, desc_y + 14.0),
-					ability_desc,
-					HORIZONTAL_ALIGNMENT_LEFT,
-					tip_w - 16.0,
-					10,
-					desc_color
-				)
-		else:
+func _draw_tooltip_body(ability_desc: String, tip_x: float, desc_y: float, tip_w: float) -> void:
+	if ability_desc == "":
+		return
+	var font := ThemeDB.fallback_font
+	var desc_color := Color(0.8, 0.8, 0.8, 0.9)
+	if ability_desc.length() > 35:
+		var split_pos := ability_desc.find(" ", 30)
+		if split_pos > 0:
 			draw_string(
 				font,
 				Vector2(tip_x + 8.0, desc_y + 14.0),
-				ability_desc,
+				ability_desc.left(split_pos),
 				HORIZONTAL_ALIGNMENT_LEFT,
 				tip_w - 16.0,
 				10,
 				desc_color
 			)
+			draw_string(
+				font,
+				Vector2(tip_x + 8.0, desc_y + 26.0),
+				ability_desc.substr(split_pos + 1),
+				HORIZONTAL_ALIGNMENT_LEFT,
+				tip_w - 16.0,
+				10,
+				desc_color
+			)
+			return
+	draw_string(
+		font,
+		Vector2(tip_x + 8.0, desc_y + 14.0),
+		ability_desc,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		tip_w - 16.0,
+		10,
+		desc_color
+	)
 
 
 func _draw_panel(rect: Rect2, accent: Color) -> void:

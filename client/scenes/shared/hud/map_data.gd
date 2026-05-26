@@ -202,8 +202,9 @@ static func get_geometry_for_floor(floor_id: String) -> Dictionary:
 # =============================================================================
 
 
-## Scan an environment scene tree and return classified shapes for the given
-## player Y position.  Returns {rects: Array[{rect, type}], circles: Array[{center, radius, green}]}.
+## Scan an environment scene tree and return classified shapes for
+## the given player Y position.
+## Returns {rects: [{rect, type}], circles: [{center, radius, green}]}.
 ## Types: "floor", "garden", "ground", "green", "wall", "" (skip).
 static func scan_scene(env: Node3D, player_y: float) -> Dictionary:
 	var rects: Array = []

@@ -157,14 +157,14 @@ func test_on_enter_arena_clears_hub_mode() -> void:
 func test_on_enter_arena_sets_floor_id() -> void:
 	_make_hud()
 	_hud.on_enter_arena()
-	assert_str(_hud._current_floor_id).is_equal("arena")
+	assert_str(_hud._minimap.current_floor_id).is_equal("arena")
 
 
 func test_on_enter_hub_resets_floor_id() -> void:
 	_make_hud()
 	_hud.on_enter_arena()
 	_hud.on_enter_hub()
-	assert_str(_hud._current_floor_id).is_equal("")
+	assert_str(_hud._minimap.current_floor_id).is_equal("")
 
 
 # =============================================================================
@@ -225,39 +225,39 @@ func test_npc_positions_cleared_on_update() -> void:
 func test_detect_floor_lower_district() -> void:
 	_make_hud()
 	_hud._hub_mode = true
-	_hud._detect_floor(Vector3(5.0, -199.0, -55.0))
-	assert_str(_hud._current_floor_id).is_equal("lower_district")
+	_hud._minimap._detect_floor(Vector3(5.0, -199.0, -55.0))
+	assert_str(_hud._minimap.current_floor_id).is_equal("lower_district")
 
 
 func test_detect_floor_ops() -> void:
 	_make_hud()
 	_hud._hub_mode = true
-	_hud._detect_floor(Vector3(10.0, 100.0, 20.0))
-	assert_str(_hud._current_floor_id).is_equal("ops")
+	_hud._minimap._detect_floor(Vector3(10.0, 100.0, 20.0))
+	assert_str(_hud._minimap.current_floor_id).is_equal("ops")
 
 
 func test_detect_floor_sets_waypoint() -> void:
 	_make_hud()
 	_hud._hub_mode = true
-	_hud._detect_floor(Vector3(5.0, -199.0, -55.0))
-	assert_bool(_hud._has_waypoint).is_true()
-	assert_that(_hud._waypoint_target).is_equal(Vector3(5.0, -199.8, -55.0))
+	_hud._minimap._detect_floor(Vector3(5.0, -199.0, -55.0))
+	assert_bool(_hud._minimap.has_waypoint).is_true()
+	assert_that(_hud._minimap.waypoint_target).is_equal(Vector3(5.0, -199.8, -55.0))
 
 
 func test_floor_geometry_fallback_without_env() -> void:
 	_make_hud()
 	_hud._hub_mode = true
 	# No environment set — should fall back to MapData
-	_hud._detect_floor(Vector3(5.0, -199.0, -55.0))
-	assert_int(_hud._floor_rects.size()).is_equal(17)
+	_hud._minimap._detect_floor(Vector3(5.0, -199.0, -55.0))
+	assert_int(_hud._minimap.floor_rects.size()).is_equal(17)
 
 
 func test_floor_geometry_fallback_first_rect_correct() -> void:
 	_make_hud()
 	_hud._hub_mode = true
-	_hud._detect_floor(Vector3(5.0, -199.0, -55.0))
+	_hud._minimap._detect_floor(Vector3(5.0, -199.0, -55.0))
 	# A1: center=(-65,-125), size=(50,45) -> Rect2(-90, -147.5, 50, 45)
-	var r: Rect2 = _hud._floor_rects[0]["rect"]
+	var r: Rect2 = _hud._minimap.floor_rects[0]["rect"]
 	assert_float(r.position.x).is_equal_approx(-90.0, 0.1)
 	assert_float(r.position.y).is_equal_approx(-147.5, 0.1)
 	assert_float(r.size.x).is_equal_approx(50.0, 0.1)

@@ -136,15 +136,13 @@ func _build_buildings() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 42
 
-	var bldg_xforms: Array[Transform3D] = []
-	var window_xforms: Array[Transform3D] = []
-	var sign_xforms: Array[Transform3D] = []
+	var xforms: Dictionary = {
+		"bldg": [] as Array[Transform3D],
+		"win": [] as Array[Transform3D],
+		"sign": [] as Array[Transform3D],
+	}
 
-	# Buildings placed in blocks between streets
-	# Street grid: main at center, sides at ±50, ±100
-	# Blocks are between streets, buildings cluster within blocks
 	var street_positions := [-100.0, -50.0, 0.0, 50.0, 100.0]
-
 	for si in range(street_positions.size() - 1):
 		for sj in range(street_positions.size() - 1):
 			var block_x: float = LIFT_X + (street_positions[si] + street_positions[si + 1]) * 0.5
@@ -152,67 +150,57 @@ func _build_buildings() -> void:
 			var block_w: float = (
 				absf(street_positions[si + 1] - street_positions[si]) - SIDE_STREET_W - 4.0
 			)
-
 			if block_w < 10.0:
 				continue
-
-			# 2-4 buildings per block
 			var count := rng.randi_range(2, 4)
 			for _b in range(count):
-				var bw: float = rng.randf_range(10, min(22, block_w * 0.45))
-				var bd: float = rng.randf_range(8, min(18, block_w * 0.45))
-				var bh: float = rng.randf_range(MIN_HEIGHT, MAX_HEIGHT)
+				_place_building(rng, Vector3(block_x, block_z, block_w), xforms)
 
-				# Keep buildings below ceiling
-				bh = minf(bh, absf(CEILING_Y - GROUND_Y) - 5.0)
+	_mm("LowerBuildings", xforms["bldg"], _mat(Color(0.42, 0.35, 0.28), 0.75))
+	_mm("LowerWindows", xforms["win"], _glow(Color(0.5, 0.4, 0.25), Color(0.8, 0.6, 0.3), 0.8))
+	_mm("LowerSigns", xforms["sign"], _glow(Color(0.9, 0.5, 0.15), Color(1.0, 0.6, 0.2), 2.0))
 
-				var ox: float = rng.randf_range(-block_w * 0.3, block_w * 0.3)
-				var oz: float = rng.randf_range(-block_w * 0.3, block_w * 0.3)
 
-				var bx: float = block_x + ox
-				var bz: float = block_z + oz
-				var by: float = GROUND_Y + bh * 0.5
+func _place_building(rng: RandomNumberGenerator, block: Vector3, xforms: Dictionary) -> void:
+	var block_x: float = block.x
+	var block_z: float = block.y
+	var block_w: float = block.z
+	var bw: float = rng.randf_range(10, min(22, block_w * 0.45))
+	var bd: float = rng.randf_range(8, min(18, block_w * 0.45))
+	var bh: float = rng.randf_range(MIN_HEIGHT, MAX_HEIGHT)
+	bh = minf(bh, absf(CEILING_Y - GROUND_Y) - 5.0)
 
-				# Skip if too close to lift shaft
-				if absf(bx - LIFT_X) < 25.0 and absf(bz - LIFT_Z) < 25.0:
-					continue
+	var bx: float = block_x + rng.randf_range(-block_w * 0.3, block_w * 0.3)
+	var bz: float = block_z + rng.randf_range(-block_w * 0.3, block_w * 0.3)
+	if absf(bx - LIFT_X) < 25.0 and absf(bz - LIFT_Z) < 25.0:
+		return
 
-				bldg_xforms.append(
-					Transform3D(Basis.from_scale(Vector3(bw, bh, bd)), Vector3(bx, by, bz))
+	xforms["bldg"].append(
+		Transform3D(Basis.from_scale(Vector3(bw, bh, bd)), Vector3(bx, GROUND_Y + bh * 0.5, bz))
+	)
+
+	if bh > 12.0 and rng.randf() < 0.6:
+		var face_dir: float = 1.0 if rng.randf() > 0.5 else -1.0
+		var fx: float = bx + (bw * 0.5 + 0.1) * face_dir
+		xforms["win"].append(
+			Transform3D(
+				Basis.from_scale(Vector3(0.15, bh * 0.6, bd * 0.4)),
+				Vector3(fx, GROUND_Y + bh * 0.4, bz)
+			)
+		)
+
+	if rng.randf() < 0.35:
+		var sign_face: float = 1.0 if rng.randf() > 0.5 else -1.0
+		xforms["sign"].append(
+			Transform3D(
+				Basis.from_scale(Vector3(0.2, 1.5, rng.randf_range(2, 4))),
+				Vector3(
+					bx + (bw * 0.5 + 0.15) * sign_face,
+					GROUND_Y + rng.randf_range(3, min(bh - 2, 8)),
+					bz
 				)
-
-				# Window strips on front face
-				if bh > 12.0 and rng.randf() < 0.6:
-					var win_h: float = bh * 0.6
-					var face_dir: float = 1.0 if rng.randf() > 0.5 else -1.0
-					var fx: float = bx + (bw * 0.5 + 0.1) * face_dir
-					window_xforms.append(
-						Transform3D(
-							Basis.from_scale(Vector3(0.15, win_h, bd * 0.4)),
-							Vector3(fx, GROUND_Y + bh * 0.4, bz)
-						)
-					)
-
-				# Neon sign on some buildings (warm orange)
-				if rng.randf() < 0.35:
-					var sign_face: float = 1.0 if rng.randf() > 0.5 else -1.0
-					var sx: float = bx + (bw * 0.5 + 0.15) * sign_face
-					var sy: float = GROUND_Y + rng.randf_range(3, min(bh - 2, 8))
-					sign_xforms.append(
-						Transform3D(
-							Basis.from_scale(Vector3(0.2, 1.5, rng.randf_range(2, 4))),
-							Vector3(sx, sy, bz)
-						)
-					)
-
-	# Warm-toned building material (muted orange-brown)
-	_mm("LowerBuildings", bldg_xforms, _mat(Color(0.42, 0.35, 0.28), 0.75))
-
-	# Window strips (warm amber glow)
-	_mm("LowerWindows", window_xforms, _glow(Color(0.5, 0.4, 0.25), Color(0.8, 0.6, 0.3), 0.8))
-
-	# Neon signs (orange glow)
-	_mm("LowerSigns", sign_xforms, _glow(Color(0.9, 0.5, 0.15), Color(1.0, 0.6, 0.2), 2.0))
+			)
+		)
 
 
 func _build_lighting() -> void:

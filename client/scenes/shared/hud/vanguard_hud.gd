@@ -88,82 +88,15 @@ func _draw_hit_marker() -> void:
 
 
 func _draw_onslaught() -> void:
-	var font := ThemeDB.fallback_font
-	var center_x := size.x / 2.0
-	# Position well above the ability bar (crosshair area, lower third)
 	var y := size.y - 160.0
-
-	# --- Stack counter (big number) ---
-	var count_text := "%d" % _onslaught_stacks
-	var count_color: Color
-	if _onslaught_tier >= 2:
-		count_color = ONSLAUGHT_MAXIMUM
-		count_color.a = 0.7 + 0.3 * absf(sin(float(Time.get_ticks_msec()) / 250.0))
-	elif _onslaught_tier == 1:
-		count_color = ONSLAUGHT_EMPOWERED
-	else:
-		count_color = Color(0.5, 0.45, 0.4, 0.6) if _onslaught_stacks > 0 else ONSLAUGHT_DIM
-
-	draw_string(
-		font,
-		Vector2(center_x - 10.0, y + 6.0),
-		count_text,
-		HORIZONTAL_ALIGNMENT_CENTER,
-		20.0,
-		24,
-		count_color
-	)
-
-	# --- Tier label (right of number) ---
-	var label := "ONSLAUGHT"
-	var label_color := ONSLAUGHT_DIM
-	if _onslaught_tier == 1:
-		label_color = ONSLAUGHT_EMPOWERED
-	elif _onslaught_tier >= 2:
-		label_color = ONSLAUGHT_MAXIMUM
-		label_color.a = 0.7 + 0.3 * absf(sin(float(Time.get_ticks_msec()) / 250.0))
-	elif _onslaught_stacks > 0:
-		label_color = Color(0.5, 0.45, 0.4, 0.6)
-
-	draw_string(
-		font,
-		Vector2(center_x + 14.0, y - 6.0),
-		label,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		90.0,
-		11,
-		label_color
-	)
-
-	# --- Tier pips (3 bars below the number) ---
-	var pip_w := 14.0
-	var pip_h := 3.0
-	var pip_gap := 4.0
-	var total_w := pip_w * 3.0 + pip_gap * 2.0
-	var pip_x := center_x - total_w / 2.0
-	var pip_y := y + 12.0
-
-	for i in 3:
-		var px := pip_x + i * (pip_w + pip_gap)
-		var pip_rect := Rect2(px, pip_y, pip_w, pip_h)
-		var lit: bool
-		if _onslaught_tier == 0:
-			lit = false
-		elif _onslaught_tier == 1:
-			lit = i < 2
-		else:
-			lit = true
-
-		if lit:
-			var pip_color: Color
-			if _onslaught_tier >= 2:
-				pip_color = ONSLAUGHT_MAXIMUM
-				pip_color.a = 0.7 + 0.3 * absf(sin(float(Time.get_ticks_msec()) / 250.0))
-			else:
-				pip_color = ONSLAUGHT_EMPOWERED
-			draw_rect(pip_rect, pip_color)
-		else:
-			draw_rect(pip_rect, ONSLAUGHT_DIM)
+	var palette := {
+		dim = ONSLAUGHT_DIM,
+		neutral = Color(0.5, 0.45, 0.4, 0.6),
+		empowered = ONSLAUGHT_EMPOWERED,
+		maximum = ONSLAUGHT_MAXIMUM,
+		speed = 250.0,
+	}
+	_draw_resource_counter(_onslaught_stacks, _onslaught_tier, "ONSLAUGHT", y, palette)
 
 
 func update_onslaught(tier: int, stacks: int) -> void:
@@ -179,42 +112,33 @@ func update_devotion(tier: int, stacks: int) -> void:
 
 
 func _draw_devotion() -> void:
+	var y := size.y - 160.0
+	var palette := {
+		dim = DEVOTION_DIM,
+		neutral = Color(0.3, 0.45, 0.55, 0.6),
+		empowered = DEVOTION_EMPOWERED,
+		maximum = DEVOTION_MAXIMUM,
+		speed = 300.0,
+	}
+	_draw_resource_counter(_devotion_stacks, _devotion_tier, "DEVOTION", y, palette)
+
+
+func _draw_resource_counter(
+	stacks: int, tier: int, label: String, y: float, palette: Dictionary
+) -> void:
 	var font := ThemeDB.fallback_font
 	var center_x := size.x / 2.0
-	var y := size.y - 160.0
-
-	# --- Stack counter ---
-	var count_text := "%d" % _devotion_stacks
-	var count_color: Color
-	if _devotion_tier >= 2:
-		count_color = DEVOTION_MAXIMUM
-		count_color.a = 0.7 + 0.3 * absf(sin(float(Time.get_ticks_msec()) / 300.0))
-	elif _devotion_tier == 1:
-		count_color = DEVOTION_EMPOWERED
-	else:
-		count_color = Color(0.3, 0.45, 0.55, 0.6) if _devotion_stacks > 0 else DEVOTION_DIM
+	var active_color := _get_tier_color(tier, stacks, palette)
 
 	draw_string(
 		font,
 		Vector2(center_x - 10.0, y + 6.0),
-		count_text,
+		"%d" % stacks,
 		HORIZONTAL_ALIGNMENT_CENTER,
 		20.0,
 		24,
-		count_color
+		active_color
 	)
-
-	# --- Tier label ---
-	var label := "DEVOTION"
-	var label_color := DEVOTION_DIM
-	if _devotion_tier == 1:
-		label_color = DEVOTION_EMPOWERED
-	elif _devotion_tier >= 2:
-		label_color = DEVOTION_MAXIMUM
-		label_color.a = 0.7 + 0.3 * absf(sin(float(Time.get_ticks_msec()) / 300.0))
-	elif _devotion_stacks > 0:
-		label_color = Color(0.3, 0.45, 0.55, 0.6)
-
 	draw_string(
 		font,
 		Vector2(center_x + 14.0, y - 6.0),
@@ -222,38 +146,40 @@ func _draw_devotion() -> void:
 		HORIZONTAL_ALIGNMENT_LEFT,
 		90.0,
 		11,
-		label_color
+		active_color
 	)
 
-	# --- Tier pips (3 bars) ---
+	_draw_tier_pips(center_x, y + 12.0, tier, palette)
+
+
+func _get_tier_color(tier: int, stacks: int, palette: Dictionary) -> Color:
+	if tier >= 2:
+		var c: Color = palette.maximum
+		c.a = 0.7 + 0.3 * absf(sin(float(Time.get_ticks_msec()) / palette.speed))
+		return c
+	if tier == 1:
+		return palette.empowered
+	if stacks > 0:
+		return palette.neutral
+	return palette.dim
+
+
+func _draw_tier_pips(center_x: float, pip_y: float, tier: int, palette: Dictionary) -> void:
 	var pip_w := 14.0
 	var pip_h := 3.0
 	var pip_gap := 4.0
 	var total_w := pip_w * 3.0 + pip_gap * 2.0
 	var pip_x := center_x - total_w / 2.0
-	var pip_y := y + 12.0
 
 	for i in 3:
 		var px := pip_x + i * (pip_w + pip_gap)
 		var pip_rect := Rect2(px, pip_y, pip_w, pip_h)
-		var lit: bool
-		if _devotion_tier == 0:
-			lit = false
-		elif _devotion_tier == 1:
-			lit = i < 2
-		else:
-			lit = true
+		var lit := tier >= 2 or (tier == 1 and i < 2)
 
 		if lit:
-			var pip_color: Color
-			if _devotion_tier >= 2:
-				pip_color = DEVOTION_MAXIMUM
-				pip_color.a = 0.7 + 0.3 * absf(sin(float(Time.get_ticks_msec()) / 300.0))
-			else:
-				pip_color = DEVOTION_EMPOWERED
-			draw_rect(pip_rect, pip_color)
+			draw_rect(pip_rect, _get_tier_color(tier, 1, palette))
 		else:
-			draw_rect(pip_rect, DEVOTION_DIM)
+			draw_rect(pip_rect, palette.dim)
 
 
 func update_abilities(abilities: Array) -> void:

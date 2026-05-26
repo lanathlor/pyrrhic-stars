@@ -50,13 +50,17 @@ func start_ability(slot: int) -> void:
 	if ability.is_empty():
 		return
 
-	# During sustain, new ability input only cancels — does not fire the new ability
+	# During sustain, new ability input only cancels -- does not fire the new ability
 	if _sustaining:
 		cancel_sustain()
 		if NetworkManager.is_active:
 			NetworkManager.send_ability(255, 0.0, ctrl.rotation.y)
 		return
 
+	_commit_ability(slot, ability)
+
+
+func _commit_ability(slot: int, ability: Dictionary) -> void:
 	var action_id: int = 50 + slot
 
 	# Start cooldown for this slot (sustain abilities defer cooldown to cancel)
@@ -93,20 +97,24 @@ func start_ability(slot: int) -> void:
 	else:
 		ctrl._enter_state(ctrl.State.CASTING)
 
-	# Trigger VFX based on delivery method
-	if ctrl.vfx:
-		match delivery:
-			"direct":
-				ctrl.vfx.spawn_cast_flash()
-			"beam":
-				var target := _resolve_selected_target_node()
-				if target and target != ctrl:
-					ctrl.vfx.start_heal_beam(target)
-				ctrl.vfx.start_channel_flux()
-			"zone":
-				var radius: float = ability.get("zone_radius", 6.0)
-				ctrl.vfx.start_zone_telegraph(ctrl.global_position, radius)
-				ctrl.vfx.start_channel_flux()
+	_trigger_delivery_vfx(delivery, ability)
+
+
+func _trigger_delivery_vfx(delivery: String, ability: Dictionary) -> void:
+	if not ctrl.vfx:
+		return
+	match delivery:
+		"direct":
+			ctrl.vfx.spawn_cast_flash()
+		"beam":
+			var target := _resolve_selected_target_node()
+			if target and target != ctrl:
+				ctrl.vfx.start_heal_beam(target)
+			ctrl.vfx.start_channel_flux()
+		"zone":
+			var radius: float = ability.get("zone_radius", 6.0)
+			ctrl.vfx.start_zone_telegraph(ctrl.global_position, radius)
+			ctrl.vfx.start_channel_flux()
 
 
 ## Resolve ability data for a slot from AbilityCatalog. No committing without server catalog.
@@ -236,7 +244,8 @@ func _apply_sustain_cooldown() -> void:
 # --- Dodge ---
 
 
-## Gust Step: dodge-like displacement triggered as an ability (cooldown/GCD/network already handled).
+## Gust Step: dodge-like displacement triggered as an ability
+## (cooldown/GCD/network already handled).
 func _start_gust_step() -> void:
 	var wish: Vector3 = ctrl.movement.get_camera_wish_dir()
 	if wish.length() > 0.1:

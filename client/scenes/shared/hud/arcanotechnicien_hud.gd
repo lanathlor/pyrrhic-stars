@@ -3,44 +3,14 @@ extends Control
 ## Arcanotechnicien HUD -- Harmonist healer HUD.
 ## Components: flux bar, ability bar, confluence display, party frames, channel bar,
 ## lock-on reticle, damage/heal flash, hit marker.
+##
+## Heavy drawing logic is delegated to ArcanotechnicienHudDrawHelpers.
 
 const DAMAGE_FLASH_DURATION: float = 0.3
 const HEAL_FLASH_DURATION: float = 0.4
 const HIT_MARKER_DURATION: float = 0.15
 
 const ARCANOTECHNICIEN_COLOR := Color(0.3, 0.65, 0.85)
-
-# -- Confluence colors --
-const CONFLUENCE_DIM := Color(0.15, 0.25, 0.35, 0.4)
-const CONFLUENCE_ACTIVE := Color(0.3, 0.65, 0.85, 0.95)
-const CONFLUENCE_MAX := Color(0.5, 0.85, 1.0, 1.0)
-
-# -- Panel / bar constants (shared visual language) --
-const PANEL_BG := Color(0.02, 0.025, 0.035, 0.82)
-const PANEL_BORDER := Color(0.28, 0.3, 0.36, 0.85)
-const TEXT_PRIMARY := Color(0.92, 0.94, 0.97, 0.95)
-const TEXT_MUTED := Color(0.66, 0.7, 0.77, 0.9)
-const HEALTH_GOOD := Color(0.28, 0.78, 0.4, 1.0)
-const HEALTH_BAD := Color(0.82, 0.24, 0.24, 1.0)
-const FLUX_COLOR := Color(0.25, 0.55, 0.9, 1.0)
-const FLUX_LOW_COLOR := Color(0.6, 0.3, 0.8, 1.0)
-
-# -- School colors for segmented flux bar --
-const SCHOOL_COLORS := {
-	"bioarcanotechnic": Color(0.25, 0.55, 0.9, 1.0),
-	"biometabolic": Color(0.45, 0.8, 0.35, 1.0),
-	"frost": Color(0.6, 0.85, 0.95, 1.0),
-	"aerokinetic": Color(0.8, 0.85, 0.65, 1.0),
-}
-const SCHOOL_LABELS := {
-	"bioarcanotechnic": "BIO",
-	"biometabolic": "META",
-	"frost": "FROST",
-	"aerokinetic": "AERO",
-}
-const CHANNEL_BG := Color(0.04, 0.05, 0.07, 0.75)
-const CHANNEL_FILL := Color(0.3, 0.65, 0.85, 0.9)
-const SUSTAIN_FILL := Color(0.4, 0.8, 0.6, 0.9)
 
 # -- Class max HP lookup for party frames --
 const CLASS_MAX_HP := {
@@ -49,13 +19,6 @@ const CLASS_MAX_HP := {
 	"blade_dancer": 150.0,
 	"arcanotechnicien": 150.0,
 }
-
-# -- Party frame layout --
-const PARTY_FRAME_X := 18.0
-const PARTY_FRAME_W := 198.0
-const PARTY_FRAME_H := 48.0
-const PARTY_FRAME_GAP := 6.0
-const PARTY_MAX_VISIBLE := 4
 
 # -- Timers --
 var _damage_flash_timer: float = 0.0
@@ -136,10 +99,23 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	_draw_hit_marker()
-	_draw_confluence()
-	_draw_flux_bar()
-	_draw_party_frames()
-	_draw_channel_bar()
+	ArcanotechnicienHudDrawHelpers.draw_confluence(self, size, _confluence_tier, _confluence_stacks)
+	ArcanotechnicienHudDrawHelpers.draw_flux_bar(self, size, _flux_current, _flux_max, _flux_pools)
+	_party_frame_rects = ArcanotechnicienHudDrawHelpers.draw_party_frames(
+		self, size, _party_data, _selected_peer_id, _hovered_party_index
+	)
+	(
+		ArcanotechnicienHudDrawHelpers
+		. draw_channel_bar(
+			self,
+			size,
+			_channel_active,
+			_channel_progress,
+			_channel_ability_name,
+			_sustain_active,
+			_sustain_elapsed,
+		)
+	)
 
 
 # =============================================================================
@@ -291,328 +267,8 @@ func _draw_hit_marker() -> void:
 
 
 # =============================================================================
-# Drawing -- Confluence (5-stack mechanic, center screen above ability bar)
+# Internal -- Party frame hover detection
 # =============================================================================
-
-
-func _draw_confluence() -> void:
-	var font := ThemeDB.fallback_font
-	var center_x := size.x / 2.0
-	var y := size.y - 160.0
-
-	# --- Stack counter (big number) ---
-	var count_text := "%d" % _confluence_stacks
-	var count_color: Color
-	if _confluence_tier >= 2:
-		count_color = CONFLUENCE_MAX
-		count_color.a = 0.7 + 0.3 * absf(sin(float(Time.get_ticks_msec()) / 300.0))
-	elif _confluence_tier == 1:
-		count_color = CONFLUENCE_ACTIVE
-	else:
-		count_color = Color(0.35, 0.5, 0.6, 0.6) if _confluence_stacks > 0 else CONFLUENCE_DIM
-
-	draw_string(
-		font,
-		Vector2(center_x - 10.0, y + 6.0),
-		count_text,
-		HORIZONTAL_ALIGNMENT_CENTER,
-		20.0,
-		24,
-		count_color
-	)
-
-	# --- Tier label ---
-	var label := "CONFLUENCE"
-	var label_color := CONFLUENCE_DIM
-	if _confluence_tier == 1:
-		label_color = CONFLUENCE_ACTIVE
-	elif _confluence_tier >= 2:
-		label_color = CONFLUENCE_MAX
-		label_color.a = 0.7 + 0.3 * absf(sin(float(Time.get_ticks_msec()) / 300.0))
-	elif _confluence_stacks > 0:
-		label_color = Color(0.35, 0.5, 0.6, 0.6)
-
-	draw_string(
-		font,
-		Vector2(center_x + 14.0, y - 6.0),
-		label,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		90.0,
-		11,
-		label_color
-	)
-
-	# --- Tier pips (5 dots for max 5 Confluence stacks) ---
-	var pip_w := 10.0
-	var pip_h := 3.0
-	var pip_gap := 4.0
-	var pip_count := 5
-	var total_w := pip_w * pip_count + pip_gap * (pip_count - 1)
-	var pip_x := center_x - total_w / 2.0
-	var pip_y := y + 12.0
-
-	for i in pip_count:
-		var px := pip_x + i * (pip_w + pip_gap)
-		var pip_rect := Rect2(px, pip_y, pip_w, pip_h)
-		var lit: bool = i < _confluence_stacks
-
-		if lit:
-			var pip_color: Color
-			if _confluence_tier >= 2:
-				pip_color = CONFLUENCE_MAX
-				pip_color.a = 0.7 + 0.3 * absf(sin(float(Time.get_ticks_msec()) / 300.0))
-			elif _confluence_tier == 1:
-				pip_color = CONFLUENCE_ACTIVE
-			else:
-				pip_color = Color(0.3, 0.65, 0.85, 0.8)
-			draw_rect(pip_rect, pip_color)
-		else:
-			draw_rect(pip_rect, CONFLUENCE_DIM)
-
-
-# =============================================================================
-# Drawing -- Flux Bar (bottom center, below the shared_hud HP bar area)
-# =============================================================================
-
-
-func _draw_flux_bar() -> void:
-	var font := ThemeDB.fallback_font
-	var center_x := size.x / 2.0
-	var bar_w := 248.0
-	var bar_h := 10.0
-	# Position just below where shared_hud draws the player HP bar (size.y - 126 + 14 gap)
-	var bar_x := center_x - bar_w / 2.0
-	var bar_y := size.y - 108.0
-
-	if _flux_pools.size() > 0:
-		_draw_segmented_flux_bar(font, bar_x, bar_y, bar_w, bar_h)
-	else:
-		_draw_single_flux_bar(font, bar_x, bar_y, bar_w, bar_h)
-
-
-func _draw_single_flux_bar(
-	font: Font, bar_x: float, bar_y: float, bar_w: float, bar_h: float
-) -> void:
-	var ratio := clampf(_flux_current / maxf(_flux_max, 1.0), 0.0, 1.0)
-
-	# Flux color shifts to purple when low (below 20%)
-	var fill_color: Color
-	if ratio < 0.2:
-		fill_color = FLUX_LOW_COLOR
-	else:
-		fill_color = FLUX_COLOR
-
-	# Background
-	draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), PANEL_BG)
-
-	# Fill
-	if ratio > 0.0:
-		var fill_w := bar_w * ratio
-		draw_rect(Rect2(bar_x, bar_y, fill_w, bar_h), fill_color)
-
-	# Border
-	draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), PANEL_BORDER, false, 1.0)
-
-	# Label
-	draw_string(
-		font,
-		Vector2(bar_x + 6.0, bar_y + 9.0),
-		"FLUX",
-		HORIZONTAL_ALIGNMENT_LEFT,
-		40.0,
-		8,
-		TEXT_MUTED
-	)
-
-	# Value text
-	var flux_text := "%d / %d" % [int(_flux_current), int(_flux_max)]
-	draw_string(
-		font,
-		Vector2(bar_x + bar_w - 80.0, bar_y + 9.0),
-		flux_text,
-		HORIZONTAL_ALIGNMENT_RIGHT,
-		74.0,
-		9,
-		TEXT_PRIMARY
-	)
-
-
-func _draw_segmented_flux_bar(
-	font: Font, bar_x: float, bar_y: float, bar_w: float, bar_h: float
-) -> void:
-	var total_max := maxf(_flux_max, 1.0)
-
-	# Background for entire bar
-	draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), PANEL_BG)
-
-	# Draw each school segment
-	var seg_x := bar_x
-	for i in range(_flux_pools.size()):
-		var pool: Dictionary = _flux_pools[i]
-		var school: String = pool.get("school", "")
-		var current: float = pool.get("current", 0.0)
-		var pool_max: float = pool.get("max", 0.0)
-
-		var seg_w := (pool_max / total_max) * bar_w
-		if seg_w < 1.0:
-			seg_x += seg_w
-			continue
-
-		var fill_ratio := clampf(current / maxf(pool_max, 0.1), 0.0, 1.0)
-		var school_color: Color = SCHOOL_COLORS.get(school, FLUX_COLOR)
-
-		# Dim color when low (below 20%)
-		if fill_ratio < 0.2 and fill_ratio > 0.0:
-			school_color = school_color.lerp(FLUX_LOW_COLOR, 0.5)
-
-		# Fill
-		if fill_ratio > 0.0:
-			draw_rect(Rect2(seg_x, bar_y, seg_w * fill_ratio, bar_h), school_color)
-
-		# Separator line between segments (skip first)
-		if i > 0:
-			draw_line(Vector2(seg_x, bar_y), Vector2(seg_x, bar_y + bar_h), PANEL_BORDER, 1.0)
-
-		# School label above segment (only if wide enough)
-		var label: String = SCHOOL_LABELS.get(school, "")
-		if label != "" and seg_w > 24.0:
-			draw_string(
-				font,
-				Vector2(seg_x + 2.0, bar_y - 2.0),
-				label,
-				HORIZONTAL_ALIGNMENT_LEFT,
-				seg_w - 4.0,
-				7,
-				TEXT_MUTED.lerp(school_color, 0.4)
-			)
-
-		seg_x += seg_w
-
-	# Border around entire bar
-	draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), PANEL_BORDER, false, 1.0)
-
-	# Aggregate value text below bar
-	var flux_text := "%d / %d" % [int(_flux_current), int(_flux_max)]
-	draw_string(
-		font,
-		Vector2(bar_x + bar_w - 80.0, bar_y + 9.0),
-		flux_text,
-		HORIZONTAL_ALIGNMENT_RIGHT,
-		74.0,
-		9,
-		TEXT_PRIMARY
-	)
-
-
-# =============================================================================
-# Drawing -- Party Frames (left side, vertical list of ally HP bars)
-# =============================================================================
-
-
-func _draw_party_frames() -> void:
-	if _party_data.is_empty():
-		return
-
-	var font := ThemeDB.fallback_font
-	var frame_y := size.y * 0.5 - 120.0
-
-	_party_frame_rects.clear()
-
-	var drawn: int = 0
-	for i in _party_data.size():
-		if drawn >= PARTY_MAX_VISIBLE:
-			break
-
-		var member: Dictionary = _party_data[i]
-		var pid: int = member.get("peer_id", 0)
-		var uname: String = member.get("name", "Player_%d" % pid)
-		var health: float = member.get("health", 0.0)
-		var max_health: float = member.get("max_health", 150.0)
-		var cls: String = member.get("class_name", "unknown")
-
-		var y := frame_y + drawn * (PARTY_FRAME_H + PARTY_FRAME_GAP)
-		var frame_rect := Rect2(PARTY_FRAME_X, y, PARTY_FRAME_W, PARTY_FRAME_H)
-		_party_frame_rects.append(frame_rect)
-
-		# Background -- brighter on selected or hover
-		var is_selected: bool = pid == _selected_peer_id and _selected_peer_id > 0
-		var is_hovered: bool = i == _hovered_party_index
-		var bg_color: Color
-		if is_selected:
-			bg_color = Color(0.1, 0.15, 0.25, 0.75)
-		elif is_hovered:
-			bg_color = Color(0.06, 0.08, 0.12, 0.65)
-		else:
-			bg_color = Color(0.03, 0.04, 0.06, 0.5)
-		draw_rect(frame_rect, bg_color)
-
-		# Border -- accent on selected or hover
-		var border_color: Color
-		var border_width: float
-		if is_selected:
-			border_color = Color(0.4, 0.75, 1.0, 0.95)
-			border_width = 2.0
-		elif is_hovered:
-			border_color = ARCANOTECHNICIEN_COLOR
-			border_width = 1.5
-		else:
-			border_color = Color(PANEL_BORDER, 0.4)
-			border_width = 1.0
-		draw_rect(frame_rect, border_color, false, border_width)
-
-		# Name (truncated)
-		if uname.length() > 14:
-			uname = uname.substr(0, 14)
-		draw_string(
-			font,
-			Vector2(PARTY_FRAME_X + 6.0, y + 14.0),
-			uname,
-			HORIZONTAL_ALIGNMENT_LEFT,
-			PARTY_FRAME_W - 70.0,
-			10,
-			TEXT_PRIMARY
-		)
-
-		# Class label (right side of name row)
-		draw_string(
-			font,
-			Vector2(PARTY_FRAME_X + PARTY_FRAME_W - 60.0, y + 14.0),
-			cls.replace("_", " ").to_upper(),
-			HORIZONTAL_ALIGNMENT_RIGHT,
-			56.0,
-			8,
-			TEXT_MUTED
-		)
-
-		# HP bar
-		var hp_bar_x := PARTY_FRAME_X + 6.0
-		var hp_bar_y := y + 24.0
-		var hp_bar_w := PARTY_FRAME_W - 12.0
-		var hp_bar_h := 16.0
-		var hp_ratio := clampf(health / maxf(max_health, 1.0), 0.0, 1.0)
-		var bar_color := HEALTH_GOOD if hp_ratio > 0.3 else HEALTH_BAD
-
-		# Bar background
-		draw_rect(Rect2(hp_bar_x, hp_bar_y, hp_bar_w, hp_bar_h), PANEL_BG)
-		# Bar fill
-		if hp_ratio > 0.0:
-			draw_rect(Rect2(hp_bar_x, hp_bar_y, hp_bar_w * hp_ratio, hp_bar_h), bar_color)
-		# Bar border
-		draw_rect(Rect2(hp_bar_x, hp_bar_y, hp_bar_w, hp_bar_h), PANEL_BORDER, false, 1.0)
-
-		# HP text
-		var hp_text := "%d / %d" % [int(health), int(max_health)]
-		draw_string(
-			font,
-			Vector2(hp_bar_x + hp_bar_w - 84.0, hp_bar_y + 13.0),
-			hp_text,
-			HORIZONTAL_ALIGNMENT_RIGHT,
-			78.0,
-			9,
-			TEXT_PRIMARY
-		)
-
-		drawn += 1
 
 
 func _update_party_hover() -> void:
@@ -625,89 +281,21 @@ func _update_party_hover() -> void:
 
 
 # =============================================================================
-# Drawing -- Channel Bar (center screen, above confluence)
+# Codex panel callbacks
 # =============================================================================
 
 
 func _on_loadout_applied(slots: Array) -> void:
-	NetworkManager.send_set_loadout(slots)
+	NetworkManager.loadout.send_set_loadout(slots)
 
 
 func _on_commitment_applied(entries: Array) -> void:
-	NetworkManager.send_set_flux_commitment(entries)
+	NetworkManager.loadout.send_set_flux_commitment(entries)
 
 
 func _on_preset_saved(preset_name: String, slots: Array, commitment: String) -> void:
-	NetworkManager.send_save_preset(preset_name, slots, commitment)
+	NetworkManager.loadout.send_save_preset(preset_name, slots, commitment)
 
 
 func _on_preset_deleted(preset_id: int) -> void:
-	NetworkManager.send_delete_preset(preset_id)
-
-
-# =============================================================================
-# Drawing -- Channel Bar (center screen, above confluence)
-# =============================================================================
-
-
-func _draw_channel_bar() -> void:
-	if not _channel_active:
-		return
-
-	var font := ThemeDB.fallback_font
-	var center_x := size.x / 2.0
-	var bar_w := 220.0
-	var bar_h := 16.0
-	# Position above confluence display
-	var bar_x := center_x - bar_w / 2.0
-	var bar_y := size.y - 200.0
-
-	# Background
-	draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), CHANNEL_BG)
-
-	if _sustain_active:
-		# Sustain mode: pulsing full bar with scaling glow
-		var pulse := 0.7 + 0.3 * absf(sin(float(Time.get_ticks_msec()) / 400.0))
-		var fill_color := SUSTAIN_FILL
-		fill_color.a = pulse
-		draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), fill_color)
-	else:
-		# Normal channel: fill bar progressively
-		if _channel_progress > 0.0:
-			var fill_w := bar_w * _channel_progress
-			draw_rect(Rect2(bar_x, bar_y, fill_w, bar_h), CHANNEL_FILL)
-
-	# Border
-	draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), PANEL_BORDER, false, 1.0)
-
-	# Ability name (centered above bar)
-	if _channel_ability_name != "":
-		var label: String = _channel_ability_name
-		if _sustain_active:
-			label = _channel_ability_name + " (SUSTAIN)"
-		draw_string(
-			font,
-			Vector2(bar_x, bar_y - 4.0),
-			label,
-			HORIZONTAL_ALIGNMENT_CENTER,
-			bar_w,
-			11,
-			SUSTAIN_FILL if _sustain_active else ARCANOTECHNICIEN_COLOR
-		)
-
-	# Status text (inside bar, right-aligned)
-	var status_text: String
-	if _sustain_active:
-		var scaling := 100.0 + _sustain_elapsed * 5.0  # 5% per second
-		status_text = "+%d%%" % int(scaling - 100.0)
-	else:
-		status_text = "%d%%" % int(_channel_progress * 100.0)
-	draw_string(
-		font,
-		Vector2(bar_x + bar_w - 40.0, bar_y + 13.0),
-		status_text,
-		HORIZONTAL_ALIGNMENT_RIGHT,
-		36.0,
-		10,
-		TEXT_PRIMARY
-	)
+	NetworkManager.loadout.send_delete_preset(preset_id)

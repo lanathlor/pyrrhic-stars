@@ -118,7 +118,7 @@ func _apply_frame(index: int) -> void:
 	if frame_data.is_empty():
 		return
 
-	var world_state: Dictionary = NetSerializer.decode_world_state(frame_data)
+	var world_state: Dictionary = NetSerializer.World.decode_world_state(frame_data)
 	var players_data: Array = world_state.get("players", [])
 	var enemies_data: Array = world_state.get("enemies", [])
 	_sync_players(players_data)

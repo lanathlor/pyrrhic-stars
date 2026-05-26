@@ -64,26 +64,16 @@ func show_damage_flash() -> void:
 	_damage_flash_timer = DAMAGE_FLASH_DURATION
 
 
-func update_assault_state(
-	magazine: int,
-	mag_max: int,
-	stability: float,
-	steadiness: float,
-	pressure: int,
-	munitions: float,
-	enhanced_loaded: int,
-	reloading: bool,
-	reload_progress: float
-) -> void:
-	_magazine = magazine
-	_mag_max = mag_max
-	_stability = stability
-	_steadiness = steadiness
-	_pressure_stacks = pressure
-	_munitions = munitions
-	_enhanced_loaded = enhanced_loaded
-	_reloading = reloading
-	_reload_progress = reload_progress
+func update_assault_state(state: Dictionary) -> void:
+	_magazine = state.get("magazine", 0)
+	_mag_max = state.get("mag_max", 0)
+	_stability = state.get("stability", 0.0)
+	_steadiness = state.get("steadiness", 0.0)
+	_pressure_stacks = state.get("pressure", 0)
+	_munitions = state.get("munitions", 0.0)
+	_enhanced_loaded = state.get("enhanced_loaded", 0)
+	_reloading = state.get("reloading", false)
+	_reload_progress = state.get("reload_progress", 0.0)
 
 
 func on_shoot() -> void:

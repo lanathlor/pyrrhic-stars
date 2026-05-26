@@ -78,14 +78,12 @@ func _ready() -> void:
 	layer = 18
 	visible = false
 
-	# Full-screen dark wash
 	_bg = ColorRect.new()
 	_bg.color = Color(0.0, 0.0, 0.0, 0.6)
 	_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_bg.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_bg)
 
-	# Margin around the whole thing
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	margin.add_theme_constant_override("margin_left", 120)
@@ -95,14 +93,33 @@ func _ready() -> void:
 	margin.mouse_filter = Control.MOUSE_FILTER_PASS
 	_bg.add_child(margin)
 
-	# Outer frame
+	var outer_vbox := _build_bot_outer_frame(margin)
+	_build_bot_title_bar(outer_vbox)
+	var body_vbox := _build_bot_body_panel(outer_vbox)
+
+	_columns_container = HBoxContainer.new()
+	_columns_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_columns_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_columns_container.add_theme_constant_override("separation", 12)
+	_columns_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	body_vbox.add_child(_columns_container)
+
+	for class_id in CLASS_DATA:
+		_build_class_column(class_id, CLASS_DATA[class_id])
+
+	_build_bot_bottom_bar(body_vbox)
+
+
+func _build_bot_outer_frame(parent: Control) -> VBoxContainer:
 	var outer_vbox := VBoxContainer.new()
 	outer_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	outer_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	outer_vbox.add_theme_constant_override("separation", 0)
-	margin.add_child(outer_vbox)
+	parent.add_child(outer_vbox)
+	return outer_vbox
 
-	# Title bar
+
+func _build_bot_title_bar(parent: VBoxContainer) -> void:
 	var title_panel := PanelContainer.new()
 	title_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var title_style := StyleBoxFlat.new()
@@ -115,7 +132,7 @@ func _ready() -> void:
 	title_style.content_margin_top = 10
 	title_style.content_margin_bottom = 10
 	title_panel.add_theme_stylebox_override("panel", title_style)
-	outer_vbox.add_child(title_panel)
+	parent.add_child(title_panel)
 
 	var title := Label.new()
 	title.text = "SPAWN BOT"
@@ -124,7 +141,8 @@ func _ready() -> void:
 	title.add_theme_color_override("font_color", UI_TEXT_ACCENT)
 	title_panel.add_child(title)
 
-	# Main body panel
+
+func _build_bot_body_panel(parent: VBoxContainer) -> VBoxContainer:
 	_outer_panel = PanelContainer.new()
 	_outer_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_outer_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -140,32 +158,22 @@ func _ready() -> void:
 	body_style.content_margin_top = 16
 	body_style.content_margin_bottom = 16
 	_outer_panel.add_theme_stylebox_override("panel", body_style)
-	outer_vbox.add_child(_outer_panel)
+	parent.add_child(_outer_panel)
 
 	var body_vbox := VBoxContainer.new()
 	body_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body_vbox.add_theme_constant_override("separation", 12)
 	_outer_panel.add_child(body_vbox)
+	return body_vbox
 
-	# Columns container (classes go side by side)
-	_columns_container = HBoxContainer.new()
-	_columns_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_columns_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_columns_container.add_theme_constant_override("separation", 12)
-	_columns_container.alignment = BoxContainer.ALIGNMENT_CENTER
-	body_vbox.add_child(_columns_container)
 
-	# Build class columns
-	for class_id in CLASS_DATA:
-		_build_class_column(class_id, CLASS_DATA[class_id])
-
-	# Bottom bar: count + dismiss all
+func _build_bot_bottom_bar(parent: VBoxContainer) -> void:
 	var bottom_bar := HBoxContainer.new()
 	bottom_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bottom_bar.add_theme_constant_override("separation", 12)
 	bottom_bar.alignment = BoxContainer.ALIGNMENT_CENTER
-	body_vbox.add_child(bottom_bar)
+	parent.add_child(bottom_bar)
 
 	_count_label = Label.new()
 	_count_label.text = "Bots: 0 / %d" % MAX_BOTS
@@ -251,14 +259,14 @@ func _on_spawn_pressed(class_id: String, spec_id: String) -> void:
 	if _bot_configs.size() >= MAX_BOTS:
 		return
 	_bot_configs.append({"class": class_id, "spec": spec_id})
-	NetworkManager.send_debug_spawn_bot(class_id, spec_id)
+	NetworkManager.debug.send_spawn_bot(class_id, spec_id)
 	bot_spawned.emit(class_id, spec_id)
 	_update_count()
 
 
 func _on_dismiss_all() -> void:
 	_bot_configs.clear()
-	NetworkManager.send_debug_dismiss_bot(0)
+	NetworkManager.debug.send_dismiss_bot(0)
 	bot_dismissed.emit(0)
 	_update_count()
 
