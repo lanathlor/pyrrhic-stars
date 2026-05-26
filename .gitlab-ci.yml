@@ -13,9 +13,10 @@ variables:
 
 lint-server:
   stage: test
-  tags:
-    - k8s-big
   image: golangci/golangci-lint:v2.12-alpine
+  retry:
+    max: 1
+    when: runner_system_failure
   script:
     - cd server
     - golangci-lint run ./...
@@ -36,9 +37,10 @@ fmt-server:
 
 test-server:
   stage: test
-  tags:
-    - k8s-big
   image: golang:1.25-alpine
+  retry:
+    max: 1
+    when: runner_system_failure
   script:
     - cd server
     - go test ./... -count=1
@@ -71,9 +73,10 @@ funlen-client:
 
 test-client:
   stage: test
-  tags:
-    - k8s-big
   image: barichello/godot-ci:${GODOT_VERSION}
+  retry:
+    max: 1
+    when: runner_system_failure
   variables:
     DISPLAY: ":0"
   cache:
