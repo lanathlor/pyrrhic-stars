@@ -9,22 +9,36 @@ default:
 variables:
   GODOT_VERSION: "4.5.1"
   GIT_LFS_SKIP_SMUDGE: "1"  # Most jobs don't need LFS assets; override per-job when needed
+  GOMODCACHE: ${CI_PROJECT_DIR}/.go-mod-cache
 
 # --- Test Stage: Server ---
+
+.go-cache: &go-cache
+  cache:
+    key: go-mod-${CI_COMMIT_REF_SLUG}
+    paths:
+      - .go-mod-cache/
+    policy: pull-push
 
 lint-server:
   stage: test
   image: golangci/golangci-lint:v2.12-alpine
+  <<: *go-cache
   retry:
-    max: 1
-    when: runner_system_failure
+    max: 2
+    when:
+      - runner_system_failure
+      - script_failure
+  variables:
+    GOLANGCI_LINT_CACHE: /tmp/golangci-lint-cache
   script:
     - cd server
-    - golangci-lint run ./...
+    - golangci-lint run --concurrency=2 ./...
 
 fmt-server:
   stage: test
   image: golang:1.25-alpine
+  <<: *go-cache
   script:
     - go install golang.org/x/tools/cmd/goimports@latest
     - cd server
@@ -39,18 +53,33 @@ fmt-server:
 test-server:
   stage: test
   image: golang:1.25-alpine
+  <<: *go-cache
   retry:
-    max: 1
-    when: runner_system_failure
+    max: 2
+    when:
+      - runner_system_failure
+      - script_failure
   script:
     - cd server
     - go test ./... -count=1
 
 # --- Test Stage: Client ---
 
+.pip-cache: &pip-cache
+  cache:
+    key: pip-gdtoolkit
+    paths:
+      - .pip-cache/
+  variables:
+    PIP_CACHE_DIR: ${CI_PROJECT_DIR}/.pip-cache
+
 lint-client:
   stage: test
   image: python:3.12-alpine
+  <<: *pip-cache
+  retry:
+    max: 1
+    when: runner_system_failure
   script:
     - pip install --quiet gdtoolkit==4.*
     - cd client
@@ -60,6 +89,10 @@ lint-client:
 fmt-client:
   stage: test
   image: python:3.12-alpine
+  <<: *pip-cache
+  retry:
+    max: 1
+    when: runner_system_failure
   script:
     - pip install --quiet gdtoolkit==4.*
     - cd client
@@ -68,6 +101,9 @@ fmt-client:
 funlen-client:
   stage: test
   image: python:3.12-alpine
+  retry:
+    max: 1
+    when: runner_system_failure
   script:
     - cd client
     - python3 scripts/tools/check_func_length.py scripts/ scenes/
@@ -144,6 +180,7 @@ build-client-windows:
 build-server:
   stage: build
   image: golang:1.25-alpine
+  <<: *go-cache
   script:
     - cd server
     - mkdir -p ../build/server-linux ../build/server-windows
