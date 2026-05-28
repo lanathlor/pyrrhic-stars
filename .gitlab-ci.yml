@@ -8,6 +8,7 @@ default:
 
 variables:
   GODOT_VERSION: "4.5.1"
+  GIT_LFS_SKIP_SMUDGE: "1"  # Most jobs don't need LFS assets; override per-job when needed
 
 # --- Test Stage: Server ---
 
@@ -79,6 +80,7 @@ test-client:
     when: runner_system_failure
   variables:
     DISPLAY: ":0"
+    GIT_LFS_SKIP_SMUDGE: "0"
   cache:
     key: godot-import-${GODOT_VERSION}
     paths:
@@ -95,6 +97,8 @@ test-client:
 build-client-linux:
   stage: build
   image: barichello/godot-ci:${GODOT_VERSION}
+  variables:
+    GIT_LFS_SKIP_SMUDGE: "0"
   cache:
     key: godot-import-${GODOT_VERSION}
     paths:
@@ -118,6 +122,8 @@ build-client-linux:
 build-client-windows:
   stage: build
   image: barichello/godot-ci:${GODOT_VERSION}
+  variables:
+    GIT_LFS_SKIP_SMUDGE: "0"
   cache:
     key: godot-import-${GODOT_VERSION}
     paths:
