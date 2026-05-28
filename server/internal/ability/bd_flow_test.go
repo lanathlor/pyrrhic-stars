@@ -188,7 +188,7 @@ func TestFlow_IntegrationWithCast(t *testing.T) {
 	// Commit 1: shielded_sweep (Orbit→Fan) — first transition, no flow bonus
 	p.Config = entity.ConfigOrbit
 	p.GCDTimer = 0
-	r1 := eng.Commit("shielded_sweep", commitCtx(p, e))
+	r1 := eng.Commit(IDShieldedSweep, commitCtx(p, e))
 	if !r1.OK {
 		t.Fatalf("commit 1 failed: %s", r1.Reason)
 	}
@@ -201,7 +201,7 @@ func TestFlow_IntegrationWithCast(t *testing.T) {
 	// Commit 2: cleaving_pierce (Fan→Lance) — second transition, 5% bonus
 	p.GCDTimer = 0
 	hpBefore := e.Health
-	r2 := eng.Commit("cleaving_pierce", commitCtx(p, e))
+	r2 := eng.Commit(IDCleavingPierce, commitCtx(p, e))
 	if !r2.OK {
 		t.Fatalf("commit 2 failed: %s", r2.Reason)
 	}
@@ -219,14 +219,14 @@ func TestFlow_IntegrationWithCast(t *testing.T) {
 	// But wait — we're in Lance config now, not Orbit. We need to be in Orbit.
 	// Let's do a different chain: piercing_barrier (Lance→Orbit) first.
 	p.GCDTimer = 0
-	eng.Commit("piercing_barrier", commitCtx(p, e)) // Lance→Orbit, chainLen=3
+	eng.Commit(IDPiercingBarrier, commitCtx(p, e)) // Lance→Orbit, chainLen=3
 	if flow.ChainLen != 3 {
 		t.Errorf("after commit 3: chainLen = %d, want 3", flow.ChainLen)
 	}
 
 	// Now in Orbit — commit shielded_sweep again (Orbit→Fan) which IS a repeat
 	p.GCDTimer = 0
-	eng.Commit("shielded_sweep", commitCtx(p, e))
+	eng.Commit(IDShieldedSweep, commitCtx(p, e))
 	if flow.ChainLen != 0 {
 		t.Errorf("after repeat: chainLen = %d, want 0 (chain broken)", flow.ChainLen)
 	}

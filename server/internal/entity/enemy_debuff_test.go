@@ -4,7 +4,7 @@ import "testing"
 
 func TestEnemy_AddDebuff(t *testing.T) {
 	e := NewEnemy(1, 500, "test")
-	e.AddDebuff(ActiveDebuff{ID: "slow1", Type: DebuffSlow, Value: 0.3, Duration: 2.0})
+	e.AddDebuff(ActiveDebuff{ID: testSlow1, Type: DebuffSlow, Value: 0.3, Duration: 2.0})
 	if !e.HasDebuff(DebuffSlow) {
 		t.Fatal("expected slow debuff after AddDebuff")
 	}
@@ -15,8 +15,8 @@ func TestEnemy_AddDebuff(t *testing.T) {
 
 func TestEnemy_AddDebuff_ReplaceByID(t *testing.T) {
 	e := NewEnemy(1, 500, "test")
-	e.AddDebuff(ActiveDebuff{ID: "slow1", Type: DebuffSlow, Value: 0.3, Duration: 2.0})
-	e.AddDebuff(ActiveDebuff{ID: "slow1", Type: DebuffSlow, Value: 0.5, Duration: 3.0})
+	e.AddDebuff(ActiveDebuff{ID: testSlow1, Type: DebuffSlow, Value: 0.3, Duration: 2.0})
+	e.AddDebuff(ActiveDebuff{ID: testSlow1, Type: DebuffSlow, Value: 0.5, Duration: 3.0})
 	if len(e.Debuffs) != 1 {
 		t.Fatalf("expected 1 debuff after replace, got %d", len(e.Debuffs))
 	}
@@ -27,8 +27,8 @@ func TestEnemy_AddDebuff_ReplaceByID(t *testing.T) {
 
 func TestEnemy_RemoveDebuff(t *testing.T) {
 	e := NewEnemy(1, 500, "test")
-	e.AddDebuff(ActiveDebuff{ID: "slow1", Type: DebuffSlow, Value: 0.3, Duration: 2.0})
-	e.RemoveDebuff("slow1")
+	e.AddDebuff(ActiveDebuff{ID: testSlow1, Type: DebuffSlow, Value: 0.3, Duration: 2.0})
+	e.RemoveDebuff(testSlow1)
 	if e.HasDebuff(DebuffSlow) {
 		t.Fatal("expected no slow after RemoveDebuff")
 	}
@@ -36,7 +36,7 @@ func TestEnemy_RemoveDebuff(t *testing.T) {
 
 func TestEnemy_GetDebuffValue_ReturnsHighest(t *testing.T) {
 	e := NewEnemy(1, 500, "test")
-	e.AddDebuff(ActiveDebuff{ID: "slow1", Type: DebuffSlow, Value: 0.2, Duration: 2.0})
+	e.AddDebuff(ActiveDebuff{ID: testSlow1, Type: DebuffSlow, Value: 0.2, Duration: 2.0})
 	e.AddDebuff(ActiveDebuff{ID: "slow2", Type: DebuffSlow, Value: 0.4, Duration: 2.0})
 	if got := e.GetDebuffValue(DebuffSlow); got != 0.4 {
 		t.Errorf("slow value = %f, want 0.4 (highest)", got)
@@ -52,7 +52,7 @@ func TestEnemy_GetDebuffValue_ZeroWhenNone(t *testing.T) {
 
 func TestEnemy_TickDebuffs_Expires(t *testing.T) {
 	e := NewEnemy(1, 500, "test")
-	e.AddDebuff(ActiveDebuff{ID: "slow1", Type: DebuffSlow, Value: 0.3, Duration: 1.0})
+	e.AddDebuff(ActiveDebuff{ID: testSlow1, Type: DebuffSlow, Value: 0.3, Duration: 1.0})
 	e.TickDebuffs(0.5)
 	if !e.HasDebuff(DebuffSlow) {
 		t.Fatal("debuff should still be active after 0.5s")
@@ -65,7 +65,7 @@ func TestEnemy_TickDebuffs_Expires(t *testing.T) {
 
 func TestEnemy_Reset_ClearsDebuffs(t *testing.T) {
 	e := NewEnemy(1, 500, "test")
-	e.AddDebuff(ActiveDebuff{ID: "slow1", Type: DebuffSlow, Value: 0.3, Duration: 5.0})
+	e.AddDebuff(ActiveDebuff{ID: testSlow1, Type: DebuffSlow, Value: 0.3, Duration: 5.0})
 	e.Reset(Vec3{})
 	if len(e.Debuffs) != 0 {
 		t.Fatalf("expected 0 debuffs after Reset, got %d", len(e.Debuffs))

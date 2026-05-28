@@ -19,6 +19,8 @@ import (
 	"codex-online/server/internal/zone"
 )
 
+const testBenchPlayer = "BenchPlayer"
+
 func TestMain(m *testing.M) {
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 	m.Run()
@@ -582,7 +584,7 @@ func BenchmarkJoinZone(b *testing.B) {
 	sess := &session.Session{
 		ID:       1,
 		Conn:     conn,
-		Username: "BenchPlayer",
+		Username: testBenchPlayer,
 		Class:    entity.ClassGunner,
 	}
 
@@ -618,7 +620,7 @@ func BenchmarkJoinZoneWithPeers(b *testing.B) {
 			sess := &session.Session{
 				ID:       1,
 				Conn:     conn,
-				Username: "BenchPlayer",
+				Username: testBenchPlayer,
 				Class:    entity.ClassGunner,
 			}
 
@@ -649,7 +651,7 @@ func BenchmarkLeaveZone(b *testing.B) {
 	sess := &session.Session{
 		ID:       1,
 		Conn:     conn,
-		Username: "BenchPlayer",
+		Username: testBenchPlayer,
 		Class:    entity.ClassGunner,
 	}
 
@@ -678,7 +680,7 @@ func BenchmarkTransferPlayer(b *testing.B) {
 	sess := &session.Session{
 		ID:       1,
 		Conn:     conn,
-		Username: "BenchPlayer",
+		Username: testBenchPlayer,
 		Class:    entity.ClassGunner,
 	}
 

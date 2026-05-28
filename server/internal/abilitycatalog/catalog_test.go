@@ -4,7 +4,12 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"codex-online/server/internal/ability"
+	"codex-online/server/internal/entity"
 )
+
+const testFireball = "fireball"
 
 // yamlPath returns the absolute path to the real YAML catalog.
 func yamlPath(t *testing.T) string {
@@ -48,9 +53,9 @@ func TestGetAbility(t *testing.T) {
 		wantNil bool
 		wantID  string
 	}{
-		{name: "known ability mending_surge", id: "mending_surge", wantNil: false, wantID: "mending_surge"},
-		{name: "known ability fireball", id: "fireball", wantNil: false, wantID: "fireball"},
-		{name: "known ability frost_ward", id: "frost_ward", wantNil: false, wantID: "frost_ward"},
+		{name: "known ability mending_surge", id: ability.IDMendingSurge, wantNil: false, wantID: ability.IDMendingSurge},
+		{name: "known ability fireball", id: testFireball, wantNil: false, wantID: testFireball},
+		{name: "known ability frost_ward", id: ability.IDFrostWard, wantNil: false, wantID: ability.IDFrostWard},
 		{name: "unknown ability", id: "nonexistent_spell_xyz", wantNil: true},
 		{name: "empty string", id: "", wantNil: true},
 	}
@@ -87,26 +92,26 @@ func TestGetAffinityTier(t *testing.T) {
 		want   string
 	}{
 		// Harmonist affinities: primary=[bioarcanotechnic, biometabolic, frost], secondary=[aerokinetic, hydrodynamic, pure]
-		{name: "harmonist/bioarcanotechnic is primary", spec: "harmonist", school: "bioarcanotechnic", want: "primary"},
-		{name: "harmonist/biometabolic is primary", spec: "harmonist", school: "biometabolic", want: "primary"},
-		{name: "harmonist/frost is primary", spec: "harmonist", school: "frost", want: "primary"},
-		{name: "harmonist/aerokinetic is secondary", spec: "harmonist", school: "aerokinetic", want: "secondary"},
-		{name: "harmonist/hydrodynamic is secondary", spec: "harmonist", school: "hydrodynamic", want: "secondary"},
-		{name: "harmonist/pure is secondary", spec: "harmonist", school: "pure", want: "secondary"},
-		{name: "harmonist/fire is off", spec: "harmonist", school: "fire", want: "off"},
-		{name: "harmonist/shadow is off", spec: "harmonist", school: "shadow", want: "off"},
+		{name: "harmonist/bioarcanotechnic is primary", spec: entity.SpecHarmonist, school: entity.SchoolBioarcanotechnic, want: AffinityPrimary},
+		{name: "harmonist/biometabolic is primary", spec: entity.SpecHarmonist, school: entity.SchoolBiometabolic, want: AffinityPrimary},
+		{name: "harmonist/frost is primary", spec: entity.SpecHarmonist, school: entity.SchoolFrost, want: AffinityPrimary},
+		{name: "harmonist/aerokinetic is secondary", spec: entity.SpecHarmonist, school: entity.SchoolAerokinetic, want: AffinitySecondary},
+		{name: "harmonist/hydrodynamic is secondary", spec: entity.SpecHarmonist, school: entity.SchoolHydrodynamic, want: AffinitySecondary},
+		{name: "harmonist/pure is secondary", spec: entity.SpecHarmonist, school: entity.SchoolPure, want: AffinitySecondary},
+		{name: "harmonist/fire is off", spec: entity.SpecHarmonist, school: entity.SchoolFire, want: AffinityOff},
+		{name: "harmonist/shadow is off", spec: entity.SpecHarmonist, school: entity.SchoolShadow, want: AffinityOff},
 
 		// Destroyer affinities: primary=[fire, frost, electricity], secondary=[gravitonic, aerokinetic, pure]
-		{name: "destroyer/fire is primary", spec: "destroyer", school: "fire", want: "primary"},
-		{name: "destroyer/gravitonic is secondary", spec: "destroyer", school: "gravitonic", want: "secondary"},
-		{name: "destroyer/bioarcanotechnic is off", spec: "destroyer", school: "bioarcanotechnic", want: "off"},
+		{name: "destroyer/fire is primary", spec: entity.SpecDestroyer, school: entity.SchoolFire, want: AffinityPrimary},
+		{name: "destroyer/gravitonic is secondary", spec: entity.SpecDestroyer, school: entity.SchoolGravitonic, want: AffinitySecondary},
+		{name: "destroyer/bioarcanotechnic is off", spec: entity.SpecDestroyer, school: entity.SchoolBioarcanotechnic, want: AffinityOff},
 
 		// Battlemage affinities: primary=[electricity, fire, martial], secondary=[shadow, aerokinetic, pure]
-		{name: "battlemage/martial is primary", spec: "battlemage", school: "martial", want: "primary"},
-		{name: "battlemage/shadow is secondary", spec: "battlemage", school: "shadow", want: "secondary"},
+		{name: "battlemage/martial is primary", spec: entity.SpecBattlemage, school: entity.SchoolMartial, want: AffinityPrimary},
+		{name: "battlemage/shadow is secondary", spec: entity.SpecBattlemage, school: entity.SchoolShadow, want: AffinitySecondary},
 
 		// Unknown spec
-		{name: "unknown spec returns off", spec: "nonexistent_spec", school: "fire", want: "off"},
+		{name: "unknown spec returns off", spec: "nonexistent_spec", school: entity.SchoolFire, want: AffinityOff},
 	}
 
 	for _, tt := range tests {
@@ -132,7 +137,7 @@ func TestValidateLoadout(t *testing.T) {
 	}{
 		{
 			name:  "all valid implemented abilities",
-			slots: [6]string{"mending_surge", "mending_beam", "frost_ward", "gust_step", "restoration_matrix", "life_swap"},
+			slots: [6]string{ability.IDMendingSurge, ability.IDMendingBeam, ability.IDFrostWard, "gust_step", ability.IDRestorationMatrix, ability.IDLifeSwap},
 			want:  true,
 		},
 		{
@@ -142,12 +147,12 @@ func TestValidateLoadout(t *testing.T) {
 		},
 		{
 			name:  "mix of valid and empty",
-			slots: [6]string{"mending_surge", "", "frost_ward", "", "", ""},
+			slots: [6]string{ability.IDMendingSurge, "", ability.IDFrostWard, "", "", ""},
 			want:  true,
 		},
 		{
 			name:  "one unimplemented ability",
-			slots: [6]string{"mending_surge", "fireball", "", "", "", ""},
+			slots: [6]string{ability.IDMendingSurge, testFireball, "", "", "", ""},
 			want:  false,
 		},
 		{
@@ -157,12 +162,12 @@ func TestValidateLoadout(t *testing.T) {
 		},
 		{
 			name:  "all unimplemented",
-			slots: [6]string{"fireball", "ignition", "burn", "flame_wall", "frost_nova", "ice_javelin"},
+			slots: [6]string{testFireball, "ignition", "burn", "flame_wall", "frost_nova", "ice_javelin"},
 			want:  false,
 		},
 		{
 			name:  "valid abilities plus one unknown at end",
-			slots: [6]string{"mending_surge", "frost_ward", "gust_step", "life_swap", "transfusion", "does_not_exist"},
+			slots: [6]string{ability.IDMendingSurge, ability.IDFrostWard, "gust_step", ability.IDLifeSwap, ability.IDTransfusion, "does_not_exist"},
 			want:  false,
 		},
 	}
@@ -203,7 +208,7 @@ func TestAbilitiesForSpec(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 
-	results := cat.AbilitiesForSpec("harmonist")
+	results := cat.AbilitiesForSpec(entity.SpecHarmonist)
 	if len(results) != len(cat.Abilities) {
 		t.Fatalf("AbilitiesForSpec returned %d entries, want %d", len(results), len(cat.Abilities))
 	}
@@ -219,20 +224,20 @@ func TestAbilitiesForSpec(t *testing.T) {
 		wantAffinity string
 	}{
 		// Harmonist primary schools: bioarcanotechnic, biometabolic, frost
-		{id: "mending_surge", wantAffinity: "primary"}, // bioarcanotechnic
-		{id: "life_swap", wantAffinity: "primary"},     // biometabolic
-		{id: "frost_ward", wantAffinity: "primary"},    // frost
+		{id: ability.IDMendingSurge, wantAffinity: AffinityPrimary}, // bioarcanotechnic
+		{id: ability.IDLifeSwap, wantAffinity: AffinityPrimary},     // biometabolic
+		{id: ability.IDFrostWard, wantAffinity: AffinityPrimary},    // frost
 		// Harmonist secondary schools: aerokinetic, hydrodynamic, pure
-		{id: "gust_step", wantAffinity: "secondary"},     // aerokinetic
-		{id: "torrent", wantAffinity: "secondary"},       // hydrodynamic
-		{id: "flux_negation", wantAffinity: "secondary"}, // pure
+		{id: "gust_step", wantAffinity: AffinitySecondary},     // aerokinetic
+		{id: "torrent", wantAffinity: AffinitySecondary},       // hydrodynamic
+		{id: "flux_negation", wantAffinity: AffinitySecondary}, // pure
 		// Off-affinity
-		{id: "fireball", wantAffinity: "off"},            // fire
-		{id: "chain_lightning", wantAffinity: "off"},     // electricity
-		{id: "shadow_step", wantAffinity: "off"},         // shadow
-		{id: "gravitonic_collapse", wantAffinity: "off"}, // gravitonic
-		{id: "adrenaline", wantAffinity: "off"},          // martial
-		{id: "mirage", wantAffinity: "off"},              // illusion
+		{id: testFireball, wantAffinity: AffinityOff},          // fire
+		{id: "chain_lightning", wantAffinity: AffinityOff},     // electricity
+		{id: "shadow_step", wantAffinity: AffinityOff},         // shadow
+		{id: "gravitonic_collapse", wantAffinity: AffinityOff}, // gravitonic
+		{id: "adrenaline", wantAffinity: AffinityOff},          // martial
+		{id: "mirage", wantAffinity: AffinityOff},              // illusion
 	}
 
 	for _, tt := range tests {
@@ -256,8 +261,8 @@ func TestAbilitiesForSpecUnknown(t *testing.T) {
 
 	results := cat.AbilitiesForSpec("nonexistent_spec")
 	for _, r := range results {
-		if r.Affinity != "off" {
-			t.Errorf("ability %q has affinity %q for unknown spec, want \"off\"", r.ID, r.Affinity)
+		if r.Affinity != AffinityOff {
+			t.Errorf("ability %q has affinity %q for unknown spec, want %q", r.ID, r.Affinity, AffinityOff)
 		}
 	}
 }

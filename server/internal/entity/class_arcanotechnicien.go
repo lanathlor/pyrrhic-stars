@@ -1,10 +1,10 @@
 package entity
 
 var arcanotechnicienDestroyerSpec = SpecDef{
-	ID:          "destroyer",
+	ID:          SpecDestroyer,
 	Name:        "Destroyer",
 	Description: "Massive AoE burst. Glass cannon.\nHuge Flux reserve, long channels, vulnerable.",
-	Role:        "DPS",
+	Role:        RoleDPS,
 	Implemented: false,
 	MaxHealth:   130,
 	Movement: ClassMovement{
@@ -13,17 +13,17 @@ var arcanotechnicienDestroyerSpec = SpecDef{
 		RollSpeed: 10.0, RollDur: 0.4, RollCD: 2.0,
 	},
 	Resources: map[string]ResourceTemplate{
-		"flux": {Max: 200, Initial: 200, Regen: 8, RegenDelay: 0},
+		ResourceFlux: {Max: 200, Initial: 200, Regen: 8, RegenDelay: 0},
 	},
-	PrimarySchools:   []string{"fire", "frost", "electricity"},
-	SecondarySchools: []string{"gravitonic", "aerokinetic", "pure"},
+	PrimarySchools:   []string{SchoolFire, SchoolFrost, SchoolElectricity},
+	SecondarySchools: []string{SchoolGravitonic, SchoolAerokinetic, SchoolPure},
 }
 
 var arcanotechnicienBattlemageSpec = SpecDef{
-	ID:          "battlemage",
+	ID:          SpecBattlemage,
 	Name:        "Battlemage",
 	Description: "Melee-range hybrid. Monotarget, constant damage.\nAlternating weapon strikes and abilities.",
-	Role:        "DPS",
+	Role:        RoleDPS,
 	Implemented: false,
 	MaxHealth:   160,
 	Movement: ClassMovement{
@@ -32,10 +32,10 @@ var arcanotechnicienBattlemageSpec = SpecDef{
 		RollSpeed: 12.0, RollDur: 0.35, RollCD: 1.5,
 	},
 	Resources: map[string]ResourceTemplate{
-		"flux": {Max: 120, Initial: 120, Regen: 6, RegenDelay: 0},
+		ResourceFlux: {Max: 120, Initial: 120, Regen: 6, RegenDelay: 0},
 	},
-	PrimarySchools:   []string{"electricity", "fire", "martial"},
-	SecondarySchools: []string{"shadow", "aerokinetic", "pure"},
+	PrimarySchools:   []string{SchoolElectricity, SchoolFire, SchoolMartial},
+	SecondarySchools: []string{SchoolShadow, SchoolAerokinetic, SchoolPure},
 }
 
 // harmonistDefaultLoadout is the default loadout for the Harmonist spec.
@@ -43,7 +43,7 @@ var arcanotechnicienBattlemageSpec = SpecDef{
 var harmonistDefaultLoadout = Loadout{
 	Slots: [6]string{
 		"siphon_pulse",
-		"mending_beam",
+		AbilityMendingBeam,
 		"mending_surge",
 		"restoration_matrix",
 		"life_swap",
@@ -52,10 +52,10 @@ var harmonistDefaultLoadout = Loadout{
 }
 
 var arcanotechnicienHarmonistSpec = SpecDef{
-	ID:          "harmonist",
+	ID:          SpecHarmonist,
 	Name:        "Harmonist",
 	Description: "Flux-based healer. Positional, channeled, visible.\nHealing zones and beams, not whack-a-mole.",
-	Role:        "Healer",
+	Role:        RoleHealer,
 	Implemented: true,
 	MaxHealth:   170,
 	Movement: ClassMovement{
@@ -64,12 +64,12 @@ var arcanotechnicienHarmonistSpec = SpecDef{
 		RollSpeed: 11.0, RollDur: 0.35, RollCD: 1.8,
 	},
 	Resources: map[string]ResourceTemplate{
-		"flux": {Max: 160, Initial: 160, Regen: 3, RegenDelay: 0},
+		ResourceFlux: {Max: 160, Initial: 160, Regen: 3, RegenDelay: 0},
 	},
-	Abilities:        []string{"siphon_pulse", "mending_surge", "mending_beam", "vital_bloom", "restoration_matrix", "life_swap", "transfusion", "vital_drain", "overclock_at", "neural_fortification", "regen_protocol", "vital_circuit", "metabolic_burst", "last_breath", "gust_step", "frost_ward"},
+	Abilities:        []string{"siphon_pulse", "mending_surge", AbilityMendingBeam, "vital_bloom", "restoration_matrix", "life_swap", "transfusion", "vital_drain", "overclock_at", "neural_fortification", "regen_protocol", "vital_circuit", "metabolic_burst", "last_breath", "gust_step", "frost_ward"},
 	ActionMap:        map[uint8]string{},
-	PrimarySchools:   []string{"bioarcanotechnic", "biometabolic", "frost"},
-	SecondarySchools: []string{"aerokinetic", "hydrodynamic", "pure"},
+	PrimarySchools:   []string{SchoolBioarcanotechnic, SchoolBiometabolic, SchoolFrost},
+	SecondarySchools: []string{SchoolAerokinetic, SchoolHydrodynamic, SchoolPure},
 }
 
 var arcanotechnicienDef = ClassDef{
@@ -79,6 +79,6 @@ var arcanotechnicienDef = ClassDef{
 	Resources:   arcanotechnicienHarmonistSpec.Resources,
 	Abilities:   arcanotechnicienHarmonistSpec.Abilities,
 	ActionMap:   arcanotechnicienHarmonistSpec.ActionMap,
-	DefaultSpec: "harmonist",
+	DefaultSpec: SpecHarmonist,
 	Specs:       []*SpecDef{&arcanotechnicienDestroyerSpec, &arcanotechnicienBattlemageSpec, &arcanotechnicienHarmonistSpec},
 }

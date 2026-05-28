@@ -356,14 +356,14 @@ func TestFight_AoEHitsMultiplePlayers(t *testing.T) {
 // Uses a self-contained tree that attempts charge directly.
 func TestFight_ChargeHitsMultiplePlayers(t *testing.T) {
 	chargeTree := map[string]any{
-		"reactive_selector": []any{
-			map[string]any{"sequence": []any{"is_dead", "stop"}},
-			map[string]any{"sequence": []any{"phase_transitioning", "wait_transition"}},
-			map[string]any{"sequence": []any{"!has_target", "aggro_or_patrol"}},
-			map[string]any{"sequence": []any{"!in_leash_range", "leash_reset"}},
-			map[string]any{"sequence": []any{"is_committed", "wait_ability"}},
-			map[string]any{"sequence": []any{"target_beyond(4)", "has_los", "commit(bull_charge)", "wait_ability"}},
-			"chase",
+		NodeReactiveSelector: []any{
+			map[string]any{NodeSequence: []any{LeafIsDead, LeafStop}},
+			map[string]any{NodeSequence: []any{LeafPhaseTransitioning, LeafWaitTransition}},
+			map[string]any{NodeSequence: []any{"!has_target", LeafAggroOrPatrol}},
+			map[string]any{NodeSequence: []any{"!in_leash_range", LeafLeashReset}},
+			map[string]any{NodeSequence: []any{"is_committed", LeafWaitAbility}},
+			map[string]any{NodeSequence: []any{"target_beyond(4)", LeafHasLoS, "commit(bull_charge)", LeafWaitAbility}},
+			LeafChase,
 		},
 	}
 	def := &EnemyDef{
@@ -599,7 +599,7 @@ func TestFight_DamageEventSourceTypes(t *testing.T) {
 		TreeData:  testTreeData(),
 		Abilities: []ability.AbilityDef{
 			{
-				ID: "melee", Name: "melee", Category: ability.CategoryMelee,
+				ID: testMeleeID, Name: testMeleeID, Category: ability.CategoryMelee,
 				CommitTime: 0.1, Cooldown: 0.2,
 				BaseWeight: 100, MaxRange: 5.0,
 				BaseDamage:   10.0,
@@ -883,7 +883,7 @@ func BenchmarkBrainTick_MeleeAttackCycle(b *testing.B) {
 		TreeData:  testTreeData(),
 		Abilities: []ability.AbilityDef{
 			{
-				ID: "melee", Name: "melee", Category: ability.CategoryMelee,
+				ID: testMeleeID, Name: testMeleeID, Category: ability.CategoryMelee,
 				CommitTime: 0.3, Cooldown: 0.3,
 				BaseWeight: 100, MaxRange: 5.0,
 				BaseDamage:   10.0,

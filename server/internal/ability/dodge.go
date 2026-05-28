@@ -1,7 +1,9 @@
 package ability
 
+import "codex-online/server/internal/entity"
+
 var dodgeDef = AbilityDef{
-	ID: "dodge", Name: "Dodge",
+	ID: IDDodge, Name: "Dodge",
 	Hit:   HitDef{Type: HitNone},
-	Costs: []ResourceCost{{Resource: "stamina", Amount: 20}},
+	Costs: []ResourceCost{{Resource: entity.ResourceStamina, Amount: 20}},
 }

@@ -6,23 +6,23 @@ import (
 )
 
 var lifeSwapDef = AbilityDef{
-	ID:     "life_swap",
+	ID:     IDLifeSwap,
 	Name:   "Life Swap",
-	School: "biometabolic",
+	School: entity.SchoolBiometabolic,
 	Hit: HitDef{
 		Type:  HitAllyTarget,
 		Range: 15,
 	},
 	GCD:      0.6,
 	Costs:    []ResourceCost{{Resource: entity.ResourceFlux, Amount: 5}},
-	Handler:  "life_swap",
+	Handler:  IDLifeSwap,
 	Delivery: uint8(entity.DeliveryDirect),
 }
 
 func lifeSwapHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "not a player"}
+		return CommitResult{Reason: ReasonNotAPlayer}
 	}
 
 	var target *entity.Player
@@ -32,7 +32,7 @@ func lifeSwapHandler(_ *Engine, ctx *CommitContext) CommitResult {
 		}
 	}
 	if target == nil {
-		return CommitResult{Reason: "no valid target"}
+		return CommitResult{Reason: ReasonNoValidTarget}
 	}
 
 	drain := target.Health * 0.20

@@ -26,13 +26,13 @@ const (
 )
 
 var vgShieldBlockDef = AbilityDef{
-	ID: "vg_shield_block", Name: "Shield Block",
-	Handler: "vg_shield_block",
+	ID: IDVgShieldBlock, Name: "Shield Block",
+	Handler: IDVgShieldBlock,
 }
 
 var vgShieldBlockStopDef = AbilityDef{
-	ID: "vg_shield_block_stop", Name: "Shield Block Stop",
-	Handler: "vg_shield_block_stop",
+	ID: IDVgShieldBlockStop, Name: "Shield Block Stop",
+	Handler: IDVgShieldBlockStop,
 }
 
 // VgShieldBlockState tracks sustained shield block for the tick handler.
@@ -59,10 +59,10 @@ func (s *VgShieldBlockState) GetDevotionMult() float32 {
 func vgShieldBlockHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
-	if p.Cooldowns["vg_shield_block"] > 0 {
-		return CommitResult{Reason: "cooldown"}
+	if p.Cooldowns[IDVgShieldBlock] > 0 {
+		return CommitResult{Reason: ReasonCooldown}
 	}
 	state := getVgShieldBlockState(p)
 	if state.Active {
@@ -90,7 +90,7 @@ func vgShieldBlockHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	})
 	// Sustained block DR — starts high, decays over time
 	p.AddBuff(entity.ActiveBuff{
-		ID:       "vg_shield_block",
+		ID:       IDVgShieldBlock,
 		Type:     entity.BuffDamageReduction,
 		Value:    shieldBlockDRStart,
 		Duration: 0, // permanent — managed by tick handler
@@ -102,7 +102,7 @@ func vgShieldBlockHandler(_ *Engine, ctx *CommitContext) CommitResult {
 func vgShieldBlockStopHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
 	EndVgShieldBlock(p)
 	return CommitResult{OK: true}
@@ -119,10 +119,10 @@ func EndVgShieldBlock(p *entity.Player) {
 	state.DevotionMult = 0
 	state.ParryReflectPending = false
 	state.ParryReflectDamage = 0
-	p.RemoveBuff("vg_shield_block")
+	p.RemoveBuff(IDVgShieldBlock)
 	p.RemoveBuff("vg_shield_parry")
-	p.RemoveBuff("brace")
-	p.Cooldowns["vg_shield_block"] = shieldBlockCooldown
+	p.RemoveBuff(IDBrace)
+	p.Cooldowns[IDVgShieldBlock] = shieldBlockCooldown
 	if p.State == entity.PlayerStateBlock {
 		p.State = entity.PlayerStateMove
 	}
@@ -164,12 +164,12 @@ func vgShieldBlockTick(eng *Engine, p *entity.Player, dt float32, ctx *TickConte
 	// Stamina is drained proportionally to damage absorbed in ApplyDamage.
 
 	// Brace freezes DR decay and Devotion decay
-	if !p.HasBuff("brace") {
+	if !p.HasBuff(IDBrace) {
 		state.Elapsed += dt
 	}
 
 	// Decay DR over time (mirrors Blade Block pattern)
-	if b := p.GetBuff("vg_shield_block"); b != nil {
+	if b := p.GetBuff(IDVgShieldBlock); b != nil {
 		v := shieldBlockDRStart + (shieldBlockDREnd-shieldBlockDRStart)*(state.Elapsed/shieldBlockDRDecayTime)
 		if v > shieldBlockDREnd {
 			v = shieldBlockDREnd
@@ -204,10 +204,10 @@ func triggerGuardBreak(p *entity.Player) {
 }
 
 func getVgShieldBlockState(p *entity.Player) *VgShieldBlockState {
-	if s, ok := p.AbilityState["vg_shield_block"].(*VgShieldBlockState); ok {
+	if s, ok := p.AbilityState[IDVgShieldBlock].(*VgShieldBlockState); ok {
 		return s
 	}
 	s := &VgShieldBlockState{}
-	p.AbilityState["vg_shield_block"] = s
+	p.AbilityState[IDVgShieldBlock] = s
 	return s
 }

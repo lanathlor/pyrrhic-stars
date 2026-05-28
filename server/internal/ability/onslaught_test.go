@@ -99,7 +99,7 @@ func TestOnslaught_NoResetDuringParry(t *testing.T) {
 	// Add parry buff + block state so parry triggers
 	p.AddBuff(entity.ActiveBuff{ID: "vg_parry", Type: entity.BuffDamageReduction, Value: 1.0, Duration: 0.15})
 	state := &VgBlockState{}
-	p.AbilityState["vg_block"] = state
+	p.AbilityState[IDVgBlock] = state
 
 	p.ApplyDamage(50)
 

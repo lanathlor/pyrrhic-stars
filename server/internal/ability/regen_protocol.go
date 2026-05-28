@@ -3,21 +3,21 @@ package ability
 import "codex-online/server/internal/entity"
 
 var regenProtocolDef = AbilityDef{
-	ID:       "regen_protocol",
+	ID:       IDRegenProtocol,
 	Name:     "Regeneration Protocol",
-	School:   "bioarcanotechnic",
+	School:   entity.SchoolBioarcanotechnic,
 	Hit:      HitDef{Type: HitAllyTarget},
 	GCD:      0.8,
 	Cooldown: 18.0,
 	Costs:    []ResourceCost{{Resource: entity.ResourceFlux, Amount: 20}},
 	Delivery: uint8(entity.DeliveryDirect),
-	Handler:  "regen_protocol",
+	Handler:  IDRegenProtocol,
 }
 
 func regenProtocolHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "not a player"}
+		return CommitResult{Reason: ReasonNotAPlayer}
 	}
 
 	// Validate flux
@@ -29,7 +29,7 @@ func regenProtocolHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	} else {
 		flux := p.Resources[entity.ResourceFlux]
 		if flux == nil || flux.Current < regenProtocolDef.Costs[0].Amount {
-			return CommitResult{Reason: "insufficient flux"}
+			return CommitResult{Reason: ReasonInsufficientFlux}
 		}
 	}
 
@@ -46,7 +46,7 @@ func regenProtocolHandler(_ *Engine, ctx *CommitContext) CommitResult {
 
 	p.SpendFluxBySchool(regenProtocolDef.School, regenProtocolDef.Costs[0].Amount)
 	p.GCDTimer = regenProtocolDef.GCD
-	p.Cooldowns["regen_protocol"] = regenProtocolDef.Cooldown
+	p.Cooldowns[IDRegenProtocol] = regenProtocolDef.Cooldown
 
 	if p.Confluence != nil {
 		p.Confluence.OnAbilityComplete()
@@ -59,7 +59,7 @@ func regenProtocolHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	}
 
 	target.HoTs = append(target.HoTs, entity.ActiveHoT{
-		ID:             "regen_protocol",
+		ID:             IDRegenProtocol,
 		SourcePeer:     p.ID,
 		HealPerTick:    healPerTick,
 		Remaining:      12.0,

@@ -6,9 +6,9 @@ import (
 )
 
 var siphonPulseDef = AbilityDef{
-	ID:     "siphon_pulse",
+	ID:     IDSiphonPulse,
 	Name:   "Siphon Pulse",
-	School: "biometabolic",
+	School: entity.SchoolBiometabolic,
 	Hit: HitDef{
 		Type:        HitNearestN,
 		Range:       20,
@@ -17,14 +17,14 @@ var siphonPulseDef = AbilityDef{
 	GCD:          0.8,
 	BaseDamage:   12,
 	Delivery:     uint8(entity.DeliveryDirect),
-	Handler:      "siphon_pulse",
+	Handler:      IDSiphonPulse,
 	DamageSource: combat.SourcePlayerAttack,
 }
 
 func siphonPulseHandler(eng *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "not a player"}
+		return CommitResult{Reason: ReasonNotAPlayer}
 	}
 
 	// Resolve hit on nearest enemy

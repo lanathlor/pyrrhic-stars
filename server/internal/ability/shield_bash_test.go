@@ -55,7 +55,7 @@ func TestShieldBash_HigherCostWhenBlocking(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Commit("vg_shield_block", commitCtx(p))
+	eng.Commit(IDVgShieldBlock, commitCtx(p))
 	initial := p.GetResource("stamina")
 
 	eng.Commit("shield_bash", commitCtx(p))
@@ -80,7 +80,7 @@ func TestShieldBash_SlowerGCDWhenBlocking(t *testing.T) {
 
 	// Blocked GCD
 	p.GCDTimer = 0
-	eng.Commit("vg_shield_block", commitCtx(p))
+	eng.Commit(IDVgShieldBlock, commitCtx(p))
 	eng.Commit("shield_bash", commitCtx(p))
 	blockedGCD := p.GCDTimer
 	if blockedGCD < shieldBashBlockedGCD-0.01 || blockedGCD > shieldBashBlockedGCD+0.01 {
@@ -95,8 +95,8 @@ func TestShieldBash_WorksDuringBlock(t *testing.T) {
 	enemy.Position.Z = -3
 
 	// Start blocking
-	eng.Commit("vg_shield_block", commitCtx(p, enemy))
-	if !p.HasBuff("vg_shield_block") {
+	eng.Commit(IDVgShieldBlock, commitCtx(p, enemy))
+	if !p.HasBuff(IDVgShieldBlock) {
 		t.Fatal("should be blocking")
 	}
 
@@ -105,7 +105,7 @@ func TestShieldBash_WorksDuringBlock(t *testing.T) {
 	if !r.OK {
 		t.Fatalf("shield bash during block failed: %s", r.Reason)
 	}
-	if !p.HasBuff("vg_shield_block") {
+	if !p.HasBuff(IDVgShieldBlock) {
 		t.Error("shield block should NOT be cancelled by Shield Bash")
 	}
 }

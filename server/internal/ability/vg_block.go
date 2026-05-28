@@ -20,13 +20,13 @@ const (
 )
 
 var vgBlockDef = AbilityDef{
-	ID: "vg_block", Name: "Blade Parry",
-	Handler: "vg_block",
+	ID: IDVgBlock, Name: "Blade Parry",
+	Handler: IDVgBlock,
 }
 
 var vgBlockStopDef = AbilityDef{
-	ID: "vg_block_stop", Name: "Block Stop",
-	Handler: "vg_block_stop",
+	ID: IDVgBlockStop, Name: "Block Stop",
+	Handler: IDVgBlockStop,
 }
 
 // VgBlockState tracks sustained block for the tick handler.
@@ -44,10 +44,10 @@ func (s *VgBlockState) SetParryPending() {
 func vgBlockHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
-	if p.Cooldowns["vg_block"] > 0 {
-		return CommitResult{Reason: "cooldown"}
+	if p.Cooldowns[IDVgBlock] > 0 {
+		return CommitResult{Reason: ReasonCooldown}
 	}
 	state := getVgBlockState(p)
 	if state.Active {
@@ -68,7 +68,7 @@ func vgBlockHandler(_ *Engine, ctx *CommitContext) CommitResult {
 		Duration: blockParryTime * p.TempoMult(),
 	})
 	p.AddBuff(entity.ActiveBuff{
-		ID:       "vg_block",
+		ID:       IDVgBlock,
 		Type:     entity.BuffDamageReduction,
 		Value:    blockDRStart,
 		Duration: 0, // permanent — managed by tick handler
@@ -80,7 +80,7 @@ func vgBlockHandler(_ *Engine, ctx *CommitContext) CommitResult {
 func vgBlockStopHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
 	EndVgBlock(p)
 	return CommitResult{OK: true}
@@ -96,9 +96,9 @@ func EndVgBlock(p *entity.Player) {
 	state.Active = false
 	state.Elapsed = 0
 	state.ParryCounterPending = false
-	p.RemoveBuff("vg_block")
+	p.RemoveBuff(IDVgBlock)
 	p.RemoveBuff("vg_parry")
-	p.Cooldowns["vg_block"] = blockCooldown
+	p.Cooldowns[IDVgBlock] = blockCooldown
 	if p.State == entity.PlayerStateBlock {
 		p.State = entity.PlayerStateMove
 	}
@@ -149,7 +149,7 @@ func vgBlockTick(eng *Engine, p *entity.Player, dt float32, ctx *TickContext) []
 
 	// Advance elapsed and decay DR
 	state.Elapsed += dt
-	if b := p.GetBuff("vg_block"); b != nil {
+	if b := p.GetBuff(IDVgBlock); b != nil {
 		v := blockDRStart + (blockDREnd-blockDRStart)*(state.Elapsed/blockDecayTime)
 		if v > blockDREnd {
 			v = blockDREnd
@@ -161,10 +161,10 @@ func vgBlockTick(eng *Engine, p *entity.Player, dt float32, ctx *TickContext) []
 }
 
 func getVgBlockState(p *entity.Player) *VgBlockState {
-	if s, ok := p.AbilityState["vg_block"].(*VgBlockState); ok {
+	if s, ok := p.AbilityState[IDVgBlock].(*VgBlockState); ok {
 		return s
 	}
 	s := &VgBlockState{}
-	p.AbilityState["vg_block"] = s
+	p.AbilityState[IDVgBlock] = s
 	return s
 }

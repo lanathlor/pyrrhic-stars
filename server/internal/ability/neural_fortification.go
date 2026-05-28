@@ -5,7 +5,7 @@ import "codex-online/server/internal/entity"
 var neuralFortificationDef = AbilityDef{
 	ID:       "neural_fortification",
 	Name:     "Neural Fortification",
-	School:   "bioarcanotechnic",
+	School:   entity.SchoolBioarcanotechnic,
 	Hit:      HitDef{Type: HitAllyTarget},
 	GCD:      0.8,
 	Cooldown: 20.0,
@@ -17,7 +17,7 @@ var neuralFortificationDef = AbilityDef{
 func neuralFortificationHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
 
 	// Spend resource from school pool (engine validated sufficiency, handler spends).

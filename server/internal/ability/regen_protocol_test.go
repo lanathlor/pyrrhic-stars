@@ -15,7 +15,7 @@ func TestRegenProtocol(t *testing.T) {
 		ally.Health = 100
 		allies := map[uint16]*entity.Player{1: caster, 2: ally}
 
-		result := eng.Commit("regen_protocol", &CommitContext{
+		result := eng.Commit(IDRegenProtocol, &CommitContext{
 			Committer:    caster,
 			Allies:       allies,
 			TargetPeerID: 2,
@@ -28,8 +28,8 @@ func TestRegenProtocol(t *testing.T) {
 			t.Fatalf("ally HoTs count = %d, want 1", len(ally.HoTs))
 		}
 		hot := ally.HoTs[0]
-		if hot.ID != "regen_protocol" {
-			t.Errorf("HoT ID = %q, want %q", hot.ID, "regen_protocol")
+		if hot.ID != IDRegenProtocol {
+			t.Errorf("HoT ID = %q, want %q", hot.ID, IDRegenProtocol)
 		}
 		if hot.SourcePeer != 1 {
 			t.Errorf("HoT SourcePeer = %d, want 1", hot.SourcePeer)
@@ -49,7 +49,7 @@ func TestRegenProtocol(t *testing.T) {
 		allies := map[uint16]*entity.Player{1: caster, 2: ally}
 
 		before := caster.Resources[entity.ResourceFlux].Current
-		eng.Commit("regen_protocol", &CommitContext{
+		eng.Commit(IDRegenProtocol, &CommitContext{
 			Committer:    caster,
 			Allies:       allies,
 			TargetPeerID: 2,
@@ -66,7 +66,7 @@ func TestRegenProtocol(t *testing.T) {
 		ally := newHarmonist(2)
 		allies := map[uint16]*entity.Player{1: caster, 2: ally}
 
-		eng.Commit("regen_protocol", &CommitContext{
+		eng.Commit(IDRegenProtocol, &CommitContext{
 			Committer:    caster,
 			Allies:       allies,
 			TargetPeerID: 2,
@@ -75,17 +75,17 @@ func TestRegenProtocol(t *testing.T) {
 		if caster.GCDTimer <= 0 {
 			t.Error("GCD not set")
 		}
-		if cd := caster.Cooldowns["regen_protocol"]; cd <= 0 {
+		if cd := caster.Cooldowns[IDRegenProtocol]; cd <= 0 {
 			t.Error("cooldown not set")
 		}
 	})
 
-	t.Run("grants confluence stack", func(t *testing.T) {
+	t.Run(tcGrantsConfluence, func(t *testing.T) {
 		caster := newHarmonist(1)
 		ally := newHarmonist(2)
 		allies := map[uint16]*entity.Player{1: caster, 2: ally}
 
-		eng.Commit("regen_protocol", &CommitContext{
+		eng.Commit(IDRegenProtocol, &CommitContext{
 			Committer:    caster,
 			Allies:       allies,
 			TargetPeerID: 2,
@@ -101,7 +101,7 @@ func TestRegenProtocol(t *testing.T) {
 		caster.Health = 100
 		allies := map[uint16]*entity.Player{1: caster}
 
-		result := eng.Commit("regen_protocol", &CommitContext{
+		result := eng.Commit(IDRegenProtocol, &CommitContext{
 			Committer:    caster,
 			Allies:       allies,
 			TargetPeerID: 999,
@@ -115,13 +115,13 @@ func TestRegenProtocol(t *testing.T) {
 		}
 	})
 
-	t.Run("rejects on insufficient flux", func(t *testing.T) {
+	t.Run(tcRejectsInsufficientFlux, func(t *testing.T) {
 		caster := newHarmonist(1)
 		caster.SetAllFluxPoolsCurrent(2)
 		ally := newHarmonist(2)
 		allies := map[uint16]*entity.Player{1: caster, 2: ally}
 
-		result := eng.Commit("regen_protocol", &CommitContext{
+		result := eng.Commit(IDRegenProtocol, &CommitContext{
 			Committer:    caster,
 			Allies:       allies,
 			TargetPeerID: 2,
@@ -130,8 +130,8 @@ func TestRegenProtocol(t *testing.T) {
 		if result.OK {
 			t.Fatal("should reject on insufficient flux")
 		}
-		if result.Reason != "insufficient bioarcanotechnic flux" {
-			t.Errorf("Reason = %q, want %q", result.Reason, "insufficient bioarcanotechnic flux")
+		if result.Reason != tcInsufficientBioarcanotechnicFlux {
+			t.Errorf("Reason = %q, want %q", result.Reason, tcInsufficientBioarcanotechnicFlux)
 		}
 	})
 }

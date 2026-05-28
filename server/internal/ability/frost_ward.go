@@ -6,15 +6,15 @@ import (
 )
 
 var frostWardDef = AbilityDef{
-	ID:       "frost_ward",
+	ID:       IDFrostWard,
 	Name:     "Frost Ward",
-	School:   "frost",
+	School:   entity.SchoolFrost,
 	Hit:      HitDef{Type: HitAllyTarget},
 	GCD:      0.8,
 	Cooldown: 12.0,
 	Costs:    []ResourceCost{{Resource: entity.ResourceFlux, Amount: 20}},
 	Delivery: uint8(entity.DeliveryDirect),
-	Handler:  "frost_ward",
+	Handler:  IDFrostWard,
 }
 
 const (
@@ -30,7 +30,7 @@ const (
 func frostWardHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
 
 	// Spend resource from school pool (engine validated sufficiency, handler spends).
@@ -59,7 +59,7 @@ func frostWardHandler(_ *Engine, ctx *CommitContext) CommitResult {
 
 	// Add buff to track ward duration.
 	target.AddBuff(entity.ActiveBuff{
-		ID:       "frost_ward",
+		ID:       IDFrostWard,
 		Type:     entity.BuffDamageReduction,
 		Value:    1.0, // no extra DR, tracks expiry for explosion
 		Duration: frostWardBuffDuration,
@@ -71,7 +71,7 @@ func frostWardHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	// Timing.
 	p.GCDTimer = frostWardDef.GCD
 	if frostWardDef.Cooldown > 0 {
-		p.Cooldowns["frost_ward"] = frostWardDef.Cooldown
+		p.Cooldowns[IDFrostWard] = frostWardDef.Cooldown
 	}
 
 	// Confluence: grant stack on ability completion.
@@ -90,7 +90,7 @@ func frostWardTick(_ *Engine, p *entity.Player, dt float32, ctx *TickContext) []
 		return nil
 	}
 
-	buff := p.GetBuff("frost_ward")
+	buff := p.GetBuff(IDFrostWard)
 
 	// Detect explosion trigger:
 	//   1. Buff was removed externally (dispel, shield break callback, etc.)
@@ -156,7 +156,7 @@ func frostWardAoE(p *entity.Player, ctx *TickContext) []DamageResult {
 			Amount:     dealt,
 			HitPos:     t.TargetPos().Add(entity.Vec3{Y: 1.0}),
 			SourceType: combat.SourcePlayerAttack,
-			AbilityID:  "frost_ward",
+			AbilityID:  IDFrostWard,
 			Target:     t,
 		})
 	}

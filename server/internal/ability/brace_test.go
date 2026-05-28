@@ -8,7 +8,7 @@ func TestBrace_RequiresBlocking(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	r := eng.Commit("brace", commitCtx(p))
+	r := eng.Commit(IDBrace, commitCtx(p))
 	if r.OK {
 		t.Error("Brace should require active shield block")
 	}
@@ -21,12 +21,12 @@ func TestBrace_SucceedsWhileBlocking(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Commit("vg_shield_block", commitCtx(p))
-	r := eng.Commit("brace", commitCtx(p))
+	eng.Commit(IDVgShieldBlock, commitCtx(p))
+	r := eng.Commit(IDBrace, commitCtx(p))
 	if !r.OK {
 		t.Fatalf("Brace while blocking failed: %s", r.Reason)
 	}
-	if !p.HasBuff("brace") {
+	if !p.HasBuff(IDBrace) {
 		t.Error("brace buff should be applied")
 	}
 }
@@ -35,10 +35,10 @@ func TestBrace_DoesNotCancelBlock(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Commit("vg_shield_block", commitCtx(p))
-	eng.Commit("brace", commitCtx(p))
+	eng.Commit(IDVgShieldBlock, commitCtx(p))
+	eng.Commit(IDBrace, commitCtx(p))
 
-	if !p.HasBuff("vg_shield_block") {
+	if !p.HasBuff(IDVgShieldBlock) {
 		t.Error("Brace should NOT cancel shield block")
 	}
 }
@@ -47,8 +47,8 @@ func TestBrace_ReducesStaminaDrain(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Commit("vg_shield_block", commitCtx(p))
-	eng.Commit("brace", commitCtx(p))
+	eng.Commit(IDVgShieldBlock, commitCtx(p))
+	eng.Commit(IDBrace, commitCtx(p))
 	eng.TickPlayer(p, 0.2, tickCtx()) // expire parry
 
 	initialStamina := p.GetResource("stamina")
@@ -70,8 +70,8 @@ func TestBrace_AllowsAttackDuringBrace(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Commit("vg_shield_block", commitCtx(p))
-	eng.Commit("brace", commitCtx(p))
+	eng.Commit(IDVgShieldBlock, commitCtx(p))
+	eng.Commit(IDBrace, commitCtx(p))
 
 	// Brace should not lock the GCD — tank can shield bash while braced
 	if p.GCDTimer > 0.5 {
@@ -83,11 +83,11 @@ func TestBrace_SetsCooldown(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Commit("vg_shield_block", commitCtx(p))
-	eng.Commit("brace", commitCtx(p))
+	eng.Commit(IDVgShieldBlock, commitCtx(p))
+	eng.Commit(IDBrace, commitCtx(p))
 
-	if p.Cooldowns["brace"] < 17.9 {
-		t.Errorf("cooldown = %f, want ~18.0", p.Cooldowns["brace"])
+	if p.Cooldowns[IDBrace] < 17.9 {
+		t.Errorf("cooldown = %f, want ~18.0", p.Cooldowns[IDBrace])
 	}
 }
 
@@ -95,14 +95,14 @@ func TestBrace_CooldownPreventsRecast(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Commit("vg_shield_block", commitCtx(p))
-	eng.Commit("brace", commitCtx(p))
+	eng.Commit(IDVgShieldBlock, commitCtx(p))
+	eng.Commit(IDBrace, commitCtx(p))
 
 	// Clear GCD, keep cooldown
 	p.GCDTimer = 0
-	p.RemoveBuff("brace")
+	p.RemoveBuff(IDBrace)
 
-	r := eng.Commit("brace", commitCtx(p))
+	r := eng.Commit(IDBrace, commitCtx(p))
 	if r.OK {
 		t.Error("should not recast during cooldown")
 	}
@@ -112,13 +112,13 @@ func TestBrace_BuffExpiresNaturally(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Commit("vg_shield_block", commitCtx(p))
-	eng.Commit("brace", commitCtx(p))
+	eng.Commit(IDVgShieldBlock, commitCtx(p))
+	eng.Commit(IDBrace, commitCtx(p))
 
 	// Tick past brace duration (3.5s)
 	eng.TickPlayer(p, 4.0, tickCtx())
 
-	if p.HasBuff("brace") {
+	if p.HasBuff(IDBrace) {
 		t.Error("brace buff should have expired after 3.5s")
 	}
 }

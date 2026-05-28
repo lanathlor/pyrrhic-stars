@@ -116,7 +116,7 @@ func getGunnerAssaultState(p *entity.Player) *GunnerAssaultState {
 func fireShotAssaultHandler(eng *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
 	state := getGunnerAssaultState(p)
 
@@ -165,7 +165,7 @@ func fireShotAssaultHandler(eng *Engine, ctx *CommitContext) CommitResult {
 			cd *= p.Buffs[i].Value
 		}
 	}
-	p.Cooldowns["fire_shot"] = cd
+	p.Cooldowns[IDFireShot] = cd
 	p.State = entity.PlayerStateAttack
 
 	// Sync munitions resource for wire format (reserve count)
@@ -242,7 +242,7 @@ func updatePressure(p *entity.Player, state *GunnerAssaultState, events []Damage
 	} else {
 		// Same target → stack
 		gain := uint8(1)
-		if p.HasBuff("overclock") {
+		if p.HasBuff(IDOverclock) {
 			// 1.5x build: alternate between 1 and 2
 			if state.OverclockPressureOdd {
 				gain = 2
@@ -316,7 +316,7 @@ var reloadDef = AbilityDef{
 func reloadAssaultHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
 	state := getGunnerAssaultState(p)
 	if state.Reloading {
@@ -342,7 +342,7 @@ func startReload(p *entity.Player, state *GunnerAssaultState) {
 	state.ReloadTimer = dur
 	state.ReloadTotal = dur
 	// Lock out fire_shot for the reload duration
-	p.Cooldowns["fire_shot"] = dur
+	p.Cooldowns[IDFireShot] = dur
 }
 
 // ---------------------------------------------------------------------------
@@ -357,7 +357,7 @@ var loadEnhancedDef = AbilityDef{
 func loadEnhancedHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
 	state := getGunnerAssaultState(p)
 	if state.EnhancedReserve <= 0 {
@@ -385,7 +385,7 @@ var magDumpDef = AbilityDef{
 func magDumpHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
 	state := getGunnerAssaultState(p)
 	if state.Reloading {
@@ -399,7 +399,7 @@ func magDumpHandler(_ *Engine, ctx *CommitContext) CommitResult {
 		return CommitResult{Reason: "no ammo"}
 	}
 	if cd := p.Cooldowns["mag_dump"]; cd > 0 {
-		return CommitResult{Reason: "cooldown"}
+		return CommitResult{Reason: ReasonCooldown}
 	}
 
 	state.MagDumpActive = true
@@ -457,7 +457,7 @@ func tickGunnerStability(state *GunnerAssaultState, p *entity.Player, dt float32
 	state.StabilityTimer += dt
 	if state.StabilityTimer > assaultStabilityDelay && state.Stability < 1.0 {
 		rate := float32(assaultStabilityRate)
-		if p.HasBuff("overclock") {
+		if p.HasBuff(IDOverclock) {
 			rate *= assaultOverclockRecov
 		}
 		state.Stability += rate * dt

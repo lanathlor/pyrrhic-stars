@@ -32,10 +32,10 @@ var bullRushDef = AbilityDef{
 func bullRushHandler(eng *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
 	if p.Cooldowns["bull_rush"] > 0 {
-		return CommitResult{Reason: "cooldown"}
+		return CommitResult{Reason: ReasonCooldown}
 	}
 	cost := bullRushStamina * p.TenacityEfficiency()
 	if !p.SpendResource("stamina", cost) {
@@ -43,7 +43,7 @@ func bullRushHandler(eng *Engine, ctx *CommitContext) CommitResult {
 	}
 
 	// Bull Rush drops guard
-	if p.HasBuff("vg_shield_block") {
+	if p.HasBuff(IDVgShieldBlock) {
 		EndVgShieldBlock(p)
 	}
 

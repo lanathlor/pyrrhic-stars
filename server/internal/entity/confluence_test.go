@@ -168,9 +168,9 @@ func TestNewPlayerArcanotechnicienHasConfluence(t *testing.T) {
 		name string
 		spec string
 	}{
-		{"harmonist", "harmonist"},
-		{"destroyer", "destroyer"},
-		{"battlemage", "battlemage"},
+		{SpecHarmonist, SpecHarmonist},
+		{SpecDestroyer, SpecDestroyer},
+		{SpecBattlemage, SpecBattlemage},
 	}
 
 	for _, tt := range tests {

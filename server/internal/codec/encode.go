@@ -76,12 +76,12 @@ func appendEncodePlayer(buf []byte, p *entity.Player) []byte {
 	buf = appendF32(buf, p.AimPitch)
 	buf = append(buf, playerBuffFlags(p))
 	buf = append(buf, byte(p.Config))
-	buf = appendF32(buf, p.GetResource("stamina"))
-	buf = appendF32(buf, p.GetResource("shield"))
+	buf = appendF32(buf, p.GetResource(entity.ResourceStamina))
+	buf = appendF32(buf, p.GetResource(entity.ResourceShield))
 	buf = appendF32(buf, p.GetResource("munitions"))
 	buf = appendF32(buf, p.GetResource("resonance"))
-	buf = appendF32(buf, p.GetResource("flux"))
-	buf = appendF32(buf, p.GetResourceMax("flux"))
+	buf = appendF32(buf, p.GetResource(entity.ResourceFlux))
+	buf = appendF32(buf, p.GetResourceMax(entity.ResourceFlux))
 	buf = append(buf, playerMasteryStacks(p))
 	buf = appendGunnerAssaultState(buf, p)
 	buf = appendPlayerSpeedMult(buf, p)
@@ -121,7 +121,7 @@ func playerBuffFlags(p *entity.Player) uint8 {
 	case entity.ClassVanguard:
 		type tiered interface{ Tier() uint8 }
 		masteryKey := "onslaught"
-		if p.SpecID == "shield" {
+		if p.SpecID == entity.SpecShield {
 			masteryKey = "devotion"
 		}
 		if s, ok := p.AbilityState[masteryKey]; ok {
@@ -148,7 +148,7 @@ func playerMasteryStacks(p *entity.Player) uint8 {
 	case entity.ClassVanguard:
 		type stacker interface{ StackCount() int }
 		stackKey := "onslaught"
-		if p.SpecID == "shield" {
+		if p.SpecID == entity.SpecShield {
 			stackKey = "devotion"
 		}
 		if s, ok := p.AbilityState[stackKey]; ok {
@@ -203,7 +203,7 @@ func appendFluxCommitPools(buf []byte, p *entity.Player) []byte {
 	if p.FluxCommit != nil && len(p.FluxCommit.Pools) > 0 {
 		pools := p.FluxCommit.Pools
 		buf = append(buf, byte(len(pools)))
-		schoolOrder := [4]string{"bioarcanotechnic", "biometabolic", "frost", "aerokinetic"}
+		schoolOrder := [4]string{entity.SchoolBioarcanotechnic, entity.SchoolBiometabolic, entity.SchoolFrost, entity.SchoolAerokinetic}
 		for _, school := range schoolOrder {
 			pool := p.FluxCommit.GetPool(school)
 			if pool != nil {

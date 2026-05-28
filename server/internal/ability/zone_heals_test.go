@@ -10,7 +10,7 @@ import (
 func TestZoneHeals(t *testing.T) {
 	eng := NewEngine(nil)
 
-	t.Run("vital_bloom", func(t *testing.T) {
+	t.Run(IDVitalBloom, func(t *testing.T) {
 		tests := []struct {
 			name          string
 			setup         func() (*entity.Player, []*entity.HealingZone)
@@ -60,7 +60,7 @@ func TestZoneHeals(t *testing.T) {
 				wantFlux:   160, // unchanged
 			},
 			{
-				name: "insufficient flux rejects before handler",
+				name: tcInsufficientFluxBeforeHandler,
 				setup: func() (*entity.Player, []*entity.HealingZone) {
 					p := entity.NewPlayer(1, entity.ClassArcanotechnicien)
 					p.Health = 100
@@ -68,7 +68,7 @@ func TestZoneHeals(t *testing.T) {
 					return p, nil
 				},
 				wantOK:     false,
-				wantReason: "insufficient biometabolic flux",
+				wantReason: tcInsufficientBiometabolicFlux,
 				wantHP:     100,
 				wantFlux:   -1, // skip (pool-managed)
 			},
@@ -99,7 +99,7 @@ func TestZoneHeals(t *testing.T) {
 					},
 				}
 
-				result := eng.Commit("vital_bloom", ctx)
+				result := eng.Commit(IDVitalBloom, ctx)
 
 				if result.OK != tt.wantOK {
 					t.Fatalf("OK = %v, want %v (reason: %q)", result.OK, tt.wantOK, result.Reason)
@@ -122,8 +122,8 @@ func TestZoneHeals(t *testing.T) {
 					if z.OwnerID != p.ID {
 						t.Errorf("zone OwnerID = %d, want %d", z.OwnerID, p.ID)
 					}
-					if z.AbilityID != "vital_bloom" {
-						t.Errorf("zone AbilityID = %q, want %q", z.AbilityID, "vital_bloom")
+					if z.AbilityID != IDVitalBloom {
+						t.Errorf("zone AbilityID = %q, want %q", z.AbilityID, IDVitalBloom)
 					}
 					if math.Abs(float64(z.HealPerTick-tt.wantHealTick)) > 0.1 {
 						t.Errorf("zone HealPerTick = %.1f, want %.1f", z.HealPerTick, tt.wantHealTick)
@@ -142,7 +142,7 @@ func TestZoneHeals(t *testing.T) {
 		}
 	})
 
-	t.Run("restoration_matrix", func(t *testing.T) {
+	t.Run(IDRestorationMatrix, func(t *testing.T) {
 		tests := []struct {
 			name          string
 			setup         func() *entity.Player
@@ -179,14 +179,14 @@ func TestZoneHeals(t *testing.T) {
 				wantCooldown:  true,
 			},
 			{
-				name: "insufficient flux rejects before handler",
+				name: tcInsufficientFluxBeforeHandler,
 				setup: func() *entity.Player {
 					p := entity.NewPlayer(1, entity.ClassArcanotechnicien)
 					p.SetAllFluxPoolsCurrent(20) // need 50 bioarcanotechnic
 					return p
 				},
 				wantOK:     false,
-				wantReason: "insufficient bioarcanotechnic flux",
+				wantReason: tcInsufficientBioarcanotechnicFlux,
 				wantFlux:   -1, // skip (pool-managed)
 			},
 			{
@@ -197,18 +197,18 @@ func TestZoneHeals(t *testing.T) {
 					return p
 				},
 				wantOK:     false,
-				wantReason: "gcd",
+				wantReason: ReasonGCD,
 				wantFlux:   160,
 			},
 			{
 				name: "rejected on cooldown",
 				setup: func() *entity.Player {
 					p := entity.NewPlayer(1, entity.ClassArcanotechnicien)
-					p.Cooldowns["restoration_matrix"] = 5.0
+					p.Cooldowns[IDRestorationMatrix] = 5.0
 					return p
 				},
 				wantOK:     false,
-				wantReason: "cooldown",
+				wantReason: ReasonCooldown,
 				wantFlux:   160,
 			},
 		}
@@ -225,7 +225,7 @@ func TestZoneHeals(t *testing.T) {
 					},
 				}
 
-				result := eng.Commit("restoration_matrix", ctx)
+				result := eng.Commit(IDRestorationMatrix, ctx)
 
 				if result.OK != tt.wantOK {
 					t.Fatalf("OK = %v, want %v (reason: %q)", result.OK, tt.wantOK, result.Reason)
@@ -245,8 +245,8 @@ func TestZoneHeals(t *testing.T) {
 					if z.OwnerID != p.ID {
 						t.Errorf("zone OwnerID = %d, want %d", z.OwnerID, p.ID)
 					}
-					if z.AbilityID != "restoration_matrix" {
-						t.Errorf("zone AbilityID = %q, want %q", z.AbilityID, "restoration_matrix")
+					if z.AbilityID != IDRestorationMatrix {
+						t.Errorf("zone AbilityID = %q, want %q", z.AbilityID, IDRestorationMatrix)
 					}
 					if math.Abs(float64(z.HealPerTick-tt.wantHealTick)) > 0.1 {
 						t.Errorf("zone HealPerTick = %.1f, want %.1f", z.HealPerTick, tt.wantHealTick)
@@ -259,7 +259,7 @@ func TestZoneHeals(t *testing.T) {
 					}
 				}
 				if tt.wantCooldown {
-					if cd, ok := p.Cooldowns["restoration_matrix"]; !ok || cd <= 0 {
+					if cd, ok := p.Cooldowns[IDRestorationMatrix]; !ok || cd <= 0 {
 						t.Error("expected cooldown to be set")
 					}
 				}

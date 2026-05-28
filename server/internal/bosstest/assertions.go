@@ -1,10 +1,10 @@
 package bosstest
 
 import (
+	"cmp"
 	"fmt"
 	"math"
 	"slices"
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -363,10 +363,16 @@ func groupByComposition(results []SimResult, report *FuzzReport) {
 		report.CompBreakdown = append(report.CompBreakdown, *cs)
 	}
 	// Sort compositions by win% descending (sweaty first).
-	sort.Slice(report.CompBreakdown, func(i, j int) bool {
-		wi := float64(report.CompBreakdown[i].Wins) / float64(report.CompBreakdown[i].Runs)
-		wj := float64(report.CompBreakdown[j].Wins) / float64(report.CompBreakdown[j].Runs)
-		return wi > wj
+	slices.SortFunc(report.CompBreakdown, func(a, b compStats) int {
+		wa := float64(a.Wins) / float64(a.Runs)
+		wb := float64(b.Wins) / float64(b.Runs)
+		if wa > wb {
+			return -1
+		}
+		if wa < wb {
+			return 1
+		}
+		return 0
 	})
 }
 
@@ -461,8 +467,8 @@ func aggregateAbilityDamage(results []SimResult, detail *compDetailReport) {
 		}
 		detail.AbilityShares = append(detail.AbilityShares, nameShare{Name: name, Share: pct, RawDmg: d})
 	}
-	sort.Slice(detail.AbilityShares, func(i, j int) bool {
-		return detail.AbilityShares[i].RawDmg > detail.AbilityShares[j].RawDmg
+	slices.SortFunc(detail.AbilityShares, func(a, b nameShare) int {
+		return cmp.Compare(b.RawDmg, a.RawDmg)
 	})
 }
 
@@ -490,7 +496,7 @@ func aggregateSpecDamage(results []SimResult, detail *compDetailReport) {
 	for spec := range specPlayers {
 		specs = append(specs, spec)
 	}
-	sort.Strings(specs)
+	slices.Sort(specs)
 	for _, spec := range specs {
 		var pct float64
 		if totalSpecDmg > 0 {
@@ -519,14 +525,14 @@ func aggregateSpecHealing(results []SimResult, detail *compDetailReport) {
 	for spec := range specHeal {
 		healSpecs = append(healSpecs, spec)
 	}
-	sort.Strings(healSpecs)
+	slices.Sort(healSpecs)
 	for _, spec := range healSpecs {
 		pct := specHeal[spec] / totalSpecHeal * 100
 		detail.HealShares = append(detail.HealShares, nameShare{Name: spec, Share: pct, RawDmg: specHeal[spec]})
 	}
 	// Sort by healing done descending.
-	sort.Slice(detail.HealShares, func(i, j int) bool {
-		return detail.HealShares[i].RawDmg > detail.HealShares[j].RawDmg
+	slices.SortFunc(detail.HealShares, func(a, b nameShare) int {
+		return cmp.Compare(b.RawDmg, a.RawDmg)
 	})
 }
 
@@ -705,7 +711,7 @@ func (fr *FuzzResults) assertSpecBalance(t *testing.T, report *FuzzReport) {
 	for spec := range totalBySpec {
 		specs = append(specs, spec)
 	}
-	sort.Strings(specs)
+	slices.Sort(specs)
 	for _, spec := range specs {
 		dmg := totalBySpec[spec]
 		report.SpecBalance = append(report.SpecBalance, reportLine{
@@ -764,8 +770,8 @@ func (fr *FuzzResults) assertAbilityStats(t *testing.T, specs []AbilitySpec, rep
 	appendUnspecdAbilities(agg, specNames, grandTotalDmg, report)
 
 	// Sort ability stats by damage descending for readability.
-	sort.Slice(report.AbilityStats, func(i, j int) bool {
-		return report.AbilityStats[i].dmg > report.AbilityStats[j].dmg
+	slices.SortFunc(report.AbilityStats, func(a, b reportLine) int {
+		return cmp.Compare(b.dmg, a.dmg)
 	})
 }
 
@@ -833,7 +839,7 @@ func appendUnspecdAbilities(agg map[string]*AbilityResult, specNames map[string]
 			unspecced = append(unspecced, name)
 		}
 	}
-	sort.Strings(unspecced)
+	slices.Sort(unspecced)
 	for _, name := range unspecced {
 		ar := agg[name]
 		var sharePct float64

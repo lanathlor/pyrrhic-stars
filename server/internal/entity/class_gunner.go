@@ -1,10 +1,10 @@
 package entity
 
 var gunnerAssaultSpec = SpecDef{
-	ID:          "assault",
+	ID:          SpecAssault,
 	Name:        "Assault",
 	Description: "High fire rate, aggressive repositioning.\nRelentless aggression with movement mastery.",
-	Role:        "DPS",
+	Role:        RoleDPS,
 	Implemented: true,
 	MaxHealth:   150,
 	Movement: ClassMovement{
@@ -15,9 +15,9 @@ var gunnerAssaultSpec = SpecDef{
 	Resources: map[string]ResourceTemplate{
 		"munitions": {Max: 5, Initial: 5, Regen: 0.10, RegenDelay: 0},
 	},
-	Abilities: []string{"fire_shot", "overclock", "rechamber", "rechamber_confirm", "dodge", "reload", "load_enhanced", "mag_dump"},
+	Abilities: []string{"fire_shot", "overclock", "rechamber", "rechamber_confirm", AbilityDodge, "reload", "load_enhanced", "mag_dump"},
 	ActionMap: map[uint8]string{
-		0: "fire_shot", 3: "dodge",
+		0: "fire_shot", 3: AbilityDodge,
 		10: "overclock", 11: "rechamber", 12: "rechamber_confirm",
 		13: "reload", 14: "load_enhanced", 15: "mag_dump",
 	},
@@ -27,7 +27,7 @@ var gunnerMarksmanSpec = SpecDef{
 	ID:          "marksman",
 	Name:        "Marksman",
 	Description: "Slow, deliberate, perfect shots.\nSniper Elite — hold breath, one shot.",
-	Role:        "DPS",
+	Role:        RoleDPS,
 	Implemented: false,
 	MaxHealth:   120,
 	Movement: ClassMovement{
@@ -44,7 +44,7 @@ var gunnerChasseurSpec = SpecDef{
 	ID:          "chasseur",
 	Name:        "Chasseur",
 	Description: "Grenades, EMP, area denial.\nRainbow Six tactical disruption.",
-	Role:        "DPS",
+	Role:        RoleDPS,
 	Implemented: false,
 	MaxHealth:   140,
 	Movement: ClassMovement{
@@ -64,6 +64,6 @@ var gunnerDef = ClassDef{
 	Resources:   gunnerAssaultSpec.Resources,
 	Abilities:   gunnerAssaultSpec.Abilities,
 	ActionMap:   gunnerAssaultSpec.ActionMap,
-	DefaultSpec: "assault",
+	DefaultSpec: SpecAssault,
 	Specs:       []*SpecDef{&gunnerAssaultSpec, &gunnerMarksmanSpec, &gunnerChasseurSpec},
 }

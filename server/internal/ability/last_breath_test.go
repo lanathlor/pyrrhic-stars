@@ -14,7 +14,7 @@ func TestLastBreath(t *testing.T) {
 		ally := newHarmonist(2)
 		allies := map[uint16]*entity.Player{1: caster, 2: ally}
 
-		result := eng.Commit("last_breath", &CommitContext{
+		result := eng.Commit(IDLastBreath, &CommitContext{
 			Committer:    caster,
 			Allies:       allies,
 			TargetPeerID: 2,
@@ -23,10 +23,10 @@ func TestLastBreath(t *testing.T) {
 		if !result.OK {
 			t.Fatalf("OK = false, reason: %q", result.Reason)
 		}
-		if !ally.HasBuff("last_breath") {
+		if !ally.HasBuff(IDLastBreath) {
 			t.Fatal("ally should have last_breath buff")
 		}
-		buff := ally.GetBuff("last_breath")
+		buff := ally.GetBuff(IDLastBreath)
 		if buff.Type != entity.BuffDeathPrevention {
 			t.Errorf("buff Type = %q, want %q", buff.Type, entity.BuffDeathPrevention)
 		}
@@ -40,7 +40,7 @@ func TestLastBreath(t *testing.T) {
 		ally := newHarmonist(2)
 		allies := map[uint16]*entity.Player{1: caster, 2: ally}
 
-		eng.Commit("last_breath", &CommitContext{
+		eng.Commit(IDLastBreath, &CommitContext{
 			Committer:    caster,
 			Allies:       allies,
 			TargetPeerID: 2,
@@ -57,7 +57,7 @@ func TestLastBreath(t *testing.T) {
 		allies := map[uint16]*entity.Player{1: caster, 2: ally}
 
 		before := caster.Resources[entity.ResourceFlux].Current
-		eng.Commit("last_breath", &CommitContext{
+		eng.Commit(IDLastBreath, &CommitContext{
 			Committer:    caster,
 			Allies:       allies,
 			TargetPeerID: 2,
@@ -67,17 +67,17 @@ func TestLastBreath(t *testing.T) {
 		if after >= before {
 			t.Errorf("flux not spent: before=%.1f after=%.1f", before, after)
 		}
-		if cd := caster.Cooldowns["last_breath"]; cd < 59 {
+		if cd := caster.Cooldowns[IDLastBreath]; cd < 59 {
 			t.Errorf("cooldown = %f, want ~60", cd)
 		}
 	})
 
-	t.Run("grants confluence stack", func(t *testing.T) {
+	t.Run(tcGrantsConfluence, func(t *testing.T) {
 		caster := newHarmonist(1)
 		ally := newHarmonist(2)
 		allies := map[uint16]*entity.Player{1: caster, 2: ally}
 
-		eng.Commit("last_breath", &CommitContext{
+		eng.Commit(IDLastBreath, &CommitContext{
 			Committer:    caster,
 			Allies:       allies,
 			TargetPeerID: 2,
@@ -88,13 +88,13 @@ func TestLastBreath(t *testing.T) {
 		}
 	})
 
-	t.Run("rejects on insufficient flux", func(t *testing.T) {
+	t.Run(tcRejectsInsufficientFlux, func(t *testing.T) {
 		caster := newHarmonist(1)
 		caster.SetAllFluxPoolsCurrent(2)
 		ally := newHarmonist(2)
 		allies := map[uint16]*entity.Player{1: caster, 2: ally}
 
-		result := eng.Commit("last_breath", &CommitContext{
+		result := eng.Commit(IDLastBreath, &CommitContext{
 			Committer:    caster,
 			Allies:       allies,
 			TargetPeerID: 2,
@@ -105,13 +105,13 @@ func TestLastBreath(t *testing.T) {
 		}
 	})
 
-	t.Run("rejects on cooldown", func(t *testing.T) {
+	t.Run(tcRejectsCooldown, func(t *testing.T) {
 		caster := newHarmonist(1)
-		caster.Cooldowns["last_breath"] = 30.0
+		caster.Cooldowns[IDLastBreath] = 30.0
 		ally := newHarmonist(2)
 		allies := map[uint16]*entity.Player{1: caster, 2: ally}
 
-		result := eng.Commit("last_breath", &CommitContext{
+		result := eng.Commit(IDLastBreath, &CommitContext{
 			Committer:    caster,
 			Allies:       allies,
 			TargetPeerID: 2,
@@ -128,7 +128,7 @@ func TestLastBreath_DeathPrevention(t *testing.T) {
 		p := newHarmonist(1)
 		p.Health = 50
 		p.AddBuff(entity.ActiveBuff{
-			ID:       "last_breath",
+			ID:       IDLastBreath,
 			Type:     entity.BuffDeathPrevention,
 			Duration: 4.0,
 		})

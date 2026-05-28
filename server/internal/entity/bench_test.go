@@ -81,7 +81,7 @@ func BenchmarkTenacityEfficiency(b *testing.B) {
 
 func BenchmarkApplyDamage_WithGear(b *testing.B) {
 	p := benchPlayerWithGear()
-	p.AddBuff(ActiveBuff{ID: "vg_block", Type: BuffDamageReduction, Value: 0.5, Duration: -1})
+	p.AddBuff(ActiveBuff{ID: AbilityVgBlock, Type: BuffDamageReduction, Value: 0.5, Duration: -1})
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
@@ -95,7 +95,7 @@ func BenchmarkApplyDamage_WithGear(b *testing.B) {
 
 func BenchmarkApplyDamage_ShieldAbsorb(b *testing.B) {
 	p := benchPlayerWithGear()
-	if s := p.Resources["shield"]; s != nil {
+	if s := p.Resources[ResourceShield]; s != nil {
 		s.Current = 100
 	}
 	b.ReportAllocs()
@@ -104,7 +104,7 @@ func BenchmarkApplyDamage_ShieldAbsorb(b *testing.B) {
 		p.Health = p.MaxHealth
 		p.Alive = true
 		p.State = PlayerStateMove
-		if s := p.Resources["shield"]; s != nil {
+		if s := p.Resources[ResourceShield]; s != nil {
 			s.Current = 100
 		}
 		p.ApplyDamage(25)
@@ -214,7 +214,7 @@ func BenchmarkFluxCommitment_GetPool(b *testing.B) {
 	b.Run("miss", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = fc.GetPool("shadow")
+			_ = fc.GetPool(SchoolShadow)
 		}
 	})
 }
@@ -243,7 +243,7 @@ func BenchmarkFluxCommitment_SpendFromSchool(b *testing.B) {
 	b.Run("miss", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
-			fc.SpendFromSchool("shadow", 5)
+			fc.SpendFromSchool(SchoolShadow, 5)
 		}
 	})
 }
@@ -293,19 +293,19 @@ func BenchmarkAffinityCostMult(b *testing.B) {
 	b.Run("primary", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = p.AffinityCostMult("bioarcanotechnic")
+			_ = p.AffinityCostMult(SchoolBioarcanotechnic)
 		}
 	})
 	b.Run("secondary", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = p.AffinityCostMult("aerokinetic")
+			_ = p.AffinityCostMult(SchoolAerokinetic)
 		}
 	})
 	b.Run("off", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = p.AffinityCostMult("shadow")
+			_ = p.AffinityCostMult(SchoolShadow)
 		}
 	})
 }
@@ -316,9 +316,9 @@ func BenchmarkSpendFluxBySchool(b *testing.B) {
 	b.ResetTimer()
 	for b.Loop() {
 		// Reset pool so spend succeeds each iteration
-		pool := p.FluxCommit.GetPool("biometabolic")
+		pool := p.FluxCommit.GetPool(SchoolBiometabolic)
 		pool.Current = pool.Max
-		p.SpendFluxBySchool("biometabolic", 5)
+		p.SpendFluxBySchool(SchoolBiometabolic, 5)
 	}
 }
 

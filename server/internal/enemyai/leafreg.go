@@ -20,11 +20,11 @@ type leafEntry struct {
 // constructors. Populated once at package init — no mutex needed.
 var leafRegistry = map[string]leafEntry{
 	// Conditions
-	"is_dead":                  {isCond: true, cond: condIsDead},
+	LeafIsDead:                 {isCond: true, cond: condIsDead},
 	"has_target":               {isCond: true, cond: condHasTarget},
 	"target_in_melee_range":    {isCond: true, cond: condTargetInMeleeRange},
-	"has_los":                  {isCond: true, cond: condHasLoS},
-	"phase_transitioning":      {isCond: true, cond: condPhaseTransitioning},
+	LeafHasLoS:                 {isCond: true, cond: condHasLoS},
+	LeafPhaseTransitioning:     {isCond: true, cond: condPhaseTransitioning},
 	"in_leash_range":           {isCond: true, cond: condInLeashRange},
 	"active_ability_is_charge": {isCond: true, cond: condActiveAbilityIsCharge},
 	"is_committed":             {isCond: true, cond: condIsCommitted},
@@ -32,22 +32,22 @@ var leafRegistry = map[string]leafEntry{
 	"can_move":                 {isCond: true, cond: condCanMove},
 
 	// Actions
-	"stop":                 {action: actionStop},
+	LeafStop:               {action: actionStop},
 	"aggro_nearest":        {action: actionAggroNearest},
 	"set_target_clustered": {action: actionSetTargetClustered},
 	"set_target_lowest_hp": {action: actionSetTargetLowestHP},
 	"set_target_nearest":   {action: actionSetTargetNearest},
-	"wait_transition":      {action: actionWaitTransition},
-	"leash_reset":          {action: actionLeashReset},
+	LeafWaitTransition:     {action: actionWaitTransition},
+	LeafLeashReset:         {action: actionLeashReset},
 	"patrol":               {action: actionPatrol},
-	"chase":                {action: actionChase},
+	LeafChase:              {action: actionChase},
 	"select_ability":       {action: actionSelectAbility},
 	"telegraph":            {action: actionTelegraph},
 	"execute_ability":      {action: actionExecuteAbility},
 	"charge_dash":          {action: actionChargeDash},
 	"cooldown":             {action: actionCooldown},
 	"commit_weighted":      {action: actionCommitWeighted},
-	"wait_ability":         {action: actionWaitAbility},
+	LeafWaitAbility:        {action: actionWaitAbility},
 	"cancel_ability":       {action: actionCancelAbility},
 }
 
@@ -129,7 +129,7 @@ func resolveLeaf(name string) (bt.Node, error) {
 	switch name {
 	case "attack":
 		return attackSubtree(), nil
-	case "aggro_or_patrol":
+	case LeafAggroOrPatrol:
 		return aggroOrPatrolSubtree(), nil
 	case "combat_subtree":
 		return combatSubtree(), nil

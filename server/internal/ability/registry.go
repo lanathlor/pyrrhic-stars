@@ -64,9 +64,9 @@ func registerHandlers(eng *Engine) {
 }
 
 func registerGunnerHandlers(eng *Engine) {
-	eng.RegisterHandler("rechamber", rechamberHandler)
-	eng.RegisterHandler("rechamber_confirm", rechamberConfirmHandler)
-	eng.RegisterHandler("overclock", overclockHandler)
+	eng.RegisterHandler(IDRechamber, rechamberHandler)
+	eng.RegisterHandler(IDRechamberConfirm, rechamberConfirmHandler)
+	eng.RegisterHandler(IDOverclock, overclockHandler)
 	eng.RegisterHandler("fire_shot_assault", fireShotAssaultHandler)
 	eng.RegisterHandler("reload_assault", reloadAssaultHandler)
 	eng.RegisterHandler("load_enhanced_assault", loadEnhancedHandler)
@@ -74,14 +74,14 @@ func registerGunnerHandlers(eng *Engine) {
 }
 
 func registerVanguardHandlers(eng *Engine) {
-	eng.RegisterHandler("vortex", vortexHandler)
-	eng.RegisterHandler("vg_block", vgBlockHandler)
-	eng.RegisterHandler("vg_block_stop", vgBlockStopHandler)
-	eng.RegisterHandler("vg_shield_block", vgShieldBlockHandler)
-	eng.RegisterHandler("vg_shield_block_stop", vgShieldBlockStopHandler)
+	eng.RegisterHandler(IDVortex, vortexHandler)
+	eng.RegisterHandler(IDVgBlock, vgBlockHandler)
+	eng.RegisterHandler(IDVgBlockStop, vgBlockStopHandler)
+	eng.RegisterHandler(IDVgShieldBlock, vgShieldBlockHandler)
+	eng.RegisterHandler(IDVgShieldBlockStop, vgShieldBlockStopHandler)
 	eng.RegisterHandler("shield_bash", shieldBashHandler)
 	eng.RegisterHandler("bull_rush", bullRushHandler)
-	eng.RegisterHandler("brace", braceHandler)
+	eng.RegisterHandler(IDBrace, braceHandler)
 	eng.RegisterHandler("retaliate", retaliateHandler)
 	eng.RegisterHandler("cleave_vg", cleaveHandler)
 	eng.RegisterHandler("upheaval_vg", upheavalHandler)
@@ -89,32 +89,32 @@ func registerVanguardHandlers(eng *Engine) {
 }
 
 func registerSupportHandlers(eng *Engine) {
-	eng.RegisterHandler("siphon_pulse", siphonPulseHandler)
-	eng.RegisterHandler("mending_surge", mendingSurgeHandler)
-	eng.RegisterHandler("mending_beam", mendingBeamHandler)
-	eng.RegisterHandler("vital_bloom", vitalBloomHandler)
-	eng.RegisterHandler("restoration_matrix", restorationMatrixHandler)
-	eng.RegisterHandler("life_swap", lifeSwapHandler)
-	eng.RegisterHandler("transfusion", transfusionHandler)
-	eng.RegisterHandler("vital_drain", vitalDrainHandler)
-	eng.RegisterHandler("overclock_at", overclockATHandler)
+	eng.RegisterHandler(IDSiphonPulse, siphonPulseHandler)
+	eng.RegisterHandler(IDMendingSurge, mendingSurgeHandler)
+	eng.RegisterHandler(IDMendingBeam, mendingBeamHandler)
+	eng.RegisterHandler(IDVitalBloom, vitalBloomHandler)
+	eng.RegisterHandler(IDRestorationMatrix, restorationMatrixHandler)
+	eng.RegisterHandler(IDLifeSwap, lifeSwapHandler)
+	eng.RegisterHandler(IDTransfusion, transfusionHandler)
+	eng.RegisterHandler(IDVitalDrain, vitalDrainHandler)
+	eng.RegisterHandler(IDOverclockAT, overclockATHandler)
 	eng.RegisterHandler("neural_fortification", neuralFortificationHandler)
-	eng.RegisterHandler("regen_protocol", regenProtocolHandler)
+	eng.RegisterHandler(IDRegenProtocol, regenProtocolHandler)
 	eng.RegisterHandler("vital_circuit", vitalCircuitHandler)
 	eng.RegisterHandler("metabolic_burst", metabolicBurstHandler)
-	eng.RegisterHandler("last_breath", lastBreathHandler)
+	eng.RegisterHandler(IDLastBreath, lastBreathHandler)
 	eng.RegisterHandler("gust_step", gustStepHandler)
-	eng.RegisterHandler("frost_ward", frostWardHandler)
+	eng.RegisterHandler(IDFrostWard, frostWardHandler)
 }
 
 func registerTickHandlers(eng *Engine) {
-	eng.RegisterTickHandler("rechamber", rechamberTick)
-	eng.RegisterTickHandler("vortex", vortexTick)
-	eng.RegisterTickHandler("vg_block", vgBlockTick)
-	eng.RegisterTickHandler("vg_shield_block", vgShieldBlockTick)
+	eng.RegisterTickHandler(IDRechamber, rechamberTick)
+	eng.RegisterTickHandler(IDVortex, vortexTick)
+	eng.RegisterTickHandler(IDVgBlock, vgBlockTick)
+	eng.RegisterTickHandler(IDVgShieldBlock, vgShieldBlockTick)
 	eng.RegisterTickHandler("gunner_assault", gunnerAssaultTick)
 	eng.RegisterTickHandler("bd_flow", bdFlowTick)
-	eng.RegisterTickHandler("frost_ward", frostWardTick)
+	eng.RegisterTickHandler(IDFrostWard, frostWardTick)
 }
 
 // ApplyThreat adds threat for all damage results to any Threateable target.

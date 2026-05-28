@@ -69,11 +69,11 @@ func TestNewEngine_RegistersAllAbilities(t *testing.T) {
 
 	// Spot-check a few from each class
 	for _, id := range []string{
-		"fire_shot", "overclock", "rechamber", "rechamber_confirm",
+		IDFireShot, IDOverclock, IDRechamber, IDRechamberConfirm,
 		"reload", "load_enhanced", "mag_dump",
-		"cleave", "upheaval", "vg_block", "vg_block_stop", "vortex", "execution",
+		"cleave", "upheaval", IDVgBlock, IDVgBlockStop, IDVortex, "execution",
 		"bd_guard",
-		"shielded_sweep", "cleaving_pierce", "decree_strike", "dodge",
+		IDShieldedSweep, IDCleavingPierce, IDDecreeStrike, IDDodge,
 	} {
 		if eng.GetAbility(id) == nil {
 			t.Errorf("ability %q not registered", id)
@@ -112,7 +112,7 @@ func TestCast_Validation(t *testing.T) {
 				p.Alive = false
 				return p, nil
 			},
-			ability: "fire_shot",
+			ability: IDFireShot,
 			reason:  "dead",
 		},
 		{
@@ -122,18 +122,18 @@ func TestCast_Validation(t *testing.T) {
 				p.GCDTimer = 0.5
 				return p, nil
 			},
-			ability: "fire_shot",
-			reason:  "gcd",
+			ability: IDFireShot,
+			reason:  ReasonGCD,
 		},
 		{
 			name: "per-ability cooldown",
 			setup: func(_ *Engine) (*entity.Player, []*entity.Enemy) {
 				p := newGunner()
-				p.Cooldowns["fire_shot"] = 0.1
+				p.Cooldowns[IDFireShot] = 0.1
 				return p, nil
 			},
-			ability: "fire_shot",
-			reason:  "cooldown",
+			ability: IDFireShot,
+			reason:  ReasonCooldown,
 		},
 		{
 			name: "wrong BD config",
@@ -142,7 +142,7 @@ func TestCast_Validation(t *testing.T) {
 				p.Config = entity.ConfigFan // origin is fan, ability needs orbit
 				return p, nil
 			},
-			ability: "shielded_sweep", // origin_config = 0 (orbit)
+			ability: IDShieldedSweep, // origin_config = 0 (orbit)
 			reason:  "wrong config",
 		},
 		{
@@ -179,7 +179,7 @@ func TestCast_FireShot_HitsEnemy(t *testing.T) {
 	p := newGunner()
 	e := enemyInFront(100, 200)
 
-	result := eng.Commit("fire_shot", commitCtx(p, e))
+	result := eng.Commit(IDFireShot, commitCtx(p, e))
 	if !result.OK {
 		t.Fatalf("commit failed: %s", result.Reason)
 	}
@@ -191,7 +191,7 @@ func TestCast_FireShot_HitsEnemy(t *testing.T) {
 	}
 	// 10 base + ~0.3 pressure bonus
 	assertDmgNear(t, result.Events[0].Amount, 10.3, "fire_shot damage")
-	if p.Cooldowns["fire_shot"] == 0 {
+	if p.Cooldowns[IDFireShot] == 0 {
 		t.Error("fire_shot cooldown not set")
 	}
 }
@@ -201,7 +201,7 @@ func TestCast_FireShot_MissesBehind(t *testing.T) {
 	p := newGunner()
 	e := enemyBehind(100, 200)
 
-	result := eng.Commit("fire_shot", commitCtx(p, e))
+	result := eng.Commit(IDFireShot, commitCtx(p, e))
 	if !result.OK {
 		t.Fatal("commit should succeed even with no hits")
 	}
@@ -216,7 +216,7 @@ func TestCast_FireShot_ObstacleBlocksLOS(t *testing.T) {
 	e := enemyInFront(100, 200)
 	obs := combat.Obstacle{CX: 0, CZ: -2.5, HX: 2, HZ: 0.5, Height: 3}
 
-	result := eng.Commit("fire_shot", &CommitContext{
+	result := eng.Commit(IDFireShot, &CommitContext{
 		Committer: p,
 		Targets:   []entity.Target{e},
 		Obstacles: []combat.Obstacle{obs},
@@ -285,10 +285,10 @@ func TestCast_DamageMult_Applied(t *testing.T) {
 
 	// Add a 2x damage buff
 	p.AddBuff(entity.ActiveBuff{
-		ID: "test_dmg", Type: entity.BuffDamageMult, Value: 2.0, Duration: 5.0,
+		ID: tcTestDmg, Type: entity.BuffDamageMult, Value: 2.0, Duration: 5.0,
 	})
 
-	result := eng.Commit("fire_shot", commitCtx(p, e))
+	result := eng.Commit(IDFireShot, commitCtx(p, e))
 	if !result.OK {
 		t.Fatal("commit failed")
 	}
@@ -304,7 +304,7 @@ func TestCast_SetsAttackState(t *testing.T) {
 	p := newGunner()
 	e := enemyInFront(100, 200)
 
-	eng.Commit("fire_shot", commitCtx(p, e))
+	eng.Commit(IDFireShot, commitCtx(p, e))
 	if p.State != entity.PlayerStateAttack {
 		t.Errorf("state = %d, want %d (attack)", p.State, entity.PlayerStateAttack)
 	}
@@ -319,7 +319,7 @@ func TestCast_BDSpell_ConfigTransition(t *testing.T) {
 	e := enemyInFront(100, 500)
 
 	// shielded_sweep: orbit → fan
-	result := eng.Commit("shielded_sweep", commitCtx(p, e))
+	result := eng.Commit(IDShieldedSweep, commitCtx(p, e))
 	if !result.OK {
 		t.Fatalf("commit failed: %s", result.Reason)
 	}
@@ -374,7 +374,7 @@ func TestCast_BDSpell_DRBuff(t *testing.T) {
 	e := enemyInFront(100, 500)
 
 	// shielded_sweep has DR buff (0.85)
-	eng.Commit("shielded_sweep", commitCtx(p, e))
+	eng.Commit(IDShieldedSweep, commitCtx(p, e))
 	if !p.HasBuff("bd_dr") {
 		t.Error("DR buff not applied")
 	}
@@ -388,7 +388,7 @@ func TestCast_BDSpell_GCD(t *testing.T) {
 	p := newBladeDancer()
 	p.Config = entity.ConfigOrbit
 
-	eng.Commit("shielded_sweep", commitCtx(p))
+	eng.Commit(IDShieldedSweep, commitCtx(p))
 	if p.GCDTimer != 0.5 {
 		t.Errorf("GCDTimer = %f, want 0.5", p.GCDTimer)
 	}
@@ -401,11 +401,11 @@ func TestRechamber_StartAndConfirm(t *testing.T) {
 	p := newGunner()
 
 	// Start rechamber
-	r := eng.Commit("rechamber", commitCtx(p))
+	r := eng.Commit(IDRechamber, commitCtx(p))
 	if !r.OK {
 		t.Fatalf("rechamber start failed: %s", r.Reason)
 	}
-	state, ok := p.AbilityState["rechamber"].(*RechamberState)
+	state, ok := p.AbilityState[IDRechamber].(*RechamberState)
 	if !ok {
 		t.Fatal("rechamber state not set")
 	}
@@ -414,7 +414,7 @@ func TestRechamber_StartAndConfirm(t *testing.T) {
 	}
 
 	// Can't start again while in progress
-	r = eng.Commit("rechamber", commitCtx(p))
+	r = eng.Commit(IDRechamber, commitCtx(p))
 	if r.OK {
 		t.Error("should not be able to start rechamber while in progress")
 	}
@@ -426,7 +426,7 @@ func TestRechamber_StartAndConfirm(t *testing.T) {
 	}
 
 	// Confirm in timing window
-	r = eng.Commit("rechamber_confirm", commitCtx(p))
+	r = eng.Commit(IDRechamberConfirm, commitCtx(p))
 	if !r.OK {
 		t.Fatalf("rechamber_confirm failed: %s", r.Reason)
 	}
@@ -442,8 +442,8 @@ func TestRechamber_MissedWindow(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 
-	eng.Commit("rechamber", commitCtx(p))
-	state, ok := p.AbilityState["rechamber"].(*RechamberState)
+	eng.Commit(IDRechamber, commitCtx(p))
+	state, ok := p.AbilityState[IDRechamber].(*RechamberState)
 	if !ok {
 		t.Fatal("rechamber state not set")
 	}
@@ -461,7 +461,7 @@ func TestRechamber_MissedWindow(t *testing.T) {
 	}
 
 	// Confirm should fail during lockout
-	r := eng.Commit("rechamber_confirm", commitCtx(p))
+	r := eng.Commit(IDRechamberConfirm, commitCtx(p))
 	if r.OK {
 		t.Error("confirm should fail during lockout")
 	}
@@ -477,19 +477,19 @@ func TestOverclock_AppliesBuff(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 
-	r := eng.Commit("overclock", commitCtx(p))
+	r := eng.Commit(IDOverclock, commitCtx(p))
 	if !r.OK {
 		t.Fatalf("overclock failed: %s", r.Reason)
 	}
-	if !p.HasBuff("overclock") {
+	if !p.HasBuff(IDOverclock) {
 		t.Error("overclock buff not applied")
 	}
-	if p.Cooldowns["overclock"] != 15.0 {
-		t.Errorf("cooldown = %f, want 15.0", p.Cooldowns["overclock"])
+	if p.Cooldowns[IDOverclock] != 15.0 {
+		t.Errorf("cooldown = %f, want 15.0", p.Cooldowns[IDOverclock])
 	}
 
 	// Can't use again while active
-	r = eng.Commit("overclock", commitCtx(p))
+	r = eng.Commit(IDOverclock, commitCtx(p))
 	if r.OK {
 		t.Error("should not be able to overclock while active")
 	}
@@ -499,14 +499,14 @@ func TestVGBlock_ParryAndBlock(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard()
 
-	r := eng.Commit("vg_block", commitCtx(p))
+	r := eng.Commit(IDVgBlock, commitCtx(p))
 	if !r.OK {
 		t.Fatalf("vg_block failed: %s", r.Reason)
 	}
 	if !p.HasBuff("vg_parry") {
 		t.Error("parry buff not applied")
 	}
-	if !p.HasBuff("vg_block") {
+	if !p.HasBuff(IDVgBlock) {
 		t.Error("block buff not applied")
 	}
 	if p.State != entity.PlayerStateBlock {
@@ -520,7 +520,7 @@ func TestVGBlock_ParryAndBlock(t *testing.T) {
 	}
 
 	// Can't block again while blocking
-	r = eng.Commit("vg_block", commitCtx(p))
+	r = eng.Commit(IDVgBlock, commitCtx(p))
 	if r.OK {
 		t.Error("should not be able to block while blocking")
 	}
@@ -583,11 +583,11 @@ func TestVortex_Handler(t *testing.T) {
 	e := enemyInFront(100, 1000)
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -3} // within 4 radius
 
-	r := eng.Commit("vortex", commitCtx(p, e))
+	r := eng.Commit(IDVortex, commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("vortex failed: %s", r.Reason)
 	}
-	if !p.HasBuff("vortex") {
+	if !p.HasBuff(IDVortex) {
 		t.Error("vortex DR buff not applied")
 	}
 	if p.GetResource("stamina") != 75 {
@@ -609,7 +609,7 @@ func TestVortex_TickDamage(t *testing.T) {
 	e := enemyInFront(100, 1000)
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -3}
 
-	eng.Commit("vortex", commitCtx(p, e))
+	eng.Commit(IDVortex, commitCtx(p, e))
 	hpAfterCast := e.Health
 
 	// Standard tier: 2 hits, interval = 0.6/2 = 0.3s. Tick past 0.3s.
@@ -627,16 +627,16 @@ func TestVortex_TickDamage(t *testing.T) {
 func TestTickPlayer_CooldownDecrement(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
-	p.Cooldowns["fire_shot"] = 1.0
+	p.Cooldowns[IDFireShot] = 1.0
 
 	eng.TickPlayer(p, 0.5, tickCtx())
-	if cd := p.Cooldowns["fire_shot"]; math.Abs(float64(cd-0.5)) > 0.01 {
+	if cd := p.Cooldowns[IDFireShot]; math.Abs(float64(cd-0.5)) > 0.01 {
 		t.Errorf("cooldown = %f, want ~0.5", cd)
 	}
 
 	// Tick again to remove
 	eng.TickPlayer(p, 0.6, tickCtx())
-	if _, ok := p.Cooldowns["fire_shot"]; ok {
+	if _, ok := p.Cooldowns[IDFireShot]; ok {
 		t.Error("cooldown should be removed at 0")
 	}
 }
@@ -789,7 +789,7 @@ func TestTickPlayer_AttackStateReset(t *testing.T) {
 	p := newGunner()
 	e := enemyInFront(100, 500)
 
-	eng.Commit("fire_shot", commitCtx(p, e))
+	eng.Commit(IDFireShot, commitCtx(p, e))
 	if p.State != entity.PlayerStateAttack {
 		t.Fatal("expected attack state after commit")
 	}
@@ -822,11 +822,11 @@ func TestTickPlayer_DeadPlayerSkipped(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newGunner()
 	p.Alive = false
-	p.Cooldowns["fire_shot"] = 1.0
+	p.Cooldowns[IDFireShot] = 1.0
 
 	eng.TickPlayer(p, 1.0, tickCtx())
 	// Cooldowns should not be ticked for dead players
-	if p.Cooldowns["fire_shot"] != 1.0 {
+	if p.Cooldowns[IDFireShot] != 1.0 {
 		t.Error("dead player should not be ticked")
 	}
 }
@@ -925,11 +925,11 @@ func TestCast_CooldownMultBuff(t *testing.T) {
 	e := enemyInFront(100, 500)
 
 	// Overclock gives cooldown_mult of 0.556
-	eng.Commit("overclock", commitCtx(p))
+	eng.Commit(IDOverclock, commitCtx(p))
 	p.Cooldowns = make(map[string]float32) // clear overclock CD for test
 
-	eng.Commit("fire_shot", commitCtx(p, e))
-	cd := p.Cooldowns["fire_shot"]
+	eng.Commit(IDFireShot, commitCtx(p, e))
+	cd := p.Cooldowns[IDFireShot]
 	// 0.18 * 0.556 ≈ 0.10
 	if math.Abs(float64(cd-0.18*0.556)) > 0.01 {
 		t.Errorf("cooldown = %f, want ~%f (0.18 * 0.556)", cd, 0.18*0.556)
@@ -972,7 +972,7 @@ func BenchmarkCast_FireShot(b *testing.B) {
 		as.MagCurrent = as.MagMax
 		as.Reloading = false
 		as.MagDumpActive = false
-		eng.Commit("fire_shot", ctx)
+		eng.Commit(IDFireShot, ctx)
 	}
 }
 
@@ -1006,7 +1006,7 @@ func BenchmarkCast_BDSpell(b *testing.B) {
 		p.Config = entity.ConfigOrbit
 		p.GCDTimer = 0
 		clear(p.Cooldowns)
-		eng.Commit("shielded_sweep", ctx)
+		eng.Commit(IDShieldedSweep, ctx)
 	}
 }
 
@@ -1018,8 +1018,8 @@ func BenchmarkCast_Overclock(b *testing.B) {
 	b.ResetTimer()
 	for b.Loop() {
 		clear(p.Cooldowns)
-		p.RemoveBuff("overclock")
-		eng.Commit("overclock", ctx)
+		p.RemoveBuff(IDOverclock)
+		eng.Commit(IDOverclock, ctx)
 	}
 }
 
@@ -1031,7 +1031,7 @@ func BenchmarkTickPlayer_Full(b *testing.B) {
 
 	// Set up realistic state: cooldowns, buffs, resources, a DoT
 	p.Cooldowns["cleave"] = 0.55
-	p.Cooldowns["vortex"] = 10.0
+	p.Cooldowns[IDVortex] = 10.0
 	p.GCDTimer = 0.3
 	p.AddBuff(entity.ActiveBuff{ID: "test_buff", Type: entity.BuffDamageMult, Value: 1.5, Duration: 5.0})
 	p.Resources["stamina"].Current = 60
@@ -1042,7 +1042,7 @@ func BenchmarkTickPlayer_Full(b *testing.B) {
 		// Reset state each iteration to avoid drift — reuse existing slice backing arrays
 		p.Alive = true
 		p.Cooldowns["cleave"] = 0.55
-		p.Cooldowns["vortex"] = 10.0
+		p.Cooldowns[IDVortex] = 10.0
 		p.GCDTimer = 0.3
 		p.Resources["stamina"].Current = 60
 		p.Buffs = p.Buffs[:0]
@@ -1132,10 +1132,10 @@ func BenchmarkTickPlayer_Harmonist(b *testing.B) {
 	tctx := tickCtx(e)
 
 	// Set up realistic state
-	p.Cooldowns["siphon_pulse"] = 0.3
-	p.Cooldowns["restoration_matrix"] = 8.0
+	p.Cooldowns[IDSiphonPulse] = 0.3
+	p.Cooldowns[IDRestorationMatrix] = 8.0
 	p.GCDTimer = 0.2
-	p.AddBuff(entity.ActiveBuff{ID: "frost_ward", Type: entity.BuffDamageReduction, Value: 1.0, Duration: 4.0})
+	p.AddBuff(entity.ActiveBuff{ID: IDFrostWard, Type: entity.BuffDamageReduction, Value: 1.0, Duration: 4.0})
 	p.Confluence.OnAbilityComplete()
 	p.Confluence.OnAbilityComplete()
 	p.Confluence.OnAbilityComplete() // 3 stacks
@@ -1152,11 +1152,11 @@ func BenchmarkTickPlayer_Harmonist(b *testing.B) {
 	for b.Loop() {
 		// Reset state each iteration
 		p.Alive = true
-		p.Cooldowns["siphon_pulse"] = 0.3
-		p.Cooldowns["restoration_matrix"] = 8.0
+		p.Cooldowns[IDSiphonPulse] = 0.3
+		p.Cooldowns[IDRestorationMatrix] = 8.0
 		p.GCDTimer = 0.2
 		p.Buffs = p.Buffs[:0]
-		p.Buffs = append(p.Buffs, entity.ActiveBuff{ID: "frost_ward", Type: entity.BuffDamageReduction, Value: 1.0, Duration: 4.0})
+		p.Buffs = append(p.Buffs, entity.ActiveBuff{ID: IDFrostWard, Type: entity.BuffDamageReduction, Value: 1.0, Duration: 4.0})
 		p.Confluence.Stacks = 3
 		p.Confluence.IdleTimer = 1.0
 		p.Confluence.DecayTimer = 0
@@ -1200,7 +1200,7 @@ func BenchmarkAbilityCommit_SiphonPulse(b *testing.B) {
 		for _, a := range allies {
 			a.Health = a.MaxHealth * 0.7
 		}
-		eng.Commit("siphon_pulse", ctx)
+		eng.Commit(IDSiphonPulse, ctx)
 	}
 }
 
@@ -1241,13 +1241,13 @@ func BenchmarkAbilityCommit_RestorationMatrix(b *testing.B) {
 	b.ResetTimer()
 	for b.Loop() {
 		p.GCDTimer = 0
-		delete(p.Cooldowns, "restoration_matrix")
+		delete(p.Cooldowns, IDRestorationMatrix)
 		p.Confluence.Stacks = 2
 		p.Confluence.IdleTimer = 0
 		// Reset bioarcanotechnic flux pool
 		pool := p.FluxCommit.GetPool("bioarcanotechnic")
 		pool.Current = pool.Max
-		eng.Commit("restoration_matrix", ctx)
+		eng.Commit(IDRestorationMatrix, ctx)
 	}
 }
 
@@ -1265,17 +1265,17 @@ func BenchmarkAbilityCommit_FrostWard(b *testing.B) {
 	b.ResetTimer()
 	for b.Loop() {
 		p.GCDTimer = 0
-		delete(p.Cooldowns, "frost_ward")
+		delete(p.Cooldowns, IDFrostWard)
 		p.Confluence.Stacks = 2
 		p.Confluence.IdleTimer = 0
 		// Reset frost flux pool
 		pool := p.FluxCommit.GetPool("frost")
 		pool.Current = pool.Max
 		// Remove shield and buff so handler re-creates them
-		ally.RemoveBuff("frost_ward")
+		ally.RemoveBuff(IDFrostWard)
 		delete(ally.AbilityState, "frost_ward_active")
 		delete(ally.Resources, "shield")
-		eng.Commit("frost_ward", ctx)
+		eng.Commit(IDFrostWard, ctx)
 	}
 }
 
@@ -1292,8 +1292,8 @@ func BenchmarkAbilityValidation_InsufficientFlux(b *testing.B) {
 	b.ResetTimer()
 	for b.Loop() {
 		p.GCDTimer = 0
-		delete(p.Cooldowns, "restoration_matrix")
+		delete(p.Cooldowns, IDRestorationMatrix)
 		p.SetAllFluxPoolsCurrent(0)
-		eng.Commit("restoration_matrix", ctx)
+		eng.Commit(IDRestorationMatrix, ctx)
 	}
 }

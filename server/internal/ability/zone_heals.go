@@ -3,9 +3,9 @@ package ability
 import "codex-online/server/internal/entity"
 
 var vitalBloomDef = AbilityDef{
-	ID:     "vital_bloom",
+	ID:     IDVitalBloom,
 	Name:   "Vital Bloom",
-	School: "biometabolic",
+	School: entity.SchoolBiometabolic,
 	Hit:    HitDef{Type: HitGroundPlacement, Range: 15},
 	GCD:    1.0,
 	Costs: []ResourceCost{
@@ -15,13 +15,13 @@ var vitalBloomDef = AbilityDef{
 	ZoneDuration: 8.0,
 	ZoneInterval: 1.0,
 	Delivery:     uint8(entity.DeliveryZone),
-	Handler:      "vital_bloom",
+	Handler:      IDVitalBloom,
 }
 
 var restorationMatrixDef = AbilityDef{
-	ID:       "restoration_matrix",
+	ID:       IDRestorationMatrix,
 	Name:     "Restoration Matrix",
-	School:   "bioarcanotechnic",
+	School:   entity.SchoolBioarcanotechnic,
 	Hit:      HitDef{Type: HitGroundPlacement, Range: 18},
 	GCD:      1.0,
 	Cooldown: 12.0,
@@ -33,13 +33,13 @@ var restorationMatrixDef = AbilityDef{
 	ZoneHealTick: 8,
 	ZoneInterval: 1.0,
 	Delivery:     uint8(entity.DeliveryZone),
-	Handler:      "restoration_matrix",
+	Handler:      IDRestorationMatrix,
 }
 
 func vitalBloomHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "not a player"}
+		return CommitResult{Reason: ReasonNotAPlayer}
 	}
 
 	sacrifice := p.Health * 0.15
@@ -71,7 +71,7 @@ func vitalBloomHandler(_ *Engine, ctx *CommitContext) CommitResult {
 			Duration:    vitalBloomDef.ZoneDuration,
 			TickTimer:   vitalBloomDef.ZoneInterval,
 			Interval:    vitalBloomDef.ZoneInterval,
-			AbilityID:   "vital_bloom",
+			AbilityID:   IDVitalBloom,
 		})
 	}
 
@@ -82,7 +82,7 @@ func vitalBloomHandler(_ *Engine, ctx *CommitContext) CommitResult {
 func restorationMatrixHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "not a player"}
+		return CommitResult{Reason: ReasonNotAPlayer}
 	}
 
 	p.SpendFluxBySchool(restorationMatrixDef.School, restorationMatrixDef.Costs[0].Amount)
@@ -103,13 +103,13 @@ func restorationMatrixHandler(_ *Engine, ctx *CommitContext) CommitResult {
 			Duration:    restorationMatrixDef.ZoneDuration,
 			TickTimer:   restorationMatrixDef.ZoneInterval,
 			Interval:    restorationMatrixDef.ZoneInterval,
-			AbilityID:   "restoration_matrix",
+			AbilityID:   IDRestorationMatrix,
 		})
 	}
 
 	p.GCDTimer = restorationMatrixDef.GCD
 	if restorationMatrixDef.Cooldown > 0 {
-		p.Cooldowns["restoration_matrix"] = restorationMatrixDef.Cooldown
+		p.Cooldowns[IDRestorationMatrix] = restorationMatrixDef.Cooldown
 	}
 	return CommitResult{OK: true}
 }

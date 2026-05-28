@@ -102,7 +102,7 @@ func TestBrain_FullMeleeCycle(t *testing.T) {
 		TreeData:  testTreeData(),
 		Abilities: []ability.AbilityDef{
 			{
-				ID: "melee", Name: "melee", Category: ability.CategoryMelee,
+				ID: testMeleeID, Name: testMeleeID, Category: ability.CategoryMelee,
 				CommitTime: 0.5, Cooldown: 0.5,
 				BaseWeight: 100, MaxRange: 3.0,
 				BaseDamage:   30.0,
@@ -156,7 +156,7 @@ func TestBrain_PatrolAndAggro(t *testing.T) {
 		TreeData:  testTreeData(),
 		Abilities: []ability.AbilityDef{
 			{
-				ID: "melee", Name: "melee", Category: ability.CategoryMelee,
+				ID: testMeleeID, Name: testMeleeID, Category: ability.CategoryMelee,
 				CommitTime: 0.5, Cooldown: 0.5,
 				BaseWeight: 100, MaxRange: 3.0,
 				BaseDamage: 10.0,
@@ -220,13 +220,13 @@ func TestBrain_LeashReset(t *testing.T) {
 func TestBrain_RangedSpawnsProjectile(t *testing.T) {
 	// Use "hallway_ranged" name to get the ranged tree
 	def := &EnemyDef{
-		Name:      "hallway_ranged",
+		Name:      testHallwayRanged,
 		MaxHealth: 200,
 		MoveSpeed: 3.0,
 		Radius:    1.0,
 		Abilities: []ability.AbilityDef{
 			{
-				ID: "bolt", Name: "bolt", Category: ability.CategoryRanged,
+				ID: testBoltID, Name: testBoltID, Category: ability.CategoryRanged,
 				CommitTime: 0.2, Cooldown: 0.5,
 				BaseWeight: 100,
 				Projectile: &ability.ProjectileDef{
@@ -269,16 +269,16 @@ func TestBrain_RangedSpawnsProjectile(t *testing.T) {
 func TestBrain_ChargeHitsPlayer(t *testing.T) {
 	// Self-contained tree: attempt charge at range, chase otherwise.
 	chargeTree := map[string]any{
-		"reactive_selector": []any{
-			map[string]any{"sequence": []any{"is_dead", "stop"}},
-			map[string]any{"sequence": []any{"phase_transitioning", "wait_transition"}},
-			map[string]any{"sequence": []any{"!has_target", "aggro_or_patrol"}},
-			map[string]any{"sequence": []any{"!in_leash_range", "leash_reset"}},
-			map[string]any{"sequence": []any{"is_committed", "wait_ability"}},
+		NodeReactiveSelector: []any{
+			map[string]any{NodeSequence: []any{LeafIsDead, LeafStop}},
+			map[string]any{NodeSequence: []any{LeafPhaseTransitioning, LeafWaitTransition}},
+			map[string]any{NodeSequence: []any{"!has_target", LeafAggroOrPatrol}},
+			map[string]any{NodeSequence: []any{"!in_leash_range", LeafLeashReset}},
+			map[string]any{NodeSequence: []any{"is_committed", LeafWaitAbility}},
 			// Charge attempt when in range, chase otherwise.
 			// The tree uses "commit(bull_charge)" directly rather than attack (weighted).
-			map[string]any{"sequence": []any{"target_beyond(4)", "has_los", "commit(bull_charge)", "wait_ability"}},
-			"chase",
+			map[string]any{NodeSequence: []any{"target_beyond(4)", LeafHasLoS, "commit(bull_charge)", LeafWaitAbility}},
+			LeafChase,
 		},
 	}
 	def := &EnemyDef{
@@ -357,7 +357,7 @@ func TestBrain_MeleeCommitsDirection(t *testing.T) {
 		TreeData:  testTreeData(),
 		Abilities: []ability.AbilityDef{
 			{
-				ID: "melee", Name: "melee", Category: ability.CategoryMelee,
+				ID: testMeleeID, Name: testMeleeID, Category: ability.CategoryMelee,
 				CommitTime: 1.0, Cooldown: 0.5,
 				BaseWeight: 100, MaxRange: 5.0,
 				FaceTarget:  true,
@@ -417,7 +417,7 @@ func TestBrain_RangedTracksTarget(t *testing.T) {
 		BackpedalSpeed: 2.0,
 		Abilities: []ability.AbilityDef{
 			{
-				ID: "bolt", Name: "bolt", Category: ability.CategoryRanged,
+				ID: testBoltID, Name: testBoltID, Category: ability.CategoryRanged,
 				CommitTime: 1.0, Cooldown: 0.5,
 				BaseWeight:  100,
 				TrackTarget: true,

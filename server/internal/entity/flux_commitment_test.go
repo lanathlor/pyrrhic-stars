@@ -1,8 +1,9 @@
 package entity
 
 import (
+	"cmp"
 	"math"
-	"sort"
+	"slices"
 	"testing"
 )
 
@@ -23,16 +24,16 @@ func TestSetCommitmentDistributes(t *testing.T) {
 			totalMax:   160,
 			totalRegen: 7,
 			schools: map[string]float32{
-				"bioarcanotechnic": 0.5,
-				"biometabolic":     0.3,
-				"frost":            0.1,
-				"aerokinetic":      0.1,
+				SchoolBioarcanotechnic: 0.5,
+				SchoolBiometabolic:     0.3,
+				SchoolFrost:            0.1,
+				SchoolAerokinetic:      0.1,
 			},
 			wantPools: []FluxPool{
-				{School: "aerokinetic", Percentage: 0.1, Current: 16, Max: 16, Regen: 0.7},
-				{School: "bioarcanotechnic", Percentage: 0.5, Current: 80, Max: 80, Regen: 3.5},
-				{School: "biometabolic", Percentage: 0.3, Current: 48, Max: 48, Regen: 2.1},
-				{School: "frost", Percentage: 0.1, Current: 16, Max: 16, Regen: 0.7},
+				{School: SchoolAerokinetic, Percentage: 0.1, Current: 16, Max: 16, Regen: 0.7},
+				{School: SchoolBioarcanotechnic, Percentage: 0.5, Current: 80, Max: 80, Regen: 3.5},
+				{School: SchoolBiometabolic, Percentage: 0.3, Current: 48, Max: 48, Regen: 2.1},
+				{School: SchoolFrost, Percentage: 0.1, Current: 16, Max: 16, Regen: 0.7},
 			},
 		},
 		{
@@ -40,10 +41,10 @@ func TestSetCommitmentDistributes(t *testing.T) {
 			totalMax:   200,
 			totalRegen: 10,
 			schools: map[string]float32{
-				"fire": 1.0,
+				SchoolFire: 1.0,
 			},
 			wantPools: []FluxPool{
-				{School: "fire", Percentage: 1.0, Current: 200, Max: 200, Regen: 10},
+				{School: SchoolFire, Percentage: 1.0, Current: 200, Max: 200, Regen: 10},
 			},
 		},
 		{
@@ -71,8 +72,8 @@ func TestSetCommitmentDistributes(t *testing.T) {
 			}
 
 			// Sort both by school name for stable comparison (map iteration order is random).
-			sort.Slice(fc.Pools, func(i, j int) bool { return fc.Pools[i].School < fc.Pools[j].School })
-			sort.Slice(tt.wantPools, func(i, j int) bool { return tt.wantPools[i].School < tt.wantPools[j].School })
+			slices.SortFunc(fc.Pools, func(a, b FluxPool) int { return cmp.Compare(a.School, b.School) })
+			slices.SortFunc(tt.wantPools, func(a, b FluxPool) int { return cmp.Compare(a.School, b.School) })
 
 			for i, want := range tt.wantPools {
 				got := fc.Pools[i]
@@ -104,21 +105,21 @@ func TestSpendFromSchool(t *testing.T) {
 		wantOK      bool
 		wantCurrent float32
 	}{
-		{"spend within budget", "bioarcanotechnic", 30, true, 50},
-		{"spend exact amount", "bioarcanotechnic", 80, true, 0},
-		{"spend too much", "bioarcanotechnic", 81, false, 80},
-		{"spend from smaller pool", "frost", 10, true, 6},
-		{"spend too much from small pool", "frost", 17, false, 16},
+		{"spend within budget", SchoolBioarcanotechnic, 30, true, 50},
+		{"spend exact amount", SchoolBioarcanotechnic, 80, true, 0},
+		{"spend too much", SchoolBioarcanotechnic, 81, false, 80},
+		{"spend from smaller pool", SchoolFrost, 10, true, 6},
+		{"spend too much from small pool", SchoolFrost, 17, false, 16},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fc := &FluxCommitment{TotalMax: 160, TotalRegen: 7}
 			fc.SetCommitment(map[string]float32{
-				"bioarcanotechnic": 0.5,
-				"biometabolic":     0.3,
-				"frost":            0.1,
-				"aerokinetic":      0.1,
+				SchoolBioarcanotechnic: 0.5,
+				SchoolBiometabolic:     0.3,
+				SchoolFrost:            0.1,
+				SchoolAerokinetic:      0.1,
 			})
 
 			ok := fc.SpendFromSchool(tt.school, tt.amount)
@@ -139,7 +140,7 @@ func TestSpendFromSchool(t *testing.T) {
 
 func TestSpendFromSchoolUnknown(t *testing.T) {
 	fc := &FluxCommitment{TotalMax: 100, TotalRegen: 5}
-	fc.SetCommitment(map[string]float32{"fire": 1.0})
+	fc.SetCommitment(map[string]float32{SchoolFire: 1.0})
 
 	ok := fc.SpendFromSchool("nonexistent", 10)
 	if ok {
@@ -155,20 +156,20 @@ func TestTickRegen(t *testing.T) {
 		dt          float32
 		wantCurrent float32
 	}{
-		{"regen partial", "bioarcanotechnic", 40, 2.0, 47},            // 80-40=40, +3.5*2=47
-		{"regen caps at max", "bioarcanotechnic", 5, 10.0, 80},        // 80-5=75, +3.5*10=110, capped at 80
-		{"regen from empty", "frost", 16, 1.0, 0.7},                   // 16-16=0, +0.7*1=0.7
-		{"no spend full pool stays full", "biometabolic", 0, 5.0, 48}, // already at max 48
+		{"regen partial", SchoolBioarcanotechnic, 40, 2.0, 47},            // 80-40=40, +3.5*2=47
+		{"regen caps at max", SchoolBioarcanotechnic, 5, 10.0, 80},        // 80-5=75, +3.5*10=110, capped at 80
+		{"regen from empty", SchoolFrost, 16, 1.0, 0.7},                   // 16-16=0, +0.7*1=0.7
+		{"no spend full pool stays full", SchoolBiometabolic, 0, 5.0, 48}, // already at max 48
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fc := &FluxCommitment{TotalMax: 160, TotalRegen: 7}
 			fc.SetCommitment(map[string]float32{
-				"bioarcanotechnic": 0.5,
-				"biometabolic":     0.3,
-				"frost":            0.1,
-				"aerokinetic":      0.1,
+				SchoolBioarcanotechnic: 0.5,
+				SchoolBiometabolic:     0.3,
+				SchoolFrost:            0.1,
+				SchoolAerokinetic:      0.1,
 			})
 
 			if tt.spendFirst > 0 {
@@ -202,8 +203,8 @@ func TestGetPoolNil(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fc := &FluxCommitment{TotalMax: 160, TotalRegen: 7}
 			fc.SetCommitment(map[string]float32{
-				"bioarcanotechnic": 0.5,
-				"biometabolic":     0.3,
+				SchoolBioarcanotechnic: 0.5,
+				SchoolBiometabolic:     0.3,
 			})
 
 			pool := fc.GetPool(tt.school)
@@ -239,7 +240,7 @@ func TestSetCommitmentReplacesExisting(t *testing.T) {
 }
 
 func TestNewPlayerHarmonistHasFluxCommitment(t *testing.T) {
-	p := NewPlayerWithSpec(1, ClassArcanotechnicien, "harmonist")
+	p := NewPlayerWithSpec(1, ClassArcanotechnicien, SpecHarmonist)
 
 	if p.FluxCommit == nil {
 		t.Fatal("Harmonist should have FluxCommitment initialized")
@@ -255,7 +256,7 @@ func TestNewPlayerHarmonistHasFluxCommitment(t *testing.T) {
 	}
 
 	// Verify bioarcanotechnic is the largest pool (50%).
-	bio := p.FluxCommit.GetPool("bioarcanotechnic")
+	bio := p.FluxCommit.GetPool(SchoolBioarcanotechnic)
 	if bio == nil {
 		t.Fatal("bioarcanotechnic pool should exist")
 	}
@@ -268,7 +269,7 @@ func TestNewPlayerHarmonistHasFluxCommitment(t *testing.T) {
 }
 
 func TestNewPlayerDestroyerHasFluxCommitmentNoPools(t *testing.T) {
-	p := NewPlayerWithSpec(1, ClassArcanotechnicien, "destroyer")
+	p := NewPlayerWithSpec(1, ClassArcanotechnicien, SpecDestroyer)
 
 	if p.FluxCommit == nil {
 		t.Fatal("Destroyer should have FluxCommitment initialized (pools set later)")

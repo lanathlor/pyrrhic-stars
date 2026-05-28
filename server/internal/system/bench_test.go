@@ -27,9 +27,9 @@ func benchWorld() *World {
 		p.RotationY = 0
 		p.AimPitch = 0
 		p.Health = p.MaxHealth * 0.8
-		p.Cooldowns["fire_shot"] = 0.1
-		p.AddBuff(entity.ActiveBuff{ID: "overclock", Type: entity.BuffCooldownMult, Value: 0.556, Duration: 3.0})
-		p.Cooldowns["overclock"] = 5.0
+		p.Cooldowns[ability.IDFireShot] = 0.1
+		p.AddBuff(entity.ActiveBuff{ID: ability.IDOverclock, Type: entity.BuffCooldownMult, Value: 0.556, Duration: 3.0})
+		p.Cooldowns[ability.IDOverclock] = 5.0
 		players[i] = p
 	}
 
@@ -172,7 +172,7 @@ func BenchmarkHandleAbilityInput(b *testing.B) {
 	b.ReportAllocs()
 
 	for b.Loop() {
-		delete(w.Players[1].Cooldowns, "fire_shot")
+		delete(w.Players[1].Cooldowns, ability.IDFireShot)
 		w.DamageEvents = w.DamageEvents[:0]
 		handleAbilityInput(w, 1, payload)
 	}
@@ -376,8 +376,8 @@ func benchArenaInstance(instanceID uint16) *World {
 		p.RotationY = 0
 		p.AimPitch = 0
 		p.Health = p.MaxHealth * 0.8
-		p.Cooldowns["fire_shot"] = 0.05
-		p.AddBuff(entity.ActiveBuff{ID: "overclock", Type: entity.BuffCooldownMult, Value: 0.556, Duration: 3.0})
+		p.Cooldowns[ability.IDFireShot] = 0.05
+		p.AddBuff(entity.ActiveBuff{ID: ability.IDOverclock, Type: entity.BuffCooldownMult, Value: 0.556, Duration: 3.0})
 		players[peerID] = p
 	}
 
@@ -1080,12 +1080,12 @@ func benchWorldWithHealer() *World {
 		{
 			OwnerID: 5, Position: entity.Vec3{X: 4, Y: 0.1, Z: 5},
 			Radius: 5.0, HealPerTick: 8, Duration: 6.0,
-			TickTimer: 0.01, Interval: 1.0, AbilityID: "vital_bloom",
+			TickTimer: 0.01, Interval: 1.0, AbilityID: ability.IDVitalBloom,
 		},
 		{
 			OwnerID: 5, Position: entity.Vec3{X: 6, Y: 0.1, Z: 5},
 			Radius: 5.0, HealPerTick: 10, Duration: 4.0,
-			TickTimer: 0.01, Interval: 1.0, AbilityID: "restoration_matrix",
+			TickTimer: 0.01, Interval: 1.0, AbilityID: ability.IDRestorationMatrix,
 		},
 	}
 
@@ -1096,11 +1096,11 @@ func benchWorldWithHealer() *World {
 
 	// HoTs on players 1 and 2
 	w.Players[1].HoTs = append(w.Players[1].HoTs,
-		entity.ActiveHoT{ID: "regen_protocol", SourcePeer: 5, HealPerTick: 5, Remaining: 8.0, Interval: 1.0, TickTimer: 0.02, BurstThreshold: 0.3},
+		entity.ActiveHoT{ID: ability.IDRegenProtocol, SourcePeer: 5, HealPerTick: 5, Remaining: 8.0, Interval: 1.0, TickTimer: 0.02, BurstThreshold: 0.3},
 		entity.ActiveHoT{ID: "regen_protocol_2", SourcePeer: 5, HealPerTick: 4, Remaining: 6.0, Interval: 1.0, TickTimer: 0.5},
 	)
 	w.Players[2].HoTs = append(w.Players[2].HoTs,
-		entity.ActiveHoT{ID: "regen_protocol", SourcePeer: 5, HealPerTick: 5, Remaining: 8.0, Interval: 1.0, TickTimer: 0.02, BurstThreshold: 0.3},
+		entity.ActiveHoT{ID: ability.IDRegenProtocol, SourcePeer: 5, HealPerTick: 5, Remaining: 8.0, Interval: 1.0, TickTimer: 0.02, BurstThreshold: 0.3},
 	)
 
 	// Last Breath on player 3
@@ -1338,13 +1338,13 @@ func benchArenaInstanceWithHealer(instanceID uint16) *World {
 	// Add HoTs on a couple players
 	if p, ok := w.Players[peer2]; ok {
 		p.HoTs = append(p.HoTs, entity.ActiveHoT{
-			ID: "regen_protocol", SourcePeer: healerID, HealPerTick: 5,
+			ID: ability.IDRegenProtocol, SourcePeer: healerID, HealPerTick: 5,
 			Remaining: 8.0, Interval: 1.0, TickTimer: 0.02, BurstThreshold: 0.3,
 		})
 	}
 	if p, ok := w.Players[peer3]; ok {
 		p.HoTs = append(p.HoTs, entity.ActiveHoT{
-			ID: "regen_protocol", SourcePeer: healerID, HealPerTick: 5,
+			ID: ability.IDRegenProtocol, SourcePeer: healerID, HealPerTick: 5,
 			Remaining: 8.0, Interval: 1.0, TickTimer: 0.5, BurstThreshold: 0.3,
 		})
 	}

@@ -11,7 +11,7 @@ func TestVortex_InsufficientStamina(t *testing.T) {
 	p := newVanguard()
 	p.Resources["stamina"].Current = 10
 
-	r := eng.Commit("vortex", commitCtx(p))
+	r := eng.Commit(IDVortex, commitCtx(p))
 	if r.OK {
 		t.Error("should fail with insufficient stamina")
 	}
@@ -25,7 +25,7 @@ func TestVortex_BlockedByGCD(t *testing.T) {
 	p := newVanguard()
 	p.GCDTimer = 0.5
 
-	r := eng.Commit("vortex", commitCtx(p))
+	r := eng.Commit(IDVortex, commitCtx(p))
 	if r.OK {
 		t.Error("should be blocked by GCD")
 	}
@@ -36,13 +36,13 @@ func TestVortex_BlockedByCooldown(t *testing.T) {
 	p := newVanguard()
 	e := enemyInFront(100, 1e6)
 
-	eng.Commit("vortex", commitCtx(p, e))
+	eng.Commit(IDVortex, commitCtx(p, e))
 
 	// Reset GCD but keep cooldown
 	p.GCDTimer = 0
 	p.Resources["stamina"].Current = 100
 
-	r := eng.Commit("vortex", commitCtx(p, e))
+	r := eng.Commit(IDVortex, commitCtx(p, e))
 	if r.OK {
 		t.Error("should be blocked by cooldown")
 	}
@@ -54,7 +54,7 @@ func TestVortex_OutOfRange(t *testing.T) {
 	e := enemyInFront(100, 500)
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -20} // far outside radius
 
-	r := eng.Commit("vortex", commitCtx(p, e))
+	r := eng.Commit(IDVortex, commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("commit failed: %s", r.Reason)
 	}
@@ -70,7 +70,7 @@ func TestVortex_StandardTier_TwoHits(t *testing.T) {
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -3}
 
 	// Commit — first hit immediate
-	r := eng.Commit("vortex", commitCtx(p, e))
+	r := eng.Commit(IDVortex, commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("commit failed: %s", r.Reason)
 	}
@@ -104,7 +104,7 @@ func TestVortex_ThreatGenerated(t *testing.T) {
 	e := enemyInFront(100, 1e6)
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -3}
 
-	eng.Commit("vortex", commitCtx(p, e))
+	eng.Commit(IDVortex, commitCtx(p, e))
 	if e.ThreatTable[p.ID] <= 0 {
 		t.Error("expected threat on enemy from vortex")
 	}
@@ -114,8 +114,8 @@ func TestVortex_SetsCooldown(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard()
 
-	eng.Commit("vortex", commitCtx(p))
-	if cd := p.Cooldowns["vortex"]; cd != 10.0 {
+	eng.Commit(IDVortex, commitCtx(p))
+	if cd := p.Cooldowns[IDVortex]; cd != 10.0 {
 		t.Errorf("cooldown = %f, want 10.0", cd)
 	}
 }
@@ -126,7 +126,7 @@ func TestVortex_BuildsOnslaught(t *testing.T) {
 	e := enemyInFront(1000, 1e6)
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -3}
 
-	eng.Commit("vortex", commitCtx(p, e))
+	eng.Commit(IDVortex, commitCtx(p, e))
 
 	ons := getOnslaughtState(p)
 	if ons.Stacks < 1 {
@@ -144,7 +144,7 @@ func TestVortex_EmpoweredTier_ThreeHits(t *testing.T) {
 	ons := getOnslaughtState(p)
 	ons.Stacks = 3
 
-	r := eng.Commit("vortex", commitCtx(p, e))
+	r := eng.Commit(IDVortex, commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("commit failed: %s", r.Reason)
 	}

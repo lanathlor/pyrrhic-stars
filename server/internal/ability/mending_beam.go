@@ -3,9 +3,9 @@ package ability
 import "codex-online/server/internal/entity"
 
 var mendingBeamDef = AbilityDef{
-	ID:     "mending_beam",
+	ID:     IDMendingBeam,
 	Name:   "Mending Beam",
-	School: "bioarcanotechnic",
+	School: entity.SchoolBioarcanotechnic,
 	Hit: HitDef{
 		Type:  HitAllyTarget,
 		Range: 20,
@@ -19,8 +19,8 @@ var mendingBeamDef = AbilityDef{
 	BaseHeal:         12, // heal per tick during channel
 	HealScaling:      "identity",
 	Delivery:         uint8(entity.DeliveryBeam),
-	Handler:          "mending_beam",
-	OnCommitTick:     "mending_beam",
+	Handler:          IDMendingBeam,
+	OnCommitTick:     IDMendingBeam,
 	CancelConditions: uint8(CancelOnMove) | uint8(CancelOnDamage),
 
 	Sustain:           true,
@@ -36,7 +36,7 @@ var mendingBeamDef = AbilityDef{
 func mendingBeamHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "not a player"}
+		return CommitResult{Reason: ReasonNotAPlayer}
 	}
 
 	if p.FluxCommit != nil && len(p.FluxCommit.Pools) > 0 {
@@ -47,7 +47,7 @@ func mendingBeamHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	} else {
 		flux := p.Resources[entity.ResourceFlux]
 		if flux == nil || flux.Current < mendingBeamDef.Costs[0].Amount {
-			return CommitResult{Reason: "insufficient flux"}
+			return CommitResult{Reason: ReasonInsufficientFlux}
 		}
 	}
 

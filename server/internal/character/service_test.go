@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"codex-online/server/internal/entity"
 	"codex-online/server/internal/persistence"
 )
 
@@ -82,7 +83,7 @@ func (r *stubRepo) GetLoadoutPresets(uint) ([]*persistence.CharacterLoadoutPrese
 
 func TestSelect(t *testing.T) {
 	repo := newStubRepo()
-	repo.chars[1] = &persistence.Character{ID: 1, UserID: "player-1", ClassName: "gunner", Name: "Hero"}
+	repo.chars[1] = &persistence.Character{ID: 1, UserID: "player-1", ClassName: entity.ClassGunner, Name: "Hero"}
 
 	svc := NewService(repo)
 
@@ -119,15 +120,15 @@ func TestCreate(t *testing.T) {
 		taken     bool
 		wantErr   error
 	}{
-		{"valid", "gunner", "MyHero", 0, false, nil},
-		{"valid vanguard", "vanguard", "Tank", 0, false, nil},
-		{"valid blade_dancer", "blade_dancer", "Dancer-1", 0, false, nil},
+		{"valid", entity.ClassGunner, "MyHero", 0, false, nil},
+		{"valid vanguard", entity.ClassVanguard, "Tank", 0, false, nil},
+		{"valid blade_dancer", entity.ClassBladeDancer, "Dancer-1", 0, false, nil},
 		{"invalid class", "mage", "Hero", 0, false, ErrInvalidClass},
-		{"name too short", "gunner", "A", 0, false, ErrNameLength},
-		{"name too long", "gunner", "ThisNameIsWayTooLongX", 0, false, ErrNameLength},
-		{"invalid chars", "gunner", "He@ro!", 0, false, ErrNameChars},
-		{"name taken", "gunner", "Taken", 0, true, ErrNameTaken},
-		{"limit reached", "gunner", "Hero", 100, false, ErrLimitReached},
+		{"name too short", entity.ClassGunner, "A", 0, false, ErrNameLength},
+		{"name too long", entity.ClassGunner, "ThisNameIsWayTooLongX", 0, false, ErrNameLength},
+		{"invalid chars", entity.ClassGunner, "He@ro!", 0, false, ErrNameChars},
+		{"name taken", entity.ClassGunner, "Taken", 0, true, ErrNameTaken},
+		{"limit reached", entity.ClassGunner, "Hero", 100, false, ErrLimitReached},
 	}
 
 	for _, tt := range tests {

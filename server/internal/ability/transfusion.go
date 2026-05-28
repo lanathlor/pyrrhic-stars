@@ -3,9 +3,9 @@ package ability
 import "codex-online/server/internal/entity"
 
 var transfusionDef = AbilityDef{
-	ID:     "transfusion",
+	ID:     IDTransfusion,
 	Name:   "Transfusion",
-	School: "biometabolic",
+	School: entity.SchoolBiometabolic,
 	Hit: HitDef{
 		Type:  HitAllyTarget,
 		Range: 15,
@@ -14,8 +14,8 @@ var transfusionDef = AbilityDef{
 	ExecuteTime:      0.1,
 	GCD:              0.5,
 	Costs:            []ResourceCost{{Resource: entity.ResourceFlux, Amount: 3}},
-	Handler:          "transfusion",
-	OnCommitTick:     "transfusion",
+	Handler:          IDTransfusion,
+	OnCommitTick:     IDTransfusion,
 	CancelConditions: uint8(CancelOnMove) | uint8(CancelOnDamage),
 	Delivery:         uint8(entity.DeliveryBeam),
 
@@ -25,7 +25,7 @@ var transfusionDef = AbilityDef{
 	SustainInterval:   0.5,
 	SustainScaling:    0.05,
 	SustainCooldown:   12.0,
-	SustainHandler:    "transfusion",
+	SustainHandler:    IDTransfusion,
 }
 
 // transfusionHandler validates the initial commit of Transfusion.
@@ -33,7 +33,7 @@ var transfusionDef = AbilityDef{
 func transfusionHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "not a player"}
+		return CommitResult{Reason: ReasonNotAPlayer}
 	}
 
 	if p.FluxCommit != nil && len(p.FluxCommit.Pools) > 0 {
@@ -44,7 +44,7 @@ func transfusionHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	} else {
 		flux := p.Resources[entity.ResourceFlux]
 		if flux == nil || flux.Current < transfusionDef.Costs[0].Amount {
-			return CommitResult{Reason: "insufficient flux"}
+			return CommitResult{Reason: ReasonInsufficientFlux}
 		}
 	}
 

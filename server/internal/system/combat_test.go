@@ -133,39 +133,39 @@ func TestNotInCombatAfterEnemyDies(t *testing.T) {
 
 func TestOverclockTimerExpires(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
-	p.AddBuff(entity.ActiveBuff{ID: "overclock", Type: entity.BuffCooldownMult, Value: 0.556, Duration: 7.0})
-	p.Cooldowns["overclock"] = 15.0
+	p.AddBuff(entity.ActiveBuff{ID: ability.IDOverclock, Type: entity.BuffCooldownMult, Value: 0.556, Duration: 7.0})
+	p.Cooldowns[ability.IDOverclock] = 15.0
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 	sys := CombatSystem{}
 
 	// Tick 3 seconds — still active
 	sys.Tick(w, 3.0)
-	if !p.HasBuff("overclock") {
+	if !p.HasBuff(ability.IDOverclock) {
 		t.Error("overclock should still be active after 3s")
 	}
 
 	// Tick another 5 seconds — should expire (8s total > 7s)
 	sys.Tick(w, 5.0)
-	if p.HasBuff("overclock") {
+	if p.HasBuff(ability.IDOverclock) {
 		t.Error("overclock should be inactive after 8s total")
 	}
 }
 
 func TestOverclockCooldownTicksDown(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
-	p.Cooldowns["overclock"] = 15.0
+	p.Cooldowns[ability.IDOverclock] = 15.0
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 	sys := CombatSystem{}
 
 	sys.Tick(w, 10.0)
-	if cd := p.Cooldowns["overclock"]; cd < 4.9 || cd > 5.1 {
+	if cd := p.Cooldowns[ability.IDOverclock]; cd < 4.9 || cd > 5.1 {
 		t.Errorf("overclock cooldown = %f, want ~5.0", cd)
 	}
 
 	sys.Tick(w, 10.0)
-	if cd := p.Cooldowns["overclock"]; cd != 0.0 {
+	if cd := p.Cooldowns[ability.IDOverclock]; cd != 0.0 {
 		t.Errorf("overclock cooldown = %f, want 0.0 (expired)", cd)
 	}
 }
@@ -257,17 +257,17 @@ func TestOverclockInputActivates(t *testing.T) {
 	inputSys := InputSystem{}
 	inputSys.Tick(w, 0.05)
 
-	if !p.HasBuff("overclock") {
+	if !p.HasBuff(ability.IDOverclock) {
 		t.Error("overclock should be active after input")
 	}
-	if p.Cooldowns["overclock"] != 15.0 {
-		t.Errorf("overclock cooldown = %f, want 15.0", p.Cooldowns["overclock"])
+	if p.Cooldowns[ability.IDOverclock] != 15.0 {
+		t.Errorf("overclock cooldown = %f, want 15.0", p.Cooldowns[ability.IDOverclock])
 	}
 }
 
 func TestOverclockBlockedDuringCooldown(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
-	p.Cooldowns["overclock"] = 5.0
+	p.Cooldowns[ability.IDOverclock] = 5.0
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 	payload := []byte{entity.ActionOverclock, 0, 0, 0, 0}
@@ -275,14 +275,14 @@ func TestOverclockBlockedDuringCooldown(t *testing.T) {
 	inputSys := InputSystem{}
 	inputSys.Tick(w, 0.05)
 
-	if p.HasBuff("overclock") {
+	if p.HasBuff(ability.IDOverclock) {
 		t.Error("overclock should not activate during cooldown")
 	}
 }
 
 func TestOverclockFireRateBoost(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
-	p.AddBuff(entity.ActiveBuff{ID: "overclock", Type: entity.BuffCooldownMult, Value: 0.556, Duration: 7.0})
+	p.AddBuff(entity.ActiveBuff{ID: ability.IDOverclock, Type: entity.BuffCooldownMult, Value: 0.556, Duration: 7.0})
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5}
 
 	e := entity.NewEnemy(0, 2000.0, "guard_captain")
@@ -296,7 +296,7 @@ func TestOverclockFireRateBoost(t *testing.T) {
 	inputSys.Tick(w, 0.05)
 
 	// With overclock buff (cooldown_mult = 0.556), fire_shot cooldown = 0.18 * 0.556 ~ 0.10
-	cd := p.Cooldowns["fire_shot"]
+	cd := p.Cooldowns[ability.IDFireShot]
 	if cd < 0.09 || cd > 0.11 {
 		t.Errorf("fire cooldown = %f, want ~0.10 (overclock)", cd)
 	}
@@ -314,8 +314,8 @@ func TestRechamberInputStartsWindup(t *testing.T) {
 	if p.GetAbilityPhase("rechamber") != 1 {
 		t.Errorf("rechamber phase = %d, want 1 (windup)", p.GetAbilityPhase("rechamber"))
 	}
-	if p.Cooldowns["fire_shot"] != 0.6 {
-		t.Errorf("fire cooldown = %f, want 0.6 (locked during windup)", p.Cooldowns["fire_shot"])
+	if p.Cooldowns[ability.IDFireShot] != 0.6 {
+		t.Errorf("fire cooldown = %f, want 0.6 (locked during windup)", p.Cooldowns[ability.IDFireShot])
 	}
 }
 
@@ -357,7 +357,7 @@ func TestRechamberConfirmOutsideWindowIgnored(t *testing.T) {
 
 func TestRechamberBlockedDuringFireCooldown(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
-	p.Cooldowns["fire_shot"] = 0.1
+	p.Cooldowns[ability.IDFireShot] = 0.1
 
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 	payload := []byte{entity.ActionRechamber, 0, 0, 0, 0}
@@ -2204,7 +2204,7 @@ func TestSetLoadout_UpdatesActionMap(t *testing.T) {
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 
 	// New loadout swaps slot 0 and clears slot 5
-	newSlots := [6]string{"vital_bloom", "mending_beam", "mending_surge", "restoration_matrix", "life_swap", ""}
+	newSlots := [6]string{ability.IDVitalBloom, ability.IDMendingBeam, ability.IDMendingSurge, ability.IDRestorationMatrix, ability.IDLifeSwap, ""}
 	payload := codec.EncodeLoadoutState(newSlots)
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpSetLoadout, Payload: payload}}
 
@@ -2212,15 +2212,15 @@ func TestSetLoadout_UpdatesActionMap(t *testing.T) {
 	is.Tick(w, 0.05)
 
 	// Slot 0 → action 50 should now be vital_bloom
-	if p.ActionMap[50] != "vital_bloom" {
+	if p.ActionMap[50] != ability.IDVitalBloom {
 		t.Errorf("action 50 = %q, want 'vital_bloom'", p.ActionMap[50])
 	}
 	// Slot 2 → action 52 should be mending_surge
-	if p.ActionMap[52] != "mending_surge" {
+	if p.ActionMap[52] != ability.IDMendingSurge {
 		t.Errorf("action 52 = %q, want 'mending_surge'", p.ActionMap[52])
 	}
 	// Loadout should be updated
-	if p.Loadout.Slots[0] != "vital_bloom" {
+	if p.Loadout.Slots[0] != ability.IDVitalBloom {
 		t.Errorf("loadout slot 0 = %q, want 'vital_bloom'", p.Loadout.Slots[0])
 	}
 }
@@ -2237,7 +2237,7 @@ func TestSetLoadout_EmptySlotNotAdded(t *testing.T) {
 	}
 
 	// Send loadout with slot 5 empty
-	newSlots := [6]string{"mending_surge", "mending_beam", "vital_bloom", "restoration_matrix", "life_swap", ""}
+	newSlots := [6]string{ability.IDMendingSurge, ability.IDMendingBeam, ability.IDVitalBloom, ability.IDRestorationMatrix, ability.IDLifeSwap, ""}
 	payload := codec.EncodeLoadoutState(newSlots)
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpSetLoadout, Payload: payload}}
 
@@ -2282,7 +2282,7 @@ func TestSetLoadout_InvalidPayload(t *testing.T) {
 func TestSetLoadout_UnknownPlayer(_ *testing.T) {
 	w := makeWorld(map[uint16]*entity.Player{}, nil)
 
-	newSlots := [6]string{"mending_surge", "", "", "", "", ""}
+	newSlots := [6]string{ability.IDMendingSurge, "", "", "", "", ""}
 	payload := codec.EncodeLoadoutState(newSlots)
 	// PeerID 99 does not exist
 	w.InputQueue = []InputMsg{{PeerID: 99, Opcode: message.OpSetLoadout, Payload: payload}}
@@ -2302,7 +2302,7 @@ func TestSetLoadout_NilLoadoutCreated(t *testing.T) {
 		t.Fatal("precondition: gunner should not have a loadout")
 	}
 
-	newSlots := [6]string{"fire_shot", "", "", "", "", ""}
+	newSlots := [6]string{ability.IDFireShot, "", "", "", "", ""}
 	payload := codec.EncodeLoadoutState(newSlots)
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpSetLoadout, Payload: payload}}
 
@@ -2312,10 +2312,10 @@ func TestSetLoadout_NilLoadoutCreated(t *testing.T) {
 	if p.Loadout == nil {
 		t.Fatal("loadout should be created when nil")
 	}
-	if p.Loadout.Slots[0] != "fire_shot" {
+	if p.Loadout.Slots[0] != ability.IDFireShot {
 		t.Errorf("slot 0 = %q, want 'fire_shot'", p.Loadout.Slots[0])
 	}
-	if p.ActionMap[50] != "fire_shot" {
+	if p.ActionMap[50] != ability.IDFireShot {
 		t.Errorf("action 50 = %q, want 'fire_shot'", p.ActionMap[50])
 	}
 }
@@ -2342,9 +2342,9 @@ func TestSetLoadout_RejectsNonExistentAbility(t *testing.T) {
 	p := newHarmonistPlayer(1)
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 
-	original50 := p.ActionMap[50] // "mending_surge"
+	original50 := p.ActionMap[50] // ability.IDMendingSurge
 
-	newSlots := [6]string{"totally_fake_ability", "mending_beam", "vital_bloom", "restoration_matrix", "life_swap", "transfusion"}
+	newSlots := [6]string{"totally_fake_ability", ability.IDMendingBeam, ability.IDVitalBloom, ability.IDRestorationMatrix, ability.IDLifeSwap, ability.IDTransfusion}
 	payload := codec.EncodeLoadoutState(newSlots)
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpSetLoadout, Payload: payload}}
 
@@ -2361,14 +2361,14 @@ func TestSetLoadout_RejectsNonExistentAbility(t *testing.T) {
 func TestSetLoadout_RejectsUnimplementedAbility(t *testing.T) {
 	// "fireball" exists in the ability catalog YAML but has implemented: false.
 	// A player should not be able to slot unimplemented abilities.
-	// Expected: server rejects the loadout; ActionMap[50] stays "mending_surge".
+	// Expected: server rejects the loadout; ActionMap[50] stays ability.IDMendingSurge.
 	// Actual: "fireball" is written into ActionMap[50].
 	p := newHarmonistPlayer(1)
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 
 	original50 := p.ActionMap[50]
 
-	newSlots := [6]string{"fireball", "mending_beam", "vital_bloom", "restoration_matrix", "life_swap", "transfusion"}
+	newSlots := [6]string{"fireball", ability.IDMendingBeam, ability.IDVitalBloom, ability.IDRestorationMatrix, ability.IDLifeSwap, ability.IDTransfusion}
 	payload := codec.EncodeLoadoutState(newSlots)
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpSetLoadout, Payload: payload}}
 
@@ -2396,7 +2396,7 @@ func TestSetLoadout_ClearsStaleActionMapOnEmptySlot(t *testing.T) {
 		t.Fatalf("precondition: ActionMap[55] = %q, want vital_drain", p.ActionMap[55])
 	}
 
-	newSlots := [6]string{"mending_surge", "mending_beam", "vital_bloom", "restoration_matrix", "life_swap", ""}
+	newSlots := [6]string{ability.IDMendingSurge, ability.IDMendingBeam, ability.IDVitalBloom, ability.IDRestorationMatrix, ability.IDLifeSwap, ""}
 	payload := codec.EncodeLoadoutState(newSlots)
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpSetLoadout, Payload: payload}}
 
@@ -2415,13 +2415,13 @@ func TestAbilityInput_StaleBindingFiresAfterSlotClear(t *testing.T) {
 	// 1. Player clears slot 5 (was transfusion).
 	// 2. Client sends AbilityInput for action 55 (the cleared slot).
 	// Expected: ability does NOT fire — slot is empty.
-	// Actual: stale "transfusion" binding in ActionMap routes to the engine,
+	// Actual: stale ability.IDTransfusion binding in ActionMap routes to the engine,
 	// which starts a runner for transfusion even though the player unequipped it.
 	p := newHarmonistPlayer(1)
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 
 	// Step 1: clear slot 5
-	newSlots := [6]string{"mending_surge", "mending_beam", "vital_bloom", "restoration_matrix", "life_swap", ""}
+	newSlots := [6]string{ability.IDMendingSurge, ability.IDMendingBeam, ability.IDVitalBloom, ability.IDRestorationMatrix, ability.IDLifeSwap, ""}
 	payload := codec.EncodeLoadoutState(newSlots)
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpSetLoadout, Payload: payload}}
 	is := &InputSystem{}
@@ -2443,14 +2443,14 @@ func TestAbilityInput_StaleBindingFiresAfterSlotClear(t *testing.T) {
 func TestSetLoadout_GunnerAbilityOnHarmonist(t *testing.T) {
 	// A modified client sends fire_shot (gunner ability) in a harmonist loadout.
 	// Expected: server rejects — fire_shot is not in the harmonist's class codex.
-	// Actual: "fire_shot" is written into ActionMap[50]. The player can now commit
+	// Actual: ability.IDFireShot is written into ActionMap[50]. The player can now commit
 	// a gunner ability as a healer because there is no class-membership check.
 	p := newHarmonistPlayer(1)
 	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
 
 	original50 := p.ActionMap[50]
 
-	newSlots := [6]string{"fire_shot", "mending_beam", "vital_bloom", "restoration_matrix", "life_swap", "transfusion"}
+	newSlots := [6]string{ability.IDFireShot, ability.IDMendingBeam, ability.IDVitalBloom, ability.IDRestorationMatrix, ability.IDLifeSwap, ability.IDTransfusion}
 	payload := codec.EncodeLoadoutState(newSlots)
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpSetLoadout, Payload: payload}}
 

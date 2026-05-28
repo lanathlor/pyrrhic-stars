@@ -5,6 +5,18 @@ import (
 	"strings"
 )
 
+// Condition name constants.
+const (
+	CondDefault  = "default"
+	CondBossDead = "boss_dead"
+)
+
+// Enemy definition name constants used in arena spawn data.
+const (
+	EnemyHallwayMelee  = "hallway_melee"
+	EnemyHallwayRanged = "hallway_ranged"
+)
+
 // ZoneState captures the zone progression needed to evaluate spawn conditions.
 type ZoneState struct {
 	BossDefeated bool
@@ -15,9 +27,9 @@ type ZoneState struct {
 // Empty string or "default" always returns true.
 func EvalCondition(cond string, state ZoneState) bool {
 	switch cond {
-	case "", "default":
+	case "", CondDefault:
 		return true
-	case "boss_dead":
+	case CondBossDead:
 		return state.BossDefeated
 	}
 	// "pack_N_cleared" pattern
@@ -35,7 +47,7 @@ func EvalCondition(cond string, state ZoneState) bool {
 // Higher rank = further into the dungeon. Used to pick the best checkpoint.
 func ConditionPriority(cond string) int {
 	switch {
-	case cond == "" || cond == "default":
+	case cond == "" || cond == CondDefault:
 		return 0
 	case strings.HasPrefix(cond, "pack_") && strings.HasSuffix(cond, "_cleared"):
 		var n int
@@ -44,7 +56,7 @@ func ConditionPriority(cond string) int {
 			return n // pack_1 = 1, pack_2 = 2, etc.
 		}
 		return 0
-	case cond == "boss_dead":
+	case cond == CondBossDead:
 		return 100
 	default:
 		return 0

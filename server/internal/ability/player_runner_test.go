@@ -303,7 +303,7 @@ func TestPlayerRunner_ReStartAfterFullCycle(t *testing.T) {
 
 func testSustainAbilityDef() *AbilityDef {
 	return &AbilityDef{
-		ID:                "test_sustain",
+		ID:                tcTestSustain,
 		Name:              "Test Sustain",
 		CommitTime:        1.0,
 		ExecuteTime:       0.1,
@@ -420,7 +420,7 @@ func TestPlayerRunner_StartSustainDirect(t *testing.T) {
 	if r.Phase != PRunnerSustain {
 		t.Fatalf("expected PRunnerSustain, got %d", r.Phase)
 	}
-	if r.AbilityID != "test_sustain" {
+	if r.AbilityID != tcTestSustain {
 		t.Fatalf("expected AbilityID 'test_sustain', got %q", r.AbilityID)
 	}
 	if r.SustainStartPos != pos {
@@ -471,7 +471,7 @@ func TestPlayerRunner_SustainSyncToPlayer(t *testing.T) {
 	if p.ChannelPhase != uint8(PRunnerSustain) {
 		t.Errorf("ChannelPhase = %d, want %d", p.ChannelPhase, PRunnerSustain)
 	}
-	if p.ChannelAbilityID != "test_sustain" {
+	if p.ChannelAbilityID != tcTestSustain {
 		t.Errorf("ChannelAbilityID = %q, want 'test_sustain'", p.ChannelAbilityID)
 	}
 	// Charge should reflect scaling: 1.0 + 1.0 * 0.05 = 1.05
@@ -702,7 +702,7 @@ func TestPlayerRunner_StartSustainOverwritesBusy(t *testing.T) {
 	if r.Phase != PRunnerSustain {
 		t.Fatalf("expected PRunnerSustain after forced start, got %d", r.Phase)
 	}
-	if r.AbilityID != "test_sustain" {
+	if r.AbilityID != tcTestSustain {
 		t.Errorf("AbilityID = %q, want 'test_sustain'", r.AbilityID)
 	}
 }

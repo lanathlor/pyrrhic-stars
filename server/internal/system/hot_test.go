@@ -3,6 +3,7 @@ package system
 import (
 	"testing"
 
+	"codex-online/server/internal/ability"
 	"codex-online/server/internal/entity"
 )
 
@@ -10,7 +11,7 @@ func TestHoT_TicksHealTarget(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassArcanotechnicien)
 	p.Health = 100
 	p.HoTs = append(p.HoTs, entity.ActiveHoT{
-		ID:          "regen_protocol",
+		ID:          ability.IDRegenProtocol,
 		SourcePeer:  99,
 		HealPerTick: 10,
 		Remaining:   5.0,
@@ -35,7 +36,7 @@ func TestHoT_Expires(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassArcanotechnicien)
 	p.Health = 100
 	p.HoTs = append(p.HoTs, entity.ActiveHoT{
-		ID:          "regen_protocol",
+		ID:          ability.IDRegenProtocol,
 		SourcePeer:  99,
 		HealPerTick: 10,
 		Remaining:   0.5,
@@ -62,7 +63,7 @@ func TestHoT_BurstAtLowHP(t *testing.T) {
 	p.Health = 40 // 20% — below 30% threshold
 
 	p.HoTs = append(p.HoTs, entity.ActiveHoT{
-		ID:             "regen_protocol",
+		ID:             ability.IDRegenProtocol,
 		SourcePeer:     99,
 		HealPerTick:    10,
 		Remaining:      10.0, // 10 ticks remaining

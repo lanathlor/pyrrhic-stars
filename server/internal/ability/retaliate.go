@@ -25,14 +25,14 @@ var retaliateDef = AbilityDef{
 func retaliateHandler(eng *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
 	if p.GCDTimer > 0 {
-		return CommitResult{Reason: "gcd"}
+		return CommitResult{Reason: ReasonGCD}
 	}
 
 	// Retaliate drops guard
-	if p.HasBuff("vg_shield_block") {
+	if p.HasBuff(IDVgShieldBlock) {
 		EndVgShieldBlock(p)
 	}
 

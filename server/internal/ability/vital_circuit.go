@@ -5,7 +5,7 @@ import "codex-online/server/internal/entity"
 var vitalCircuitDef = AbilityDef{
 	ID:       "vital_circuit",
 	Name:     "Vital Circuit",
-	School:   "biometabolic",
+	School:   entity.SchoolBiometabolic,
 	Hit:      HitDef{Type: HitAllyTarget, Range: 15},
 	GCD:      0.8,
 	Cooldown: 15.0,
@@ -17,7 +17,7 @@ var vitalCircuitDef = AbilityDef{
 func vitalCircuitHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "not a player"}
+		return CommitResult{Reason: ReasonNotAPlayer}
 	}
 
 	// Validate flux
@@ -29,7 +29,7 @@ func vitalCircuitHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	} else {
 		flux := p.Resources[entity.ResourceFlux]
 		if flux == nil || flux.Current < vitalCircuitDef.Costs[0].Amount {
-			return CommitResult{Reason: "insufficient flux"}
+			return CommitResult{Reason: ReasonInsufficientFlux}
 		}
 	}
 
@@ -41,7 +41,7 @@ func vitalCircuitHandler(_ *Engine, ctx *CommitContext) CommitResult {
 		}
 	}
 	if target == nil {
-		return CommitResult{Reason: "no valid target"}
+		return CommitResult{Reason: ReasonNoValidTarget}
 	}
 
 	p.SpendFluxBySchool(vitalCircuitDef.School, vitalCircuitDef.Costs[0].Amount)

@@ -3,27 +3,27 @@ package ability
 import "codex-online/server/internal/entity"
 
 var overclockDef = AbilityDef{
-	ID: "overclock", Name: "Overclock",
-	Handler: "overclock",
+	ID: IDOverclock, Name: "Overclock",
+	Handler: IDOverclock,
 }
 
 func overclockHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
-	if p.HasBuff("overclock") {
+	if p.HasBuff(IDOverclock) {
 		return CommitResult{Reason: "already active"}
 	}
-	if cd := p.Cooldowns["overclock"]; cd > 0 {
-		return CommitResult{Reason: "cooldown"}
+	if cd := p.Cooldowns[IDOverclock]; cd > 0 {
+		return CommitResult{Reason: ReasonCooldown}
 	}
 	p.AddBuff(entity.ActiveBuff{
-		ID:       "overclock",
+		ID:       IDOverclock,
 		Type:     entity.BuffCooldownMult,
 		Value:    0.556, // 0.10/0.18 ~ 0.556
 		Duration: 7.0,
 	})
-	p.Cooldowns["overclock"] = 15.0
+	p.Cooldowns[IDOverclock] = 15.0
 	return CommitResult{OK: true}
 }

@@ -343,17 +343,17 @@ func initArcanotechnicien(p *Player, spec *SpecDef, resources map[string]Resourc
 	}
 
 	// Initialize flux commitment: distribute total flux across schools.
-	if fluxRes, ok := resources["flux"]; ok {
+	if fluxRes, ok := resources[ResourceFlux]; ok {
 		p.FluxCommit = &FluxCommitment{
 			TotalMax:   fluxRes.Max,
 			TotalRegen: fluxRes.Regen,
 		}
 		if spec.ID == SpecHarmonist {
 			p.FluxCommit.SetCommitment(map[string]float32{
-				"bioarcanotechnic": 0.5,
-				"biometabolic":     0.3,
-				"frost":            0.1,
-				"aerokinetic":      0.1,
+				SchoolBioarcanotechnic: 0.5,
+				SchoolBiometabolic:     0.3,
+				SchoolFrost:            0.1,
+				SchoolAerokinetic:      0.1,
 			})
 		}
 	}
@@ -416,8 +416,8 @@ func (p *Player) RecalcStats() {
 	identity := p.GearStats.Identity
 	switch p.ClassID {
 	case ClassVanguard:
-		if r := p.Resources["stamina"]; r != nil {
-			tmpl := res["stamina"]
+		if r := p.Resources[ResourceStamina]; r != nil {
+			tmpl := res[ResourceStamina]
 			r.Max = tmpl.Max + identity
 			r.Regen = tmpl.Regen * (1.0 + identity/100.0)
 		}
@@ -434,8 +434,8 @@ func (p *Player) RecalcStats() {
 			r.Regen = tmpl.Regen * (1.0 / (1.0 + identity/100.0))
 		}
 	case ClassArcanotechnicien:
-		if r := p.Resources["flux"]; r != nil {
-			tmpl := res["flux"]
+		if r := p.Resources[ResourceFlux]; r != nil {
+			tmpl := res[ResourceFlux]
 			r.Max = tmpl.Max * (1.0 + identity/100.0)
 			r.Regen = tmpl.Regen * (1.0 + identity/200.0)
 		}
@@ -575,7 +575,7 @@ func (p *Player) SpendFluxBySchool(school string, baseAmount float32) bool {
 		p.SyncFluxAggregate()
 		return true
 	}
-	return p.SpendResource("flux", amount)
+	return p.SpendResource(ResourceFlux, amount)
 }
 
 // SetAllFluxPoolsCurrent sets Current on every commitment pool and syncs the aggregate.
@@ -599,7 +599,7 @@ func (p *Player) SyncFluxAggregate() {
 	if p.FluxCommit == nil {
 		return
 	}
-	r := p.Resources["flux"]
+	r := p.Resources[ResourceFlux]
 	if r == nil {
 		return
 	}
@@ -677,7 +677,7 @@ func (p *Player) ApplyDamage(amount float32) float32 {
 	}
 
 	// Shield absorb
-	if shield, ok := p.Resources["shield"]; ok && shield.Current > 0 {
+	if shield, ok := p.Resources[ResourceShield]; ok && shield.Current > 0 {
 		if amount <= shield.Current {
 			shield.Current -= amount
 			return amount // fully absorbed
@@ -744,7 +744,7 @@ func (p *Player) applyShieldBlockDrain(preDR float32) {
 		drainFraction *= 0.2 // Brace reduces drain to 20% of normal
 	}
 	staminaDrain := preDR * drainFraction * p.TenacityEfficiency()
-	if stamina := p.Resources["stamina"]; stamina != nil {
+	if stamina := p.Resources[ResourceStamina]; stamina != nil {
 		stamina.Current -= staminaDrain
 		if stamina.Current < 0 {
 			stamina.Current = 0

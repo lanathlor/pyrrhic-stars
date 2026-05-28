@@ -3,28 +3,28 @@ package ability
 import "codex-online/server/internal/entity"
 
 var overclockATDef = AbilityDef{
-	ID:       "overclock_at",
+	ID:       IDOverclockAT,
 	Name:     "Overclock",
-	School:   "bioarcanotechnic",
+	School:   entity.SchoolBioarcanotechnic,
 	Hit:      HitDef{Type: HitAllyTarget},
 	GCD:      0.8,
 	Cooldown: 15.0,
 	Costs:    []ResourceCost{{Resource: entity.ResourceFlux, Amount: 30}},
 	Delivery: uint8(entity.DeliveryDirect),
-	Handler:  "overclock_at",
+	Handler:  IDOverclockAT,
 }
 
 func overclockATHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
 
 	// Validate flux (engine already checked, but handler owns the spend).
 	if p.FluxCommit != nil && len(p.FluxCommit.Pools) > 0 {
 		pool := p.FluxCommit.GetPool(overclockATDef.School)
 		if pool == nil || pool.Current < overclockATDef.Costs[0].Amount*p.AffinityCostMult(overclockATDef.School) {
-			return CommitResult{Reason: "insufficient bioarcanotechnic flux"}
+			return CommitResult{Reason: "insufficient " + overclockATDef.School + " flux"}
 		}
 	}
 
@@ -39,7 +39,7 @@ func overclockATHandler(_ *Engine, ctx *CommitContext) CommitResult {
 
 	// Set GCD and cooldown.
 	p.GCDTimer = overclockATDef.GCD
-	p.Cooldowns["overclock_at"] = overclockATDef.Cooldown
+	p.Cooldowns[IDOverclockAT] = overclockATDef.Cooldown
 
 	// Confluence: grant stack on ability completion.
 	if p.Confluence != nil {

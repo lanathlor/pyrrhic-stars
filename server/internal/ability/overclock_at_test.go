@@ -86,7 +86,7 @@ func TestOverclockAT(t *testing.T) {
 			wantFlux:       50,
 		},
 		{
-			name: "grants confluence stack",
+			name: tcGrantsConfluence,
 			setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 				caster := newHarmonist(1)
 				ally := entity.NewPlayer(2, entity.ClassGunner)
@@ -117,7 +117,7 @@ func TestOverclockAT(t *testing.T) {
 			wantFlux:       50,
 		},
 		{
-			name: "rejects on insufficient flux",
+			name: tcRejectsInsufficientFlux,
 			setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 				caster := newHarmonist(1)
 				caster.SetAllFluxPoolsCurrent(5)
@@ -126,11 +126,11 @@ func TestOverclockAT(t *testing.T) {
 				return caster, allies, 2
 			},
 			wantOK:     false,
-			wantReason: "insufficient bioarcanotechnic flux",
+			wantReason: tcInsufficientBioarcanotechnicFlux,
 			wantFlux:   -1,
 		},
 		{
-			name: "rejects on GCD",
+			name: tcRejectsGCD,
 			setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 				caster := newHarmonist(1)
 				caster.GCDTimer = 0.5
@@ -139,20 +139,20 @@ func TestOverclockAT(t *testing.T) {
 				return caster, allies, 2
 			},
 			wantOK:     false,
-			wantReason: "gcd",
+			wantReason: ReasonGCD,
 			wantFlux:   -1,
 		},
 		{
-			name: "rejects on cooldown",
+			name: tcRejectsCooldown,
 			setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 				caster := newHarmonist(1)
-				caster.Cooldowns["overclock_at"] = 1.0
+				caster.Cooldowns[IDOverclockAT] = 1.0
 				ally := entity.NewPlayer(2, entity.ClassGunner)
 				allies := map[uint16]*entity.Player{1: caster, 2: ally}
 				return caster, allies, 2
 			},
 			wantOK:     false,
-			wantReason: "cooldown",
+			wantReason: ReasonCooldown,
 			wantFlux:   -1,
 		},
 	}
@@ -161,7 +161,7 @@ func TestOverclockAT(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			caster, allies, targetPeer := tt.setup()
 
-			result := eng.Commit("overclock_at", &CommitContext{
+			result := eng.Commit(IDOverclockAT, &CommitContext{
 				Committer:    caster,
 				Allies:       allies,
 				TargetPeerID: targetPeer,
@@ -232,7 +232,7 @@ func TestOverclockAT(t *testing.T) {
 
 			// Check cooldown
 			if tt.wantCooldown {
-				if cd, ok := caster.Cooldowns["overclock_at"]; !ok || cd <= 0 {
+				if cd, ok := caster.Cooldowns[IDOverclockAT]; !ok || cd <= 0 {
 					t.Error("expected cooldown to be set")
 				} else if cd != 15.0 {
 					t.Errorf("cooldown = %v, want 15.0", cd)

@@ -26,16 +26,16 @@ var shieldBashDef = AbilityDef{
 func shieldBashHandler(eng *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
 	if p.GCDTimer > 0 {
-		return CommitResult{Reason: "gcd"}
+		return CommitResult{Reason: ReasonGCD}
 	}
 
 	// Higher cost and slower GCD while blocking
 	staminaCost := shieldBashStamina
 	gcd := shieldBashGCD
-	if p.HasBuff("vg_shield_block") {
+	if p.HasBuff(IDVgShieldBlock) {
 		staminaCost = shieldBashBlockedStamina
 		gcd = shieldBashBlockedGCD
 	}

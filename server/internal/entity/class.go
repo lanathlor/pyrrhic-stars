@@ -10,13 +10,52 @@ const (
 
 // Spec name constants.
 const (
-	SpecHarmonist = "harmonist"
-	SpecShield    = "shield"
+	SpecHarmonist  = "harmonist"
+	SpecShield     = "shield"
+	SpecDestroyer  = "destroyer"
+	SpecBattlemage = "battlemage"
+	SpecBlade      = "blade"
+	SpecShadow     = "shadow"
+	SpecAssault    = "assault"
+)
+
+// Role constants.
+const (
+	RoleDPS    = "DPS"
+	RoleHealer = "Healer"
+	RoleTank   = "Tank"
+)
+
+// School name constants.
+const (
+	SchoolBioarcanotechnic = "bioarcanotechnic"
+	SchoolBiometabolic     = "biometabolic"
+	SchoolFrost            = "frost"
+	SchoolFire             = "fire"
+	SchoolElectricity      = "electricity"
+	SchoolAerokinetic      = "aerokinetic"
+	SchoolPure             = "pure"
+	SchoolShadow           = "shadow"
+	SchoolGravitonic       = "gravitonic"
+	SchoolMartial          = "martial"
+	SchoolHydrodynamic     = "hydrodynamic"
 )
 
 // Resource name constants.
 const (
-	ResourceFlux = "flux"
+	ResourceFlux    = "flux"
+	ResourceStamina = "stamina"
+	ResourceShield  = "shield"
+)
+
+// Ability ID constants referenced in class definitions.
+const (
+	AbilityDodge       = "dodge"
+	AbilityVgBlock     = "vg_block"
+	AbilityVgBlockStop = "vg_block_stop"
+	AbilityVortex      = "vortex"
+	AbilityExecution   = "execution"
+	AbilityMendingBeam = "mending_beam"
 )
 
 // ClassMovement holds per-class movement tuning.

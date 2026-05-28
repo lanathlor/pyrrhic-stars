@@ -80,7 +80,7 @@ func TestVitalCircuit(t *testing.T) {
 		}
 	})
 
-	t.Run("grants confluence stack", func(t *testing.T) {
+	t.Run(tcGrantsConfluence, func(t *testing.T) {
 		caster := newHarmonist(1)
 		ally := newHarmonist(2)
 		allies := map[uint16]*entity.Player{1: caster, 2: ally}
@@ -111,12 +111,12 @@ func TestVitalCircuit(t *testing.T) {
 		if result.OK {
 			t.Fatal("should reject without valid target")
 		}
-		if result.Reason != "no valid target" {
-			t.Errorf("Reason = %q, want %q", result.Reason, "no valid target")
+		if result.Reason != ReasonNoValidTarget {
+			t.Errorf("Reason = %q, want %q", result.Reason, ReasonNoValidTarget)
 		}
 	})
 
-	t.Run("rejects on insufficient flux", func(t *testing.T) {
+	t.Run(tcRejectsInsufficientFlux, func(t *testing.T) {
 		caster := newHarmonist(1)
 		caster.SetAllFluxPoolsCurrent(2)
 		ally := newHarmonist(2)

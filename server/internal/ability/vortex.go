@@ -7,8 +7,8 @@ import (
 
 // Vortex — forward advancing spin. Multi-hit along path.
 var bladeSwirlDef = AbilityDef{
-	ID: "vortex", Name: "Vortex",
-	Handler: "vortex",
+	ID: IDVortex, Name: "Vortex",
+	Handler: IDVortex,
 }
 
 // Vortex tier tuning.
@@ -41,10 +41,10 @@ type VortexState struct {
 func vortexHandler(eng *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
-	if p.Cooldowns["vortex"] > 0 || p.GCDTimer > 0 {
-		return CommitResult{Reason: "cooldown"}
+	if p.Cooldowns[IDVortex] > 0 || p.GCDTimer > 0 {
+		return CommitResult{Reason: ReasonCooldown}
 	}
 	if !p.SpendResource("stamina", vortexStaminaCost*p.TenacityEfficiency()) {
 		return CommitResult{Reason: ReasonInsufficientStamina}
@@ -60,12 +60,12 @@ func vortexHandler(eng *Engine, ctx *CommitContext) CommitResult {
 	state.TotalHits = tuning.hits
 	state.HitsDone = 0
 
-	p.Cooldowns["vortex"] = vortexCooldown
+	p.Cooldowns[IDVortex] = vortexCooldown
 	p.GCDTimer = tuning.duration
 	p.State = entity.PlayerStateAttack
 
 	p.AddBuff(entity.ActiveBuff{
-		ID:       "vortex",
+		ID:       IDVortex,
 		Type:     entity.BuffDamageReduction,
 		Value:    0.8,
 		Duration: tuning.duration,
@@ -131,10 +131,10 @@ func vortexTick(eng *Engine, p *entity.Player, dt float32, ctx *TickContext) []D
 }
 
 func getVortexState(p *entity.Player) *VortexState {
-	if s, ok := p.AbilityState["vortex"].(*VortexState); ok {
+	if s, ok := p.AbilityState[IDVortex].(*VortexState); ok {
 		return s
 	}
 	s := &VortexState{}
-	p.AbilityState["vortex"] = s
+	p.AbilityState[IDVortex] = s
 	return s
 }

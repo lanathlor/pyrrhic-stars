@@ -3,21 +3,21 @@ package ability
 import "codex-online/server/internal/entity"
 
 var lastBreathDef = AbilityDef{
-	ID:       "last_breath",
+	ID:       IDLastBreath,
 	Name:     "Last Breath",
-	School:   "biometabolic",
+	School:   entity.SchoolBiometabolic,
 	Hit:      HitDef{Type: HitAllyTarget},
 	GCD:      0.8,
 	Cooldown: 60.0,
 	Costs:    []ResourceCost{{Resource: entity.ResourceFlux, Amount: 45}},
 	Delivery: uint8(entity.DeliveryDirect),
-	Handler:  "last_breath",
+	Handler:  IDLastBreath,
 }
 
 func lastBreathHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "not a player"}
+		return CommitResult{Reason: ReasonNotAPlayer}
 	}
 
 	// Validate flux
@@ -29,7 +29,7 @@ func lastBreathHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	} else {
 		flux := p.Resources[entity.ResourceFlux]
 		if flux == nil || flux.Current < lastBreathDef.Costs[0].Amount {
-			return CommitResult{Reason: "insufficient flux"}
+			return CommitResult{Reason: ReasonInsufficientFlux}
 		}
 	}
 
@@ -46,7 +46,7 @@ func lastBreathHandler(_ *Engine, ctx *CommitContext) CommitResult {
 
 	p.SpendFluxBySchool(lastBreathDef.School, lastBreathDef.Costs[0].Amount)
 	p.GCDTimer = lastBreathDef.GCD
-	p.Cooldowns["last_breath"] = lastBreathDef.Cooldown
+	p.Cooldowns[IDLastBreath] = lastBreathDef.Cooldown
 
 	if p.Confluence != nil {
 		p.Confluence.OnAbilityComplete()
@@ -54,7 +54,7 @@ func lastBreathHandler(_ *Engine, ctx *CommitContext) CommitResult {
 
 	// Apply death prevention buff
 	target.AddBuff(entity.ActiveBuff{
-		ID:       "last_breath",
+		ID:       IDLastBreath,
 		Type:     entity.BuffDeathPrevention,
 		Duration: 4.0,
 	})

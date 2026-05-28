@@ -249,7 +249,7 @@ func TestLoadLevelData_V3Features(t *testing.T) {
 	if len(l.PlayerSpawns) != 3 {
 		t.Fatalf("player spawns = %d, want 3", len(l.PlayerSpawns))
 	}
-	if l.PlayerSpawns[1].Condition != "pack_1_cleared" {
+	if l.PlayerSpawns[1].Condition != testCondPack1Cleared {
 		t.Errorf("spawn[1] condition = %q, want pack_1_cleared", l.PlayerSpawns[1].Condition)
 	}
 	if l.PlayerSpawns[2].Condition != "boss_dead" {

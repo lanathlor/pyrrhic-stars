@@ -3,9 +3,9 @@ package ability
 import "codex-online/server/internal/entity"
 
 var mendingSurgeDef = AbilityDef{
-	ID:     "mending_surge",
+	ID:     IDMendingSurge,
 	Name:   "Mending Surge",
-	School: "bioarcanotechnic",
+	School: entity.SchoolBioarcanotechnic,
 	Hit: HitDef{
 		Type: HitAllyTarget,
 	},
@@ -17,13 +17,13 @@ var mendingSurgeDef = AbilityDef{
 	BaseHeal:    35,
 	HealScaling: "identity",
 	Delivery:    uint8(entity.DeliveryDirect),
-	Handler:     "mending_surge",
+	Handler:     IDMendingSurge,
 }
 
 func mendingSurgeHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
 
 	result := resolveHeal(&mendingSurgeDef, p, ctx.Allies, ctx.TargetPeerID)
@@ -32,7 +32,7 @@ func mendingSurgeHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p.SpendFluxBySchool(mendingSurgeDef.School, mendingSurgeDef.Costs[0].Amount)
 	p.GCDTimer = mendingSurgeDef.GCD
 	if mendingSurgeDef.Cooldown > 0 {
-		p.Cooldowns["mending_surge"] = mendingSurgeDef.Cooldown
+		p.Cooldowns[IDMendingSurge] = mendingSurgeDef.Cooldown
 	}
 
 	// Confluence: grant stack on ability completion.

@@ -15,6 +15,14 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// YAML ability type constants.
+const (
+	TypeMelee  = "melee"
+	TypeRanged = "ranged"
+	TypeAoE    = "aoe"
+	TypeCharge = "charge"
+)
+
 // mobFile is the YAML schema for a Tier 1 mob definition.
 type mobFile struct {
 	Name           string        `yaml:"name"`
@@ -282,7 +290,7 @@ func convertAbility(af abilityFile) (ability.AbilityDef, error) {
 
 func applyAbilityCategory(ad *ability.AbilityDef, af abilityFile) error {
 	switch af.Type {
-	case "melee":
+	case TypeMelee:
 		ad.Category = ability.CategoryMelee
 		ad.BaseDamage = af.MeleeDamage
 		ad.Hit = ability.HitDef{
@@ -290,7 +298,7 @@ func applyAbilityCategory(ad *ability.AbilityDef, af abilityFile) error {
 			Range:      af.MeleeRange,
 			ArcDegrees: af.MeleeConeDeg,
 		}
-	case "ranged":
+	case TypeRanged:
 		ad.Category = ability.CategoryRanged
 		ad.Projectile = &ability.ProjectileDef{
 			Count:    af.ProjectileCount,
@@ -300,14 +308,14 @@ func applyAbilityCategory(ad *ability.AbilityDef, af abilityFile) error {
 			OriginY:  af.ProjectileOriginY,
 			Lifetime: af.ProjectileLifetime,
 		}
-	case "aoe":
+	case TypeAoE:
 		ad.Category = ability.CategoryAoE
 		ad.BaseDamage = af.AoEDamage
 		ad.Hit = ability.HitDef{
 			Type:   ability.HitAoECircle,
 			Radius: af.AoERadius,
 		}
-	case "charge":
+	case TypeCharge:
 		ad.Category = ability.CategoryCharge
 		ad.Charge = &ability.ChargeDef{
 			Speed:          af.ChargeSpeed,

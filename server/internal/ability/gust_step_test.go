@@ -30,34 +30,34 @@ func TestGustStepHandler(t *testing.T) {
 			wantGCD:      true,
 		},
 		{
-			name: "rejects on insufficient flux",
+			name: tcRejectsInsufficientFlux,
 			setup: func() *entity.Player {
 				p := newHarmonist(1)
 				p.SetAllFluxPoolsCurrent(1)
 				return p
 			},
 			wantOK:     false,
-			wantReason: "insufficient aerokinetic flux",
+			wantReason: "insufficient " + entity.SchoolAerokinetic + " flux",
 		},
 		{
-			name: "rejects on GCD",
+			name: tcRejectsGCD,
 			setup: func() *entity.Player {
 				p := newHarmonist(1)
 				p.GCDTimer = 0.5
 				return p
 			},
 			wantOK:     false,
-			wantReason: "gcd",
+			wantReason: ReasonGCD,
 		},
 		{
-			name: "rejects on cooldown",
+			name: tcRejectsCooldown,
 			setup: func() *entity.Player {
 				p := newHarmonist(1)
 				p.Cooldowns["gust_step"] = 5.0
 				return p
 			},
 			wantOK:     false,
-			wantReason: "cooldown",
+			wantReason: ReasonCooldown,
 		},
 	}
 

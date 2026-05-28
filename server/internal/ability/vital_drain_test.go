@@ -7,7 +7,7 @@ import (
 
 func TestVitalDrainSustainLifecycle(t *testing.T) {
 	eng := NewEngine(nil)
-	def := eng.GetAbility("vital_drain")
+	def := eng.GetAbility(IDVitalDrain)
 	if def == nil {
 		t.Fatal("vital_drain not registered")
 	}

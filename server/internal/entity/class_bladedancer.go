@@ -4,7 +4,7 @@ var bdMultiBladeSpec = SpecDef{
 	ID:          "multi_blade",
 	Name:        "Multi Blade",
 	Description: "4-6 blades, scattered multi-target sustained.\nAoE constant damage, flowing between configurations.",
-	Role:        "DPS",
+	Role:        RoleDPS,
 	Implemented: true,
 	MaxHealth:   150,
 	Movement: ClassMovement{
@@ -13,11 +13,11 @@ var bdMultiBladeSpec = SpecDef{
 		RollSpeed: 15.0, RollDur: 0.2, RollCD: 0.5,
 	},
 	Resources: map[string]ResourceTemplate{
-		"shield":    {Max: 25, Initial: 0, Regen: -5, RegenDelay: 0},
-		"resonance": {Max: 100, Initial: 0, Regen: -2, RegenDelay: 0},
+		ResourceShield: {Max: 25, Initial: 0, Regen: -5, RegenDelay: 0},
+		"resonance":    {Max: 100, Initial: 0, Regen: -2, RegenDelay: 0},
 	},
 	Abilities: []string{
-		"bd_guard", "dodge",
+		"bd_guard", AbilityDodge,
 		"shielded_sweep", "guarded_thrust", "protected_scatter", "fortified_command",
 		"reaping_guard", "cleaving_pierce", "slashing_spread", "sweeping_hex",
 		"piercing_barrier", "focused_slash", "targeted_spread", "pinning_strike",
@@ -25,7 +25,7 @@ var bdMultiBladeSpec = SpecDef{
 		"commanding_ward", "royal_cleave", "decree_strike", "sovereign_scatter",
 	},
 	ActionMap: func() map[uint8]string {
-		m := map[uint8]string{3: "dodge", 4: "bd_guard"}
+		m := map[uint8]string{3: AbilityDodge, 4: "bd_guard"}
 		bdAbilityIDs := []string{
 			"shielded_sweep", "guarded_thrust", "protected_scatter", "fortified_command",
 			"reaping_guard", "cleaving_pierce", "slashing_spread", "sweeping_hex",
@@ -44,7 +44,7 @@ var bdDualBladeSpec = SpecDef{
 	ID:          "dual_blade",
 	Name:        "Dual Blade",
 	Description: "2 blades, separate GCDs, piano burst combos.\nMonotarget burst, highest skill ceiling.",
-	Role:        "DPS",
+	Role:        RoleDPS,
 	Implemented: false,
 	MaxHealth:   130,
 	Movement: ClassMovement{
@@ -53,8 +53,8 @@ var bdDualBladeSpec = SpecDef{
 		RollSpeed: 16.0, RollDur: 0.2, RollCD: 0.4,
 	},
 	Resources: map[string]ResourceTemplate{
-		"shield":    {Max: 15, Initial: 0, Regen: -5, RegenDelay: 0},
-		"resonance": {Max: 120, Initial: 0, Regen: -3, RegenDelay: 0},
+		ResourceShield: {Max: 15, Initial: 0, Regen: -5, RegenDelay: 0},
+		"resonance":    {Max: 120, Initial: 0, Regen: -3, RegenDelay: 0},
 	},
 }
 

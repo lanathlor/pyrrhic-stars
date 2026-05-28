@@ -25,8 +25,8 @@ func TestNewPlayerVanguard(t *testing.T) {
 	if p.MaxHealth != 200 {
 		t.Errorf("vanguard max health = %f, want 200", p.MaxHealth)
 	}
-	if p.GetResource("stamina") != 100 {
-		t.Errorf("stamina = %f, want 100", p.GetResource("stamina"))
+	if p.GetResource(ResourceStamina) != 100 {
+		t.Errorf("stamina = %f, want 100", p.GetResource(ResourceStamina))
 	}
 }
 
@@ -42,37 +42,37 @@ func TestNewPlayerArcanotechnicien(t *testing.T) {
 	if p.MaxHealth != 170 {
 		t.Errorf("arcanotechnicien max health = %f, want 170", p.MaxHealth)
 	}
-	if p.SpecID != "harmonist" {
+	if p.SpecID != SpecHarmonist {
 		t.Errorf("default spec = %q, want harmonist", p.SpecID)
 	}
-	if p.GetResource("flux") != 160 {
-		t.Errorf("flux = %f, want 160", p.GetResource("flux"))
+	if p.GetResource(ResourceFlux) != 160 {
+		t.Errorf("flux = %f, want 160", p.GetResource(ResourceFlux))
 	}
 }
 
 func TestNewPlayerArcanotechnicienDestroyer(t *testing.T) {
-	p := NewPlayerWithSpec(1, ClassArcanotechnicien, "destroyer")
+	p := NewPlayerWithSpec(1, ClassArcanotechnicien, SpecDestroyer)
 	if p.MaxHealth != 130 {
 		t.Errorf("destroyer max health = %f, want 130", p.MaxHealth)
 	}
-	if p.SpecID != "destroyer" {
+	if p.SpecID != SpecDestroyer {
 		t.Errorf("spec = %q, want destroyer", p.SpecID)
 	}
-	if p.GetResource("flux") != 200 {
-		t.Errorf("flux = %f, want 200", p.GetResource("flux"))
+	if p.GetResource(ResourceFlux) != 200 {
+		t.Errorf("flux = %f, want 200", p.GetResource(ResourceFlux))
 	}
 }
 
 func TestNewPlayerArcanotechnicienBattlemage(t *testing.T) {
-	p := NewPlayerWithSpec(1, ClassArcanotechnicien, "battlemage")
+	p := NewPlayerWithSpec(1, ClassArcanotechnicien, SpecBattlemage)
 	if p.MaxHealth != 160 {
 		t.Errorf("battlemage max health = %f, want 160", p.MaxHealth)
 	}
-	if p.SpecID != "battlemage" {
+	if p.SpecID != SpecBattlemage {
 		t.Errorf("spec = %q, want battlemage", p.SpecID)
 	}
-	if p.GetResource("flux") != 120 {
-		t.Errorf("flux = %f, want 120", p.GetResource("flux"))
+	if p.GetResource(ResourceFlux) != 120 {
+		t.Errorf("flux = %f, want 120", p.GetResource(ResourceFlux))
 	}
 }
 
@@ -151,7 +151,7 @@ func TestApplyDamageVanguardParry(t *testing.T) {
 func TestApplyDamageVanguardBlock(t *testing.T) {
 	p := NewPlayer(1, ClassVanguard)
 	// Block: 70% damage reduction (Value=0.3 means 30% damage passes through)
-	p.AddBuff(ActiveBuff{ID: "vg_block", Type: BuffDamageReduction, Value: 0.3, Duration: 1.5})
+	p.AddBuff(ActiveBuff{ID: AbilityVgBlock, Type: BuffDamageReduction, Value: 0.3, Duration: 1.5})
 	dealt := p.ApplyDamage(100)
 	// 100 * 0.3 = 30
 	if dealt < 29.9 || dealt > 30.1 {
@@ -165,7 +165,7 @@ func TestApplyDamageVanguardBlock(t *testing.T) {
 func TestApplyDamageVanguardBladeSwirl(t *testing.T) {
 	p := NewPlayer(1, ClassVanguard)
 	// Blade swirl: 20% damage reduction (Value=0.8 means 80% damage passes through)
-	p.AddBuff(ActiveBuff{ID: "vortex", Type: BuffDamageReduction, Value: 0.8, Duration: 1.5})
+	p.AddBuff(ActiveBuff{ID: AbilityVortex, Type: BuffDamageReduction, Value: 0.8, Duration: 1.5})
 	dealt := p.ApplyDamage(100)
 	expected := float32(80.0) // 100 * 0.8
 	if dealt != expected {
@@ -197,14 +197,14 @@ func TestApplyDamageBladeDancerDR(t *testing.T) {
 
 func TestApplyDamageBladeDancerShieldAbsorb(t *testing.T) {
 	p := NewPlayer(1, ClassBladeDancer)
-	p.Resources["shield"].Current = 20.0
+	p.Resources[ResourceShield].Current = 20.0
 	dealt := p.ApplyDamage(50)
 	// Shield absorbs 20, remaining 30 goes to health
 	if dealt != 30 {
 		t.Errorf("dealt = %f, want 30 (50 - 20 shield)", dealt)
 	}
-	if p.Resources["shield"].Current != 0 {
-		t.Errorf("shield = %f, want 0", p.Resources["shield"].Current)
+	if p.Resources[ResourceShield].Current != 0 {
+		t.Errorf("shield = %f, want 0", p.Resources[ResourceShield].Current)
 	}
 	if p.Health != p.MaxHealth-30 {
 		t.Errorf("health = %f, want %f", p.Health, p.MaxHealth-30)
@@ -213,13 +213,13 @@ func TestApplyDamageBladeDancerShieldAbsorb(t *testing.T) {
 
 func TestApplyDamageBladeDancerShieldFullAbsorb(t *testing.T) {
 	p := NewPlayer(1, ClassBladeDancer)
-	p.Resources["shield"].Current = 25.0
+	p.Resources[ResourceShield].Current = 25.0
 	dealt := p.ApplyDamage(20)
 	if dealt != 20 {
 		t.Errorf("dealt = %f, want 20", dealt)
 	}
-	if p.Resources["shield"].Current != 5 {
-		t.Errorf("shield = %f, want 5 (25-20)", p.Resources["shield"].Current)
+	if p.Resources[ResourceShield].Current != 5 {
+		t.Errorf("shield = %f, want 5 (25-20)", p.Resources[ResourceShield].Current)
 	}
 	if p.Health != p.MaxHealth {
 		t.Errorf("health = %f, should be untouched", p.Health)
@@ -229,8 +229,8 @@ func TestApplyDamageBladeDancerShieldFullAbsorb(t *testing.T) {
 func TestApplyDamageVanguardBlockPlusSwirl(t *testing.T) {
 	p := NewPlayer(1, ClassVanguard)
 	// Both block (0.3) and swirl (0.8) stack multiplicatively
-	p.AddBuff(ActiveBuff{ID: "vg_block", Type: BuffDamageReduction, Value: 0.3, Duration: 1.5})
-	p.AddBuff(ActiveBuff{ID: "vortex", Type: BuffDamageReduction, Value: 0.8, Duration: 1.5})
+	p.AddBuff(ActiveBuff{ID: AbilityVgBlock, Type: BuffDamageReduction, Value: 0.3, Duration: 1.5})
+	p.AddBuff(ActiveBuff{ID: AbilityVortex, Type: BuffDamageReduction, Value: 0.8, Duration: 1.5})
 	dealt := p.ApplyDamage(100)
 	expected := float32(100 * 0.3 * 0.8) // 24
 	if dealt < expected-0.1 || dealt > expected+0.1 {
@@ -363,7 +363,7 @@ func TestMovementArcanotechnicien(t *testing.T) {
 }
 
 func TestMovementArcanotechnicienDestroyer(t *testing.T) {
-	p := NewPlayerWithSpec(1, ClassArcanotechnicien, "destroyer")
+	p := NewPlayerWithSpec(1, ClassArcanotechnicien, SpecDestroyer)
 	m := p.Movement()
 	if m.WalkSpeed != 4.0 {
 		t.Errorf("destroyer walk speed = %f, want 4.0", m.WalkSpeed)
@@ -380,18 +380,18 @@ func TestRecalcStatsArcanotechnicienFlux(t *testing.T) {
 		wantMax  float32
 		wantReg  float32
 	}{
-		{"harmonist zero identity", "harmonist", 0, 160, 3},
-		{"harmonist 100 identity", "harmonist", 100, 320, 4.5},
-		{"destroyer zero identity", "destroyer", 0, 200, 8},
-		{"destroyer 100 identity", "destroyer", 100, 400, 12},
-		{"battlemage 50 identity", "battlemage", 50, 180, 7.5},
+		{"harmonist zero identity", SpecHarmonist, 0, 160, 3},
+		{"harmonist 100 identity", SpecHarmonist, 100, 320, 4.5},
+		{"destroyer zero identity", SpecDestroyer, 0, 200, 8},
+		{"destroyer 100 identity", SpecDestroyer, 100, 400, 12},
+		{"battlemage 50 identity", SpecBattlemage, 50, 180, 7.5},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			p := NewPlayerWithSpec(1, ClassArcanotechnicien, tc.spec)
 			p.GearStats.Identity = tc.identity
 			p.RecalcStats()
-			r := p.Resources["flux"]
+			r := p.Resources[ResourceFlux]
 			if r == nil {
 				t.Fatal("flux resource not found")
 			}
@@ -415,22 +415,22 @@ func TestArcanotechnicienSpecs(t *testing.T) {
 	if len(cd.Specs) != 3 {
 		t.Fatalf("specs count = %d, want 3", len(cd.Specs))
 	}
-	if cd.DefaultSpec != "harmonist" {
+	if cd.DefaultSpec != SpecHarmonist {
 		t.Errorf("default spec = %q, want harmonist", cd.DefaultSpec)
 	}
-	if cd.GetSpec("destroyer") == nil {
+	if cd.GetSpec(SpecDestroyer) == nil {
 		t.Error("destroyer spec not found")
 	}
-	if cd.GetSpec("battlemage") == nil {
+	if cd.GetSpec(SpecBattlemage) == nil {
 		t.Error("battlemage spec not found")
 	}
-	if cd.GetSpec("harmonist") == nil {
+	if cd.GetSpec(SpecHarmonist) == nil {
 		t.Error("harmonist spec not found")
 	}
-	if !cd.GetSpec("harmonist").Implemented {
+	if !cd.GetSpec(SpecHarmonist).Implemented {
 		t.Error("harmonist should be implemented")
 	}
-	if cd.GetSpec("destroyer").Implemented {
+	if cd.GetSpec(SpecDestroyer).Implemented {
 		t.Error("destroyer should not be implemented")
 	}
 }
@@ -470,15 +470,15 @@ func TestSympatheticFieldRadius(t *testing.T) {
 		identity float32
 		want     float32
 	}{
-		{"gunner returns 0", ClassGunner, "assault", 0, 0},
-		{"vanguard returns 0", ClassVanguard, "blade", 0, 0},
+		{"gunner returns 0", ClassGunner, SpecAssault, 0, 0},
+		{"vanguard returns 0", ClassVanguard, SpecBlade, 0, 0},
 		{"blade dancer returns 0", ClassBladeDancer, "multi_blade", 0, 0},
-		{"arcanotechnicien destroyer returns 0", ClassArcanotechnicien, "destroyer", 0, 0},
-		{"arcanotechnicien battlemage returns 0", ClassArcanotechnicien, "battlemage", 0, 0},
-		{"harmonist zero identity", ClassArcanotechnicien, "harmonist", 0, 8.0},
-		{"harmonist 100 identity", ClassArcanotechnicien, "harmonist", 100, 12.0},
-		{"harmonist 200 identity", ClassArcanotechnicien, "harmonist", 200, 16.0},
-		{"harmonist 50 identity", ClassArcanotechnicien, "harmonist", 50, 10.0},
+		{"arcanotechnicien destroyer returns 0", ClassArcanotechnicien, SpecDestroyer, 0, 0},
+		{"arcanotechnicien battlemage returns 0", ClassArcanotechnicien, SpecBattlemage, 0, 0},
+		{"harmonist zero identity", ClassArcanotechnicien, SpecHarmonist, 0, 8.0},
+		{"harmonist 100 identity", ClassArcanotechnicien, SpecHarmonist, 100, 12.0},
+		{"harmonist 200 identity", ClassArcanotechnicien, SpecHarmonist, 200, 16.0},
+		{"harmonist 50 identity", ClassArcanotechnicien, SpecHarmonist, 50, 10.0},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

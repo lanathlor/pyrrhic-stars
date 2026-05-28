@@ -15,13 +15,13 @@ import (
 // tree — the original default for unnamed defs in buildTree.
 func testTreeData() any {
 	return map[string]any{
-		"reactive_selector": []any{
-			map[string]any{"sequence": []any{"is_dead", "stop"}},
-			map[string]any{"sequence": []any{"phase_transitioning", "wait_transition"}},
-			map[string]any{"sequence": []any{"!has_target", "aggro_or_patrol"}},
-			map[string]any{"sequence": []any{"!in_leash_range", "leash_reset"}},
-			map[string]any{"sequence": []any{"target_in_melee_range", "has_los", "attack"}},
-			"chase",
+		NodeReactiveSelector: []any{
+			map[string]any{NodeSequence: []any{LeafIsDead, LeafStop}},
+			map[string]any{NodeSequence: []any{LeafPhaseTransitioning, LeafWaitTransition}},
+			map[string]any{NodeSequence: []any{"!has_target", LeafAggroOrPatrol}},
+			map[string]any{NodeSequence: []any{"!in_leash_range", LeafLeashReset}},
+			map[string]any{NodeSequence: []any{"target_in_melee_range", LeafHasLoS, "attack"}},
+			LeafChase,
 		},
 	}
 }
@@ -36,7 +36,7 @@ func testDef() *EnemyDef {
 		TreeData:   testTreeData(),
 		Abilities: []ability.AbilityDef{
 			{
-				ID: "melee", Name: "melee", Category: ability.CategoryMelee,
+				ID: testMeleeID, Name: testMeleeID, Category: ability.CategoryMelee,
 				CommitTime: 1.0, Cooldown: 1.0,
 				BaseWeight: 50, MaxRange: 3.0,
 				BaseDamage:   30.0,
@@ -44,7 +44,7 @@ func testDef() *EnemyDef {
 				DamageSource: combat.SourceEnemyMelee,
 			},
 			{
-				ID: "ranged", Name: "ranged", Category: ability.CategoryRanged,
+				ID: testRangedID, Name: testRangedID, Category: ability.CategoryRanged,
 				CommitTime: 0.8, Cooldown: 1.0,
 				BaseWeight: 50, MinRange: 3.0,
 				Projectile: &ability.ProjectileDef{
@@ -55,7 +55,7 @@ func testDef() *EnemyDef {
 				DamageSource: combat.SourceEnemyRanged,
 			},
 			{
-				ID: "aoe", Name: "aoe", Category: ability.CategoryAoE,
+				ID: testAoEID, Name: testAoEID, Category: ability.CategoryAoE,
 				CommitTime: 1.2, Cooldown: 1.5,
 				BaseWeight: 30, MaxRange: 7.0,
 				BaseDamage:   40.0,
@@ -63,7 +63,7 @@ func testDef() *EnemyDef {
 				DamageSource: combat.SourceEnemyAoE,
 			},
 			{
-				ID: "charge", Name: "charge", Category: ability.CategoryCharge,
+				ID: testChargeID, Name: testChargeID, Category: ability.CategoryCharge,
 				CommitTime: 1.0, Cooldown: 1.5,
 				BaseWeight: 20, MinRange: 6.0,
 				Charge: &ability.ChargeDef{
@@ -79,9 +79,9 @@ func testDef() *EnemyDef {
 				HPThresholdPct:   0.6,
 				MoveSpeed:        5.0,
 				CooldownOverride: 0.8,
-				WeightOverrides:  map[string]int{"melee": 25, "ranged": 25, "aoe": 25, "charge": 25},
+				WeightOverrides:  map[string]int{testMeleeID: 25, testRangedID: 25, testAoEID: 25, testChargeID: 25},
 				AbilityOverrides: map[string]AbilityOverride{
-					"melee": {CommitTime: F32(0.8), Damage: F32(35.0)},
+					testMeleeID: {CommitTime: F32(0.8), Damage: F32(35.0)},
 				},
 			},
 		},
@@ -250,7 +250,7 @@ func TestBrainEnemyReturnsEnemy(t *testing.T) {
 // --- Registry ---
 
 func TestDefRegistryContainsAll(t *testing.T) {
-	expected := []string{"guard_captain", "hallway_melee", "hallway_ranged"}
+	expected := []string{"guard_captain", "hallway_melee", testHallwayRanged}
 	for _, name := range expected {
 		if _, ok := DefRegistry[name]; !ok {
 			t.Errorf("DefRegistry missing %s", name)

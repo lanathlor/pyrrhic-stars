@@ -8,7 +8,7 @@ import (
 var metabolicBurstDef = AbilityDef{
 	ID:     "metabolic_burst",
 	Name:   "Metabolic Burst",
-	School: "biometabolic",
+	School: entity.SchoolBiometabolic,
 	Hit: HitDef{
 		Type:        HitNearestN,
 		Range:       20,
@@ -28,7 +28,7 @@ var metabolicBurstDef = AbilityDef{
 func metabolicBurstHandler(eng *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "not a player"}
+		return CommitResult{Reason: ReasonNotAPlayer}
 	}
 
 	// Resolve hit on nearest enemy

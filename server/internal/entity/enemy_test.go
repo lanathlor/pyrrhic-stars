@@ -69,9 +69,9 @@ func TestChangeStateMeleeTelegraph(t *testing.T) {
 		phase int
 		want  float32
 	}{
-		{"phase 1", 1, 1.2},
-		{"phase 2", 2, 0.9},
-		{"phase 3", 3, 0.7},
+		{testPhase1, 1, 1.2},
+		{testPhase2, 2, 0.9},
+		{testPhase3, 3, 0.7},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -107,9 +107,9 @@ func TestChangeStateRangedTelegraph(t *testing.T) {
 		phase int
 		want  float32
 	}{
-		{"phase 1", 1, 1.0},
-		{"phase 2", 2, 0.8},
-		{"phase 3", 3, 0.6},
+		{testPhase1, 1, 1.0},
+		{testPhase2, 2, 0.8},
+		{testPhase3, 3, 0.6},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -145,9 +145,9 @@ func TestChangeStateAoETelegraph(t *testing.T) {
 		phase int
 		want  float32
 	}{
-		{"phase 1", 1, 1.5},
-		{"phase 2", 2, 1.2},
-		{"phase 3", 3, 1.0},
+		{testPhase1, 1, 1.5},
+		{testPhase2, 2, 1.2},
+		{testPhase3, 3, 1.0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -183,9 +183,9 @@ func TestChangeStateChargeTelegraph(t *testing.T) {
 		phase int
 		want  float32
 	}{
-		{"phase 1", 1, 1.0},
-		{"phase 2", 2, 0.8},
-		{"phase 3", 3, 0.6},
+		{testPhase1, 1, 1.0},
+		{testPhase2, 2, 0.8},
+		{testPhase3, 3, 0.6},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -246,9 +246,9 @@ func TestChangeStateCooldown(t *testing.T) {
 		phase int
 		want  float32
 	}{
-		{"phase 1", 1, 1.5},
-		{"phase 2", 2, 1.2},
-		{"phase 3", 3, 0.9},
+		{testPhase1, 1, 1.5},
+		{testPhase2, 2, 1.2},
+		{testPhase3, 3, 0.9},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

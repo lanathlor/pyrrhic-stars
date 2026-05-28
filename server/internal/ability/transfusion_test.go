@@ -11,7 +11,7 @@ func TestTransfusion(t *testing.T) {
 	eng := NewEngine(nil)
 
 	t.Run("definition", func(t *testing.T) {
-		def := eng.GetAbility("transfusion")
+		def := eng.GetAbility(IDTransfusion)
 		if def == nil {
 			t.Fatal("transfusion not registered in engine")
 		}
@@ -25,8 +25,8 @@ func TestTransfusion(t *testing.T) {
 		if def.CancelConditions != wantCancel {
 			t.Errorf("CancelConditions = %d, want %d", def.CancelConditions, wantCancel)
 		}
-		if def.OnCommitTick != "transfusion" {
-			t.Errorf("OnCommitTick = %q, want %q", def.OnCommitTick, "transfusion")
+		if def.OnCommitTick != IDTransfusion {
+			t.Errorf("OnCommitTick = %q, want %q", def.OnCommitTick, IDTransfusion)
 		}
 		if def.Hit.Type != HitAllyTarget {
 			t.Errorf("Hit.Type = %d, want HitAllyTarget (%d)", def.Hit.Type, HitAllyTarget)
@@ -63,7 +63,7 @@ func TestTransfusion(t *testing.T) {
 					return caster, allies, 2
 				},
 				wantOK:     false,
-				wantReason: "insufficient biometabolic flux",
+				wantReason: tcInsufficientBiometabolicFlux,
 			},
 			{
 				name: "rejects when flux is zero",
@@ -75,7 +75,7 @@ func TestTransfusion(t *testing.T) {
 					return caster, allies, 2
 				},
 				wantOK:     false,
-				wantReason: "insufficient biometabolic flux",
+				wantReason: tcInsufficientBiometabolicFlux,
 			},
 			{
 				name: "accepts when flux exactly 3",
@@ -118,7 +118,7 @@ func TestTransfusion(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				caster, allies, targetPeer := tt.setup()
 
-				result := eng.Commit("transfusion", &CommitContext{
+				result := eng.Commit(IDTransfusion, &CommitContext{
 					Committer:    caster,
 					Allies:       allies,
 					TargetPeerID: targetPeer,
@@ -141,7 +141,7 @@ func TestTransfusion(t *testing.T) {
 
 	t.Run("harmonist spec includes transfusion in abilities list", func(t *testing.T) {
 		p := entity.NewPlayer(1, entity.ClassArcanotechnicien)
-		found := slices.Contains(p.AllowedAbilities(), "transfusion")
+		found := slices.Contains(p.AllowedAbilities(), IDTransfusion)
 		if !found {
 			t.Error("transfusion not in AllowedAbilities (may not be in default loadout but should be equippable)")
 		}

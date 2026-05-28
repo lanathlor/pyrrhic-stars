@@ -11,7 +11,7 @@ func TestSession_LogEvent_AutoFills(t *testing.T) {
 
 	s.LogEvent(110, 0.75, 1, LogEntry{
 		EventType:    EventDamage,
-		SourceEntity: "player_1",
+		SourceEntity: testPlayerEntity,
 		Target:       "enemy_1000",
 		Amount:       50,
 	})
@@ -84,7 +84,7 @@ func TestSession_AddParticipant(t *testing.T) {
 	sink := NewInMemorySink()
 	s := NewSession(sink, "inst-1", "group-1", "arena_boss", "arena", "run-1", 0, SourceLive, 0)
 
-	s.AddParticipant(ParticipantLog{EntityID: "player_1", Name: "Alice", Class: "gunner"})
+	s.AddParticipant(ParticipantLog{EntityID: testPlayerEntity, Name: "Alice", Class: "gunner"})
 	s.AddParticipant(ParticipantLog{EntityID: "enemy_1000", Name: "Boss", Class: "boss"})
 
 	s.Finalize(OutcomePlayerWin, 6000)

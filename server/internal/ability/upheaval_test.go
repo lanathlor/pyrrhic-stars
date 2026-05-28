@@ -64,7 +64,7 @@ func TestUpheaval_DamageMultApplied(t *testing.T) {
 	e := enemyInFront(100, 1000)
 
 	p.AddBuff(entity.ActiveBuff{
-		ID: "test_dmg", Type: entity.BuffDamageMult, Value: 2.0, Duration: 5.0,
+		ID: tcTestDmg, Type: entity.BuffDamageMult, Value: 2.0, Duration: 5.0,
 	})
 
 	r := eng.Commit("upheaval", commitCtx(p, e))

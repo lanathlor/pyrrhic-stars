@@ -136,7 +136,7 @@ func TestLoadMobs_HallwayRangedFields(t *testing.T) {
 
 // TestLoadMobs_TreeDataPresent verifies YAML-loaded defs have TreeData set.
 func TestLoadMobs_TreeDataPresent(t *testing.T) {
-	for _, name := range []string{"hallway_melee", "hallway_ranged"} {
+	for _, name := range []string{"hallway_melee", testHallwayRanged} {
 		def := DefRegistry[name]
 		if def == nil {
 			t.Errorf("%s missing from DefRegistry", name)
@@ -287,7 +287,7 @@ func TestResolveLeaf_Inverter(t *testing.T) {
 		t.Fatalf("resolveLeaf: %v", err)
 	}
 	// Inverter wrapping is_dead: alive enemy should get Success (inverted from Failure)
-	e := entity.NewEnemy(0, 100, "test")
+	e := entity.NewEnemy(0, 100, testTest)
 	e.Alive = true
 	ctx := &EntityContext{Enemy: e, Def: &EnemyDef{}}
 	result := node.Tick(ctx)
@@ -303,7 +303,7 @@ func TestResolveLeaf_Parameterized(t *testing.T) {
 		t.Fatalf("resolveLeaf: %v", err)
 	}
 
-	e := entity.NewEnemy(0, 100, "test")
+	e := entity.NewEnemy(0, 100, testTest)
 	e.Alive = true
 	p := testPlayer(1, entity.Vec3{X: 0, Z: 3})
 	ctx := &EntityContext{Enemy: e, Def: &EnemyDef{}, Players: testPlayers(p)}
@@ -324,14 +324,14 @@ func TestResolveLeaf_UnknownErrors(t *testing.T) {
 // TestBuildTreeFromData_NestedComposites verifies deeply nested tree building.
 func TestBuildTreeFromData_NestedComposites(t *testing.T) {
 	data := map[string]any{
-		"selector": []any{
+		NodeSelector: []any{
 			map[string]any{
-				"sequence": []any{
-					"is_dead",
-					"stop",
+				NodeSequence: []any{
+					LeafIsDead,
+					LeafStop,
 				},
 			},
-			"chase",
+			LeafChase,
 		},
 	}
 	node, err := bt.BuildTreeFromYAML(data, resolveLeaf)
@@ -340,7 +340,7 @@ func TestBuildTreeFromData_NestedComposites(t *testing.T) {
 	}
 
 	// Tick with alive enemy — should reach chase (Selector tries sequence which fails on is_dead)
-	e := entity.NewEnemy(0, 100, "test")
+	e := entity.NewEnemy(0, 100, testTest)
 	e.Alive = true
 	e.State = entity.EnemyChase
 	p := testPlayer(1, entity.Vec3{X: 0, Z: 10})
@@ -441,7 +441,7 @@ func TestResolveLeaf_AllSimpleLeaves(t *testing.T) {
 
 // TestResolveLeaf_BuiltinSubtrees verifies attack and aggro_or_patrol resolve.
 func TestResolveLeaf_BuiltinSubtrees(t *testing.T) {
-	for _, name := range []string{"attack", "aggro_or_patrol"} {
+	for _, name := range []string{"attack", LeafAggroOrPatrol} {
 		t.Run(name, func(t *testing.T) {
 			node, err := resolveLeaf(name)
 			if err != nil {
@@ -473,7 +473,7 @@ func TestResolveLeaf_TargetBeyond(t *testing.T) {
 		t.Fatalf("resolveLeaf: %v", err)
 	}
 
-	e := entity.NewEnemy(0, 100, "test")
+	e := entity.NewEnemy(0, 100, testTest)
 	e.Alive = true
 	p := testPlayer(1, entity.Vec3{X: 0, Z: 8})
 	e.TargetPlayerID = p.ID
@@ -497,7 +497,7 @@ func TestResolveLeaf_PlayersInAoE(t *testing.T) {
 		t.Fatalf("resolveLeaf: %v", err)
 	}
 
-	e := entity.NewEnemy(0, 100, "test")
+	e := entity.NewEnemy(0, 100, testTest)
 	e.Alive = true
 	p1 := testPlayer(1, entity.Vec3{X: 2, Z: 0})
 	p2 := testPlayer(2, entity.Vec3{X: -2, Z: 0})
@@ -537,7 +537,7 @@ func TestResolveLeaf_PhaseEq(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolveLeaf: %v", err)
 	}
-	e := entity.NewEnemy(0, 100, "test")
+	e := entity.NewEnemy(0, 100, testTest)
 	e.Alive = true
 	e.Phase = 1
 	ctx := &EntityContext{Enemy: e, Def: &EnemyDef{}}
@@ -560,9 +560,9 @@ func TestBuildTreeFromData_AllCompositeTypes(t *testing.T) {
 		name string
 		data map[string]any
 	}{
-		{"sequence", map[string]any{"sequence": []any{"is_dead", "stop"}}},
-		{"selector", map[string]any{"selector": []any{"is_dead", "stop"}}},
-		{"reactive_selector", map[string]any{"reactive_selector": []any{"is_dead", "stop"}}},
+		{NodeSequence, map[string]any{NodeSequence: []any{LeafIsDead, LeafStop}}},
+		{NodeSelector, map[string]any{NodeSelector: []any{LeafIsDead, LeafStop}}},
+		{NodeReactiveSelector, map[string]any{NodeReactiveSelector: []any{LeafIsDead, LeafStop}}},
 	}
 	for _, tc := range composites {
 		t.Run(tc.name, func(t *testing.T) {
@@ -580,8 +580,8 @@ func TestBuildTreeFromData_AllCompositeTypes(t *testing.T) {
 // TestBuildTreeFromData_ErrorMultipleKeys verifies map with >1 key fails.
 func TestBuildTreeFromData_ErrorMultipleKeys(t *testing.T) {
 	data := map[string]any{
-		"sequence": []any{"stop"},
-		"selector": []any{"stop"},
+		NodeSequence: []any{LeafStop},
+		NodeSelector: []any{LeafStop},
 	}
 	_, err := bt.BuildTreeFromYAML(data, resolveLeaf)
 	if err == nil {
@@ -595,7 +595,7 @@ func TestBuildTreeFromData_ErrorMultipleKeys(t *testing.T) {
 // TestBuildTreeFromData_ErrorUnknownComposite verifies unknown composite type fails.
 func TestBuildTreeFromData_ErrorUnknownComposite(t *testing.T) {
 	data := map[string]any{
-		"parallel": []any{"stop"},
+		"parallel": []any{LeafStop},
 	}
 	_, err := bt.BuildTreeFromYAML(data, resolveLeaf)
 	if err == nil {
@@ -609,7 +609,7 @@ func TestBuildTreeFromData_ErrorUnknownComposite(t *testing.T) {
 // TestBuildTreeFromData_ErrorChildrenNotList verifies non-list children fail.
 func TestBuildTreeFromData_ErrorChildrenNotList(t *testing.T) {
 	data := map[string]any{
-		"sequence": "stop",
+		NodeSequence: LeafStop,
 	}
 	_, err := bt.BuildTreeFromYAML(data, resolveLeaf)
 	if err == nil {
@@ -633,7 +633,7 @@ func TestBuildTreeFromData_ErrorUnexpectedType(t *testing.T) {
 
 // TestBuildTreeFromData_StringLeaf verifies a single string resolves.
 func TestBuildTreeFromData_StringLeaf(t *testing.T) {
-	node, err := bt.BuildTreeFromYAML("chase", resolveLeaf)
+	node, err := bt.BuildTreeFromYAML(LeafChase, resolveLeaf)
 	if err != nil {
 		t.Fatalf("BuildTreeFromYAML: %v", err)
 	}
@@ -650,14 +650,14 @@ func TestConvertAbility_AllTypes(t *testing.T) {
 		typeStr string
 		want    ability.AbilityCategory
 	}{
-		{"melee", ability.CategoryMelee},
-		{"ranged", ability.CategoryRanged},
-		{"aoe", ability.CategoryAoE},
-		{"charge", ability.CategoryCharge},
+		{TypeMelee, ability.CategoryMelee},
+		{TypeRanged, ability.CategoryRanged},
+		{TypeAoE, ability.CategoryAoE},
+		{TypeCharge, ability.CategoryCharge},
 	}
 	for _, tc := range cases {
 		t.Run(tc.typeStr, func(t *testing.T) {
-			af := abilityFile{Name: "test", Type: tc.typeStr, BaseWeight: 100}
+			af := abilityFile{Name: testTest, Type: tc.typeStr, BaseWeight: 100}
 			ad, err := convertAbility(af)
 			if err != nil {
 				t.Fatalf("convertAbility: %v", err)
@@ -686,7 +686,7 @@ func TestConvertAbility_AllTargetStrategies(t *testing.T) {
 			name = "empty_default"
 		}
 		t.Run(name, func(t *testing.T) {
-			af := abilityFile{Name: "test", Type: "melee", Target: tc.targetStr, BaseWeight: 100}
+			af := abilityFile{Name: testTest, Type: TypeMelee, Target: tc.targetStr, BaseWeight: 100}
 			ad, err := convertAbility(af)
 			if err != nil {
 				t.Fatalf("convertAbility: %v", err)
@@ -709,7 +709,7 @@ func TestConvertAbility_ErrorUnknownType(t *testing.T) {
 
 // TestConvertAbility_ErrorUnknownTarget verifies unknown target strategy fails.
 func TestConvertAbility_ErrorUnknownTarget(t *testing.T) {
-	af := abilityFile{Name: "bad", Type: "melee", Target: "random", BaseWeight: 100}
+	af := abilityFile{Name: "bad", Type: TypeMelee, Target: "random", BaseWeight: 100}
 	_, err := convertAbility(af)
 	if err == nil {
 		t.Fatal("expected error for unknown target strategy")
@@ -720,7 +720,7 @@ func TestConvertAbility_ErrorUnknownTarget(t *testing.T) {
 func TestConvertAbility_DegreeConversions(t *testing.T) {
 	// Melee cone: degrees stored directly on Hit.ArcDegrees
 	meleeAf := abilityFile{
-		Name: "cone_test", Type: "melee", BaseWeight: 100,
+		Name: "cone_test", Type: TypeMelee, BaseWeight: 100,
 		MeleeConeDeg: 90, MeleeRange: 3, MeleeDamage: 10,
 	}
 	meleeAd, err := convertAbility(meleeAf)
@@ -733,7 +733,7 @@ func TestConvertAbility_DegreeConversions(t *testing.T) {
 
 	// Ranged spread: degrees converted to radians on Projectile.Spread
 	rangedAf := abilityFile{
-		Name: "spread_test", Type: "ranged", BaseWeight: 100,
+		Name: "spread_test", Type: TypeRanged, BaseWeight: 100,
 		ProjectileSpreadDeg: 30, ProjectileCount: 1,
 	}
 	rangedAd, err := convertAbility(rangedAf)
@@ -749,7 +749,7 @@ func TestConvertAbility_DegreeConversions(t *testing.T) {
 // TestConvertAbility_ChargeFields verifies charge-specific fields.
 func TestConvertAbility_ChargeFields(t *testing.T) {
 	af := abilityFile{
-		Name: "rush", Type: "charge", BaseWeight: 100,
+		Name: "rush", Type: TypeCharge, BaseWeight: 100,
 		ChargeSpeed: 15, ChargeDamage: 40, ChargeMaxDistance: 20,
 		ChargeHitRadius: 3, ChargeStopOnWall: true, ChargeStopOnObstacle: true,
 		DamageSource: combat.SourceEnemyCharge,
@@ -784,7 +784,7 @@ func TestConvertAbility_ChargeFields(t *testing.T) {
 // TestConvertAbility_AoEFields verifies aoe-specific fields.
 func TestConvertAbility_AoEFields(t *testing.T) {
 	af := abilityFile{
-		Name: "blast", Type: "aoe", BaseWeight: 100,
+		Name: "blast", Type: TypeAoE, BaseWeight: 100,
 		AoERadius: 5, AoEDamage: 25, DamageSource: combat.SourceEnemyAoE,
 	}
 	ad, err := convertAbility(af)
@@ -987,7 +987,7 @@ tree:
 	if def.Abilities[0].Name != "slash" {
 		t.Errorf("Abilities[0].Name = %q, want slash", def.Abilities[0].Name)
 	}
-	if def.Abilities[1].Name != "bolt" {
+	if def.Abilities[1].Name != testBoltID {
 		t.Errorf("Abilities[1].Name = %q, want bolt", def.Abilities[1].Name)
 	}
 }
@@ -1138,7 +1138,7 @@ func BenchmarkBuildTreeFromData(b *testing.B) {
 
 func BenchmarkResolveLeaf_Simple(b *testing.B) {
 	for b.Loop() {
-		_, _ = resolveLeaf("chase")
+		_, _ = resolveLeaf(LeafChase)
 	}
 }
 

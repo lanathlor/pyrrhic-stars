@@ -10,12 +10,12 @@ func TestScalingFactor_Ilvl50IsUnity(t *testing.T) {
 		stat StatID
 		name string
 	}{
-		{StatHull, "Hull"},
-		{StatOutput, "Output"},
-		{StatPlating, "Plating"},
-		{StatTempo, "Tempo"},
-		{StatIdentity, "Identity"},
-		{StatMastery, "Mastery"},
+		{StatHull, NameHull},
+		{StatOutput, NameOutput},
+		{StatPlating, NamePlating},
+		{StatTempo, NameTempo},
+		{StatIdentity, NameIdentity},
+		{StatMastery, NameMastery},
 	}
 	for _, tc := range stats {
 		t.Run(tc.name, func(t *testing.T) {
@@ -34,12 +34,12 @@ func TestScalingFactor_Ilvl1NearlyNaked(t *testing.T) {
 		name   string
 		maxPct float64
 	}{
-		{StatHull, "Hull", 0.04},         // ~2.5%
-		{StatOutput, "Output", 0.08},     // ~6.1%
-		{StatPlating, "Plating", 0.17},   // ~16.2%
-		{StatTempo, "Tempo", 0.17},       // ~16.2%
-		{StatIdentity, "Identity", 0.17}, // ~16.2%
-		{StatMastery, "Mastery", 0.17},   // ~16.2%
+		{StatHull, NameHull, 0.04},         // ~2.5%
+		{StatOutput, NameOutput, 0.08},     // ~6.1%
+		{StatPlating, NamePlating, 0.17},   // ~16.2%
+		{StatTempo, NameTempo, 0.17},       // ~16.2%
+		{StatIdentity, NameIdentity, 0.17}, // ~16.2%
+		{StatMastery, NameMastery, 0.17},   // ~16.2%
 	}
 	for _, tc := range stats {
 		t.Run(tc.name, func(t *testing.T) {
@@ -72,12 +72,12 @@ func TestScalingFactor_HeritageToMaxRatios(t *testing.T) {
 		name   string
 		target float64
 	}{
-		{StatHull, "Hull", 3.0},
-		{StatOutput, "Output", 2.25},
-		{StatPlating, "Plating", 1.75},
-		{StatTempo, "Tempo", 1.75},
-		{StatIdentity, "Identity", 1.75},
-		{StatMastery, "Mastery", 1.75},
+		{StatHull, NameHull, 3.0},
+		{StatOutput, NameOutput, 2.25},
+		{StatPlating, NamePlating, 1.75},
+		{StatTempo, NameTempo, 1.75},
+		{StatIdentity, NameIdentity, 1.75},
+		{StatMastery, NameMastery, 1.75},
 	}
 	const tolerance = 0.02
 	for _, tc := range tests {
@@ -99,12 +99,12 @@ func TestScalingFactor_Monotonicity(t *testing.T) {
 		stat StatID
 		name string
 	}{
-		{StatHull, "Hull"},
-		{StatOutput, "Output"},
-		{StatPlating, "Plating"},
-		{StatTempo, "Tempo"},
-		{StatIdentity, "Identity"},
-		{StatMastery, "Mastery"},
+		{StatHull, NameHull},
+		{StatOutput, NameOutput},
+		{StatPlating, NamePlating},
+		{StatTempo, NameTempo},
+		{StatIdentity, NameIdentity},
+		{StatMastery, NameMastery},
 	}
 	for _, tc := range stats {
 		t.Run(tc.name, func(t *testing.T) {

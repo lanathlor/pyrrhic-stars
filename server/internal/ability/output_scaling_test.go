@@ -24,7 +24,7 @@ func TestBladeSwirl_OutputScalesCastDamage(t *testing.T) {
 
 	// Commit with 0 Output — should deal base 25 damage
 	p0 := newVanguard()
-	r0 := eng.Commit("vortex", commitCtx(p0, e))
+	r0 := eng.Commit(IDVortex, commitCtx(p0, e))
 	if !r0.OK || len(r0.Events) == 0 {
 		t.Fatal("base commit failed or missed")
 	}
@@ -35,7 +35,7 @@ func TestBladeSwirl_OutputScalesCastDamage(t *testing.T) {
 
 	// Commit with 100 Output — should deal 25 * 2.0 = 50 damage
 	p100 := vanguardWithOutput(100)
-	r100 := eng.Commit("vortex", commitCtx(p100, e))
+	r100 := eng.Commit(IDVortex, commitCtx(p100, e))
 	if !r100.OK || len(r100.Events) == 0 {
 		t.Fatal("output commit failed or missed")
 	}
@@ -53,7 +53,7 @@ func TestVortex_OutputScalesTickDamage(t *testing.T) {
 	e := enemyInFront(100, 1e6)
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -3}
 
-	eng.Commit("vortex", commitCtx(p, e))
+	eng.Commit(IDVortex, commitCtx(p, e))
 	hpAfterCast := e.Health
 
 	// Standard tier: interval = 0.3s. Tick past it.

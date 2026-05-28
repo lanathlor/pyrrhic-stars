@@ -10,7 +10,7 @@ func TestMendingBeam(t *testing.T) {
 	eng := NewEngine(nil)
 
 	t.Run("definition", func(t *testing.T) {
-		def := eng.GetAbility("mending_beam")
+		def := eng.GetAbility(IDMendingBeam)
 		if def == nil {
 			t.Fatal("mending_beam not registered in engine")
 		}
@@ -24,8 +24,8 @@ func TestMendingBeam(t *testing.T) {
 		if def.CancelConditions != wantCancel {
 			t.Errorf("CancelConditions = %d, want %d", def.CancelConditions, wantCancel)
 		}
-		if def.OnCommitTick != "mending_beam" {
-			t.Errorf("OnCommitTick = %q, want %q", def.OnCommitTick, "mending_beam")
+		if def.OnCommitTick != IDMendingBeam {
+			t.Errorf("OnCommitTick = %q, want %q", def.OnCommitTick, IDMendingBeam)
 		}
 		if def.Hit.Type != HitAllyTarget {
 			t.Errorf("Hit.Type = %d, want HitAllyTarget (%d)", def.Hit.Type, HitAllyTarget)
@@ -65,7 +65,7 @@ func TestMendingBeam(t *testing.T) {
 					return caster, allies, 2
 				},
 				wantOK:     false,
-				wantReason: "insufficient bioarcanotechnic flux",
+				wantReason: tcInsufficientBioarcanotechnicFlux,
 			},
 			{
 				name: "rejects when flux is zero",
@@ -78,7 +78,7 @@ func TestMendingBeam(t *testing.T) {
 					return caster, allies, 2
 				},
 				wantOK:     false,
-				wantReason: "insufficient bioarcanotechnic flux",
+				wantReason: tcInsufficientBioarcanotechnicFlux,
 			},
 			{
 				name: "accepts when flux exactly 10",
@@ -115,20 +115,20 @@ func TestMendingBeam(t *testing.T) {
 					return caster, allies, 2
 				},
 				wantOK:     false,
-				wantReason: "gcd",
+				wantReason: ReasonGCD,
 			},
 			{
 				name: "rejected on cooldown by engine before handler",
 				setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 					caster := entity.NewPlayer(1, entity.ClassArcanotechnicien)
-					caster.Cooldowns["mending_beam"] = 1.0
+					caster.Cooldowns[IDMendingBeam] = 1.0
 					ally := entity.NewPlayer(2, entity.ClassArcanotechnicien)
 					ally.Health = 50
 					allies := map[uint16]*entity.Player{1: caster, 2: ally}
 					return caster, allies, 2
 				},
 				wantOK:     false,
-				wantReason: "cooldown",
+				wantReason: ReasonCooldown,
 			},
 		}
 
@@ -136,7 +136,7 @@ func TestMendingBeam(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				caster, allies, targetPeer := tt.setup()
 
-				result := eng.Commit("mending_beam", &CommitContext{
+				result := eng.Commit(IDMendingBeam, &CommitContext{
 					Committer:    caster,
 					Allies:       allies,
 					TargetPeerID: targetPeer,
@@ -155,13 +155,13 @@ func TestMendingBeam(t *testing.T) {
 	t.Run("harmonist spec includes mending_beam", func(t *testing.T) {
 		p := entity.NewPlayer(1, entity.ClassArcanotechnicien)
 		found := false
-		for _, id := range []string{"mending_beam"} {
+		for _, id := range []string{IDMendingBeam} {
 			if abilityID, ok := p.ActionMap[51]; ok && abilityID == id {
 				found = true
 			}
 		}
 		if !found {
-			t.Errorf("ActionMap[51] = %q, want %q", p.ActionMap[51], "mending_beam")
+			t.Errorf("ActionMap[51] = %q, want %q", p.ActionMap[51], IDMendingBeam)
 		}
 	})
 }

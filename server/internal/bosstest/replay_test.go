@@ -6,6 +6,7 @@ import (
 	"codex-online/server/internal/bosstest"
 	"codex-online/server/internal/codec"
 	"codex-online/server/internal/combatlog"
+	"codex-online/server/internal/entity"
 )
 
 func TestReplayFramesContainProjectiles(t *testing.T) {
@@ -14,8 +15,8 @@ func TestReplayFramesContainProjectiles(t *testing.T) {
 	result := bosstest.RunSimulation(bosstest.SimConfig{
 		Boss: "guard_captain",
 		Party: []bosstest.PuppetConfig{
-			{Class: "gunner", Profile: bosstest.ProfileAverage},
-			{Class: "vanguard", Profile: bosstest.ProfileAverage},
+			{Class: entity.ClassGunner, Profile: bosstest.ProfileAverage},
+			{Class: entity.ClassVanguard, Profile: bosstest.ProfileAverage},
 		},
 		Seed:    42,
 		Sink:    sink,
@@ -56,7 +57,7 @@ func TestReplayFramesContainPlayerHealth(t *testing.T) {
 	bosstest.RunSimulation(bosstest.SimConfig{
 		Boss: "guard_captain",
 		Party: []bosstest.PuppetConfig{
-			{Class: "vanguard", Profile: bosstest.ProfileBad},
+			{Class: entity.ClassVanguard, Profile: bosstest.ProfileBad},
 		},
 		Seed:    99,
 		Sink:    sink,

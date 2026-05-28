@@ -15,7 +15,7 @@ func TestInMemorySink_CollectsEvents(t *testing.T) {
 	s := NewInMemorySink()
 
 	s.Log(LogEntry{EventType: EventDamage, Amount: 50})
-	s.Log(LogEntry{EventType: EventDeath, Target: "player_1"})
+	s.Log(LogEntry{EventType: EventDeath, Target: testPlayerEntity})
 	s.Log(LogEntry{EventType: EventDamage, Amount: 30})
 
 	events := s.Events()
@@ -31,7 +31,7 @@ func TestInMemorySink_EventsOfType(t *testing.T) {
 	s := NewInMemorySink()
 
 	s.Log(LogEntry{EventType: EventDamage, Amount: 50})
-	s.Log(LogEntry{EventType: EventDeath, Target: "player_1"})
+	s.Log(LogEntry{EventType: EventDeath, Target: testPlayerEntity})
 	s.Log(LogEntry{EventType: EventDamage, Amount: 30})
 	s.Log(LogEntry{EventType: EventBuffApply, AbilityID: "overclock"})
 

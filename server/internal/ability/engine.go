@@ -46,9 +46,6 @@ type TickContext struct {
 	Obstacles []combat.Obstacle
 }
 
-// Common commit failure reasons.
-const ReasonInsufficientStamina = "insufficient stamina"
-
 // HealResult is emitted by ability resolution when a heal is applied.
 type HealResult struct {
 	TargetID      uint16
@@ -236,26 +233,26 @@ func (eng *Engine) validatePlayerCommit(abilityID string, def *AbilityDef, p *en
 				"ability", abilityID, "id", p.ID,
 				"reason", "gcd", "gcd_remaining", p.GCDTimer)
 		}
-		return "gcd"
+		return ReasonGCD
 	}
 
 	if cd, ok := p.Cooldowns[abilityID]; ok && cd > 0 {
 		if eng.logDebug {
 			eng.logger.Debug("ability.commit.rejected",
 				"ability", abilityID, "id", p.ID,
-				"reason", "cooldown", "cd_remaining", cd)
+				"reason", ReasonCooldown, "cd_remaining", cd)
 		}
-		return "cooldown"
+		return ReasonCooldown
 	}
 
 	// Cancel active Blade block when committing any other ability
-	if abilityID != "vg_block" && abilityID != "vg_block_stop" && p.HasBuff("vg_block") {
+	if abilityID != IDVgBlock && abilityID != IDVgBlockStop && p.HasBuff(IDVgBlock) {
 		EndVgBlock(p)
 	}
 	// Cancel active Shield block (except Shield Bash and Brace which work during block)
-	if abilityID != "vg_shield_block" && abilityID != "vg_shield_block_stop" &&
-		abilityID != "shield_bash" && abilityID != "brace" &&
-		p.HasBuff("vg_shield_block") {
+	if abilityID != IDVgShieldBlock && abilityID != IDVgShieldBlockStop &&
+		abilityID != "shield_bash" && abilityID != IDBrace &&
+		p.HasBuff(IDVgShieldBlock) {
 		EndVgShieldBlock(p)
 	}
 
@@ -303,7 +300,7 @@ func (eng *Engine) validateCommitCosts(abilityID string, def *AbilityDef, p *ent
 			return "insufficient " + cost.Resource
 		}
 		effectiveCost := cost.Amount
-		if cost.Resource == "stamina" {
+		if cost.Resource == entity.ResourceStamina {
 			effectiveCost *= p.TenacityEfficiency()
 		}
 		if r.Current < effectiveCost {
@@ -354,7 +351,7 @@ func spendCommitCosts(def *AbilityDef, p *entity.Player) {
 			continue
 		}
 		effectiveCost := cost.Amount
-		if cost.Resource == "stamina" {
+		if cost.Resource == entity.ResourceStamina {
 			effectiveCost *= p.TenacityEfficiency()
 		}
 		p.SpendResource(cost.Resource, effectiveCost)

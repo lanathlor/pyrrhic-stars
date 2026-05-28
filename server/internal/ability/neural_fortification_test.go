@@ -90,7 +90,7 @@ func TestNeuralFortification(t *testing.T) {
 			wantGCD:      true,
 		},
 		{
-			name: "grants confluence stack",
+			name: tcGrantsConfluence,
 			setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 				caster := newHarmonist(1)
 				ally := entity.NewPlayer(2, entity.ClassArcanotechnicien)
@@ -121,7 +121,7 @@ func TestNeuralFortification(t *testing.T) {
 			wantGCD:      true,
 		},
 		{
-			name: "rejects on insufficient flux",
+			name: tcRejectsInsufficientFlux,
 			setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 				caster := newHarmonist(1)
 				caster.SetAllFluxPoolsCurrent(5)
@@ -130,11 +130,11 @@ func TestNeuralFortification(t *testing.T) {
 				return caster, allies, 2
 			},
 			wantOK:     false,
-			wantReason: "insufficient bioarcanotechnic flux",
+			wantReason: tcInsufficientBioarcanotechnicFlux,
 			wantFlux:   -1, // skip flux check
 		},
 		{
-			name: "rejects on GCD",
+			name: tcRejectsGCD,
 			setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 				caster := newHarmonist(1)
 				caster.GCDTimer = 0.5
@@ -143,11 +143,11 @@ func TestNeuralFortification(t *testing.T) {
 				return caster, allies, 2
 			},
 			wantOK:     false,
-			wantReason: "gcd",
+			wantReason: ReasonGCD,
 			wantFlux:   160,
 		},
 		{
-			name: "rejects on cooldown",
+			name: tcRejectsCooldown,
 			setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 				caster := newHarmonist(1)
 				caster.Cooldowns["neural_fortification"] = 5.0
@@ -156,7 +156,7 @@ func TestNeuralFortification(t *testing.T) {
 				return caster, allies, 2
 			},
 			wantOK:     false,
-			wantReason: "cooldown",
+			wantReason: ReasonCooldown,
 			wantFlux:   160,
 		},
 	}
@@ -255,7 +255,7 @@ func TestNeuralFortification(t *testing.T) {
 			}
 
 			// Check confluence grant for successful commits.
-			if tt.wantOK && tt.name == "grants confluence stack" {
+			if tt.wantOK && tt.name == tcGrantsConfluence {
 				if caster.Confluence == nil {
 					t.Error("expected Confluence to be non-nil")
 				} else if caster.Confluence.Stacks != stacksBefore+1 {

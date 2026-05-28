@@ -114,7 +114,7 @@ func TestFrostWardHandler(t *testing.T) {
 			wantFlux:   20, // 40 - 20 = 20 remaining in frost pool
 		},
 		{
-			name: "grants confluence stack",
+			name: tcGrantsConfluence,
 			setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 				caster := newFrostCaster(1)
 				allies := map[uint16]*entity.Player{1: caster}
@@ -127,7 +127,7 @@ func TestFrostWardHandler(t *testing.T) {
 			wantFlux:   -1,
 		},
 		{
-			name: "rejects on insufficient flux",
+			name: tcRejectsInsufficientFlux,
 			setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 				caster := newHarmonist(1)
 				caster.SetAllFluxPoolsCurrent(5)
@@ -135,11 +135,11 @@ func TestFrostWardHandler(t *testing.T) {
 				return caster, allies, 1
 			},
 			wantOK:     false,
-			wantReason: "insufficient frost flux",
+			wantReason: "insufficient " + entity.SchoolFrost + " flux",
 			wantFlux:   -1,
 		},
 		{
-			name: "rejects on GCD",
+			name: tcRejectsGCD,
 			setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 				caster := newFrostCaster(1)
 				caster.GCDTimer = 0.5
@@ -147,19 +147,19 @@ func TestFrostWardHandler(t *testing.T) {
 				return caster, allies, 1
 			},
 			wantOK:     false,
-			wantReason: "gcd",
+			wantReason: ReasonGCD,
 			wantFlux:   -1,
 		},
 		{
-			name: "rejects on cooldown",
+			name: tcRejectsCooldown,
 			setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 				caster := newFrostCaster(1)
-				caster.Cooldowns["frost_ward"] = 5.0
+				caster.Cooldowns[IDFrostWard] = 5.0
 				allies := map[uint16]*entity.Player{1: caster}
 				return caster, allies, 1
 			},
 			wantOK:     false,
-			wantReason: "cooldown",
+			wantReason: ReasonCooldown,
 			wantFlux:   -1,
 		},
 	}
@@ -173,7 +173,7 @@ func TestFrostWardHandler(t *testing.T) {
 				stacksBefore = caster.Confluence.Stacks
 			}
 
-			result := eng.Commit("frost_ward", &CommitContext{
+			result := eng.Commit(IDFrostWard, &CommitContext{
 				Committer:    caster,
 				Allies:       allies,
 				TargetPeerID: targetPeer,
@@ -208,7 +208,7 @@ func TestFrostWardHandler(t *testing.T) {
 
 			// Check buff.
 			if tt.wantBuff {
-				b := buffTarget.GetBuff("frost_ward")
+				b := buffTarget.GetBuff(IDFrostWard)
 				if b == nil {
 					t.Error("expected frost_ward buff on target")
 				} else {
@@ -245,7 +245,7 @@ func TestFrostWardHandler(t *testing.T) {
 
 			// Check cooldown.
 			if tt.wantCooldown {
-				cd, ok := caster.Cooldowns["frost_ward"]
+				cd, ok := caster.Cooldowns[IDFrostWard]
 				if !ok || cd <= 0 {
 					t.Error("expected cooldown to be set")
 				} else if math.Abs(float64(cd-12.0)) > 0.1 {
@@ -263,7 +263,7 @@ func TestFrostWardHandler(t *testing.T) {
 			}
 
 			// Check confluence for the dedicated test case.
-			if tt.name == "grants confluence stack" {
+			if tt.name == tcGrantsConfluence {
 				if caster.Confluence == nil {
 					t.Error("expected Confluence to be non-nil")
 				} else if caster.Confluence.Stacks != stacksBefore+1 {
@@ -289,7 +289,7 @@ func TestFrostWardTick(t *testing.T) {
 		p := newHarmonist(1)
 		p.AbilityState["frost_ward_active"] = true
 		p.AddBuff(entity.ActiveBuff{
-			ID:       "frost_ward",
+			ID:       IDFrostWard,
 			Type:     entity.BuffDamageReduction,
 			Value:    1.0,
 			Duration: 5.0,
@@ -306,7 +306,7 @@ func TestFrostWardTick(t *testing.T) {
 		p.AbilityState["frost_ward_active"] = true
 		p.Resources["shield"] = &entity.Resource{Current: 15, Max: 50}
 		p.AddBuff(entity.ActiveBuff{
-			ID:       "frost_ward",
+			ID:       IDFrostWard,
 			Type:     entity.BuffDamageReduction,
 			Value:    1.0,
 			Duration: 0.04, // less than dt, will expire this tick
@@ -331,8 +331,8 @@ func TestFrostWardTick(t *testing.T) {
 		if results[0].Amount <= 0 {
 			t.Errorf("damage = %.1f, want > 0", results[0].Amount)
 		}
-		if results[0].AbilityID != "frost_ward" {
-			t.Errorf("ability ID = %q, want %q", results[0].AbilityID, "frost_ward")
+		if results[0].AbilityID != IDFrostWard {
+			t.Errorf("ability ID = %q, want %q", results[0].AbilityID, IDFrostWard)
 		}
 
 		// Check frostbite debuff on enemy.
@@ -377,7 +377,7 @@ func TestFrostWardTick(t *testing.T) {
 		p := newHarmonist(1)
 		p.AbilityState["frost_ward_active"] = true
 		p.AddBuff(entity.ActiveBuff{
-			ID:       "frost_ward",
+			ID:       IDFrostWard,
 			Type:     entity.BuffDamageReduction,
 			Value:    1.0,
 			Duration: 0.03,
@@ -404,7 +404,7 @@ func TestFrostWardTick(t *testing.T) {
 		p := newHarmonist(1)
 		p.AbilityState["frost_ward_active"] = true
 		p.AddBuff(entity.ActiveBuff{
-			ID:       "frost_ward",
+			ID:       IDFrostWard,
 			Type:     entity.BuffDamageReduction,
 			Value:    1.0,
 			Duration: 0.03,

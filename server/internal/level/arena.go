@@ -86,43 +86,43 @@ func hardcodedArenaLevel() *Level { //nolint:funlen // pure data literal
 		EnemySpawns: []EnemySpawnPoint{
 			// Pack 1 at Z≈32: 2 melee + 2 ranged (GroupID=1)
 			{
-				Position: entity.Vec3{X: -3, Y: 0.1, Z: 32}, DefName: "hallway_melee",
+				Position: entity.Vec3{X: -3, Y: 0.1, Z: 32}, DefName: EnemyHallwayMelee,
 				PatrolA: entity.Vec3{X: -6, Y: 0.1, Z: 32}, PatrolB: entity.Vec3{X: 6, Y: 0.1, Z: 32},
 				AggroRadius: 10, LeashRadius: 40, GroupID: 1,
 			},
 			{
-				Position: entity.Vec3{X: 3, Y: 0.1, Z: 32}, DefName: "hallway_melee",
+				Position: entity.Vec3{X: 3, Y: 0.1, Z: 32}, DefName: EnemyHallwayMelee,
 				PatrolA: entity.Vec3{X: 6, Y: 0.1, Z: 32}, PatrolB: entity.Vec3{X: -6, Y: 0.1, Z: 32},
 				AggroRadius: 10, LeashRadius: 40, GroupID: 1,
 			},
 			{
-				Position: entity.Vec3{X: -5, Y: 0.1, Z: 34}, DefName: "hallway_ranged",
+				Position: entity.Vec3{X: -5, Y: 0.1, Z: 34}, DefName: EnemyHallwayRanged,
 				PatrolA: entity.Vec3{X: -6, Y: 0.1, Z: 34}, PatrolB: entity.Vec3{X: 6, Y: 0.1, Z: 34},
 				AggroRadius: 12, LeashRadius: 40, GroupID: 1,
 			},
 			{
-				Position: entity.Vec3{X: 5, Y: 0.1, Z: 34}, DefName: "hallway_ranged",
+				Position: entity.Vec3{X: 5, Y: 0.1, Z: 34}, DefName: EnemyHallwayRanged,
 				PatrolA: entity.Vec3{X: 6, Y: 0.1, Z: 34}, PatrolB: entity.Vec3{X: -6, Y: 0.1, Z: 34},
 				AggroRadius: 12, LeashRadius: 40, GroupID: 1,
 			},
 			// Pack 2 at Z≈22: 2 melee + 2 ranged (GroupID=2)
 			{
-				Position: entity.Vec3{X: -3, Y: 0.1, Z: 22}, DefName: "hallway_melee",
+				Position: entity.Vec3{X: -3, Y: 0.1, Z: 22}, DefName: EnemyHallwayMelee,
 				PatrolA: entity.Vec3{X: -6, Y: 0.1, Z: 22}, PatrolB: entity.Vec3{X: 6, Y: 0.1, Z: 22},
 				AggroRadius: 10, LeashRadius: 40, GroupID: 2,
 			},
 			{
-				Position: entity.Vec3{X: 3, Y: 0.1, Z: 22}, DefName: "hallway_melee",
+				Position: entity.Vec3{X: 3, Y: 0.1, Z: 22}, DefName: EnemyHallwayMelee,
 				PatrolA: entity.Vec3{X: 6, Y: 0.1, Z: 22}, PatrolB: entity.Vec3{X: -6, Y: 0.1, Z: 22},
 				AggroRadius: 10, LeashRadius: 40, GroupID: 2,
 			},
 			{
-				Position: entity.Vec3{X: -5, Y: 0.1, Z: 24}, DefName: "hallway_ranged",
+				Position: entity.Vec3{X: -5, Y: 0.1, Z: 24}, DefName: EnemyHallwayRanged,
 				PatrolA: entity.Vec3{X: -6, Y: 0.1, Z: 24}, PatrolB: entity.Vec3{X: 6, Y: 0.1, Z: 24},
 				AggroRadius: 12, LeashRadius: 40, GroupID: 2,
 			},
 			{
-				Position: entity.Vec3{X: 5, Y: 0.1, Z: 24}, DefName: "hallway_ranged",
+				Position: entity.Vec3{X: 5, Y: 0.1, Z: 24}, DefName: EnemyHallwayRanged,
 				PatrolA: entity.Vec3{X: 6, Y: 0.1, Z: 24}, PatrolB: entity.Vec3{X: -6, Y: 0.1, Z: 24},
 				AggroRadius: 12, LeashRadius: 40, GroupID: 2,
 			},

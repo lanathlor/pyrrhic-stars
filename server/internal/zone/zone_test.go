@@ -73,7 +73,7 @@ func setupFightZone(t *testing.T) (*Zone, uint16) {
 	// Add a mock client that captures sent messages
 	z.world.Clients[peerID] = &Client{
 		PeerID:   peerID,
-		Username: "TestPlayer",
+		Username: testPlayerName,
 		Send:     func([]byte) {}, // no-op
 	}
 

@@ -66,7 +66,7 @@ func TestArenaInstance_FightStartsOnPlayerJoin(t *testing.T) {
 	z := New("test_arena", ZoneTypeInstanced)
 
 	send, msgs := captureSend()
-	c := &Client{PeerID: 1, Username: "TestPlayer", Send: send}
+	c := &Client{PeerID: 1, Username: testPlayerName, Send: send}
 	z.AddClient(c)
 
 	// Run a tick — should transition from Spawned to Fight
@@ -86,7 +86,7 @@ func TestArenaInstance_TeleportRejected(t *testing.T) {
 	z := New("test_arena_zero", ZoneTypeInstanced)
 
 	send, _ := captureSend()
-	c := &Client{PeerID: 1, Username: "TestPlayer", Send: send}
+	c := &Client{PeerID: 1, Username: testPlayerName, Send: send}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -117,7 +117,7 @@ func TestArenaInstance_ConcurrentTickSafe(t *testing.T) {
 	z := New("test_arena_concurrent", ZoneTypeInstanced)
 
 	send, _ := captureSend()
-	c := &Client{PeerID: 1, Username: "TestPlayer", Send: send}
+	c := &Client{PeerID: 1, Username: testPlayerName, Send: send}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

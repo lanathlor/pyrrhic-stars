@@ -18,11 +18,11 @@ const testEncounterID = "guard_captain"
 func makeLoggedWorld(players map[uint16]*entity.Player, enemies []*entity.Enemy) (*World, *combatlog.InMemorySink) {
 	sink := combatlog.NewInMemorySink()
 	session := combatlog.NewSession(
-		sink, "test-instance", "test-group", "test-encounter", "test-arena", "run-1",
+		sink, "test-instance", "test-group", "test-encounter", testArenaZoneID, "run-1",
 		0, combatlog.SourceSimulation, 100,
 	)
 	w := &World{
-		ZoneID:        "test-arena",
+		ZoneID:        testArenaZoneID,
 		ZoneType:      1, // arena
 		TickNum:       100,
 		State:         StateFight,
@@ -145,7 +145,7 @@ func TestCombatLog_BuffExpiry(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	// Give player a buff about to expire
 	p.Buffs = append(p.Buffs, entity.ActiveBuff{
-		ID:       "overclock",
+		ID:       ability.IDOverclock,
 		Type:     "damage_mult",
 		Value:    1.5,
 		Duration: 0.01, // expires this tick
@@ -159,7 +159,7 @@ func TestCombatLog_BuffExpiry(t *testing.T) {
 	if len(removes) != 1 {
 		t.Fatalf("buff_remove events = %d, want 1", len(removes))
 	}
-	if removes[0].AbilityID != "overclock" {
+	if removes[0].AbilityID != ability.IDOverclock {
 		t.Errorf("buff_remove AbilityID = %s, want overclock", removes[0].AbilityID)
 	}
 }
@@ -176,7 +176,7 @@ func TestCombatLog_FightLifecycle_BossKill(t *testing.T) {
 	e.State = entity.EnemyPatrol
 
 	w := &World{
-		ZoneID:        "test-arena",
+		ZoneID:        testArenaZoneID,
 		ZoneType:      1,
 		TickNum:       50,
 		State:         StateSpawned,
@@ -234,7 +234,7 @@ func TestCombatLog_FightLifecycle_Wipe(t *testing.T) {
 	e.State = entity.EnemyPatrol
 
 	w := &World{
-		ZoneID:        "test-arena",
+		ZoneID:        testArenaZoneID,
 		ZoneType:      1,
 		TickNum:       50,
 		State:         StateSpawned,
@@ -283,7 +283,7 @@ func TestCombatLog_SoloBoss_NegativeKey(t *testing.T) {
 	e.State = entity.EnemyPatrol
 
 	w := &World{
-		ZoneID:        "test-arena",
+		ZoneID:        testArenaZoneID,
 		ZoneType:      1,
 		TickNum:       50,
 		State:         StateFight,
@@ -371,7 +371,7 @@ func TestCombatLog_ProximityAggro_Boss(t *testing.T) {
 	lvl := level.NewArenaLevel()
 
 	w := &World{
-		ZoneID:        "test-arena",
+		ZoneID:        testArenaZoneID,
 		ZoneType:      1,
 		TickNum:       100,
 		State:         StateFight,
@@ -472,7 +472,7 @@ func TestCombatLog_ProximityAggro_TrashPack(t *testing.T) {
 	lvl := level.NewArenaLevel()
 
 	w := &World{
-		ZoneID:        "test-arena",
+		ZoneID:        testArenaZoneID,
 		ZoneType:      1,
 		TickNum:       100,
 		State:         StateFight,
@@ -531,7 +531,7 @@ func TestCombatLog_DamageAggroAlsoWorks(t *testing.T) {
 	p.Alive = true
 
 	w := &World{
-		ZoneID:        "test-arena",
+		ZoneID:        testArenaZoneID,
 		ZoneType:      1,
 		TickNum:       100,
 		State:         StateFight,
@@ -581,7 +581,7 @@ func TestCombatLog_FullFight_EndToEnd(t *testing.T) {
 	lvl := level.NewArenaLevel()
 
 	w := &World{
-		ZoneID:        "test-arena",
+		ZoneID:        testArenaZoneID,
 		ZoneType:      1,
 		RunID:         "run-test-1",
 		TickNum:       100,
@@ -652,7 +652,7 @@ func TestCombatLog_FullFight_EndToEnd(t *testing.T) {
 	if inst.Outcome != combatlog.OutcomePlayerWin {
 		t.Errorf("outcome = %s, want player_win", inst.Outcome)
 	}
-	if inst.ZoneID != "test-arena" {
+	if inst.ZoneID != testArenaZoneID {
 		t.Errorf("zoneID = %s, want test-arena", inst.ZoneID)
 	}
 	if inst.RunID != "run-test-1" {

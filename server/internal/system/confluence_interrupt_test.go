@@ -146,7 +146,7 @@ func TestConfluence_DropsOnNewChanneledAbility(t *testing.T) {
 	w.AbilityRunners[1] = runner
 
 	// Map a channeled ability to an action so handleAbilityInput can find it
-	p.ActionMap[51] = "mending_beam"
+	p.ActionMap[51] = ability.IDMendingBeam
 
 	// Simulate committing a new channeled ability (action 51)
 	payload := codec.EncodeAbilityInput(51, 0, 0)
@@ -165,7 +165,7 @@ func TestConfluence_DropsOnInstantAbilityCancel(t *testing.T) {
 	w.AbilityRunners[1] = runner
 
 	// Map an instant ability (no CommitTime)
-	p.ActionMap[50] = "mending_surge"
+	p.ActionMap[50] = ability.IDMendingSurge
 
 	ally := entity.NewPlayer(2, entity.ClassArcanotechnicien)
 	ally.Health = 50

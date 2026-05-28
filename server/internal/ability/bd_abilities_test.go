@@ -11,11 +11,11 @@ func TestBDSpells_AllRegistered(t *testing.T) {
 	eng := NewEngine(nil)
 
 	abilityIDs := []string{
-		"shielded_sweep", "guarded_thrust", "protected_scatter", "fortified_command",
-		"reaping_guard", "cleaving_pierce", "slashing_spread", "sweeping_hex",
-		"piercing_barrier", "focused_slash", "targeted_spread", "pinning_strike",
-		"dispersed_shield", "rain_of_blades", "converging_strike", "chaos_bind",
-		"commanding_ward", "royal_cleave", "decree_strike", "sovereign_scatter",
+		IDShieldedSweep, "guarded_thrust", "protected_scatter", "fortified_command",
+		IDReapingGuard, IDCleavingPierce, "slashing_spread", "sweeping_hex",
+		IDPiercingBarrier, "focused_slash", "targeted_spread", "pinning_strike",
+		IDDispersedShield, "rain_of_blades", "converging_strike", "chaos_bind",
+		IDCommandingWard, "royal_cleave", IDDecreeStrike, "sovereign_scatter",
 	}
 	for _, id := range abilityIDs {
 		if eng.GetAbility(id) == nil {
@@ -31,11 +31,11 @@ func TestBDSpells_WrongConfigBlocked(t *testing.T) {
 		ability  string
 		wrongCfg int
 	}{
-		{"shielded_sweep", entity.ConfigFan},       // needs orbit
-		{"reaping_guard", entity.ConfigOrbit},      // needs fan
-		{"piercing_barrier", entity.ConfigScatter}, // needs lance
-		{"dispersed_shield", entity.ConfigCrown},   // needs scatter
-		{"commanding_ward", entity.ConfigLance},    // needs crown
+		{IDShieldedSweep, entity.ConfigFan},       // needs orbit
+		{IDReapingGuard, entity.ConfigOrbit},      // needs fan
+		{IDPiercingBarrier, entity.ConfigScatter}, // needs lance
+		{IDDispersedShield, entity.ConfigCrown},   // needs scatter
+		{IDCommandingWard, entity.ConfigLance},    // needs crown
 	}
 	for _, tt := range tests {
 		t.Run(tt.ability, func(t *testing.T) {
@@ -61,11 +61,11 @@ func TestBDSpells_AllSetGCD(t *testing.T) {
 		ability string
 		config  int
 	}{
-		{"shielded_sweep", entity.ConfigOrbit},
-		{"reaping_guard", entity.ConfigFan},
-		{"piercing_barrier", entity.ConfigLance},
-		{"dispersed_shield", entity.ConfigScatter},
-		{"commanding_ward", entity.ConfigCrown},
+		{IDShieldedSweep, entity.ConfigOrbit},
+		{IDReapingGuard, entity.ConfigFan},
+		{IDPiercingBarrier, entity.ConfigLance},
+		{IDDispersedShield, entity.ConfigScatter},
+		{IDCommandingWard, entity.ConfigCrown},
 	}
 	for _, tt := range tests {
 		t.Run(tt.ability, func(t *testing.T) {
@@ -87,7 +87,7 @@ func TestBDSpells_ShieldCapped(t *testing.T) {
 	e := enemyInFront(100, 500)
 
 	// dispersed_shield grants 18 shield
-	eng.Commit("dispersed_shield", commitCtx(p, e))
+	eng.Commit(IDDispersedShield, commitCtx(p, e))
 	shield1 := p.GetResource("shield")
 	if shield1 != 18 {
 		t.Errorf("shield after first commit = %f, want 18", shield1)
@@ -99,7 +99,7 @@ func TestBDSpells_ShieldCapped(t *testing.T) {
 	// commanding_ward is orbit→orbit(0), grants 20 shield
 	p.Config = entity.ConfigCrown
 	p.GCDTimer = 0
-	eng.Commit("commanding_ward", commitCtx(p, e))
+	eng.Commit(IDCommandingWard, commitCtx(p, e))
 	shield2 := p.GetResource("shield")
 	if shield2 > 25 {
 		t.Errorf("shield = %f, should be capped at 25", shield2)
@@ -114,11 +114,11 @@ func TestBDSpells_ConfigTransitionPerOrigin(t *testing.T) {
 		origin  int
 		dest    int
 	}{
-		{"shielded_sweep", entity.ConfigOrbit, entity.ConfigFan},
-		{"cleaving_pierce", entity.ConfigFan, entity.ConfigLance},
+		{IDShieldedSweep, entity.ConfigOrbit, entity.ConfigFan},
+		{IDCleavingPierce, entity.ConfigFan, entity.ConfigLance},
 		{"targeted_spread", entity.ConfigLance, entity.ConfigScatter},
 		{"rain_of_blades", entity.ConfigScatter, entity.ConfigFan},
-		{"decree_strike", entity.ConfigCrown, entity.ConfigLance},
+		{IDDecreeStrike, entity.ConfigCrown, entity.ConfigLance},
 	}
 	for _, tt := range tests {
 		t.Run(tt.ability, func(t *testing.T) {
@@ -144,7 +144,7 @@ func TestBDSpells_HitscanMissesBehind(t *testing.T) {
 	e := enemyBehind(100, 500)
 
 	// cleaving_pierce is hitscan
-	r := eng.Commit("cleaving_pierce", commitCtx(p, e))
+	r := eng.Commit(IDCleavingPierce, commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("commit failed: %s", r.Reason)
 	}
@@ -164,7 +164,7 @@ func TestBDSpells_AoECircleHitsNearby(t *testing.T) {
 	e2.Position = entity.Vec3{X: 0, Y: 0, Z: 20} // far outside radius
 
 	// shielded_sweep is AoECircle, radius 4
-	r := eng.Commit("shielded_sweep", commitCtx(p, e1, e2))
+	r := eng.Commit(IDShieldedSweep, commitCtx(p, e1, e2))
 	if !r.OK {
 		t.Fatalf("commit failed: %s", r.Reason)
 	}
@@ -286,7 +286,7 @@ func TestBDSpells_CleavingPierceSplash(t *testing.T) {
 	secondary := entity.NewEnemy(101, 500, "mob2")
 	secondary.Position = entity.Vec3{X: 2, Y: 0, Z: -5}
 
-	r := eng.Commit("cleaving_pierce", commitCtx(p, primary, secondary))
+	r := eng.Commit(IDCleavingPierce, commitCtx(p, primary, secondary))
 	if !r.OK {
 		t.Fatalf("commit failed: %s", r.Reason)
 	}
@@ -312,7 +312,7 @@ func TestBDSpells_PiercingBarrierShieldScales(t *testing.T) {
 	p.Config = entity.ConfigLance
 	e := enemyInFront(100, 500)
 
-	r := eng.Commit("piercing_barrier", commitCtx(p, e))
+	r := eng.Commit(IDPiercingBarrier, commitCtx(p, e))
 	if !r.OK {
 		t.Fatalf("commit failed: %s", r.Reason)
 	}
@@ -344,7 +344,7 @@ func TestBDSpells_ThornsBuffApplied(t *testing.T) {
 	p := newBladeDancer()
 	p.Config = entity.ConfigScatter
 
-	eng.Commit("dispersed_shield", commitCtx(p))
+	eng.Commit(IDDispersedShield, commitCtx(p))
 	if !p.HasBuff("bd_thorns") {
 		t.Error("should have thorns buff")
 	}

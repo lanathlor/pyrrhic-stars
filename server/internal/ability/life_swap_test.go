@@ -55,7 +55,7 @@ func TestLifeSwap(t *testing.T) {
 				return caster, allies, 999
 			},
 			wantOK:     false,
-			wantReason: "no valid target",
+			wantReason: ReasonNoValidTarget,
 		},
 		{
 			name: "fails when targeting self",
@@ -65,7 +65,7 @@ func TestLifeSwap(t *testing.T) {
 				return caster, allies, 1
 			},
 			wantOK:     false,
-			wantReason: "no valid target",
+			wantReason: ReasonNoValidTarget,
 		},
 		{
 			name: "clamps drain so ally never drops below 1 HP",
@@ -98,7 +98,7 @@ func TestLifeSwap(t *testing.T) {
 			wantHealAmount:  -20,
 		},
 		{
-			name: "insufficient flux rejects before handler",
+			name: tcInsufficientFluxBeforeHandler,
 			setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 				caster := entity.NewPlayer(1, entity.ClassArcanotechnicien)
 				caster.SetAllFluxPoolsCurrent(2) // need 5 biometabolic
@@ -108,7 +108,7 @@ func TestLifeSwap(t *testing.T) {
 				return caster, allies, 2
 			},
 			wantOK:     false,
-			wantReason: "insufficient biometabolic flux",
+			wantReason: tcInsufficientBiometabolicFlux,
 		},
 	}
 
@@ -116,7 +116,7 @@ func TestLifeSwap(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			caster, allies, targetPeer := tt.setup()
 
-			result := eng.Commit("life_swap", &CommitContext{
+			result := eng.Commit(IDLifeSwap, &CommitContext{
 				Committer:    caster,
 				Allies:       allies,
 				TargetPeerID: targetPeer,
@@ -189,7 +189,7 @@ func TestVitalChargeEmpowersMendingSurge(t *testing.T) {
 	allies := map[uint16]*entity.Player{1: caster, 2: donor, 3: patient}
 
 	// Step 1: Commit Life Swap on donor to build vital charge
-	result := eng.Commit("life_swap", &CommitContext{
+	result := eng.Commit(IDLifeSwap, &CommitContext{
 		Committer:    caster,
 		Allies:       allies,
 		TargetPeerID: 2,
@@ -206,10 +206,10 @@ func TestVitalChargeEmpowersMendingSurge(t *testing.T) {
 	// Step 2: Clear GCD so we can commit Mending Surge
 	caster.GCDTimer = 0
 	// Also clear the mending_surge cooldown if set
-	delete(caster.Cooldowns, "mending_surge")
+	delete(caster.Cooldowns, IDMendingSurge)
 
 	// Step 3: Commit Mending Surge on the patient
-	healResult := eng.Commit("mending_surge", &CommitContext{
+	healResult := eng.Commit(IDMendingSurge, &CommitContext{
 		Committer:    caster,
 		Allies:       allies,
 		TargetPeerID: 3,

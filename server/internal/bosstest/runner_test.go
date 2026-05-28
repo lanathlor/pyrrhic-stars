@@ -118,7 +118,7 @@ func runInjectionTests(t *testing.T, boss string) {
 	t.Run("dead_stops", func(t *testing.T) {
 		result := bosstest.NewScenario(boss).
 			HP(0).
-			Players(bosstest.FakePlayer{ID: 1, Pos: entity.Vec3{Z: 5}, Class: "gunner"}).
+			Players(bosstest.FakePlayer{ID: 1, Pos: entity.Vec3{Z: 5}, Class: entity.ClassGunner}).
 			Ticks(1).
 			Run()
 		result.AssertDead(t)
@@ -134,7 +134,7 @@ func runInjectionTests(t *testing.T, boss string) {
 	t.Run("phase_transition_at_60pct", func(t *testing.T) {
 		result := bosstest.NewScenario(boss).
 			HP(0.59).
-			Players(bosstest.FakePlayer{ID: 1, Pos: entity.Vec3{Z: 5}, Class: "gunner"}).
+			Players(bosstest.FakePlayer{ID: 1, Pos: entity.Vec3{Z: 5}, Class: entity.ClassGunner}).
 			Ticks(5).
 			Run()
 		result.AssertPhase(t, 2)
@@ -150,7 +150,7 @@ func runInjectionTests(t *testing.T, boss string) {
 	t.Run("phase_transition_at_30pct", func(t *testing.T) {
 		result := bosstest.NewScenario(boss).
 			HP(0.29).
-			Players(bosstest.FakePlayer{ID: 1, Pos: entity.Vec3{Z: 5}, Class: "gunner"}).
+			Players(bosstest.FakePlayer{ID: 1, Pos: entity.Vec3{Z: 5}, Class: entity.ClassGunner}).
 			Ticks(5).
 			Run()
 		result.AssertPhase(t, 3)
@@ -173,7 +173,7 @@ func runScenarioTests(t *testing.T, boss string) {
 
 	t.Run("chases_when_target_far", func(t *testing.T) {
 		result := bosstest.NewScenario(boss).
-			Players(bosstest.FakePlayer{ID: 1, Pos: entity.Vec3{Z: 15}, Class: "gunner"}).
+			Players(bosstest.FakePlayer{ID: 1, Pos: entity.Vec3{Z: 15}, Class: entity.ClassGunner}).
 			Ticks(3).
 			Run()
 		result.AssertAlive(t)
@@ -188,7 +188,7 @@ func runScenarioTests(t *testing.T, boss string) {
 
 	t.Run("attacks_in_melee_range", func(t *testing.T) {
 		result := bosstest.NewScenario(boss).
-			Players(bosstest.FakePlayer{ID: 1, Pos: entity.Vec3{Z: 2}, Class: "vanguard"}).
+			Players(bosstest.FakePlayer{ID: 1, Pos: entity.Vec3{Z: 2}, Class: entity.ClassVanguard}).
 			Ticks(60).
 			Run()
 		result.AssertDamageDealt(t)
@@ -203,7 +203,7 @@ func runScenarioTests(t *testing.T, boss string) {
 
 	t.Run("survives_many_ticks", func(t *testing.T) {
 		result := bosstest.NewScenario(boss).
-			Players(bosstest.FakePlayer{ID: 1, Pos: entity.Vec3{Z: 5}, Class: "gunner"}).
+			Players(bosstest.FakePlayer{ID: 1, Pos: entity.Vec3{Z: 5}, Class: entity.ClassGunner}).
 			Ticks(200).
 			Run()
 		result.AssertAlive(t)

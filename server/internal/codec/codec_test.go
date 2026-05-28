@@ -9,6 +9,9 @@ import (
 )
 
 const testName = "Alice"
+const testNameBob = "Bob"
+const testFireball = "fireball"
+const testShield = "shield"
 
 // =============================================================================
 // Roundtrip: EncodePlayerInput → DecodePlayerInput
@@ -194,7 +197,7 @@ func TestWorldStateProjectileRoundtrip(t *testing.T) {
 	e := entity.NewEnemy(0, 2000.0, "guard_captain")
 
 	projs := []*entity.Projectile{
-		{ID: 10, Position: entity.Vec3{X: 3, Y: 1, Z: -2}, Direction: entity.Vec3{X: 0, Z: 1}, Speed: 22.0, AngularVelocity: 0.5, VisualTag: "fireball"},
+		{ID: 10, Position: entity.Vec3{X: 3, Y: 1, Z: -2}, Direction: entity.Vec3{X: 0, Z: 1}, Speed: 22.0, AngularVelocity: 0.5, VisualTag: testFireball},
 		{ID: 11, Position: entity.Vec3{X: 5, Z: 4}, Direction: entity.Vec3{X: 1}, Speed: 15.0},
 	}
 
@@ -229,8 +232,8 @@ func TestWorldStateProjectileRoundtrip(t *testing.T) {
 	if proj0.AngularVelocity != 0.5 {
 		t.Errorf("proj[0].AngularVelocity = %f, want 0.5", proj0.AngularVelocity)
 	}
-	if proj0.VisualTag != "fireball" {
-		t.Errorf("proj[0].VisualTag = %q, want %q", proj0.VisualTag, "fireball")
+	if proj0.VisualTag != testFireball {
+		t.Errorf("proj[0].VisualTag = %q, want %q", proj0.VisualTag, testFireball)
 	}
 
 	proj1 := ws.Projectiles[1]
@@ -255,11 +258,11 @@ func TestWorldStateFluxRoundtrip(t *testing.T) {
 		},
 		ClassID: entity.ClassGunner,
 		Resources: map[string]*entity.Resource{
-			"flux":      {Current: 75.5, Max: 160.0},
-			"stamina":   {Current: 50.0},
-			"shield":    {Current: 25.0},
-			"munitions": {Current: 10.0},
-			"resonance": {Current: 30.0},
+			"flux":                {Current: 75.5, Max: 160.0},
+			"stamina":             {Current: 50.0},
+			entity.ResourceShield: {Current: 25.0},
+			"munitions":           {Current: 10.0},
+			"resonance":           {Current: 30.0},
 		},
 		AbilityState: make(map[string]any),
 	}
@@ -546,7 +549,7 @@ func TestEncodeWorldStateNoEnemies(t *testing.T) {
 func TestEncodeLobbyStateWireFormat(t *testing.T) {
 	infos := []LobbyPlayerInfo{
 		{PeerID: 1, ClassName: entity.ClassGunner, Username: testName, Ready: true},
-		{PeerID: 2, ClassName: entity.ClassVanguard, Username: "Bob", Ready: false},
+		{PeerID: 2, ClassName: entity.ClassVanguard, Username: testNameBob, Ready: false},
 	}
 	buf := EncodeLobbyState(infos)
 
@@ -609,8 +612,8 @@ func TestEncodeLobbyStateWireFormat(t *testing.T) {
 	off++
 	name = string(buf[off : off+nameLen])
 	off += nameLen
-	if name != "Bob" {
-		t.Errorf("p2 username = %q, want %q", name, "Bob")
+	if name != testNameBob {
+		t.Errorf("p2 username = %q, want %q", name, testNameBob)
 	}
 	if buf[off] != 0 {
 		t.Errorf("p2 ready = %d, want 0", buf[off])
@@ -807,7 +810,7 @@ func TestEncodeCharacterStateEmpty(t *testing.T) {
 func TestEncodeCharacterList(t *testing.T) {
 	chars := []CharacterInfo{
 		{ID: 10, ClassName: entity.ClassGunner, Name: testName, PosX: 1, PosY: 2, PosZ: 3, RotY: 0.5},
-		{ID: 20, ClassName: entity.ClassVanguard, Name: "Bob"},
+		{ID: 20, ClassName: entity.ClassVanguard, Name: testNameBob},
 	}
 	buf := EncodeCharacterList("TestUser", chars, 10)
 
@@ -922,7 +925,7 @@ func TestEncodeCharacterError(t *testing.T) {
 func TestEncodeGroupState(t *testing.T) {
 	members := []GroupMemberInfo{
 		{PeerID: 1, Username: testName},
-		{PeerID: 2, Username: "Bob"},
+		{PeerID: 2, Username: testNameBob},
 	}
 	buf := EncodeGroupState(99, 1, members)
 
@@ -965,8 +968,8 @@ func TestEncodeGroupState(t *testing.T) {
 	off++
 	m2Name := string(buf[off : off+m2NameLen])
 	off += m2NameLen
-	if m2Name != "Bob" {
-		t.Errorf("m2 name = %q, want %q", m2Name, "Bob")
+	if m2Name != testNameBob {
+		t.Errorf("m2 name = %q, want %q", m2Name, testNameBob)
 	}
 	if off != len(buf) {
 		t.Errorf("consumed %d bytes, buf has %d", off, len(buf))
@@ -1256,11 +1259,11 @@ func TestLoadoutStateRoundtrip(t *testing.T) {
 	}{
 		{
 			name:  "all slots filled",
-			slots: [6]string{"fireball", "ice_lance", "arcane_blast", "shield", "blink", "meteor"},
+			slots: [6]string{testFireball, "ice_lance", "arcane_blast", testShield, "blink", "meteor"},
 		},
 		{
 			name:  "some empty slots",
-			slots: [6]string{"fireball", "", "arcane_blast", "", "", "meteor"},
+			slots: [6]string{testFireball, "", "arcane_blast", "", "", "meteor"},
 		},
 		{
 			name:  "all empty slots",
@@ -1288,7 +1291,7 @@ func TestLoadoutStateRoundtrip(t *testing.T) {
 }
 
 func TestLoadoutStateEmptySlots(t *testing.T) {
-	slots := [6]string{"", "ice_lance", "", "shield", "", ""}
+	slots := [6]string{"", "ice_lance", "", testShield, "", ""}
 	buf := EncodeLoadoutState(slots)
 	got, ok := DecodeSetLoadout(buf)
 	if !ok {
@@ -1301,7 +1304,7 @@ func TestLoadoutStateEmptySlots(t *testing.T) {
 	}
 	// Verify empty slots produce a 1-byte (length=0) encoding each.
 	// Total: 4 empty slots * 1 byte + 2 filled slots * (1 + len) bytes
-	wantLen := 4*1 + (1 + len("ice_lance")) + (1 + len("shield"))
+	wantLen := 4*1 + (1 + len("ice_lance")) + (1 + len(testShield))
 	if len(buf) != wantLen {
 		t.Errorf("encoded len = %d, want %d", len(buf), wantLen)
 	}
@@ -1310,7 +1313,7 @@ func TestLoadoutStateEmptySlots(t *testing.T) {
 func TestAbilityCatalogEncode(t *testing.T) {
 	entries := []AbilityCatalogEntry{
 		{
-			ID:          "fireball",
+			ID:          testFireball,
 			Name:        "Fireball",
 			School:      "destruction",
 			AbilityType: "damage",
@@ -1336,7 +1339,7 @@ func TestAbilityCatalogEncode(t *testing.T) {
 			Affinity:    "secondary",
 		},
 		{
-			ID:          "shield",
+			ID:          testShield,
 			Name:        "Shield",
 			School:      "protection",
 			AbilityType: "buff",
@@ -1370,8 +1373,8 @@ func TestAbilityCatalogEncode(t *testing.T) {
 	idLen := int(buf[off])
 	off++
 	id := string(buf[off : off+idLen])
-	if id != "fireball" {
-		t.Errorf("first entry ID = %q, want %q", id, "fireball")
+	if id != testFireball {
+		t.Errorf("first entry ID = %q, want %q", id, testFireball)
 	}
 }
 
@@ -1406,11 +1409,11 @@ func TestWorldStateArcanotechnicienFieldOrder(t *testing.T) {
 		ChannelPhase: 1,
 		Confluence:   &entity.ConfluenceState{Stacks: 3, MaxStacks: 5},
 		Resources: map[string]*entity.Resource{
-			"flux":      {Current: 87.5, Max: 160.0},
-			"resonance": {Current: 42.0},
-			"stamina":   {Current: 0},
-			"shield":    {Current: 0},
-			"munitions": {Current: 0},
+			"flux":                {Current: 87.5, Max: 160.0},
+			"resonance":           {Current: 42.0},
+			"stamina":             {Current: 0},
+			entity.ResourceShield: {Current: 0},
+			"munitions":           {Current: 0},
 		},
 		AbilityState: make(map[string]any),
 	}

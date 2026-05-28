@@ -31,7 +31,7 @@ func TestCastDef_EnemyMelee_HitsPlayer(t *testing.T) {
 	p := playerTarget(1, entity.Vec3{X: 0, Y: 0.1, Z: -2})
 
 	def := &AbilityDef{
-		ID:         "enemy_melee",
+		ID:         IDEnemyMelee,
 		BaseDamage: 30,
 		Hit:        HitDef{Type: HitAoECone, Range: 3.0, ArcDegrees: 180},
 	}
@@ -90,7 +90,7 @@ func TestCastDef_EnemyMelee_MissesPlayerBehind(t *testing.T) {
 	p := playerTarget(1, entity.Vec3{X: 0, Y: 0.1, Z: 2}) // behind enemy
 
 	def := &AbilityDef{
-		ID:         "enemy_melee",
+		ID:         IDEnemyMelee,
 		BaseDamage: 30,
 		Hit:        HitDef{Type: HitAoECone, Range: 3.0, ArcDegrees: 180},
 	}
@@ -114,7 +114,7 @@ func TestCastDef_EnemyMelee_MissesPlayerOutOfRange(t *testing.T) {
 	p := playerTarget(1, entity.Vec3{X: 0, Y: 0.1, Z: -10}) // in front but far
 
 	def := &AbilityDef{
-		ID:         "enemy_melee",
+		ID:         IDEnemyMelee,
 		BaseDamage: 30,
 		Hit:        HitDef{Type: HitAoECone, Range: 3.0, ArcDegrees: 180},
 	}
@@ -139,7 +139,7 @@ func TestCastDef_EnemyMelee_SkipsDeadPlayer(t *testing.T) {
 	p.Alive = false
 
 	def := &AbilityDef{
-		ID:         "enemy_melee",
+		ID:         IDEnemyMelee,
 		BaseDamage: 30,
 		Hit:        HitDef{Type: HitAoECone, Range: 3.0, ArcDegrees: 180},
 	}
@@ -216,7 +216,7 @@ func TestCastDef_EnemyCaster_SkipsGCDCheck(t *testing.T) {
 	p := playerTarget(1, entity.Vec3{X: 0, Y: 0.1, Z: -2})
 
 	def := &AbilityDef{
-		ID:         "enemy_melee",
+		ID:         IDEnemyMelee,
 		BaseDamage: 30,
 		Hit:        HitDef{Type: HitAoECone, Range: 3.0, ArcDegrees: 180},
 	}
@@ -320,7 +320,7 @@ func TestCastDef_DamageResult_HasTarget(t *testing.T) {
 	p := playerTarget(1, entity.Vec3{X: 0, Y: 0.1, Z: -2})
 
 	def := &AbilityDef{
-		ID:         "enemy_melee",
+		ID:         IDEnemyMelee,
 		BaseDamage: 30,
 		Hit:        HitDef{Type: HitAoECone, Range: 3.0, ArcDegrees: 180},
 	}
@@ -438,7 +438,7 @@ func TestCastDef_EnemyMelee_ObstacleBlocksLOS(t *testing.T) {
 	obs := combat.Obstacle{CX: 0, CZ: -2, HX: 2, HZ: 0.5, Height: 3}
 
 	def := &AbilityDef{
-		ID:         "enemy_melee",
+		ID:         IDEnemyMelee,
 		BaseDamage: 30,
 		Hit:        HitDef{Type: HitAoECone, Range: 5.0, ArcDegrees: 180},
 	}
@@ -493,7 +493,7 @@ func BenchmarkCastDef_EnemyMelee(b *testing.B) {
 		targets[i] = p
 	}
 	def := &AbilityDef{
-		ID:         "enemy_melee",
+		ID:         IDEnemyMelee,
 		BaseDamage: 30,
 		Hit:        HitDef{Type: HitAoECone, Range: 5.0, ArcDegrees: 180},
 	}
@@ -550,7 +550,7 @@ func BenchmarkCastDef_EnemyMelee_Miss(b *testing.B) {
 	e := newEnemyCommitter(200, 1000)
 	p := playerTarget(1, entity.Vec3{X: 0, Y: 0.1, Z: 20}) // far behind
 	def := &AbilityDef{
-		ID:         "enemy_melee",
+		ID:         IDEnemyMelee,
 		BaseDamage: 30,
 		Hit:        HitDef{Type: HitAoECone, Range: 3.0, ArcDegrees: 180},
 	}

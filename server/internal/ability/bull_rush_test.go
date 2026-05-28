@@ -26,13 +26,13 @@ func TestBullRush_DropsGuard(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newShieldVanguard()
 
-	eng.Commit("vg_shield_block", commitCtx(p))
-	if !p.HasBuff("vg_shield_block") {
+	eng.Commit(IDVgShieldBlock, commitCtx(p))
+	if !p.HasBuff(IDVgShieldBlock) {
 		t.Fatal("should be blocking")
 	}
 
 	eng.Commit("bull_rush", commitCtx(p))
-	if p.HasBuff("vg_shield_block") {
+	if p.HasBuff(IDVgShieldBlock) {
 		t.Error("Bull Rush should cancel shield block")
 	}
 }

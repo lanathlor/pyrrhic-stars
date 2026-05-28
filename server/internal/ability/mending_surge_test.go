@@ -56,7 +56,7 @@ func TestMendingSurge(t *testing.T) {
 			wantGCD:        true,
 		},
 		{
-			name: "insufficient flux rejects before handler",
+			name: tcInsufficientFluxBeforeHandler,
 			setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 				caster := entity.NewPlayer(1, entity.ClassArcanotechnicien)
 				caster.SetAllFluxPoolsCurrent(10) // not enough for mending_surge (25)
@@ -66,7 +66,7 @@ func TestMendingSurge(t *testing.T) {
 				return caster, allies, 2
 			},
 			wantOK:     false,
-			wantReason: "insufficient bioarcanotechnic flux",
+			wantReason: tcInsufficientBioarcanotechnicFlux,
 			wantFlux:   -1, // skip flux check (pools handle it)
 		},
 		{
@@ -117,21 +117,21 @@ func TestMendingSurge(t *testing.T) {
 				return caster, allies, 2
 			},
 			wantOK:     false,
-			wantReason: "gcd",
+			wantReason: ReasonGCD,
 			wantFlux:   160,
 		},
 		{
 			name: "rejected on cooldown",
 			setup: func() (*entity.Player, map[uint16]*entity.Player, uint16) {
 				caster := entity.NewPlayer(1, entity.ClassArcanotechnicien)
-				caster.Cooldowns["mending_surge"] = 1.0 // on cooldown
+				caster.Cooldowns[IDMendingSurge] = 1.0 // on cooldown
 				ally := entity.NewPlayer(2, entity.ClassArcanotechnicien)
 				ally.Health = 50
 				allies := map[uint16]*entity.Player{1: caster, 2: ally}
 				return caster, allies, 2
 			},
 			wantOK:     false,
-			wantReason: "cooldown",
+			wantReason: ReasonCooldown,
 			wantFlux:   160, // unchanged
 		},
 	}
@@ -140,7 +140,7 @@ func TestMendingSurge(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			caster, allies, targetPeer := tt.setup()
 
-			result := eng.Commit("mending_surge", &CommitContext{
+			result := eng.Commit(IDMendingSurge, &CommitContext{
 				Committer:    caster,
 				Allies:       allies,
 				TargetPeerID: targetPeer,
@@ -180,7 +180,7 @@ func TestMendingSurge(t *testing.T) {
 			}
 
 			if tt.wantCooldown {
-				if cd, ok := caster.Cooldowns["mending_surge"]; !ok || cd <= 0 {
+				if cd, ok := caster.Cooldowns[IDMendingSurge]; !ok || cd <= 0 {
 					t.Error("expected cooldown to be set")
 				}
 			}

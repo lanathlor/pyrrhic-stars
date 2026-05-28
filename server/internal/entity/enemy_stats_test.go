@@ -8,9 +8,9 @@ func TestGetMoveSpeed(t *testing.T) {
 		phase int
 		want  float32
 	}{
-		{"phase 1", 1, 4.0},
-		{"phase 2", 2, 5.0},
-		{"phase 3", 3, 6.0},
+		{testPhase1, 1, 4.0},
+		{testPhase2, 2, 5.0},
+		{testPhase3, 3, 6.0},
 		{"default falls to phase 1", 0, 4.0},
 	}
 	for _, tt := range tests {
@@ -30,9 +30,9 @@ func TestGetMeleeDamage(t *testing.T) {
 		phase int
 		want  float32
 	}{
-		{"phase 1", 1, 30.0},
-		{"phase 2", 2, 30.0},
-		{"phase 3", 3, 35.0},
+		{testPhase1, 1, 30.0},
+		{testPhase2, 2, 30.0},
+		{testPhase3, 3, 35.0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -51,9 +51,9 @@ func TestGetMeleeTelegraphTime(t *testing.T) {
 		phase int
 		want  float32
 	}{
-		{"phase 1", 1, 1.2},
-		{"phase 2", 2, 0.9},
-		{"phase 3", 3, 0.7},
+		{testPhase1, 1, 1.2},
+		{testPhase2, 2, 0.9},
+		{testPhase3, 3, 0.7},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -72,9 +72,9 @@ func TestGetRangedTelegraphTime(t *testing.T) {
 		phase int
 		want  float32
 	}{
-		{"phase 1", 1, 1.0},
-		{"phase 2", 2, 0.8},
-		{"phase 3", 3, 0.6},
+		{testPhase1, 1, 1.0},
+		{testPhase2, 2, 0.8},
+		{testPhase3, 3, 0.6},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -93,9 +93,9 @@ func TestGetRangedPerProjectileDamage(t *testing.T) {
 		phase int
 		want  float32
 	}{
-		{"phase 1", 1, 20.0},
-		{"phase 2", 2, 15.0},
-		{"phase 3", 3, 12.0},
+		{testPhase1, 1, 20.0},
+		{testPhase2, 2, 15.0},
+		{testPhase3, 3, 12.0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -114,9 +114,9 @@ func TestGetRangedBurstCount(t *testing.T) {
 		phase int
 		want  int
 	}{
-		{"phase 1", 1, 1},
-		{"phase 2", 2, 2},
-		{"phase 3", 3, 3},
+		{testPhase1, 1, 1},
+		{testPhase2, 2, 2},
+		{testPhase3, 3, 3},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -135,9 +135,9 @@ func TestGetAoEDamage(t *testing.T) {
 		phase int
 		want  float32
 	}{
-		{"phase 1", 1, 40.0},
-		{"phase 2", 2, 40.0},
-		{"phase 3", 3, 45.0},
+		{testPhase1, 1, 40.0},
+		{testPhase2, 2, 40.0},
+		{testPhase3, 3, 45.0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -156,9 +156,9 @@ func TestGetAoERadius(t *testing.T) {
 		phase int
 		want  float32
 	}{
-		{"phase 1", 1, 5.0},
-		{"phase 2", 2, 6.0},
-		{"phase 3", 3, 7.0},
+		{testPhase1, 1, 5.0},
+		{testPhase2, 2, 6.0},
+		{testPhase3, 3, 7.0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -177,9 +177,9 @@ func TestGetAoETelegraphTime(t *testing.T) {
 		phase int
 		want  float32
 	}{
-		{"phase 1", 1, 1.5},
-		{"phase 2", 2, 1.2},
-		{"phase 3", 3, 1.0},
+		{testPhase1, 1, 1.5},
+		{testPhase2, 2, 1.2},
+		{testPhase3, 3, 1.0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -198,9 +198,9 @@ func TestGetChargeDamage(t *testing.T) {
 		phase int
 		want  float32
 	}{
-		{"phase 1", 1, 35.0},
-		{"phase 2", 2, 35.0},
-		{"phase 3", 3, 40.0},
+		{testPhase1, 1, 35.0},
+		{testPhase2, 2, 35.0},
+		{testPhase3, 3, 40.0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -219,9 +219,9 @@ func TestGetChargeSpeed(t *testing.T) {
 		phase int
 		want  float32
 	}{
-		{"phase 1", 1, 12.0},
-		{"phase 2", 2, 14.0},
-		{"phase 3", 3, 16.0},
+		{testPhase1, 1, 12.0},
+		{testPhase2, 2, 14.0},
+		{testPhase3, 3, 16.0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -240,9 +240,9 @@ func TestGetChargeTelegraphTime(t *testing.T) {
 		phase int
 		want  float32
 	}{
-		{"phase 1", 1, 1.0},
-		{"phase 2", 2, 0.8},
-		{"phase 3", 3, 0.6},
+		{testPhase1, 1, 1.0},
+		{testPhase2, 2, 0.8},
+		{testPhase3, 3, 0.6},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -261,9 +261,9 @@ func TestGetChargeMaxDistance(t *testing.T) {
 		phase int
 		want  float32
 	}{
-		{"phase 1", 1, 15.0},
-		{"phase 2", 2, 18.0},
-		{"phase 3", 3, 20.0},
+		{testPhase1, 1, 15.0},
+		{testPhase2, 2, 18.0},
+		{testPhase3, 3, 20.0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -282,9 +282,9 @@ func TestGetCooldownTime(t *testing.T) {
 		phase int
 		want  float32
 	}{
-		{"phase 1", 1, 1.5},
-		{"phase 2", 2, 1.2},
-		{"phase 3", 3, 0.9},
+		{testPhase1, 1, 1.5},
+		{testPhase2, 2, 1.2},
+		{testPhase3, 3, 0.9},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -303,9 +303,9 @@ func TestPhaseWeights(t *testing.T) {
 		phase int
 		want  [4]int
 	}{
-		{"phase 1", 1, [4]int{30, 30, 20, 20}},
-		{"phase 2", 2, [4]int{25, 25, 25, 25}},
-		{"phase 3", 3, [4]int{20, 20, 25, 35}},
+		{testPhase1, 1, [4]int{30, 30, 20, 20}},
+		{testPhase2, 2, [4]int{25, 25, 25, 25}},
+		{testPhase3, 3, [4]int{20, 20, 25, 35}},
 		{"default falls to phase 1", 0, [4]int{30, 30, 20, 20}},
 	}
 	for _, tt := range tests {

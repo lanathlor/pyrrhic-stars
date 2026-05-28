@@ -15,35 +15,35 @@ const (
 const BraceDrainReduction = braceDrainReduction
 
 var braceDef = AbilityDef{
-	ID:      "brace",
+	ID:      IDBrace,
 	Name:    "Brace",
-	Handler: "brace",
+	Handler: IDBrace,
 }
 
 func braceHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
 	// Must be actively shield blocking
-	if !p.HasBuff("vg_shield_block") {
+	if !p.HasBuff(IDVgShieldBlock) {
 		return CommitResult{Reason: "not blocking"}
 	}
-	if p.Cooldowns["brace"] > 0 {
-		return CommitResult{Reason: "cooldown"}
+	if p.Cooldowns[IDBrace] > 0 {
+		return CommitResult{Reason: ReasonCooldown}
 	}
-	if p.HasBuff("brace") {
+	if p.HasBuff(IDBrace) {
 		return CommitResult{Reason: "already braced"}
 	}
 
 	p.AddBuff(entity.ActiveBuff{
-		ID:       "brace",
-		Type:     "brace", // marker buff — actual effect is reducing stamina drain in ApplyDamage
+		ID:       IDBrace,
+		Type:     IDBrace, // marker buff — actual effect is reducing stamina drain in ApplyDamage
 		Value:    braceDrainReduction,
 		Duration: braceDuration,
 	})
 
-	p.Cooldowns["brace"] = braceCooldown
+	p.Cooldowns[IDBrace] = braceCooldown
 
 	return CommitResult{OK: true}
 }

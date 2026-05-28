@@ -37,7 +37,7 @@ func chargeRunnerDef() *EnemyDef {
 		Radius:    1.0,
 		Abilities: []ability.AbilityDef{
 			{
-				ID: "charge", Name: "charge", Category: ability.CategoryCharge,
+				ID: testChargeID, Name: testChargeID, Category: ability.CategoryCharge,
 				CommitTime: 0.5, Cooldown: 1.0,
 				BaseWeight: 100, MinRange: 5.0,
 				Charge: &ability.ChargeDef{

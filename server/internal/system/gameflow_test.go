@@ -13,7 +13,7 @@ import (
 func makeArenaWorld(players map[uint16]*entity.Player, enemies []*entity.Enemy) *World {
 	lvl := level.NewArenaLevel()
 	return &World{
-		ZoneID:        "test-arena",
+		ZoneID:        testArenaZoneID,
 		ZoneType:      1,
 		TickNum:       100,
 		State:         StateLobby,
@@ -450,7 +450,7 @@ func TestTickFightOver_WipeSomeDeadNoReturn(t *testing.T) {
 func TestTickFightOver_CooldownsTick(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Alive = true
-	p.Cooldowns["fire_shot"] = 1.0
+	p.Cooldowns[ability.IDFireShot] = 1.0
 
 	w := makeArenaWorld(map[uint16]*entity.Player{1: p}, nil)
 	w.State = StateFightOver
@@ -461,7 +461,7 @@ func TestTickFightOver_CooldownsTick(t *testing.T) {
 	sys := &CombatSystem{}
 	sys.Tick(w, 0.5)
 
-	cd := p.Cooldowns["fire_shot"]
+	cd := p.Cooldowns[ability.IDFireShot]
 	if cd > 0.6 || cd < 0.4 {
 		t.Errorf("fire_shot cooldown = %f, want ~0.5", cd)
 	}

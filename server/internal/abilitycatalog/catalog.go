@@ -87,21 +87,28 @@ func (c *Catalog) AllAbilities() []AbilityEntry {
 	return out
 }
 
+// Affinity tier constants.
+const (
+	AffinityPrimary   = "primary"
+	AffinitySecondary = "secondary"
+	AffinityOff       = "off"
+)
+
 // GetAffinityTier returns "primary", "secondary", or "off" for an ability's
 // school relative to a given spec. If the spec is unknown, returns "off".
 func (c *Catalog) GetAffinityTier(specID, school string) string {
 	aff, ok := c.Affinities[specID]
 	if !ok {
-		return "off"
+		return AffinityOff
 	}
 
 	if slices.Contains(aff.Primary, school) {
-		return "primary"
+		return AffinityPrimary
 	}
 	if slices.Contains(aff.Secondary, school) {
-		return "secondary"
+		return AffinitySecondary
 	}
-	return "off"
+	return AffinityOff
 }
 
 // ValidateLoadout checks that all non-empty slots reference valid, implemented

@@ -5,7 +5,7 @@ import "codex-online/server/internal/entity"
 var gustStepDef = AbilityDef{
 	ID:       "gust_step",
 	Name:     "Gust Step",
-	School:   "aerokinetic",
+	School:   entity.SchoolAerokinetic,
 	Hit:      HitDef{Type: HitNone},
 	GCD:      0.8,
 	Cooldown: 10.0,
@@ -17,7 +17,7 @@ var gustStepDef = AbilityDef{
 func gustStepHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
 
 	// Spend resource from school pool (engine validated sufficiency, handler spends).

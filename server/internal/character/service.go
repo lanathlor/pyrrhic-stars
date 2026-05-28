@@ -6,16 +6,17 @@ import (
 	"log/slog"
 	"strings"
 
+	"codex-online/server/internal/entity"
 	"codex-online/server/internal/persistence"
 )
 
 const maxCharacters = 100
 
 var validClasses = map[string]bool{
-	"gunner":           true,
-	"vanguard":         true,
-	"blade_dancer":     true,
-	"arcanotechnicien": true,
+	entity.ClassGunner:           true,
+	entity.ClassVanguard:         true,
+	entity.ClassBladeDancer:      true,
+	entity.ClassArcanotechnicien: true,
 }
 
 var (

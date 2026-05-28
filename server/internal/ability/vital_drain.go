@@ -3,9 +3,9 @@ package ability
 import "codex-online/server/internal/entity"
 
 var vitalDrainDef = AbilityDef{
-	ID:     "vital_drain",
+	ID:     IDVitalDrain,
 	Name:   "Vital Drain",
-	School: "biometabolic",
+	School: entity.SchoolBiometabolic,
 	Hit: HitDef{
 		Type:        HitNearestN,
 		Range:       20,
@@ -16,7 +16,7 @@ var vitalDrainDef = AbilityDef{
 	GCD:              0.5,
 	BaseDamage:       8,
 	Delivery:         uint8(entity.DeliveryBeam),
-	Handler:          "vital_drain",
+	Handler:          IDVitalDrain,
 	CancelConditions: uint8(CancelOnDamage),
 
 	Sustain:           true,
@@ -32,7 +32,7 @@ var vitalDrainDef = AbilityDef{
 func vitalDrainHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "not a player"}
+		return CommitResult{Reason: ReasonNotAPlayer}
 	}
 
 	if p.FluxCommit != nil && len(p.FluxCommit.Pools) > 0 {
@@ -43,7 +43,7 @@ func vitalDrainHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	} else {
 		flux := p.Resources[entity.ResourceFlux]
 		if flux == nil || flux.Current < vitalDrainDef.SustainCostPerSec {
-			return CommitResult{Reason: "insufficient flux"}
+			return CommitResult{Reason: ReasonInsufficientFlux}
 		}
 	}
 

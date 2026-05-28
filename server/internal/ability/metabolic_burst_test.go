@@ -125,7 +125,7 @@ func TestMetabolicBurst(t *testing.T) {
 			wantConfluence:  1,
 		},
 		{
-			name: "grants confluence stack",
+			name: tcGrantsConfluence,
 			setup: func() (*entity.Player, []entity.Target, map[uint16]*entity.Player) {
 				caster := newHarmonist(1)
 				enemy := enemyInFront(100, 200)
@@ -155,7 +155,7 @@ func TestMetabolicBurst(t *testing.T) {
 			wantFlux:   160, // unchanged
 		},
 		{
-			name: "rejects on insufficient flux",
+			name: tcRejectsInsufficientFlux,
 			setup: func() (*entity.Player, []entity.Target, map[uint16]*entity.Player) {
 				caster := newHarmonist(1)
 				caster.SetAllFluxPoolsCurrent(5) // need 40
@@ -166,7 +166,7 @@ func TestMetabolicBurst(t *testing.T) {
 				return caster, targets, allies
 			},
 			wantOK:     false,
-			wantReason: "insufficient biometabolic flux",
+			wantReason: tcInsufficientBiometabolicFlux,
 			wantFlux:   -1, // pool-managed
 		},
 	}
@@ -284,8 +284,8 @@ func TestMetabolicBurstRegistered(t *testing.T) {
 	if def == nil {
 		t.Fatal("metabolic_burst not registered in engine")
 	}
-	if def.School != "biometabolic" {
-		t.Errorf("School = %q, want %q", def.School, "biometabolic")
+	if def.School != entity.SchoolBiometabolic {
+		t.Errorf("School = %q, want %q", def.School, entity.SchoolBiometabolic)
 	}
 	if def.BaseDamage != 25 {
 		t.Errorf("BaseDamage = %v, want 25", def.BaseDamage)

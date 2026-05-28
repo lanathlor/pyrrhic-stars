@@ -30,10 +30,10 @@ const cleaveStaminaCost float32 = 10
 func cleaveHandler(eng *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
 	if p.Cooldowns["cleave"] > 0 {
-		return CommitResult{Reason: "cooldown"}
+		return CommitResult{Reason: ReasonCooldown}
 	}
 	if !p.SpendResource("stamina", cleaveStaminaCost*p.TenacityEfficiency()) {
 		return CommitResult{Reason: ReasonInsufficientStamina}

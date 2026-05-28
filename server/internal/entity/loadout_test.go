@@ -12,7 +12,7 @@ func TestHarmonistDefaultLoadout(t *testing.T) {
 		want   string
 	}{
 		{50, siphonPulseAbility},
-		{51, "mending_beam"},
+		{51, AbilityMendingBeam},
 		{52, "mending_surge"},
 		{53, "restoration_matrix"},
 		{54, "life_swap"},
@@ -47,7 +47,7 @@ func TestApplyLoadoutUpdatesActionMap(t *testing.T) {
 	}
 
 	// Other slots should remain unchanged.
-	if p.ActionMap[51] != "mending_beam" {
+	if p.ActionMap[51] != AbilityMendingBeam {
 		t.Errorf("ActionMap[51] = %q, want mending_beam (unchanged)", p.ActionMap[51])
 	}
 }
@@ -87,7 +87,7 @@ func TestDodgeStillWorksAfterLoadout(t *testing.T) {
 	if !ok {
 		t.Fatal("ActionMap[3] (dodge) missing after loadout application")
 	}
-	if got != "dodge" {
+	if got != AbilityDodge {
 		t.Errorf("ActionMap[3] = %q, want dodge", got)
 	}
 }

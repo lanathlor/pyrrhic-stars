@@ -1,10 +1,10 @@
 package entity
 
 var vanguardBladeSpec = SpecDef{
-	ID:          "blade",
+	ID:          SpecBlade,
 	Name:        "Blade",
 	Description: "Cleave, Upheaval, Vortex, Execution.\nAoE burst with Onslaught momentum. Dynasty Warriors meets Dark Souls.",
-	Role:        "DPS",
+	Role:        RoleDPS,
 	Implemented: true,
 	MaxHealth:   200,
 	Movement: ClassMovement{
@@ -13,24 +13,24 @@ var vanguardBladeSpec = SpecDef{
 		RollSpeed: 12.0, RollDur: 0.4, RollCD: 1.0,
 	},
 	Resources: map[string]ResourceTemplate{
-		"stamina": {Max: 100, Initial: 100, Regen: 30, RegenDelay: 0.6},
+		ResourceStamina: {Max: 100, Initial: 100, Regen: 30, RegenDelay: 0.6},
 	},
 	Abilities: []string{
-		"cleave", "upheaval", "vg_block", "vg_block_stop",
-		"vortex", "execution", "dodge",
+		"cleave", "upheaval", AbilityVgBlock, AbilityVgBlockStop,
+		AbilityVortex, AbilityExecution, AbilityDodge,
 	},
 	ActionMap: map[uint8]string{
-		1: "cleave", 2: "upheaval", 3: "dodge",
-		4: "vg_block", 5: "vg_block_stop",
-		20: "vortex", 21: "execution",
+		1: "cleave", 2: "upheaval", 3: AbilityDodge,
+		4: AbilityVgBlock, 5: AbilityVgBlockStop,
+		20: AbilityVortex, 21: AbilityExecution,
 	},
 }
 
 var vanguardShieldSpec = SpecDef{
-	ID:          "shield",
+	ID:          SpecShield,
 	Name:        "Shield",
 	Description: "Directional block, absorbs for allies.\nMonster Hunter lance — slow, unbreakable.",
-	Role:        "Tank",
+	Role:        RoleTank,
 	Implemented: true,
 	MaxHealth:   280,
 	Movement: ClassMovement{
@@ -39,7 +39,7 @@ var vanguardShieldSpec = SpecDef{
 		RollSpeed: 10.0, RollDur: 0.4, RollCD: 1.5,
 	},
 	Resources: map[string]ResourceTemplate{
-		"stamina": {Max: 120, Initial: 120, Regen: 25, RegenDelay: 0.8},
+		ResourceStamina: {Max: 120, Initial: 120, Regen: 25, RegenDelay: 0.8},
 	},
 	Abilities: []string{
 		"shield_bash", "bull_rush", "vg_shield_block", "vg_shield_block_stop",
@@ -57,10 +57,10 @@ var vanguardShieldSpec = SpecDef{
 }
 
 var vanguardShadowSpec = SpecDef{
-	ID:          "shadow",
+	ID:          SpecShadow,
 	Name:        "Shadow",
 	Description: "Counters, flanking, sustained stealth pressure.\nSekiro — dodge, punish, repeat.",
-	Role:        "DPS",
+	Role:        RoleDPS,
 	Implemented: false,
 	MaxHealth:   170,
 	Movement: ClassMovement{
@@ -69,7 +69,7 @@ var vanguardShadowSpec = SpecDef{
 		RollSpeed: 14.0, RollDur: 0.35, RollCD: 0.8,
 	},
 	Resources: map[string]ResourceTemplate{
-		"stamina": {Max: 80, Initial: 80, Regen: 35, RegenDelay: 0.4},
+		ResourceStamina: {Max: 80, Initial: 80, Regen: 35, RegenDelay: 0.4},
 	},
 }
 
@@ -80,6 +80,6 @@ var vanguardDef = ClassDef{
 	Resources:   vanguardBladeSpec.Resources,
 	Abilities:   vanguardBladeSpec.Abilities,
 	ActionMap:   vanguardBladeSpec.ActionMap,
-	DefaultSpec: "blade",
+	DefaultSpec: SpecBlade,
 	Specs:       []*SpecDef{&vanguardBladeSpec, &vanguardShieldSpec, &vanguardShadowSpec},
 }

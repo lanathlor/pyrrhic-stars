@@ -46,21 +46,31 @@ func SlotName(s SlotID) string {
 	}
 }
 
+// Stat name constants.
+const (
+	NameHull     = "Hull"
+	NameOutput   = "Output"
+	NamePlating  = "Plating"
+	NameTempo    = "Tempo"
+	NameIdentity = "Identity"
+	NameMastery  = "Mastery"
+)
+
 // StatName returns a human-readable name for the stat.
 func StatName(s StatID) string {
 	switch s {
 	case StatHull:
-		return "Hull"
+		return NameHull
 	case StatOutput:
-		return "Output"
+		return NameOutput
 	case StatPlating:
-		return "Plating"
+		return NamePlating
 	case StatTempo:
-		return "Tempo"
+		return NameTempo
 	case StatIdentity:
-		return "Identity"
+		return NameIdentity
 	case StatMastery:
-		return "Mastery"
+		return NameMastery
 	default:
 		return "Unknown"
 	}

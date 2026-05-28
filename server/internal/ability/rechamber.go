@@ -3,13 +3,13 @@ package ability
 import "codex-online/server/internal/entity"
 
 var rechamberDef = AbilityDef{
-	ID: "rechamber", Name: "Rechamber",
-	Handler: "rechamber",
+	ID: IDRechamber, Name: "Rechamber",
+	Handler: IDRechamber,
 }
 
 var rechamberConfirmDef = AbilityDef{
-	ID: "rechamber_confirm", Name: "Rechamber Confirm",
-	Handler: "rechamber_confirm",
+	ID: IDRechamberConfirm, Name: "Rechamber Confirm",
+	Handler: IDRechamberConfirm,
 }
 
 // RechamberState tracks the rechamber phase machine for a gunner.
@@ -24,25 +24,25 @@ func (s *RechamberState) GetPhase() uint8 { return s.Phase }
 func rechamberHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
 	state := getRechamberState(p)
 	if state.Phase != 0 {
 		return CommitResult{Reason: "rechamber in progress"}
 	}
-	if cd := p.Cooldowns["fire_shot"]; cd > 0 {
+	if cd := p.Cooldowns[IDFireShot]; cd > 0 {
 		return CommitResult{Reason: "fire cooldown"}
 	}
 	state.Phase = 1
 	state.Timer = 0.6
-	p.Cooldowns["fire_shot"] = 0.6
+	p.Cooldowns[IDFireShot] = 0.6
 	return CommitResult{OK: true}
 }
 
 func rechamberConfirmHandler(_ *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
 	state := getRechamberState(p)
 	if state.Phase != 2 {
@@ -86,10 +86,10 @@ func rechamberTick(_ *Engine, p *entity.Player, dt float32, _ *TickContext) []Da
 }
 
 func getRechamberState(p *entity.Player) *RechamberState {
-	if s, ok := p.AbilityState["rechamber"].(*RechamberState); ok {
+	if s, ok := p.AbilityState[IDRechamber].(*RechamberState); ok {
 		return s
 	}
 	s := &RechamberState{}
-	p.AbilityState["rechamber"] = s
+	p.AbilityState[IDRechamber] = s
 	return s
 }

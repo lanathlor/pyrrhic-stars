@@ -11,50 +11,50 @@ func TestAffinityCostMult(t *testing.T) {
 	}{
 		{
 			name:   "primary school returns 1.0",
-			player: &Player{PrimarySchools: []string{"frost", "fire"}, SecondarySchools: []string{"aerokinetic"}},
-			school: "frost",
+			player: &Player{PrimarySchools: []string{SchoolFrost, SchoolFire}, SecondarySchools: []string{SchoolAerokinetic}},
+			school: SchoolFrost,
 			want:   1.0,
 		},
 		{
 			name:   "secondary school returns 1.25",
-			player: &Player{PrimarySchools: []string{"frost"}, SecondarySchools: []string{"aerokinetic", "pure"}},
-			school: "aerokinetic",
+			player: &Player{PrimarySchools: []string{SchoolFrost}, SecondarySchools: []string{SchoolAerokinetic, SchoolPure}},
+			school: SchoolAerokinetic,
 			want:   1.25,
 		},
 		{
 			name:   "off-affinity school returns 1.5",
-			player: &Player{PrimarySchools: []string{"frost"}, SecondarySchools: []string{"aerokinetic"}},
-			school: "shadow",
+			player: &Player{PrimarySchools: []string{SchoolFrost}, SecondarySchools: []string{SchoolAerokinetic}},
+			school: SchoolShadow,
 			want:   1.5,
 		},
 		{
 			name:   "no schools configured returns 1.0",
 			player: &Player{},
-			school: "frost",
+			school: SchoolFrost,
 			want:   1.0,
 		},
 		{
 			name:   "harmonist bioarcanotechnic is primary",
 			player: NewPlayer(1, ClassArcanotechnicien),
-			school: "bioarcanotechnic",
+			school: SchoolBioarcanotechnic,
 			want:   1.0,
 		},
 		{
 			name:   "harmonist aerokinetic is secondary",
 			player: NewPlayer(1, ClassArcanotechnicien),
-			school: "aerokinetic",
+			school: SchoolAerokinetic,
 			want:   1.25,
 		},
 		{
 			name:   "harmonist shadow is off-affinity",
 			player: NewPlayer(1, ClassArcanotechnicien),
-			school: "shadow",
+			school: SchoolShadow,
 			want:   1.5,
 		},
 		{
 			name:   "gunner has no scaling",
 			player: NewPlayer(1, ClassGunner),
-			school: "frost",
+			school: SchoolFrost,
 			want:   1.0,
 		},
 	}
@@ -76,12 +76,12 @@ func TestSpendFluxBySchool_AffinityScaling(t *testing.T) {
 	// Total flux = 160, so frost pool = 16, aerokinetic pool = 16.
 
 	// Frost is primary (1.0x). Spending 10 base should deduct exactly 10.
-	frostPool := p.FluxCommit.GetPool("frost")
+	frostPool := p.FluxCommit.GetPool(SchoolFrost)
 	if frostPool == nil {
 		t.Fatal("frost pool not found")
 	}
 	startFrost := frostPool.Current
-	if !p.SpendFluxBySchool("frost", 10) {
+	if !p.SpendFluxBySchool(SchoolFrost, 10) {
 		t.Fatal("SpendFluxBySchool(frost, 10) should succeed")
 	}
 	if frostPool.Current != startFrost-10 {
@@ -89,12 +89,12 @@ func TestSpendFluxBySchool_AffinityScaling(t *testing.T) {
 	}
 
 	// Aerokinetic is secondary (1.25x). Spending 10 base should deduct 12.5.
-	aeroPool := p.FluxCommit.GetPool("aerokinetic")
+	aeroPool := p.FluxCommit.GetPool(SchoolAerokinetic)
 	if aeroPool == nil {
 		t.Fatal("aerokinetic pool not found")
 	}
 	startAero := aeroPool.Current
-	if !p.SpendFluxBySchool("aerokinetic", 10) {
+	if !p.SpendFluxBySchool(SchoolAerokinetic, 10) {
 		t.Fatal("SpendFluxBySchool(aerokinetic, 10) should succeed")
 	}
 	expectedDeduct := float32(12.5)
@@ -107,13 +107,13 @@ func TestSpendFluxBySchool_RejectsScaledInsufficient(t *testing.T) {
 	// If you have 12 flux in aerokinetic (secondary, 1.25x) and try to spend
 	// 10 base cost, scaled = 12.5 > 12 → should fail.
 	p := NewPlayer(1, ClassArcanotechnicien)
-	aeroPool := p.FluxCommit.GetPool("aerokinetic")
+	aeroPool := p.FluxCommit.GetPool(SchoolAerokinetic)
 	if aeroPool == nil {
 		t.Fatal("aerokinetic pool not found")
 	}
 	aeroPool.Current = 12.0
 
-	if p.SpendFluxBySchool("aerokinetic", 10) {
+	if p.SpendFluxBySchool(SchoolAerokinetic, 10) {
 		t.Error("SpendFluxBySchool should reject: 10 * 1.25 = 12.5 > 12.0")
 	}
 	// Pool should be unchanged.

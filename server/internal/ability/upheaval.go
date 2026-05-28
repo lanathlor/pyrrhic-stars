@@ -31,10 +31,10 @@ const upheavalStaminaCost float32 = 20
 func upheavalHandler(eng *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
 	if p.Cooldowns["upheaval"] > 0 {
-		return CommitResult{Reason: "cooldown"}
+		return CommitResult{Reason: ReasonCooldown}
 	}
 	if !p.SpendResource("stamina", upheavalStaminaCost*p.TenacityEfficiency()) {
 		return CommitResult{Reason: ReasonInsufficientStamina}

@@ -36,10 +36,10 @@ const (
 func executionVGHandler(eng *Engine, ctx *CommitContext) CommitResult {
 	p, ok := ctx.Committer.(*entity.Player)
 	if !ok {
-		return CommitResult{Reason: "invalid caster"}
+		return CommitResult{Reason: ReasonInvalidCaster}
 	}
 	if p.Cooldowns["execution"] > 0 || p.GCDTimer > 0 {
-		return CommitResult{Reason: "cooldown"}
+		return CommitResult{Reason: ReasonCooldown}
 	}
 	if !p.SpendResource("stamina", executionStaminaCost*p.TenacityEfficiency()) {
 		return CommitResult{Reason: ReasonInsufficientStamina}

@@ -506,7 +506,7 @@ func applySustainTick(w *World, p *entity.Player, runner *ability.PlayerAbilityR
 	multiplier := float32(1.0) + runner.SustainElapsed*def.SustainScaling
 	amount := def.SustainEffect * multiplier
 
-	if def.SustainHandler == "transfusion" {
+	if def.SustainHandler == ability.IDTransfusion {
 		handleTransfusionSustain(w, p, runner, amount)
 		return
 	}
