@@ -143,7 +143,7 @@ func create_health_bar() -> void:
 func update_health_bar() -> void:
 	if not health_bar_fg:
 		return
-	var ratio := enemy.health / enemy.max_health
+	var ratio: float = enemy.health / enemy.max_health
 	(health_bar_fg.mesh as QuadMesh).size.x = 1.5 * maxf(ratio, 0.01)
 
 

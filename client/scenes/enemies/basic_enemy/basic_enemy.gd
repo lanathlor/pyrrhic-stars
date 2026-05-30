@@ -72,7 +72,7 @@ var _charge_direction: Vector3 = Vector3.ZERO
 
 # Scene references
 @onready var character_model: Node3D = $CharacterModel
-@onready var vfx: Node = $BasicEnemyVfx
+@onready var vfx = $BasicEnemyVfx
 
 
 func _ready() -> void:
@@ -144,6 +144,8 @@ func apply_server_state(data: Dictionary) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if not vfx:
+		return
 	vfx.face_health_bar_to_camera()
 	_update_weapons(delta)
 	character_model.position.y = 0.0
