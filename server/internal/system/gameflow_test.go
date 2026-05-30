@@ -10,8 +10,9 @@ import (
 )
 
 // makeArenaWorld creates a minimal arena world for gameflow tests.
-func makeArenaWorld(players map[uint16]*entity.Player, enemies []*entity.Enemy) *World {
-	lvl := level.NewArenaLevel()
+func makeArenaWorld(t testing.TB, players map[uint16]*entity.Player, enemies []*entity.Enemy) *World {
+	t.Helper()
+	lvl := testArenaLevel(t)
 	return &World{
 		ZoneID:        testArenaZoneID,
 		ZoneType:      1,
@@ -36,7 +37,7 @@ func TestGameFlowSystem_SkipsInHub(t *testing.T) {
 		ZoneType: 0, // Hub
 		State:    StateLobby,
 		Players:  map[uint16]*entity.Player{1: p},
-		Level:    level.NewHubLevel(),
+		Level:    testHubLevel(t),
 	}
 
 	sys := &GameFlowSystem{}
@@ -105,7 +106,7 @@ func TestTickLobby(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			w := makeArenaWorld(tc.players, nil)
+			w := makeArenaWorld(t, tc.players, nil)
 			w.State = StateLobby
 
 			sys := &GameFlowSystem{}
@@ -158,7 +159,7 @@ func TestTickSpawned(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			w := makeArenaWorld(tc.players, nil)
+			w := makeArenaWorld(t, tc.players, nil)
 			w.State = StateSpawned
 
 			sys := &GameFlowSystem{}
@@ -335,7 +336,7 @@ func TestCheckFightEnd(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			enemies := tc.setupEnemies()
 			players := tc.setupPlayers()
-			w := makeArenaWorld(players, enemies)
+			w := makeArenaWorld(t, players, enemies)
 			w.State = StateFight
 			w.BossGateActive = tc.bossGateActive
 
@@ -387,7 +388,7 @@ func TestTickFightOver_WipeAllRespawnReturnsToLobby(t *testing.T) {
 	p2.Alive = true
 	p2.Health = p2.MaxHealth
 
-	w := makeArenaWorld(map[uint16]*entity.Player{1: p1, 2: p2}, nil)
+	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p1, 2: p2}, nil)
 	w.State = StateFightOver
 	w.BossDefeated = false
 
@@ -413,7 +414,7 @@ func TestTickFightOver_BossDefeatedNoReturn(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Alive = true
 
-	w := makeArenaWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	w.State = StateFightOver
 	w.BossDefeated = true
 
@@ -434,7 +435,7 @@ func TestTickFightOver_WipeSomeDeadNoReturn(t *testing.T) {
 	p2.Alive = false
 	p2.Health = 0
 
-	w := makeArenaWorld(map[uint16]*entity.Player{1: p1, 2: p2}, nil)
+	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p1, 2: p2}, nil)
 	w.State = StateFightOver
 	w.BossDefeated = false
 
@@ -452,7 +453,7 @@ func TestTickFightOver_CooldownsTick(t *testing.T) {
 	p.Alive = true
 	p.Cooldowns[ability.IDFireShot] = 1.0
 
-	w := makeArenaWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	w.State = StateFightOver
 	w.BossDefeated = true
 
@@ -472,7 +473,7 @@ func TestTickFightOver_CooldownsTick(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestInitInstance(t *testing.T) {
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 	enemies := make([]*entity.Enemy, len(lvl.EnemySpawns))
 	for i, sp := range lvl.EnemySpawns {
 		e := entity.NewEnemy(uint16(i), 100, sp.DefName)
@@ -519,7 +520,7 @@ func TestInitInstance(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestResetAliveEnemies(t *testing.T) {
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 
 	eAlive := entity.NewEnemy(0, 200, "hallway_melee")
 	eAlive.Position = entity.Vec3{X: 50, Y: 0, Z: 50}
@@ -569,7 +570,7 @@ func TestResetAliveEnemies(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestSpawnPlayers(t *testing.T) {
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 	p1 := entity.NewPlayer(1, entity.ClassGunner)
 	p1.Position = entity.Vec3{X: 0, Y: 0, Z: 0}
 	p1.Health = 50
@@ -622,7 +623,7 @@ func TestSpawnPlayers(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestSpawnPlayer(t *testing.T) {
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Health = 10
 	p.Alive = false
@@ -650,8 +651,8 @@ func TestSpawnPlayer(t *testing.T) {
 	}
 }
 
-func TestSpawnPlayer_UnknownPeer(_ *testing.T) {
-	lvl := level.NewArenaLevel()
+func TestSpawnPlayer_UnknownPeer(t *testing.T) {
+	lvl := testArenaLevel(t)
 	w := &World{
 		Players: map[uint16]*entity.Player{},
 		Level:   lvl,
@@ -673,7 +674,7 @@ func TestCheckBossGate_AggroClosesGate(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5} // in boss room (Z < BossRoomEntryZ=12)
 
-	w := makeArenaWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{boss})
+	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{boss})
 	w.State = StateFight
 	w.BossGateActive = false
 
@@ -707,7 +708,7 @@ func TestCheckBossGate_NoPlayersInBossRoomResetsBoss(t *testing.T) {
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 20}
 
 	enemies := []*entity.Enemy{boss}
-	w := makeArenaWorld(map[uint16]*entity.Player{1: p}, enemies)
+	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p}, enemies)
 	w.State = StateFight
 	w.BossGateActive = true
 
@@ -744,7 +745,7 @@ func TestCheckBossGate_NoPlayersInBossRoomResetsBoss(t *testing.T) {
 }
 
 func TestCheckBossGate_PushesPlayersNearGate(t *testing.T) {
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 	boss := entity.NewEnemy(0, 2000, "guard_captain")
 	boss.IsBoss = true
 	boss.State = entity.EnemyChase
@@ -754,7 +755,7 @@ func TestCheckBossGate_PushesPlayersNearGate(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: lvl.BossRoomEntryZ - 1.0}
 
-	w := makeArenaWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{boss})
+	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{boss})
 	w.State = StateFight
 	w.BossGateActive = false
 
@@ -783,7 +784,7 @@ func TestCheckBossGate_RemovesThreatForOutsidePlayers(t *testing.T) {
 	p2 := entity.NewPlayer(2, entity.ClassVanguard)
 	p2.Position = entity.Vec3{X: 0, Y: 0.1, Z: 20}
 
-	w := makeArenaWorld(map[uint16]*entity.Player{1: p1, 2: p2}, []*entity.Enemy{boss})
+	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p1, 2: p2}, []*entity.Enemy{boss})
 	w.State = StateFight
 	w.BossGateActive = false
 
@@ -806,7 +807,7 @@ func TestCheckBossGate_DeadBossSkipped(t *testing.T) {
 	boss.Alive = false
 	boss.State = entity.EnemyDead
 
-	w := makeArenaWorld(map[uint16]*entity.Player{}, []*entity.Enemy{boss})
+	w := makeArenaWorld(t, map[uint16]*entity.Player{}, []*entity.Enemy{boss})
 	w.State = StateFight
 
 	sys := &GameFlowSystem{}
@@ -947,7 +948,7 @@ func TestWipeAndRespawn_BossStaysPatrol(t *testing.T) {
 
 	enemies := []*entity.Enemy{boss}
 	players := map[uint16]*entity.Player{1: p}
-	w := makeArenaWorld(players, enemies)
+	w := makeArenaWorld(t, players, enemies)
 	w.State = StateFight
 	w.BossGateActive = true
 
@@ -994,7 +995,7 @@ func TestWipeAndRespawn_BossStaysPatrol(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestReturnToLobby_ResetsPlayerState(t *testing.T) {
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Ready = true
@@ -1012,7 +1013,7 @@ func TestReturnToLobby_ResetsPlayerState(t *testing.T) {
 	eDead.State = entity.EnemyDead
 	eDead.Health = 0
 
-	w := makeArenaWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{eAlive, eDead})
+	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{eAlive, eDead})
 	w.State = StateFightOver
 	w.BossDefeated = false
 	w.Level = lvl

@@ -7,12 +7,11 @@ import (
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/combatlog"
 	"codex-online/server/internal/entity"
-	"codex-online/server/internal/level"
 )
 
 func TestVitalDrainSustainDamage(t *testing.T) {
 	eng := ability.NewEngine(nil)
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 
 	p := entity.NewPlayerWithSpec(1, entity.ClassArcanotechnicien, "harmonist")
 	p.SpawnTick = 0

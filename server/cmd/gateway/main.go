@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -75,7 +76,10 @@ func main() {
 		slog.Info("dev mode enabled — debug opcodes active, standalone (no external deps)")
 	}
 
-	configureGateway(gw)
+	if err := configureGateway(gw); err != nil {
+		slog.Error("gateway configuration failed", "error", err)
+		return
+	}
 
 	// Start periodic position flush (every 30s).
 	flushCtx, flushCancel := context.WithCancel(ctx)
@@ -122,7 +126,7 @@ func runHTTPServer(mux *http.ServeMux) error {
 
 // configureGateway loads the ability catalog, creates the ability engine,
 // creates the persistent hub zone, and any other one-time gateway setup.
-func configureGateway(gw *gateway) {
+func configureGateway(gw *gateway) error {
 	// Load ability catalog for loadout validation.
 	cat, err := abilitycatalog.Load("data/abilities/arcanotechnicien.yaml")
 	if err != nil {
@@ -136,8 +140,13 @@ func configureGateway(gw *gateway) {
 	// Create ability engine for stat lookups (catalog enrichment).
 	gw.abilityEng = ability.NewEngine(nil)
 
-	// Create persistent hub zone at startup.
-	gw.getOrCreateZone(zone.ZoneHub, zone.ZoneTypeOpenWorld, 0)
+	// Create persistent hub zone at startup. Fail fast if hub level is missing.
+	hubLvl, err2 := gw.loadLevel("hub")
+	if err2 != nil {
+		return fmt.Errorf("hub level not found: %w", err2)
+	}
+	gw.getOrCreateZone(zone.ZoneHub, hubLvl, 0)
+	return nil
 }
 
 // initDatabase selects the database driver, applies dev-mode overrides, and

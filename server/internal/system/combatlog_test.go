@@ -9,13 +9,12 @@ import (
 	"codex-online/server/internal/combatlog"
 	"codex-online/server/internal/enemyai"
 	"codex-online/server/internal/entity"
-	"codex-online/server/internal/level"
 )
 
 const testEncounterID = "guard_captain"
 
 // makeLoggedWorld creates a world with an InMemorySink for combat log testing.
-func makeLoggedWorld(players map[uint16]*entity.Player, enemies []*entity.Enemy) (*World, *combatlog.InMemorySink) {
+func makeLoggedWorld(t testing.TB, players map[uint16]*entity.Player, enemies []*entity.Enemy) (*World, *combatlog.InMemorySink) {
 	sink := combatlog.NewInMemorySink()
 	session := combatlog.NewSession(
 		sink, "test-instance", "test-group", "test-encounter", testArenaZoneID, "run-1",
@@ -28,7 +27,7 @@ func makeLoggedWorld(players map[uint16]*entity.Player, enemies []*entity.Enemy)
 		State:         StateFight,
 		Players:       players,
 		Enemies:       enemies,
-		Level:         level.NewArenaLevel(),
+		Level:         testArenaLevel(t),
 		AbilityEngine: ability.NewEngine(nil),
 		CombatLogSink: sink,
 		CombatLogs:    map[int]*combatlog.EncounterSession{0: session},
@@ -47,7 +46,7 @@ func TestCombatLog_PlayerAbilityDamage(t *testing.T) {
 	p.RotationY = 0 // facing -Z
 	e.Position = entity.Vec3{X: 0, Z: 3, Y: 0.1}
 
-	w, sink := makeLoggedWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	w, sink := makeLoggedWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
 
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: codec.EncodeAbilityInput(entity.ActionShoot, 0.0)}}
 	is := &InputSystem{}
@@ -85,7 +84,7 @@ func TestCombatLog_PlayerAbilityDamage(t *testing.T) {
 
 func TestCombatLog_Dodge(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
-	w, sink := makeLoggedWorld(map[uint16]*entity.Player{1: p}, nil)
+	w, sink := makeLoggedWorld(t, map[uint16]*entity.Player{1: p}, nil)
 
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: codec.EncodeAbilityInput(entity.ActionDodge, 0.0)}}
 	is := &InputSystem{}
@@ -122,7 +121,7 @@ func TestCombatLog_DoTTick(t *testing.T) {
 		TickTimer:  0.01, // ticks almost immediately
 	})
 
-	w, sink := makeLoggedWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	w, sink := makeLoggedWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
 	cs := &CombatSystem{}
 	cs.Tick(w, 0.05)
 
@@ -151,7 +150,7 @@ func TestCombatLog_BuffExpiry(t *testing.T) {
 		Duration: 0.01, // expires this tick
 	})
 
-	w, sink := makeLoggedWorld(map[uint16]*entity.Player{1: p}, nil)
+	w, sink := makeLoggedWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	cs := &CombatSystem{}
 	cs.Tick(w, 0.05)
 
@@ -182,7 +181,7 @@ func TestCombatLog_FightLifecycle_BossKill(t *testing.T) {
 		State:         StateSpawned,
 		Players:       map[uint16]*entity.Player{1: p},
 		Enemies:       []*entity.Enemy{e},
-		Level:         level.NewArenaLevel(),
+		Level:         testArenaLevel(t),
 		AbilityEngine: ability.NewEngine(nil),
 		CombatLogSink: sink,
 	}
@@ -240,7 +239,7 @@ func TestCombatLog_FightLifecycle_Wipe(t *testing.T) {
 		State:         StateSpawned,
 		Players:       map[uint16]*entity.Player{1: p},
 		Enemies:       []*entity.Enemy{e},
-		Level:         level.NewArenaLevel(),
+		Level:         testArenaLevel(t),
 		AbilityEngine: ability.NewEngine(nil),
 		CombatLogSink: sink,
 	}
@@ -289,7 +288,7 @@ func TestCombatLog_SoloBoss_NegativeKey(t *testing.T) {
 		State:         StateFight,
 		Players:       map[uint16]*entity.Player{1: p},
 		Enemies:       []*entity.Enemy{e},
-		Level:         level.NewArenaLevel(),
+		Level:         testArenaLevel(t),
 		AbilityEngine: ability.NewEngine(nil),
 		CombatLogSink: sink,
 	}
@@ -327,7 +326,7 @@ func TestCombatLog_SoloBoss_NegativeKey(t *testing.T) {
 func TestCombatLog_NoLogWhenSessionNil(t *testing.T) {
 	t.Helper()
 	p := entity.NewPlayer(1, entity.ClassGunner)
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	// CombatLog is nil (no session active)
 
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: codec.EncodeAbilityInput(entity.ActionDodge, 0.0)}}
@@ -368,7 +367,7 @@ func TestCombatLog_ProximityAggro_Boss(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Alive = true
 
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 
 	w := &World{
 		ZoneID:        testArenaZoneID,
@@ -469,7 +468,7 @@ func TestCombatLog_ProximityAggro_TrashPack(t *testing.T) {
 	p.Alive = true
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 35} // within aggro range
 
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 
 	w := &World{
 		ZoneID:        testArenaZoneID,
@@ -537,7 +536,7 @@ func TestCombatLog_DamageAggroAlsoWorks(t *testing.T) {
 		State:         StateFight,
 		Players:       map[uint16]*entity.Player{1: p},
 		Enemies:       []*entity.Enemy{e},
-		Level:         level.NewArenaLevel(),
+		Level:         testArenaLevel(t),
 		AbilityEngine: ability.NewEngine(nil),
 		CombatLogSink: sink,
 	}
@@ -578,7 +577,7 @@ func TestCombatLog_FullFight_EndToEnd(t *testing.T) {
 	p.Alive = true
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5} // close to boss
 
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 
 	w := &World{
 		ZoneID:        testArenaZoneID,

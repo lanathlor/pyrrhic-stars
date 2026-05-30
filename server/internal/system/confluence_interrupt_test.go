@@ -46,7 +46,7 @@ func TestConfluence_DropsOnCancelOnDamage(t *testing.T) {
 	p := harmonistWithConfluence(1, 3)
 	p.LastDamageTick = 200 // damage after sustain start
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	w.TickNum = 200
 	runner := runnerInSustain(&testSustainDef, 100, p.Position) // sustain started at tick 100
 	w.AbilityRunners[1] = runner
@@ -63,7 +63,7 @@ func TestConfluence_DropsOnCancelOnMove(t *testing.T) {
 	p := harmonistWithConfluence(1, 3)
 	startPos := entity.Vec3{X: 0, Y: 0, Z: 0}
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	runner := runnerInSustain(&testSustainDef, 100, startPos)
 	w.AbilityRunners[1] = runner
 
@@ -86,7 +86,7 @@ func TestConfluence_DropsOnInsufficientFlux(t *testing.T) {
 	fluxDef.SustainCostPerSec = 100 // very expensive
 	fluxDef.SustainInterval = 0.5
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	runner := runnerInSustain(&fluxDef, 100, p.Position)
 	w.AbilityRunners[1] = runner
 
@@ -109,7 +109,7 @@ func TestConfluence_DropsOnDodgeCancel(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.Confluence = &entity.ConfluenceState{Stacks: 3, MaxStacks: 5, DecayRate: 1.0}
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	runner := runnerInCommit(&testSustainDef)
 	w.AbilityRunners[1] = runner
 
@@ -125,7 +125,7 @@ func TestConfluence_DropsOnDodgeCancel(t *testing.T) {
 func TestConfluence_DropsOnESCCancel(t *testing.T) {
 	p := harmonistWithConfluence(1, 3)
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	runner := runnerInSustain(&testSustainDef, 100, p.Position)
 	w.AbilityRunners[1] = runner
 
@@ -141,7 +141,7 @@ func TestConfluence_DropsOnESCCancel(t *testing.T) {
 func TestConfluence_DropsOnNewChanneledAbility(t *testing.T) {
 	p := harmonistWithConfluence(1, 3)
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	runner := runnerInSustain(&testSustainDef, 100, p.Position)
 	w.AbilityRunners[1] = runner
 
@@ -160,7 +160,7 @@ func TestConfluence_DropsOnNewChanneledAbility(t *testing.T) {
 func TestConfluence_DropsOnInstantAbilityCancel(t *testing.T) {
 	p := harmonistWithConfluence(1, 3)
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	runner := runnerInSustain(&testSustainDef, 100, p.Position)
 	w.AbilityRunners[1] = runner
 
@@ -184,7 +184,7 @@ func TestConfluence_DropsOnInstantAbilityCancel(t *testing.T) {
 func TestConfluence_NotDroppedWhenRunnerIdle(t *testing.T) {
 	p := harmonistWithConfluence(1, 3)
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	// Runner is idle (no runner set, or idle phase)
 	runner := &ability.PlayerAbilityRunner{} // idle by default
 	w.AbilityRunners[1] = runner

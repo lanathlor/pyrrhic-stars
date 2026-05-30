@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
 )
 
-const currentVersion = 3
+const currentVersion = 4
 
 type boundsJSON struct {
 	MinX float32 `json:"min_x"`
@@ -92,6 +93,8 @@ type npcSpawnJSON struct {
 type levelDataJSON struct {
 	Version      int               `json:"version"`
 	Zone         string            `json:"zone"`
+	ZoneType     string            `json:"zone_type,omitempty"`
+	EnemyRadius  float32           `json:"enemy_radius,omitempty"`
 	SourceScene  string            `json:"source_scene"`
 	Bounds       boundsJSON        `json:"bounds"`
 	Obstacles    []obstacleJSON    `json:"obstacles"`
@@ -104,8 +107,7 @@ type levelDataJSON struct {
 	ZoneTriggers []zoneTriggerJSON `json:"zone_triggers,omitempty"`
 }
 
-// loadLevelData reads a JSON level file and applies its geometry to l.
-// Game-logic fields (ArenaEntryZ, BossRoomEntryZ, EnemyRadius) are left untouched.
+// loadLevelData reads a JSON level file and populates l.
 func loadLevelData(path string, l *Level) error {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -135,6 +137,14 @@ func loadLevelData(path string, l *Level) error {
 	loadNPCSpawns(l, ld.NPCSpawns)
 	loadPortals(l, ld.Portals)
 	loadZoneTriggers(l, ld.ZoneTriggers)
+
+	// v4 fields
+	if ld.ZoneType != "" {
+		l.ZoneType = ld.ZoneType
+	}
+	if ld.EnemyRadius > 0 {
+		l.EnemyRadius = ld.EnemyRadius
+	}
 
 	return nil
 }
@@ -215,6 +225,37 @@ func loadZoneTriggers(l *Level, triggers []zoneTriggerJSON) {
 			l.BossRoomEntryZ = zt.Threshold
 		}
 	}
+}
+
+// Load reads a zone definition from shared/levels/<zoneName>.json.
+// Returns an error if the file is missing — there is no fallback.
+func Load(zoneName string) (*Level, error) {
+	l := &Level{}
+	path := levelDataPath(zoneName)
+	if err := loadLevelData(path, l); err != nil {
+		return nil, fmt.Errorf("level.Load(%q): %w", zoneName, err)
+	}
+	if l.ZoneType == "" {
+		l.ZoneType = "open_world"
+	}
+	return l, nil
+}
+
+// levelDataPath returns the path to a level JSON file.
+// Checks CODEX_LEVELS_DIR env var first, then walks up from CWD looking for shared/levels/.
+func levelDataPath(zone string) string {
+	dir := os.Getenv("CODEX_LEVELS_DIR")
+	if dir != "" {
+		return filepath.Join(dir, zone+".json")
+	}
+	cwd, _ := os.Getwd()
+	for d := cwd; d != "/" && d != "."; d = filepath.Dir(d) {
+		candidate := filepath.Join(d, "shared", "levels", zone+".json")
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	return filepath.Join("..", "shared", "levels", zone+".json")
 }
 
 func loadEnemySpawns(l *Level, spawns []enemySpawnJSON) {

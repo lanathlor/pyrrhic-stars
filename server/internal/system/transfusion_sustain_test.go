@@ -15,7 +15,7 @@ func TestTransfusionSustain_DrainsTargetHealsOthers(t *testing.T) {
 	other.Health = 80 // should receive healing
 
 	players := map[uint16]*entity.Player{1: caster, 2: target, 3: other}
-	w := makeWorld(players, nil)
+	w := makeWorld(t, players, nil)
 
 	def := w.AbilityEngine.GetAbility("transfusion")
 	if def == nil {
@@ -51,7 +51,7 @@ func TestTransfusionSustain_DoesNotHealTarget(t *testing.T) {
 	// Only two players — no other ally to heal. Target should just lose HP.
 
 	players := map[uint16]*entity.Player{1: caster, 2: target}
-	w := makeWorld(players, nil)
+	w := makeWorld(t, players, nil)
 
 	def := w.AbilityEngine.GetAbility("transfusion")
 	if def == nil {
@@ -82,7 +82,7 @@ func TestTransfusionSustain_CancelsWhenTargetDead(t *testing.T) {
 	target.Health = 0
 
 	players := map[uint16]*entity.Player{1: caster, 2: target}
-	w := makeWorld(players, nil)
+	w := makeWorld(t, players, nil)
 
 	def := w.AbilityEngine.GetAbility("transfusion")
 	if def == nil {

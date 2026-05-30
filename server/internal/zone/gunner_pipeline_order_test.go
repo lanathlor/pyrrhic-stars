@@ -7,6 +7,7 @@ import (
 	"codex-online/server/internal/ability"
 	"codex-online/server/internal/codec"
 	"codex-online/server/internal/entity"
+	"codex-online/server/internal/level"
 	"codex-online/server/internal/message"
 	"codex-online/server/internal/system"
 )
@@ -269,17 +270,20 @@ func TestFireShot_AutoReload_BlocksFiring(t *testing.T) {
 // TestPipelineOrder_CombatSystemBeforeInput verifies the system pipeline
 // ordering at the zone level — CombatSystem must come before InputSystem.
 func TestPipelineOrder_CombatSystemBeforeInput(t *testing.T) {
+	hubLvl := testHubLevel(t)
+	arenaLvl := testArenaLevel(t)
+
 	tests := []struct {
-		name     string
-		zoneType ZoneType
+		name string
+		lvl  *level.Level
 	}{
-		{"open-world", ZoneTypeOpenWorld},
-		{"instanced", ZoneTypeInstanced},
+		{"open-world", hubLvl},
+		{"instanced", arenaLvl},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			z := New("test", tc.zoneType)
+			z := New("test", tc.lvl)
 			combatIdx := -1
 			inputIdx := -1
 			for i, sys := range z.systems {

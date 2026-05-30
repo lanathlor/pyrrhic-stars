@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"codex-online/server/internal/entity"
+	"codex-online/server/internal/level"
 	"codex-online/server/internal/message"
 )
 
@@ -34,7 +35,7 @@ func (c *mockSendCollector) collect(msg []byte) {
 // observer's message collector.
 func setupTwoPlayerFight(t *testing.T) (*Zone, uint16, uint16, *mockSendCollector) {
 	t.Helper()
-	z := New("test-arena", ZoneTypeInstanced)
+	z := New("test-arena", testArenaLevel(t))
 	z.world.State = StateFight
 
 	// Gunner (shooter)
@@ -382,21 +383,24 @@ func TestGunnerFire_TickByTickStateSequence(t *testing.T) {
 // =============================================================================
 
 func TestGunnerFire_WorksInAllZoneStates(t *testing.T) {
+	hubLvl := testHubLevel(t)
+	arenaLvl := testArenaLevel(t)
+
 	tests := []struct {
 		name      string
-		zoneType  ZoneType
+		lvl       *level.Level
 		zoneState GameFlowState
 	}{
-		{name: "Hub zone", zoneType: ZoneTypeOpenWorld, zoneState: StateLobby},
+		{name: "Hub zone", lvl: hubLvl, zoneState: StateLobby},
 		// Arena lobby broadcasts LobbyState (not WorldState), so observer
 		// tracer detection doesn't apply — players aren't in-world yet.
-		{name: "Arena spawned/warmup", zoneType: ZoneTypeInstanced, zoneState: StateSpawned},
-		{name: "Arena fight", zoneType: ZoneTypeInstanced, zoneState: StateFight},
+		{name: "Arena spawned/warmup", lvl: arenaLvl, zoneState: StateSpawned},
+		{name: "Arena fight", lvl: arenaLvl, zoneState: StateFight},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			z := New("test", tc.zoneType)
+			z := New("test", tc.lvl)
 
 			var peerID uint16 = 1
 			var observerMsgs [][]byte

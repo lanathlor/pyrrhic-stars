@@ -12,13 +12,12 @@ import (
 	"codex-online/server/internal/enemyai"
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/item"
-	"codex-online/server/internal/level"
 	"codex-online/server/internal/message"
 )
 
 // benchWorld creates a realistic fight scenario: 5 players, 9 enemies, 10 projectiles.
-func benchWorld() *World {
-	lvl := level.NewArenaLevel()
+func benchWorld(b testing.TB) *World {
+	lvl := testArenaLevel(b)
 
 	players := make(map[uint16]*entity.Player, 5)
 	for i := uint16(1); i <= 5; i++ {
@@ -93,7 +92,7 @@ func benchWorld() *World {
 // --- System benchmarks ---
 
 func BenchmarkCombatSystemTick(b *testing.B) {
-	w := benchWorld()
+	w := benchWorld(b)
 	sys := CombatSystem{}
 	b.ReportAllocs()
 
@@ -104,7 +103,7 @@ func BenchmarkCombatSystemTick(b *testing.B) {
 }
 
 func BenchmarkAISystemTick(b *testing.B) {
-	w := benchWorld()
+	w := benchWorld(b)
 	sys := AISystem{}
 	b.ReportAllocs()
 
@@ -116,7 +115,7 @@ func BenchmarkAISystemTick(b *testing.B) {
 }
 
 func BenchmarkPhysicsSystemTick(b *testing.B) {
-	w := benchWorld()
+	w := benchWorld(b)
 	sys := PhysicsSystem{}
 	b.ReportAllocs()
 
@@ -133,7 +132,7 @@ func BenchmarkPhysicsSystemTick(b *testing.B) {
 }
 
 func BenchmarkInputSystemTick(b *testing.B) {
-	w := benchWorld()
+	w := benchWorld(b)
 	sys := InputSystem{}
 	// 5 movement inputs
 	inputs := make([]InputMsg, 5)
@@ -155,7 +154,7 @@ func BenchmarkInputSystemTick(b *testing.B) {
 }
 
 func BenchmarkHandlePlayerInput(b *testing.B) {
-	w := benchWorld()
+	w := benchWorld(b)
 	payload := codec.EncodePlayerInput(nil, 3.0, 0.1, 6.0, 0.5, 101, 0, 0.1)
 	b.ReportAllocs()
 
@@ -167,7 +166,7 @@ func BenchmarkHandlePlayerInput(b *testing.B) {
 }
 
 func BenchmarkHandleAbilityInput(b *testing.B) {
-	w := benchWorld()
+	w := benchWorld(b)
 	payload := codec.EncodeAbilityInput(entity.ActionShoot, 0.1, 0.5)
 	b.ReportAllocs()
 
@@ -179,7 +178,7 @@ func BenchmarkHandleAbilityInput(b *testing.B) {
 }
 
 func BenchmarkHandleInteractInput(b *testing.B) {
-	w := benchWorld()
+	w := benchWorld(b)
 	payload := codec.EncodeInteractInput(message.InteractClassSelect, entity.ClassVanguard)
 	b.ReportAllocs()
 
@@ -189,7 +188,7 @@ func BenchmarkHandleInteractInput(b *testing.B) {
 }
 
 func BenchmarkHandleRespawnRequest(b *testing.B) {
-	w := benchWorld()
+	w := benchWorld(b)
 	w.State = StateFightOver
 	payload := codec.EncodeRespawnRequest(0) // arena respawn
 	b.ReportAllocs()
@@ -201,7 +200,7 @@ func BenchmarkHandleRespawnRequest(b *testing.B) {
 }
 
 func BenchmarkFullTickPipeline(b *testing.B) {
-	w := benchWorld()
+	w := benchWorld(b)
 	inputSys := InputSystem{}
 	combatSys := CombatSystem{}
 	aiSys := AISystem{}
@@ -233,7 +232,7 @@ func BenchmarkFullTickPipeline(b *testing.B) {
 // --- Codec benchmarks ---
 
 func BenchmarkEncodeWorldState(b *testing.B) {
-	w := benchWorld()
+	w := benchWorld(b)
 	b.ReportAllocs()
 
 	for b.Loop() {
@@ -244,7 +243,7 @@ func BenchmarkEncodeWorldState(b *testing.B) {
 // Narrowing: AppendEncodeWorldState with a pre-sized buffer (the production path).
 // If this is 0 allocs, the allocs in EncodeWorldState come from the wrapper's buffer management.
 func BenchmarkAppendEncodeWorldState(b *testing.B) {
-	w := benchWorld()
+	w := benchWorld(b)
 	buf := make([]byte, 0, 4096)
 	b.ReportAllocs()
 
@@ -283,7 +282,7 @@ func BenchmarkEncodeDamageEvent(b *testing.B) {
 // Narrowing: broadcastDamageEvents allocates the payload via EncodeDamageEvent (make([]byte,0,21))
 // then copies into the pooled DamageBuf. This bench isolates that per-event cost.
 func BenchmarkBroadcastDamageEventPooled(b *testing.B) {
-	w := benchWorld()
+	w := benchWorld(b)
 	w.DamageEvents = []combat.DamageEvent{
 		{TargetPeerID: 100, SourcePeerID: 1, Amount: 25, HitPos: entity.Vec3{X: 1, Y: 0, Z: 2}, SourceType: 0},
 	}
@@ -304,7 +303,7 @@ func BenchmarkCheckHitscan(b *testing.B) {
 	origin := entity.Vec3{X: 0, Y: 1.6, Z: 5}
 	dir := entity.Vec3{X: 0, Y: 0, Z: -1}
 	target := entity.Vec3{X: 0, Y: 0.1, Z: 0}
-	obs := level.NewArenaLevel().Obstacles
+	obs := testArenaLevel(b).Obstacles
 	b.ReportAllocs()
 
 	for b.Loop() {
@@ -316,7 +315,7 @@ func BenchmarkCheckMeleeArc(b *testing.B) {
 	attacker := entity.Vec3{X: 0, Y: 0.1, Z: 0}
 	forward := entity.Vec3{X: 0, Z: -1}
 	target := entity.Vec3{X: 1, Y: 0.1, Z: -2}
-	obs := level.NewArenaLevel().Obstacles
+	obs := testArenaLevel(b).Obstacles
 	b.ReportAllocs()
 
 	for b.Loop() {
@@ -327,7 +326,7 @@ func BenchmarkCheckMeleeArc(b *testing.B) {
 func BenchmarkCheckAoERadius(b *testing.B) {
 	center := entity.Vec3{X: 0, Y: 0.1, Z: 0}
 	target := entity.Vec3{X: 3, Y: 0.1, Z: 0}
-	obs := level.NewArenaLevel().Obstacles
+	obs := testArenaLevel(b).Obstacles
 	b.ReportAllocs()
 
 	for b.Loop() {
@@ -338,7 +337,7 @@ func BenchmarkCheckAoERadius(b *testing.B) {
 func BenchmarkSegmentHitsObstacle(b *testing.B) {
 	a := entity.Vec3{X: -5, Y: 1.0, Z: 5}
 	target := entity.Vec3{X: 5, Y: 1.0, Z: -5}
-	obs := level.NewArenaLevel().Obstacles
+	obs := testArenaLevel(b).Obstacles
 	b.ReportAllocs()
 
 	for b.Loop() {
@@ -347,7 +346,7 @@ func BenchmarkSegmentHitsObstacle(b *testing.B) {
 }
 
 func BenchmarkPushOutOfObstacles(b *testing.B) {
-	obs := level.NewArenaLevel().Obstacles
+	obs := testArenaLevel(b).Obstacles
 	b.ReportAllocs()
 
 	for b.Loop() {
@@ -364,8 +363,8 @@ func BenchmarkPushOutOfObstacles(b *testing.B) {
 
 // benchArenaInstance creates a full arena fight scenario ready for ticking.
 // Players are actively in combat, boss gate is sealed, boss is fighting.
-func benchArenaInstance(instanceID uint16) *World {
-	lvl := level.NewArenaLevel()
+func benchArenaInstance(b testing.TB, instanceID uint16) *World {
+	lvl := testArenaLevel(b)
 
 	// 5 players spread across the boss room
 	players := make(map[uint16]*entity.Player, 5)
@@ -492,7 +491,7 @@ func BenchmarkMultiInstance5(b *testing.B) {
 	instances := make([]*World, 5)
 	allInputs := make([][]InputMsg, 5)
 	for i := range instances {
-		instances[i] = benchArenaInstance(uint16(i))
+		instances[i] = benchArenaInstance(b, uint16(i))
 		allInputs[i] = buildInputs(uint16(i))
 	}
 
@@ -511,7 +510,7 @@ func BenchmarkMultiInstance10(b *testing.B) {
 	instances := make([]*World, 10)
 	allInputs := make([][]InputMsg, 10)
 	for i := range instances {
-		instances[i] = benchArenaInstance(uint16(i))
+		instances[i] = benchArenaInstance(b, uint16(i))
 		allInputs[i] = buildInputs(uint16(i))
 	}
 
@@ -531,7 +530,7 @@ func BenchmarkMultiInstance20(b *testing.B) {
 	instances := make([]*World, 20)
 	allInputs := make([][]InputMsg, 20)
 	for i := range instances {
-		instances[i] = benchArenaInstance(uint16(i))
+		instances[i] = benchArenaInstance(b, uint16(i))
 		allInputs[i] = buildInputs(uint16(i))
 	}
 
@@ -551,7 +550,7 @@ func BenchmarkMultiInstance50(b *testing.B) {
 	instances := make([]*World, 50)
 	allInputs := make([][]InputMsg, 50)
 	for i := range instances {
-		instances[i] = benchArenaInstance(uint16(i))
+		instances[i] = benchArenaInstance(b, uint16(i))
 		allInputs[i] = buildInputs(uint16(i))
 	}
 
@@ -571,7 +570,7 @@ func BenchmarkMultiInstance100(b *testing.B) {
 	instances := make([]*World, 100)
 	allInputs := make([][]InputMsg, 100)
 	for i := range instances {
-		instances[i] = benchArenaInstance(uint16(i))
+		instances[i] = benchArenaInstance(b, uint16(i))
 		allInputs[i] = buildInputs(uint16(i))
 	}
 
@@ -592,7 +591,7 @@ func BenchmarkMultiInstance50Parallel(b *testing.B) {
 	instances := make([]*World, 50)
 	allInputs := make([][]InputMsg, 50)
 	for i := range instances {
-		instances[i] = benchArenaInstance(uint16(i))
+		instances[i] = benchArenaInstance(b, uint16(i))
 		allInputs[i] = buildInputs(uint16(i))
 	}
 
@@ -616,7 +615,7 @@ func BenchmarkMultiInstance100Parallel(b *testing.B) {
 	instances := make([]*World, 100)
 	allInputs := make([][]InputMsg, 100)
 	for i := range instances {
-		instances[i] = benchArenaInstance(uint16(i))
+		instances[i] = benchArenaInstance(b, uint16(i))
 		allInputs[i] = buildInputs(uint16(i))
 	}
 
@@ -637,7 +636,7 @@ func BenchmarkMultiInstance100Parallel(b *testing.B) {
 // BenchmarkBroadcastOnly measures just the network broadcast overhead:
 // encode WorldState once, send to 5 clients. No game simulation.
 func BenchmarkBroadcastOnly(b *testing.B) {
-	w := benchArenaInstance(0)
+	w := benchArenaInstance(b, 0)
 	b.ReportAllocs()
 
 	for b.Loop() {
@@ -662,7 +661,7 @@ func BenchmarkBrainTickChase(b *testing.B) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 5, Y: 0.1, Z: 5}
 	players := []*entity.Player{p}
-	obs := level.NewArenaLevel().Obstacles
+	obs := testArenaLevel(b).Obstacles
 
 	b.ReportAllocs()
 
@@ -686,7 +685,7 @@ func BenchmarkBrainTickMeleeAttack(b *testing.B) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: -2}
 	players := []*entity.Player{p}
-	obs := level.NewArenaLevel().Obstacles
+	obs := testArenaLevel(b).Obstacles
 
 	b.ReportAllocs()
 
@@ -717,7 +716,7 @@ func BenchmarkBrainTickMeleeAttackMiss(b *testing.B) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: -50} // far away — miss
 	players := []*entity.Player{p}
-	obs := level.NewArenaLevel().Obstacles
+	obs := testArenaLevel(b).Obstacles
 
 	b.ReportAllocs()
 
@@ -758,7 +757,7 @@ func BenchmarkVec3Normalized(b *testing.B) {
 // BenchmarkPhysicsWithPatterns_5Active measures PhysicsSystem.Tick with 5 active
 // patterns each spawning 16 projectiles per wave (80 new projectiles/tick).
 func BenchmarkPhysicsWithPatterns_5Active(b *testing.B) {
-	w := benchWorld()
+	w := benchWorld(b)
 	sys := PhysicsSystem{}
 
 	spiralDef := &combat.PatternDef{
@@ -802,7 +801,7 @@ func BenchmarkPhysicsWithPatterns_5Active(b *testing.B) {
 // 10 patterns, 32 projectiles each = 320 new projectiles spawned per tick,
 // plus 200 existing projectiles being ticked.
 func BenchmarkPhysicsWithPatterns_10Active_32Count(b *testing.B) {
-	w := benchWorld()
+	w := benchWorld(b)
 	sys := PhysicsSystem{}
 
 	denseDef := &combat.PatternDef{
@@ -894,7 +893,7 @@ func applyGear(w *World) {
 // players have gear stats. Exercises TempoMult (cooldown scaling),
 // CommitterDamageMult (Output), and Identity scaling in ability ticks.
 func BenchmarkCombatSystemTick_WithGear(b *testing.B) {
-	w := benchWorld()
+	w := benchWorld(b)
 	applyGear(w)
 	sys := CombatSystem{}
 	b.ReportAllocs()
@@ -909,7 +908,7 @@ func BenchmarkCombatSystemTick_WithGear(b *testing.B) {
 // with gear stats active on all players. This is the primary hot-path
 // benchmark for stat/gear regression detection.
 func BenchmarkFullTickPipeline_WithGear(b *testing.B) {
-	w := benchWorld()
+	w := benchWorld(b)
 	applyGear(w)
 	inputSys := InputSystem{}
 	combatSys := CombatSystem{}
@@ -945,7 +944,7 @@ func BenchmarkMultiInstance100_WithGear(b *testing.B) {
 	instances := make([]*World, 100)
 	allInputs := make([][]InputMsg, 100)
 	for i := range instances {
-		instances[i] = benchArenaInstance(uint16(i))
+		instances[i] = benchArenaInstance(b, uint16(i))
 		applyGear(instances[i])
 		allInputs[i] = buildInputs(uint16(i))
 	}
@@ -1064,8 +1063,8 @@ func benchHarmonistPlayer(peerID uint16) *entity.Player {
 
 // benchWorldWithHealer creates a realistic fight: 4 Gunners + 1 Harmonist healer,
 // 9 enemies, 10 projectiles, plus active healing zones, HoTs, damage links, and Last Breath.
-func benchWorldWithHealer() *World {
-	w := benchWorld()
+func benchWorldWithHealer(b testing.TB) *World {
+	w := benchWorld(b)
 
 	// Replace player 5 with a Harmonist
 	delete(w.Players, 5)
@@ -1140,7 +1139,7 @@ func resetHealerWorld(w *World) {
 }
 
 func BenchmarkCombatSystemTick_WithHealer(b *testing.B) {
-	w := benchWorldWithHealer()
+	w := benchWorldWithHealer(b)
 	sys := CombatSystem{}
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -1151,7 +1150,7 @@ func BenchmarkCombatSystemTick_WithHealer(b *testing.B) {
 }
 
 func BenchmarkCombatSystemTick_HealingZones(b *testing.B) {
-	w := benchWorld()
+	w := benchWorld(b)
 	sys := CombatSystem{}
 
 	b.Run("3zones_5players", func(b *testing.B) {
@@ -1200,7 +1199,7 @@ func BenchmarkCombatSystemTick_HealingZones(b *testing.B) {
 }
 
 func BenchmarkCombatSystemTick_HoTs(b *testing.B) {
-	w := benchWorld()
+	w := benchWorld(b)
 	sys := CombatSystem{}
 
 	b.Run("normal", func(b *testing.B) {
@@ -1258,7 +1257,7 @@ func BenchmarkCombatSystemTick_HoTs(b *testing.B) {
 }
 
 func BenchmarkCombatSystemTick_DamageLinks(b *testing.B) {
-	w := benchWorld()
+	w := benchWorld(b)
 	sys := CombatSystem{}
 
 	b.ReportAllocs()
@@ -1281,7 +1280,7 @@ func BenchmarkCombatSystemTick_DamageLinks(b *testing.B) {
 }
 
 func BenchmarkFullTickPipeline_WithHealer(b *testing.B) {
-	w := benchWorldWithHealer()
+	w := benchWorldWithHealer(b)
 	inputSys := InputSystem{}
 	combatSys := CombatSystem{}
 	aiSys := AISystem{}
@@ -1311,8 +1310,8 @@ func BenchmarkFullTickPipeline_WithHealer(b *testing.B) {
 }
 
 // benchArenaInstanceWithHealer is benchArenaInstance but with player 0 as a Harmonist healer.
-func benchArenaInstanceWithHealer(instanceID uint16) *World {
-	w := benchArenaInstance(instanceID)
+func benchArenaInstanceWithHealer(b testing.TB, instanceID uint16) *World {
+	w := benchArenaInstance(b, instanceID)
 
 	// Replace first player with a Harmonist
 	healerID := instanceID*10 + 1
@@ -1356,7 +1355,7 @@ func BenchmarkMultiInstance10_WithHealer(b *testing.B) {
 	instances := make([]*World, 10)
 	allInputs := make([][]InputMsg, 10)
 	for i := range instances {
-		instances[i] = benchArenaInstanceWithHealer(uint16(i))
+		instances[i] = benchArenaInstanceWithHealer(b, uint16(i))
 		allInputs[i] = buildInputs(uint16(i))
 	}
 
@@ -1374,7 +1373,7 @@ func BenchmarkMultiInstance50_WithHealer(b *testing.B) {
 	instances := make([]*World, 50)
 	allInputs := make([][]InputMsg, 50)
 	for i := range instances {
-		instances[i] = benchArenaInstanceWithHealer(uint16(i))
+		instances[i] = benchArenaInstanceWithHealer(b, uint16(i))
 		allInputs[i] = buildInputs(uint16(i))
 	}
 
@@ -1392,7 +1391,7 @@ func BenchmarkMultiInstance50Parallel_WithHealer(b *testing.B) {
 	instances := make([]*World, 50)
 	allInputs := make([][]InputMsg, 50)
 	for i := range instances {
-		instances[i] = benchArenaInstanceWithHealer(uint16(i))
+		instances[i] = benchArenaInstanceWithHealer(b, uint16(i))
 		allInputs[i] = buildInputs(uint16(i))
 	}
 
@@ -1414,7 +1413,7 @@ func BenchmarkMultiInstance50Parallel_WithHealer(b *testing.B) {
 // Represents a realistic boss fight: 5 players, 9 enemies, boss firing patterns,
 // 100+ projectiles in flight.
 func BenchmarkFullTickWithPatterns(b *testing.B) {
-	w := benchWorld()
+	w := benchWorld(b)
 	inputSys := InputSystem{}
 	combatSys := CombatSystem{}
 	aiSys := AISystem{}

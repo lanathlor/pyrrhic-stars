@@ -431,7 +431,7 @@ transform = Transform3D(0.866, 0.25, -0.433, 0, 0.866, 0.5, 0.5, -0.433, 0.75, 0
 light_color = Color(0.25, 0.25, 0.4, 1)
 light_energy = 1.2
 
-[node name="Floor" type="CSGBox3D" parent="."]
+[node name="Floor" type="CSGBox3D" parent="." groups=["server_ignore"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, -1.5)
 use_collision = true
 collision_mask = 0
@@ -575,7 +575,7 @@ light_color = Color(0.3, 0.3, 0.5, 1)
 light_energy = 2.5
 omni_range = 16.0
 
-[node name="LobbyFloor" type="CSGBox3D" parent="."]
+[node name="LobbyFloor" type="CSGBox3D" parent="." groups=["server_ignore"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 52)
 use_collision = true
 collision_mask = 0
@@ -602,7 +602,7 @@ light_color = Color(0.3, 0.3, 0.55, 1)
 light_energy = 2.5
 omni_range = 12.0
 
-[node name="HallwayFloor" type="CSGBox3D" parent="."]
+[node name="HallwayFloor" type="CSGBox3D" parent="." groups=["server_ignore"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 26)
 use_collision = true
 collision_mask = 0
@@ -665,7 +665,7 @@ collision_mask = 0
 size = Vector3(2, 1.2, 1)
 material = SubResource("mat_cover")
 
-[node name="BossGate" type="CSGBox3D" parent="."]
+[node name="BossGate" type="CSGBox3D" parent="." groups=["server_ignore"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 12)
 visible = false
 collision_mask = 0
@@ -699,13 +699,18 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 12)
 metadata/trigger_id = "boss_room_entry"
 metadata/axis = "z"
 
+[node name="ZoneConfig" type="Node3D" parent="LevelData" groups=["server_zone_config"]]
+metadata/zone_name = "arena"
+metadata/zone_type = "instanced"
+metadata/enemy_radius = 1.0
+
 [node name="Bounds" type="Node3D" parent="LevelData" groups=["server_bounds"]]
 metadata/min_x = -19.5
 metadata/max_x = 19.5
 metadata/min_y = -1.0
 metadata/max_y = 6.0
 metadata/min_z = -14.5
-metadata/max_z = 52.0
+metadata/max_z = 62.5
 
 [node name="EnemyMelee1" type="Node3D" parent="LevelData" groups=["server_spawn_enemy"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0.1, 32)
@@ -788,7 +793,7 @@ metadata/patrol_b = Vector3(5, 0.1, 0)
 metadata/aggro_radius = 10.0
 metadata/leash_radius = 30.0
 
-[node name="ArenaBuildings" type="Node3D" parent="."]
+[node name="ArenaBuildings" type="Node3D" parent="." groups=["server_ignore"]]
 
 [node name="StreetEast" type="Node3D" parent="ArenaBuildings"]
 

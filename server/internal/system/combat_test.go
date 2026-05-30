@@ -8,18 +8,18 @@ import (
 	"codex-online/server/internal/ability"
 	"codex-online/server/internal/codec"
 	"codex-online/server/internal/entity"
-	"codex-online/server/internal/level"
 	"codex-online/server/internal/message"
 )
 
-func makeWorld(players map[uint16]*entity.Player, enemies []*entity.Enemy) *World {
+func makeWorld(t testing.TB, players map[uint16]*entity.Player, enemies []*entity.Enemy) *World {
+	t.Helper()
 	return &World{
 		ZoneType:       1, // arena
 		TickNum:        100,
 		State:          StateFight,
 		Players:        players,
 		Enemies:        enemies,
-		Level:          level.NewArenaLevel(),
+		Level:          testArenaLevel(t),
 		AbilityEngine:  ability.NewEngine(nil),
 		AbilityRunners: make(map[uint16]*ability.PlayerAbilityRunner),
 	}
@@ -33,7 +33,7 @@ func TestInCombatWhenOnThreatTable(t *testing.T) {
 	e.Alive = true
 	e.AddThreat(1, 10.0)
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
 	sys := CombatSystem{}
 	sys.Tick(w, 0.05)
 
@@ -48,7 +48,7 @@ func TestNotInCombatWhenNotOnThreatTable(t *testing.T) {
 	e.Alive = true
 	// no threat added
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
 	sys := CombatSystem{}
 	sys.Tick(w, 0.05)
 
@@ -65,7 +65,7 @@ func TestRegenOnlyOutOfCombat(t *testing.T) {
 	e.Alive = true
 	e.AddThreat(1, 10.0)
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
 	sys := CombatSystem{}
 
 	// In combat — no regen
@@ -95,7 +95,7 @@ func TestMultiplePlayersAllInCombat(t *testing.T) {
 	e.AddThreat(3, 5.0)
 
 	players := map[uint16]*entity.Player{1: p1, 2: p2, 3: p3}
-	w := makeWorld(players, []*entity.Enemy{e})
+	w := makeWorld(t, players, []*entity.Enemy{e})
 	sys := CombatSystem{}
 	sys.Tick(w, 0.05)
 
@@ -112,7 +112,7 @@ func TestNotInCombatAfterEnemyDies(t *testing.T) {
 	e.Alive = true
 	e.AddThreat(1, 50.0)
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
 	sys := CombatSystem{}
 
 	// In combat while alive
@@ -136,7 +136,7 @@ func TestOverclockTimerExpires(t *testing.T) {
 	p.AddBuff(entity.ActiveBuff{ID: ability.IDOverclock, Type: entity.BuffCooldownMult, Value: 0.556, Duration: 7.0})
 	p.Cooldowns[ability.IDOverclock] = 15.0
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	sys := CombatSystem{}
 
 	// Tick 3 seconds — still active
@@ -156,7 +156,7 @@ func TestOverclockCooldownTicksDown(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Cooldowns[ability.IDOverclock] = 15.0
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	sys := CombatSystem{}
 
 	sys.Tick(w, 10.0)
@@ -174,7 +174,7 @@ func TestRechamberPhaseTransitions(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.AbilityState["rechamber"] = &ability.RechamberState{Phase: 1, Timer: 0.6}
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	sys := CombatSystem{}
 
 	// Phase 1 windup -> phase 2 timing window
@@ -200,7 +200,7 @@ func TestRechamberBuffExpires(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.AddBuff(entity.ActiveBuff{ID: "rechamber_buff", Type: entity.BuffDamageMult, Value: 1.8, Duration: 4.0})
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	sys := CombatSystem{}
 
 	sys.Tick(w, 2.0)
@@ -227,7 +227,7 @@ func TestThreatGeneratedOnPlayerAttack(t *testing.T) {
 	e.Alive = true
 	e.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
 	w.State = StateFight
 
 	// Simulate a gunner shoot input
@@ -250,7 +250,7 @@ func TestThreatGeneratedOnPlayerAttack(t *testing.T) {
 
 func TestOverclockInputActivates(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 
 	payload := []byte{entity.ActionOverclock, 0, 0, 0, 0} // action + 4 bytes aim pitch
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: payload}}
@@ -269,7 +269,7 @@ func TestOverclockBlockedDuringCooldown(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Cooldowns[ability.IDOverclock] = 5.0
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	payload := []byte{entity.ActionOverclock, 0, 0, 0, 0}
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: payload}}
 	inputSys := InputSystem{}
@@ -289,7 +289,7 @@ func TestOverclockFireRateBoost(t *testing.T) {
 	e.Alive = true
 	e.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
 	payload := []byte{entity.ActionShoot, 0, 0, 0, 0}
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: payload}}
 	inputSys := InputSystem{}
@@ -304,7 +304,7 @@ func TestOverclockFireRateBoost(t *testing.T) {
 
 func TestRechamberInputStartsWindup(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 
 	payload := []byte{entity.ActionRechamber, 0, 0, 0, 0}
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: payload}}
@@ -322,7 +322,7 @@ func TestRechamberInputStartsWindup(t *testing.T) {
 func TestRechamberConfirmDuringWindow(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.AbilityState["rechamber"] = &ability.RechamberState{Phase: 2, Timer: 0.3}
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 
 	payload := []byte{entity.ActionRechamberConfirm, 0, 0, 0, 0}
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: payload}}
@@ -340,7 +340,7 @@ func TestRechamberConfirmDuringWindow(t *testing.T) {
 func TestRechamberConfirmOutsideWindowIgnored(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.AbilityState["rechamber"] = &ability.RechamberState{Phase: 1, Timer: 0.4}
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 
 	payload := []byte{entity.ActionRechamberConfirm, 0, 0, 0, 0}
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: payload}}
@@ -359,7 +359,7 @@ func TestRechamberBlockedDuringFireCooldown(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Cooldowns[ability.IDFireShot] = 0.1
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	payload := []byte{entity.ActionRechamber, 0, 0, 0, 0}
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: payload}}
 	inputSys := InputSystem{}
@@ -384,7 +384,7 @@ func TestVortexMultiTick(t *testing.T) {
 	e.Alive = true
 	e.Position = entity.Vec3{X: 2, Y: 0.1, Z: 0} // within 4.0 radius
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
 	sys := CombatSystem{}
 
 	// After 0.35s: elapsed > interval (0.3s), should deliver second hit
@@ -412,7 +412,7 @@ func TestBladeSwirlCooldownPreventsReuse(t *testing.T) {
 	p.Resources["stamina"].Current = 100.0
 	p.Cooldowns["vortex"] = 5.0
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	payload := []byte{entity.ActionBladeSwirl, 0, 0, 0, 0}
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: payload}}
 	inputSys := InputSystem{}
@@ -431,7 +431,7 @@ func TestGroundSlamCooldownPreventsReuse(t *testing.T) {
 	p.Resources["stamina"].Current = 100.0
 	p.Cooldowns["execution"] = 3.0
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	payload := []byte{entity.ActionGroundSlam, 0, 0, 0, 0}
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: payload}}
 	inputSys := InputSystem{}
@@ -450,7 +450,7 @@ func TestGroundSlamConsumesStamina(t *testing.T) {
 	p.Resources["stamina"].Current = 100.0
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	payload := []byte{entity.ActionGroundSlam, 0, 0, 0, 0}
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: payload}}
 	inputSys := InputSystem{}
@@ -471,7 +471,7 @@ func TestBladeSwirlCooldownTicksDown(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.Cooldowns["vortex"] = 10.0
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	sys := CombatSystem{}
 
 	sys.Tick(w, 4.0)
@@ -489,7 +489,7 @@ func TestGroundSlamCooldownTicksDown(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.Cooldowns["execution"] = 8.0
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	sys := CombatSystem{}
 
 	sys.Tick(w, 3.0)
@@ -507,7 +507,7 @@ func TestBladeSwirlBlockedByInsufficientStamina(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.Resources["stamina"].Current = 20.0 // need 25
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	payload := []byte{entity.ActionBladeSwirl, 0, 0, 0, 0}
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: payload}}
 	inputSys := InputSystem{}
@@ -536,7 +536,7 @@ func TestBladeSwirl3xIntegration(t *testing.T) {
 	e.State = entity.EnemyChase                  // not patrol, so AggroEnemy won't interfere
 
 	enemies := []*entity.Enemy{e}
-	w := makeWorld(map[uint16]*entity.Player{1: p}, enemies)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, enemies)
 
 	inputSys := InputSystem{}
 	combatSys := CombatSystem{}
@@ -614,7 +614,7 @@ func TestSwirlSlamSwirlSlamIntegration(t *testing.T) {
 	e.State = entity.EnemyChase
 
 	enemies := []*entity.Enemy{e}
-	w := makeWorld(map[uint16]*entity.Player{1: p}, enemies)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, enemies)
 
 	inputSys := InputSystem{}
 	combatSys := CombatSystem{}
@@ -709,7 +709,7 @@ func TestVanguardStaminaRegen(t *testing.T) {
 	stamina.Current = 50.0
 	stamina.DelayTimer = 0 // no delay, regen should start immediately
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	sys := CombatSystem{}
 
 	t.Logf("before: stamina=%.1f delay=%.2f regen=%.1f max=%.1f", stamina.Current, stamina.DelayTimer, stamina.Regen, stamina.Max)
@@ -751,7 +751,7 @@ func TestCombatEndsOnEnemyDeath(t *testing.T) {
 	e.AddThreat(2, 20.0)
 
 	players := map[uint16]*entity.Player{1: p1, 2: p2}
-	w := makeWorld(players, []*entity.Enemy{e})
+	w := makeWorld(t, players, []*entity.Enemy{e})
 	sys := CombatSystem{}
 
 	// Both in combat
@@ -862,7 +862,7 @@ func TestAllBladeDancerSpells(t *testing.T) {
 			// eFar has NO threat — out of combat, NearestN should skip
 
 			enemies := []*entity.Enemy{eFront, eNearFront, eSide, eFar}
-			w := makeWorld(map[uint16]*entity.Player{1: p}, enemies)
+			w := makeWorld(t, map[uint16]*entity.Player{1: p}, enemies)
 
 			actionID := entity.ActionBDAbilityBase + uint8(sp.abilityIdx)
 			payload := codec.EncodeAbilityInput(actionID, 0, float32(math.Pi))
@@ -992,7 +992,7 @@ func TestRunnerWiring_InputStartsRunner(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	registerTestCommitAbility(w.AbilityEngine, p)
 
 	payload := codec.EncodeAbilityInput(testCommitAction, 0.0)
@@ -1028,7 +1028,7 @@ func TestRunnerWiring_CancelOnNewInput(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	registerTestCommitAbility(w.AbilityEngine, p)
 
 	payload := codec.EncodeAbilityInput(testCommitAction, 0.0)
@@ -1073,7 +1073,7 @@ func TestRunnerWiring_CancelFailsDuringExecute(t *testing.T) {
 	e.Position = entity.Vec3{X: 2, Y: 0.1, Z: 0}
 	e.State = entity.EnemyChase
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
 	registerTestCommitAbility(w.AbilityEngine, p)
 
 	payload := codec.EncodeAbilityInput(testCommitAction, 0.0)
@@ -1118,7 +1118,7 @@ func TestRunnerWiring_CombatTickFiresCast(t *testing.T) {
 	e.Position = entity.Vec3{X: 2, Y: 0.1, Z: 0} // within 10-unit AoE radius
 	e.State = entity.EnemyChase
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
 	registerTestCommitAbility(w.AbilityEngine, p)
 
 	// Start the runner via input
@@ -1166,7 +1166,7 @@ func TestRunnerWiring_SyncsPlayerChannelState(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	registerTestCommitAbility(w.AbilityEngine, p)
 
 	payload := codec.EncodeAbilityInput(testCommitAction, 0.0)
@@ -1219,7 +1219,7 @@ func TestRunnerWiring_ThreatAndAggroOnExecute(t *testing.T) {
 	e.Position = entity.Vec3{X: 2, Y: 0.1, Z: 0}
 	e.State = entity.EnemyPatrol // starts in patrol
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
 	registerTestCommitAbility(w.AbilityEngine, p)
 
 	// Start the runner
@@ -1254,7 +1254,7 @@ func TestRunnerWiring_NonCommitAbilityBypassesRunner(t *testing.T) {
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -2.0} // in front (player faces -Z)
 	e.State = entity.EnemyChase
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
 
 	// Normal melee has CommitTime=0, should bypass runner entirely
 	payload := codec.EncodeAbilityInput(entity.ActionMelee, 0.0)
@@ -1321,7 +1321,7 @@ func TestSustain_CommitToSustainTransition(t *testing.T) {
 	p := newHarmonistPlayer(1)
 	ally := newHarmonistPlayer(2)
 
-	w := makeWorld(map[uint16]*entity.Player{1: p, 2: ally}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p, 2: ally}, nil)
 	registerTestSustainAbility(w.AbilityEngine, p)
 
 	// Start sustain ability via input
@@ -1372,7 +1372,7 @@ func TestSustain_HealingAppliedOnTick(t *testing.T) {
 	ally.MaxHealth = 150
 	p.ChannelTargetID = 2 // target the ally
 
-	w := makeWorld(map[uint16]*entity.Player{1: p, 2: ally}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p, 2: ally}, nil)
 	registerTestSustainAbility(w.AbilityEngine, p)
 
 	// Start runner directly in sustain
@@ -1414,7 +1414,7 @@ func TestSustain_ScalingIncreasesOverTime(t *testing.T) {
 	ally.Health = 100
 	p.ChannelTargetID = 2
 
-	w := makeWorld(map[uint16]*entity.Player{1: p, 2: ally}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p, 2: ally}, nil)
 	registerTestSustainAbility(w.AbilityEngine, p)
 
 	runner := &ability.PlayerAbilityRunner{}
@@ -1459,7 +1459,7 @@ func TestSustain_FluxDrained(t *testing.T) {
 	ally := newHarmonistPlayer(2)
 	p.ChannelTargetID = 2
 
-	w := makeWorld(map[uint16]*entity.Player{1: p, 2: ally}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p, 2: ally}, nil)
 	registerTestSustainAbility(w.AbilityEngine, p)
 
 	runner := &ability.PlayerAbilityRunner{}
@@ -1496,7 +1496,7 @@ func TestSustain_CancelledWhenFluxDepleted(t *testing.T) {
 	p.SyncFluxAggregate()
 	p.ChannelTargetID = 2
 
-	w := makeWorld(map[uint16]*entity.Player{1: p, 2: ally}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p, 2: ally}, nil)
 	registerTestSustainAbility(w.AbilityEngine, p)
 
 	runner := &ability.PlayerAbilityRunner{}
@@ -1526,7 +1526,7 @@ func TestSustain_CancelledOnDamage(t *testing.T) {
 	p := newHarmonistPlayer(1)
 	p.ChannelTargetID = 1 // self-heal for simplicity
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	registerTestSustainAbility(w.AbilityEngine, p)
 
 	runner := &ability.PlayerAbilityRunner{}
@@ -1557,7 +1557,7 @@ func TestSustain_CancelledOnMovement(t *testing.T) {
 	p := newHarmonistPlayer(1)
 	p.ChannelTargetID = 1
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	registerTestSustainAbility(w.AbilityEngine, p)
 
 	startPos := p.Position
@@ -1588,7 +1588,7 @@ func TestSustain_SmallMovementDoesNotCancel(t *testing.T) {
 	p := newHarmonistPlayer(1)
 	p.ChannelTargetID = 1
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	registerTestSustainAbility(w.AbilityEngine, p)
 
 	startPos := p.Position
@@ -1612,7 +1612,7 @@ func TestSustain_Action255CancelsRunner(t *testing.T) {
 	p := newHarmonistPlayer(1)
 	p.ChannelTargetID = 1
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	registerTestSustainAbility(w.AbilityEngine, p)
 
 	runner := &ability.PlayerAbilityRunner{}
@@ -1637,7 +1637,7 @@ func TestSustain_Action255CancelsRunner(t *testing.T) {
 func TestSustain_CancelledByNewAbilityInput(t *testing.T) {
 	p := newHarmonistPlayer(1)
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	registerTestSustainAbility(w.AbilityEngine, p)
 	registerTestCommitAbility(w.AbilityEngine, p)
 
@@ -1666,7 +1666,7 @@ func TestSustain_CancelledByExplicitCancel(t *testing.T) {
 	// Harmonist has no dodge — sustain is cancelled via action 255 (ESC).
 	p := newHarmonistPlayer(1)
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	registerTestSustainAbility(w.AbilityEngine, p)
 
 	runner := &ability.PlayerAbilityRunner{}
@@ -1691,7 +1691,7 @@ func TestSustain_SelfHealWhenNoTarget(t *testing.T) {
 	p.MaxHealth = 150
 	p.ChannelTargetID = 99 // non-existent peer
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	registerTestSustainAbility(w.AbilityEngine, p)
 
 	runner := &ability.PlayerAbilityRunner{}
@@ -1718,7 +1718,7 @@ func TestSustain_DamageTakenBeforeSustainStartDoesNotCancel(t *testing.T) {
 	p.ChannelTargetID = 1
 	p.LastDamageTick = 50 // damage taken before sustain started
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	w.TickNum = 100
 	registerTestSustainAbility(w.AbilityEngine, p)
 
@@ -1744,7 +1744,7 @@ func TestSustain_HealCappedAtMaxHealth(t *testing.T) {
 	ally.MaxHealth = 150
 	p.ChannelTargetID = 2
 
-	w := makeWorld(map[uint16]*entity.Player{1: p, 2: ally}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p, 2: ally}, nil)
 	registerTestSustainAbility(w.AbilityEngine, p)
 
 	runner := &ability.PlayerAbilityRunner{}
@@ -1767,7 +1767,7 @@ func TestSustain_HealCappedAtMaxHealth(t *testing.T) {
 func TestSustain_ChannelPhaseValueSyncedToPlayer(t *testing.T) {
 	p := newHarmonistPlayer(1)
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	registerTestSustainAbility(w.AbilityEngine, p)
 
 	runner := &ability.PlayerAbilityRunner{}
@@ -1795,7 +1795,7 @@ func TestSustain_SustainStartPosRecordedOnTransition(t *testing.T) {
 	p := newHarmonistPlayer(1)
 	p.Position = entity.Vec3{X: 10, Y: 0, Z: 20}
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	registerTestSustainAbility(w.AbilityEngine, p)
 
 	// Start via input
@@ -1838,7 +1838,7 @@ func TestSustain_SustainStartPosRecordedOnTransition(t *testing.T) {
 func TestUnboundAction_RejectedByServer(t *testing.T) {
 	p := newHarmonistPlayer(1)
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 
 	// Verify gust_step is NOT in the default harmonist action map
 	for actionID, abilityID := range p.ActionMap {
@@ -1878,7 +1878,7 @@ func TestUnboundAction_RejectedByServer(t *testing.T) {
 func TestUnboundAction_DoesNotCancelSustain(t *testing.T) {
 	p := newHarmonistPlayer(1)
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	registerTestSustainAbility(w.AbilityEngine, p)
 
 	// Start sustain
@@ -1909,7 +1909,7 @@ func TestUnboundAction_DodgeStillWorks(t *testing.T) {
 		p.Resources["stamina"] = &entity.Resource{Current: 100, Max: 100}
 	}
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 
 	// Remove loadout bindings — dodge (action 3) should still work independently
 	delete(p.ActionMap, 50)
@@ -1926,7 +1926,7 @@ func TestUnboundAction_DodgeStillWorks(t *testing.T) {
 
 func TestHarmonist_DodgeRejected(t *testing.T) {
 	p := newHarmonistPlayer(1)
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 
 	payload := codec.EncodeAbilityInput(entity.ActionDodge, 0.0)
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpAbilityInput, Payload: payload}}
@@ -1960,7 +1960,7 @@ func TestMovementSpeed_ExcessiveHorizontalNotClamped(t *testing.T) {
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 	p.SpawnTick = 1 // past grace period
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	w.TickNum = 100
 
 	// Move 5 units on X axis in one tick
@@ -1994,7 +1994,7 @@ func TestMovementSpeed_DodgeSpeedWithoutDodge(t *testing.T) {
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 	p.SpawnTick = 1
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	w.TickNum = 100
 
 	is := &InputSystem{}
@@ -2032,7 +2032,7 @@ func TestMovementSpeed_BracedPlayerIsClamped(t *testing.T) {
 	p.SpawnTick = 1
 	p.AddBuff(entity.ActiveBuff{ID: "brace", Type: "generic", Duration: 10.0})
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	w.TickNum = 100
 
 	payload := codec.EncodePlayerInput(nil, 5.0, 0.1, 0.0, 0.0, 100, 0, 0.0)
@@ -2056,7 +2056,7 @@ func TestMovementSpeed_ShieldBlockClampsSpeed(t *testing.T) {
 	p.SpawnTick = 1
 	p.AddBuff(entity.ActiveBuff{ID: "vg_shield_block", Type: "damage_reduction", Value: 0.7, Duration: 10.0})
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	w.TickNum = 100
 
 	payload := codec.EncodePlayerInput(nil, 5.0, 0.1, 0.0, 0.0, 100, 0, 0.0)
@@ -2085,7 +2085,7 @@ func TestMovementSpeed_TeleportRejected(t *testing.T) {
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 	p.SpawnTick = 1
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	w.TickNum = 100
 
 	// 11 units away — exceeds the 10-unit teleport threshold
@@ -2107,7 +2107,7 @@ func TestMovementSpeed_SpawnGraceRejectsInput(t *testing.T) {
 	p.Position = entity.Vec3{X: 5, Y: 0.1, Z: 5}
 	p.SpawnTick = 95 // spawned at tick 95
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	w.TickNum = 100 // only 5 ticks since spawn (< 10 grace ticks)
 
 	payload := codec.EncodePlayerInput(nil, 0.0, 0.1, 0.0, 0.0, 100, 0, 0.0)
@@ -2129,7 +2129,7 @@ func TestMovementSpeed_YBoundsRejectsOutOfRange(t *testing.T) {
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 	p.SpawnTick = 1
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	w.TickNum = 100
 	// Arena level has PlayerBoundsMaxY = 6.0
 
@@ -2151,10 +2151,10 @@ func TestMovementSpeed_ElevatorAllowsFastY(t *testing.T) {
 	p.Position = entity.Vec3{X: 5, Y: -100, Z: -55}
 	p.SpawnTick = 1
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	w.TickNum = 100
 	// Use hub level which has an elevator at (5, -55)
-	w.Level = level.NewHubLevel()
+	w.Level = testHubLevel(t)
 
 	// Move up by 0.3 units (elevator speed = 10 u/s, allowed = 10*0.05*1.5 = 0.75)
 	newY := float32(-99.7)
@@ -2177,7 +2177,7 @@ func TestMovementSpeed_UpwardYClampedOutsideElevator(t *testing.T) {
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 	p.SpawnTick = 1
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	w.TickNum = 100
 
 	// Try to move up by 2.0 units (way above 0.5 + 0.1 tolerance = 0.6)
@@ -2201,7 +2201,7 @@ func TestMovementSpeed_UpwardYClampedOutsideElevator(t *testing.T) {
 func TestSetLoadout_UpdatesActionMap(t *testing.T) {
 	p := newHarmonistPlayer(1)
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 
 	// New loadout swaps slot 0 and clears slot 5
 	newSlots := [6]string{ability.IDVitalBloom, ability.IDMendingBeam, ability.IDMendingSurge, ability.IDRestorationMatrix, ability.IDLifeSwap, ""}
@@ -2228,7 +2228,7 @@ func TestSetLoadout_UpdatesActionMap(t *testing.T) {
 func TestSetLoadout_EmptySlotNotAdded(t *testing.T) {
 	p := newHarmonistPlayer(1)
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 
 	// Before: slot 5 (action 55) = vital_drain
 	beforeAction55 := p.ActionMap[55]
@@ -2263,7 +2263,7 @@ func TestSetLoadout_InvalidPayload(t *testing.T) {
 	originalMap := make(map[uint8]string, len(p.ActionMap))
 	maps.Copy(originalMap, p.ActionMap)
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 
 	// Truncated/invalid payload
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpSetLoadout, Payload: []byte{0xFF}}}
@@ -2279,8 +2279,8 @@ func TestSetLoadout_InvalidPayload(t *testing.T) {
 	}
 }
 
-func TestSetLoadout_UnknownPlayer(_ *testing.T) {
-	w := makeWorld(map[uint16]*entity.Player{}, nil)
+func TestSetLoadout_UnknownPlayer(t *testing.T) {
+	w := makeWorld(t, map[uint16]*entity.Player{}, nil)
 
 	newSlots := [6]string{ability.IDMendingSurge, "", "", "", "", ""}
 	payload := codec.EncodeLoadoutState(newSlots)
@@ -2296,7 +2296,7 @@ func TestSetLoadout_NilLoadoutCreated(t *testing.T) {
 	// Use a gunner (which has no loadout by default)
 	p := entity.NewPlayer(1, entity.ClassGunner)
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 
 	if p.Loadout != nil {
 		t.Fatal("precondition: gunner should not have a loadout")
@@ -2340,7 +2340,7 @@ func TestSetLoadout_RejectsNonExistentAbility(t *testing.T) {
 	// Expected: server rejects the loadout change, ActionMap[50] unchanged.
 	// Actual: "totally_fake_ability" is written into ActionMap[50].
 	p := newHarmonistPlayer(1)
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 
 	original50 := p.ActionMap[50] // ability.IDMendingSurge
 
@@ -2364,7 +2364,7 @@ func TestSetLoadout_RejectsUnimplementedAbility(t *testing.T) {
 	// Expected: server rejects the loadout; ActionMap[50] stays ability.IDMendingSurge.
 	// Actual: "fireball" is written into ActionMap[50].
 	p := newHarmonistPlayer(1)
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 
 	original50 := p.ActionMap[50]
 
@@ -2389,7 +2389,7 @@ func TestSetLoadout_ClearsStaleActionMapOnEmptySlot(t *testing.T) {
 	// Actual: stale "vital_drain" binding survives because ApplyLoadout skips
 	// empty slots instead of deleting them.
 	p := newHarmonistPlayer(1)
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 
 	// Precondition
 	if p.ActionMap[55] != "vital_drain" {
@@ -2418,7 +2418,7 @@ func TestAbilityInput_StaleBindingFiresAfterSlotClear(t *testing.T) {
 	// Actual: stale ability.IDTransfusion binding in ActionMap routes to the engine,
 	// which starts a runner for transfusion even though the player unequipped it.
 	p := newHarmonistPlayer(1)
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 
 	// Step 1: clear slot 5
 	newSlots := [6]string{ability.IDMendingSurge, ability.IDMendingBeam, ability.IDVitalBloom, ability.IDRestorationMatrix, ability.IDLifeSwap, ""}
@@ -2446,7 +2446,7 @@ func TestSetLoadout_GunnerAbilityOnHarmonist(t *testing.T) {
 	// Actual: ability.IDFireShot is written into ActionMap[50]. The player can now commit
 	// a gunner ability as a healer because there is no class-membership check.
 	p := newHarmonistPlayer(1)
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 
 	original50 := p.ActionMap[50]
 
@@ -2474,7 +2474,7 @@ func TestForceReset_SustainThenCommittedAbility(t *testing.T) {
 	// This test directly exercises the ForceReset path in handleAbilityInput.
 	p := newHarmonistPlayer(1)
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	registerTestSustainAbility(w.AbilityEngine, p)
 	registerTestCommitAbility(w.AbilityEngine, p)
 
@@ -2519,7 +2519,7 @@ func TestForceReset_SustainThenInstantAbility(t *testing.T) {
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -2.0}
 	e.State = entity.EnemyChase
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
 	registerTestSustainAbility(w.AbilityEngine, p)
 
 	// Start runner in sustain

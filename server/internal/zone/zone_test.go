@@ -38,7 +38,7 @@ func findBoss(z *Zone) *entity.Enemy {
 // All enemies (trash + boss) are activated and alive.
 func setupFightZone(t *testing.T) (*Zone, uint16) {
 	t.Helper()
-	z := New("test_arena", ZoneTypeInstanced)
+	z := New("test_arena", testArenaLevel(t))
 	z.world.State = StateFight
 
 	peerID := uint16(1)
@@ -198,7 +198,7 @@ func TestEnemyDamageEventsStillWork(t *testing.T) {
 // setupMultiPlayerFightZone creates a fight zone with N players.
 func setupMultiPlayerFightZone(t *testing.T, n int) (*Zone, []uint16) {
 	t.Helper()
-	z := New("test_arena", ZoneTypeInstanced)
+	z := New("test_arena", testArenaLevel(t))
 	z.world.State = StateFight
 	// Activate all enemies
 	for _, e := range z.world.Enemies {
@@ -602,7 +602,7 @@ func TestInteractExitPortal(t *testing.T) {
 // =============================================================================
 
 func TestLobbyToSpawnedToFight(t *testing.T) {
-	z := New("test_arena", ZoneTypeInstanced)
+	z := New("test_arena", testArenaLevel(t))
 	peerID := uint16(1)
 
 	p := entity.NewPlayer(peerID, entity.ClassGunner)
@@ -887,7 +887,7 @@ func TestRemotePlayerReceivesGunnerAttackState(t *testing.T) {
 // =============================================================================
 
 func TestHubZoneTick(t *testing.T) {
-	z := New("test_hub", ZoneTypeOpenWorld)
+	z := New("test_hub", testHubLevel(t))
 	peerID := uint16(1)
 
 	p := entity.NewPlayer(peerID, entity.ClassGunner)
@@ -910,7 +910,7 @@ func TestHubZoneTick(t *testing.T) {
 // =============================================================================
 
 func TestArenaInstance_EnemiesAliveOnCreation(t *testing.T) {
-	z := New("test_arena", ZoneTypeInstanced)
+	z := New("test_arena", testArenaLevel(t))
 
 	// Enemies should be alive and patrolling from zone creation
 	for _, e := range z.world.Enemies {
@@ -924,7 +924,7 @@ func TestArenaInstance_EnemiesAliveOnCreation(t *testing.T) {
 }
 
 func TestArenaInstance_FightAfterPlayerJoin(t *testing.T) {
-	z := New("test_arena", ZoneTypeInstanced)
+	z := New("test_arena", testArenaLevel(t))
 
 	send, msgs := captureSend()
 	c := &Client{PeerID: 1, Username: "TestPlayer", Send: send}
@@ -942,7 +942,7 @@ func TestArenaInstance_FightAfterPlayerJoin(t *testing.T) {
 }
 
 func TestArenaInstance_SecondPlayerGetsCatchUp(t *testing.T) {
-	z := New("test_arena", ZoneTypeInstanced)
+	z := New("test_arena", testArenaLevel(t))
 
 	c1 := &Client{PeerID: 1, Username: "Player1", Send: func([]byte) {}}
 	z.AddClient(c1)

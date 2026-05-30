@@ -167,12 +167,18 @@ func TestLoadArenaJSON(t *testing.T) {
 	if _, err := os.Stat(path); err != nil {
 		t.Skip("arena.json not found, skipping integration test")
 	}
-	l := &Level{ArenaEntryZ: 40.0, BossRoomEntryZ: 12.0, EnemyRadius: 1.0}
+	l := &Level{}
 	if err := loadLevelData(path, l); err != nil {
 		t.Fatal(err)
 	}
-	if len(l.Obstacles) != 20 {
-		t.Errorf("obstacles len = %d, want 20", len(l.Obstacles))
+	if l.ZoneType != "instanced" {
+		t.Errorf("ZoneType = %q, want %q", l.ZoneType, "instanced")
+	}
+	if l.EnemyRadius != 1.0 {
+		t.Errorf("EnemyRadius = %f, want 1", l.EnemyRadius)
+	}
+	if len(l.Obstacles) != 24 {
+		t.Errorf("obstacles len = %d, want 24", len(l.Obstacles))
 	}
 	if len(l.PlayerSpawns) != 5 {
 		t.Errorf("player_spawns len = %d, want 5", len(l.PlayerSpawns))
@@ -188,6 +194,29 @@ func TestLoadArenaJSON(t *testing.T) {
 	}
 }
 
+func TestArenaJSON_BoundsContainAllSpawnsAndPortals(t *testing.T) {
+	l, err := Load("arena")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, sp := range l.PlayerSpawns {
+		if sp.Position.Z < l.PlayerBoundsMinZ || sp.Position.Z > l.PlayerBoundsMaxZ {
+			t.Errorf("player spawn %d Z=%.1f outside bounds [%.1f, %.1f]",
+				i, sp.Position.Z, l.PlayerBoundsMinZ, l.PlayerBoundsMaxZ)
+		}
+		if sp.Position.X < l.PlayerBoundsMinX || sp.Position.X > l.PlayerBoundsMaxX {
+			t.Errorf("player spawn %d X=%.1f outside bounds [%.1f, %.1f]",
+				i, sp.Position.X, l.PlayerBoundsMinX, l.PlayerBoundsMaxX)
+		}
+	}
+	for i, p := range l.Portals {
+		if p.Position.Z-p.InteractionRadius < l.PlayerBoundsMinZ || p.Position.Z+p.InteractionRadius > l.PlayerBoundsMaxZ {
+			t.Errorf("portal %d %q Z=%.1f (radius=%.1f) exceeds bounds [%.1f, %.1f]",
+				i, p.Name, p.Position.Z, p.InteractionRadius, l.PlayerBoundsMinZ, l.PlayerBoundsMaxZ)
+		}
+	}
+}
+
 func TestLoadHubJSON(t *testing.T) {
 	path := "../../../shared/levels/hub.json"
 	if _, err := os.Stat(path); err != nil {
@@ -196,6 +225,12 @@ func TestLoadHubJSON(t *testing.T) {
 	l := &Level{}
 	if err := loadLevelData(path, l); err != nil {
 		t.Fatal(err)
+	}
+	if l.ZoneType != "open_world" {
+		t.Errorf("ZoneType = %q, want %q", l.ZoneType, "open_world")
+	}
+	if l.EnemyRadius != 0 {
+		t.Errorf("EnemyRadius = %f, want 0", l.EnemyRadius)
 	}
 	if len(l.Elevators) != 2 {
 		t.Errorf("elevators len = %d, want 2", len(l.Elevators))
@@ -407,17 +442,16 @@ func TestLevelDataPathCustomDir(t *testing.T) {
 }
 
 // =============================================================================
-// NewArenaLevel / NewHubLevel (hardcoded fallback)
+// Load function
 // =============================================================================
 
-func TestNewArenaLevelFallback(t *testing.T) {
-	t.Setenv("CODEX_LEVELS_DIR", "/nonexistent")
-	l := NewArenaLevel()
-	if l == nil {
-		t.Fatal("NewArenaLevel returned nil")
+func TestLoad(t *testing.T) {
+	l, err := Load("arena")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if l.ArenaEntryZ != 40.0 {
-		t.Errorf("ArenaEntryZ = %f, want 40", l.ArenaEntryZ)
+	if l.ZoneType != "instanced" {
+		t.Errorf("ZoneType = %q, want instanced", l.ZoneType)
 	}
 	if l.EnemyRadius != 1.0 {
 		t.Errorf("EnemyRadius = %f, want 1", l.EnemyRadius)
@@ -425,21 +459,69 @@ func TestNewArenaLevelFallback(t *testing.T) {
 	if len(l.PlayerSpawns) != 5 {
 		t.Errorf("PlayerSpawns = %d, want 5", len(l.PlayerSpawns))
 	}
-	if len(l.Obstacles) == 0 {
-		t.Error("expected obstacles in hardcoded arena")
+}
+
+func TestLoad_MissingFile(t *testing.T) {
+	t.Setenv("CODEX_LEVELS_DIR", "/nonexistent")
+	_, err := Load("does_not_exist")
+	if err == nil {
+		t.Fatal("expected error for missing level file")
 	}
 }
 
-func TestNewHubLevelFallback(t *testing.T) {
-	t.Setenv("CODEX_LEVELS_DIR", "/nonexistent")
-	l := NewHubLevel()
-	if l == nil {
-		t.Fatal("NewHubLevel returned nil")
+func TestLoad_DefaultZoneType(t *testing.T) {
+	// v2-3 JSON without zone_type should default to "open_world"
+	dir := t.TempDir()
+	writeTestJSON(t, dir, "test_default", `{
+		"version": 3,
+		"zone": "test_default",
+		"bounds": {"min_x":-10,"max_x":10,"min_z":-10,"max_z":10},
+		"obstacles": [],
+		"player_spawns": [{"x":0,"y":0,"z":0}]
+	}`)
+	t.Setenv("CODEX_LEVELS_DIR", dir)
+	l, err := Load("test_default")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if len(l.PlayerSpawns) != 5 {
-		t.Errorf("PlayerSpawns = %d, want 5", len(l.PlayerSpawns))
+	if l.ZoneType != "open_world" {
+		t.Errorf("ZoneType = %q, want open_world", l.ZoneType)
 	}
-	if len(l.Elevators) != 2 {
-		t.Errorf("Elevators = %d, want 2", len(l.Elevators))
+}
+
+func TestLoadLevelData_V4Features(t *testing.T) {
+	p := writeTempJSON(t, `{
+		"version": 4,
+		"zone": "test",
+		"zone_type": "instanced",
+		"enemy_radius": 1.5,
+		"source_scene": "res://test.tscn",
+		"bounds": { "min_x": -10, "max_x": 10, "min_y": -1, "max_y": 5, "min_z": -10, "max_z": 10 },
+		"obstacles": [],
+		"player_spawns": [{ "x": 0, "y": 0.1, "z": 5 }],
+		"zone_triggers": [
+			{ "name": "Entry", "trigger_id": "arena_entry", "axis": "z", "threshold": 40 }
+		]
+	}`)
+	l := &Level{}
+	if err := loadLevelData(p, l); err != nil {
+		t.Fatal(err)
+	}
+	if l.ZoneType != "instanced" {
+		t.Errorf("ZoneType = %q, want %q", l.ZoneType, "instanced")
+	}
+	if l.EnemyRadius != 1.5 {
+		t.Errorf("EnemyRadius = %f, want 1.5", l.EnemyRadius)
+	}
+	if l.ArenaEntryZ != 40 {
+		t.Errorf("ArenaEntryZ = %f, want 40", l.ArenaEntryZ)
+	}
+}
+
+func writeTestJSON(t *testing.T, dir, name, content string) {
+	t.Helper()
+	err := os.WriteFile(filepath.Join(dir, name+".json"), []byte(content), 0644)
+	if err != nil {
+		t.Fatal(err)
 	}
 }

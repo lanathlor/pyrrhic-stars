@@ -9,9 +9,14 @@ extends EditorPlugin
 ##
 ## Supported groups (see collision_exporter.gd header for full docs):
 ##   server_collision, server_elevator, server_spawn_player, server_spawn_enemy,
-##   server_spawn_npc, server_portal, server_zone_trigger, server_bounds
+##   server_spawn_npc, server_portal, server_zone_trigger, server_bounds,
+##   server_zone_config, server_ignore
+##
+## Auto-export: All CSGBox3D nodes are exported as obstacles automatically,
+## unless they are in the "server_ignore" group. The "server_collision" group
+## still works for StaticBody3D nodes with CollisionShape3D children.
 
-const VERSION := 3
+const VERSION := 4
 
 var _gizmo_plugin: EditorNode3DGizmoPlugin
 
@@ -29,9 +34,6 @@ func _exit_tree() -> void:
 
 
 func _on_scene_saved(path: String) -> void:
-	if not _is_level_scene(path):
-		return
-
 	var root := get_editor_interface().get_edited_scene_root()
 	if root == null:
 		return
@@ -43,11 +45,11 @@ func _on_scene_saved(path: String) -> void:
 	_export_level(root)
 
 
-func _is_level_scene(path: String) -> bool:
-	return "arena" in path or "hub" in path or "prime_hub" in path or "dungeon" in path
-
-
 func _has_server_nodes(node: Node) -> bool:
+	if node.is_in_group("server_ignore"):
+		return false
+	if node is CSGBox3D:
+		return true
 	for g in node.get_groups():
 		if str(g).begins_with("server_"):
 			return true
@@ -61,9 +63,6 @@ func _has_server_nodes(node: Node) -> bool:
 
 func _export_level(root: Node) -> void:
 	var scene_path: String = root.scene_file_path
-	var zone_name: String = scene_path.get_file().get_basename()
-	if zone_name != "arena" and zone_name != "hub":
-		zone_name = _infer_zone_name(scene_path)
 
 	var obstacles: Array = []
 	var elevators: Array = []
@@ -73,8 +72,15 @@ func _export_level(root: Node) -> void:
 	var portals: Array = []
 	var zone_triggers: Array = []
 	var bounds_override: Dictionary = {}
+	var zone_config: Dictionary = {}
 
-	_walk_tree(root, obstacles, elevators, player_spawns, enemy_spawns, npc_spawns, portals, zone_triggers, bounds_override)
+	_walk_tree(root, obstacles, elevators, player_spawns, enemy_spawns, npc_spawns, portals, zone_triggers, bounds_override, zone_config)
+
+	var zone_name: String = ""
+	if zone_config.has("zone_name"):
+		zone_name = zone_config["zone_name"]
+	if zone_name == "":
+		zone_name = scene_path.get_file().get_basename()
 
 	var bounds: Dictionary
 	if bounds_override.size() > 0:
@@ -85,6 +91,8 @@ func _export_level(root: Node) -> void:
 	var data: Dictionary = {
 		"version": VERSION,
 		"zone": zone_name,
+		"zone_type": zone_config.get("zone_type", "open_world"),
+		"enemy_radius": zone_config.get("enemy_radius", 0.0),
 		"source_scene": scene_path,
 		"bounds": bounds,
 		"obstacles": obstacles,
@@ -96,7 +104,7 @@ func _export_level(root: Node) -> void:
 		"zone_triggers": zone_triggers,
 	}
 
-	var output_dir := ProjectSettings.globalize_path("res://") + "../../shared/levels/"
+	var output_dir := ProjectSettings.globalize_path("res://") + "../shared/levels/"
 	DirAccess.make_dir_recursive_absolute(output_dir)
 	var output_path := output_dir + zone_name + ".json"
 
@@ -127,8 +135,16 @@ func _walk_tree(
 	portals: Array,
 	zone_triggers: Array,
 	bounds_override: Dictionary,
+	zone_config: Dictionary,
 ) -> void:
-	if node.is_in_group("server_collision"):
+	# server_ignore skips this node and all its children
+	if node.is_in_group("server_ignore"):
+		return
+
+	# Auto-export: any CSGBox3D is an obstacle unless excluded
+	if node is CSGBox3D:
+		_extract_collision(node, obstacles)
+	elif node.is_in_group("server_collision"):
 		_extract_collision(node, obstacles)
 	if node.is_in_group("server_elevator"):
 		_extract_elevator(node, elevators)
@@ -144,9 +160,11 @@ func _walk_tree(
 		_extract_zone_trigger(node, zone_triggers)
 	if node.is_in_group("server_bounds"):
 		_extract_bounds(node, bounds_override)
+	if node.is_in_group("server_zone_config"):
+		_extract_zone_config(node, zone_config)
 
 	for child in node.get_children():
-		_walk_tree(child, obstacles, elevators, player_spawns, enemy_spawns, npc_spawns, portals, zone_triggers, bounds_override)
+		_walk_tree(child, obstacles, elevators, player_spawns, enemy_spawns, npc_spawns, portals, zone_triggers, bounds_override, zone_config)
 
 
 # --- Extractors ---
@@ -317,6 +335,15 @@ func _extract_bounds(node: Node, bounds: Dictionary) -> void:
 	bounds["max_z"] = float(n.get_meta("max_z", 52.0))
 
 
+func _extract_zone_config(node: Node, config: Dictionary) -> void:
+	var n := node as Node3D
+	var zn: String = str(n.get_meta("zone_name", ""))
+	if zn != "":
+		config["zone_name"] = zn
+	config["zone_type"] = str(n.get_meta("zone_type", "open_world"))
+	config["enemy_radius"] = float(n.get_meta("enemy_radius", 0.0))
+
+
 func _compute_bounds(obstacles: Array) -> Dictionary:
 	if obstacles.is_empty():
 		return {"min_x": -10.0, "max_x": 10.0, "min_y": -1.0, "max_y": 5.0, "min_z": -10.0, "max_z": 10.0}
@@ -343,11 +370,3 @@ func _compute_bounds(obstacles: Array) -> Dictionary:
 		"min_z": snapped(min_z - 1.0, 0.01),
 		"max_z": snapped(max_z + 1.0, 0.01),
 	}
-
-
-func _infer_zone_name(scene_path: String) -> String:
-	if "hub" in scene_path or "prime_hub" in scene_path:
-		return "hub"
-	if "arena" in scene_path:
-		return "arena"
-	return scene_path.get_base_dir().get_file()

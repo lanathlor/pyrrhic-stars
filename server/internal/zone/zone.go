@@ -81,26 +81,21 @@ type Zone struct {
 	botMgr *bot.Manager
 }
 
-// New creates a zone ready to run. The level defines geometry, spawns, and
-// obstacles. Pass nil to use the default level for the zone type.
-// Set CombatLogSink on the returned Zone before calling Run() to enable
-// combat event logging.
-func New(id string, zoneType ZoneType, lvl ...*level.Level) *Zone {
+// New creates a zone ready to run. The level defines geometry, spawns, zone type,
+// and all spatial data. Set CombatLogSink on the returned Zone before calling
+// Run() to enable combat event logging.
+func New(id string, lvl *level.Level) *Zone {
+	var zoneType ZoneType
+	if lvl.ZoneType == "instanced" {
+		zoneType = ZoneTypeInstanced
+	}
+
 	z := &Zone{
 		ID:   id,
 		Type: zoneType,
 	}
 
-	// Resolve level: use provided level or create default from zone type.
-	var l *level.Level
-	switch {
-	case len(lvl) > 0 && lvl[0] != nil:
-		l = lvl[0]
-	case zoneType == ZoneTypeInstanced:
-		l = level.NewArenaLevel()
-	default:
-		l = level.NewHubLevel()
-	}
+	l := lvl
 
 	devMode := os.Getenv("CODEX_DEV") == "1"
 	z.world = system.World{

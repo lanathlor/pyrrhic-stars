@@ -11,12 +11,6 @@ const (
 	CondBossDead = "boss_dead"
 )
 
-// Enemy definition name constants used in arena spawn data.
-const (
-	EnemyHallwayMelee  = "hallway_melee"
-	EnemyHallwayRanged = "hallway_ranged"
-)
-
 // ZoneState captures the zone progression needed to evaluate spawn conditions.
 type ZoneState struct {
 	BossDefeated bool

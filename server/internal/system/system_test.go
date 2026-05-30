@@ -3,10 +3,8 @@ package system
 import (
 	"testing"
 
-	"codex-online/server/internal/entity"
-	"codex-online/server/internal/level"
-
 	"codex-online/server/internal/enemyai"
+	"codex-online/server/internal/entity"
 )
 
 // ---------------------------------------------------------------------------
@@ -333,7 +331,7 @@ func TestAISystem_SkipsNonFightState(t *testing.T) {
 		State:    StateLobby, // not fight
 		Players:  map[uint16]*entity.Player{1: p},
 		Enemies:  []*entity.Enemy{e},
-		Level:    level.NewArenaLevel(),
+		Level:    testArenaLevel(t),
 	}
 
 	sys := &AISystem{}
@@ -345,7 +343,7 @@ func TestAISystem_SkipsNonFightState(t *testing.T) {
 	}
 }
 
-func TestAISystem_SkipsDeadEnemies(_ *testing.T) {
+func TestAISystem_SkipsDeadEnemies(t *testing.T) {
 	e := entity.NewEnemy(0, 200, "test")
 	e.Alive = false
 	e.State = entity.EnemyDead
@@ -355,7 +353,7 @@ func TestAISystem_SkipsDeadEnemies(_ *testing.T) {
 		State:    StateFight,
 		Players:  map[uint16]*entity.Player{1: entity.NewPlayer(1, entity.ClassGunner)},
 		Enemies:  []*entity.Enemy{e},
-		Level:    level.NewArenaLevel(),
+		Level:    testArenaLevel(t),
 	}
 
 	sys := &AISystem{}
@@ -363,14 +361,14 @@ func TestAISystem_SkipsDeadEnemies(_ *testing.T) {
 	sys.Tick(w, 0.05)
 }
 
-func TestAISystem_SkipsNilEnemies(_ *testing.T) {
+func TestAISystem_SkipsNilEnemies(t *testing.T) {
 	w := &World{
 		ZoneType: 1,
 		State:    StateFight,
 		Players:  map[uint16]*entity.Player{1: entity.NewPlayer(1, entity.ClassGunner)},
 		Enemies:  []*entity.Enemy{nil},
 		Brains:   []enemyai.BrainTicker{}, // brains shorter than enemies
-		Level:    level.NewArenaLevel(),
+		Level:    testArenaLevel(t),
 	}
 
 	sys := &AISystem{}

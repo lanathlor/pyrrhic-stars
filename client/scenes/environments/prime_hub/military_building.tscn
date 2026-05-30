@@ -3345,6 +3345,10 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 33, 100.15, 6)
 [node name="SpawnPlayer5" type="Node3D" parent="LevelData" groups=["server_spawn_player"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 33, 100.15, 2)
 
+[node name="ZoneConfig" type="Node3D" parent="LevelData" groups=["server_zone_config"]]
+metadata/zone_name = "hub"
+metadata/zone_type = "open_world"
+
 [node name="Bounds" type="Node3D" parent="LevelData" groups=["server_bounds"]]
 metadata/min_x = -125.0
 metadata/max_x = 125.0

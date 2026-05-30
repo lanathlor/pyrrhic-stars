@@ -93,7 +93,10 @@ type enemySetup struct {
 
 // initEnemy creates the enemy entity, ability engine, and instrumented brain.
 func initEnemy(def *enemyai.EnemyDef, seed uint64) enemySetup {
-	lvl := level.NewArenaLevel()
+	lvl, err := level.Load("arena")
+	if err != nil {
+		panic(fmt.Sprintf("bosstest: %v", err))
+	}
 
 	enemy := entity.NewEnemy(1, def.MaxHealth, def.Name)
 	enemy.Alive = true

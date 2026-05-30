@@ -6,17 +6,17 @@ import (
 	"codex-online/server/internal/ability"
 	"codex-online/server/internal/codec"
 	"codex-online/server/internal/entity"
-	"codex-online/server/internal/level"
 	"codex-online/server/internal/message"
 )
 
-func makeHubWorld(players map[uint16]*entity.Player) *World {
+func makeHubWorld(t testing.TB, players map[uint16]*entity.Player) *World {
+	t.Helper()
 	return &World{
 		ZoneType:       0, // hub
 		TickNum:        100,
 		State:          StateLobby, // hub never enters StateFight
 		Players:        players,
-		Level:          level.NewHubLevel(),
+		Level:          testHubLevel(t),
 		AbilityEngine:  ability.NewEngine(nil),
 		AbilityRunners: make(map[uint16]*ability.PlayerAbilityRunner),
 	}
@@ -32,7 +32,7 @@ func abilityPayload(action uint8) []byte {
 
 func TestDodge_ConsumesStamina_InHub(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
-	w := makeHubWorld(map[uint16]*entity.Player{1: p})
+	w := makeHubWorld(t, map[uint16]*entity.Player{1: p})
 
 	before := p.Resources["stamina"].Current
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionDodge)}}
@@ -50,7 +50,7 @@ func TestDodge_ConsumesStamina_InHub(t *testing.T) {
 func TestDodge_BlockedWhenInsufficientStamina(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.Resources["stamina"].Current = 10.0
-	w := makeHubWorld(map[uint16]*entity.Player{1: p})
+	w := makeHubWorld(t, map[uint16]*entity.Player{1: p})
 
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionDodge)}}
 	is := &InputSystem{}
@@ -66,7 +66,7 @@ func TestDodge_BlockedWhenInsufficientStamina(t *testing.T) {
 
 func TestDodge_RepeatedDrainsStamina(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
-	w := makeHubWorld(map[uint16]*entity.Player{1: p})
+	w := makeHubWorld(t, map[uint16]*entity.Player{1: p})
 	is := &InputSystem{}
 
 	for range 5 {
@@ -98,7 +98,7 @@ func TestDodge_DoesNotIncrementOnslaught(t *testing.T) {
 	e.Alive = true
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -2.0}
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
 	is := &InputSystem{}
 
 	// Build onslaught via melee hit, then reset to 0
@@ -131,7 +131,7 @@ func TestDodge_PreservesOnslaughtStacks(t *testing.T) {
 	e.Alive = true
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -2.0}
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
 	is := &InputSystem{}
 
 	// Build onslaught via melee hit
@@ -162,7 +162,7 @@ func TestDodge_PreservesOnslaughtStacks(t *testing.T) {
 
 func TestDodge_GrantsIFrames(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
-	w := makeHubWorld(map[uint16]*entity.Player{1: p})
+	w := makeHubWorld(t, map[uint16]*entity.Player{1: p})
 
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionDodge)}}
 	is := &InputSystem{}
@@ -178,7 +178,7 @@ func TestDodge_GrantsIFrames(t *testing.T) {
 
 func TestDodge_IFramesBlockDamage(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
-	w := makeHubWorld(map[uint16]*entity.Player{1: p})
+	w := makeHubWorld(t, map[uint16]*entity.Player{1: p})
 
 	// Dodge to get i-frames
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionDodge)}}
@@ -197,7 +197,7 @@ func TestDodge_IFramesBlockDamage(t *testing.T) {
 
 func TestDodge_IFramesExpireAfterTimer(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
-	w := makeHubWorld(map[uint16]*entity.Player{1: p})
+	w := makeHubWorld(t, map[uint16]*entity.Player{1: p})
 
 	// Dodge to get i-frames
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionDodge)}}
@@ -223,7 +223,7 @@ func TestDodge_IFramesExpireAfterTimer(t *testing.T) {
 func TestDodge_DeadPlayerCannotDodge(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
 	p.Alive = false
-	w := makeHubWorld(map[uint16]*entity.Player{1: p})
+	w := makeHubWorld(t, map[uint16]*entity.Player{1: p})
 
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionDodge)}}
 	is := &InputSystem{}
@@ -243,7 +243,7 @@ func TestDodge_DeadPlayerCannotDodge(t *testing.T) {
 
 func TestMelee_ConsumesStamina_InHub(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
-	w := makeHubWorld(map[uint16]*entity.Player{1: p})
+	w := makeHubWorld(t, map[uint16]*entity.Player{1: p})
 
 	before := p.Resources["stamina"].Current
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionMelee)}}
@@ -260,7 +260,7 @@ func TestMelee_ConsumesStamina_InHub(t *testing.T) {
 
 func TestHeavy_ConsumesStamina_InHub(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
-	w := makeHubWorld(map[uint16]*entity.Player{1: p})
+	w := makeHubWorld(t, map[uint16]*entity.Player{1: p})
 
 	before := p.Resources["stamina"].Current
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionHeavy)}}
@@ -274,7 +274,7 @@ func TestHeavy_ConsumesStamina_InHub(t *testing.T) {
 
 func TestShoot_WorksInHub(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
-	w := makeHubWorld(map[uint16]*entity.Player{1: p})
+	w := makeHubWorld(t, map[uint16]*entity.Player{1: p})
 
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionShoot)}}
 	is := &InputSystem{}
@@ -291,7 +291,7 @@ func TestShoot_WorksInHub(t *testing.T) {
 
 func TestDodge_FullPipeline_Hub(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassVanguard)
-	w := makeHubWorld(map[uint16]*entity.Player{1: p})
+	w := makeHubWorld(t, map[uint16]*entity.Player{1: p})
 
 	inputSys := &InputSystem{}
 	combatSys := &CombatSystem{}
@@ -343,7 +343,7 @@ func TestMelee_ConsumesStamina_InFight(t *testing.T) {
 	e.Alive = true
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: 2.0}
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
 
 	before := p.Resources["stamina"].Current
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionMelee)}}
@@ -361,7 +361,7 @@ func TestHeavy_ConsumesStamina_InFight(t *testing.T) {
 	e.Alive = true
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: 2.0}
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
 
 	before := p.Resources["stamina"].Current
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: 0x0031, Payload: abilityPayload(entity.ActionHeavy)}}
@@ -378,7 +378,7 @@ func TestHeavy_ConsumesStamina_InFight(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestHandlePlayerInput_AcceptsNearbyPosition(t *testing.T) {
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 48}
 	p.SpawnTick = 0 // no spawn grace
@@ -410,7 +410,7 @@ func TestHandlePlayerInput_AcceptsNearbyPosition(t *testing.T) {
 }
 
 func TestHandlePlayerInput_RejectsTeleport(t *testing.T) {
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 48}
 	p.SpawnTick = 0
@@ -437,7 +437,7 @@ func TestHandlePlayerInput_RejectsTeleport(t *testing.T) {
 }
 
 func TestHandlePlayerInput_SpawnGraceRejectsPosition(t *testing.T) {
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 48}
 	p.SpawnTick = 95 // spawned 5 ticks ago (< 10 grace ticks)
@@ -463,7 +463,7 @@ func TestHandlePlayerInput_SpawnGraceRejectsPosition(t *testing.T) {
 }
 
 func TestHandlePlayerInput_AfterSpawnGraceAccepts(t *testing.T) {
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 48}
 	p.SpawnTick = 80 // spawned 20 ticks ago (>= 10 grace ticks)
@@ -489,7 +489,7 @@ func TestHandlePlayerInput_AfterSpawnGraceAccepts(t *testing.T) {
 }
 
 func TestHandlePlayerInput_YBoundsRejection(t *testing.T) {
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 48}
 	p.SpawnTick = 0
@@ -516,7 +516,7 @@ func TestHandlePlayerInput_YBoundsRejection(t *testing.T) {
 }
 
 func TestHandlePlayerInput_YBelowBoundsRejection(t *testing.T) {
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 48}
 	p.SpawnTick = 0
@@ -541,8 +541,8 @@ func TestHandlePlayerInput_YBelowBoundsRejection(t *testing.T) {
 	}
 }
 
-func TestHandlePlayerInput_UnknownPeerIgnored(_ *testing.T) {
-	lvl := level.NewArenaLevel()
+func TestHandlePlayerInput_UnknownPeerIgnored(t *testing.T) {
+	lvl := testArenaLevel(t)
 	w := &World{
 		ZoneType: 1,
 		TickNum:  100,
@@ -561,7 +561,7 @@ func TestHandlePlayerInput_UnknownPeerIgnored(_ *testing.T) {
 func TestHandlePlayerInput_NilPayloadIgnored(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 5, Y: 0.1, Z: 5}
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 
 	w := &World{
 		ZoneType: 1,
@@ -583,7 +583,7 @@ func TestHandlePlayerInput_NilPayloadIgnored(t *testing.T) {
 }
 
 func TestHandlePlayerInput_ClampsToLevelBounds(t *testing.T) {
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	// Start near the boundary so the move is close enough to not be rejected
 	p.Position = entity.Vec3{X: 18, Y: 0.1, Z: 48}
@@ -628,7 +628,7 @@ func TestHandleInteractInput_ClassSelect(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			p := entity.NewPlayer(1, entity.ClassGunner)
-			w := makeHubWorld(map[uint16]*entity.Player{1: p})
+			w := makeHubWorld(t, map[uint16]*entity.Player{1: p})
 
 			payload := codec.EncodeInteractInput(message.InteractClassSelect, tc.className)
 			w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpInteractInput, Payload: payload}}
@@ -650,7 +650,7 @@ func TestHandleInteractInput_ClassSelect_ResetsStats(t *testing.T) {
 		t.Fatalf("gunner MaxHealth = %f, want 150", p.MaxHealth)
 	}
 
-	w := makeHubWorld(map[uint16]*entity.Player{1: p})
+	w := makeHubWorld(t, map[uint16]*entity.Player{1: p})
 
 	payload := codec.EncodeInteractInput(message.InteractClassSelect, entity.ClassVanguard)
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpInteractInput, Payload: payload}}
@@ -673,7 +673,7 @@ func TestHandleInteractInput_ReadyToggle(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Ready = false
 
-	w := makeHubWorld(map[uint16]*entity.Player{1: p})
+	w := makeHubWorld(t, map[uint16]*entity.Player{1: p})
 
 	payload := codec.EncodeInteractInput(message.InteractReadyToggle, "")
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpInteractInput, Payload: payload}}
@@ -698,7 +698,7 @@ func TestHandleInteractInput_ExitPortal(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	hubRespawnCalled := false
 
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 	w := &World{
 		ZoneType: 1,
 		TickNum:  100,
@@ -729,7 +729,7 @@ func TestHandleInteractInput_ExitPortal_NotFightOver(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	hubRespawnCalled := false
 
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 	w := &World{
 		ZoneType: 1,
 		TickNum:  100,
@@ -757,7 +757,7 @@ func TestHandleInteractInput_ExitPortal_BossNotDefeated(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	hubRespawnCalled := false
 
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 	w := &World{
 		ZoneType: 1,
 		TickNum:  100,
@@ -781,8 +781,8 @@ func TestHandleInteractInput_ExitPortal_BossNotDefeated(t *testing.T) {
 	}
 }
 
-func TestHandleInteractInput_UnknownPeerIgnored(_ *testing.T) {
-	w := makeHubWorld(map[uint16]*entity.Player{})
+func TestHandleInteractInput_UnknownPeerIgnored(t *testing.T) {
+	w := makeHubWorld(t, map[uint16]*entity.Player{})
 
 	payload := codec.EncodeInteractInput(message.InteractReadyToggle, "")
 	w.InputQueue = []InputMsg{{PeerID: 99, Opcode: message.OpInteractInput, Payload: payload}}
@@ -792,9 +792,9 @@ func TestHandleInteractInput_UnknownPeerIgnored(_ *testing.T) {
 	is.Tick(w, 0.05)
 }
 
-func TestHandleInteractInput_NilPayload(_ *testing.T) {
+func TestHandleInteractInput_NilPayload(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
-	w := makeHubWorld(map[uint16]*entity.Player{1: p})
+	w := makeHubWorld(t, map[uint16]*entity.Player{1: p})
 
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpInteractInput, Payload: nil}}
 
@@ -813,7 +813,7 @@ func TestHandleRespawnRequest_HubRespawn(t *testing.T) {
 	p.Health = 0
 	hubRespawnCalled := false
 
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 	w := &World{
 		ZoneType: 1,
 		TickNum:  100,
@@ -859,7 +859,7 @@ func TestHandleRespawnRequest_ArenaRespawn(t *testing.T) {
 			p.Alive = false
 			p.Health = 0
 
-			lvl := level.NewArenaLevel()
+			lvl := testArenaLevel(t)
 			w := &World{
 				ZoneType:       1,
 				TickNum:        100,
@@ -895,7 +895,7 @@ func TestHandleRespawnRequest_AlivePlayerIgnored(t *testing.T) {
 	// Player is alive
 	origHealth := p.Health
 
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 	w := &World{
 		ZoneType: 1,
 		TickNum:  100,
@@ -920,7 +920,7 @@ func TestHandleRespawnRequest_NilPayload(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Alive = false
 
-	lvl := level.NewArenaLevel()
+	lvl := testArenaLevel(t)
 	w := &World{
 		ZoneType: 1,
 		TickNum:  100,
@@ -940,8 +940,8 @@ func TestHandleRespawnRequest_NilPayload(t *testing.T) {
 	}
 }
 
-func TestHandleRespawnRequest_UnknownPeerIgnored(_ *testing.T) {
-	lvl := level.NewArenaLevel()
+func TestHandleRespawnRequest_UnknownPeerIgnored(t *testing.T) {
+	lvl := testArenaLevel(t)
 	w := &World{
 		ZoneType: 1,
 		TickNum:  100,
@@ -964,7 +964,7 @@ func TestHandleRespawnRequest_UnknownPeerIgnored(_ *testing.T) {
 
 func TestInputSystem_ClearsQueueAfterProcessing(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
-	w := makeHubWorld(map[uint16]*entity.Player{1: p})
+	w := makeHubWorld(t, map[uint16]*entity.Player{1: p})
 
 	w.InputQueue = []InputMsg{
 		{PeerID: 1, Opcode: message.OpAbilityInput, Payload: abilityPayload(entity.ActionShoot)},

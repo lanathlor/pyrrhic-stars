@@ -16,6 +16,7 @@ import (
 	"codex-online/server/internal/group"
 	"codex-online/server/internal/inventory"
 	"codex-online/server/internal/item"
+	"codex-online/server/internal/level"
 	"codex-online/server/internal/message"
 	"codex-online/server/internal/session"
 	"codex-online/server/internal/user"
@@ -26,6 +27,7 @@ import (
 type gateway struct {
 	container  *container.Container
 	zones      map[string]*zoneInstance
+	levels     map[string]*level.Level // cached level data by zone name
 	sessions   *session.Registry
 	groups     *group.Manager
 	users      *user.Service
@@ -33,22 +35,22 @@ type gateway struct {
 	inventory  *inventory.Service
 	catalog    *abilitycatalog.Catalog
 	abilityEng *ability.Engine // for stat lookups when building catalog
-	mu         sync.Mutex      // protects zones
+	mu         sync.Mutex      // protects zones and levels
 	devMode    bool            // CODEX_DEV=1 enables debug features
 }
 
 type zoneInstance struct {
-	zone     *zone.Zone
-	zoneType zone.ZoneType
-	cancel   context.CancelFunc
-	nextID   uint16
-	mu       sync.Mutex
+	zone   *zone.Zone
+	cancel context.CancelFunc
+	nextID uint16
+	mu     sync.Mutex
 }
 
 func newGateway(ctr *container.Container) *gateway {
 	return &gateway{
 		container:  ctr,
 		zones:      make(map[string]*zoneInstance),
+		levels:     make(map[string]*level.Level),
 		sessions:   session.NewRegistry(),
 		groups:     group.NewManager(),
 		users:      user.NewService(ctr.Repo),
@@ -57,20 +59,35 @@ func newGateway(ctr *container.Container) *gateway {
 	}
 }
 
+// loadLevel returns a cached level or loads it from shared/levels/.
+func (g *gateway) loadLevel(zoneName string) (*level.Level, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if l, ok := g.levels[zoneName]; ok {
+		return l, nil
+	}
+	l, err := level.Load(zoneName)
+	if err != nil {
+		return nil, err
+	}
+	g.levels[zoneName] = l
+	return l, nil
+}
+
 // getOrCreateZone returns the zone for the given ID, creating it if needed.
-// Instance scaling is handled dynamically as players join/leave via AddClient/RemoveClient.
-func (g *gateway) getOrCreateZone(zoneID string, zoneType zone.ZoneType, groupSize int) *zoneInstance {
+// The level defines all zone properties including type.
+func (g *gateway) getOrCreateZone(zoneID string, lvl *level.Level, groupSize int) *zoneInstance {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	zi, ok := g.zones[zoneID]
 	if !ok {
-		z := zone.New(zoneID, zoneType)
+		z := zone.New(zoneID, lvl)
 		z.CombatLogSink = g.container.CombatLogSink
 		ctx, cancel := context.WithCancel(context.Background())
-		zi = &zoneInstance{zone: z, zoneType: zoneType, cancel: cancel, nextID: 1}
+		zi = &zoneInstance{zone: z, cancel: cancel, nextID: 1}
 		g.zones[zoneID] = zi
 		go z.Run(ctx)
-		slog.Info("zone created", "zone_id", zoneID, "type", zoneType, "group_size", groupSize)
+		slog.Info("zone created", "zone_id", zoneID, "type", lvl.ZoneType, "group_size", groupSize)
 	}
 	return zi
 }
@@ -113,7 +130,7 @@ func (g *gateway) leaveZone(sess *session.Session) {
 	zi.zone.RemoveClient(sess.PeerID)
 	disconnMsg := message.Encode(message.OpPeerDisconnected, 0, codec.EncodePeerID(sess.PeerID))
 	zi.zone.Broadcast(disconnMsg, sess.PeerID)
-	if zi.zoneType == zone.ZoneTypeInstanced && zi.zone.ClientCount() == 0 {
+	if zi.zone.Type == zone.ZoneTypeInstanced && zi.zone.ClientCount() == 0 {
 		g.removeZone(sess.ZoneID)
 	}
 }
@@ -170,7 +187,7 @@ func (g *gateway) joinZone(sess *session.Session, zi *zoneInstance, resp joinRes
 		sess.Conn.Send(message.Encode(message.OpZoneJoined, 0, buf))
 	case joinResponseZoneTransfer:
 		buf := make([]byte, 3)
-		buf[0] = byte(zi.zoneType)
+		buf[0] = byte(zi.zone.Type)
 		binary.BigEndian.PutUint16(buf[1:3], peerID)
 		sess.Conn.Send(message.Encode(message.OpZoneTransfer, 0, buf))
 	}
@@ -207,7 +224,7 @@ func resolveDisplayName(sess *session.Session) string {
 // (open-world) zones. It is a no-op for instanced zones or when the character
 // has no saved position.
 func (g *gateway) restoreSavedPosition(zi *zoneInstance, peerID uint16, sess *session.Session) {
-	if zi.zoneType != zone.ZoneTypeOpenWorld || sess.CharID == 0 {
+	if zi.zone.Type != zone.ZoneTypeOpenWorld || sess.CharID == 0 {
 		return
 	}
 	ch, _ := g.container.Repo.GetCharacterByID(sess.CharID)
@@ -436,11 +453,11 @@ func itemToCodec(it *item.Item) codec.InventoryItemInfo {
 
 // transferPlayer moves a player from their current zone to a new zone.
 // groupSize is used for instance scaling when creating a new arena.
-func (g *gateway) transferPlayer(sess *session.Session, targetZoneID string, targetType zone.ZoneType, groupSize int) {
+func (g *gateway) transferPlayer(sess *session.Session, targetZoneID string, lvl *level.Level, groupSize int) {
 	g.leaveZone(sess)
 
-	zi := g.getOrCreateZone(targetZoneID, targetType, groupSize)
-	if targetType == zone.ZoneTypeInstanced {
+	zi := g.getOrCreateZone(targetZoneID, lvl, groupSize)
+	if zi.zone.Type == zone.ZoneTypeInstanced {
 		zi.zone.OnPlayerRespawnHub = func(peerID uint16) {
 			g.handlePlayerRespawnHub(targetZoneID, peerID)
 		}
@@ -460,7 +477,12 @@ func (g *gateway) handlePlayerRespawnHub(zoneID string, peerID uint16) {
 		return
 	}
 	slog.Info("player respawning to hub", "player_id", sess.ID, "from_zone", zoneID)
-	g.transferPlayer(sess, zone.ZoneHub, zone.ZoneTypeOpenWorld, 0)
+	hubLvl, err := g.loadLevel("hub")
+	if err != nil {
+		slog.Error("hub level not found for respawn", "error", err)
+		return
+	}
+	g.transferPlayer(sess, zone.ZoneHub, hubLvl, 0)
 
 	grp := g.groups.GetGroup(sess.ID)
 	if grp != nil {

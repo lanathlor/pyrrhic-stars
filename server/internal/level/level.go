@@ -74,6 +74,9 @@ type Level struct {
 	// Default enemy collision radius
 	EnemyRadius float32
 
+	// ZoneType is "instanced" or "open_world" (from JSON).
+	ZoneType string
+
 	// NPC spawn points (hub only)
 	NPCSpawns []NPCSpawnPoint
 

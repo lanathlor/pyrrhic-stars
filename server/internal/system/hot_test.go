@@ -19,7 +19,7 @@ func TestHoT_TicksHealTarget(t *testing.T) {
 		TickTimer:   1.0,
 	})
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	sys := CombatSystem{}
 
 	// Tick for 1.1 seconds — should fire one HoT tick
@@ -44,7 +44,7 @@ func TestHoT_Expires(t *testing.T) {
 		TickTimer:   1.0,
 	})
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	sys := CombatSystem{}
 
 	// Tick for 1 second — HoT should expire
@@ -72,7 +72,7 @@ func TestHoT_BurstAtLowHP(t *testing.T) {
 		BurstThreshold: 0.3,
 	})
 
-	w := makeWorld(map[uint16]*entity.Player{1: p}, nil)
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, nil)
 	sys := CombatSystem{}
 	sys.Tick(w, 0.05)
 

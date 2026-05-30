@@ -13,7 +13,7 @@ func TestVitalCircuit_LinkExpiryHealsLowerHP(t *testing.T) {
 	p2.Health = 150
 
 	players := map[uint16]*entity.Player{1: p1, 2: p2}
-	w := makeWorld(players, nil)
+	w := makeWorld(t, players, nil)
 	w.DamageLinks = append(w.DamageLinks, &entity.DamageLink{
 		SourcePeer: 99,
 		PeerA:      1,
@@ -40,7 +40,7 @@ func TestVitalCircuit_LinkDecaysDuration(t *testing.T) {
 	p2 := entity.NewPlayer(2, entity.ClassArcanotechnicien)
 
 	players := map[uint16]*entity.Player{1: p1, 2: p2}
-	w := makeWorld(players, nil)
+	w := makeWorld(t, players, nil)
 	w.DamageLinks = append(w.DamageLinks, &entity.DamageLink{
 		SourcePeer: 99,
 		PeerA:      1,

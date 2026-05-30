@@ -20,7 +20,7 @@ func TestLastBreath_ExpiryDamagesCaster(t *testing.T) {
 	target.LastBreathPrevented = 100 // 100 damage was prevented
 
 	players := map[uint16]*entity.Player{1: caster, 2: target}
-	w := makeWorld(players, nil)
+	w := makeWorld(t, players, nil)
 
 	casterHPBefore := caster.Health
 
@@ -62,7 +62,7 @@ func TestLastBreath_NoDamageWhenNothingPrevented(t *testing.T) {
 	target.LastBreathPrevented = 0 // nothing prevented
 
 	players := map[uint16]*entity.Player{1: caster, 2: target}
-	w := makeWorld(players, nil)
+	w := makeWorld(t, players, nil)
 
 	casterHPBefore := caster.Health
 

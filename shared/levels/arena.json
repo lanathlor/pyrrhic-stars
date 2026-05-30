@@ -1,107 +1,555 @@
 {
-	"version": 3,
-	"zone": "arena",
-	"source_scene": "res://scenes/environments/arena/arena.tscn",
 	"bounds": {
-		"min_x": -19.5,
 		"max_x": 19.5,
-		"min_y": -1.0,
 		"max_y": 6.0,
-		"min_z": -14.5,
-		"max_z": 52.0
+		"max_z": 62.5,
+		"min_x": -19.5,
+		"min_y": -1.0,
+		"min_z": -14.5
 	},
+	"elevators": [],
+	"enemy_radius": 1.0,
+	"enemy_spawns": [
+		{
+			"aggro_radius": 10.0,
+			"def_name": "hallway_melee",
+			"group_id": 1,
+			"leash_radius": 40.0,
+			"patrol_a": {
+				"x": -6.0,
+				"y": 0.1,
+				"z": 32.0
+			},
+			"patrol_b": {
+				"x": 6.0,
+				"y": 0.1,
+				"z": 32.0
+			},
+			"x": -3.0,
+			"y": 0.1,
+			"z": 32.0
+		},
+		{
+			"aggro_radius": 10.0,
+			"def_name": "hallway_melee",
+			"group_id": 1,
+			"leash_radius": 40.0,
+			"patrol_a": {
+				"x": 6.0,
+				"y": 0.1,
+				"z": 32.0
+			},
+			"patrol_b": {
+				"x": -6.0,
+				"y": 0.1,
+				"z": 32.0
+			},
+			"x": 3.0,
+			"y": 0.1,
+			"z": 32.0
+		},
+		{
+			"aggro_radius": 12.0,
+			"def_name": "hallway_ranged",
+			"group_id": 1,
+			"leash_radius": 40.0,
+			"patrol_a": {
+				"x": -6.0,
+				"y": 0.1,
+				"z": 34.0
+			},
+			"patrol_b": {
+				"x": 6.0,
+				"y": 0.1,
+				"z": 34.0
+			},
+			"x": -5.0,
+			"y": 0.1,
+			"z": 34.0
+		},
+		{
+			"aggro_radius": 12.0,
+			"def_name": "hallway_ranged",
+			"group_id": 1,
+			"leash_radius": 40.0,
+			"patrol_a": {
+				"x": 6.0,
+				"y": 0.1,
+				"z": 34.0
+			},
+			"patrol_b": {
+				"x": -6.0,
+				"y": 0.1,
+				"z": 34.0
+			},
+			"x": 5.0,
+			"y": 0.1,
+			"z": 34.0
+		},
+		{
+			"aggro_radius": 10.0,
+			"def_name": "hallway_melee",
+			"group_id": 2,
+			"leash_radius": 40.0,
+			"patrol_a": {
+				"x": -6.0,
+				"y": 0.1,
+				"z": 22.0
+			},
+			"patrol_b": {
+				"x": 6.0,
+				"y": 0.1,
+				"z": 22.0
+			},
+			"x": -3.0,
+			"y": 0.1,
+			"z": 22.0
+		},
+		{
+			"aggro_radius": 10.0,
+			"def_name": "hallway_melee",
+			"group_id": 2,
+			"leash_radius": 40.0,
+			"patrol_a": {
+				"x": 6.0,
+				"y": 0.1,
+				"z": 22.0
+			},
+			"patrol_b": {
+				"x": -6.0,
+				"y": 0.1,
+				"z": 22.0
+			},
+			"x": 3.0,
+			"y": 0.1,
+			"z": 22.0
+		},
+		{
+			"aggro_radius": 12.0,
+			"def_name": "hallway_ranged",
+			"group_id": 2,
+			"leash_radius": 40.0,
+			"patrol_a": {
+				"x": -6.0,
+				"y": 0.1,
+				"z": 24.0
+			},
+			"patrol_b": {
+				"x": 6.0,
+				"y": 0.1,
+				"z": 24.0
+			},
+			"x": -5.0,
+			"y": 0.1,
+			"z": 24.0
+		},
+		{
+			"aggro_radius": 12.0,
+			"def_name": "hallway_ranged",
+			"group_id": 2,
+			"leash_radius": 40.0,
+			"patrol_a": {
+				"x": 6.0,
+				"y": 0.1,
+				"z": 24.0
+			},
+			"patrol_b": {
+				"x": -6.0,
+				"y": 0.1,
+				"z": 24.0
+			},
+			"x": 5.0,
+			"y": 0.1,
+			"z": 24.0
+		},
+		{
+			"aggro_radius": 10.0,
+			"def_name": "guard_captain",
+			"is_boss": true,
+			"leash_radius": 30.0,
+			"patrol_a": {
+				"x": -5.0,
+				"y": 0.1,
+				"z": 0.0
+			},
+			"patrol_b": {
+				"x": 5.0,
+				"y": 0.1,
+				"z": 0.0
+			},
+			"x": 0.0,
+			"y": 0.1,
+			"z": 0.0
+		}
+	],
+	"npc_spawns": [],
 	"obstacles": [
-		{ "name": "Pillar1", "center": [-8.0, 2.0, -6.0], "half_extents": [0.75, 2.0, 0.75] },
-		{ "name": "Pillar2", "center": [8.0, 2.0, -6.0], "half_extents": [0.75, 2.0, 0.75] },
-		{ "name": "Pillar3", "center": [-8.0, 2.0, 6.0], "half_extents": [0.75, 2.0, 0.75] },
-		{ "name": "Pillar4", "center": [8.0, 2.0, 6.0], "half_extents": [0.75, 2.0, 0.75] },
-		{ "name": "Pillar5", "center": [0.0, 2.0, -10.0], "half_extents": [0.75, 2.0, 0.75] },
-		{ "name": "Pillar6", "center": [0.0, 2.0, 10.0], "half_extents": [0.75, 2.0, 0.75] },
-		{ "name": "Cover1", "center": [-5.0, 0.6, -2.0], "half_extents": [1.5, 0.6, 0.5] },
-		{ "name": "Cover2", "center": [5.0, 0.6, 2.0], "half_extents": [1.5, 0.6, 0.5] },
-		{ "name": "Cover3", "center": [-12.0, 0.6, 0.0], "half_extents": [0.5, 0.6, 1.5] },
-		{ "name": "Cover4", "center": [12.0, 0.6, 0.0], "half_extents": [0.5, 0.6, 1.5] },
-		{ "name": "ConnectorWallLeft", "center": [-14.0, 2.5, 11.6], "half_extents": [6.0, 2.5, 0.25] },
-		{ "name": "ConnectorWallRight", "center": [14.0, 2.5, 11.6], "half_extents": [6.0, 2.5, 0.25] },
-		{ "name": "HallwaySideLeft", "center": [-8.0, 2.5, 26.0], "half_extents": [0.25, 2.5, 14.0] },
-		{ "name": "HallwaySideRight", "center": [8.0, 2.5, 26.0], "half_extents": [0.25, 2.5, 14.0] },
-		{ "name": "HallwayCrate1", "center": [0.0, 0.6, 27.0], "half_extents": [1.0, 0.6, 0.5] },
-		{ "name": "HallwayCrate2", "center": [-4.0, 0.6, 30.0], "half_extents": [0.5, 0.6, 0.5] },
-		{ "name": "HallwayCrate3", "center": [4.0, 0.6, 30.0], "half_extents": [0.5, 0.6, 0.5] },
-		{ "name": "HallwayCrate4", "center": [0.0, 0.6, 18.0], "half_extents": [1.0, 0.6, 0.5] },
-		{ "name": "HallwayCrate5", "center": [-4.0, 0.6, 20.0], "half_extents": [0.5, 0.6, 0.5] },
-		{ "name": "HallwayCrate6", "center": [4.0, 0.6, 20.0], "half_extents": [0.5, 0.6, 0.5] }
+		{
+			"center": [
+				0.0,
+				2.5,
+				-15.0
+			],
+			"half_extents": [
+				20.0,
+				2.5,
+				0.25
+			],
+			"name": "WallNorth"
+		},
+		{
+			"center": [
+				20.0,
+				2.5,
+				-1.5
+			],
+			"half_extents": [
+				0.25,
+				2.5,
+				13.5
+			],
+			"name": "WallEast"
+		},
+		{
+			"center": [
+				-20.0,
+				2.5,
+				-1.5
+			],
+			"half_extents": [
+				0.25,
+				2.5,
+				13.5
+			],
+			"name": "WallWest"
+		},
+		{
+			"center": [
+				-8.0,
+				2.0,
+				-6.0
+			],
+			"half_extents": [
+				0.75,
+				2.0,
+				0.75
+			],
+			"name": "Pillar1"
+		},
+		{
+			"center": [
+				8.0,
+				2.0,
+				-6.0
+			],
+			"half_extents": [
+				0.75,
+				2.0,
+				0.75
+			],
+			"name": "Pillar2"
+		},
+		{
+			"center": [
+				-8.0,
+				2.0,
+				6.0
+			],
+			"half_extents": [
+				0.75,
+				2.0,
+				0.75
+			],
+			"name": "Pillar3"
+		},
+		{
+			"center": [
+				8.0,
+				2.0,
+				6.0
+			],
+			"half_extents": [
+				0.75,
+				2.0,
+				0.75
+			],
+			"name": "Pillar4"
+		},
+		{
+			"center": [
+				0.0,
+				2.0,
+				-10.0
+			],
+			"half_extents": [
+				0.75,
+				2.0,
+				0.75
+			],
+			"name": "Pillar5"
+		},
+		{
+			"center": [
+				0.0,
+				2.0,
+				10.0
+			],
+			"half_extents": [
+				0.75,
+				2.0,
+				0.75
+			],
+			"name": "Pillar6"
+		},
+		{
+			"center": [
+				-5.0,
+				0.6,
+				-2.0
+			],
+			"half_extents": [
+				1.5,
+				0.6,
+				0.5
+			],
+			"name": "Cover1"
+		},
+		{
+			"center": [
+				5.0,
+				0.6,
+				2.0
+			],
+			"half_extents": [
+				1.5,
+				0.6,
+				0.5
+			],
+			"name": "Cover2"
+		},
+		{
+			"center": [
+				-12.0,
+				0.6,
+				0.0
+			],
+			"half_extents": [
+				0.5,
+				0.6,
+				1.5
+			],
+			"name": "Cover3"
+		},
+		{
+			"center": [
+				12.0,
+				0.6,
+				0.0
+			],
+			"half_extents": [
+				0.5,
+				0.6,
+				1.5
+			],
+			"name": "Cover4"
+		},
+		{
+			"center": [
+				-8.0,
+				2.5,
+				52.0
+			],
+			"half_extents": [
+				0.25,
+				2.5,
+				12.0
+			],
+			"name": "LobbyWallLeft"
+		},
+		{
+			"center": [
+				8.0,
+				2.5,
+				52.0
+			],
+			"half_extents": [
+				0.25,
+				2.5,
+				12.0
+			],
+			"name": "LobbyWallRight"
+		},
+		{
+			"center": [
+				-8.0,
+				2.5,
+				26.0
+			],
+			"half_extents": [
+				0.25,
+				2.5,
+				14.0
+			],
+			"name": "HallwayWallLeft"
+		},
+		{
+			"center": [
+				8.0,
+				2.5,
+				26.0
+			],
+			"half_extents": [
+				0.25,
+				2.5,
+				14.0
+			],
+			"name": "HallwayWallRight"
+		},
+		{
+			"center": [
+				-14.0,
+				2.5,
+				11.6
+			],
+			"half_extents": [
+				6.0,
+				2.5,
+				0.25
+			],
+			"name": "ConnectorWallLeft"
+		},
+		{
+			"center": [
+				14.0,
+				2.5,
+				11.6
+			],
+			"half_extents": [
+				6.0,
+				2.5,
+				0.25
+			],
+			"name": "ConnectorWallRight"
+		},
+		{
+			"center": [
+				-4.0,
+				0.6,
+				27.0
+			],
+			"half_extents": [
+				1.0,
+				0.6,
+				0.5
+			],
+			"name": "HallwayCover0"
+		},
+		{
+			"center": [
+				4.0,
+				0.6,
+				27.0
+			],
+			"half_extents": [
+				1.0,
+				0.6,
+				0.5
+			],
+			"name": "HallwayCover1"
+		},
+		{
+			"center": [
+				-4.0,
+				0.6,
+				17.0
+			],
+			"half_extents": [
+				1.0,
+				0.6,
+				0.5
+			],
+			"name": "HallwayCover2"
+		},
+		{
+			"center": [
+				4.0,
+				0.6,
+				17.0
+			],
+			"half_extents": [
+				1.0,
+				0.6,
+				0.5
+			],
+			"name": "HallwayCover3"
+		},
+		{
+			"center": [
+				0.0,
+				2.5,
+				64.0
+			],
+			"half_extents": [
+				8.0,
+				2.5,
+				0.25
+			],
+			"name": "LobbyWallBack"
+		}
+	],
+	"player_spawns": [
+		{
+			"x": -2.0,
+			"y": 0.1,
+			"z": 48.0
+		},
+		{
+			"x": 0.0,
+			"y": 0.1,
+			"z": 48.0
+		},
+		{
+			"x": 2.0,
+			"y": 0.1,
+			"z": 48.0
+		},
+		{
+			"x": -1.0,
+			"y": 0.1,
+			"z": 49.0
+		},
+		{
+			"x": 1.0,
+			"y": 0.1,
+			"z": 49.0
+		}
 	],
 	"portals": [
 		{
+			"interaction_radius": 4.0,
 			"name": "PortalArea",
-			"x": 0.0, "y": 0.0, "z": 58.0,
 			"target_zone": "hub",
-			"interaction_radius": 4.0
+			"x": 0.0,
+			"y": 0.0,
+			"z": 58.0
 		}
 	],
-	"elevators": [],
-	"player_spawns": [
-		{ "x": -2.0, "y": 0.1, "z": 48.0 },
-		{ "x": 0.0, "y": 0.1, "z": 48.0 },
-		{ "x": 2.0, "y": 0.1, "z": 48.0 },
-		{ "x": -1.0, "y": 0.1, "z": 49.0 },
-		{ "x": 1.0, "y": 0.1, "z": 49.0 }
-	],
-	"enemy_spawns": [
+	"source_scene": "res://scenes/environments/arena/arena.tscn",
+	"version": 4,
+	"zone": "arena",
+	"zone_triggers": [
 		{
-			"x": -3.0, "y": 0.1, "z": 32.0, "def_name": "hallway_melee",
-			"patrol_a": { "x": -6.0, "y": 0.1, "z": 32.0 },
-			"patrol_b": { "x": 6.0, "y": 0.1, "z": 32.0 },
-			"aggro_radius": 10.0, "leash_radius": 40.0, "group_id": 1
+			"axis": "z",
+			"name": "ArenaEntry",
+			"threshold": 40.0,
+			"trigger_id": "arena_entry"
 		},
 		{
-			"x": 3.0, "y": 0.1, "z": 32.0, "def_name": "hallway_melee",
-			"patrol_a": { "x": 6.0, "y": 0.1, "z": 32.0 },
-			"patrol_b": { "x": -6.0, "y": 0.1, "z": 32.0 },
-			"aggro_radius": 10.0, "leash_radius": 40.0, "group_id": 1
-		},
-		{
-			"x": -5.0, "y": 0.1, "z": 34.0, "def_name": "hallway_ranged",
-			"patrol_a": { "x": -6.0, "y": 0.1, "z": 34.0 },
-			"patrol_b": { "x": 6.0, "y": 0.1, "z": 34.0 },
-			"aggro_radius": 12.0, "leash_radius": 40.0, "group_id": 1
-		},
-		{
-			"x": 5.0, "y": 0.1, "z": 34.0, "def_name": "hallway_ranged",
-			"patrol_a": { "x": 6.0, "y": 0.1, "z": 34.0 },
-			"patrol_b": { "x": -6.0, "y": 0.1, "z": 34.0 },
-			"aggro_radius": 12.0, "leash_radius": 40.0, "group_id": 1
-		},
-		{
-			"x": -3.0, "y": 0.1, "z": 22.0, "def_name": "hallway_melee",
-			"patrol_a": { "x": -6.0, "y": 0.1, "z": 22.0 },
-			"patrol_b": { "x": 6.0, "y": 0.1, "z": 22.0 },
-			"aggro_radius": 10.0, "leash_radius": 40.0, "group_id": 2
-		},
-		{
-			"x": 3.0, "y": 0.1, "z": 22.0, "def_name": "hallway_melee",
-			"patrol_a": { "x": 6.0, "y": 0.1, "z": 22.0 },
-			"patrol_b": { "x": -6.0, "y": 0.1, "z": 22.0 },
-			"aggro_radius": 10.0, "leash_radius": 40.0, "group_id": 2
-		},
-		{
-			"x": -5.0, "y": 0.1, "z": 24.0, "def_name": "hallway_ranged",
-			"patrol_a": { "x": -6.0, "y": 0.1, "z": 24.0 },
-			"patrol_b": { "x": 6.0, "y": 0.1, "z": 24.0 },
-			"aggro_radius": 12.0, "leash_radius": 40.0, "group_id": 2
-		},
-		{
-			"x": 5.0, "y": 0.1, "z": 24.0, "def_name": "hallway_ranged",
-			"patrol_a": { "x": 6.0, "y": 0.1, "z": 24.0 },
-			"patrol_b": { "x": -6.0, "y": 0.1, "z": 24.0 },
-			"aggro_radius": 12.0, "leash_radius": 40.0, "group_id": 2
-		},
-		{
-			"x": 0.0, "y": 0.1, "z": 0.0, "def_name": "guard_captain", "is_boss": true,
-			"patrol_a": { "x": -5.0, "y": 0.1, "z": 0.0 },
-			"patrol_b": { "x": 5.0, "y": 0.1, "z": 0.0 },
-			"aggro_radius": 10.0, "leash_radius": 30.0
+			"axis": "z",
+			"name": "BossRoomEntry",
+			"threshold": 12.0,
+			"trigger_id": "boss_room_entry"
 		}
-	]
+	],
+	"zone_type": "instanced"
 }

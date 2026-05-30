@@ -35,6 +35,7 @@ func _init() -> void:
 
 	create_material("trigger", Color(1.0, 0.5, 0.0))
 	create_material("bounds", Color(1.0, 1.0, 1.0, 0.25))
+	create_material("zone_config", Color(0.0, 0.8, 0.8))
 
 	_spawn_mesh = SphereMesh.new()
 	_spawn_mesh.radius = 0.5
@@ -80,6 +81,8 @@ func _redraw(gizmo: EditorNode3DGizmo) -> void:
 		_draw_trigger(gizmo, node)
 	if node.is_in_group("server_bounds"):
 		_draw_bounds(gizmo, node)
+	if node.is_in_group("server_zone_config"):
+		_draw_zone_config(gizmo, node)
 
 
 # =============================================================================
@@ -345,6 +348,36 @@ func _draw_bounds(gizmo: EditorNode3DGizmo, node: Node3D) -> void:
 	lines.append(c1); lines.append(c5)
 	lines.append(c2); lines.append(c6)
 	lines.append(c3); lines.append(c7)
+	gizmo.add_lines(lines, mat)
+
+
+# =============================================================================
+# Zone config
+# =============================================================================
+
+func _draw_zone_config(gizmo: EditorNode3DGizmo, node: Node3D) -> void:
+	var mat = get_material("zone_config", gizmo)
+
+	# Draw a diamond shape to distinguish from other markers
+	var s := 0.6
+	var lines = PackedVector3Array()
+	# Horizontal diamond
+	lines.append(Vector3(s, 0, 0))
+	lines.append(Vector3(0, 0, s))
+	lines.append(Vector3(0, 0, s))
+	lines.append(Vector3(-s, 0, 0))
+	lines.append(Vector3(-s, 0, 0))
+	lines.append(Vector3(0, 0, -s))
+	lines.append(Vector3(0, 0, -s))
+	lines.append(Vector3(s, 0, 0))
+	# Vertical post
+	lines.append(Vector3(0, -s, 0))
+	lines.append(Vector3(0, s * 2.0, 0))
+	# Top cross
+	lines.append(Vector3(-s * 0.4, s * 2.0, 0))
+	lines.append(Vector3(s * 0.4, s * 2.0, 0))
+	lines.append(Vector3(0, s * 2.0, -s * 0.4))
+	lines.append(Vector3(0, s * 2.0, s * 0.4))
 	gizmo.add_lines(lines, mat)
 
 

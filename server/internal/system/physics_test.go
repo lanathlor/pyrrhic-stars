@@ -5,22 +5,22 @@ import (
 
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
-	"codex-online/server/internal/level"
 )
 
-func makePhysicsWorld() *World {
+func makePhysicsWorld(t testing.TB) *World {
+	t.Helper()
 	return &World{
 		ZoneType: 1,
 		State:    StateFight,
 		Players:  make(map[uint16]*entity.Player),
-		Level:    level.NewArenaLevel(),
+		Level:    testArenaLevel(t),
 	}
 }
 
 // --- PhysicsSystem ---
 
 func TestPhysicsProjectileMovement(t *testing.T) {
-	w := makePhysicsWorld()
+	w := makePhysicsWorld(t)
 	proj := entity.NewProjectile(1, 0, -1,
 		entity.Vec3{X: 0, Y: 1.5, Z: 25}, // in hallway, clear of obstacles
 		entity.Vec3{X: 0, Z: -1},         // moving -Z
@@ -40,7 +40,7 @@ func TestPhysicsProjectileMovement(t *testing.T) {
 }
 
 func TestPhysicsProjectileExpires(t *testing.T) {
-	w := makePhysicsWorld()
+	w := makePhysicsWorld(t)
 	proj := entity.NewProjectile(1, 0, -1,
 		entity.Vec3{X: 0, Y: 1.5, Z: 25},
 		entity.Vec3{X: 0, Z: -1},
@@ -56,7 +56,7 @@ func TestPhysicsProjectileExpires(t *testing.T) {
 }
 
 func TestPhysicsProjectileObstacleCollision(t *testing.T) {
-	w := makePhysicsWorld()
+	w := makePhysicsWorld(t)
 	// Place projectile right at an obstacle
 	// Boss room pillar at (-8, -6) with half-extents 0.75
 	proj := entity.NewProjectile(1, 0, -1,
@@ -74,7 +74,7 @@ func TestPhysicsProjectileObstacleCollision(t *testing.T) {
 }
 
 func TestPhysicsEnemyProjectileHitsPlayer(t *testing.T) {
-	w := makePhysicsWorld()
+	w := makePhysicsWorld(t)
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 25}
 	w.Players[1] = p
@@ -110,7 +110,7 @@ func TestPhysicsEnemyProjectileHitsPlayer(t *testing.T) {
 }
 
 func TestPhysicsEnemyProjectileSkipsDeadPlayer(t *testing.T) {
-	w := makePhysicsWorld()
+	w := makePhysicsWorld(t)
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 25}
 	p.Alive = false
@@ -131,7 +131,7 @@ func TestPhysicsEnemyProjectileSkipsDeadPlayer(t *testing.T) {
 }
 
 func TestPhysicsNotInFightState(t *testing.T) {
-	w := makePhysicsWorld()
+	w := makePhysicsWorld(t)
 	w.State = StateLobby
 	proj := entity.NewProjectile(1, 0, -1,
 		entity.Vec3{X: 0, Y: 1.5, Z: 25},
@@ -149,7 +149,7 @@ func TestPhysicsNotInFightState(t *testing.T) {
 }
 
 func TestPhysicsMultipleProjectiles(t *testing.T) {
-	w := makePhysicsWorld()
+	w := makePhysicsWorld(t)
 	proj1 := entity.NewProjectile(1, 0, -1,
 		entity.Vec3{X: 0, Y: 1.5, Z: 25},
 		entity.Vec3{X: 0, Z: -1},
@@ -202,7 +202,7 @@ func TestPlayersOnSameSide(t *testing.T) {
 }
 
 func TestPropagateGroupAggro(t *testing.T) {
-	w := makePhysicsWorld()
+	w := makePhysicsWorld(t)
 
 	e1 := entity.NewEnemy(1, 200, "hallway_melee")
 	e1.GroupID = 1
@@ -233,7 +233,7 @@ func TestPropagateGroupAggro(t *testing.T) {
 }
 
 func TestPropagateGroupAggroNoGroup(t *testing.T) {
-	w := makePhysicsWorld()
+	w := makePhysicsWorld(t)
 
 	e1 := entity.NewEnemy(1, 200, "test")
 	e1.GroupID = 0 // no group

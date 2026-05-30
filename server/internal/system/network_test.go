@@ -7,7 +7,6 @@ import (
 
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
-	"codex-online/server/internal/level"
 	"codex-online/server/internal/message"
 )
 
@@ -66,7 +65,7 @@ func TestNetworkSystem_Hub_BroadcastsWorldState(t *testing.T) {
 		State:    StateLobby,
 		Players:  map[uint16]*entity.Player{1: p},
 		Enemies:  []*entity.Enemy{},
-		Level:    level.NewHubLevel(),
+		Level:    testHubLevel(t),
 		Clients:  map[uint16]*Client{1: c1},
 		TestMode: true,
 	}
@@ -106,7 +105,7 @@ func TestNetworkSystem_ArenaLobby_BroadcastsLobbyState(t *testing.T) {
 		State:    StateLobby,
 		Players:  map[uint16]*entity.Player{1: p},
 		Enemies:  []*entity.Enemy{},
-		Level:    level.NewArenaLevel(),
+		Level:    testArenaLevel(t),
 		Clients:  map[uint16]*Client{1: c1},
 		TestMode: true,
 	}
@@ -145,7 +144,7 @@ func TestNetworkSystem_ArenaFight_BroadcastsWorldStateAndDamage(t *testing.T) {
 		State:    StateFight,
 		Players:  map[uint16]*entity.Player{1: p},
 		Enemies:  []*entity.Enemy{e},
-		Level:    level.NewArenaLevel(),
+		Level:    testArenaLevel(t),
 		Clients:  map[uint16]*Client{1: c1},
 		DamageEvents: []combat.DamageEvent{
 			{TargetPeerID: 0, SourcePeerID: 1, Amount: 25.0, HitPos: entity.Vec3{X: 1}, SourceType: combat.SourcePlayerAttack},
@@ -194,7 +193,7 @@ func TestNetworkSystem_BroadcastsGameFlowEvents(t *testing.T) {
 		State:    StateFight,
 		Players:  map[uint16]*entity.Player{1: entity.NewPlayer(1, entity.ClassGunner), 2: entity.NewPlayer(2, entity.ClassVanguard)},
 		Enemies:  []*entity.Enemy{},
-		Level:    level.NewArenaLevel(),
+		Level:    testArenaLevel(t),
 		Clients:  map[uint16]*Client{1: c1, 2: c2},
 		GameFlowEvents: []GameFlowEvent{
 			{FlowType: message.FlowFightStart},
@@ -249,7 +248,7 @@ func TestNetworkSystem_MultipleClients(t *testing.T) {
 			3: entity.NewPlayer(3, entity.ClassBladeDancer),
 		},
 		Enemies: []*entity.Enemy{},
-		Level:   level.NewHubLevel(),
+		Level:   testHubLevel(t),
 		Clients: map[uint16]*Client{1: c1, 2: c2, 3: c3},
 	}
 
@@ -283,7 +282,7 @@ func TestNetworkSystem_FightOverBroadcastsWorldState(t *testing.T) {
 		State:    StateFightOver,
 		Players:  map[uint16]*entity.Player{1: entity.NewPlayer(1, entity.ClassGunner)},
 		Enemies:  []*entity.Enemy{},
-		Level:    level.NewArenaLevel(),
+		Level:    testArenaLevel(t),
 		Clients:  map[uint16]*Client{1: c1},
 		TestMode: true,
 	}
@@ -313,7 +312,7 @@ func TestNetworkSystem_NoClients(t *testing.T) {
 		State:    StateFight,
 		Players:  map[uint16]*entity.Player{1: entity.NewPlayer(1, entity.ClassGunner)},
 		Enemies:  []*entity.Enemy{},
-		Level:    level.NewArenaLevel(),
+		Level:    testArenaLevel(t),
 		Clients:  map[uint16]*Client{},
 		DamageEvents: []combat.DamageEvent{
 			{TargetPeerID: 0, SourcePeerID: 1, Amount: 10},

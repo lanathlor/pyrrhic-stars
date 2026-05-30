@@ -20,8 +20,9 @@ This guide walks you through placing level markers in Godot scenes so the collis
 9. [Obstacle (Collision)](#9-obstacle-collision)
 10. [Elevator](#10-elevator)
 11. [Bounds](#11-bounds)
-12. [Running the Exporter](#12-running-the-exporter)
-13. [Troubleshooting](#13-troubleshooting)
+12. [Zone Config](#12-zone-config)
+13. [Running the Exporter](#13-running-the-exporter)
+14. [Troubleshooting](#14-troubleshooting)
 
 ---
 
@@ -33,6 +34,10 @@ The exporter walks the entire scene tree and looks for two things on each node:
 - **Metadata properties** — key/value pairs that configure the marker (e.g., `target_zone = "arena"`).
 
 The node's **global position** in the scene is used as the world-space coordinate. Move the node in the 3D viewport to place the marker where you want it.
+
+### Auto-export: CSGBox3D → Obstacles
+
+All `CSGBox3D` nodes are **automatically exported as obstacles** — no group tag needed. To exclude a node (floors, dynamic gates, decorative geometry), add it to the **`server_ignore`** group. `server_ignore` skips the node **and its entire subtree**, so tagging a parent (e.g., `ArenaBuildings`) excludes all children too.
 
 ### Scene Organization
 
@@ -347,17 +352,15 @@ The server reads this as: "When a player's Z coordinate crosses 40, they've ente
 
 ## 9. Obstacle (Collision)
 
-Server-side collision boxes for walls, pillars, crates, etc. Two node types are supported.
+Server-side collision boxes for walls, pillars, crates, etc.
 
-### Option A: CSGBox3D
+### CSGBox3D (automatic)
 
-If your geometry is already a CSGBox3D, just add it to the group. The exporter reads its size and position automatically.
+All `CSGBox3D` nodes are exported automatically — no group needed. The exporter reads size and position directly.
 
-1. Select the CSGBox3D node.
-2. Add to group: **`server_collision`**.
-3. Done — no metadata needed.
+To **exclude** a CSGBox3D (floors, dynamic gates, decorative parents), add it to the **`server_ignore`** group. This skips the node and all its children.
 
-### Option B: StaticBody3D with CollisionShape3D
+### StaticBody3D with CollisionShape3D (manual)
 
 For mesh-based geometry, add a StaticBody3D with BoxShape3D collision children:
 
@@ -416,33 +419,66 @@ If no `server_bounds` node exists, bounds are computed automatically from obstac
 
 ---
 
-## 12. Running the Exporter
+## 12. Zone Config
 
-1. Open the scene you want to export in the Godot editor (e.g., `arena.tscn`).
-2. Go to **File > Run Script** (or press `Ctrl+Shift+X`).
-3. Navigate to `client/addons/collision_exporter/collision_exporter.gd` and select it.
-4. Check the **Output** panel at the bottom for the export summary:
-   ```
-   collision_exporter: exporting zone 'arena' from res://scenes/environments/arena/arena.tscn
-   collision_exporter: wrote /path/to/shared/levels/arena.json (10 obstacles, 0 elevators, 5 player spawns, 9 enemy spawns, 0 npc spawns, 0 portals, 2 zone triggers)
-   ```
-5. The JSON file is written to `shared/levels/<zone_name>.json`.
+Declares zone-level properties: zone type, enemy radius, and explicit zone name. One per scene.
+
+### Setup
+
+1. Create a **Node3D** (e.g., `ZoneConfig`).
+2. Add to group: **`server_zone_config`**.
+3. Add metadata:
+
+| Key            | Type   | Required | Example       | Description                                        |
+|----------------|--------|----------|---------------|----------------------------------------------------|
+| `zone_name`    | String | No       | `hub`         | Explicit zone name (overrides scene filename)      |
+| `zone_type`    | String | Yes      | `instanced`   | `"instanced"` or `"open_world"`                    |
+| `enemy_radius` | float  | No       | `1.0`         | Default enemy collision radius (default: 0)        |
+
+### Example
+
+```
+ZoneConfig (Node3D)
+  Group: server_zone_config
+  Metadata:
+    zone_name = "arena"          (String)
+    zone_type = "instanced"      (String)
+    enemy_radius = 1.0           (float)
+```
+
+### What Gets Exported
+
+```json
+{
+  "zone": "arena",
+  "zone_type": "instanced",
+  "enemy_radius": 1.0,
+  ...
+}
+```
+
+> **Note:** If `zone_name` is not set, the exporter falls back to the scene filename. If you need the zone name to differ from the filename (e.g., a scene at `prime_hub/military_building.tscn` should export as `hub`), set `zone_name` explicitly.
+
+---
+
+## 13. Running the Exporter
+
+The exporter runs automatically when you save a scene that contains `server_*` nodes (via the `LevelExporter` plugin). No manual step needed.
+
+The JSON file is written to `shared/levels/<zone_name>.json`.
 
 ### After Exporting
 
-- The Go server reads from `shared/levels/` at startup.
+- The Go server reads from `shared/levels/` at startup. Missing level files are a hard error.
 - Run `cd server && go test ./internal/level/...` to validate the JSON loads correctly.
 - Commit both the `.tscn` changes and the updated `.json` file.
 
 ---
 
-## 13. Troubleshooting
-
-**"collision_exporter: no scene open in editor"**
-You need to have the scene open as the active tab before running the script.
+## 14. Troubleshooting
 
 **Wrong zone name in output**
-The exporter infers the zone name from the scene path. Scenes under `prime_hub/` map to `hub`. If your scene isn't detected, check `_infer_zone_name()` in the exporter.
+Set `zone_name` metadata on the `server_zone_config` node to control the exported filename. Without it, the scene filename is used.
 
 **Metadata not appearing in export**
 - Make sure metadata keys are spelled exactly right (case-sensitive).

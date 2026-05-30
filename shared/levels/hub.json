@@ -1,6 +1,8 @@
 {
-	"version": 3,
+	"version": 4,
 	"zone": "hub",
+	"zone_type": "open_world",
+	"enemy_radius": 0,
 	"source_scene": "res://scenes/environments/prime_hub/military_building.tscn",
 	"bounds": {
 		"min_x": -125.0,

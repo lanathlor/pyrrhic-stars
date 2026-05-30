@@ -26,7 +26,7 @@ func fakeClient(peerID uint16, username string) *system.Client {
 }
 
 func TestRemoveClient(t *testing.T) {
-	z := New("test_hub", ZoneTypeOpenWorld, minimalLevel())
+	z := New("test_hub", minimalLevel())
 	z.AddClient(fakeClient(1, "Alice"))
 
 	if z.ClientCount() != 1 {
@@ -42,7 +42,7 @@ func TestRemoveClient(t *testing.T) {
 }
 
 func TestClientCount(t *testing.T) {
-	z := New("test_hub", ZoneTypeOpenWorld, minimalLevel())
+	z := New("test_hub", minimalLevel())
 	if z.ClientCount() != 0 {
 		t.Errorf("empty zone client count = %d, want 0", z.ClientCount())
 	}
@@ -54,7 +54,7 @@ func TestClientCount(t *testing.T) {
 }
 
 func TestGetPeerIDs(t *testing.T) {
-	z := New("test_hub", ZoneTypeOpenWorld, minimalLevel())
+	z := New("test_hub", minimalLevel())
 	z.AddClient(fakeClient(1, "Alice"))
 	z.AddClient(fakeClient(2, "Bob"))
 
@@ -77,7 +77,7 @@ func TestGetPeerIDs(t *testing.T) {
 }
 
 func TestGetPlayer(t *testing.T) {
-	z := New("test_hub", ZoneTypeOpenWorld, minimalLevel())
+	z := New("test_hub", minimalLevel())
 	z.AddClient(fakeClient(1, "Alice"))
 
 	p := z.GetPlayer(1)
@@ -93,7 +93,7 @@ func TestGetPlayer(t *testing.T) {
 }
 
 func TestSetPlayerPosition(t *testing.T) {
-	z := New("test_hub", ZoneTypeOpenWorld, minimalLevel())
+	z := New("test_hub", minimalLevel())
 	z.AddClient(fakeClient(1, "Alice"))
 
 	newPos := entity.Vec3{X: 5, Y: 1, Z: -3}
@@ -109,13 +109,13 @@ func TestSetPlayerPosition(t *testing.T) {
 }
 
 func TestSetPlayerPositionNonexistent(_ *testing.T) {
-	z := New("test_hub", ZoneTypeOpenWorld, minimalLevel())
+	z := New("test_hub", minimalLevel())
 	// Should not panic for missing player
 	z.SetPlayerPosition(99, entity.Vec3{}, 0)
 }
 
 func TestBroadcast(t *testing.T) {
-	z := New("test_hub", ZoneTypeOpenWorld, minimalLevel())
+	z := New("test_hub", minimalLevel())
 
 	var received1, received2 int
 	c1 := &system.Client{PeerID: 1, Username: "Alice", Send: func([]byte) { received1++ }}

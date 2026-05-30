@@ -10,7 +10,6 @@ import (
 	"codex-online/server/internal/message"
 	"codex-online/server/internal/network"
 	"codex-online/server/internal/session"
-	"codex-online/server/internal/zone"
 )
 
 // handleGroupMessage processes all group-related opcodes (0x0050–0x005F).
@@ -69,7 +68,7 @@ func (g *gateway) handleGroupMessage(sess *session.Session, opcode uint16, paylo
 }
 
 // handleEnterPortal resolves the portal target for the player's current zone and
-// transfers them to the appropriate hub or instanced zone.
+// transfers them to the appropriate zone.
 func (g *gateway) handleEnterPortal(sess *session.Session) {
 	// Determine target zone from portal definitions, fallback to "arena"
 	targetZone := "arena"
@@ -82,13 +81,20 @@ func (g *gateway) handleEnterPortal(sess *session.Session) {
 	}
 	g.mu.Unlock()
 
-	// Hub is a shared open-world zone; everything else is instanced
-	if targetZone == zone.ZoneHub {
-		slog.Info("player entering portal to hub", "player_id", sess.ID)
-		g.transferPlayer(sess, zone.ZoneHub, zone.ZoneTypeOpenWorld, 0)
+	lvl, err := g.loadLevel(targetZone)
+	if err != nil {
+		slog.Error("load level for portal target", "zone", targetZone, "error", err)
 		return
 	}
 
+	// Open-world zones are shared; use the zone name directly.
+	if lvl.ZoneType != "instanced" {
+		slog.Info("player entering portal to open-world zone", "player_id", sess.ID, "target", targetZone)
+		g.transferPlayer(sess, targetZone, lvl, 0)
+		return
+	}
+
+	// Instanced zones get a unique instance ID per group or solo player.
 	grp := g.groups.GetGroup(sess.ID)
 	var instanceID string
 	groupSize := 1
@@ -99,7 +105,7 @@ func (g *gateway) handleEnterPortal(sess *session.Session) {
 		instanceID = fmt.Sprintf("%s_s%d", targetZone, sess.ID)
 	}
 	slog.Info("player entering portal", "player_id", sess.ID, "target_zone", targetZone, "instance", instanceID, "group_size", groupSize)
-	g.transferPlayer(sess, instanceID, zone.ZoneTypeInstanced, groupSize)
+	g.transferPlayer(sess, instanceID, lvl, groupSize)
 	if grp != nil {
 		g.broadcastGroupState(grp)
 	}

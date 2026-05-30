@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"codex-online/server/internal/entity"
+	"codex-online/server/internal/level"
 	"codex-online/server/internal/message"
 	"codex-online/server/internal/zone"
 
@@ -110,15 +111,20 @@ func startZoneGateway(t *testing.T) *testZoneGateway {
 
 			case opcode == message.OpJoinZone:
 				zoneID = string(payload)
-				zoneType := zone.ZoneTypeOpenWorld
-				if strings.HasPrefix(zoneID, "arena") {
-					zoneType = zone.ZoneTypeInstanced
+				// Extract base zone name for level loading (e.g. "arena_test" → "arena")
+				baseZone := zoneID
+				if idx := strings.Index(zoneID, "_"); idx > 0 {
+					baseZone = zoneID[:idx]
+				}
+				lvl, err := level.Load(baseZone)
+				if err != nil {
+					return
 				}
 
 				gw.mu.Lock()
 				z, ok := gw.zones[zoneID]
 				if !ok {
-					z = zone.New(zoneID, zoneType)
+					z = zone.New(zoneID, lvl)
 					gw.zones[zoneID] = z
 					gw.nextID[zoneID] = 1
 					go z.Run(ctx)
