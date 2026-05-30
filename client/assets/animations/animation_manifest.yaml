@@ -80,3 +80,8 @@ animations:
   sword_spin:
     fbx: "res://assets/animations/sword/great sword high spin attack.fbx"
     loop: false
+
+  # Arcanotechnicien casting
+  cast:
+    fbx: "res://assets/animations/sword/great sword casting.fbx"
+    loop: false

@@ -38,6 +38,15 @@ func _ready() -> void:
 	_mesh_instances = _find_all_mesh_instances(instance)
 	_skeleton = _find_child_of_type(instance, "Skeleton3D") as Skeleton3D
 
+	# FBX/GLB models exported without animations lack an AnimationPlayer.
+	# Create one as a sibling of Skeleton3D so the shared animation library
+	# can be loaded, and set its root_node to Skeleton3D's parent so track
+	# paths like "Skeleton3D:bone_name" resolve correctly.
+	if not _anim_player and _skeleton:
+		_anim_player = AnimationPlayer.new()
+		_skeleton.get_parent().add_child(_anim_player)
+		_anim_player.root_node = _anim_player.get_path_to(_skeleton.get_parent())
+
 	_normalize_bone_names(instance)
 	_find_root_and_hips_bones()
 
@@ -78,11 +87,18 @@ func _load_base_model() -> Node:
 func _normalize_bone_names(instance: Node) -> void:
 	if not _skeleton:
 		return
+	# Map all Mixamo bone name variants to the canonical "mixamorig_" prefix
+	# used by the baked animation library.
 	var needs_remap := false
 	for i in _skeleton.get_bone_count():
 		var bname := _skeleton.get_bone_name(i)
+		var new_name := ""
 		if bname.begins_with("mixamorig1_"):
-			_skeleton.set_bone_name(i, "mixamorig_" + bname.substr(len("mixamorig1_")))
+			new_name = "mixamorig_" + bname.substr(len("mixamorig1_"))
+		elif bname.begins_with("mixamorig:"):
+			new_name = "mixamorig_" + bname.substr(len("mixamorig:"))
+		if new_name != "":
+			_skeleton.set_bone_name(i, new_name)
 			needs_remap = true
 	if needs_remap:
 		for mesh in _find_all_mesh_instances(instance):
@@ -92,8 +108,13 @@ func _normalize_bone_names(instance: Node) -> void:
 			skin = skin.duplicate() as Skin
 			for i in skin.get_bind_count():
 				var bind_name := skin.get_bind_name(i)
+				var new_bind := ""
 				if bind_name.begins_with("mixamorig1_"):
-					skin.set_bind_name(i, "mixamorig_" + bind_name.substr(len("mixamorig1_")))
+					new_bind = "mixamorig_" + bind_name.substr(len("mixamorig1_"))
+				elif bind_name.begins_with("mixamorig:"):
+					new_bind = "mixamorig_" + bind_name.substr(len("mixamorig:"))
+				if new_bind != "":
+					skin.set_bind_name(i, new_bind)
 			mesh.skin = skin
 
 
@@ -198,6 +219,11 @@ func setup_state_machine(
 	anim_tree.tree_root = sm
 	add_child(anim_tree)
 	anim_tree.anim_player = anim_tree.get_path_to(_anim_player)
+	# Set root_node to the Skeleton3D's parent so track paths like
+	# "Skeleton3D:mixamorig_Hips" resolve correctly for both FBX (flat)
+	# and GLB (has Armature wrapper) scene trees.
+	if _skeleton:
+		anim_tree.root_node = anim_tree.get_path_to(_skeleton.get_parent())
 	anim_tree.active = true
 
 	state_playback = anim_tree["parameters/playback"] as AnimationNodeStateMachinePlayback

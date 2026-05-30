@@ -213,8 +213,8 @@ func _ready() -> void:
 				"run": "run",
 				"jump": "jump",
 				"dodge": "roll",
-				"casting": "slash",
-				"channeling": "slash",
+				"casting": "cast",
+				"channeling": "cast",
 				"stagger": "idle",
 				"dead": "idle",
 			}
