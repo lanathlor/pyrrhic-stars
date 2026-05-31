@@ -235,8 +235,15 @@ func TestLoadHubJSON(t *testing.T) {
 	if len(l.Elevators) != 2 {
 		t.Errorf("elevators len = %d, want 2", len(l.Elevators))
 	}
-	if l.Elevators[0].BottomY != -200 {
-		t.Errorf("public lift bottom_y = %f, want -200", l.Elevators[0].BottomY)
+	foundPublicLift := false
+	for _, ev := range l.Elevators {
+		if ev.BottomY == -200 {
+			foundPublicLift = true
+			break
+		}
+	}
+	if !foundPublicLift {
+		t.Error("no elevator with bottom_y = -200 (public lift)")
 	}
 }
 

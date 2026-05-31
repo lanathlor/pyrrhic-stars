@@ -98,28 +98,40 @@ func validateAndClampPosition(w *World, p *entity.Player, newPos entity.Vec3) (e
 func clampPositionY(w *World, p *entity.Player, newPos entity.Vec3) entity.Vec3 {
 	const tickDt = 1.0 / 20.0
 	deltaY := newPos.Y - p.Position.Y
-	if deltaY <= 0 {
-		return newPos
-	}
-	maxUp := float32(0.0)
-	inElevator := false
-	for _, ev := range w.Level.Elevators {
-		if newPos.X > ev.CenterX-ev.HalfX && newPos.X < ev.CenterX+ev.HalfX &&
-			newPos.Z > ev.CenterZ-ev.HalfZ && newPos.Z < ev.CenterZ+ev.HalfZ &&
-			newPos.Y >= ev.BottomY-1.0 && newPos.Y <= ev.TopY+1.0 {
-			allowed := ev.Speed * tickDt * 1.5
-			if allowed > maxUp {
-				maxUp = allowed
+
+	// Upward movement validation (elevator + jump tolerance)
+	if deltaY > 0 {
+		maxUp := float32(0.0)
+		inElevator := false
+		for _, ev := range w.Level.Elevators {
+			if newPos.X > ev.CenterX-ev.HalfX && newPos.X < ev.CenterX+ev.HalfX &&
+				newPos.Z > ev.CenterZ-ev.HalfZ && newPos.Z < ev.CenterZ+ev.HalfZ &&
+				newPos.Y >= ev.BottomY-1.0 && newPos.Y <= ev.TopY+1.0 {
+				allowed := ev.Speed * tickDt * 1.5
+				if allowed > maxUp {
+					maxUp = allowed
+				}
+				inElevator = true
 			}
-			inElevator = true
+		}
+		if !inElevator {
+			maxUp = 5.0 * tickDt * 2.0
+		}
+		if deltaY > maxUp+0.1 {
+			newPos.Y = p.Position.Y
+			return newPos
 		}
 	}
-	if !inElevator {
-		maxUp = 5.0 * tickDt * 2.0
+
+	// Navmesh floor validation: prevent clipping below the floor
+	if w.Level.Navmesh != nil {
+		if floorY, ok := w.Level.Navmesh.SampleY(newPos.X, newPos.Z, newPos.Y); ok {
+			if newPos.Y < floorY-0.1 {
+				newPos.Y = floorY + 0.1
+			}
+		}
 	}
-	if deltaY > maxUp+0.1 {
-		newPos.Y = p.Position.Y
-	}
+
 	return newPos
 }
 

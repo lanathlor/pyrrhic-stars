@@ -82,6 +82,9 @@ type Level struct {
 
 	// Portals (zone transition points)
 	Portals []PortalDef
+
+	// Navmesh for multi-layer Y resolution (nil if zone has no navmesh data)
+	Navmesh *Navmesh
 }
 
 // NPCSpawnPoint defines a hub NPC with patrol waypoints.
@@ -102,7 +105,22 @@ func (l *Level) ClampPlayer(pos *entity.Vec3) {
 func (l *Level) ClampEnemy(pos *entity.Vec3) {
 	pos.X = entity.Clamp(pos.X, l.EnemyBoundsMinX, l.EnemyBoundsMaxX)
 	pos.Z = entity.Clamp(pos.Z, l.EnemyBoundsMinZ, l.EnemyBoundsMaxZ)
-	if pos.Y < 0.1 {
+	if l.Navmesh != nil {
+		if floorY, ok := l.Navmesh.SampleY(pos.X, pos.Z, pos.Y); ok {
+			pos.Y = floorY + 0.1
+		}
+	} else if pos.Y < 0.1 {
 		pos.Y = 0.1
 	}
+}
+
+// ResolveY finds the floor Y at (x, z) closest to nearY.
+// Falls back to 0.1 if no navmesh or no polygon contains the point.
+func (l *Level) ResolveY(x, z, nearY float32) float32 {
+	if l.Navmesh != nil {
+		if floorY, ok := l.Navmesh.SampleY(x, z, nearY); ok {
+			return floorY
+		}
+	}
+	return 0.1
 }

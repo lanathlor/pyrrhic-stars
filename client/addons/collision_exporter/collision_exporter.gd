@@ -116,7 +116,7 @@ func _walk_tree(
 	if node.is_in_group("server_bounds"):
 		_extract_bounds(node, bounds_override)
 	if node.is_in_group("server_navmesh"):
-		print("collision_exporter: skipping server_navmesh node '%s' (reserved for Option C)" % node.name)
+		print("collision_exporter: server_navmesh group is deprecated — navmesh baking is automatic in plugin v5")
 
 	for child in node.get_children():
 		_walk_tree(child, obstacles, elevators, player_spawns, enemy_spawns, npc_spawns, portals, zone_triggers, bounds_override)

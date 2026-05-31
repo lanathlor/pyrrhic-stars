@@ -10,7 +10,7 @@ import (
 	"codex-online/server/internal/entity"
 )
 
-const currentVersion = 4
+const currentVersion = 5
 
 type boundsJSON struct {
 	MinX float32 `json:"min_x"`
@@ -90,6 +90,11 @@ type npcSpawnJSON struct {
 	Waypoints    []vec3JSON `json:"waypoints"`
 }
 
+type navmeshJSON struct {
+	Vertices [][]float32 `json:"vertices"`
+	Polygons [][]int     `json:"polygons"`
+}
+
 type levelDataJSON struct {
 	Version      int               `json:"version"`
 	Zone         string            `json:"zone"`
@@ -105,6 +110,7 @@ type levelDataJSON struct {
 	NPCSpawns    []npcSpawnJSON    `json:"npc_spawns,omitempty"`
 	Portals      []portalJSON      `json:"portals,omitempty"`
 	ZoneTriggers []zoneTriggerJSON `json:"zone_triggers,omitempty"`
+	NavmeshData  *navmeshJSON      `json:"navmesh,omitempty"`
 }
 
 // loadLevelData reads a JSON level file and populates l.
@@ -122,6 +128,7 @@ func loadLevelData(path string, l *Level) error {
 	}
 
 	loadBoundsAndGeometry(l, &ld)
+	loadNavmesh(l, ld.NavmeshData)
 
 	// Player spawns
 	l.PlayerSpawns = make([]PlayerSpawn, len(ld.PlayerSpawns))
@@ -169,6 +176,7 @@ func loadBoundsAndGeometry(l *Level, ld *levelDataJSON) {
 			CZ:     o.Center[2],
 			HX:     o.HalfExtents[0],
 			HZ:     o.HalfExtents[2],
+			BaseY:  o.Center[1] - o.HalfExtents[1],
 			Height: o.HalfExtents[1] * 2,
 		}
 	}
@@ -256,6 +264,20 @@ func levelDataPath(zone string) string {
 		}
 	}
 	return filepath.Join("..", "shared", "levels", zone+".json")
+}
+
+func loadNavmesh(l *Level, nm *navmeshJSON) {
+	if nm == nil || len(nm.Vertices) == 0 || len(nm.Polygons) == 0 {
+		return
+	}
+	verts := make([]entity.Vec3, len(nm.Vertices))
+	for i, v := range nm.Vertices {
+		if len(v) < 3 {
+			continue
+		}
+		verts[i] = entity.Vec3{X: v[0], Y: v[1], Z: v[2]}
+	}
+	l.Navmesh = buildNavmesh(verts, nm.Polygons)
 }
 
 func loadEnemySpawns(l *Level, spawns []enemySpawnJSON) {

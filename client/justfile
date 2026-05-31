@@ -79,6 +79,12 @@ e2e-vanguard duration="30":
 remote:
     godot -- --remote --capture
 
+# --- Level Export ---
+
+# Export all level data + navmesh to shared/levels/ (headless, CI-safe)
+export:
+    godot --headless --script tools/headless_export.gd
+
 # --- Web Export ---
 
 # Download Godot export templates (needed once)

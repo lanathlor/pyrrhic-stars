@@ -10,7 +10,8 @@ import (
 type Obstacle struct {
 	CX, CZ float32 // center (XZ plane)
 	HX, HZ float32 // half-extents (XZ plane)
-	Height float32 // obstacle height from ground (0 = infinitely tall)
+	BaseY  float32 // Y of obstacle bottom face
+	Height float32 // full height from BaseY (0 = infinitely tall)
 }
 
 // SegmentHitsObstacle checks if a line segment from a to b (on the XZ plane)
@@ -52,12 +53,15 @@ func SegmentHitsObstacle(a, b entity.Vec3, obstacles []Obstacle) bool { //nolint
 
 		// Height check: if obstacle has a finite height, the segment
 		// only hits if it passes through the obstacle's vertical extent.
-		// Skip if the ray is entirely above the obstacle at the intersection.
 		if obs.Height > 0 {
+			obsTop := obs.BaseY + obs.Height
 			yAtEntry := a.Y + dy*tMin
 			yAtExit := a.Y + dy*tMax
-			if yAtEntry > obs.Height && yAtExit > obs.Height {
+			if yAtEntry > obsTop && yAtExit > obsTop {
 				continue // ray passes over the obstacle
+			}
+			if yAtEntry < obs.BaseY && yAtExit < obs.BaseY {
+				continue // ray passes under the obstacle
 			}
 		}
 
@@ -166,9 +170,11 @@ func CheckProjectileHit(projPos, targetPos entity.Vec3, hitRadius float32) bool 
 // Respects obstacle height — projectiles above a short obstacle pass over it.
 func ProjectileHitsObstacle(pos entity.Vec3, radius float32, obstacles []Obstacle) bool {
 	for _, obs := range obstacles {
-		// Skip if projectile is above this obstacle
-		if obs.Height > 0 && pos.Y > obs.Height {
-			continue
+		// Skip if projectile is above or below this obstacle
+		if obs.Height > 0 {
+			if pos.Y > obs.BaseY+obs.Height || pos.Y < obs.BaseY {
+				continue
+			}
 		}
 		// Expand obstacle by projectile radius (Minkowski sum)
 		exHx := obs.HX + radius
@@ -188,6 +194,7 @@ func ProjectileHitsObstacle(pos entity.Vec3, radius float32, obstacles []Obstacl
 // Unlike SegmentHitsObstacle, it does NOT skip obstacles containing the origin.
 func SegmentHitsExpandedObstacle(a, b entity.Vec3, obstacles []Obstacle, radius float32) bool {
 	dx := b.X - a.X
+	dy := b.Y - a.Y
 	dz := b.Z - a.Z
 	length := float32(math.Sqrt(float64(dx*dx + dz*dz)))
 	if length < 1e-6 {
@@ -206,8 +213,21 @@ func SegmentHitsExpandedObstacle(a, b entity.Vec3, obstacles []Obstacle, radius 
 		if tMin, tMax, hit = slabIntersect2D(a.X, dx, minX, maxX, tMin, tMax); !hit {
 			continue
 		}
-		if _, _, hit = slabIntersect2D(a.Z, dz, minZ, maxZ, tMin, tMax); !hit {
+		if tMin, _, hit = slabIntersect2D(a.Z, dz, minZ, maxZ, tMin, tMax); !hit {
 			continue
+		}
+
+		// Height check: skip obstacles on different floors
+		if obs.Height > 0 {
+			obsTop := obs.BaseY + obs.Height
+			yAtEntry := a.Y + dy*tMin
+			yAtExit := a.Y + dy*tMax
+			if yAtEntry > obsTop && yAtExit > obsTop {
+				continue
+			}
+			if yAtEntry < obs.BaseY && yAtExit < obs.BaseY {
+				continue
+			}
 		}
 
 		return true
@@ -219,6 +239,7 @@ func SegmentHitsExpandedObstacle(a, b entity.Vec3, obstacles []Obstacle, radius 
 // blocks the segment from a to b (expanded by radius). Returns false if clear.
 func NearestObstacleOnSegment(a, b entity.Vec3, obstacles []Obstacle, radius float32) (Obstacle, bool) {
 	dx := b.X - a.X
+	dy := b.Y - a.Y
 	dz := b.Z - a.Z
 	length := float32(math.Sqrt(float64(dx*dx + dz*dz)))
 	if length < 1e-6 {
@@ -243,6 +264,19 @@ func NearestObstacleOnSegment(a, b entity.Vec3, obstacles []Obstacle, radius flo
 		}
 		if tMin, _, hit = slabIntersect2D(a.Z, dz, minZ, maxZ, tMin, tMax); !hit {
 			continue
+		}
+
+		// Height check: skip obstacles on different floors
+		if obs.Height > 0 {
+			obsTop := obs.BaseY + obs.Height
+			yAtEntry := a.Y + dy*tMin
+			yAtExit := a.Y + dy*tMax
+			if yAtEntry > obsTop && yAtExit > obsTop {
+				continue
+			}
+			if yAtEntry < obs.BaseY && yAtExit < obs.BaseY {
+				continue
+			}
 		}
 
 		if tMin < bestT {
