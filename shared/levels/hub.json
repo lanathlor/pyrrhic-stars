@@ -4079,7 +4079,7 @@
 	],
 	"source_scene": "res://scenes/environments/prime_hub/military_building.tscn",
 	"spawn_yaw": 3.1416,
-	"version": 5,
+	"version": 6,
 	"zone": "hub",
 	"zone_triggers": [],
 	"zone_type": "open_world"

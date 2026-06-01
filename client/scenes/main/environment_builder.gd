@@ -1,14 +1,13 @@
 extends Node
 
-## Manages arena/hub environment loading, geometry, atmosphere, boss gate, exit portal.
+## Manages arena/hub environment loading, geometry, atmosphere, gates, exit portal.
 
-const BOSS_ROOM_ENTRY_Z := 12.0
 const EXIT_PORTAL_POS := Vector3(0.0, 0.1, 0.0)
 
 var ctrl: Node
 
 var current_env: Node3D = null
-var boss_gate: CSGBox3D
+var gates: Dictionary = {}  # gate_id → Node3D (CSGBox3D or similar)
 var exit_portal: CSGCylinder3D = null
 var portal_trail: Node3D
 
@@ -24,14 +23,37 @@ func load_environment(scene_path: String) -> void:
 	var scene: PackedScene = load(scene_path) as PackedScene
 	current_env = scene.instantiate()
 	ctrl.add_child(current_env)
-	# Grab boss gate reference from arena scene
-	if current_env.has_node("BossGate"):
-		boss_gate = current_env.get_node("BossGate") as CSGBox3D
-	else:
-		boss_gate = null
+	# Scan for gate nodes tagged with server_gate group
+	_discover_gates(current_env)
 	if ctrl._shared_hud:
 		ctrl._shared_hud.set_environment(current_env)
 	print("[Main] Loaded environment: %s" % scene_path)
+
+
+func _discover_gates(root: Node) -> void:
+	gates.clear()
+	_walk_for_gates(root)
+	# Apply default state: gates start invisible unless default_closed
+	for gate_id in gates:
+		var node: Node3D = gates[gate_id]
+		var default_closed: bool = node.get_meta("default_closed", false)
+		if default_closed:
+			node.visible = true
+			if node is CSGBox3D:
+				(node as CSGBox3D).use_collision = true
+		else:
+			node.visible = false
+			if node is CSGBox3D:
+				(node as CSGBox3D).use_collision = false
+
+
+func _walk_for_gates(node: Node) -> void:
+	if node.is_in_group("server_gate"):
+		var gate_id: String = str(node.get_meta("gate_id", ""))
+		if gate_id != "":
+			gates[gate_id] = node
+	for child in node.get_children():
+		_walk_for_gates(child)
 
 
 func unload_environment() -> void:
@@ -40,31 +62,54 @@ func unload_environment() -> void:
 		current_env = null
 	ctrl.entity_mgr.clear_all_enemies()
 	ctrl.entity_mgr.clear_all_npcs()
-	boss_gate = null
+	gates.clear()
 	remove_portal_trail()
 
 
-func close_boss_gate() -> void:
-	if boss_gate:
-		boss_gate.visible = true
-		boss_gate.use_collision = true
-	# Push local player into the boss room if near the gate
+func close_gate(gate_id: String) -> void:
+	if gate_id not in gates:
+		return
+	var node: Node3D = gates[gate_id]
+	node.visible = true
+	if node is CSGBox3D:
+		(node as CSGBox3D).use_collision = true
+	# Push local player through the gate if overlapping
+	var push_axis: String = str(node.get_meta("push_axis", ""))
+	var push_offset: float = float(node.get_meta("push_offset", 0.0))
+	if push_axis == "":
+		return
 	var entity_mgr: Node = ctrl.entity_mgr
 	var my_id: int = NetworkManager.get_my_id()
 	if my_id in entity_mgr.spawned_players:
 		var player: CharacterBody3D = entity_mgr.spawned_players[my_id]
-		if (
-			is_instance_valid(player)
-			and player.global_position.z > BOSS_ROOM_ENTRY_Z - 2.0
-			and player.global_position.z < BOSS_ROOM_ENTRY_Z + 2.0
-		):
-			player.global_position.z = BOSS_ROOM_ENTRY_Z - 3.0
+		if not is_instance_valid(player):
+			return
+		var gate_pos: float = 0.0
+		var player_pos: float = 0.0
+		match push_axis:
+			"x":
+				gate_pos = node.global_position.x
+				player_pos = player.global_position.x
+			"z":
+				gate_pos = node.global_position.z
+				player_pos = player.global_position.z
+			_:
+				return
+		if abs(player_pos - gate_pos) < 2.0:
+			match push_axis:
+				"x":
+					player.global_position.x = gate_pos + push_offset
+				"z":
+					player.global_position.z = gate_pos + push_offset
 
 
-func open_boss_gate() -> void:
-	if boss_gate:
-		boss_gate.visible = false
-		boss_gate.use_collision = false
+func open_gate(gate_id: String) -> void:
+	if gate_id not in gates:
+		return
+	var node: Node3D = gates[gate_id]
+	node.visible = false
+	if node is CSGBox3D:
+		(node as CSGBox3D).use_collision = false
 
 
 func spawn_exit_portal() -> void:

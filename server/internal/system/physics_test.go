@@ -9,12 +9,14 @@ import (
 
 func makePhysicsWorld(t testing.TB) *World {
 	t.Helper()
-	return &World{
+	w := &World{
 		ZoneType: 1,
 		State:    StateFight,
 		Players:  make(map[uint16]*entity.Player),
 		Level:    testArenaLevel(t),
 	}
+	w.InitGateStates()
+	return w
 }
 
 // --- PhysicsSystem ---

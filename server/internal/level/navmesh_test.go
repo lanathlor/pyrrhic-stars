@@ -188,6 +188,24 @@ func TestSampleY_OffMesh(t *testing.T) {
 	}
 }
 
+func TestSampleY_RejectsElevatedPolygon(t *testing.T) {
+	// Simulates the wall-top bug: ground entity at Y≈0 should not snap to Y=7.25
+	verts := []entity.Vec3{
+		// Wall-top polygon only (no ground polygon at this XZ)
+		{X: -10, Y: 7.25, Z: -10},
+		{X: 10, Y: 7.25, Z: -10},
+		{X: 10, Y: 7.25, Z: 10},
+		{X: -10, Y: 7.25, Z: 10},
+	}
+	nm := buildNavmesh(verts, [][]int{{0, 1, 2, 3}})
+
+	// Entity near ground should NOT snap to wall-top polygon
+	_, ok := nm.SampleY(0, 0, 0.1)
+	if ok {
+		t.Error("SampleY should reject polygon 7+ meters above nearY")
+	}
+}
+
 func TestBuildNavmesh_DegeneratePolygon(t *testing.T) {
 	// Degenerate polygon with collinear vertices
 	verts := []entity.Vec3{

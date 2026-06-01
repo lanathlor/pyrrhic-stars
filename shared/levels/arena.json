@@ -1301,7 +1301,7 @@
 		}
 	],
 	"source_scene": "res://scenes/environments/arena/arena.tscn",
-	"version": 5,
+	"version": 6,
 	"zone": "arena",
 	"zone_triggers": [
 		{
@@ -1309,12 +1309,18 @@
 			"name": "ArenaEntry",
 			"threshold": 40.0,
 			"trigger_id": "arena_entry"
-		},
+		}
+	],
+	"gates": [
 		{
-			"axis": "z",
-			"name": "BossRoomEntry",
-			"threshold": 12.0,
-			"trigger_id": "boss_room_entry"
+			"name": "BossGate",
+			"gate_id": "boss_gate",
+			"center": [0.0, 2.5, 12.0],
+			"half_extents": [20.0, 2.5, 0.25],
+			"close_on": ["boss_activated"],
+			"open_on": ["boss_dead", "all_dead", "boss_reset"],
+			"push_axis": "z",
+			"push_offset": -3.0
 		}
 	],
 	"zone_type": "instanced"

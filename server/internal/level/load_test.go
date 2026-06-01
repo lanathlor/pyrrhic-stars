@@ -123,9 +123,8 @@ func TestLoadLevelData_PreservesGameLogic(t *testing.T) {
 		"player_spawns": []
 	}`)
 	l := &Level{
-		ArenaEntryZ:    40.0,
-		BossRoomEntryZ: 12.0,
-		EnemyRadius:    1.0,
+		ArenaEntryZ: 40.0,
+		EnemyRadius: 1.0,
 	}
 	if err := loadLevelData(p, l); err != nil {
 		t.Fatal(err)
@@ -133,9 +132,6 @@ func TestLoadLevelData_PreservesGameLogic(t *testing.T) {
 	// Game logic fields must be untouched
 	if l.ArenaEntryZ != 40.0 {
 		t.Errorf("ArenaEntryZ = %f, want 40", l.ArenaEntryZ)
-	}
-	if l.BossRoomEntryZ != 12.0 {
-		t.Errorf("BossRoomEntryZ = %f, want 12", l.BossRoomEntryZ)
 	}
 	if l.EnemyRadius != 1.0 {
 		t.Errorf("EnemyRadius = %f, want 1", l.EnemyRadius)
@@ -282,7 +278,7 @@ func TestLoadLevelData_V3Features(t *testing.T) {
 		]
 	}`)
 
-	l := &Level{ArenaEntryZ: 99, BossRoomEntryZ: 99} // will be overwritten by zone_triggers
+	l := &Level{ArenaEntryZ: 99} // will be overwritten by zone_triggers
 	if err := loadLevelData(p, l); err != nil {
 		t.Fatal(err)
 	}
@@ -332,9 +328,6 @@ func TestLoadLevelData_V3Features(t *testing.T) {
 	// Zone triggers override existing values
 	if l.ArenaEntryZ != 40 {
 		t.Errorf("ArenaEntryZ = %f, want 40", l.ArenaEntryZ)
-	}
-	if l.BossRoomEntryZ != 12 {
-		t.Errorf("BossRoomEntryZ = %f, want 12", l.BossRoomEntryZ)
 	}
 }
 

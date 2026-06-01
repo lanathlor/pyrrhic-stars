@@ -180,7 +180,6 @@ func start_fight() -> void:
 
 func on_boss_dead() -> void:
 	ctrl.state = ctrl.GameState.FIGHT_OVER
-	ctrl.env_builder.open_boss_gate()
 	ctrl.env_builder.spawn_exit_portal()
 	if ctrl._local_player_dead and ctrl._death_overlay_layer.visible:
 		ctrl._respawn_btn.disabled = false
@@ -191,7 +190,6 @@ func on_boss_dead() -> void:
 
 func on_all_dead() -> void:
 	ctrl.state = ctrl.GameState.FIGHT_OVER
-	ctrl.env_builder.open_boss_gate()
 	if ctrl._local_player_dead and ctrl._death_overlay_layer.visible:
 		ctrl._respawn_btn.disabled = false
 	CombatLog.end_fight("WIPE")
@@ -267,9 +265,13 @@ func on_game_flow_event(flow_type: int, _text: String) -> void:
 			ctrl.entity_mgr.clear_all_npcs()
 			enter_arena_warmup()
 		NetSerializer.FLOW_BOSS_ACTIVATED:
-			ctrl.env_builder.close_boss_gate()
+			pass  # Gate close handled by FLOW_GATE_CLOSE
 		NetSerializer.FLOW_BOSS_RESET:
-			ctrl.env_builder.open_boss_gate()
+			pass  # Gate open handled by FLOW_GATE_OPEN
+		NetSerializer.FLOW_GATE_CLOSE:
+			ctrl.env_builder.close_gate(_text)
+		NetSerializer.FLOW_GATE_OPEN:
+			ctrl.env_builder.open_gate(_text)
 
 
 # =============================================================================

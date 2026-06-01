@@ -66,8 +66,8 @@ func (m *Manager) tickBotRespawn(lb *LiveBot, w *system.World, dt float32) bool 
 	if lb.Puppet.Player.Alive {
 		return false
 	}
-	// No respawn while the boss room is sealed — dead is dead during boss encounters.
-	if !w.BossGateActive {
+	// No respawn while any gate is closed — dead is dead during boss encounters.
+	if !w.AnyGateClosed() {
 		lb.deathTimer += dt
 		if lb.deathTimer >= BotRespawnDelay {
 			respawnBot(lb, w)

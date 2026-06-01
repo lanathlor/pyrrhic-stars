@@ -159,6 +159,11 @@ func (nm *Navmesh) buildGrid() {
 	}
 }
 
+// maxSampleYDelta is the maximum vertical distance between nearY and a navmesh
+// polygon result. Polygons further than this are rejected (e.g. wall tops baked
+// into the navmesh by mistake).
+const maxSampleYDelta = 4.0
+
 // SampleY finds the polygon under (x, z) closest to nearY and returns its Y.
 // Returns (y, true) if found, (0, false) if no polygon contains (x, z).
 func (nm *Navmesh) SampleY(x, z, nearY float32) (float32, bool) {
@@ -186,6 +191,9 @@ func (nm *Navmesh) SampleY(x, z, nearY float32) (float32, bool) {
 		dist := y - nearY
 		if dist < 0 {
 			dist = -dist
+		}
+		if dist > maxSampleYDelta {
+			continue
 		}
 		if !found || dist < bestDist {
 			bestY = y

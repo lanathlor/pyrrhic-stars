@@ -2,6 +2,7 @@ package system
 
 import (
 	"log/slog"
+	"slices"
 
 	"codex-online/server/internal/combatlog"
 	"codex-online/server/internal/entity"
@@ -24,11 +25,12 @@ func (s *GameFlowSystem) Tick(w *World, dt float32) {
 	case StateSpawned:
 		tickSpawned(w)
 	case StateFight:
-		checkBossGate(w)
+		checkBossState(w)
 		checkFightEnd(w)
 	case StateFightOver:
 		tickFightOver(w, dt)
 	}
+	processGateEvents(w)
 }
 
 func tickLobby(w *World) {
@@ -66,10 +68,9 @@ func tickSpawned(w *World) {
 	}
 }
 
-// checkBossGate manages the boss room gate:
-// - Close gate when boss leaves patrol (aggro)
-// - Reset boss and open gate when no alive player is in the boss room
-func checkBossGate(w *World) {
+// checkBossState detects boss aggro/reset and emits boss flow events.
+// Gate state changes are handled by processGateEvents which reacts to these events.
+func checkBossState(w *World) {
 	boss := findBoss(w)
 	if boss == nil || !boss.Alive {
 		return
@@ -77,44 +78,34 @@ func checkBossGate(w *World) {
 
 	bossInCombat := boss.State != entity.EnemyPatrol && boss.State != entity.EnemyIdle
 
-	if bossInCombat && !w.BossGateActive {
-		// Boss just aggroed — close the gate
-		w.BossGateActive = true
-		// Push any players near the gate into the boss room
-		for _, p := range w.Players {
-			if p.Alive && p.Position.Z >= w.Level.BossRoomEntryZ-2.0 && p.Position.Z <= w.Level.BossRoomEntryZ+2.0 {
-				p.Position.Z = w.Level.BossRoomEntryZ - 3.0
-			}
-		}
-		// Remove threat for players stuck outside the boss room
-		for _, p := range w.Players {
-			if p.Position.Z >= w.Level.BossRoomEntryZ {
-				delete(boss.ThreatTable, p.ID)
-			}
-		}
+	// Track whether we already emitted boss_activated this fight using gate state
+	// (if the boss gate is already closed, boss was already activated).
+	bossWasActivated := w.IsGateClosed("boss_gate")
+
+	if bossInCombat && !bossWasActivated {
 		w.GameFlowEvents = append(w.GameFlowEvents, GameFlowEvent{
 			FlowType: message.FlowBossActivated,
 		})
-		slog.Info("boss gate closed", "zone_id", w.ZoneID)
+		slog.Info("boss activated", "zone_id", w.ZoneID)
 	}
 
-	if w.BossGateActive {
-		// Check if any alive player (human or bot) is in the boss room (Z < BossRoomEntryZ)
+	if bossWasActivated {
+		// Check if any alive player is in the boss room (past the gate)
+		gateZ, _ := w.ClosedGatePosition("boss_gate")
 		anyPlayerInBossRoom := false
 		for _, p := range w.Players {
-			if p.Alive && p.Position.Z < w.Level.BossRoomEntryZ {
+			if p.Alive && p.Position.Z < gateZ.Z {
 				anyPlayerInBossRoom = true
 				break
 			}
 		}
 		if !anyPlayerInBossRoom {
-			// Reset boss and open gate
+			// Reset boss — gate will open via FlowBossReset → processGateEvents
 			finalizeGroupCombatLog(w, boss.GroupID, combatlog.OutcomeTimeout)
 			bossIdx := findBossIndex(w)
 			if bossIdx >= 0 && bossIdx < len(w.Level.EnemySpawns) {
 				boss.Reset(w.Level.EnemySpawns[bossIdx].Position, entity.EnemyPatrol)
 			}
-			w.BossGateActive = false
 			w.Projectiles = nil
 			slog.Info("boss reset — no players in boss room", "zone_id", w.ZoneID)
 			w.GameFlowEvents = append(w.GameFlowEvents, GameFlowEvent{
@@ -124,10 +115,121 @@ func checkBossGate(w *World) {
 	}
 }
 
+// processGateEvents checks all flow events emitted this tick and opens/closes
+// gates whose triggers match. Emits FlowGateClose/FlowGateOpen for each change.
+func processGateEvents(w *World) {
+	if len(w.Level.Gates) == 0 {
+		return
+	}
+
+	// Snapshot the flow events emitted so far this tick (before we add gate events).
+	n := len(w.GameFlowEvents)
+	if n == 0 {
+		return
+	}
+
+	changed := false
+	for ei := range n {
+		eventName := level.FlowEventName[w.GameFlowEvents[ei].FlowType]
+		if eventName == "" {
+			continue
+		}
+		for gi := range w.Level.Gates {
+			if applyGateEvent(w, &w.Level.Gates[gi], eventName) {
+				changed = true
+			}
+		}
+	}
+
+	if changed {
+		w.RebuildObstacles()
+	}
+}
+
+// applyGateEvent checks if eventName should close or open a gate, applies the
+// state change, emits flow events, and returns true if the gate changed state.
+func applyGateEvent(w *World, g *level.GateDef, eventName string) bool {
+	if !w.GateStates[g.ID] && slices.Contains(g.CloseOn, eventName) {
+		w.GateStates[g.ID] = true
+		w.GameFlowEvents = append(w.GameFlowEvents, GameFlowEvent{
+			FlowType: message.FlowGateClose,
+			Text:     g.ID,
+		})
+		slog.Info("gate closed", "gate_id", g.ID, "trigger", eventName, "zone_id", w.ZoneID)
+		pushPlayersOnGateClose(w, g)
+		return true
+	}
+	if w.GateStates[g.ID] && slices.Contains(g.OpenOn, eventName) {
+		w.GateStates[g.ID] = false
+		w.GameFlowEvents = append(w.GameFlowEvents, GameFlowEvent{
+			FlowType: message.FlowGateOpen,
+			Text:     g.ID,
+		})
+		slog.Info("gate opened", "gate_id", g.ID, "trigger", eventName, "zone_id", w.ZoneID)
+		return true
+	}
+	return false
+}
+
+// pushPlayersOnGateClose pushes players overlapping a gate when it closes,
+// and removes boss threat for players on the wrong side.
+func pushPlayersOnGateClose(w *World, g *level.GateDef) {
+	if g.PushAxis == "" {
+		return
+	}
+
+	for _, p := range w.Players {
+		if !p.Alive {
+			continue
+		}
+		var playerPos, gatePos, halfExt float32
+		switch g.PushAxis {
+		case "x":
+			playerPos, gatePos, halfExt = p.Position.X, g.Position.X, g.HalfExtents.X
+		case "z":
+			playerPos, gatePos, halfExt = p.Position.Z, g.Position.Z, g.HalfExtents.Z
+		default:
+			continue
+		}
+
+		// Push players within the gate's thickness range
+		if playerPos >= gatePos-halfExt-2.0 && playerPos <= gatePos+halfExt+2.0 {
+			switch g.PushAxis {
+			case "x":
+				p.Position.X = g.Position.X + g.PushOffset
+			case "z":
+				p.Position.Z = g.Position.Z + g.PushOffset
+			}
+		}
+	}
+
+	// Remove boss threat for players on the far side of the gate
+	boss := findBoss(w)
+	if boss == nil {
+		return
+	}
+	for _, p := range w.Players {
+		var playerPos, gatePos float32
+		switch g.PushAxis {
+		case "x":
+			playerPos, gatePos = p.Position.X, g.Position.X
+		case "z":
+			playerPos, gatePos = p.Position.Z, g.Position.Z
+		}
+		// Players on the opposite side of the gate from the push direction lose threat.
+		onFarSide := (g.PushOffset < 0 && playerPos >= gatePos) ||
+			(g.PushOffset > 0 && playerPos <= gatePos)
+		if onFarSide {
+			delete(boss.ThreatTable, p.ID)
+		}
+	}
+}
+
 // InitInstance activates all enemies in patrol state. Called once when the
 // arena zone is created — enemies are alive and patrolling from the start.
 func InitInstance(w *World) {
 	w.Projectiles = nil
+	w.InitGateStates()
 	for i, e := range w.Enemies {
 		if i < len(w.Level.EnemySpawns) {
 			e.Reset(w.Level.EnemySpawns[i].Position, entity.EnemyPatrol)
@@ -181,7 +283,6 @@ func checkFightEnd(w *World) {
 		w.State = StateFightOver
 		w.BossDefeated = false
 		w.Projectiles = nil
-		w.BossGateActive = false
 		// Reset alive enemies to patrol, keep dead ones dead
 		for i, e := range w.Enemies {
 			if !e.Alive {
@@ -222,6 +323,8 @@ func tickFightOver(w *World, _ float32) {
 func returnToLobby(w *World) {
 	w.State = StateSpawned
 	w.Projectiles = nil
+	// Reset gates to defaults
+	w.InitGateStates()
 
 	// Reset players to warmup — use conditional spawn points
 	deadGroups := w.DeadGroupIDs()

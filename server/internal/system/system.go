@@ -64,9 +64,9 @@ type World struct {
 	TickNum uint32
 
 	// Game state
-	State          GameFlowState
-	BossDefeated   bool
-	BossGateActive bool // true when boss room is sealed (boss is fighting)
+	State        GameFlowState
+	BossDefeated bool
+	GateStates   map[string]bool // gate_id → is_closed
 
 	// Group scaling — multiplier applied to all enemy damage (1.0 = no scaling)
 	EnemyDamageMult float32
@@ -85,7 +85,8 @@ type World struct {
 	Brains []enemyai.BrainTicker
 
 	// Level geometry
-	Level *level.Level
+	Level     *level.Level
+	Obstacles []combat.Obstacle // Level.Obstacles + closed gate obstacles (rebuilt on gate change)
 
 	// Ability engine
 	AbilityEngine *ability.Engine
@@ -181,6 +182,77 @@ func (w *World) DeadGroupIDs() map[int]bool {
 		}
 	}
 	return result
+}
+
+// IsGateClosed returns whether a gate is currently closed.
+func (w *World) IsGateClosed(gateID string) bool {
+	return w.GateStates[gateID]
+}
+
+// AnyGateClosed returns true if any gate is currently closed.
+func (w *World) AnyGateClosed() bool {
+	for _, closed := range w.GateStates {
+		if closed {
+			return true
+		}
+	}
+	return false
+}
+
+// ClosedGatePosition returns the position of a closed gate.
+// Returns (Vec3{}, false) if the gate doesn't exist or is open.
+func (w *World) ClosedGatePosition(gateID string) (entity.Vec3, bool) {
+	if !w.GateStates[gateID] {
+		return entity.Vec3{}, false
+	}
+	for i := range w.Level.Gates {
+		if w.Level.Gates[i].ID == gateID {
+			return w.Level.Gates[i].Position, true
+		}
+	}
+	return entity.Vec3{}, false
+}
+
+// ClosedGateZ returns the Z position of the first closed gate, or 0 if none.
+// Used by AI/combat for player-side filtering.
+func (w *World) ClosedGateZ() (float32, bool) {
+	for _, g := range w.Level.Gates {
+		if w.GateStates[g.ID] {
+			return g.Position.Z, true
+		}
+	}
+	return 0, false
+}
+
+// RebuildObstacles reconstructs the combined obstacle list from level geometry
+// plus any currently closed gates.
+func (w *World) RebuildObstacles() {
+	n := len(w.Level.Obstacles)
+	for _, g := range w.Level.Gates {
+		if w.GateStates[g.ID] {
+			n++
+		}
+	}
+	if cap(w.Obstacles) >= n {
+		w.Obstacles = w.Obstacles[:len(w.Level.Obstacles)]
+	} else {
+		w.Obstacles = make([]combat.Obstacle, len(w.Level.Obstacles), n)
+	}
+	copy(w.Obstacles, w.Level.Obstacles)
+	for i := range w.Level.Gates {
+		if w.GateStates[w.Level.Gates[i].ID] {
+			w.Obstacles = append(w.Obstacles, w.Level.Gates[i].ToObstacle())
+		}
+	}
+}
+
+// InitGateStates sets all gates to their default states and rebuilds obstacles.
+func (w *World) InitGateStates() {
+	w.GateStates = make(map[string]bool, len(w.Level.Gates))
+	for _, g := range w.Level.Gates {
+		w.GateStates[g.ID] = g.DefaultClosed
+	}
+	w.RebuildObstacles()
 }
 
 // EnemyDmgMult returns the enemy damage multiplier, defaulting to 1.0 if unset.

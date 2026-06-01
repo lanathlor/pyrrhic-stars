@@ -121,6 +121,10 @@ func New(id string, lvl *level.Level) *Zone {
 		}
 	}
 
+	// Initialize obstacles (Level.Obstacles + closed gate obstacles).
+	// InitInstance does this for instanced zones; open-world zones need it too.
+	z.world.InitGateStates()
+
 	if zoneType == ZoneTypeInstanced {
 		spawnInstanceEnemies(z, l)
 		system.InitInstance(&z.world)
@@ -279,6 +283,25 @@ func (z *Zone) AddClient(c *Client) {
 	// Send catch-up to the joining client (and broadcast if we just changed state)
 	if catchUpFlow > 0 {
 		payload := codec.EncodeGameFlow(catchUpFlow, "")
+		msg := message.Encode(message.OpGameFlowEvent, 0, payload)
+		c.Send(msg)
+	}
+
+	z.sendGateCatchUp(c)
+}
+
+// sendGateCatchUp notifies a joining client about gates in non-default state.
+func (z *Zone) sendGateCatchUp(c *Client) {
+	for _, g := range z.world.Level.Gates {
+		isClosed := z.world.GateStates[g.ID]
+		if isClosed == g.DefaultClosed {
+			continue
+		}
+		flowType := message.FlowGateOpen
+		if isClosed {
+			flowType = message.FlowGateClose
+		}
+		payload := codec.EncodeGameFlow(flowType, g.ID)
 		msg := message.Encode(message.OpGameFlowEvent, 0, payload)
 		c.Send(msg)
 	}

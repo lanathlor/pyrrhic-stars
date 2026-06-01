@@ -92,6 +92,8 @@ const FLOW_BOSS_DEAD := 7
 const FLOW_ALL_DEAD := 8
 const FLOW_BOSS_ACTIVATED := 9
 const FLOW_BOSS_RESET := 10
+const FLOW_GATE_CLOSE := 11
+const FLOW_GATE_OPEN := 12
 
 # Zone type constants
 const ZONE_TYPE_HUB := 0

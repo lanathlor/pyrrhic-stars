@@ -40,8 +40,8 @@ func (s *AISystem) Tick(w *World, dt float32) {
 		}
 		w.spawnEnemyIdx = i
 		visiblePlayers := allPlayers
-		if w.BossGateActive {
-			w.filteredPlayers = playersOnSameSide(w.filteredPlayers[:0], allPlayers, e.Position.Z, w.Level.BossRoomEntryZ)
+		if gateZ, ok := w.ClosedGateZ(); ok {
+			w.filteredPlayers = playersOnSameSide(w.filteredPlayers[:0], allPlayers, e.Position.Z, gateZ)
 			visiblePlayers = w.filteredPlayers
 		}
 		tickEnemyBrain(w, i, e, visiblePlayers, dt)
@@ -67,7 +67,7 @@ func (s *AISystem) Tick(w *World, dt float32) {
 
 func tickEnemyBrain(w *World, idx int, e *entity.Enemy, allPlayers []*entity.Player, dt float32) {
 	prevState := e.State
-	events := w.Brains[idx].Tick(dt, allPlayers, w.Level.Obstacles, w.spawnFn, w.commitPatternFn)
+	events := w.Brains[idx].Tick(dt, allPlayers, w.Obstacles, w.spawnFn, w.commitPatternFn)
 
 	// Apply group-size damage scaling to direct hits (melee, AoE, charge).
 	if mult := w.EnemyDmgMult(); mult != 1.0 {
@@ -109,7 +109,7 @@ func tickEnemyBrain(w *World, idx int, e *entity.Enemy, allPlayers []*entity.Pla
 	}
 	w.DamageEvents = append(w.DamageEvents, events...)
 	w.Level.ClampEnemy(&e.Position)
-	combat.PushOutOfObstacles(&e.Position, w.Level.Obstacles, w.Level.EnemyRadius)
+	combat.PushOutOfObstacles(&e.Position, w.Obstacles, w.Level.EnemyRadius)
 }
 
 // playersOnSameSide filters players to those on the same side of gateZ as enemyZ.

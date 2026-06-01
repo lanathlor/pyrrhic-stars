@@ -484,7 +484,10 @@ func TestHandleRespawnRequest(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			z, peerID := setupFightZone(t)
 			z.world.State = tc.state
-			z.world.BossGateActive = tc.bossGateActive
+			if tc.bossGateActive {
+				z.world.GateStates["boss_gate"] = true
+				z.world.RebuildObstacles()
+			}
 
 			p := z.world.Players[peerID]
 			p.Alive = tc.playerAlive

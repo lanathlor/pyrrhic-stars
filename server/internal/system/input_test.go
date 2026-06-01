@@ -861,12 +861,16 @@ func TestHandleRespawnRequest_ArenaRespawn(t *testing.T) {
 
 			lvl := testArenaLevel(t)
 			w := &World{
-				ZoneType:       1,
-				TickNum:        100,
-				State:          tc.state,
-				BossGateActive: tc.bossGateActive,
-				Players:        map[uint16]*entity.Player{1: p},
-				Level:          lvl,
+				ZoneType: 1,
+				TickNum:  100,
+				State:    tc.state,
+				Players:  map[uint16]*entity.Player{1: p},
+				Level:    lvl,
+			}
+			w.InitGateStates()
+			if tc.bossGateActive {
+				w.GateStates["boss_gate"] = true
+				w.RebuildObstacles()
 			}
 
 			payload := codec.EncodeRespawnRequest(0) // 0 = arena

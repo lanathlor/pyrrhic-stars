@@ -10,7 +10,7 @@ import (
 	"codex-online/server/internal/entity"
 )
 
-const currentVersion = 5
+const currentVersion = 6
 
 type boundsJSON struct {
 	MinX float32 `json:"min_x"`
@@ -90,6 +90,18 @@ type npcSpawnJSON struct {
 	Waypoints    []vec3JSON `json:"waypoints"`
 }
 
+type gateJSON struct {
+	Name          string     `json:"name"`
+	GateID        string     `json:"gate_id"`
+	Center        [3]float32 `json:"center"`
+	HalfExtents   [3]float32 `json:"half_extents"`
+	CloseOn       []string   `json:"close_on,omitempty"`
+	OpenOn        []string   `json:"open_on,omitempty"`
+	DefaultClosed bool       `json:"default_closed,omitempty"`
+	PushAxis      string     `json:"push_axis,omitempty"`
+	PushOffset    float32    `json:"push_offset,omitempty"`
+}
+
 type navmeshJSON struct {
 	Vertices [][]float32 `json:"vertices"`
 	Polygons [][]int     `json:"polygons"`
@@ -110,6 +122,7 @@ type levelDataJSON struct {
 	NPCSpawns    []npcSpawnJSON    `json:"npc_spawns,omitempty"`
 	Portals      []portalJSON      `json:"portals,omitempty"`
 	ZoneTriggers []zoneTriggerJSON `json:"zone_triggers,omitempty"`
+	Gates        []gateJSON        `json:"gates,omitempty"`
 	NavmeshData  *navmeshJSON      `json:"navmesh,omitempty"`
 }
 
@@ -144,6 +157,7 @@ func loadLevelData(path string, l *Level) error {
 	loadNPCSpawns(l, ld.NPCSpawns)
 	loadPortals(l, ld.Portals)
 	loadZoneTriggers(l, ld.ZoneTriggers)
+	loadGates(l, ld.Gates)
 
 	// v4 fields
 	if ld.ZoneType != "" {
@@ -226,11 +240,32 @@ func loadPortals(l *Level, portals []portalJSON) {
 
 func loadZoneTriggers(l *Level, triggers []zoneTriggerJSON) {
 	for _, zt := range triggers {
-		switch zt.TriggerID {
-		case "arena_entry":
+		if zt.TriggerID == "arena_entry" {
 			l.ArenaEntryZ = zt.Threshold
-		case "boss_room_entry":
-			l.BossRoomEntryZ = zt.Threshold
+		}
+	}
+}
+
+func loadGates(l *Level, gates []gateJSON) {
+	l.Gates = make([]GateDef, len(gates))
+	for i, g := range gates {
+		l.Gates[i] = GateDef{
+			ID: g.GateID,
+			Position: entity.Vec3{
+				X: g.Center[0],
+				Y: g.Center[1],
+				Z: g.Center[2],
+			},
+			HalfExtents: entity.Vec3{
+				X: g.HalfExtents[0],
+				Y: g.HalfExtents[1],
+				Z: g.HalfExtents[2],
+			},
+			CloseOn:       g.CloseOn,
+			OpenOn:        g.OpenOn,
+			DefaultClosed: g.DefaultClosed,
+			PushAxis:      g.PushAxis,
+			PushOffset:    g.PushOffset,
 		}
 	}
 }

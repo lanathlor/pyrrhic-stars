@@ -44,9 +44,10 @@ func _run() -> void:
 	var npc_spawns: Array = []
 	var portals: Array = []
 	var zone_triggers: Array = []
+	var gates: Array = []
 	var bounds_override: Dictionary = {}
 
-	_walk_tree(root, obstacles, elevators, player_spawns, enemy_spawns, npc_spawns, portals, zone_triggers, bounds_override)
+	_walk_tree(root, obstacles, elevators, player_spawns, enemy_spawns, npc_spawns, portals, zone_triggers, gates, bounds_override)
 
 	# Compute bounds from obstacles if no override
 	var bounds: Dictionary
@@ -67,6 +68,7 @@ func _run() -> void:
 		"npc_spawns": npc_spawns,
 		"portals": portals,
 		"zone_triggers": zone_triggers,
+		"gates": gates,
 	}
 
 	var output_dir := ProjectSettings.globalize_path("res://") + "../../shared/levels/"
@@ -82,9 +84,9 @@ func _run() -> void:
 	f.store_string("\n")
 	f.close()
 
-	print("collision_exporter: wrote %s (%d obstacles, %d elevators, %d player spawns, %d enemy spawns, %d npc spawns, %d portals, %d zone triggers)" % [
+	print("collision_exporter: wrote %s (%d obstacles, %d elevators, %d player spawns, %d enemy spawns, %d npc spawns, %d portals, %d zone triggers, %d gates)" % [
 		output_path, obstacles.size(), elevators.size(), player_spawns.size(), enemy_spawns.size(),
-		npc_spawns.size(), portals.size(), zone_triggers.size(),
+		npc_spawns.size(), portals.size(), zone_triggers.size(), gates.size(),
 	])
 
 
@@ -97,6 +99,7 @@ func _walk_tree(
 	npc_spawns: Array,
 	portals: Array,
 	zone_triggers: Array,
+	gates: Array,
 	bounds_override: Dictionary,
 ) -> void:
 	if node.is_in_group("server_collision"):
@@ -113,13 +116,15 @@ func _walk_tree(
 		_extract_portal(node, portals)
 	if node.is_in_group("server_zone_trigger"):
 		_extract_zone_trigger(node, zone_triggers)
+	if node.is_in_group("server_gate"):
+		_extract_gate(node, gates)
 	if node.is_in_group("server_bounds"):
 		_extract_bounds(node, bounds_override)
 	if node.is_in_group("server_navmesh"):
 		print("collision_exporter: server_navmesh group is deprecated — navmesh baking is automatic in plugin v5")
 
 	for child in node.get_children():
-		_walk_tree(child, obstacles, elevators, player_spawns, enemy_spawns, npc_spawns, portals, zone_triggers, bounds_override)
+		_walk_tree(child, obstacles, elevators, player_spawns, enemy_spawns, npc_spawns, portals, zone_triggers, gates, bounds_override)
 
 
 func _extract_collision(node: Node, obstacles: Array) -> void:
@@ -281,6 +286,48 @@ func _extract_zone_trigger(node: Node, zone_triggers: Array) -> void:
 		"axis": axis,
 		"threshold": snapped(threshold, 0.01),
 	})
+
+
+func _extract_gate(node: Node, gates: Array) -> void:
+	if not node is CSGBox3D:
+		print("collision_exporter: server_gate node '%s' is not CSGBox3D, skipping" % node.name)
+		return
+	var box := node as CSGBox3D
+	var pos := box.global_position
+	var half := box.size / 2.0
+	var gate_id: String = str(box.get_meta("gate_id", ""))
+	if gate_id == "":
+		print("collision_exporter: server_gate node '%s' has no gate_id, skipping" % node.name)
+		return
+	var close_on_str: String = str(box.get_meta("close_on", ""))
+	var open_on_str: String = str(box.get_meta("open_on", ""))
+	var close_on: Array = []
+	var open_on: Array = []
+	if close_on_str != "":
+		for s in close_on_str.split(","):
+			var trimmed: String = s.strip_edges()
+			if trimmed != "":
+				close_on.append(trimmed)
+	if open_on_str != "":
+		for s in open_on_str.split(","):
+			var trimmed: String = s.strip_edges()
+			if trimmed != "":
+				open_on.append(trimmed)
+	var gate: Dictionary = {
+		"name": str(box.name),
+		"gate_id": gate_id,
+		"center": [snapped(pos.x, 0.01), snapped(pos.y, 0.01), snapped(pos.z, 0.01)],
+		"half_extents": [snapped(half.x, 0.01), snapped(half.y, 0.01), snapped(half.z, 0.01)],
+		"close_on": close_on,
+		"open_on": open_on,
+	}
+	if box.get_meta("default_closed", false):
+		gate["default_closed"] = true
+	var push_axis: String = str(box.get_meta("push_axis", ""))
+	if push_axis != "":
+		gate["push_axis"] = push_axis
+		gate["push_offset"] = float(box.get_meta("push_offset", 0.0))
+	gates.append(gate)
 
 
 func _extract_bounds(node: Node, bounds: Dictionary) -> void:

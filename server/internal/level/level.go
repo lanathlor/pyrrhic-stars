@@ -34,6 +34,31 @@ type PortalDef struct {
 	Condition         string // empty = always active
 }
 
+// GateDef defines a data-driven barrier that opens/closes on game flow events.
+// When closed, the gate acts as an obstacle for collision and LoS.
+type GateDef struct {
+	ID            string      // unique identifier (e.g. "boss_gate")
+	Position      entity.Vec3 // center of the gate geometry
+	HalfExtents   entity.Vec3 // half-size on each axis (for obstacle creation)
+	CloseOn       []string    // event names that close this gate (e.g. "boss_activated")
+	OpenOn        []string    // event names that open this gate (e.g. "boss_dead")
+	DefaultClosed bool        // initial state when zone starts
+	PushAxis      string      // "x", "y", "z" or "" — axis to push players on gate close
+	PushOffset    float32     // how far to push players past the gate center
+}
+
+// ToObstacle converts a gate definition to a collision obstacle.
+func (g *GateDef) ToObstacle() combat.Obstacle {
+	return combat.Obstacle{
+		CX:     g.Position.X,
+		CZ:     g.Position.Z,
+		HX:     g.HalfExtents.X,
+		HZ:     g.HalfExtents.Z,
+		BaseY:  g.Position.Y - g.HalfExtents.Y,
+		Height: g.HalfExtents.Y * 2,
+	}
+}
+
 // ElevatorVolume describes a moving platform that allows vertical player movement.
 // The server uses this to whitelist Y-axis changes inside the volume footprint.
 type ElevatorVolume struct {
@@ -68,8 +93,8 @@ type Level struct {
 	// Arena entry trigger Z threshold (0 = disabled)
 	ArenaEntryZ float32
 
-	// Boss room entry Z threshold (gate between hallway and boss room)
-	BossRoomEntryZ float32
+	// Gates (data-driven barriers that open/close on game flow events)
+	Gates []GateDef
 
 	// Default enemy collision radius
 	EnemyRadius float32
@@ -93,6 +118,17 @@ type NPCSpawnPoint struct {
 	Speed        float32 // walk speed (m/s)
 	IdleDuration float32 // seconds to idle at each waypoint
 	Waypoints    []entity.Vec3
+}
+
+// FlowEventName maps a flow type constant to the gate trigger string used in JSON.
+var FlowEventName = map[uint8]string{
+	1:  "spawn_players",
+	2:  "fight_start",
+	5:  "return_lobby",
+	7:  "boss_dead",
+	8:  "all_dead",
+	9:  "boss_activated",
+	10: "boss_reset",
 }
 
 // ClampPlayer restricts a position within player bounds.

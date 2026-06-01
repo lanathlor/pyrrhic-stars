@@ -435,24 +435,27 @@ func benchArenaInstance(b testing.TB, instanceID uint16) *World {
 		}
 	}
 
-	return &World{
-		ZoneType:       1,
-		TickNum:        100,
-		State:          StateFight,
-		BossGateActive: true,
-		Players:        players,
-		Enemies:        enemies,
-		Brains:         brains,
-		Projectiles:    projs,
-		Level:          lvl,
-		Clients:        clients,
-		AbilityEngine:  ability.NewEngine(nil),
+	w := &World{
+		ZoneType:      1,
+		TickNum:       100,
+		State:         StateFight,
+		Players:       players,
+		Enemies:       enemies,
+		Brains:        brains,
+		Projectiles:   projs,
+		Level:         lvl,
+		Clients:       clients,
+		AbilityEngine: ability.NewEngine(nil),
 		// Pre-allocate pooled buffers so broadcast doesn't allocate in the tick loop.
 		SendBuf:     make([]byte, 0, 4096),
 		DamageBuf:   make([]byte, 0, 256),
 		GameFlowBuf: make([]byte, 0, 256),
 		LobbyBuf:    make([]byte, 0, 512),
 	}
+	w.InitGateStates()
+	w.GateStates["boss_gate"] = true
+	w.RebuildObstacles()
+	return w
 }
 
 // buildInputs creates 5 player inputs for an instance.

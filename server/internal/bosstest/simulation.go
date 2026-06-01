@@ -233,6 +233,7 @@ func buildWorld(cfg SimConfig, es enemySetup, playerMap map[uint16]*entity.Playe
 	if w.CombatLogSink == nil {
 		w.CombatLogSink = combatlog.NullSink{}
 	}
+	w.InitGateStates()
 	return w
 }
 

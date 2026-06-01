@@ -229,6 +229,8 @@ const (
 	FlowAllDead         uint8 = 8
 	FlowBossActivated   uint8 = 9
 	FlowBossReset       uint8 = 10
+	FlowGateClose       uint8 = 11
+	FlowGateOpen        uint8 = 12
 )
 
 // Interact input action types sent within OpInteractInput payload.

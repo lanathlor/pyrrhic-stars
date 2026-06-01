@@ -99,9 +99,9 @@ func handleDebugResetBoss(w *World) {
 		boss.Reset(w.Level.EnemySpawns[bossIdx].Position, entity.EnemyPatrol)
 	}
 
-	// Clear projectiles and gate.
+	// Clear projectiles and reset gates to defaults.
 	w.Projectiles = nil
-	w.BossGateActive = false
+	w.InitGateStates()
 	w.DebugRepeatAbility = ""
 
 	// Rebuild brain from (possibly reloaded) DefRegistry.

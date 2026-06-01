@@ -13,7 +13,7 @@ import (
 // testWorldWithLevel creates a world with a level that has spawn points,
 // simulating an instanced dungeon.
 func testWorldWithLevel() *system.World {
-	return &system.World{
+	w := &system.World{
 		Players:       make(map[uint16]*entity.Player),
 		Clients:       make(map[uint16]*system.Client),
 		AbilityEngine: ability.NewEngine(nil),
@@ -23,12 +23,22 @@ func testWorldWithLevel() *system.World {
 			PlayerSpawns: []level.PlayerSpawn{
 				{Position: entity.Vec3{X: 0, Y: 0, Z: 50}}, // spawn point
 			},
+			Gates: []level.GateDef{
+				{
+					ID:       "boss_gate",
+					Position: entity.Vec3{X: 0, Y: 2.5, Z: 12},
+					CloseOn:  []string{"boss_activated"},
+					OpenOn:   []string{"boss_dead", "all_dead", "boss_reset"},
+				},
+			},
 		},
 	}
+	w.InitGateStates()
+	return w
 }
 
 func TestBotRespawnAfterTrashDeath(t *testing.T) {
-	// Scenario: bot dies fighting trash mobs during StateFight (boss gate NOT active).
+	// Scenario: bot dies fighting trash mobs during StateFight (no gate closed).
 	// Expected: bot respawns after BotRespawnDelay at spawn point.
 	m := NewManager("")
 	w := testWorldWithLevel()
@@ -47,13 +57,9 @@ func TestBotRespawnAfterTrashDeath(t *testing.T) {
 	bot.Alive = false
 	bot.Health = 0
 
-	// BossGateActive = false (trash fight, not boss encounter)
-	w.BossGateActive = false
+	// No gate closed (trash fight, not boss encounter)
 
 	// Tick through the respawn delay.
-	// BotSystem runs TickAll which queues OpRespawnRequest into InputQueue.
-	// In the real pipeline, InputSystem would then process it.
-	// Here we simulate the full cycle: TickAll + manually run InputSystem.
 	dt := float32(0.05) // 20Hz
 	ticksNeeded := int(BotRespawnDelay/dt) + 1
 	inputSys := &system.InputSystem{}
@@ -65,13 +71,13 @@ func TestBotRespawnAfterTrashDeath(t *testing.T) {
 	}
 
 	if !bot.Alive {
-		t.Errorf("bot should have respawned after %.1fs (state=%d, BossGateActive=%v)",
-			BotRespawnDelay, w.State, w.BossGateActive)
+		t.Errorf("bot should have respawned after %.1fs (state=%d, anyGateClosed=%v)",
+			BotRespawnDelay, w.State, w.AnyGateClosed())
 	}
 }
 
 func TestBotNoRespawnDuringBossFight(t *testing.T) {
-	// Scenario: bot dies during boss fight (boss gate IS active).
+	// Scenario: bot dies during boss fight (boss gate IS closed).
 	// Expected: bot does NOT respawn.
 	m := NewManager("")
 	w := testWorldWithLevel()
@@ -88,8 +94,9 @@ func TestBotNoRespawnDuringBossFight(t *testing.T) {
 	bot.Alive = false
 	bot.Health = 0
 
-	// Boss gate active = boss encounter sealed
-	w.BossGateActive = true
+	// Boss gate closed = boss encounter sealed
+	w.GateStates["boss_gate"] = true
+	w.RebuildObstacles()
 
 	dt := float32(0.05)
 	ticksNeeded := int(BotRespawnDelay/dt) + 20 // well past the delay
@@ -102,7 +109,7 @@ func TestBotNoRespawnDuringBossFight(t *testing.T) {
 	}
 
 	if bot.Alive {
-		t.Error("bot should NOT respawn during boss fight (BossGateActive=true)")
+		t.Error("bot should NOT respawn during boss fight (gate closed)")
 	}
 }
 

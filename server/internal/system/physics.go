@@ -24,7 +24,7 @@ func (s *PhysicsSystem) Tick(w *World, dt float32) {
 		}
 
 		// Kill projectile if it hits an obstacle
-		if combat.ProjectileHitsObstacle(proj.Position, entity.ProjectileHitRadius, w.Level.Obstacles) {
+		if combat.ProjectileHitsObstacle(proj.Position, entity.ProjectileHitRadius, w.Obstacles) {
 			proj.Alive = false
 			continue
 		}

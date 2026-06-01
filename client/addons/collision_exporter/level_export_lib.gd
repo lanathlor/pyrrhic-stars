@@ -341,7 +341,7 @@ static func _bake_navmesh(root: Node) -> Dictionary:
 
 	var source_geo := NavigationMeshSourceGeometryData3D.new()
 	for box in boxes:
-		_add_box_faces(source_geo, box["center"], box["size"])
+		_add_box_faces(source_geo, box["center"], box["size"], nav_mesh.agent_max_climb)
 
 	NavigationServer3D.bake_from_source_geometry_data(nav_mesh, source_geo)
 
@@ -373,9 +373,13 @@ static func _collect_all_csg_boxes(node: Node, boxes: Array[Dictionary]) -> void
 		_collect_all_csg_boxes(child, boxes)
 
 
-static func _add_box_faces(sg: NavigationMeshSourceGeometryData3D, center: Vector3, size: Vector3) -> void:
+static func _add_box_faces(sg: NavigationMeshSourceGeometryData3D, center: Vector3, size: Vector3, max_walkable_top_y: float = 0.5) -> void:
 	var h := size / 2.0
-	_add_quad(sg, center, h, Vector3.UP, true)
+	# Only add the top face for floor-level geometry. Walls and obstacles have
+	# their top surface above max_walkable_top_y — skipping it prevents the
+	# navmesh baker from creating walkable polygons on wall/pillar tops.
+	if center.y + h.y <= max_walkable_top_y:
+		_add_quad(sg, center, h, Vector3.UP, true)
 	_add_quad(sg, center, h, Vector3.UP, false)
 	_add_quad(sg, center, h, Vector3.BACK, true)
 	_add_quad(sg, center, h, Vector3.BACK, false)

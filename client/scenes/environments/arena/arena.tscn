@@ -665,12 +665,17 @@ collision_mask = 0
 size = Vector3(2, 1.2, 1)
 material = SubResource("mat_cover")
 
-[node name="BossGate" type="CSGBox3D" parent="." groups=["server_ignore"]]
+[node name="BossGate" type="CSGBox3D" parent="." groups=["server_gate"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 12)
 visible = false
 collision_mask = 0
 size = Vector3(40, 5, 0.5)
 material = SubResource("mat_gate")
+metadata/gate_id = "boss_gate"
+metadata/close_on = "boss_activated"
+metadata/open_on = "boss_dead,all_dead,boss_reset"
+metadata/push_axis = "z"
+metadata/push_offset = -3.0
 
 [node name="LevelData" type="Node3D" parent="."]
 

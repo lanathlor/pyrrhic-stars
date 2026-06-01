@@ -20,9 +20,10 @@ This guide walks you through placing level markers in Godot scenes so the collis
 9. [Obstacle (Collision)](#9-obstacle-collision)
 10. [Elevator](#10-elevator)
 11. [Bounds](#11-bounds)
-12. [Zone Config](#12-zone-config)
-13. [Running the Exporter](#13-running-the-exporter)
-14. [Troubleshooting](#14-troubleshooting)
+12. [Gate (Data-Driven Barrier)](#12-gate-data-driven-barrier)
+13. [Zone Config](#13-zone-config)
+14. [Running the Exporter](#14-running-the-exporter)
+15. [Troubleshooting](#15-troubleshooting)
 
 ---
 
@@ -419,7 +420,58 @@ If no `server_bounds` node exists, bounds are computed automatically from obstac
 
 ---
 
-## 12. Zone Config
+## 12. Gate (Data-Driven Barrier)
+
+A gate is a barrier that opens/closes in response to game flow events (boss aggro, boss death, wipe, etc.). When closed, the gate blocks player movement (client-side CSGBox3D collision) and blocks projectiles/LoS on the server.
+
+### Setup
+
+1. Create a **CSGBox3D** node (e.g., `BossGate`). Set its size and position to define the barrier geometry.
+2. Add to group: **`server_gate`**.
+3. Add metadata:
+
+| Key | Type | Required | Default | Description |
+|-----|------|----------|---------|-------------|
+| `gate_id` | String | Yes | — | Unique identifier (e.g., `"boss_gate"`) |
+| `close_on` | String | No | `""` | Comma-separated event names that close this gate (e.g., `"boss_activated"`) |
+| `open_on` | String | No | `""` | Comma-separated event names that open this gate (e.g., `"boss_dead,all_dead,boss_reset"`) |
+| `default_closed` | bool | No | `false` | Whether the gate starts closed when the zone loads |
+| `push_axis` | String | No | `""` | Axis to push players on gate close: `"x"`, `"z"`, or empty (no push) |
+| `push_offset` | float | No | `0.0` | Distance to push players past the gate center (negative = toward boss room) |
+
+### Available Event Names
+
+| Event Name | Trigger |
+|------------|---------|
+| `spawn_players` | Players spawned in arena |
+| `fight_start` | Fight begins |
+| `boss_activated` | Boss enters combat |
+| `boss_dead` | Boss killed |
+| `all_dead` | Party wipe |
+| `boss_reset` | Boss leash reset |
+| `return_lobby` | Players returned to lobby after wipe |
+
+### Example (Boss Gate)
+
+A gate at Z=12 that closes when the boss aggros and opens on boss death, wipe, or boss reset:
+
+- Group: `server_gate`
+- `gate_id` = `"boss_gate"`
+- `close_on` = `"boss_activated"`
+- `open_on` = `"boss_dead,all_dead,boss_reset"`
+- `push_axis` = `"z"`
+- `push_offset` = `-3.0`
+
+### Notes
+
+- Gates use the CSGBox3D's `visible` and `use_collision` properties to appear/disappear.
+- The server adds closed gates to the obstacle list for projectile and LoS blocking.
+- Player push on gate close only triggers for players within 2 units of the gate.
+- Give the gate a visible material (e.g., red emissive) so players can see it in-game.
+
+---
+
+## 13. Zone Config
 
 Declares zone-level properties: zone type, enemy radius, and explicit zone name. One per scene.
 
@@ -461,7 +513,7 @@ ZoneConfig (Node3D)
 
 ---
 
-## 13. Running the Exporter
+## 14. Running the Exporter
 
 The exporter runs automatically when you save a scene that contains `server_*` nodes (via the `LevelExporter` plugin). No manual step needed.
 
@@ -475,7 +527,7 @@ The JSON file is written to `shared/levels/<zone_name>.json`.
 
 ---
 
-## 14. Troubleshooting
+## 15. Troubleshooting
 
 **Wrong zone name in output**
 Set `zone_name` metadata on the `server_zone_config` node to control the exported filename. Without it, the scene filename is used.

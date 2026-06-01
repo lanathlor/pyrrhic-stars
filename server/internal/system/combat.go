@@ -52,7 +52,7 @@ func tickPlayerAbilityResult(w *World, p *entity.Player, dt float32) {
 
 	w.enemyTargetBuf = enemiesToTargets(w.enemyTargetBuf, w.Enemies)
 	w.abilTickCtx.Targets = w.enemyTargetBuf
-	w.abilTickCtx.Obstacles = w.Level.Obstacles
+	w.abilTickCtx.Obstacles = w.Obstacles
 	results := w.AbilityEngine.TickPlayer(p, dt, &w.abilTickCtx)
 
 	logExpiredBuffs(w, p, prevBuffs, nPrev)
@@ -196,7 +196,7 @@ func executeCommitPhase(w *World, p *entity.Player, runner *ability.PlayerAbilit
 	ctx := &ability.CommitContext{
 		Committer:    p,
 		Targets:      w.enemyTargetBuf,
-		Obstacles:    w.Level.Obstacles,
+		Obstacles:    w.Obstacles,
 		Allies:       w.Players,
 		TargetPeerID: p.ChannelTargetID,
 	}
@@ -436,12 +436,13 @@ func tickCombatState(w *World, dt float32) {
 }
 
 func isPlayerInCombat(w *World, p *entity.Player) bool {
-	playerInBossRoom := w.Level != nil && p.Position.Z < w.Level.BossRoomEntryZ
+	gateZ, gateActive := w.ClosedGateZ()
+	playerBeyondGate := gateActive && p.Position.Z < gateZ
 	for _, e := range w.Enemies {
 		if e != nil && e.Alive && e.HasThreat(p.ID) {
-			if w.BossGateActive {
-				enemyInBossRoom := e.Position.Z < w.Level.BossRoomEntryZ
-				if playerInBossRoom != enemyInBossRoom {
+			if gateActive {
+				enemyBeyondGate := e.Position.Z < gateZ
+				if playerBeyondGate != enemyBeyondGate {
 					continue
 				}
 			}

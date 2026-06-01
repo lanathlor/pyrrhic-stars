@@ -301,7 +301,7 @@ func commitAbilityAndLog(w *World, p *entity.Player, peerID uint16, abilityID st
 	ctx := &ability.CommitContext{
 		Committer:    p,
 		Targets:      w.enemyTargetBuf,
-		Obstacles:    w.Level.Obstacles,
+		Obstacles:    w.Obstacles,
 		Allies:       w.Players,
 		TargetPeerID: inp.TargetPeerID,
 		SpawnZone: func(zone *entity.HealingZone) {
@@ -561,7 +561,7 @@ func handleRespawnRequest(w *World, peerID uint16, payload []byte) {
 	case 0: // arena
 		canRespawn := w.State == StateFightOver || w.State == StateLobby || w.State == StateSpawned
 		// Allow respawn during fight if the boss room is not sealed (trash mob deaths).
-		if !canRespawn && w.State == StateFight && !w.BossGateActive {
+		if !canRespawn && w.State == StateFight && !w.AnyGateClosed() {
 			canRespawn = true
 		}
 		if canRespawn {

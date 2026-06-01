@@ -13,7 +13,7 @@ import (
 func makeArenaWorld(t testing.TB, players map[uint16]*entity.Player, enemies []*entity.Enemy) *World {
 	t.Helper()
 	lvl := testArenaLevel(t)
-	return &World{
+	w := &World{
 		ZoneID:        testArenaZoneID,
 		ZoneType:      1,
 		TickNum:       100,
@@ -24,6 +24,8 @@ func makeArenaWorld(t testing.TB, players map[uint16]*entity.Player, enemies []*
 		Clients:       make(map[uint16]*Client),
 		AbilityEngine: ability.NewEngine(nil),
 	}
+	w.InitGateStates()
+	return w
 }
 
 // ---------------------------------------------------------------------------
@@ -338,7 +340,7 @@ func TestCheckFightEnd(t *testing.T) {
 			players := tc.setupPlayers()
 			w := makeArenaWorld(t, players, enemies)
 			w.State = StateFight
-			w.BossGateActive = tc.bossGateActive
+			w.GateStates["boss_gate"] = tc.bossGateActive
 
 			sys := &GameFlowSystem{}
 			sys.Tick(w, 0.05)
@@ -662,41 +664,47 @@ func TestSpawnPlayer_UnknownPeer(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// checkBossGate
+// checkBossState + processGateEvents (data-driven gate system)
 // ---------------------------------------------------------------------------
 
-func TestCheckBossGate_AggroClosesGate(t *testing.T) {
+func TestCheckBossState_AggroClosesGate(t *testing.T) {
 	boss := entity.NewEnemy(0, 2000, "guard_captain")
 	boss.IsBoss = true
 	boss.State = entity.EnemyChase // not patrol = in combat
 	boss.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 
 	p := entity.NewPlayer(1, entity.ClassGunner)
-	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5} // in boss room (Z < BossRoomEntryZ=12)
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5} // in boss room (Z < gate at 12)
 
 	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{boss})
 	w.State = StateFight
-	w.BossGateActive = false
 
 	sys := &GameFlowSystem{}
 	sys.Tick(w, 0.05)
 
-	if !w.BossGateActive {
-		t.Error("boss gate should be active after boss enters combat")
+	if !w.IsGateClosed("boss_gate") {
+		t.Error("boss gate should be closed after boss enters combat")
 	}
 
-	found := false
+	foundActivated := false
+	foundGateClose := false
 	for _, evt := range w.GameFlowEvents {
 		if evt.FlowType == message.FlowBossActivated {
-			found = true
+			foundActivated = true
+		}
+		if evt.FlowType == message.FlowGateClose && evt.Text == "boss_gate" {
+			foundGateClose = true
 		}
 	}
-	if !found {
+	if !foundActivated {
 		t.Error("expected FlowBossActivated event")
+	}
+	if !foundGateClose {
+		t.Error("expected FlowGateClose event for boss_gate")
 	}
 }
 
-func TestCheckBossGate_NoPlayersInBossRoomResetsBoss(t *testing.T) {
+func TestCheckBossState_NoPlayersInBossRoomResetsBoss(t *testing.T) {
 	boss := entity.NewEnemy(0, 2000, "guard_captain")
 	boss.IsBoss = true
 	boss.State = entity.EnemyChase
@@ -704,13 +712,14 @@ func TestCheckBossGate_NoPlayersInBossRoomResetsBoss(t *testing.T) {
 	boss.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 
 	p := entity.NewPlayer(1, entity.ClassGunner)
-	// Player is outside boss room (Z > BossRoomEntryZ=12)
+	// Player is outside boss room (Z > gate at 12)
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 20}
 
 	enemies := []*entity.Enemy{boss}
 	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p}, enemies)
 	w.State = StateFight
-	w.BossGateActive = true
+	w.GateStates["boss_gate"] = true
+	w.RebuildObstacles()
 
 	// Add projectile that should be cleared on reset
 	w.Projectiles = []*entity.Projectile{
@@ -720,8 +729,8 @@ func TestCheckBossGate_NoPlayersInBossRoomResetsBoss(t *testing.T) {
 	sys := &GameFlowSystem{}
 	sys.Tick(w, 0.05)
 
-	if w.BossGateActive {
-		t.Error("boss gate should be deactivated when no players in boss room")
+	if w.IsGateClosed("boss_gate") {
+		t.Error("boss gate should be open when no players in boss room")
 	}
 	if boss.Health != boss.MaxHealth {
 		t.Errorf("boss health = %f, want %f (should be reset)", boss.Health, boss.MaxHealth)
@@ -733,42 +742,47 @@ func TestCheckBossGate_NoPlayersInBossRoomResetsBoss(t *testing.T) {
 		t.Errorf("projectiles = %d, want 0", len(w.Projectiles))
 	}
 
-	found := false
+	foundReset := false
+	foundGateOpen := false
 	for _, evt := range w.GameFlowEvents {
 		if evt.FlowType == message.FlowBossReset {
-			found = true
+			foundReset = true
+		}
+		if evt.FlowType == message.FlowGateOpen && evt.Text == "boss_gate" {
+			foundGateOpen = true
 		}
 	}
-	if !found {
+	if !foundReset {
 		t.Error("expected FlowBossReset event")
+	}
+	if !foundGateOpen {
+		t.Error("expected FlowGateOpen event for boss_gate")
 	}
 }
 
-func TestCheckBossGate_PushesPlayersNearGate(t *testing.T) {
-	lvl := testArenaLevel(t)
+func TestCheckBossState_PushesPlayersNearGate(t *testing.T) {
 	boss := entity.NewEnemy(0, 2000, "guard_captain")
 	boss.IsBoss = true
 	boss.State = entity.EnemyChase
 	boss.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 
-	// Player right at the gate threshold
+	// Player right at the gate threshold (gate is at Z=12)
 	p := entity.NewPlayer(1, entity.ClassGunner)
-	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: lvl.BossRoomEntryZ - 1.0}
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 11.0}
 
 	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{boss})
 	w.State = StateFight
-	w.BossGateActive = false
 
 	sys := &GameFlowSystem{}
 	sys.Tick(w, 0.05)
 
-	// Player near gate should be pushed into boss room
-	if p.Position.Z >= lvl.BossRoomEntryZ-2.0 {
+	// Player near gate should be pushed into boss room (Z = 12 + (-3) = 9)
+	if p.Position.Z >= 10.0 {
 		t.Errorf("player Z = %f, should have been pushed below gate threshold", p.Position.Z)
 	}
 }
 
-func TestCheckBossGate_RemovesThreatForOutsidePlayers(t *testing.T) {
+func TestCheckBossState_RemovesThreatForOutsidePlayers(t *testing.T) {
 	boss := entity.NewEnemy(0, 2000, "guard_captain")
 	boss.IsBoss = true
 	boss.State = entity.EnemyChase
@@ -780,13 +794,12 @@ func TestCheckBossGate_RemovesThreatForOutsidePlayers(t *testing.T) {
 	p1 := entity.NewPlayer(1, entity.ClassGunner)
 	p1.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5}
 
-	// Player 2 outside boss room (Z > BossRoomEntryZ=12)
+	// Player 2 outside boss room (Z > gate at 12)
 	p2 := entity.NewPlayer(2, entity.ClassVanguard)
 	p2.Position = entity.Vec3{X: 0, Y: 0.1, Z: 20}
 
 	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p1, 2: p2}, []*entity.Enemy{boss})
 	w.State = StateFight
-	w.BossGateActive = false
 
 	sys := &GameFlowSystem{}
 	sys.Tick(w, 0.05)
@@ -801,7 +814,7 @@ func TestCheckBossGate_RemovesThreatForOutsidePlayers(t *testing.T) {
 	}
 }
 
-func TestCheckBossGate_DeadBossSkipped(t *testing.T) {
+func TestCheckBossState_DeadBossSkipped(t *testing.T) {
 	boss := entity.NewEnemy(0, 2000, "guard_captain")
 	boss.IsBoss = true
 	boss.Alive = false
@@ -814,7 +827,7 @@ func TestCheckBossGate_DeadBossSkipped(t *testing.T) {
 	sys.Tick(w, 0.05)
 
 	// Dead boss should not trigger gate logic (boss dead -> checkFightEnd handles it)
-	if w.BossGateActive {
+	if w.IsGateClosed("boss_gate") {
 		t.Error("dead boss should not activate gate")
 	}
 }
@@ -950,11 +963,12 @@ func TestWipeAndRespawn_BossStaysPatrol(t *testing.T) {
 	players := map[uint16]*entity.Player{1: p}
 	w := makeArenaWorld(t, players, enemies)
 	w.State = StateFight
-	w.BossGateActive = true
+	w.GateStates["boss_gate"] = true
+	w.RebuildObstacles()
 
 	sys := &GameFlowSystem{}
 
-	// Tick 1: all dead → checkBossGate resets boss, checkFightEnd → StateFightOver
+	// Tick 1: all dead → checkBossState resets boss, checkFightEnd → StateFightOver
 	sys.Tick(w, 0.05)
 	if w.State != StateFightOver {
 		t.Fatalf("after wipe: state = %d, want StateFightOver", w.State)
