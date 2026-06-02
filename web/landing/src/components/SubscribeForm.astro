@@ -1,0 +1,157 @@
+---
+// Email signup. Vanilla HTML form, no client framework. The inline script
+// progressively enhances it: on submit, POST via fetch and swap the form for
+// a thank-you panel. Without JS, the form falls back to a regular form post
+// and the server returns a redirect (handled in /api/subscribe).
+---
+
+<section
+	id='subscribe'
+	class='mx-auto max-w-3xl px-6 py-20 sm:py-28'
+>
+	<div class='rounded-lg border border-border-muted bg-bg-raised p-8 sm:p-10'>
+		<p class='text-xs uppercase tracking-[0.2em] text-chrome-400 font-medium'>
+			Stay in the loop
+		</p>
+		<h2 class='mt-3 text-2xl sm:text-3xl font-semibold tracking-tight text-text-primary'>
+			Get the weekly devlog by email.
+		</h2>
+		<p class='mt-3 text-text-secondary'>
+			One short email (maybe) a week. New systems, new specs, new contents.
+		</p>
+
+		<form
+			id='subscribe-form'
+			action='/api/subscribe'
+			method='POST'
+			novalidate
+			class='mt-6 flex flex-col gap-3'
+		>
+			{/* Honeypot. Real users never fill this. Hidden from AT + tabbing. */}
+			<label
+				aria-hidden='true'
+				class='absolute -left-[9999px] top-auto h-px w-px overflow-hidden'
+			>
+				Company
+				<input
+					type='text'
+					name='company'
+					tabindex='-1'
+					autocomplete='off'
+				/>
+			</label>
+
+			<div class='flex flex-col sm:flex-row gap-3'>
+				<label
+					class='sr-only'
+					for='subscribe-email'
+					>Email</label
+				>
+				<input
+					id='subscribe-email'
+					type='email'
+					name='email'
+					required
+					autocomplete='email'
+					inputmode='email'
+					placeholder='you@example.com'
+					class='flex-1 px-4 py-2.5 rounded-md bg-bg-base border border-border-muted text-text-primary placeholder:text-text-muted focus:outline-none focus:border-chrome-400 transition-colors'
+				/>
+				<button
+					type='submit'
+					class='px-5 py-2.5 rounded-md bg-chrome-500 hover:bg-chrome-400 text-text-primary font-medium transition-colors disabled:opacity-50'
+				>
+					Subscribe
+				</button>
+			</div>
+
+			<label class='flex items-start gap-2 text-sm text-text-muted'>
+				<input
+					type='checkbox'
+					name='consent'
+					value='true'
+					required
+					class='mt-1 accent-chrome-500'
+				/>
+				<span>
+					I agree to receive devlog updates by email. See the
+					<a
+						href='/privacy'
+						class='underline hover:text-text-primary'
+						>privacy notice</a
+					>.
+				</span>
+			</label>
+
+			<p
+				id='subscribe-error'
+				role='alert'
+				class='hidden text-sm text-danger'
+			>
+			</p>
+		</form>
+
+		<div
+			id='subscribe-success'
+			hidden
+			class='mt-6 rounded-md border border-success/40 bg-success/10 p-4 text-sm text-text-primary'
+		>
+			<strong class='text-success'>Thanks!</strong> You&rsquo;re on the list. Check your inbox for
+			the next devlog.
+		</div>
+	</div>
+</section>
+
+<script is:inline>
+	;(function () {
+		const form = document.getElementById('subscribe-form')
+		const errEl = document.getElementById('subscribe-error')
+		const okEl = document.getElementById('subscribe-success')
+		if (!form || !errEl || !okEl) return
+
+		function setError(msg) {
+			errEl.textContent = msg
+			errEl.classList.remove('hidden')
+		}
+
+		function clearError() {
+			errEl.textContent = ''
+			errEl.classList.add('hidden')
+		}
+
+		form.addEventListener('submit', async function (ev) {
+			ev.preventDefault()
+			clearError()
+			const fd = new FormData(form)
+			const btn = form.querySelector('button[type=submit]')
+			if (btn) btn.disabled = true
+
+			try {
+				const res = await fetch('/api/subscribe', {
+					method: 'POST',
+					body: fd,
+					headers: { Accept: 'application/json' },
+				})
+				if (res.status === 202 || res.status === 200) {
+					form.hidden = true
+					okEl.hidden = false
+					return
+				}
+				if (res.status === 429) {
+					setError('Slow down, please try again in a few minutes.')
+				} else if (res.status === 400) {
+					const body = await res.json().catch(() => ({ error: 'Invalid input' }))
+					setError(body.error || 'Please check your email and consent.')
+				} else if (res.status === 503) {
+					setError('Signups are temporarily unavailable. Try again later.')
+				} else {
+					setError('Something went wrong. Please try again.')
+				}
+			} catch {
+				setError('Network error. Please try again.')
+			} finally {
+				if (btn) btn.disabled = false
+			}
+		})
+	})()
+</script>

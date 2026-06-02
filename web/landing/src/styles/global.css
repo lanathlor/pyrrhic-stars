@@ -1,0 +1,87 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Design tokens. Drives Tailwind utilities (e.g. text-chrome-400, bg-bg-base,
+   bg-class-gunner). Palette follows docs/design/ui-language.md:
+   dark grey-blue neutrals, 1px borders, restrained color.
+   ───────────────────────────────────────────────────────────────────────── */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Surfaces. Three levels only, as per the visual vocabulary doc. */
+  --color-bg-base: #0e1318;
+  --color-bg-raised: #171c22;
+  --color-bg-overlay: #21282f;
+
+  /* Borders. Muted grey-blue, 1px usage. */
+  --color-border-muted: #2a323a;
+  --color-border-active: #44525e;
+
+  /* Text. Sparse usage, prefer hierarchy via weight, not color. */
+  --color-text-primary: #e6ebef;
+  --color-text-secondary: #b0bcc7;
+  --color-text-muted: #6e7a85;
+
+  /* Chrome. The one allowed brand accent, used sparingly. */
+  --color-chrome-50: #e9eff5;
+  --color-chrome-100: #cfd9e3;
+  --color-chrome-200: #aac1d8;
+  --color-chrome-300: #8aa6c3;
+  --color-chrome-400: #6e90b5;
+  --color-chrome-500: #557a9d;
+  --color-chrome-600: #44627f;
+  --color-chrome-700: #344b62;
+
+  /* State colors. */
+  --color-danger: #c25151;
+  --color-success: #5fa86d;
+
+  /* Class accents. Muted, semantic, one per class. */
+  --color-class-gunner: #c97a3e;
+  --color-class-vanguard: #b54a4a;
+  --color-class-arcanotechnicien: #8a6db8;
+  --color-class-engineer: #4e95a8;
+  --color-class-blade-dancer: #4ea88c;
+  --color-class-tutelaire: #c9a948;
+}
+
+/* Body baseline. Kept here, not in Base.astro, so it cascades into MDX. */
+html {
+  background-color: var(--color-bg-base);
+  color: var(--color-text-secondary);
+}
+
+/* Subtle entrance for above-the-fold content. */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Hairline dividers per the UI language doc: borders are structural, never
+   doubled, 1px, muted grey-blue. */
+.hr-hairline {
+  border-top: 1px solid var(--color-border-muted);
+}
+
+/* Reduce motion accessibility. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

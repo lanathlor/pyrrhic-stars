@@ -70,6 +70,27 @@ services:
         depends_on:
             - gateway
 
+    landing:
+        image: node:22-alpine
+        working_dir: /app
+        command: sh -c "corepack enable && corepack prepare pnpm@10.11.0 --activate && pnpm install && pnpm run dev --host 0.0.0.0"
+        ports:
+            - '4321:4321'
+        volumes:
+            - ./web/landing:/app
+            - landing_node_modules:/app/node_modules
+        environment:
+            POSTGRES_DSN: postgres://codex:codex@postgres:5432/codex?sslmode=disable
+            PUBLIC_SITE_URL: http://localhost:4321
+            PUBLIC_REPO_URL: ${PUBLIC_REPO_URL:-https://gitlab.com/master-monkey/mmorpg}
+            PUBLIC_DISCORD_URL: ${PUBLIC_DISCORD_URL:-}
+            PUBLIC_DOWNLOAD_LINUX: ${PUBLIC_DOWNLOAD_LINUX:-}
+            PUBLIC_DOWNLOAD_WINDOWS: ${PUBLIC_DOWNLOAD_WINDOWS:-}
+            PUBLIC_STEAM_URL: ${PUBLIC_STEAM_URL:-}
+        depends_on:
+            postgres:
+                condition: service_healthy
+
     # grafana:
     #   image: grafana/grafana:latest
     #   ports:
@@ -133,3 +154,4 @@ volumes:
     clickhouse_data:
     grafana_data:
     combat_logs_node_modules:
+    landing_node_modules:

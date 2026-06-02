@@ -1,0 +1,99 @@
+---
+// Public roadmap. Wording paraphrased from docs/project/phases.md. Keep it
+// terse; this is a marketing site, not a project plan. Phase 0.5 (post-clip
+// validation) is internal-only and not surfaced here.
+
+interface Milestone {
+	label: string
+	title: string
+	status: 'now' | 'next' | 'later'
+	bullets: string[]
+}
+
+const milestones: Milestone[] = [
+	{
+		label: 'Phase 0',
+		title: 'Online alpha',
+		status: 'now',
+		bullets: [
+			'Server-authoritative online co-op',
+			'Four classes, five specs playable',
+			'Combat systems: damage, cooldowns, abilities',
+			'First dungeon playable (1 boss live)',
+		],
+	},
+	{
+		label: 'Phase 1',
+		title: 'Complete the first dungeon',
+		status: 'next',
+		bullets: ['More bosses, trash packs, full clear loop', 'Combat feel and boss telegraphs'],
+	},
+	{
+		label: 'Phase 2',
+		title: 'Items and Progression',
+		status: 'later',
+		bullets: ['Loot token', 'Trade tokens for items', 'Complexity modifiers'],
+	},
+	{
+		label: 'Phase 3',
+		title: 'Polish',
+		status: 'later',
+		bullets: ['Last two classes (Engineer, Tutelaire)', 'group finder', 'Next phases...'],
+	},
+]
+---
+
+<section
+	id='roadmap'
+	class='mx-auto max-w-6xl px-6 py-20 sm:py-28'
+>
+	<header class='mb-12'>
+		<p class='text-xs uppercase tracking-[0.2em] text-chrome-400 font-medium'>
+			Where this is going
+		</p>
+		<h2 class='mt-4 text-3xl sm:text-4xl font-semibold tracking-tight text-text-primary'>
+			Roadmap.
+		</h2>
+		<p class='mt-4 max-w-2xl text-text-secondary leading-relaxed'>
+			Built in phases. Each phase ends with something concrete: a clip, a playable build, a
+			Steam page. Before the next one starts.
+		</p>
+	</header>
+
+	<ol class='grid sm:grid-cols-2 lg:grid-cols-4 gap-4'>
+		{
+			milestones.map((m) => (
+				<li
+					class:list={[
+						'relative rounded-lg border p-6 transition-colors',
+						m.status === 'now'
+							? 'border-chrome-500/60 bg-bg-raised'
+							: 'border-border-muted bg-bg-raised',
+					]}
+				>
+					<div class='flex items-center gap-2 mb-3'>
+						<span
+							class:list={[
+								'text-[11px] font-mono uppercase tracking-[0.15em]',
+								m.status === 'now' ? 'text-chrome-300' : 'text-text-muted',
+							]}
+						>
+							{m.label}
+						</span>
+						{m.status === 'now' && (
+							<span class='text-[10px] px-1.5 py-0.5 rounded bg-chrome-500/15 text-chrome-300 border border-chrome-500/30 font-medium'>
+								Now
+							</span>
+						)}
+					</div>
+					<h3 class='text-lg font-semibold text-text-primary'>{m.title}</h3>
+					<ul class='mt-3 space-y-1.5 text-sm text-text-secondary leading-relaxed'>
+						{m.bullets.map((b) => (
+							<li>{b}</li>
+						))}
+					</ul>
+				</li>
+			))
+		}
+	</ol>
+</section>

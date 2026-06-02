@@ -1,0 +1,39 @@
+---
+import { getCollection } from "astro:content";
+import DevlogCard from "./DevlogCard.astro";
+
+const posts = (await getCollection("devlog", ({ data }) => !data.draft))
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
+  .slice(0, 3);
+---
+
+{
+  posts.length > 0 && (
+    <section id="devlog" class="mx-auto max-w-6xl px-6 py-20 sm:py-28">
+      <header class="mb-10 flex items-end justify-between gap-4">
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] text-chrome-400 font-medium">
+            Build in public
+          </p>
+          <h2 class="mt-4 text-3xl sm:text-4xl font-semibold tracking-tight text-text-primary">
+            From the devlog.
+          </h2>
+        </div>
+        <a
+          href="/devlog"
+          class="text-sm text-chrome-300 hover:text-chrome-200 transition-colors whitespace-nowrap"
+        >
+          View all &rarr;
+        </a>
+      </header>
+
+      <ul class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {posts.map((post) => (
+          <li>
+            <DevlogCard post={post} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}

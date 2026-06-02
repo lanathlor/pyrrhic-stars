@@ -1,0 +1,39 @@
+---
+import { Icon } from "astro-icon/components";
+import { NAV, SITE_TITLE } from "../consts";
+
+const pathname = Astro.url.pathname.replace(/\/$/, "") || "/";
+
+function isActive(href: string): boolean {
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(href + "/");
+}
+---
+
+<header class="sticky top-0 z-40 backdrop-blur-md bg-bg-base/70 border-b border-border-muted">
+  <div class="mx-auto max-w-6xl px-6 h-14 flex items-center justify-between">
+    <a href="/" class="flex items-center gap-2 text-text-primary font-semibold tracking-tight">
+      <Icon name="logo" width="22" height="22" aria-hidden="true" />
+      <span>{SITE_TITLE}</span>
+    </a>
+
+    <nav aria-label="Primary" class="flex items-center gap-1 text-sm">
+      {
+        NAV.map((item) => (
+          <a
+            href={item.href}
+            aria-current={isActive(item.href) ? "page" : undefined}
+            class:list={[
+              "px-3 py-1.5 rounded-md transition-colors",
+              isActive(item.href)
+                ? "text-text-primary bg-bg-raised"
+                : "text-text-muted hover:text-text-primary",
+            ]}
+          >
+            {item.label}
+          </a>
+        ))
+      }
+    </nav>
+  </div>
+</header>

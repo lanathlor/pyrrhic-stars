@@ -1,0 +1,79 @@
+---
+import Base from "../layouts/Base.astro";
+
+export const prerender = true;
+---
+
+<Base
+  title="Privacy"
+  description="What I collect when you subscribe to the Pyrrhic Stars devlog."
+>
+  <main class="mx-auto max-w-3xl px-6 py-16 sm:py-24">
+    <header class="mb-10">
+      <p class="text-xs uppercase tracking-[0.2em] text-chrome-400 font-medium">
+        Legal
+      </p>
+      <h1 class="mt-4 text-3xl sm:text-4xl font-semibold tracking-tight text-text-primary">
+        Privacy notice.
+      </h1>
+    </header>
+
+    <div class="prose prose-invert max-w-none text-text-secondary">
+      <p>
+        This page explains what I collect when you sign up for the Pyrrhic Stars
+        devlog newsletter. It is intentionally short.
+      </p>
+
+      <h2>What I collect</h2>
+      <ul>
+        <li>
+          <strong>Email address</strong>: provided by you when you submit
+          the subscribe form. Used solely to send the weekly devlog.
+        </li>
+        <li>
+          <strong>Subscription source</strong>: the page you signed up
+          from (e.g. <code>home</code>). Helps me understand which copy is
+          working.
+        </li>
+        <li>
+          <strong>Subscription timestamp</strong>: when you signed up.
+        </li>
+      </ul>
+
+      <h2>What I do not collect</h2>
+      <ul>
+        <li>
+          I do <strong>not</strong> store IP addresses in the database. Rate
+          limiting happens in memory only and is discarded between deployments.
+        </li>
+        <li>
+          I do <strong>not</strong> use third-party tracking, analytics, or
+          advertising cookies on this site.
+        </li>
+      </ul>
+
+      <h2>How to unsubscribe</h2>
+      <p>
+        Every devlog email contains an unsubscribe link. Click it and you are
+        removed from the list. I do not require a login to unsubscribe.
+      </p>
+
+      <h2>Where the data is stored</h2>
+      <p>
+        Email addresses are stored in a Postgres database hosted on the same
+        infrastructure that runs the game. I do not share the list with third
+        parties.
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        For privacy questions, open a thread in the
+        <a href="/#hero">Discord</a> or open an issue on the public repository.
+      </p>
+
+      <p class="text-text-muted text-sm">
+        Last updated: 2026-06-02.
+      </p>
+    </div>
+  </main>
+</Base>

@@ -1,0 +1,14 @@
+{
+  "name": "Pyrrhic Stars",
+  "short_name": "Pyrrhic",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "theme_color": "#0e1318",
+  "background_color": "#0e1318",
+  "display": "standalone"
+}

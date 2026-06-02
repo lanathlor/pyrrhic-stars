@@ -1,0 +1,61 @@
+---
+import { CLASSES, type ClassAccent } from "../lib/classes.ts";
+
+// Tailwind needs to *see* class strings literally to compile them. Mapping
+// the accent enum to fully-qualified utility strings keeps the JIT happy.
+const accentRing: Record<ClassAccent, string> = {
+  gunner: "before:bg-class-gunner",
+  vanguard: "before:bg-class-vanguard",
+  arcanotechnicien: "before:bg-class-arcanotechnicien",
+  engineer: "before:bg-class-engineer",
+  "blade-dancer": "before:bg-class-blade-dancer",
+  tutelaire: "before:bg-class-tutelaire",
+};
+
+const accentText: Record<ClassAccent, string> = {
+  gunner: "text-class-gunner",
+  vanguard: "text-class-vanguard",
+  arcanotechnicien: "text-class-arcanotechnicien",
+  engineer: "text-class-engineer",
+  "blade-dancer": "text-class-blade-dancer",
+  tutelaire: "text-class-tutelaire",
+};
+---
+
+<section id="classes" class="mx-auto max-w-6xl px-6 py-20 sm:py-28">
+  <header class="mb-12">
+    <p class="text-xs uppercase tracking-[0.2em] text-chrome-400 font-medium">
+      The roster
+    </p>
+    <h2 class="mt-4 text-3xl sm:text-4xl font-semibold tracking-tight text-text-primary">
+      Six classes. One dungeon.
+    </h2>
+  </header>
+
+  <ul class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {
+      CLASSES.map((c) => (
+        <li
+          class:list={[
+            "relative rounded-lg border border-border-muted bg-bg-raised p-6 hover:bg-bg-overlay transition-colors",
+            "before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:rounded-l-lg",
+            accentRing[c.accent],
+          ]}
+        >
+          <p
+            class:list={[
+              "text-xs uppercase tracking-[0.18em] font-medium",
+              accentText[c.accent],
+            ]}
+          >
+            {c.genre}
+          </p>
+          <h3 class="mt-2 text-xl font-semibold text-text-primary">{c.name}</h3>
+          <p class="mt-3 text-sm text-text-secondary leading-relaxed">
+            {c.identity}
+          </p>
+        </li>
+      ))
+    }
+  </ul>
+</section>

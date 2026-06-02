@@ -1,0 +1,29 @@
+---
+import { SITE_TITLE } from "../consts";
+
+const year = new Date().getFullYear();
+const discord = import.meta.env.PUBLIC_DISCORD_URL;
+---
+
+<footer class="mt-24 border-t border-border-muted">
+  <div class="mx-auto max-w-6xl px-6 py-10 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between text-sm text-text-muted">
+    <p>&copy; {year} {SITE_TITLE}. Built in public.</p>
+    <div class="flex items-center gap-4">
+      <a href="/devlog" class="hover:text-text-primary transition-colors">Devlog</a>
+      <a href="/rss.xml" class="hover:text-text-primary transition-colors">RSS</a>
+      <a href="/privacy" class="hover:text-text-primary transition-colors">Privacy</a>
+      {
+        discord && (
+          <a
+            href={discord}
+            target="_blank"
+            rel="noopener"
+            class="hover:text-text-primary transition-colors"
+          >
+            Discord
+          </a>
+        )
+      }
+    </div>
+  </div>
+</footer>

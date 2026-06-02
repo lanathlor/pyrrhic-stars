@@ -1,94 +1,145 @@
 # Development Phases
 
-## Phase 0: Proof of Concept (2 weekends)
+The public roadmap on the landing page
+(`web/landing/src/components/Roadmap.astro`) is the source of truth for the
+order and shape of phases. This document expands on each phase with internal
+detail: tech stack, deliverable checklists, week estimates, and what is
+explicitly out of scope.
 
-**Goal**: answer "does multi-gameplay-mode co-op feel good?"
+Phase 0.5 (post-clip validation) is internal only. The public roadmap does
+not surface it. The clip and the Discord server are the gate for moving on;
+until they exist, we have not validated Phase 0.
 
-Deliverables:
+## Phase 0: Online alpha
 
-- Godot project with 3 player controllers:
-  - Gunner: FPS camera, WASD movement, one gun (raycast), crosshair HUD
-  - Vanguard: third-person camera, WASD + dodge roll, one melee swing (hitbox), stamina bar
-  - Blade Dancer: third-person target-lock, 4 abilities, 2 blade configurations, state display
-- One arena (CSG geometry: flat floor, cover boxes, pillars)
-- One enemy: walks toward nearest player, melee swing (telegraphed, 1s wind-up), ranged projectile at farthest player (0.5s laser warning). Two attack patterns on a loop
-- Local multiplayer via Godot ENet (two instances on localhost)
-- No server. No persistence. No progression. Hardcoded stats
+**Goal**: five players in a hub, pick a class, group up, walk into a dungeon,
+fight one real boss, leave. Server-authoritative, online co-op, four classes
+playable.
 
-Success criteria: two players controlling different class types fighting the same enemy feels fun and fair.
+**Public deliverables** (paraphrased from the landing page):
 
-Output: 60-second gameplay recording.
+- Server-authoritative online co-op
+- Four classes, five specs playable
+- Combat systems: damage, cooldowns, abilities
+- First dungeon playable (one boss live)
 
-## Phase 0.5: Validation (1 week)
+**Internal detail** (not surfaced on the landing page):
 
-Post the 60-second clip:
-
-- r/godot, r/indiegaming, r/gamedev
-- Twitter/X (create project account)
-- YouTube Shorts / TikTok
-
-Open a Discord server. If nobody cares: project was fun, move on. If people are interested: continue.
-
-## Phase 1: Playable with Friends (6-8 weeks, 10-15h/week)
-
-Deliverables:
-
-- Go game server: tick loop, WebSocket transport, player connections, combat resolution
-- Redis integration: player positions, combat state, Flux reserves
-- PostgreSQL integration: character creation and persistence
-- 3 playable classes: Gunner (Assault spec), Vanguard (Blade spec), Blade Dancer (Multi Blade spec)
+- Go game server: gateway and zone services, WebSocket transport, 20Hz tick
+  loop, combat resolution
+- Redis: player positions, combat state, Flux reserves
+- PostgreSQL: character creation and persistence
 - Flux system implemented server-side (reserve, afflux, recovery, instability)
 - Resistance system (RMEC, RRAD, RINT)
-- One hub area (small military base, modular kit assembly)
-- One dungeon: derelict city, 2 bosses, trash packs
+- Hub area: small military base, modular kit assembly
+- One dungeon: derelict city, one boss
+- Client: client-predicted, server-authoritative; reconcile on mismatch
 - Basic HUD per class
-- Playable over internet with friends
 - Basic sound design (free sounds from freesound.org)
+- Playable over the internet with friends
 
-NOT included: progression, loot, specs, Flux commitment UI, Mythic+.
+**Estimated scope**: 6-8 weeks at 10-15h/week.
 
-## Phase 2: Monetizable Alpha (6-8 weeks)
+**Not in Phase 0**: progression, loot, specs beyond the first five, Mythic+,
+Engineer and Tutelaire classes, Steam or itch.io distribution.
 
-Deliverables:
+**Phase 0 checklist**:
 
-- Add Arcanotechnicien class (Destroyer spec) with Flux commitment UI
-- Character progression via affinity growth
-- Loot system (drops from bosses and trash)
-- 2 additional dungeons (different themes/kits)
-- Basic Mythic+ timer mode (keystone levels, simple affixes)
+- [ ] Server: gateway and zone services running
+- [ ] Server: hub zone and arena zone, zone transfer
+- [ ] Server: combat system (damage, cooldowns, abilities)
+- [ ] Server: Flux and Resistance systems
+- [ ] Server: persistence (character, position on zone transfer)
+- [ ] Client: four class controllers (Gunner, Vanguard, Blade Dancer, Arcanotechnicien)
+- [ ] Client: five specs total across the four classes
+- [ ] Client: HUD per class
+- [ ] Content: one boss, fully authored (telegraphs, mechanics, phases)
+- [ ] Networking: client prediction and server reconciliation working
+- [ ] Playable with friends over the internet
+- [ ] Playtest with at least five players simultaneously
+
+## Phase 0.5: Validation (internal only)
+
+**Goal**: prove there is an audience before committing to Phase 1.
+
+**Gate criteria** (must happen before Phase 1 starts):
+
+- 60-second clip: five players, different gameplay modes visible
+  simultaneously in one continuous shot
+- Post clip: r/godot, r/indiegaming, r/gamedev, Twitter/X, YouTube Shorts,
+  TikTok
+- Open a Discord server
+
+**Outcomes**:
+
+- If nobody cares: project was fun, move on.
+- If people are interested: continue to Phase 1.
+
+## Phase 1: Complete the first dungeon
+
+**Goal**: the first dungeon is a real content experience, not a single-room
+demo. The boss fight feels like a fight, not a placeholder.
+
+**Public deliverables** (paraphrased from the landing page):
+
+- More bosses, trash packs, full clear loop
+- Combat feel and boss telegraphs
+
+**Internal detail**:
+
+- Two to three bosses total in the first dungeon (the Phase 0 boss plus new
+  ones)
+- Trash pack authoring: per-pack telegraphs, density tuning
+- Full clear loop: start, trash, boss, trash, boss, loot, reset
+- Combat feel pass: hit reactions, screen feedback, audio
+- Boss telegraphs refined: color, sound, time-to-react
+- Modular kit assembly for boss arenas (reusable pieces across bosses)
+
+**Not in Phase 1**: loot beyond cosmetic, Mythic+ modifiers, group finder,
+last two classes.
+
+## Phase 2: Items and Progression
+
+**Goal**: a reason to run the dungeon more than once.
+
+**Public deliverables** (paraphrased from the landing page):
+
+- Loot token
+- Trade tokens for items
+- Complexity modifiers
+
+**Internal detail**:
+
+- Mythic+ timer mode (keystone levels, simple affixes) is the "complexity
+  modifiers" pillar
+- Companion web app (React/TypeScript): leaderboards, character armory, key
+  history
 - Account system via Discord OAuth
-- Companion web app (React/TypeScript): leaderboards, character armory, key history
-- Distribution via itch.io (10-15 EUR early access)
-- Steam page with trailer (wishlists!)
+- Distribution: itch.io early access (10-15 EUR), Steam page with trailer
+- Wishlist goal: 10,000 before launch (10-20% historical conversion rate)
 
-## Phase 3: Growth (ongoing)
+**Not in Phase 2**: Engineer and Tutelaire, group finder, outdoor zones,
+cosmetic shop.
 
-- Engineer and Tutelaire classes
-- More dungeons
-- Specs within existing classes
+## Phase 3: Polish
+
+**Goal**: ship-ready for the genre the public cares about.
+
+**Public deliverables** (paraphrased from the landing page):
+
+- Last two classes: Engineer, Tutelaire
+- Group finder
+- "Next phases..." (placeholder for the long-tail roadmap)
+
+**Internal detail**:
+
+- Specs within existing classes (for example, a Gunner can be Assault,
+  Marksman, or Chasseur; mirror the structure in `docs/design/classes/`)
+- Two additional dungeons (different themes and kits)
 - First outdoor zone
 - Cosmetic shop
 - Community-driven content feedback loop
 
-## Phase 0 Checklist
-
-This is the ONLY thing that matters right now.
-
-- [ ] Install Godot 4
-- [ ] Create project with the directory structure above (client/ only)
-- [ ] Build Gunner FPS controller (camera, WASD, one raycast gun)
-- [ ] Build Vanguard melee controller (third-person camera, WASD, dodge, one swing)
-- [ ] Build Blade Dancer controller (target-lock camera, 4 abilities, 2 configurations)
-- [ ] Build one arena (CSG boxes: floor, walls, pillars, cover)
-- [ ] Build one enemy (move toward nearest, melee swing with telegraph, ranged projectile with laser warning)
-- [ ] Set up Godot ENet local multiplayer (2 instances)
-- [ ] Playtest with a friend
-- [ ] Record 60-second clip
-- [ ] Post clip online
-- [ ] Open Discord
-
-Do NOT start the Go server before this is done.
-Do NOT design more classes before this is done.
-Do NOT think about monetization before this is done.
-
-Two weekends. Then decide if you continue.
+**After Phase 3**: the long-term vision (space, PvP, open world, crafting)
+lives in `docs/content/long-term.md`. It is not part of the public roadmap
+yet.

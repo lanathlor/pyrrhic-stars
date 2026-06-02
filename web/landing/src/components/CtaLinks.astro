@@ -1,0 +1,74 @@
+---
+import { Icon } from "astro-icon/components";
+
+const discord = import.meta.env.PUBLIC_DISCORD_URL;
+const dlLinux = import.meta.env.PUBLIC_DOWNLOAD_LINUX;
+const dlWindows = import.meta.env.PUBLIC_DOWNLOAD_WINDOWS;
+const steam = import.meta.env.PUBLIC_STEAM_URL;
+
+// Buttons gracefully degrade when their env var is missing: the anchor
+// becomes a non-clickable element with reduced opacity and pointer-events:none.
+---
+
+<div class="flex flex-wrap gap-3">
+  {/* Discord primary */}
+  <a
+    href={discord || "#"}
+    aria-disabled={!discord}
+    target={discord ? "_blank" : undefined}
+    rel={discord ? "noopener" : undefined}
+    class:list={[
+      "inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-medium transition-colors border",
+      discord
+        ? "bg-chrome-500 text-text-primary border-chrome-500 hover:bg-chrome-400 hover:border-chrome-400"
+        : "bg-bg-raised text-text-muted border-border-muted cursor-not-allowed pointer-events-none",
+    ]}
+  >
+    <Icon name="simple-icons:discord" width="16" height="16" aria-hidden="true" />
+    Join Discord
+  </a>
+
+  {/* Linux download */}
+  <a
+    href={dlLinux || "#"}
+    aria-disabled={!dlLinux}
+    class:list={[
+      "inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-medium transition-colors border",
+      dlLinux
+        ? "bg-bg-raised text-text-primary border-border-active hover:border-chrome-400"
+        : "bg-bg-raised text-text-muted border-border-muted cursor-not-allowed pointer-events-none",
+    ]}
+  >
+    <Icon name="lucide:download" width="16" height="16" aria-hidden="true" />
+    {dlLinux ? "Download (Linux)" : "Linux: Soon"}
+  </a>
+
+  {/* Windows download */}
+  <a
+    href={dlWindows || "#"}
+    aria-disabled={!dlWindows}
+    class:list={[
+      "inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-medium transition-colors border",
+      dlWindows
+        ? "bg-bg-raised text-text-primary border-border-active hover:border-chrome-400"
+        : "bg-bg-raised text-text-muted border-border-muted cursor-not-allowed pointer-events-none",
+    ]}
+  >
+    <Icon name="lucide:download" width="16" height="16" aria-hidden="true" />
+    {dlWindows ? "Download (Windows)" : "Windows: Soon"}
+  </a>
+
+  {/* Steam wishlist. Hidden entirely when unset (Phase 0). */}
+  {
+    steam && (
+      <a
+        href={steam}
+        target="_blank"
+        rel="noopener"
+        class="inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-medium border bg-bg-raised text-text-primary border-border-active hover:border-chrome-400 transition-colors"
+      >
+        Wishlist on Steam
+      </a>
+    )
+  }
+</div>

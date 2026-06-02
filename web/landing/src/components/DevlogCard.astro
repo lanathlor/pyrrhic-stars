@@ -1,0 +1,35 @@
+---
+import { Icon } from "astro-icon/components";
+import type { CollectionEntry } from "astro:content";
+import FormattedDate from "./FormattedDate.astro";
+
+interface Props {
+  post: CollectionEntry<"devlog">;
+}
+
+const { post } = Astro.props;
+const { title, description, pubDate } = post.data;
+const href = `/devlog/${post.id}`;
+---
+
+<article class="group rounded-lg border border-border-muted bg-bg-raised hover:bg-bg-overlay transition-colors">
+  <a href={href} class="block p-6 h-full">
+    <time class="text-xs text-text-muted" datetime={pubDate.toISOString()}>
+      <FormattedDate date={pubDate} />
+    </time>
+    <h3 class="mt-2 text-lg font-semibold text-text-primary group-hover:text-chrome-200 transition-colors">
+      {title}
+    </h3>
+    <p class="mt-3 text-sm text-text-secondary leading-relaxed line-clamp-3">
+      {description}
+    </p>
+    <span class="mt-4 inline-flex items-center gap-1 text-xs text-chrome-300">
+      Read
+      <Icon
+        name="lucide:arrow-right"
+        class="h-3 w-3 transition-transform group-hover:translate-x-0.5"
+        aria-hidden="true"
+      />
+    </span>
+  </a>
+</article>
