@@ -8,20 +8,28 @@ import (
 	"codex-online/server/internal/zone"
 )
 
+// zonePeerKey is a composite key for the zone peer index.
+type zonePeerKey struct {
+	ZoneID string
+	PeerID uint16
+}
+
 // Registry manages active player sessions with thread-safe access.
 type Registry struct {
-	sessions map[uint32]*Session
-	connMap  map[*network.Client]uint32
-	nextID   uint32
-	mu       sync.Mutex
+	sessions  map[uint32]*Session
+	connMap   map[*network.Client]uint32
+	zonePeers map[zonePeerKey]uint32 // (zoneID, peerID) -> global session ID
+	nextID    uint32
+	mu        sync.Mutex
 }
 
 // NewRegistry creates an empty session registry.
 func NewRegistry() *Registry {
 	return &Registry{
-		sessions: make(map[uint32]*Session),
-		connMap:  make(map[*network.Client]uint32),
-		nextID:   1,
+		sessions:  make(map[uint32]*Session),
+		connMap:   make(map[*network.Client]uint32),
+		zonePeers: make(map[zonePeerKey]uint32),
+		nextID:    1,
 	}
 }
 
@@ -70,7 +78,27 @@ func (r *Registry) Remove(client *network.Client) *Session {
 	sess := r.sessions[id]
 	delete(r.connMap, client)
 	delete(r.sessions, id)
+	if sess.ZoneID != "" {
+		delete(r.zonePeers, zonePeerKey{sess.ZoneID, sess.PeerID})
+	}
 	return sess
+}
+
+// IndexZonePeer updates the reverse lookup index for fast ResolveZonePeer.
+// Call this after writing sess.ZoneID/PeerID to keep the index in sync.
+func (r *Registry) IndexZonePeer(sessID uint32, zoneID string, peerID uint16) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	// Remove any old entry for this session by scanning (rare, only on zone transfer)
+	for k, v := range r.zonePeers {
+		if v == sessID {
+			delete(r.zonePeers, k)
+			break
+		}
+	}
+	if zoneID != "" {
+		r.zonePeers[zonePeerKey{zoneID, peerID}] = sessID
+	}
 }
 
 // ResolveZonePeer finds the global player ID for a zone peer ID.
@@ -78,12 +106,7 @@ func (r *Registry) Remove(client *network.Client) *Session {
 func (r *Registry) ResolveZonePeer(zoneID string, peerID uint16) uint32 {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	for _, sess := range r.sessions {
-		if sess.ZoneID == zoneID && sess.PeerID == peerID {
-			return sess.ID
-		}
-	}
-	return 0
+	return r.zonePeers[zonePeerKey{zoneID, peerID}]
 }
 
 // HubFlushTargets returns a snapshot of all sessions currently in the hub
@@ -93,13 +116,16 @@ func (r *Registry) HubFlushTargets() []HubFlushTarget {
 	defer r.mu.Unlock()
 	var targets []HubFlushTarget
 	for _, sess := range r.sessions {
-		if sess.UserUUID != "" && sess.ZoneID == zone.ZoneHub && sess.CharID != 0 {
+		sess.Mu.RLock()
+		match := sess.UserUUID != "" && sess.ZoneID == zone.ZoneHub && sess.CharID != 0
+		if match {
 			targets = append(targets, HubFlushTarget{
 				UserUUID: sess.UserUUID,
 				CharID:   sess.CharID,
 				PeerID:   sess.PeerID,
 			})
 		}
+		sess.Mu.RUnlock()
 	}
 	return targets
 }

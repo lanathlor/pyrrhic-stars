@@ -1412,6 +1412,49 @@ func BenchmarkMultiInstance50Parallel_WithHealer(b *testing.B) {
 	}
 }
 
+// benchArenaInstanceUDP creates an arena instance where all clients have
+// no-op SendUDP functions, matching the production UDP path.
+func benchArenaInstanceUDP(b testing.TB, instanceID uint16) *World {
+	w := benchArenaInstance(b, instanceID)
+	for peerID, c := range w.Clients {
+		c.SendUDP = func([]byte) {}
+		c.HasUDP = func() bool { return true }
+		w.Clients[peerID] = c
+	}
+	return w
+}
+
+// BenchmarkMultiInstance100_UDP is BenchmarkMultiInstance100 with all clients
+// on UDP transport. Target: 0 allocs/op (no buffer copies needed).
+func BenchmarkMultiInstance100_UDP(b *testing.B) {
+	instances := make([]*World, 100)
+	allInputs := make([][]InputMsg, 100)
+	for i := range instances {
+		instances[i] = benchArenaInstanceUDP(b, uint16(i))
+		allInputs[i] = buildInputs(uint16(i))
+	}
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		for j := range instances {
+			instances[j].InputQueue = allInputs[j]
+			tickInstance(instances[j], allInputs[j])
+		}
+	}
+}
+
+// BenchmarkBroadcastOnly_UDP measures broadcast with UDP clients.
+// Target: 0 allocs/op.
+func BenchmarkBroadcastOnly_UDP(b *testing.B) {
+	w := benchArenaInstanceUDP(b, 0)
+	b.ReportAllocs()
+
+	for b.Loop() {
+		(&NetworkSystem{}).Tick(w, 0.05)
+	}
+}
+
 // BenchmarkFullTickWithPatterns measures the complete tick pipeline with active patterns.
 // Represents a realistic boss fight: 5 players, 9 enemies, boss firing patterns,
 // 100+ projectiles in flight.

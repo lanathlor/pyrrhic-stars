@@ -619,6 +619,175 @@ func TestSegmentHitsExpandedObstacle(t *testing.T) {
 	}
 }
 
+func TestSegmentHitsExpandedObstacle_tMaxZSlabBug(t *testing.T) {
+	// A tall, narrow obstacle: wide in X (HX=5), narrow in Z (HZ=0.5).
+	// BaseY=0, Height=3 => occupies Y [0, 3].
+	// Expanded by radius 0.5: X [-5.5, 5.5], Z [4.5, 6.5]
+	//
+	// Segment: starts above the obstacle (Y=4) and descends to Y=0
+	//   a = (0, 4, 0),  b = (0, 0, 6)
+	//
+	// X slab: dx=0, origin X=0 is inside [-5.5, 5.5] => tMin=0, tMax=1
+	// Z slab: dz=6, Z goes from 0 to 6. Slab [4.5, 6.5].
+	//   tMin_z = (4.5 - 0) / 6 = 0.75
+	//   tMax_z = (6.5 - 0) / 6 = 1.083 => clamped to 1.0
+	//   So refined tMax should be 1.0 (from Z), tMin = 0.75
+	//
+	// Height check with CORRECT tMax (1.0):
+	//   yAtEntry = 4 + (0-4)*0.75 = 4 - 3 = 1.0  => inside [0, 3]
+	//   yAtExit  = 4 + (0-4)*1.0  = 0.0           => inside [0, 3]
+	//   => HIT (correct, segment enters obstacle from above)
+	//
+	// Height check with STALE tMax (1.0 from X slab):
+	//   Same result here. Let me construct a better case.
+	//
+	// Better case: obstacle at height Y [5, 8], segment goes Y=4 down to Y=0
+	// With correct tMax=1.0: yAtExit = 0 => below [5,8] => MISS
+	// With stale tMax=1.0: same here.
+	//
+	// The real issue: the Z slab can NARROW tMax below the X slab's tMax.
+	// When that happens, yAtExit is computed at the wrong t.
+	//
+	// Obstacle: X [-5.5, 5.5], Z [9.5, 11.5], Y [0, 2]
+	// Segment: a = (0, 3, 8), b = (0, 0, 12)
+	//   dz=4, Z goes from 8 to 12
+	//   X slab: dx=0, origin inside => tMin=0, tMax=1
+	//   Z slab: (9.5-8)/4 = 0.375 = tMin_z, (11.5-8)/4 = 0.875 = tMax_z
+	//   Correct tMax = 0.875
+	//
+	// Height check with CORRECT tMax=0.875:
+	//   yAtEntry = 3 + (0-3)*0.375 = 3 - 1.125 = 1.875 => inside [0, 2] => hit
+	//   yAtExit  = 3 + (0-3)*0.875 = 3 - 2.625 = 0.375 => inside [0, 2] => hit
+	//   => HIT (correct)
+	//
+	// Height check with STALE tMax=1.0 (from X slab):
+	//   yAtExit  = 3 + (0-3)*1.0  = 0.0 => inside [0, 2] => hit
+	//   Same result again. The stale value is LARGER so yAtExit is LOWER.
+	//
+	// The false positive case: stale tMax makes yAtExit appear inside when it's
+	// actually outside. That happens when the correct tMax is SMALLER (exits
+	// the Z slab earlier) and the Y at that point is ABOVE the obstacle.
+	//
+	// Obstacle: X [-5.5,5.5], Z [4.5,6.5], Y [0, 1]  (short, 1m tall)
+	// Segment: a = (0, 2, 0), b = (0, 2, 10)  (horizontal, Y=2 constant)
+	//   Y=2 is ABOVE obstacle top Y=1 => should MISS
+	//   X slab: dx=0, inside => tMin=0, tMax=1
+	//   Z slab: dz=10, (4.5-0)/10=0.45, (6.5-0)/10=0.65 => tMin=0.45, tMax=0.65
+	//   Correct: yAtEntry = 2, yAtExit = 2 => both > 1 (obsTop) => MISS
+	//   Stale:   yAtEntry = 2, yAtExit = 2 => both > 1 => MISS
+	//   (No bug here because Y is constant)
+	//
+	// For the bug to matter: Y must CHANGE between entry and exit, and the
+	// stale tMax must place yAtExit inside the obstacle when the correct one
+	// places it outside.
+	//
+	// Obstacle: X [-5.5,5.5], Z [4.5,6.5], Y [0, 2]
+	// Segment: a = (0, 3, 0), b = (0, 0, 10)  (descends from Y=3 to Y=0)
+	//   X slab: dx=0, inside => tMin=0, tMax=1
+	//   Z slab: dz=10, (4.5)/10=0.45=tMin_z, (6.5)/10=0.65=tMax_z
+	//   Correct tMax=0.65:
+	//     yAtEntry = 3 + (-3)*0.45 = 1.65 => inside [0,2]
+	//     yAtExit  = 3 + (-3)*0.65 = 1.05 => inside [0,2] => HIT
+	//   Stale tMax=1.0:
+	//     yAtExit  = 3 + (-3)*1.0  = 0.0  => inside [0,2] => HIT (same result)
+	//
+	// OK, the stale tMax always produces a WIDER window, making yAtExit more
+	// extreme. For false positives, we need yAtExit to cross INTO the
+	// obstacle with stale tMax but stay OUTSIDE with correct tMax. That means
+	// the segment must be going UP (dy > 0), and the obstacle is above.
+	//
+	// Obstacle: X [-5.5,5.5], Z [4.5,6.5], Y [3, 6]  (floating, 3m above ground)
+	// Segment: a = (0, 0, 0), b = (0, 5, 10)  (ascends from Y=0 to Y=5)
+	//   dy=5, dz=10
+	//   X slab: dx=0, inside => tMin=0, tMax=1
+	//   Z slab: (4.5)/10=0.45, (6.5)/10=0.65
+	//   Correct tMax=0.65:
+	//     yAtEntry = 0 + 5*0.45 = 2.25 => below 3 (BaseY)
+	//     yAtExit  = 0 + 5*0.65 = 3.25 => inside [3,6]
+	//     Not both below BaseY => HIT (correct - segment clips corner)
+	//   Stale tMax=1.0:
+	//     yAtEntry = 2.25 => below 3
+	//     yAtExit  = 0 + 5*1.0 = 5.0 => inside [3,6] => HIT (same)
+	//
+	// Hmm. Let me try a case where segment RISES ABOVE the obstacle:
+	//
+	// Obstacle: X [-5.5,5.5], Z [4.5,6.5], Y [0, 2]
+	// Segment: a = (0, 0, 0), b = (0, 10, 10)  (rises from Y=0 to Y=10)
+	//   dy=10, dz=10
+	//   X slab: dx=0, inside => tMin=0, tMax=1
+	//   Z slab: 0.45, 0.65
+	//   Correct tMax=0.65:
+	//     yAtEntry = 10*0.45 = 4.5 => above obsTop=2
+	//     yAtExit  = 10*0.65 = 6.5 => above obsTop=2
+	//     Both above => MISS (correct! segment flies over)
+	//   Stale tMax=1.0:
+	//     yAtEntry = 4.5 => above
+	//     yAtExit  = 10.0 => above
+	//     Both above => MISS (same)
+	//
+	// The stale tMax always makes the window wider, pushing yAtExit further.
+	// This means the Y range seen is WIDER with stale tMax. For a false
+	// positive, we'd need the wider range to include the obstacle when the
+	// narrower range doesn't.
+	//
+	// Case: segment descends through the obstacle, but exits Z slab early
+	// enough that it hasn't descended into the obstacle yet.
+	//
+	// Obstacle: X [-5.5,5.5], Z [4.5,6.5], Y [0, 1]  (1m tall)
+	// Segment: a = (0, 3, 0), b = (0, -3, 10)  (descends from Y=3 to Y=-3)
+	//   dy=-6, dz=10
+	//   X slab: dx=0, inside => tMin=0, tMax=1
+	//   Z slab: 0.45, 0.65
+	//   Correct tMax=0.65:
+	//     yAtEntry = 3 + (-6)*0.45 = 3 - 2.7 = 0.3 => inside [0,1]
+	//     yAtExit  = 3 + (-6)*0.65 = 3 - 3.9 = -0.9 => below 0
+	//     Not both below BaseY=0 (entry is inside) => HIT
+	//   We need both above or both below for a MISS.
+	//
+	// Let me try: segment descends but enters Z slab at a high Y, exits at
+	// a Y still above the obstacle. But stale tMax extends far enough to
+	// bring yAtExit into the obstacle.
+	//
+	// Obstacle: X [-5.5,5.5], Z [1.5,3.5], Y [0, 1]  (1m tall, at ground)
+	// Segment: a = (0, 5, 0), b = (0, 0, 10)  (descends Y=5 to Y=0)
+	//   dy=-5, dz=10
+	//   X slab: inside => tMin=0, tMax=1
+	//   Z slab: (1.5)/10=0.15, (3.5)/10=0.35
+	//   Correct tMax=0.35:
+	//     yAtEntry = 5 + (-5)*0.15 = 4.25 => above 1
+	//     yAtExit  = 5 + (-5)*0.35 = 3.25 => above 1
+	//     Both above obsTop=1 => MISS (correct!)
+	//   Stale tMax=1.0:
+	//     yAtEntry = 4.25 => above 1
+	//     yAtExit  = 5 + (-5)*1.0 = 0.0 => inside [0,1]
+	//     Not both above => FALSE POSITIVE HIT
+	//
+	// THIS IS THE BUG! Let me write this test.
+	obs := Obstacle{CX: 0, CZ: 2.5, HX: 5.0, HZ: 1.0, BaseY: 0, Height: 1}
+	// Expanded by 0.5: X [-5.5,5.5], Z [1.0,4.0]
+	// Segment descends from Y=5 to Y=0 over Z [0,10]
+	a := entity.Vec3{X: 0, Y: 5, Z: 0}
+	b := entity.Vec3{X: 0, Y: 0, Z: 10}
+	// At Z slab exit (t=0.4 for Z=4.0), Y = 5+(-5)*0.4 = 3.0 => above obstacle (top=1)
+	// At Z slab entry (t=0.1 for Z=1.0), Y = 5+(-5)*0.1 = 4.5 => above obstacle
+	// Both above => should MISS (segment flies over the 1m obstacle)
+	got := SegmentHitsExpandedObstacle(a, b, []Obstacle{obs}, 0.5)
+	if got {
+		t.Error("SegmentHitsExpandedObstacle false positive: segment passes above 1m obstacle but tMax bug reports hit")
+	}
+}
+
+func TestNearestObstacleOnSegment_tMaxZSlabBug(t *testing.T) {
+	// Same geometry: segment descends but passes above short obstacle
+	obs := Obstacle{CX: 0, CZ: 2.5, HX: 5.0, HZ: 1.0, BaseY: 0, Height: 1}
+	a := entity.Vec3{X: 0, Y: 5, Z: 0}
+	b := entity.Vec3{X: 0, Y: 0, Z: 10}
+	_, found := NearestObstacleOnSegment(a, b, []Obstacle{obs}, 0.5)
+	if found {
+		t.Error("NearestObstacleOnSegment false positive: segment passes above 1m obstacle but tMax bug reports hit")
+	}
+}
+
 func TestNearestObstacleOnSegment(t *testing.T) {
 	obs1 := Obstacle{CX: 5, CZ: 5, HX: 1.0, HZ: 1.0}
 	obs2 := Obstacle{CX: 5, CZ: 15, HX: 1.0, HZ: 1.0}

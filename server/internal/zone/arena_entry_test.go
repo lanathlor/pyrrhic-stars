@@ -66,7 +66,7 @@ func TestArenaInstance_FightStartsOnPlayerJoin(t *testing.T) {
 	z := New("test_arena", testArenaLevel(t))
 
 	send, msgs := captureSend()
-	c := &Client{PeerID: 1, Username: testPlayerName, Send: send}
+	c := &Client{PeerID: 1, Username: testPlayerName, Send: send, SendUDP: send}
 	z.AddClient(c)
 
 	// Run a tick — should transition from Spawned to Fight
@@ -86,7 +86,7 @@ func TestArenaInstance_TeleportRejected(t *testing.T) {
 	z := New("test_arena_zero", testArenaLevel(t))
 
 	send, _ := captureSend()
-	c := &Client{PeerID: 1, Username: testPlayerName, Send: send}
+	c := &Client{PeerID: 1, Username: testPlayerName, Send: send, SendUDP: send}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -117,7 +117,7 @@ func TestArenaInstance_ConcurrentTickSafe(t *testing.T) {
 	z := New("test_arena_concurrent", testArenaLevel(t))
 
 	send, _ := captureSend()
-	c := &Client{PeerID: 1, Username: testPlayerName, Send: send}
+	c := &Client{PeerID: 1, Username: testPlayerName, Send: send, SendUDP: send}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -129,9 +129,14 @@ func TestArenaInstance_ConcurrentTickSafe(t *testing.T) {
 	cancel()
 	time.Sleep(50 * time.Millisecond)
 
-	// Should be in fight state (ticked at least once with a player)
-	if z.world.State != StateFight {
-		t.Errorf("State = %d after 200ms, want StateFight", z.world.State)
+	// Should be in fight state (ticked at least once with a player).
+	// Read under lock to avoid racing with the final tick.
+	z.mu.Lock()
+	state := z.world.State
+	pos := z.world.Players[1].Position
+	z.mu.Unlock()
+	if state != StateFight {
+		t.Errorf("State = %d after 200ms, want StateFight", state)
 	}
-	t.Logf("Final state: %d, Player pos: %+v", z.world.State, z.world.Players[1].Position)
+	t.Logf("Final state: %d, Player pos: %+v", state, pos)
 }

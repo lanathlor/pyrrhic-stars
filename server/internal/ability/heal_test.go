@@ -329,3 +329,44 @@ func TestResolveHeal(t *testing.T) {
 		})
 	}
 }
+
+func TestHitAllyRandom_UsesRNG(t *testing.T) {
+	// The old code used caster.ID % len(injured), which meant two casters
+	// with IDs that are equal mod N always pick the same target.
+	// With caster ID=3 and 3 injured allies, 3%3=0 always picks index 0.
+	// With caster ID=6, 6%3=0 also always picks index 0.
+	// Both should sometimes differ if using actual randomness.
+	//
+	// Since resolveHealTarget builds its injured slice from a map (random
+	// iteration order), the modulus bug is partially masked. But the
+	// fundamental contract is wrong: selection depends on caster.ID, not RNG.
+	// After the fix, the function should accept an RNG and use it.
+	def := &AbilityDef{Hit: HitDef{Type: HitAllyRandom}}
+
+	a1 := entity.NewPlayer(1, entity.ClassGunner)
+	a1.Health = 50
+	a1.MaxHealth = 100
+	a2 := entity.NewPlayer(2, entity.ClassGunner)
+	a2.Health = 50
+	a2.MaxHealth = 100
+
+	// Only 2 injured allies: caster (ID=4) is at full HP, so not in injured list.
+	caster := entity.NewPlayer(4, entity.ClassArcanotechnicien)
+	caster.Health = 100
+	caster.MaxHealth = 100
+	allies := map[uint16]*entity.Player{1: a1, 2: a2, 4: caster}
+
+	// With old code: 4 % 2 = 0 => always picks index 0 (same ally every time)
+	// After fix: should vary with RNG across calls
+	seen := map[uint16]bool{}
+	for range 100 {
+		target := resolveHealTarget(def, caster, allies, 0)
+		if target != nil {
+			seen[target.ID] = true
+		}
+	}
+	// With 2 injured allies and 100 calls, both should appear if random
+	if len(seen) < 2 {
+		t.Errorf("HitAllyRandom always picks the same target (saw %v); should vary", seen)
+	}
+}

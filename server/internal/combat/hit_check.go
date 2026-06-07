@@ -213,7 +213,7 @@ func SegmentHitsExpandedObstacle(a, b entity.Vec3, obstacles []Obstacle, radius 
 		if tMin, tMax, hit = slabIntersect2D(a.X, dx, minX, maxX, tMin, tMax); !hit {
 			continue
 		}
-		if tMin, _, hit = slabIntersect2D(a.Z, dz, minZ, maxZ, tMin, tMax); !hit {
+		if tMin, tMax, hit = slabIntersect2D(a.Z, dz, minZ, maxZ, tMin, tMax); !hit {
 			continue
 		}
 
@@ -262,7 +262,7 @@ func NearestObstacleOnSegment(a, b entity.Vec3, obstacles []Obstacle, radius flo
 		if tMin, tMax, hit = slabIntersect2D(a.X, dx, minX, maxX, tMin, tMax); !hit {
 			continue
 		}
-		if tMin, _, hit = slabIntersect2D(a.Z, dz, minZ, maxZ, tMin, tMax); !hit {
+		if tMin, tMax, hit = slabIntersect2D(a.Z, dz, minZ, maxZ, tMin, tMax); !hit {
 			continue
 		}
 

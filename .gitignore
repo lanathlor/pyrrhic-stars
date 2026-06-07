@@ -38,3 +38,6 @@ web/*/dist/
 .idea/
 *.swp
 *.swo
+
+# Reports
+reports/

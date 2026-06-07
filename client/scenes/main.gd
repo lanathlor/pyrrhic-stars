@@ -45,7 +45,6 @@ const CLASS_SCENES := {
 const CLASS_INFO := SpecData.CLASS_INFO
 const SPEC_INFO := SpecData.SPEC_INFO
 const DEFAULT_SPECS := SpecData.DEFAULT_SPECS
-const SERVER_ADDRESS := "90.29.26.144"
 const USERNAME_SAVE_PATH := "user://username.txt"
 const UI_SURFACE := Color(0.035, 0.045, 0.065, 0.88)
 const UI_SURFACE_ALT := Color(0.05, 0.06, 0.085, 0.92)
@@ -57,6 +56,7 @@ const UI_TEXT_MUTED := Color(0.6, 0.66, 0.75, 0.95)
 const UI_TEXT_DIM := Color(0.48, 0.53, 0.6, 0.95)
 const UI_DANGER := Color(0.86, 0.28, 0.28, 0.96)
 
+var server_address: String = _resolve_server_address()
 var state: GameState = GameState.MENU
 var paused: bool = false
 var dev_mode: bool = false
@@ -139,6 +139,11 @@ var _portal_trail: Node3D:
 @onready var _death_overlay_layer: CanvasLayer = $DeathOverlay
 @onready var _inventory_layer: CanvasLayer = $InventoryUI
 @onready var _spec_panel: CanvasLayer = $SpecPanel
+
+
+static func _resolve_server_address() -> String:
+	var env := OS.get_environment("SERVER_ADDRESS")
+	return env if env != "" else "90.29.26.144"
 
 
 func _ready() -> void:

@@ -4,6 +4,7 @@ import (
 	"math/rand/v2"
 
 	"codex-online/server/internal/ability"
+	"codex-online/server/internal/codec"
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/combatlog"
 	"codex-online/server/internal/enemyai"
@@ -36,7 +37,9 @@ const (
 type Client struct {
 	PeerID   uint16
 	Username string
-	Send     func([]byte)
+	Send     func([]byte) // WS send (reliable, channel-based)
+	SendUDP  func([]byte) // UDP send (unreliable, direct write, no-op if not associated)
+	HasUDP   func() bool  // returns true if UDP is associated; nil = no UDP
 }
 
 // InputMsg is a queued input from a client.
@@ -83,6 +86,10 @@ type World struct {
 
 	// AI brains (parallel to Enemies)
 	Brains []enemyai.BrainTicker
+
+	// Boss is a cached pointer to the boss enemy (IsBoss=true), or nil.
+	// Set during enemy spawning to avoid repeated linear scans.
+	Boss *entity.Enemy
 
 	// Level geometry
 	Level     *level.Level
@@ -136,6 +143,11 @@ type World struct {
 	// buffer is passed directly to Send, matching real socket behavior.
 	TestMode bool
 
+	// ClientSnapshot is a race-free copy of Clients taken at the start of
+	// each tick under the zone lock. Broadcast functions iterate this instead
+	// of the Clients map to avoid racing with AddClient/RemoveClient.
+	ClientSnapshot []*Client
+
 	// Reusable player slices for the AI system. Built once per tick from
 	// Players map to avoid per-brain map iteration allocations.
 	playerSlice     []*entity.Player
@@ -143,6 +155,9 @@ type World struct {
 
 	// Reusable buffer for enemy→Target interface conversion.
 	enemyTargetBuf []entity.Target
+
+	// Reusable buffer for lobby state broadcast.
+	lobbyInfoBuf []codec.LobbyPlayerInfo
 
 	// Reusable ability tick context (avoids per-player allocation in CombatSystem).
 	abilTickCtx ability.TickContext
@@ -161,10 +176,19 @@ type World struct {
 	spawnEnemyIdx   int
 	spawnFn         func(pos, dir entity.Vec3, speed, damage, lifetime float32)
 	commitPatternFn func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3)
+
+	// Cached dead group IDs, computed lazily once per tick.
+	cachedDeadGroups     map[int]bool
+	cachedDeadGroupsTick uint32
 }
 
 // DeadGroupIDs returns a set of enemy GroupIDs where all members are dead.
+// The result is cached per tick to avoid 3 map allocations on each of the
+// 4 call sites per tick.
 func (w *World) DeadGroupIDs() map[int]bool {
+	if w.cachedDeadGroupsTick == w.TickNum && w.cachedDeadGroups != nil {
+		return w.cachedDeadGroups
+	}
 	groups := make(map[int]int)
 	dead := make(map[int]int)
 	for _, e := range w.Enemies {
@@ -181,6 +205,8 @@ func (w *World) DeadGroupIDs() map[int]bool {
 			result[gid] = true
 		}
 	}
+	w.cachedDeadGroups = result
+	w.cachedDeadGroupsTick = w.TickNum
 	return result
 }
 

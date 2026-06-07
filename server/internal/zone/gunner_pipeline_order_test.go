@@ -351,6 +351,7 @@ func TestWorldState_MagazineReflectsShotOnSameTick(t *testing.T) {
 
 	send, msgs := captureSend()
 	z.world.Clients[peerID].Send = send
+	z.world.Clients[peerID].SendUDP = send
 
 	// Initialize assault state
 	z.processTick()
@@ -395,6 +396,7 @@ func TestWorldState_MagazineLagSimulation(t *testing.T) {
 
 	send, msgs := captureSend()
 	z.world.Clients[peerID].Send = send
+	z.world.Clients[peerID].SendUDP = send
 
 	// Initialize
 	z.processTick()
@@ -458,6 +460,7 @@ func TestWorldState_SustainedFire_MagazineMonotonic(t *testing.T) {
 
 	send, msgs := captureSend()
 	z.world.Clients[peerID].Send = send
+	z.world.Clients[peerID].SendUDP = send
 
 	// Initialize
 	z.processTick()

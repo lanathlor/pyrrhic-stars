@@ -107,6 +107,8 @@ const (
 	OpSelectCharacter     uint16 = 0xFF09 // client → server: pick character to play
 	OpCreateCharacter     uint16 = 0xFF0A // client → server: create new character
 	OpCharacterError      uint16 = 0xFF0B // server → client: character operation error
+	OpUDPAssociate        uint16 = 0xFF10 // server → client (WS): [token:16][port:2 BE]
+	OpUDPAssociateAck     uint16 = 0xFF11 // client → server (UDP): [token:16]
 )
 
 // HeaderSize is the fixed-size message header: 2 bytes opcode + 2 bytes sender ID.

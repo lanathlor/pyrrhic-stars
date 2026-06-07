@@ -81,6 +81,8 @@ type Engine struct {
 	// tickBuf is a reusable scratch buffer for TickPlayer DoT events.
 	// Valid only until the next TickPlayer call.
 	tickBuf []DamageResult
+	// splashBuf is a reusable scratch buffer for splash AoE target filtering.
+	splashBuf []entity.Target
 }
 
 // NewEngine creates an engine and registers all abilities and handlers.
@@ -186,7 +188,7 @@ func (eng *Engine) doCommit(abilityID string, def *AbilityDef, ctx *CommitContex
 
 	// Splash damage: AoE around primary hit target (excluding primary)
 	if def.SplashRadius > 0 && def.SplashDamageFraction > 0 && len(eng.hitBuf) > 0 {
-		eng.hitBuf = applySplashDamage(eng.hitBuf, def, caster, ctx)
+		eng.hitBuf = eng.applySplashDamage(eng.hitBuf, def, caster, ctx)
 	}
 
 	// BD Flow: track transition and apply damage bonus
@@ -375,17 +377,17 @@ func bdResonanceFactor(p *entity.Player, def *AbilityDef) float32 {
 }
 
 // applySplashDamage adds AoE splash hits around the primary target and returns the extended buf.
-func applySplashDamage(hitBuf []DamageResult, def *AbilityDef, caster entity.Committer, ctx *CommitContext) []DamageResult {
+func (eng *Engine) applySplashDamage(hitBuf []DamageResult, def *AbilityDef, caster entity.Committer, ctx *CommitContext) []DamageResult {
 	primaryID := hitBuf[0].TargetID
 	splashDmg := def.BaseDamage * caster.CommitterDamageMult() * def.SplashDamageFraction
-	splashTargets := make([]entity.Target, 0, len(ctx.Targets))
+	eng.splashBuf = eng.splashBuf[:0]
 	for _, t := range ctx.Targets {
 		if t != nil && t.TargetID() != primaryID {
-			splashTargets = append(splashTargets, t)
+			eng.splashBuf = append(eng.splashBuf, t)
 		}
 	}
 	return resolveAoECircle(hitBuf, hitBuf[0].Target.TargetPos(),
-		caster.CommitterID(), splashTargets, ctx.Obstacles,
+		caster.CommitterID(), eng.splashBuf, ctx.Obstacles,
 		def.SplashRadius, splashDmg, ctx.SourceType)
 }
 

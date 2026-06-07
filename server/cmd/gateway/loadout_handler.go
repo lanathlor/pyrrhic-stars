@@ -74,9 +74,9 @@ func (g *gateway) handleSetFluxCommitment(sess *session.Session, payload []byte)
 		return
 	}
 	// Validate: percentages must sum to 100.
-	var total uint8
+	var total int
 	for _, e := range entries {
-		total += e.Percentage
+		total += int(e.Percentage)
 	}
 	if total != 100 {
 		slog.Warn("invalid flux commitment: total != 100", "char_id", sess.CharID, "total", total)

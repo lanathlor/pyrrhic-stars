@@ -1,6 +1,8 @@
 package ability
 
 import (
+	"math/rand/v2"
+
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
 )
@@ -123,7 +125,7 @@ func resolveHealTarget(def *AbilityDef, caster *entity.Player, allies map[uint16
 			}
 		}
 		if len(injured) > 0 {
-			return injured[int(caster.ID)%len(injured)]
+			return injured[rand.IntN(len(injured))]
 		}
 		return caster
 

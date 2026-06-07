@@ -74,7 +74,8 @@ func setupFightZone(t *testing.T) (*Zone, uint16) {
 	z.world.Clients[peerID] = &Client{
 		PeerID:   peerID,
 		Username: testPlayerName,
-		Send:     func([]byte) {}, // no-op
+		Send:     func([]byte) {},
+		SendUDP:  func([]byte) {},
 	}
 
 	return z, peerID
@@ -92,9 +93,11 @@ func TestPlayerDamageEventsSurviveTick(t *testing.T) {
 
 	// Record all messages sent to the client
 	var sentMessages [][]byte
-	z.world.Clients[peerID].Send = func(msg []byte) {
+	captureFn := func(msg []byte) {
 		sentMessages = append(sentMessages, msg)
 	}
+	z.world.Clients[peerID].Send = captureFn
+	z.world.Clients[peerID].SendUDP = captureFn
 
 	// Queue a shoot input
 	aimPitch := z.world.Players[peerID].AimPitch
@@ -158,9 +161,11 @@ func TestEnemyDamageEventsStillWork(t *testing.T) {
 	z.world.Enemies[0].StateTimer = 0.001 // about to finish
 
 	var sentMessages [][]byte
-	z.world.Clients[peerID].Send = func(msg []byte) {
+	captureFn2 := func(msg []byte) {
 		sentMessages = append(sentMessages, msg)
 	}
+	z.world.Clients[peerID].Send = captureFn2
+	z.world.Clients[peerID].SendUDP = captureFn2
 
 	// Run tick — enemy should hit the player during tickFight
 	z.processTick()
@@ -216,7 +221,7 @@ func setupMultiPlayerFightZone(t *testing.T, n int) (*Zone, []uint16) {
 		p.Position = entity.Vec3{X: float32(i) * 2, Y: 0.1, Z: 10}
 		p.Alive = true
 		z.world.Players[pid] = p
-		z.world.Clients[pid] = &Client{PeerID: pid, Username: fmt.Sprintf("P%d", pid), Send: func([]byte) {}}
+		z.world.Clients[pid] = &Client{PeerID: pid, Username: fmt.Sprintf("P%d", pid), Send: func([]byte) {}, SendUDP: func([]byte) {}}
 		ids = append(ids, pid)
 	}
 	return z, ids
@@ -273,6 +278,7 @@ func TestCheckFightEnd_BossDead(t *testing.T) {
 
 	send, msgs := captureSend()
 	z.world.Clients[peerID].Send = send
+	z.world.Clients[peerID].SendUDP = send
 
 	// Kill the boss directly
 	boss := findBoss(z)
@@ -308,6 +314,7 @@ func TestCheckFightEnd_AllPlayersDead(t *testing.T) {
 	send, msgs := captureSend()
 	for _, pid := range ids {
 		z.world.Clients[pid].Send = send
+		z.world.Clients[pid].SendUDP = send
 	}
 
 	// Kill all players
@@ -362,6 +369,7 @@ func TestTickFightOver_AllRespawnedAfterWipe(t *testing.T) {
 	send, msgs := captureSend()
 	for _, pid := range ids {
 		z.world.Clients[pid].Send = send
+		z.world.Clients[pid].SendUDP = send
 	}
 
 	// All players alive (they have respawned)
@@ -498,10 +506,10 @@ func TestHandleRespawnRequest(t *testing.T) {
 
 			var callbackPeerID uint16
 			var callbackCalled bool
-			z.OnPlayerRespawnHub = func(pid uint16) {
+			z.SetOnPlayerRespawnHub(func(pid uint16) {
 				callbackCalled = true
 				callbackPeerID = pid
-			}
+			})
 
 			// Queue respawn request
 			z.mu.Lock()
@@ -578,9 +586,9 @@ func TestInteractExitPortal(t *testing.T) {
 			z.world.BossDefeated = tc.bossDefeated
 
 			var callbackCalled bool
-			z.OnPlayerRespawnHub = func(_ uint16) {
+			z.SetOnPlayerRespawnHub(func(_ uint16) {
 				callbackCalled = true
-			}
+			})
 
 			// Queue InteractExitPortal
 			z.mu.Lock()
@@ -614,7 +622,7 @@ func TestLobbyToSpawnedToFight(t *testing.T) {
 	z.world.Players[peerID] = p
 
 	send, msgs := captureSend()
-	z.world.Clients[peerID] = &Client{PeerID: peerID, Username: "TestPlayer", Send: send}
+	z.world.Clients[peerID] = &Client{PeerID: peerID, Username: "TestPlayer", Send: send, SendUDP: send}
 
 	// Step 1: lobby — player not ready, should stay in lobby
 	z.processTick()
@@ -662,6 +670,7 @@ func TestBroadcastState_FightOver(t *testing.T) {
 
 	send, msgs := captureSend()
 	z.world.Clients[peerID].Send = send
+	z.world.Clients[peerID].SendUDP = send
 
 	z.processTick()
 
@@ -759,6 +768,7 @@ func TestGunnerShotBroadcastsAttackState(t *testing.T) {
 
 	send, msgs := captureSend()
 	z.world.Clients[peerID].Send = send
+	z.world.Clients[peerID].SendUDP = send
 
 	// Verify initial state is Move (0)
 	z.processTick()
@@ -810,6 +820,7 @@ func TestGunnerAttackStateResetsAfterCooldown(t *testing.T) {
 
 	send, msgs := captureSend()
 	z.world.Clients[peerID].Send = send
+	z.world.Clients[peerID].SendUDP = send
 
 	// Fire a shot
 	aimPitch := z.world.Players[peerID].AimPitch
@@ -858,6 +869,7 @@ func TestRemotePlayerReceivesGunnerAttackState(t *testing.T) {
 	// Capture observer's messages
 	send, msgs := captureSend()
 	z.world.Clients[observerID].Send = send
+	z.world.Clients[observerID].SendUDP = send
 
 	// Shooter fires
 	z.mu.Lock()
@@ -898,7 +910,7 @@ func TestHubZoneTick(t *testing.T) {
 	z.world.Players[peerID] = p
 
 	send, msgs := captureSend()
-	z.world.Clients[peerID] = &Client{PeerID: peerID, Username: "HubPlayer", Send: send}
+	z.world.Clients[peerID] = &Client{PeerID: peerID, Username: "HubPlayer", Send: send, SendUDP: send}
 
 	// Should not panic
 	z.processTick()
@@ -930,7 +942,7 @@ func TestArenaInstance_FightAfterPlayerJoin(t *testing.T) {
 	z := New("test_arena", testArenaLevel(t))
 
 	send, msgs := captureSend()
-	c := &Client{PeerID: 1, Username: "TestPlayer", Send: send}
+	c := &Client{PeerID: 1, Username: "TestPlayer", Send: send, SendUDP: send}
 	z.AddClient(c)
 
 	// First tick transitions Spawned → Fight (player is present)
@@ -947,7 +959,7 @@ func TestArenaInstance_FightAfterPlayerJoin(t *testing.T) {
 func TestArenaInstance_SecondPlayerGetsCatchUp(t *testing.T) {
 	z := New("test_arena", testArenaLevel(t))
 
-	c1 := &Client{PeerID: 1, Username: "Player1", Send: func([]byte) {}}
+	c1 := &Client{PeerID: 1, Username: "Player1", Send: func([]byte) {}, SendUDP: func([]byte) {}}
 	z.AddClient(c1)
 
 	// Tick to enter fight

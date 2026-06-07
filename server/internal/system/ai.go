@@ -38,6 +38,12 @@ func (s *AISystem) Tick(w *World, dt float32) {
 		if e == nil || !e.Alive || i >= len(w.Brains) {
 			continue
 		}
+		// Skip patrol enemies with no threat and no nearby players.
+		// Avoids the full BT tick (60+ node traversals) for idle mobs.
+		// propagateGroupAggro wakes them when a group member enters combat.
+		if e.State == entity.EnemyPatrol && len(e.ThreatTable) == 0 && !anyPlayerNearby(e.Position, allPlayers, 10) {
+			continue
+		}
 		w.spawnEnemyIdx = i
 		visiblePlayers := allPlayers
 		if gateZ, ok := w.ClosedGateZ(); ok {
@@ -136,6 +142,18 @@ func resolveEnemyAbilityName(e *entity.Enemy) string {
 		return ""
 	}
 	return abil.Name
+}
+
+// anyPlayerNearby returns true if any alive player is within radius of pos.
+// Used as a cheap pre-check to skip full BT ticks for idle patrol enemies.
+func anyPlayerNearby(pos entity.Vec3, players []*entity.Player, radius float32) bool {
+	rSq := radius * radius
+	for _, p := range players {
+		if p.Alive && p.Position.DistanceToSq(pos) <= rSq {
+			return true
+		}
+	}
+	return false
 }
 
 // propagateGroupAggro ensures that if any mob in a group has left patrol

@@ -107,13 +107,12 @@ func _build_catalog_entry(entry: Dictionary) -> void:
 	_catalog_buf.put_float(commit_time)
 	_catalog_buf.put_u8(1 if implemented else 0)
 	_put_str8_to_buf(affinity)
-	# 9 x f32: exact stats
+	# 8 x f32: exact stats
 	_catalog_buf.put_float(stats.get("flux_amount", 0.0))
 	_catalog_buf.put_float(stats.get("base_heal", 0.0))
 	_catalog_buf.put_float(stats.get("base_damage", 0.0))
 	_catalog_buf.put_float(stats.get("ability_range", 0.0))
 	_catalog_buf.put_float(stats.get("gcd", 0.0))
-	_catalog_buf.put_float(stats.get("commit_time2", 0.0))
 	_catalog_buf.put_float(stats.get("zone_radius", 0.0))
 	_catalog_buf.put_float(stats.get("zone_duration", 0.0))
 	_catalog_buf.put_float(stats.get("zone_heal_tick", 0.0))
