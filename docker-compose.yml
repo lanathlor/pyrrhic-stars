@@ -6,6 +6,7 @@ services:
         command: ['-c', '.air.gateway.toml']
         ports:
             - '7777:7777'
+            - '7778:7778/udp'
         volumes:
             - ./server:/app
             - ./shared:/shared

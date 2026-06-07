@@ -7,16 +7,14 @@ import (
 	"codex-online/server/internal/item"
 )
 
-var encodeByte = make([]byte, 0, 65536)
-
 // EncodeWorldState serializes the tick snapshot (players, enemies, projectiles, npcs).
 func EncodeWorldState(tick uint32, players map[uint16]*entity.Player, enemies []*entity.Enemy, projectiles []*entity.Projectile, npcs ...[]*entity.NPC) []byte {
 	var npcList []*entity.NPC
 	if len(npcs) > 0 {
 		npcList = npcs[0]
 	}
-	encodeByte = encodeByte[:0]
-	return AppendEncodeWorldState(encodeByte, tick, players, enemies, projectiles, npcList)
+	buf := make([]byte, 0, 4096)
+	return AppendEncodeWorldState(buf, tick, players, enemies, projectiles, npcList)
 }
 
 // AppendEncodeWorldState serializes the tick snapshot into buf, growing it if necessary.
@@ -626,8 +624,7 @@ func EncodePresetList(presets []PresetInfo) []byte {
 //	ability_type:str8, delivery:str8, flux_cost:str8, description:str16,
 //	cooldown:f32, commit_time:f32, implemented:u8, affinity:str8,
 //	flux_amount:f32, base_heal:f32, base_damage:f32, range:f32, gcd:f32,
-//	zone_radius:f32, zone_duration:f32, zone_heal_tick:f32,
-//	sustain:u8]
+//	zone_radius:f32, zone_duration:f32, zone_heal_tick:f32, sustain:u8]
 func EncodeAbilityCatalog(entries []AbilityCatalogEntry) []byte {
 	buf := make([]byte, 0, 256*len(entries)+1)
 	buf = append(buf, byte(len(entries)))
@@ -648,13 +645,12 @@ func EncodeAbilityCatalog(entries []AbilityCatalogEntry) []byte {
 		}
 		buf = appendStr8(buf, e.Affinity)
 
-		// Exact stats (9 x f32).
+		// Exact stats (8 x f32).
 		buf = appendF32(buf, e.FluxAmount)
 		buf = appendF32(buf, e.BaseHeal)
 		buf = appendF32(buf, e.BaseDamage)
 		buf = appendF32(buf, e.Range)
 		buf = appendF32(buf, e.GCD)
-		buf = appendF32(buf, e.CommitTime)
 		buf = appendF32(buf, e.ZoneRadius)
 		buf = appendF32(buf, e.ZoneDuration)
 		buf = appendF32(buf, e.ZoneHealTick)

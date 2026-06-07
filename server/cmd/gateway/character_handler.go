@@ -27,53 +27,53 @@ func (g *gateway) handleCharacterMessage(sess *session.Session, opcode uint16, p
 			return
 		}
 
-		sess.CharID = char.ID
-		sess.Class = char.ClassName
-		sess.Spec = char.SpecID
-		sess.CharName = char.Name
-		sess.Conn.Send(message.Encode(message.OpCharacterState, 0, codec.EncodeCharacterState(charToCodec(char))))
-
+		applyCharacterSession(sess, char)
 		g.joinHubAfterCharSelect(sess)
 
 	case message.OpCreateCharacter:
-		if len(payload) < 2 {
-			return
-		}
-
-		classLen := int(payload[0])
-		if len(payload) < 1+classLen+1 {
-			return
-		}
-		className := string(payload[1 : 1+classLen])
-
-		nameLen := int(payload[1+classLen])
-		if len(payload) < 1+classLen+1+nameLen {
-			return
-		}
-		charName := string(payload[1+classLen+1 : 1+classLen+1+nameLen])
-
-		char, err := g.characters.Create(sess.UserUUID, className, charName)
-		if err != nil {
-			code, msg := characterErrorResponse(err)
-			sess.Conn.Send(message.Encode(message.OpCharacterError, 0, codec.EncodeCharacterError(code, msg)))
-			return
-		}
-
-		// Spawn starter gear for the new character.
-		if err := g.inventory.SpawnStarterGear(char.ID); err != nil {
-			slog.Error("spawn starter gear", "char_id", char.ID, "error", err)
-		}
-
-		sess.CharID = char.ID
-		sess.Class = char.ClassName
-		sess.CharName = char.Name
-		sess.Conn.Send(message.Encode(message.OpCharacterState, 0, codec.EncodeCharacterState(charToCodec(char))))
-
-		g.joinHubAfterCharSelect(sess)
+		g.handleCreateCharacter(sess, payload)
 
 	default:
 		slog.Warn("unknown character opcode", "opcode", opcode)
 	}
+}
+
+func (g *gateway) handleCreateCharacter(sess *session.Session, payload []byte) {
+	if len(payload) < 2 {
+		return
+	}
+	classLen := int(payload[0])
+	if len(payload) < 1+classLen+1 {
+		return
+	}
+	className := string(payload[1 : 1+classLen])
+	nameLen := int(payload[1+classLen])
+	if len(payload) < 1+classLen+1+nameLen {
+		return
+	}
+	charName := string(payload[1+classLen+1 : 1+classLen+1+nameLen])
+
+	char, err := g.characters.Create(sess.UserUUID, className, charName)
+	if err != nil {
+		code, msg := characterErrorResponse(err)
+		sess.Conn.Send(message.Encode(message.OpCharacterError, 0, codec.EncodeCharacterError(code, msg)))
+		return
+	}
+	if err := g.inventory.SpawnStarterGear(char.ID); err != nil {
+		slog.Error("spawn starter gear", "char_id", char.ID, "error", err)
+	}
+	applyCharacterSession(sess, char)
+	g.joinHubAfterCharSelect(sess)
+}
+
+func applyCharacterSession(sess *session.Session, char *persistence.Character) {
+	sess.Mu.Lock()
+	sess.CharID = char.ID
+	sess.Class = char.ClassName
+	sess.Spec = char.SpecID
+	sess.CharName = char.Name
+	sess.Mu.Unlock()
+	sess.Conn.Send(message.Encode(message.OpCharacterState, 0, codec.EncodeCharacterState(charToCodec(char))))
 }
 
 // characterErrorResponse maps service errors to wire error codes and messages.

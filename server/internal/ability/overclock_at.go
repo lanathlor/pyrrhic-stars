@@ -26,6 +26,11 @@ func overclockATHandler(_ *Engine, ctx *CommitContext) CommitResult {
 		if pool == nil || pool.Current < overclockATDef.Costs[0].Amount*p.AffinityCostMult(overclockATDef.School) {
 			return CommitResult{Reason: "insufficient " + overclockATDef.School + " flux"}
 		}
+	} else {
+		flux := p.Resources[entity.ResourceFlux]
+		if flux == nil || flux.Current < overclockATDef.Costs[0].Amount {
+			return CommitResult{Reason: ReasonInsufficientFlux}
+		}
 	}
 
 	// Find target ally, fall back to self if invalid.

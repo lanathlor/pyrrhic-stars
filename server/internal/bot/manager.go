@@ -107,13 +107,21 @@ func (m *Manager) DismissBot(botID uint16, w *system.World) {
 
 // DismissAllForOwner removes all bots owned by a player.
 func (m *Manager) DismissAllForOwner(ownerID uint16, w *system.World) {
+	m.DismissAllForOwnerNoRescale(ownerID, w)
+	m.triggerRescale(w)
+}
+
+// DismissAllForOwnerNoRescale removes all bots owned by ownerID without
+// triggering rescale. Used by Zone.RemoveClient which holds z.mu and
+// rescales directly to avoid a reentrant lock.
+func (m *Manager) DismissAllForOwnerNoRescale(ownerID uint16, w *system.World) []uint16 {
 	ids := m.byOwner[ownerID]
 	for _, id := range ids {
 		delete(w.Players, id)
 		delete(m.bots, id)
 	}
 	delete(m.byOwner, ownerID)
-	m.triggerRescale(w)
+	return ids
 }
 
 // BotCount returns the number of bots owned by a player.

@@ -47,6 +47,9 @@ func NewBrainSeeded(def *EnemyDef, enemy *entity.Enemy, engine *ability.Engine, 
 		Runner: &AbilityRunner{},
 	}
 	tree := buildTree(def, ctx)
+	// Strip debug name wrappers for production: saves one interface dispatch
+	// per node per tick. SetTree re-adds them if instrumentation is needed.
+	tree.Root = bt.StripNames(tree.Root)
 	return &Brain{
 		def:    def,
 		enemy:  enemy,

@@ -1,11 +1,19 @@
 package session
 
-import "codex-online/server/internal/network"
+import (
+	"sync"
+
+	"codex-online/server/internal/network"
+)
 
 // Session represents a connected player across zone transfers.
+// Fields are written by the owning connection goroutine and read by others
+// (e.g., ResolveZonePeer, HubFlushTargets). Use Mu to synchronize access
+// to mutable fields (ZoneID, PeerID, Class, Spec, CharID, CharName).
 type Session struct {
-	ID       uint32 // permanent global ID (assigned once at connect)
-	UserUUID string // persistent user account identity
+	Mu       sync.RWMutex `json:"-"` // protects mutable fields below
+	ID       uint32       // permanent global ID (assigned once at connect)
+	UserUUID string       // persistent user account identity
 	Username string
 	Conn     *network.Client
 	ZoneID   string // current zone

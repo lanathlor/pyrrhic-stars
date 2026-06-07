@@ -1,6 +1,8 @@
 package system
 
 import (
+	"math"
+
 	"codex-online/server/internal/ability"
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/combatlog"
@@ -609,29 +611,40 @@ func applySustainAllyHeal(w *World, p *entity.Player, amount float32) {
 }
 
 func applySustainEnemyDamage(w *World, p *entity.Player, runner *ability.PlayerAbilityRunner, amount float32) {
+	// Find nearest alive enemy by distance to player.
+	var nearest *entity.Enemy
+	bestDistSq := float32(math.MaxFloat32)
 	for _, e := range w.Enemies {
 		if e == nil || !e.Alive {
 			continue
 		}
-		dealt := e.TargetApplyDamage(amount)
-		if dealt > 0 {
-			w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
-				TargetPeerID: e.ID,
-				SourcePeerID: p.ID,
-				Amount:       dealt,
-				HitPos:       e.Position.Add(entity.Vec3{Y: 1.0}),
-				SourceType:   combat.SourcePlayerAttack,
-			})
-			e.AddThreat(p.ID, dealt)
-			w.AggroEnemy(e, p.ID)
-			if !e.Alive {
-				w.logCombatDeath(combatlog.FormatEnemyID(e.ID), combatlog.FormatPlayerID(p.ID), p.ClassID, runner.AbilityID)
-				checkEnemyGroupDead(w, e)
-			}
-			w.logPhaseChange(e)
-			healLowestAllyForAmount(w, p, dealt*0.5)
+		distSq := e.Position.DistanceToSq(p.Position)
+		if distSq < bestDistSq {
+			bestDistSq = distSq
+			nearest = e
 		}
-		break // only hit nearest
+	}
+	if nearest == nil {
+		return
+	}
+
+	dealt := nearest.TargetApplyDamage(amount)
+	if dealt > 0 {
+		w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
+			TargetPeerID: nearest.ID,
+			SourcePeerID: p.ID,
+			Amount:       dealt,
+			HitPos:       nearest.Position.Add(entity.Vec3{Y: 1.0}),
+			SourceType:   combat.SourcePlayerAttack,
+		})
+		nearest.AddThreat(p.ID, dealt)
+		w.AggroEnemy(nearest, p.ID)
+		if !nearest.Alive {
+			w.logCombatDeath(combatlog.FormatEnemyID(nearest.ID), combatlog.FormatPlayerID(p.ID), p.ClassID, runner.AbilityID)
+			checkEnemyGroupDead(w, nearest)
+		}
+		w.logPhaseChange(nearest)
+		healLowestAllyForAmount(w, p, dealt*0.5)
 	}
 }
 

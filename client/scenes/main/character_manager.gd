@@ -176,11 +176,11 @@ func on_connect_pressed() -> void:
 
 	NetworkManager.username = ctrl._username
 	NetworkManager.disconnect_game()
-	var err: int = NetworkManager.connect_to_server(ctrl.SERVER_ADDRESS)
+	var err: int = NetworkManager.connect_to_server(ctrl.server_address)
 	if err != OK:
 		print("[Main] Failed to connect: %s" % error_string(err))
 		return
-	print("[Main] Connecting to %s:%d..." % [ctrl.SERVER_ADDRESS, NetworkManager.DEFAULT_PORT])
+	print("[Main] Connecting to %s:%d..." % [ctrl.server_address, NetworkManager.DEFAULT_PORT])
 	ctrl._menu_layer.visible = false
 
 

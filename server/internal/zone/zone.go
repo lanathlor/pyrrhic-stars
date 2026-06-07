@@ -66,9 +66,9 @@ type Zone struct {
 	pendingInputs []system.InputMsg
 	mu            sync.Mutex
 
-	// OnPlayerRespawnHub is called when a dead player requests to return to hub.
-	// Set by the gateway to trigger zone transfer for a single player.
-	OnPlayerRespawnHub func(peerID uint16)
+	// onPlayerRespawnHub is called when a dead player requests to return to hub.
+	// Set by the gateway via SetOnPlayerRespawnHub to trigger zone transfer.
+	onPlayerRespawnHub func(peerID uint16)
 
 	// CombatLogSink receives combat events. Set before Run(). NullSink if nil.
 	CombatLogSink combatlog.EventSink
@@ -191,21 +191,37 @@ func spawnInstanceEnemies(z *Zone, l *level.Level) {
 		brain.BoundsMaxZ = l.EnemyBoundsMaxZ
 		z.world.Enemies = append(z.world.Enemies, enemy)
 		z.world.Brains = append(z.world.Brains, brain)
+		if enemy.IsBoss {
+			z.world.Boss = enemy
+		}
 	}
+}
+
+// SetOnPlayerRespawnHub sets the callback invoked when a dead player requests
+// to return to the hub. Thread-safe: acquires z.mu to synchronize with the
+// tick goroutine that reads this callback in processTick.
+func (z *Zone) SetOnPlayerRespawnHub(fn func(peerID uint16)) {
+	z.mu.Lock()
+	z.onPlayerRespawnHub = fn
+	z.mu.Unlock()
 }
 
 // SetGroupSize configures instance scaling based on the number of players.
 // HP scales from 1x (solo) to 4x (5 players), damage from 1x to 2x.
-// Must be called before the fight starts.
+// Must be called before the fight starts. Safe to call from any goroutine.
 func (z *Zone) SetGroupSize(n int) {
+	z.mu.Lock()
 	z.rescaleEnemies(n)
+	z.mu.Unlock()
 }
 
 // RescaleForPlayerCount adjusts enemy HP and damage scaling for the current
 // total player count (humans + bots). Safe to call mid-fight: preserves each
-// enemy's current HP percentage.
+// enemy's current HP percentage. Safe to call from any goroutine.
 func (z *Zone) RescaleForPlayerCount(n int) {
+	z.mu.Lock()
 	z.rescaleEnemies(n)
+	z.mu.Unlock()
 }
 
 func (z *Zone) rescaleEnemies(n int) {
@@ -274,9 +290,9 @@ func (z *Zone) AddClient(c *Client) {
 		}
 	}
 
-	// Rescale instance for new player count.
+	// Rescale instance for new player count (already under z.mu).
 	if z.Type == ZoneTypeInstanced {
-		z.RescaleForPlayerCount(len(z.world.Players))
+		z.rescaleEnemies(len(z.world.Players))
 	}
 	z.mu.Unlock()
 
@@ -312,13 +328,17 @@ func (z *Zone) RemoveClient(peerID uint16) {
 	z.mu.Lock()
 	defer z.mu.Unlock()
 	if z.botMgr != nil {
-		z.botMgr.DismissAllForOwner(peerID, &z.world)
+		// Dismiss bots without triggering OnRescale (which calls
+		// RescaleForPlayerCount → z.mu.Lock, causing a reentrant deadlock).
+		// We rescale directly below since we already hold z.mu.
+		z.botMgr.DismissAllForOwnerNoRescale(peerID, &z.world)
 	}
 	delete(z.world.Clients, peerID)
 	delete(z.world.Players, peerID)
 	delete(z.world.AbilityRunners, peerID)
-	if z.Type == ZoneTypeInstanced {
-		z.RescaleForPlayerCount(len(z.world.Players))
+	// Rescale directly (already under z.mu).
+	if z.Type == ZoneTypeInstanced || z.botMgr != nil {
+		z.rescaleEnemies(len(z.world.Players))
 	}
 }
 
@@ -334,6 +354,21 @@ func (z *Zone) ClientCount() int {
 	z.mu.Lock()
 	defer z.mu.Unlock()
 	return len(z.world.Clients)
+}
+
+// TickNum returns the zone's current tick counter.
+func (z *Zone) TickNum() uint32 {
+	z.mu.Lock()
+	defer z.mu.Unlock()
+	return z.world.TickNum
+}
+
+// IncrementTick advances the tick counter by one. Used in tests to simulate
+// elapsed time without running the full tick loop.
+func (z *Zone) IncrementTick() {
+	z.mu.Lock()
+	z.world.TickNum++
+	z.mu.Unlock()
 }
 
 // Run starts the zone tick loop. Blocks until ctx is cancelled.
@@ -358,9 +393,14 @@ func (z *Zone) processTick() {
 	z.world.InputQueue = append(z.world.InputQueue[:0], z.pendingInputs...)
 	z.pendingInputs = z.pendingInputs[:0]
 	// Copy the callback into the world so systems can access it
-	z.world.OnPlayerRespawnHub = z.OnPlayerRespawnHub
+	z.world.OnPlayerRespawnHub = z.onPlayerRespawnHub
 	// Wire combat log sink
 	z.world.CombatLogSink = z.CombatLogSink
+	// Snapshot client list for broadcast (prevents race with RemoveClient)
+	z.world.ClientSnapshot = z.world.ClientSnapshot[:0]
+	for _, c := range z.world.Clients {
+		z.world.ClientSnapshot = append(z.world.ClientSnapshot, c)
+	}
 	z.mu.Unlock()
 
 	z.world.TickNum++

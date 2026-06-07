@@ -32,6 +32,7 @@ signal loadout_state_received(slots: Array)
 signal flux_commit_state_received(entries: Array)
 signal preset_list_received(presets: Array)
 
+const UDPTransport := preload("res://scripts/autoload/net_udp_transport.gd")
 const DEFAULT_PORT := 7777
 
 ## Kept for migration compatibility. Always false -- server is the authority.
@@ -39,11 +40,7 @@ var is_host := false
 var is_active := false
 var username: String = ""
 var current_zone_type: int = NetSerializer.ZONE_TYPE_HUB
-
-# peer_id -> { "class_name": String, "ready": bool }
-# Populated from OP_LOBBY_STATE; used by lobby UI.
-var player_info: Dictionary = {}
-
+var player_info: Dictionary = {}  # peer_id -> { "class_name": String, "ready": bool }
 var dev_params: Dictionary = {}  # Set by main.gd in dev mode: {class, zone}
 
 ## Sub-handlers for debug and loadout/inventory operations.
@@ -54,9 +51,12 @@ var _ws := WebSocketPeer.new()
 var _my_peer_id: int = 0
 var _was_connected := false
 var _input_tick: int = 0
+var _udp: RefCounted
+var _ws_host: String = ""
 
 
 func _ready() -> void:
+	_udp = UDPTransport.new(_on_message)
 	debug = NetworkDebugHandler.new(self)
 	loadout = NetworkLoadoutHandler.new(self)
 
@@ -76,6 +76,8 @@ func connect_to_server(address: String = "127.0.0.1") -> Error:
 		url += "&dev_auto=1"
 		url += "&dev_class=%s" % dev_params.get("class", "gunner")
 		url += "&dev_zone=%s" % dev_params.get("zone", "arena")
+	_ws_host = address
+	_udp.set_host(address)
 	print("[Net] Connecting to %s..." % url)
 	var err := _ws.connect_to_url(url)
 	if err != OK:
@@ -90,6 +92,7 @@ func connect_to_server(address: String = "127.0.0.1") -> Error:
 func disconnect_game() -> void:
 	if _ws.get_ready_state() != WebSocketPeer.STATE_CLOSED:
 		_ws.close()
+	_udp.close()
 	player_info.clear()
 	is_host = false
 	is_active = false
@@ -120,14 +123,18 @@ func send_msg(opcode: int, payload: PackedByteArray = PackedByteArray()) -> void
 
 
 ## Send position + rotation + visual state for one simulation tick.
+## Uses UDP when associated for zero-latency fire-and-forget delivery.
 func send_player_position(
 	pos: Vector3, rot_y: float, visual_state: int = 0, aim_pitch: float = 0.0
 ) -> void:
 	_input_tick += 1
-	send_msg(
-		NetSerializer.OP_PLAYER_INPUT,
-		NetSerializer.Inp.encode_player_input(pos, rot_y, _input_tick, visual_state, aim_pitch)
+	var payload := NetSerializer.Inp.encode_player_input(
+		pos, rot_y, _input_tick, visual_state, aim_pitch
 	)
+	if _udp.is_confirmed():
+		_udp.send(NetSerializer.OP_PLAYER_INPUT, _my_peer_id, payload)
+	else:
+		send_msg(NetSerializer.OP_PLAYER_INPUT, payload)
 
 
 ## Send a combat action to the server.
@@ -261,6 +268,8 @@ func _process(_delta: float) -> void:
 			is_active = false
 			_was_connected = false
 
+	_udp.poll()
+
 
 func _on_ws_connected() -> void:
 	print("[Net] WebSocket connected, waiting for character list...")
@@ -310,6 +319,8 @@ func _handle_zone_opcodes(opcode: int, payload: PackedByteArray) -> bool:
 			_handle_peer_disconnected(payload)
 		NetSerializer.OP_ZONE_TRANSFER:
 			_handle_zone_transfer(payload)
+		NetSerializer.OP_UDP_ASSOCIATE:
+			_udp.handle_associate(payload, _my_peer_id)
 		_:
 			return false
 	return true
@@ -466,6 +477,7 @@ func _handle_zone_transfer(payload: PackedByteArray) -> void:
 	_my_peer_id = data.new_peer_id
 	current_zone_type = data.zone_type
 	player_info.clear()
+	_udp.reset_tick()
 	print("[Net] Zone transfer: type=%d, new peer_id=%d" % [data.zone_type, data.new_peer_id])
 	zone_transfer_received.emit(data.zone_type, data.new_peer_id)
 

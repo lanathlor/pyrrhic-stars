@@ -282,16 +282,7 @@ func checkFightEnd(w *World) {
 		finalizeAllCombatLogs(w, combatlog.OutcomeBossWin)
 		w.State = StateFightOver
 		w.BossDefeated = false
-		w.Projectiles = nil
-		// Reset alive enemies to patrol, keep dead ones dead
-		for i, e := range w.Enemies {
-			if !e.Alive {
-				continue
-			}
-			if i < len(w.Level.EnemySpawns) {
-				e.Reset(w.Level.EnemySpawns[i].Position, entity.EnemyPatrol)
-			}
-		}
+		ResetAliveEnemies(w)
 		w.GameFlowEvents = append(w.GameFlowEvents, GameFlowEvent{
 			FlowType: message.FlowAllDead,
 		})
@@ -367,15 +358,25 @@ func pickSpawnPoint(spawns []level.PlayerSpawn, state level.ZoneState, idx int) 
 		// Nothing satisfied — fall back to first spawn
 		return spawns[0].Position
 	}
-	// Collect spawns at best tier
-	var eligible []level.PlayerSpawn
+	// Count eligible spawns at best tier, then index without allocating.
+	count := 0
 	for _, s := range spawns {
 		if level.EvalCondition(s.Condition, state) &&
 			level.ConditionPriority(s.Condition) == bestPriority {
-			eligible = append(eligible, s)
+			count++
 		}
 	}
-	return eligible[idx%len(eligible)].Position
+	target := idx % count
+	for _, s := range spawns {
+		if level.EvalCondition(s.Condition, state) &&
+			level.ConditionPriority(s.Condition) == bestPriority {
+			if target == 0 {
+				return s.Position
+			}
+			target--
+		}
+	}
+	return spawns[0].Position
 }
 
 // SpawnPlayers initializes all players at spawn points.
@@ -421,10 +422,15 @@ func SpawnPlayer(w *World, peerID uint16) {
 	p.SpawnTick = w.TickNum
 }
 
-// findBoss returns the boss enemy or nil.
+// findBoss returns the boss enemy or nil. Uses the cached Boss pointer on
+// World when available, falling back to a linear scan.
 func findBoss(w *World) *entity.Enemy {
+	if w.Boss != nil {
+		return w.Boss
+	}
 	for _, e := range w.Enemies {
 		if e.IsBoss {
+			w.Boss = e
 			return e
 		}
 	}

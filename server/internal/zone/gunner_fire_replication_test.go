@@ -44,6 +44,7 @@ func setupTwoPlayerFight(t *testing.T) (*Zone, uint16, uint16, *mockSendCollecto
 		PeerID:   shooterID,
 		Username: "Shooter",
 		Send:     func([]byte) {}, // discard
+		SendUDP:  func([]byte) {},
 	})
 	shooter := z.world.Players[shooterID]
 	shooter.ClassID = entity.ClassGunner
@@ -59,6 +60,7 @@ func setupTwoPlayerFight(t *testing.T) (*Zone, uint16, uint16, *mockSendCollecto
 		PeerID:   observerID,
 		Username: "Observer",
 		Send:     col.collect,
+		SendUDP:  col.collect,
 	})
 	obs := z.world.Players[observerID]
 	obs.ClassID = entity.ClassVanguard
@@ -404,8 +406,8 @@ func TestGunnerFire_WorksInAllZoneStates(t *testing.T) {
 
 			var peerID uint16 = 1
 			var observerMsgs [][]byte
-			z.AddClient(&Client{PeerID: peerID, Username: "Gunner", Send: func([]byte) {}})
-			z.AddClient(&Client{PeerID: 2, Username: "Observer", Send: func(m []byte) { observerMsgs = append(observerMsgs, m) }})
+			z.AddClient(&Client{PeerID: peerID, Username: "Gunner", Send: func([]byte) {}, SendUDP: func([]byte) {}})
+			z.AddClient(&Client{PeerID: 2, Username: "Observer", Send: func(m []byte) { observerMsgs = append(observerMsgs, m) }, SendUDP: func(m []byte) { observerMsgs = append(observerMsgs, m) }})
 
 			// Set state after AddClient — arena AddClient auto-advances to fight
 			z.world.State = tc.zoneState

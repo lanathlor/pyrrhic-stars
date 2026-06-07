@@ -140,6 +140,7 @@ func startZoneGateway(t *testing.T) *testZoneGateway {
 					PeerID:   peerID,
 					Username: username,
 					Send:     sendFn,
+					SendUDP:  sendFn,
 				})
 
 				resp := make([]byte, 3)

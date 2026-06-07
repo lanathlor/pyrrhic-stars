@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"runtime"
 	"testing"
 	"time"
@@ -581,6 +582,234 @@ func TestTransferPlayer_MovesPlayerBetweenZones(t *testing.T) {
 	if sess.ZoneID != "arena_test" {
 		t.Errorf("sess.ZoneID = %q, want %q", sess.ZoneID, "arena_test")
 	}
+}
+
+// --- portal enter tests (OpEnterPortal → zone transfer) ---
+
+// TestEnterPortal_PlayerReceivesZoneTransfer exercises the full portal-enter
+// path: player is in the hub, sends OpEnterPortal, and must receive
+// OpZoneTransfer for the arena. This failed after adding UDP transport because
+// sendUDPAssociate (called during joinZone) panics when udpServer is nil, or
+// the OpUDPAssociate message interferes with the transfer flow.
+func TestEnterPortal_PlayerReceivesZoneTransfer(t *testing.T) {
+	gw := newTestGateway(stubRepo{})
+
+	// Start a real UDP server so sendUDPAssociate runs the full path.
+	udpSrv, err := network.NewUDPServer("127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = udpSrv.Close() }()
+	gw.udpServer = udpSrv
+
+	// Create hub zone and place the player in it.
+	hubZI := newTestZoneInstance(t, zone.ZoneHub, "hub")
+	gw.mu.Lock()
+	gw.zones[zone.ZoneHub] = hubZI
+	gw.mu.Unlock()
+
+	sess, spy := newTestSession(1)
+	defer sess.Conn.Close()
+	gw.joinZone(sess, hubZI, joinResponseZoneJoined)
+	spy.Reset() // discard initial join messages
+
+	// Simulate pressing 'E' at the portal.
+	gw.handleEnterPortal(sess)
+
+	// The client must receive OpZoneTransfer.
+	msgs := drainSpy(spy)
+	raw := findMessage(msgs, message.OpZoneTransfer)
+	if raw == nil {
+		var opcodes []uint16
+		for _, m := range msgs {
+			op, _, _, e := message.Decode(m)
+			if e == nil {
+				opcodes = append(opcodes, op)
+			}
+		}
+		t.Fatalf("OpZoneTransfer not received; got %d messages with opcodes %v", len(msgs), opcodes)
+	}
+
+	_, _, payload, _ := message.Decode(raw)
+	if len(payload) < 3 {
+		t.Fatalf("payload too short: %d", len(payload))
+	}
+	if payload[0] != byte(zone.ZoneTypeInstanced) {
+		t.Errorf("zone type = %d, want %d (instanced)", payload[0], zone.ZoneTypeInstanced)
+	}
+}
+
+// TestEnterPortal_PlayerReceivesUDPAssociate verifies that the UDP association
+// token is sent alongside the zone transfer during portal enter.
+func TestEnterPortal_PlayerReceivesUDPAssociate(t *testing.T) {
+	gw := newTestGateway(stubRepo{})
+
+	udpSrv, err := network.NewUDPServer("127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = udpSrv.Close() }()
+	gw.udpServer = udpSrv
+
+	hubZI := newTestZoneInstance(t, zone.ZoneHub, "hub")
+	gw.mu.Lock()
+	gw.zones[zone.ZoneHub] = hubZI
+	gw.mu.Unlock()
+
+	sess, spy := newTestSession(1)
+	defer sess.Conn.Close()
+	gw.joinZone(sess, hubZI, joinResponseZoneJoined)
+	spy.Reset()
+
+	gw.handleEnterPortal(sess)
+
+	msgs := drainSpy(spy)
+
+	// Must have both OpZoneTransfer and OpUDPAssociate.
+	if findMessage(msgs, message.OpZoneTransfer) == nil {
+		t.Fatal("OpZoneTransfer not received")
+	}
+	raw := findMessage(msgs, message.OpUDPAssociate)
+	if raw == nil {
+		t.Fatal("OpUDPAssociate not received after portal enter")
+	}
+
+	// OpUDPAssociate payload: [token:16][port:2 BE]
+	_, _, payload, _ := message.Decode(raw)
+	if len(payload) < 18 {
+		t.Fatalf("OpUDPAssociate payload too short: %d bytes", len(payload))
+	}
+	port := binary.BigEndian.Uint16(payload[16:18])
+	if port != uint16(udpSrv.Port()) {
+		t.Errorf("UDP port in OpUDPAssociate = %d, want %d", port, udpSrv.Port())
+	}
+}
+
+// TestEnterPortal_NoUDPAssociateWhenAlreadyAssociated verifies that zone
+// transfer does NOT re-send OpUDPAssociate when the client already has a
+// working UDP association. The UDP connection survives zone transfers.
+func TestEnterPortal_NoUDPAssociateWhenAlreadyAssociated(t *testing.T) {
+	gw := newTestGateway(stubRepo{})
+
+	udpSrv, err := network.NewUDPServer("127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = udpSrv.Close() }()
+	gw.udpServer = udpSrv
+
+	hubZI := newTestZoneInstance(t, zone.ZoneHub, "hub")
+	gw.mu.Lock()
+	gw.zones[zone.ZoneHub] = hubZI
+	gw.mu.Unlock()
+
+	sess, spy := newTestSession(1)
+	defer sess.Conn.Close()
+	gw.joinZone(sess, hubZI, joinResponseZoneJoined)
+
+	// Simulate completed UDP association (as if client sent back the ack).
+	sess.Conn.AssociateUDP(udpSrv.Conn(), &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 9999})
+
+	// Drain and reset spy to discard initial join messages.
+	drainSpy(spy)
+	spy.Reset()
+
+	// Simulate pressing 'E' at the portal.
+	gw.handleEnterPortal(sess)
+
+	msgs := drainSpy(spy)
+
+	// Must receive OpZoneTransfer.
+	if findMessage(msgs, message.OpZoneTransfer) == nil {
+		var opcodes []uint16
+		for _, m := range msgs {
+			op, _, _, e := message.Decode(m)
+			if e == nil {
+				opcodes = append(opcodes, op)
+			}
+		}
+		t.Fatalf("OpZoneTransfer not received; got %d messages with opcodes %v", len(msgs), opcodes)
+	}
+
+	// Must NOT receive OpUDPAssociate (UDP is already associated).
+	if raw := findMessage(msgs, message.OpUDPAssociate); raw != nil {
+		t.Error("OpUDPAssociate should not be sent when UDP is already associated")
+	}
+}
+
+// TestEnterPortal_ArenaTickLowerThanHub verifies that a freshly created arena
+// zone starts at tick 0, which is lower than the hub zone's accumulated tick.
+// This proves that a client using a stale _udp_last_tick from the hub will
+// drop ALL arena world state via the out-of-order check, making the arena
+// appear frozen.
+func TestEnterPortal_ArenaTickLowerThanHub(t *testing.T) {
+	gw := newTestGateway(stubRepo{})
+
+	udpSrv, err := network.NewUDPServer("127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = udpSrv.Close() }()
+	gw.udpServer = udpSrv
+
+	// Create hub zone and simulate several ticks so TickNum is high.
+	hubZI := newTestZoneInstance(t, zone.ZoneHub, "hub")
+	gw.mu.Lock()
+	gw.zones[zone.ZoneHub] = hubZI
+	gw.mu.Unlock()
+	// Advance hub tick counter (simulates ~5 seconds of gameplay).
+	for range 100 {
+		hubZI.zone.IncrementTick()
+	}
+
+	sess, spy := newTestSession(1)
+	defer sess.Conn.Close()
+	gw.joinZone(sess, hubZI, joinResponseZoneJoined)
+
+	// Simulate completed UDP association.
+	sess.Conn.AssociateUDP(udpSrv.Conn(), &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 9999})
+
+	hubTick := hubZI.zone.TickNum()
+	if hubTick < 100 {
+		t.Fatalf("hub tick should be >= 100, got %d", hubTick)
+	}
+
+	drainSpy(spy)
+	spy.Reset()
+
+	// Enter portal -> creates fresh arena zone.
+	gw.handleEnterPortal(sess)
+
+	// Find the arena zone.
+	arenaZI := findArenaZone(gw)
+	if arenaZI == nil {
+		t.Fatal("arena zone not created")
+	}
+
+	arenaTick := arenaZI.zone.TickNum()
+
+	// The arena starts at tick 0. A client with _udp_last_tick == hubTick
+	// would drop all arena world state because arenaTick <= _udp_last_tick.
+	if arenaTick >= hubTick {
+		t.Skipf("arena tick (%d) >= hub tick (%d); out-of-order check would pass (unexpected)", arenaTick, hubTick)
+	}
+
+	// This is the bug: the client's _udp_last_tick is NOT reset on zone
+	// transfer, so arenaTick (0) <= _udp_last_tick (hubTick) and all arena
+	// world state is silently dropped.
+	t.Logf("BUG CONFIRMED: hub tick=%d, arena tick=%d — client's _udp_last_tick from hub "+
+		"would reject all arena world state via out-of-order check", hubTick, arenaTick)
+}
+
+func findArenaZone(gw *gateway) *zoneInstance {
+	gw.mu.Lock()
+	defer gw.mu.Unlock()
+	for id, zi := range gw.zones {
+		if id != zone.ZoneHub {
+			return zi
+		}
+	}
+	return nil
 }
 
 // --- benchmarks ---

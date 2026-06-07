@@ -89,10 +89,6 @@ func resolveHitscanDir(dst []DamageResult, origin, direction entity.Vec3, target
 }
 
 func resolveMeleeArc(dst []DamageResult, caster entity.Committer, targets []entity.Target, obstacles []combat.Obstacle, hit HitDef, damage float32, sourceType uint8) []DamageResult {
-	var best DamageResult
-	bestDistSq := float32(1e18)
-	found := false
-
 	for _, t := range targets {
 		if t == nil || !t.TargetAlive() {
 			continue
@@ -104,25 +100,17 @@ func resolveMeleeArc(dst []DamageResult, caster entity.Committer, targets []enti
 		if dealt == 0 {
 			continue
 		}
-		distSq := t.TargetPos().DistanceToSq(caster.CommitterPos())
 		hitDir := t.TargetPos().Sub(caster.CommitterPos()).Normalized()
-		if distSq < bestDistSq {
-			bestDistSq = distSq
-			found = true
-			best = DamageResult{
-				TargetID:   t.TargetID(),
-				SourceID:   caster.CommitterID(),
-				Amount:     dealt,
-				HitPos:     caster.CommitterPos().Add(hitDir),
-				SourceType: sourceType,
-				Target:     t,
-			}
-		}
+		dst = append(dst, DamageResult{
+			TargetID:   t.TargetID(),
+			SourceID:   caster.CommitterID(),
+			Amount:     dealt,
+			HitPos:     caster.CommitterPos().Add(hitDir),
+			SourceType: sourceType,
+			Target:     t,
+		})
 	}
-	if !found {
-		return dst
-	}
-	return append(dst, best)
+	return dst
 }
 
 func resolveAoECircle(dst []DamageResult, center entity.Vec3, sourceID uint16, targets []entity.Target, obstacles []combat.Obstacle, radius, damage float32, sourceType uint8) []DamageResult {

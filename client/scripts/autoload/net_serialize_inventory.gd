@@ -176,7 +176,7 @@ static func decode_preset_list(data: PackedByteArray) -> Array:
 ## ability_type:str8, delivery:str8, flux_cost:str8, description:str16,
 ## cooldown:f32, commit_time:f32, implemented:u8, affinity:str8,
 ## flux_amount:f32, base_heal:f32, base_damage:f32, range:f32, gcd:f32,
-## commit_time:f32, zone_radius:f32, zone_duration:f32, zone_heal_tick:f32]
+## zone_radius:f32, zone_duration:f32, zone_heal_tick:f32]
 static func decode_ability_catalog(data: PackedByteArray) -> Array:
 	var entries: Array = []
 	if data.size() < 1:
@@ -212,7 +212,6 @@ static func _decode_ability_entry(buf: StreamPeerBuffer) -> Dictionary:
 		"base_damage",
 		"range",
 		"gcd",
-		"_commit_time_dup",
 		"zone_radius",
 		"zone_duration",
 		"zone_heal_tick"

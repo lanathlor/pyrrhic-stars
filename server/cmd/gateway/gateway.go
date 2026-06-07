@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log/slog"
+	"net"
 	"sync"
 
 	"codex-online/server/internal/ability"
@@ -18,6 +19,7 @@ import (
 	"codex-online/server/internal/item"
 	"codex-online/server/internal/level"
 	"codex-online/server/internal/message"
+	"codex-online/server/internal/network"
 	"codex-online/server/internal/session"
 	"codex-online/server/internal/user"
 	"codex-online/server/internal/zone"
@@ -34,9 +36,56 @@ type gateway struct {
 	characters *character.Service
 	inventory  *inventory.Service
 	catalog    *abilitycatalog.Catalog
-	abilityEng *ability.Engine // for stat lookups when building catalog
-	mu         sync.Mutex      // protects zones and levels
-	devMode    bool            // CODEX_DEV=1 enables debug features
+	abilityEng *ability.Engine    // for stat lookups when building catalog
+	udpServer  *network.UDPServer // shared UDP socket for game state transport
+	mu         sync.Mutex         // protects zones and levels
+	devMode    bool               // CODEX_DEV=1 enables debug features
+
+	// Connection limiting
+	connMu    sync.Mutex
+	connPerIP map[string]int // IP -> active connection count
+}
+
+const (
+	maxConnsPerIP = 5
+	maxConnsTotal = 200
+)
+
+// acquireConn checks connection limits for the given remote address.
+// Returns true if the connection is allowed, false if it should be rejected.
+func (g *gateway) acquireConn(remoteAddr string) bool {
+	ip, _, _ := net.SplitHostPort(remoteAddr)
+	if ip == "" {
+		ip = remoteAddr
+	}
+	g.connMu.Lock()
+	defer g.connMu.Unlock()
+	total := 0
+	for _, n := range g.connPerIP {
+		total += n
+	}
+	if total >= maxConnsTotal {
+		return false
+	}
+	if g.connPerIP[ip] >= maxConnsPerIP {
+		return false
+	}
+	g.connPerIP[ip]++
+	return true
+}
+
+// releaseConn decrements the connection count for the given remote address.
+func (g *gateway) releaseConn(remoteAddr string) {
+	ip, _, _ := net.SplitHostPort(remoteAddr)
+	if ip == "" {
+		ip = remoteAddr
+	}
+	g.connMu.Lock()
+	defer g.connMu.Unlock()
+	g.connPerIP[ip]--
+	if g.connPerIP[ip] <= 0 {
+		delete(g.connPerIP, ip)
+	}
 }
 
 type zoneInstance struct {
@@ -56,6 +105,7 @@ func newGateway(ctr *container.Container) *gateway {
 		users:      user.NewService(ctr.Repo),
 		characters: character.NewService(ctr.Repo),
 		inventory:  inventory.NewService(ctr.Repo),
+		connPerIP:  make(map[string]int),
 	}
 }
 
@@ -145,8 +195,11 @@ func (g *gateway) joinZone(sess *session.Session, zi *zoneInstance, resp joinRes
 	zi.nextID++
 	zi.mu.Unlock()
 
+	sess.Mu.Lock()
 	sess.PeerID = peerID
 	sess.ZoneID = zi.zone.ID
+	sess.Mu.Unlock()
+	g.sessions.IndexZonePeer(sess.ID, zi.zone.ID, peerID)
 
 	displayName := resolveDisplayName(sess)
 
@@ -154,6 +207,8 @@ func (g *gateway) joinZone(sess *session.Session, zi *zoneInstance, resp joinRes
 		PeerID:   peerID,
 		Username: displayName,
 		Send:     sess.Conn.Send,
+		SendUDP:  sess.Conn.SendUDP,
+		HasUDP:   sess.Conn.HasUDP,
 	})
 
 	// Queue class selection for non-gunner characters.
@@ -170,26 +225,13 @@ func (g *gateway) joinZone(sess *session.Session, zi *zoneInstance, resp joinRes
 
 	g.restoreSavedPosition(zi, peerID, sess)
 
-	// Notify new peer about existing peers.
-	for _, existingID := range zi.zone.GetPeerIDs() {
-		if existingID == peerID {
-			continue
-		}
-		sess.Conn.Send(message.Encode(message.OpPeerConnected, 0, codec.EncodePeerID(existingID)))
-	}
+	notifyExistingPeers(sess, zi, peerID)
+	sendJoinResponse(sess, zi, peerID, resp)
 
-	// Send response to the joining client.
-	switch resp {
-	case joinResponseZoneJoined:
-		buf := make([]byte, 3)
-		binary.BigEndian.PutUint16(buf[0:2], peerID)
-		buf[2] = 0
-		sess.Conn.Send(message.Encode(message.OpZoneJoined, 0, buf))
-	case joinResponseZoneTransfer:
-		buf := make([]byte, 3)
-		buf[0] = byte(zi.zone.Type)
-		binary.BigEndian.PutUint16(buf[1:3], peerID)
-		sess.Conn.Send(message.Encode(message.OpZoneTransfer, 0, buf))
+	// Send UDP association token if the client hasn't associated yet.
+	// UDP survives zone transfers (same gateway socket), so only send once.
+	if !sess.Conn.HasUDP() {
+		g.sendUDPAssociate(sess)
 	}
 
 	// Broadcast new peer to existing peers.
@@ -203,6 +245,43 @@ func (g *gateway) joinZone(sess *session.Session, zi *zoneInstance, resp joinRes
 	}
 
 	slog.Info("peer joined zone", "zone_id", zi.zone.ID, "peer_id", peerID, "username", displayName)
+}
+
+// sendUDPAssociate generates a token and sends OpUDPAssociate to the client.
+func notifyExistingPeers(sess *session.Session, zi *zoneInstance, peerID uint16) {
+	for _, existingID := range zi.zone.GetPeerIDs() {
+		if existingID == peerID {
+			continue
+		}
+		sess.Conn.Send(message.Encode(message.OpPeerConnected, 0, codec.EncodePeerID(existingID)))
+	}
+}
+
+func sendJoinResponse(sess *session.Session, zi *zoneInstance, peerID uint16, resp joinResponse) {
+	switch resp {
+	case joinResponseZoneJoined:
+		buf := make([]byte, 3)
+		binary.BigEndian.PutUint16(buf[0:2], peerID)
+		buf[2] = 0
+		sess.Conn.Send(message.Encode(message.OpZoneJoined, 0, buf))
+	case joinResponseZoneTransfer:
+		buf := make([]byte, 3)
+		buf[0] = byte(zi.zone.Type)
+		binary.BigEndian.PutUint16(buf[1:3], peerID)
+		sess.Conn.Send(message.Encode(message.OpZoneTransfer, 0, buf))
+	}
+}
+
+// No-op if the UDP server is not running.
+func (g *gateway) sendUDPAssociate(sess *session.Session) {
+	if g.udpServer == nil {
+		return
+	}
+	token := g.udpServer.GenerateToken(sess.Conn, sess.ID)
+	payload := make([]byte, 18) // [token:16][port:2 BE]
+	copy(payload[0:16], token[:])
+	binary.BigEndian.PutUint16(payload[16:18], uint16(g.udpServer.Port()))
+	sess.Conn.Send(message.Encode(message.OpUDPAssociate, 0, payload))
 }
 
 // resolveDisplayName returns the best available display name for a session.
@@ -458,9 +537,9 @@ func (g *gateway) transferPlayer(sess *session.Session, targetZoneID string, lvl
 
 	zi := g.getOrCreateZone(targetZoneID, lvl, groupSize)
 	if zi.zone.Type == zone.ZoneTypeInstanced {
-		zi.zone.OnPlayerRespawnHub = func(peerID uint16) {
+		zi.zone.SetOnPlayerRespawnHub(func(peerID uint16) {
 			g.handlePlayerRespawnHub(targetZoneID, peerID)
-		}
+		})
 	}
 
 	g.joinZone(sess, zi, joinResponseZoneTransfer)

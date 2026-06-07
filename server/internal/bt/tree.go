@@ -20,6 +20,31 @@ func (t *Tree) Reset() {
 	resetNode(t.Root)
 }
 
+// StripNames recursively removes NamedNode wrappers from the tree, reducing
+// interface dispatch overhead in the hot path. Names are only needed for debug
+// logging and instrumentation; production trees should be stripped after build.
+func StripNames(n Node) Node {
+	switch v := n.(type) {
+	case *NamedNode:
+		return StripNames(v.Inner)
+	case *Selector:
+		for i, c := range v.Children {
+			v.Children[i] = StripNames(c)
+		}
+	case *ReactiveSelector:
+		for i, c := range v.Children {
+			v.Children[i] = StripNames(c)
+		}
+	case *Sequence:
+		for i, c := range v.Children {
+			v.Children[i] = StripNames(c)
+		}
+	case *Inverter:
+		v.Child = StripNames(v.Child)
+	}
+	return n
+}
+
 func resetNode(n Node) {
 	switch v := n.(type) {
 	case *Selector:

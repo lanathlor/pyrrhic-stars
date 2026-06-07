@@ -2548,3 +2548,43 @@ func TestForceReset_SustainThenInstantAbility(t *testing.T) {
 		t.Errorf("runner phase = %d after instant ability cancelled sustain, want idle (0)", runner.Phase)
 	}
 }
+
+func TestApplySustainEnemyDamage_HitsNearest(t *testing.T) {
+	// Player at origin, far enemy first in slice, near enemy second.
+	// applySustainEnemyDamage should hit the nearest, not the first.
+	player := entity.NewPlayer(1, entity.ClassGunner)
+	player.Position = entity.Vec3{X: 0, Z: 0}
+	player.Health = 100
+	player.MaxHealth = 100
+
+	farEnemy := &entity.Enemy{}
+	farEnemy.ID = 100
+	farEnemy.Alive = true
+	farEnemy.Position = entity.Vec3{X: 20, Z: 0}
+	farEnemy.Health = 100
+	farEnemy.MaxHealth = 100
+	farEnemy.BaseMaxHealth = 100
+
+	nearEnemy := &entity.Enemy{}
+	nearEnemy.ID = 101
+	nearEnemy.Alive = true
+	nearEnemy.Position = entity.Vec3{X: 3, Z: 0}
+	nearEnemy.Health = 100
+	nearEnemy.MaxHealth = 100
+	nearEnemy.BaseMaxHealth = 100
+
+	// Far enemy is first in slice
+	w := makeWorld(t, map[uint16]*entity.Player{1: player}, []*entity.Enemy{farEnemy, nearEnemy})
+	runner := &ability.PlayerAbilityRunner{}
+	w.AbilityRunners[1] = runner
+
+	applySustainEnemyDamage(w, player, runner, 10)
+
+	// Near enemy (ID=101) should be hit, not far enemy (ID=100)
+	if nearEnemy.Health >= 100 {
+		t.Error("nearest enemy (ID=101) should have taken damage")
+	}
+	if farEnemy.Health < 100 {
+		t.Error("far enemy (ID=100) should NOT have taken damage")
+	}
+}

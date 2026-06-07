@@ -40,9 +40,17 @@ func (s *InputSystem) Tick(w *World, _ float32) {
 	w.InputQueue = w.InputQueue[:0]
 }
 
+func hasNaNOrInf32(v float32) bool {
+	f := float64(v)
+	return math.IsNaN(f) || math.IsInf(f, 0)
+}
+
 func handlePlayerInput(w *World, peerID uint16, payload []byte) {
 	inp, ok := codec.DecodePlayerInput(payload)
 	if !ok {
+		return
+	}
+	if hasNaNOrInf32(inp.PosX) || hasNaNOrInf32(inp.PosY) || hasNaNOrInf32(inp.PosZ) || hasNaNOrInf32(inp.RotY) || hasNaNOrInf32(inp.AimPitch) {
 		return
 	}
 	p, ok := w.Players[peerID]
@@ -209,22 +217,33 @@ func handleAbilityInput(w *World, peerID uint16, payload []byte) {
 	commitAbilityAndLog(w, p, peerID, abilityID, inp)
 }
 
+// cancelActiveRunner cancels an active ability runner, applies sustain
+// cooldown, interrupts Confluence if channeling, and syncs state to player.
+// Returns false if the runner was not busy or refused to cancel.
+func cancelActiveRunner(p *entity.Player, runner *ability.PlayerAbilityRunner) bool {
+	if runner == nil || !runner.IsBusy() {
+		return false
+	}
+	wasChanneling := runner.Phase == ability.PRunnerCommit || runner.Phase == ability.PRunnerSustain
+	if id, cd := runner.SustainCooldownOnCancel(); cd > 0 {
+		p.Cooldowns[id] = cd
+	}
+	if !runner.Cancel() {
+		return false
+	}
+	if wasChanneling && p.Confluence != nil {
+		p.Confluence.OnInterrupt()
+	}
+	runner.SyncToPlayer(p)
+	return true
+}
+
 func handleDodgeInput(w *World, p *entity.Player, peerID uint16) {
 	if p.ClassID == entity.ClassArcanotechnicien {
 		return // harmonist has no dodge
 	}
 	// Cancel any active channel when dodging
-	if runner := w.AbilityRunners[peerID]; runner != nil && runner.IsBusy() {
-		wasChanneling := runner.Phase == ability.PRunnerCommit || runner.Phase == ability.PRunnerSustain
-		if id, cd := runner.SustainCooldownOnCancel(); cd > 0 {
-			p.Cooldowns[id] = cd
-		}
-		runner.Cancel()
-		if wasChanneling && p.Confluence != nil {
-			p.Confluence.OnInterrupt()
-		}
-		runner.SyncToPlayer(p)
-	}
+	cancelActiveRunner(p, w.AbilityRunners[peerID])
 	if !p.SpendResource("stamina", 20) {
 		return
 	}
@@ -242,17 +261,7 @@ func handleDodgeInput(w *World, p *entity.Player, peerID uint16) {
 }
 
 func handleCancelInput(w *World, p *entity.Player, peerID uint16) {
-	if runner := w.AbilityRunners[peerID]; runner != nil && runner.IsBusy() {
-		wasChanneling := runner.Phase == ability.PRunnerCommit || runner.Phase == ability.PRunnerSustain
-		if id, cd := runner.SustainCooldownOnCancel(); cd > 0 {
-			p.Cooldowns[id] = cd
-		}
-		runner.Cancel()
-		if wasChanneling && p.Confluence != nil {
-			p.Confluence.OnInterrupt()
-		}
-		runner.SyncToPlayer(p)
-	}
+	cancelActiveRunner(p, w.AbilityRunners[peerID])
 }
 
 func handleCommitPhaseAbility(w *World, p *entity.Player, peerID uint16, inp *codec.AbilityInputMsg, def *ability.AbilityDef) {
@@ -262,19 +271,11 @@ func handleCommitPhaseAbility(w *World, p *entity.Player, peerID uint16, inp *co
 		w.AbilityRunners[peerID] = runner
 	}
 	if runner.IsBusy() {
-		wasChanneling := runner.Phase == ability.PRunnerCommit || runner.Phase == ability.PRunnerSustain
-		if id, cd := runner.SustainCooldownOnCancel(); cd > 0 {
-			p.Cooldowns[id] = cd
-		}
-		if !runner.Cancel() {
+		if !cancelActiveRunner(p, runner) {
 			return // in execute or cooldown phase, cannot cancel
 		}
-		if wasChanneling && p.Confluence != nil {
-			p.Confluence.OnInterrupt()
-		}
-		// Cancel during sustain enters cooldown — force reset so Start succeeds
+		// Cancel during sustain enters cooldown -- force reset so Start succeeds
 		runner.ForceReset()
-		runner.SyncToPlayer(p)
 	}
 	runner.Start(def)
 	p.ChannelTargetID = inp.TargetPeerID
@@ -284,16 +285,8 @@ func handleCommitPhaseAbility(w *World, p *entity.Player, peerID uint16, inp *co
 func commitAbilityAndLog(w *World, p *entity.Player, peerID uint16, abilityID string, inp *codec.AbilityInputMsg) {
 	// Cancel any active channel when committing an instant ability
 	if runner := w.AbilityRunners[peerID]; runner != nil && runner.IsBusy() {
-		wasChanneling := runner.Phase == ability.PRunnerCommit || runner.Phase == ability.PRunnerSustain
-		if id, cd := runner.SustainCooldownOnCancel(); cd > 0 {
-			p.Cooldowns[id] = cd
-		}
-		runner.Cancel()
-		if wasChanneling && p.Confluence != nil {
-			p.Confluence.OnInterrupt()
-		}
+		cancelActiveRunner(p, runner)
 		runner.ForceReset()
-		runner.SyncToPlayer(p)
 	}
 
 	// Commit through the ability engine
@@ -526,9 +519,9 @@ func handleSetFluxCommitment(w *World, peerID uint16, payload []byte) {
 	}
 
 	// Validate total = 100%.
-	var total uint8
+	var total int
 	for _, e := range entries {
-		total += e.Percentage
+		total += int(e.Percentage)
 	}
 	if total != 100 {
 		return

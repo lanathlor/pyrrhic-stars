@@ -155,6 +155,8 @@ const OP_CHARACTER_LIST := 0xFF08  # server -> client: all characters after auth
 const OP_SELECT_CHARACTER := 0xFF09  # client -> server: select character by ID
 const OP_CREATE_CHARACTER := 0xFF0A  # client -> server: create new character
 const OP_CHARACTER_ERROR := 0xFF0B  # server -> client: character operation error
+const OP_UDP_ASSOCIATE := 0xFF10  # server -> client (WS): [token:16][port:2 BE]
+const OP_UDP_ASSOCIATE_ACK := 0xFF11  # client -> server (UDP): [token:16]
 
 const HEADER_SIZE := 4
 

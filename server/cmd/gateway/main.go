@@ -71,15 +71,19 @@ func main() {
 	ctr := container.New(repo)
 	ctr.CombatLogSink = combatSink
 	gw := newGateway(ctr)
-	if devMode {
-		gw.devMode = true
-		slog.Info("dev mode enabled — debug opcodes active, standalone (no external deps)")
-	}
+	gw.devMode = devMode
+	slog.Info("gateway starting", "dev_mode", devMode)
 
 	if err := configureGateway(gw); err != nil {
 		slog.Error("gateway configuration failed", "error", err)
 		return
 	}
+
+	if err := startUDPServer(gw); err != nil {
+		slog.Error("udp server failed", "error", err)
+		return
+	}
+	defer func() { _ = gw.udpServer.Close() }()
 
 	// Start periodic position flush (every 30s).
 	flushCtx, flushCancel := context.WithCancel(ctx)
@@ -92,6 +96,27 @@ func main() {
 	}
 }
 
+func startUDPServer(gw *gateway) error {
+	udpAddr := ":7778"
+	if envUDP := os.Getenv("GATEWAY_UDP_ADDR"); envUDP != "" {
+		udpAddr = envUDP
+	}
+	udpSrv, err := network.NewUDPServer(udpAddr)
+	if err != nil {
+		return err
+	}
+	gw.udpServer = udpSrv
+	go udpSrv.ReadLoop(func(sessID uint32, _, opcode uint16, payload []byte) {
+		sess := gw.sessions.GetByID(sessID)
+		if sess == nil {
+			return
+		}
+		routeClientInput(gw, sess, opcode, payload)
+	})
+	slog.Info("udp server listening", "addr", udpAddr)
+	return nil
+}
+
 // runHTTPServer creates the http.Server, registers a graceful shutdown
 // goroutine on SIGINT, and blocks until the server closes. It returns a
 // non-nil error only on unexpected listener failures.
@@ -102,8 +127,10 @@ func runHTTPServer(mux *http.ServeMux) error {
 	}
 
 	srv := &http.Server{
-		Addr:    addr,
-		Handler: mux,
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	// Graceful shutdown on SIGINT/SIGTERM.
@@ -253,13 +280,19 @@ func setupHTTPServer(gw *gateway, logQueryRepo combatlog.ReadRepository) *http.S
 }
 
 func handleConnection(gw *gateway, w http.ResponseWriter, req *http.Request) {
+	if !gw.acquireConn(req.RemoteAddr) {
+		http.Error(w, "too many connections", http.StatusTooManyRequests)
+		return
+	}
+	defer gw.releaseConn(req.RemoteAddr)
+
 	userUUID, username, allChars, ok := authenticateRequest(gw, w, req)
 	if !ok {
 		return
 	}
 
 	conn, err := websocket.Accept(w, req, &websocket.AcceptOptions{
-		InsecureSkipVerify: true, // Allow any origin for dev.
+		InsecureSkipVerify: gw.devMode,
 	})
 	if err != nil {
 		slog.Error("websocket accept", "error", err)
@@ -296,6 +329,9 @@ func handleConnection(gw *gateway, w http.ResponseWriter, req *http.Request) {
 			gw.broadcastGroupState(g)
 		}
 		gw.leaveZone(sess)
+		if gw.udpServer != nil {
+			gw.udpServer.RemoveClient(client)
+		}
 		gw.sessions.Remove(client)
 		client.Close()
 		_ = conn.CloseNow()
@@ -439,16 +475,22 @@ func routeClientInput(gw *gateway, sess *session.Session, opcode uint16, payload
 		case message.InteractClassSelect:
 			nameLen := int(payload[1])
 			if len(payload) >= 2+nameLen {
+				sess.Mu.Lock()
 				sess.Class = string(payload[2 : 2+nameLen])
+				sess.Spec = "" // reset spec when class changes
+				sess.Mu.Unlock()
 			}
-			sess.Spec = "" // reset spec when class changes
 		case message.InteractSpecSelect:
 			nameLen := int(payload[1])
 			if len(payload) >= 2+nameLen {
+				sess.Mu.Lock()
 				sess.Spec = string(payload[2 : 2+nameLen])
-				if sess.CharID != 0 {
-					if err := gw.container.Repo.UpdateCharacterSpec(sess.CharID, sess.Spec); err != nil {
-						slog.Error("persist spec", "char_id", sess.CharID, "spec", sess.Spec, "error", err)
+				charID := sess.CharID
+				spec := sess.Spec
+				sess.Mu.Unlock()
+				if charID != 0 {
+					if err := gw.container.Repo.UpdateCharacterSpec(charID, spec); err != nil {
+						slog.Error("persist spec", "char_id", charID, "spec", spec, "error", err)
 					}
 				}
 			}

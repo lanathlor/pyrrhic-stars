@@ -35,10 +35,57 @@ func (s *NetworkSystem) Tick(w *World, _ float32) {
 	w.DamageEvents = w.DamageEvents[:0]
 }
 
+// broadcastBufWS copies the pooled buffer once and shares the immutable copy
+// with all WS clients. Used for reliable messages (game flow, lobby state)
+// that always go over WebSocket.
+func broadcastBufWS(w *World, buf []byte) {
+	msg := make([]byte, len(buf))
+	copy(msg, buf)
+	if len(w.ClientSnapshot) > 0 {
+		for _, c := range w.ClientSnapshot {
+			c.Send(msg)
+		}
+	} else {
+		for _, c := range w.Clients {
+			c.Send(msg)
+		}
+	}
+}
+
+// broadcastBufUDP sends via UDP to associated clients and falls back to WS
+// for clients without UDP. This ensures clients behind strict NAT (or those
+// that haven't completed association yet) still receive game state.
+func broadcastBufUDP(w *World, buf []byte) {
+	var wsCopy []byte // lazy-allocated WS copy for fallback clients
+	clients := w.ClientSnapshot
+	if len(clients) == 0 {
+		// No snapshot: iterate map directly (hub zones, tests).
+		for _, c := range w.Clients {
+			broadcastUDPOrWS(c, buf, &wsCopy)
+		}
+		return
+	}
+	for _, c := range clients {
+		broadcastUDPOrWS(c, buf, &wsCopy)
+	}
+}
+
+func broadcastUDPOrWS(c *Client, buf []byte, wsCopy *[]byte) {
+	if c.HasUDP != nil && c.HasUDP() {
+		c.SendUDP(buf)
+	} else {
+		if *wsCopy == nil {
+			*wsCopy = make([]byte, len(buf))
+			copy(*wsCopy, buf)
+		}
+		c.Send(*wsCopy)
+	}
+}
+
 func broadcastLobbyState(w *World) {
-	infos := make([]codec.LobbyPlayerInfo, 0, len(w.Players))
+	w.lobbyInfoBuf = w.lobbyInfoBuf[:0]
 	for _, p := range w.Players {
-		infos = append(infos, codec.LobbyPlayerInfo{
+		w.lobbyInfoBuf = append(w.lobbyInfoBuf, codec.LobbyPlayerInfo{
 			PeerID:    p.ID,
 			ClassName: p.ClassName(),
 			SpecName:  p.SpecID,
@@ -46,22 +93,14 @@ func broadcastLobbyState(w *World) {
 			Ready:     p.Ready,
 		})
 	}
-	payload := codec.EncodeLobbyState(infos)
+	payload := codec.EncodeLobbyState(w.lobbyInfoBuf)
 	// Pooled LobbyBuf: encode the full message.
 	if cap(w.LobbyBuf) < 4+len(payload) {
 		w.LobbyBuf = make([]byte, 0, 512)
 	}
 	w.LobbyBuf = w.LobbyBuf[:0]
 	w.LobbyBuf = message.AppendEncode(w.LobbyBuf, message.OpLobbyState, 0, payload)
-	for _, c := range w.Clients {
-		if w.TestMode {
-			msg := make([]byte, len(w.LobbyBuf))
-			copy(msg, w.LobbyBuf)
-			c.Send(msg)
-		} else {
-			c.Send(w.LobbyBuf)
-		}
-	}
+	broadcastBufWS(w, w.LobbyBuf)
 }
 
 func broadcastWorldState(w *World) {
@@ -81,15 +120,7 @@ func broadcastWorldState(w *World) {
 	binary.BigEndian.PutUint16(w.SendBuf[0:2], message.OpWorldState)
 	binary.BigEndian.PutUint16(w.SendBuf[2:4], 0)
 
-	for _, c := range w.Clients {
-		if w.TestMode {
-			msg := make([]byte, len(w.SendBuf))
-			copy(msg, w.SendBuf)
-			c.Send(msg)
-		} else {
-			c.Send(w.SendBuf)
-		}
-	}
+	broadcastBufUDP(w, w.SendBuf)
 }
 
 func broadcastDamageEvents(w *World) {
@@ -107,15 +138,7 @@ func broadcastDamageEvents(w *World) {
 		)
 		binary.BigEndian.PutUint16(w.DamageBuf[0:2], message.OpDamageEvent)
 		binary.BigEndian.PutUint16(w.DamageBuf[2:4], 0)
-		for _, c := range w.Clients {
-			if w.TestMode {
-				msg := make([]byte, len(w.DamageBuf))
-				copy(msg, w.DamageBuf)
-				c.Send(msg)
-			} else {
-				c.Send(w.DamageBuf)
-			}
-		}
+		broadcastBufUDP(w, w.DamageBuf)
 	}
 }
 
@@ -127,13 +150,5 @@ func broadcastGameFlow(w *World, flowType uint8, text string) {
 	}
 	w.GameFlowBuf = w.GameFlowBuf[:0]
 	w.GameFlowBuf = message.AppendEncode(w.GameFlowBuf, message.OpGameFlowEvent, 0, payload)
-	for _, c := range w.Clients {
-		if w.TestMode {
-			msg := make([]byte, len(w.GameFlowBuf))
-			copy(msg, w.GameFlowBuf)
-			c.Send(msg)
-		} else {
-			c.Send(w.GameFlowBuf)
-		}
-	}
+	broadcastBufWS(w, w.GameFlowBuf)
 }
