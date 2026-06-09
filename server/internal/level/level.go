@@ -102,7 +102,7 @@ type Level struct {
 	// ZoneType is "instanced" or "open_world" (from JSON).
 	ZoneType string
 
-	// NPC spawn points (hub only)
+	// NPC spawn points
 	NPCSpawns []NPCSpawnPoint
 
 	// Portals (zone transition points)

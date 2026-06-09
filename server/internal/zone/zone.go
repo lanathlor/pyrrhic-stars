@@ -122,45 +122,37 @@ func New(id string, lvl *level.Level) *Zone {
 	}
 
 	// Initialize obstacles (Level.Obstacles + closed gate obstacles).
-	// InitInstance does this for instanced zones; open-world zones need it too.
 	z.world.InitGateStates()
 
-	if zoneType == ZoneTypeInstanced {
-		spawnInstanceEnemies(z, l)
-		system.InitInstance(&z.world)
-	}
-
-	// Spawn NPCs from level data (open-world zones only)
-	if zoneType == ZoneTypeOpenWorld {
-		for i, sp := range l.NPCSpawns {
-			npc := entity.NewNPC(uint16(2000+i), sp.DefName, sp.Speed, sp.IdleDuration, sp.Waypoints)
-			z.world.NPCs = append(z.world.NPCs, npc)
+	// Spawn enemies from level data (all zone types).
+	spawnEnemies(z, l)
+	for i, e := range z.world.Enemies {
+		if i < len(l.EnemySpawns) {
+			e.Reset(l.EnemySpawns[i].Position, entity.EnemyPatrol)
 		}
 	}
 
-	z.systems = buildSystemPipeline(zoneType, z.botMgr)
+	// Spawn NPCs from level data (all zone types).
+	for i, sp := range l.NPCSpawns {
+		npc := entity.NewNPC(uint16(2000+i), sp.DefName, sp.Speed, sp.IdleDuration, sp.Waypoints)
+		z.world.NPCs = append(z.world.NPCs, npc)
+	}
+
+	z.systems = buildSystemPipeline(z.botMgr)
 
 	return z
 }
 
-func buildSystemPipeline(zoneType ZoneType, botMgr *bot.Manager) []system.System {
+func buildSystemPipeline(botMgr *bot.Manager) []system.System {
 	var botSys system.System = &system.NoOpSystem{}
 	if botMgr != nil {
 		botSys = &bot.System{Manager: botMgr}
-	}
-	if zoneType == ZoneTypeOpenWorld {
-		return []system.System{
-			botSys,
-			&system.CombatSystem{},
-			&system.InputSystem{},
-			&system.NPCSystem{},
-			&system.NetworkSystem{},
-		}
 	}
 	return []system.System{
 		botSys,
 		&system.CombatSystem{},
 		&system.InputSystem{},
+		&system.NPCSystem{},
 		&system.GameFlowSystem{},
 		&system.AISystem{},
 		&system.PhysicsSystem{},
@@ -168,7 +160,7 @@ func buildSystemPipeline(zoneType ZoneType, botMgr *bot.Manager) []system.System
 	}
 }
 
-func spawnInstanceEnemies(z *Zone, l *level.Level) {
+func spawnEnemies(z *Zone, l *level.Level) {
 	for i, sp := range l.EnemySpawns {
 		def := enemyai.DefRegistry[sp.DefName]
 		if def == nil {
@@ -290,8 +282,8 @@ func (z *Zone) AddClient(c *Client) {
 		}
 	}
 
-	// Rescale instance for new player count (already under z.mu).
-	if z.Type == ZoneTypeInstanced {
+	// Rescale enemies for new player count (already under z.mu).
+	if len(z.world.Enemies) > 0 {
 		z.rescaleEnemies(len(z.world.Players))
 	}
 	z.mu.Unlock()
@@ -337,7 +329,7 @@ func (z *Zone) RemoveClient(peerID uint16) {
 	delete(z.world.Players, peerID)
 	delete(z.world.AbilityRunners, peerID)
 	// Rescale directly (already under z.mu).
-	if z.Type == ZoneTypeInstanced || z.botMgr != nil {
+	if len(z.world.Enemies) > 0 || z.botMgr != nil {
 		z.rescaleEnemies(len(z.world.Players))
 	}
 }

@@ -18,17 +18,13 @@ func (s *NetworkSystem) Tick(w *World, _ float32) {
 	}
 	w.GameFlowEvents = w.GameFlowEvents[:0]
 
-	// Dispatch state broadcast based on zone type and game state
-	if w.ZoneType == 0 { // OpenWorld
-		broadcastWorldState(w)
+	// Dispatch state broadcast: arena lobby gets lobby UI state,
+	// everything else (hub, arena fight, etc.) gets world + damage.
+	if w.ZoneType != 0 && w.State == StateLobby {
+		broadcastLobbyState(w)
 	} else {
-		switch w.State {
-		case StateLobby:
-			broadcastLobbyState(w)
-		case StateSpawned, StateFight, StateFightOver:
-			broadcastWorldState(w)
-			broadcastDamageEvents(w)
-		}
+		broadcastWorldState(w)
+		broadcastDamageEvents(w)
 	}
 
 	// Clear damage events after broadcast

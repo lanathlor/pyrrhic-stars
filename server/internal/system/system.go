@@ -281,6 +281,16 @@ func (w *World) InitGateStates() {
 	w.RebuildObstacles()
 }
 
+// CombatActive returns true when combat systems (AI, Physics) should tick.
+// Open-world zones are always active; instanced zones are active only during
+// the Fight state of the arena FSM.
+func (w *World) CombatActive() bool {
+	if w.ZoneType == 0 { // OpenWorld
+		return true
+	}
+	return w.State == StateFight
+}
+
 // EnemyDmgMult returns the enemy damage multiplier, defaulting to 1.0 if unset.
 func (w *World) EnemyDmgMult() float32 {
 	if w.EnemyDamageMult == 0 {
