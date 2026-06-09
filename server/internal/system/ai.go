@@ -11,7 +11,7 @@ import (
 type AISystem struct{}
 
 func (s *AISystem) Tick(w *World, dt float32) {
-	if w.State != StateFight {
+	if !w.CombatActive() {
 		return
 	}
 

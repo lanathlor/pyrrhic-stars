@@ -10,7 +10,7 @@ import (
 type PhysicsSystem struct{}
 
 func (s *PhysicsSystem) Tick(w *World, dt float32) {
-	if w.State != StateFight {
+	if !w.CombatActive() {
 		return
 	}
 

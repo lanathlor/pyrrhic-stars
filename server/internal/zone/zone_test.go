@@ -2,6 +2,7 @@ package zone
 
 import (
 	"codex-online/server/internal/entity"
+	"codex-online/server/internal/level"
 	"codex-online/server/internal/message"
 	"codex-online/server/internal/system"
 	"encoding/binary"
@@ -986,5 +987,77 @@ func TestArenaInstance_SecondPlayerGetsCatchUp(t *testing.T) {
 	}
 	if p2.Position.Z < 40.0 {
 		t.Errorf("Player2.Position.Z = %f, want >= 40 (warmup spawn)", p2.Position.Z)
+	}
+}
+
+// =============================================================================
+// Test: Open-world zone with enemies -- AI ticks, damage events broadcast
+// =============================================================================
+
+func TestOpenWorldZone_EnemiesAndCombat(t *testing.T) {
+	// Build a hub-like level with one melee enemy spawn near the player.
+	hubLvl := testHubLevel(t)
+	hubLvl.EnemySpawns = []level.EnemySpawnPoint{
+		{
+			DefName:     "hallway_melee",
+			Position:    entity.Vec3{X: 0, Y: 0.1, Z: 5},
+			AggroRadius: 15,
+			PatrolA:     entity.Vec3{X: -2, Y: 0.1, Z: 5},
+			PatrolB:     entity.Vec3{X: 2, Y: 0.1, Z: 5},
+		},
+	}
+
+	z := New("test_hub_combat", hubLvl)
+
+	// Zone type should be open-world.
+	if z.Type != ZoneTypeOpenWorld {
+		t.Fatalf("Type = %d, want ZoneTypeOpenWorld (0)", z.Type)
+	}
+
+	// Enemy should have been spawned and activated.
+	if len(z.world.Enemies) != 1 {
+		t.Fatalf("Enemies = %d, want 1", len(z.world.Enemies))
+	}
+	if !z.world.Enemies[0].Alive {
+		t.Fatal("enemy should be alive")
+	}
+	if z.world.Enemies[0].State != entity.EnemyPatrol {
+		t.Fatalf("enemy State = %d, want EnemyPatrol", z.world.Enemies[0].State)
+	}
+
+	// Place a player right next to the enemy to trigger aggro.
+	peerID := uint16(1)
+	p := entity.NewPlayer(peerID, entity.ClassGunner)
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 6}
+	p.Alive = true
+	z.world.Players[peerID] = p
+
+	send, msgs := captureSend()
+	z.world.Clients[peerID] = &Client{
+		PeerID: peerID, Username: "HubFighter",
+		Send: send, SendUDP: send, HasUDP: func() bool { return true },
+	}
+
+	// Tick several times to let the enemy detect and attack the player.
+	for range 40 {
+		z.processTick()
+	}
+
+	// Enemy should have aggroed (left patrol state).
+	if z.world.Enemies[0].State == entity.EnemyPatrol {
+		t.Error("enemy should have left patrol state after detecting nearby player")
+	}
+
+	// Damage events should have been broadcast (enemy attacked the player).
+	foundDamage := false
+	for _, msg := range *msgs {
+		if len(msg) >= 4 && binary.BigEndian.Uint16(msg[0:2]) == message.OpDamageEvent {
+			foundDamage = true
+			break
+		}
+	}
+	if !foundDamage {
+		t.Error("no DamageEvent broadcast in open-world zone with enemies -- " +
+			"AI or NetworkSystem is not running for open-world zones")
 	}
 }
