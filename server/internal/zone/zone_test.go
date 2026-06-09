@@ -76,6 +76,7 @@ func setupFightZone(t *testing.T) (*Zone, uint16) {
 		Username: testPlayerName,
 		Send:     func([]byte) {},
 		SendUDP:  func([]byte) {},
+		HasUDP:   func() bool { return true },
 	}
 
 	return z, peerID
@@ -221,7 +222,7 @@ func setupMultiPlayerFightZone(t *testing.T, n int) (*Zone, []uint16) {
 		p.Position = entity.Vec3{X: float32(i) * 2, Y: 0.1, Z: 10}
 		p.Alive = true
 		z.world.Players[pid] = p
-		z.world.Clients[pid] = &Client{PeerID: pid, Username: fmt.Sprintf("P%d", pid), Send: func([]byte) {}, SendUDP: func([]byte) {}}
+		z.world.Clients[pid] = &Client{PeerID: pid, Username: fmt.Sprintf("P%d", pid), Send: func([]byte) {}, SendUDP: func([]byte) {}, HasUDP: func() bool { return true }}
 		ids = append(ids, pid)
 	}
 	return z, ids
@@ -622,7 +623,7 @@ func TestLobbyToSpawnedToFight(t *testing.T) {
 	z.world.Players[peerID] = p
 
 	send, msgs := captureSend()
-	z.world.Clients[peerID] = &Client{PeerID: peerID, Username: "TestPlayer", Send: send, SendUDP: send}
+	z.world.Clients[peerID] = &Client{PeerID: peerID, Username: "TestPlayer", Send: send, SendUDP: send, HasUDP: func() bool { return true }}
 
 	// Step 1: lobby — player not ready, should stay in lobby
 	z.processTick()
@@ -910,7 +911,7 @@ func TestHubZoneTick(t *testing.T) {
 	z.world.Players[peerID] = p
 
 	send, msgs := captureSend()
-	z.world.Clients[peerID] = &Client{PeerID: peerID, Username: "HubPlayer", Send: send, SendUDP: send}
+	z.world.Clients[peerID] = &Client{PeerID: peerID, Username: "HubPlayer", Send: send, SendUDP: send, HasUDP: func() bool { return true }}
 
 	// Should not panic
 	z.processTick()
@@ -942,7 +943,7 @@ func TestArenaInstance_FightAfterPlayerJoin(t *testing.T) {
 	z := New("test_arena", testArenaLevel(t))
 
 	send, msgs := captureSend()
-	c := &Client{PeerID: 1, Username: "TestPlayer", Send: send, SendUDP: send}
+	c := &Client{PeerID: 1, Username: "TestPlayer", Send: send, SendUDP: send, HasUDP: func() bool { return true }}
 	z.AddClient(c)
 
 	// First tick transitions Spawned → Fight (player is present)
@@ -959,7 +960,7 @@ func TestArenaInstance_FightAfterPlayerJoin(t *testing.T) {
 func TestArenaInstance_SecondPlayerGetsCatchUp(t *testing.T) {
 	z := New("test_arena", testArenaLevel(t))
 
-	c1 := &Client{PeerID: 1, Username: "Player1", Send: func([]byte) {}, SendUDP: func([]byte) {}}
+	c1 := &Client{PeerID: 1, Username: "Player1", Send: func([]byte) {}, SendUDP: func([]byte) {}, HasUDP: func() bool { return true }}
 	z.AddClient(c1)
 
 	// Tick to enter fight
@@ -971,7 +972,7 @@ func TestArenaInstance_SecondPlayerGetsCatchUp(t *testing.T) {
 
 	// Second player joins mid-fight
 	send2, msgs2 := captureSend()
-	c2 := &Client{PeerID: 2, Username: "Player2", Send: send2}
+	c2 := &Client{PeerID: 2, Username: "Player2", Send: send2, HasUDP: func() bool { return true }}
 	z.AddClient(c2)
 
 	if !findGameFlowEvent(*msgs2, message.FlowFightStart) {

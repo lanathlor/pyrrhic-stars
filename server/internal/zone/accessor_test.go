@@ -23,6 +23,7 @@ func fakeClient(peerID uint16, username string) *system.Client {
 		Username: username,
 		Send:     func([]byte) {},
 		SendUDP:  func([]byte) {},
+		HasUDP:   func() bool { return true },
 	}
 }
 
@@ -119,8 +120,8 @@ func TestBroadcast(t *testing.T) {
 	z := New("test_hub", minimalLevel())
 
 	var received1, received2 int
-	c1 := &system.Client{PeerID: 1, Username: "Alice", Send: func([]byte) { received1++ }, SendUDP: func([]byte) {}}
-	c2 := &system.Client{PeerID: 2, Username: "Bob", Send: func([]byte) { received2++ }, SendUDP: func([]byte) {}}
+	c1 := &system.Client{PeerID: 1, Username: "Alice", Send: func([]byte) { received1++ }, SendUDP: func([]byte) {}, HasUDP: func() bool { return true }}
+	c2 := &system.Client{PeerID: 2, Username: "Bob", Send: func([]byte) { received2++ }, SendUDP: func([]byte) {}, HasUDP: func() bool { return true }}
 	z.AddClient(c1)
 	z.AddClient(c2)
 

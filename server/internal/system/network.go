@@ -52,33 +52,22 @@ func broadcastBufWS(w *World, buf []byte) {
 	}
 }
 
-// broadcastBufUDP sends via UDP to associated clients and falls back to WS
-// for clients without UDP. This ensures clients behind strict NAT (or those
-// that haven't completed association yet) still receive game state.
+// broadcastBufUDP sends via UDP to associated clients. Clients without a
+// confirmed UDP association are skipped (they will be disconnected shortly).
 func broadcastBufUDP(w *World, buf []byte) {
-	var wsCopy []byte // lazy-allocated WS copy for fallback clients
 	clients := w.ClientSnapshot
 	if len(clients) == 0 {
-		// No snapshot: iterate map directly (hub zones, tests).
 		for _, c := range w.Clients {
-			broadcastUDPOrWS(c, buf, &wsCopy)
+			if c.HasUDP != nil && c.HasUDP() {
+				c.SendUDP(buf)
+			}
 		}
 		return
 	}
 	for _, c := range clients {
-		broadcastUDPOrWS(c, buf, &wsCopy)
-	}
-}
-
-func broadcastUDPOrWS(c *Client, buf []byte, wsCopy *[]byte) {
-	if c.HasUDP != nil && c.HasUDP() {
-		c.SendUDP(buf)
-	} else {
-		if *wsCopy == nil {
-			*wsCopy = make([]byte, len(buf))
-			copy(*wsCopy, buf)
+		if c.HasUDP != nil && c.HasUDP() {
+			c.SendUDP(buf)
 		}
-		c.Send(*wsCopy)
 	}
 }
 
