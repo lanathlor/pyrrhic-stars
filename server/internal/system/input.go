@@ -449,8 +449,8 @@ func handleInteractInput(w *World, peerID uint16, payload []byte) {
 		p.Ready = !p.Ready
 	case message.InteractExitPortal:
 		if w.BossDefeated {
-			if w.OnPlayerRespawnHub != nil {
-				w.OnPlayerRespawnHub(peerID)
+			if w.OnPlayerReturnToOpenWorld != nil {
+				w.OnPlayerReturnToOpenWorld(peerID)
 			}
 		}
 	case message.InteractSpecSelect:
@@ -547,9 +547,9 @@ func handleRespawnRequest(w *World, peerID uint16, payload []byte) {
 	}
 
 	switch respawnType {
-	case 1: // hub
-		if w.OnPlayerRespawnHub != nil {
-			w.OnPlayerRespawnHub(peerID)
+	case 1: // return to open world
+		if w.OnPlayerReturnToOpenWorld != nil {
+			w.OnPlayerReturnToOpenWorld(peerID)
 		}
 	case 0: // local respawn (allowed unless boss room is sealed)
 		if !w.AnyGateClosed() {

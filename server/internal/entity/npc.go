@@ -8,7 +8,7 @@ const (
 	NPCWalk
 )
 
-// NPC represents a server-controlled non-player character in the hub.
+// NPC represents a server-controlled non-player character in an open-world zone.
 // NPCs walk between waypoints and occasionally pause to idle.
 type NPC struct {
 	ID        uint16
@@ -29,7 +29,7 @@ type NPC struct {
 	IdleDuration float32 // how long to idle at each waypoint
 }
 
-// NewNPC creates a hub NPC at the first waypoint.
+// NewNPC creates an open-world NPC at the first waypoint.
 func NewNPC(id uint16, defName string, speed float32, idleDuration float32, waypoints []Vec3) *NPC {
 	pos := Vec3{}
 	if len(waypoints) > 0 {

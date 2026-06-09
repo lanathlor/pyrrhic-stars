@@ -25,6 +25,9 @@ import (
 	"codex-online/server/internal/zone"
 )
 
+// defaultOpenWorldZone is the zone ID for the main open-world zone.
+const defaultOpenWorldZone = "hub"
+
 // gateway manages zones, player sessions, and groups.
 type gateway struct {
 	container  *container.Container
@@ -198,6 +201,7 @@ func (g *gateway) joinZone(sess *session.Session, zi *zoneInstance, resp joinRes
 	sess.Mu.Lock()
 	sess.PeerID = peerID
 	sess.ZoneID = zi.zone.ID
+	sess.ZoneType = uint8(zi.zone.Type)
 	sess.Mu.Unlock()
 	g.sessions.IndexZonePeer(sess.ID, zi.zone.ID, peerID)
 
@@ -531,22 +535,22 @@ func itemToCodec(it *item.Item) codec.InventoryItemInfo {
 }
 
 // transferPlayer moves a player from their current zone to a new zone.
-// groupSize is used for instance scaling when creating a new arena.
+// groupSize is used for instance scaling.
 func (g *gateway) transferPlayer(sess *session.Session, targetZoneID string, lvl *level.Level, groupSize int) {
 	g.leaveZone(sess)
 
 	zi := g.getOrCreateZone(targetZoneID, lvl, groupSize)
 	if zi.zone.Type == zone.ZoneTypeInstanced {
-		zi.zone.SetOnPlayerRespawnHub(func(peerID uint16) {
-			g.handlePlayerRespawnHub(targetZoneID, peerID)
+		zi.zone.SetOnPlayerReturnToOpenWorld(func(peerID uint16) {
+			g.handlePlayerReturnToOpenWorld(targetZoneID, peerID)
 		})
 	}
 
 	g.joinZone(sess, zi, joinResponseZoneTransfer)
 }
 
-// handlePlayerRespawnHub transfers a single dead player back to the hub.
-func (g *gateway) handlePlayerRespawnHub(zoneID string, peerID uint16) {
+// handlePlayerReturnToOpenWorld transfers a single dead player back to the open-world zone.
+func (g *gateway) handlePlayerReturnToOpenWorld(zoneID string, peerID uint16) {
 	globalID := g.sessions.ResolveZonePeer(zoneID, peerID)
 	if globalID == 0 {
 		return
@@ -555,13 +559,13 @@ func (g *gateway) handlePlayerRespawnHub(zoneID string, peerID uint16) {
 	if sess == nil {
 		return
 	}
-	slog.Info("player respawning to hub", "player_id", sess.ID, "from_zone", zoneID)
-	hubLvl, err := g.loadLevel("hub")
+	slog.Info("player returning to open world", "player_id", sess.ID, "from_zone", zoneID)
+	lvl, err := g.loadLevel(defaultOpenWorldZone)
 	if err != nil {
-		slog.Error("hub level not found for respawn", "error", err)
+		slog.Error("open-world level not found for return", "error", err)
 		return
 	}
-	g.transferPlayer(sess, zone.ZoneHub, hubLvl, 0)
+	g.transferPlayer(sess, defaultOpenWorldZone, lvl, 0)
 
 	grp := g.groups.GetGroup(sess.ID)
 	if grp != nil {

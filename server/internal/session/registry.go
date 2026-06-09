@@ -5,7 +5,6 @@ import (
 
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/network"
-	"codex-online/server/internal/zone"
 )
 
 // zonePeerKey is a composite key for the zone peer index.
@@ -109,17 +108,17 @@ func (r *Registry) ResolveZonePeer(zoneID string, peerID uint16) uint32 {
 	return r.zonePeers[zonePeerKey{zoneID, peerID}]
 }
 
-// HubFlushTargets returns a snapshot of all sessions currently in the hub
-// zone that have a persisted character, suitable for position flushing.
-func (r *Registry) HubFlushTargets() []HubFlushTarget {
+// PersistFlushTargets returns a snapshot of all sessions currently in an
+// open-world zone that have a persisted character, suitable for position flushing.
+func (r *Registry) PersistFlushTargets() []PersistFlushTarget {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	var targets []HubFlushTarget
+	var targets []PersistFlushTarget
 	for _, sess := range r.sessions {
 		sess.Mu.RLock()
-		match := sess.UserUUID != "" && sess.ZoneID == zone.ZoneHub && sess.CharID != 0
+		match := sess.UserUUID != "" && sess.ZoneType == 0 && sess.ZoneID != "" && sess.CharID != 0
 		if match {
-			targets = append(targets, HubFlushTarget{
+			targets = append(targets, PersistFlushTarget{
 				UserUUID: sess.UserUUID,
 				CharID:   sess.CharID,
 				PeerID:   sess.PeerID,

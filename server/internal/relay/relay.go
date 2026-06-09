@@ -280,7 +280,7 @@ func (r *Relay) handleServerMessage(ctx context.Context, client *Client, opcode 
 	case message.OpJoinZone:
 		zoneID := string(payload)
 		if zoneID == "" {
-			zoneID = "arena"
+			zoneID = "default" // legacy relay fallback
 		}
 
 		peerID, isHost, err := r.JoinZone(ctx, client, zoneID)

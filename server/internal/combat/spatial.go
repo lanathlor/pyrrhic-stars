@@ -38,7 +38,7 @@ func PushOutOfObstacles(pos *entity.Vec3, obstacles []Obstacle, radius float32) 
 	}
 }
 
-// IsAtWall checks if a position is at the arena boundary.
+// IsAtWall checks if a position is at the zone boundary.
 func IsAtWall(pos entity.Vec3, minX, maxX, minZ, maxZ float32) bool {
 	const margin float32 = 0.5
 	return pos.X <= minX+margin || pos.X >= maxX-margin ||

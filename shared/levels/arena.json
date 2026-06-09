@@ -1306,9 +1306,9 @@
 	"zone_triggers": [
 		{
 			"axis": "z",
-			"name": "ArenaEntry",
+			"name": "InstanceEntry",
 			"threshold": 40.0,
-			"trigger_id": "arena_entry"
+			"trigger_id": "instance_entry"
 		}
 	],
 	"gates": [

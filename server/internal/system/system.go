@@ -101,8 +101,8 @@ type World struct {
 	GameFlowEvents []GameFlowEvent
 
 	// Callbacks (set by zone/gateway)
-	OnPlayerRespawnHub func(peerID uint16)
-	BroadcastToAll     func(msg []byte, excludePeerID uint16)
+	OnPlayerReturnToOpenWorld func(peerID uint16)
+	BroadcastToAll            func(msg []byte, excludePeerID uint16)
 
 	// SendBuf is a pooled buffer for the broadcast path.
 	// Reused every tick to avoid per-call allocations.

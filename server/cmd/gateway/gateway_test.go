@@ -351,7 +351,7 @@ func TestJoinZone_DoesNotQueueClassSelectForGunner(t *testing.T) {
 
 func TestJoinZone_RestoresPositionForHub(t *testing.T) {
 	gw := newTestGateway(posRepo{})
-	zi := newTestZoneInstance(t, zone.ZoneHub, "hub")
+	zi := newTestZoneInstance(t, "hub", "hub")
 
 	sess, _ := newTestSession(1)
 	sess.CharID = 42
@@ -393,7 +393,7 @@ func TestJoinZone_NoPositionRestoreForArena(t *testing.T) {
 
 func TestJoinZone_NoPositionRestoreWithoutCharID(t *testing.T) {
 	gw := newTestGateway(posRepo{})
-	zi := newTestZoneInstance(t, zone.ZoneHub, "hub")
+	zi := newTestZoneInstance(t, "hub", "hub")
 
 	sess, _ := newTestSession(1)
 	sess.CharID = 0 // no character
@@ -504,19 +504,19 @@ func TestLeaveZone_RemovesEmptyArena(t *testing.T) {
 
 func TestLeaveZone_DoesNotRemoveEmptyHub(t *testing.T) {
 	gw := newTestGateway(stubRepo{})
-	zi := newTestZoneInstance(t, zone.ZoneHub, "hub")
+	zi := newTestZoneInstance(t, "hub", "hub")
 
 	sess, _ := newTestSession(1)
 	defer sess.Conn.Close()
 	gw.joinZone(sess, zi, joinResponseZoneJoined)
 
 	gw.mu.Lock()
-	gw.zones[zone.ZoneHub] = zi
+	gw.zones["hub"] = zi
 	gw.mu.Unlock()
 
 	gw.leaveZone(sess)
 
-	if gw.getZone(zone.ZoneHub) == nil {
+	if gw.getZone("hub") == nil {
 		t.Error("hub zone was incorrectly removed")
 	}
 }
@@ -549,9 +549,9 @@ func TestLeaveZone_DoesNotRemoveNonEmptyArena(t *testing.T) {
 func TestTransferPlayer_MovesPlayerBetweenZones(t *testing.T) {
 	gw := newTestGateway(stubRepo{})
 
-	hubZI := newTestZoneInstance(t, zone.ZoneHub, "hub")
+	hubZI := newTestZoneInstance(t, "hub", "hub")
 	gw.mu.Lock()
-	gw.zones[zone.ZoneHub] = hubZI
+	gw.zones["hub"] = hubZI
 	gw.mu.Unlock()
 
 	sess, _ := newTestSession(1)
@@ -603,9 +603,9 @@ func TestEnterPortal_PlayerReceivesZoneTransfer(t *testing.T) {
 	gw.udpServer = udpSrv
 
 	// Create hub zone and place the player in it.
-	hubZI := newTestZoneInstance(t, zone.ZoneHub, "hub")
+	hubZI := newTestZoneInstance(t, "hub", "hub")
 	gw.mu.Lock()
-	gw.zones[zone.ZoneHub] = hubZI
+	gw.zones["hub"] = hubZI
 	gw.mu.Unlock()
 
 	sess, spy := newTestSession(1)
@@ -651,9 +651,9 @@ func TestEnterPortal_PlayerReceivesUDPAssociate(t *testing.T) {
 	defer func() { _ = udpSrv.Close() }()
 	gw.udpServer = udpSrv
 
-	hubZI := newTestZoneInstance(t, zone.ZoneHub, "hub")
+	hubZI := newTestZoneInstance(t, "hub", "hub")
 	gw.mu.Lock()
-	gw.zones[zone.ZoneHub] = hubZI
+	gw.zones["hub"] = hubZI
 	gw.mu.Unlock()
 
 	sess, spy := newTestSession(1)
@@ -698,9 +698,9 @@ func TestEnterPortal_NoUDPAssociateWhenAlreadyAssociated(t *testing.T) {
 	defer func() { _ = udpSrv.Close() }()
 	gw.udpServer = udpSrv
 
-	hubZI := newTestZoneInstance(t, zone.ZoneHub, "hub")
+	hubZI := newTestZoneInstance(t, "hub", "hub")
 	gw.mu.Lock()
-	gw.zones[zone.ZoneHub] = hubZI
+	gw.zones["hub"] = hubZI
 	gw.mu.Unlock()
 
 	sess, spy := newTestSession(1)
@@ -753,9 +753,9 @@ func TestEnterPortal_ArenaTickLowerThanHub(t *testing.T) {
 	gw.udpServer = udpSrv
 
 	// Create hub zone and simulate several ticks so TickNum is high.
-	hubZI := newTestZoneInstance(t, zone.ZoneHub, "hub")
+	hubZI := newTestZoneInstance(t, "hub", "hub")
 	gw.mu.Lock()
-	gw.zones[zone.ZoneHub] = hubZI
+	gw.zones["hub"] = hubZI
 	gw.mu.Unlock()
 	// Advance hub tick counter (simulates ~5 seconds of gameplay).
 	for range 100 {
@@ -805,7 +805,7 @@ func findArenaZone(gw *gateway) *zoneInstance {
 	gw.mu.Lock()
 	defer gw.mu.Unlock()
 	for id, zi := range gw.zones {
-		if id != zone.ZoneHub {
+		if id != "hub" {
 			return zi
 		}
 	}
@@ -906,11 +906,11 @@ func BenchmarkLeaveZone(b *testing.B) {
 func BenchmarkTransferPlayer(b *testing.B) {
 	gw := newTestGateway(stubRepo{})
 
-	hubZI := newTestZoneInstance(b, zone.ZoneHub, "hub")
+	hubZI := newTestZoneInstance(b, "hub", "hub")
 	arenaZI := newTestZoneInstance(b, "arena_bench", "arena")
 
 	gw.mu.Lock()
-	gw.zones[zone.ZoneHub] = hubZI
+	gw.zones["hub"] = hubZI
 	gw.zones["arena_bench"] = arenaZI
 	gw.mu.Unlock()
 

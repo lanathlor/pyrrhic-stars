@@ -267,7 +267,7 @@ func TestGunnerHitBroadcastsDamageEventIntegration(t *testing.T) {
 	// Wait for spawn grace period to expire (10 ticks @ 20Hz = 500ms)
 	time.Sleep(600 * time.Millisecond)
 
-	// Walk both players into the hallway (Z < ArenaEntryZ=40) near enemies,
+	// Walk both players into the hallway (Z < InstanceEntryZ=40) near enemies,
 	// using incremental steps so the server-side speed clamp accepts each move.
 	var wg sync.WaitGroup
 	wg.Go(func() { shooter.WalkTo(0, 0.1, 48, 0, 0.1, 39, 0.35) })
