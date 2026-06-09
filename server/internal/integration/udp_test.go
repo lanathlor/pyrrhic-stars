@@ -330,9 +330,9 @@ func TestUDP_PlayerInputReceivedOverUDP(t *testing.T) {
 	t.Error("player position did not update after UDP input")
 }
 
-// TestUDP_WorldStateFallsBackToWS verifies that clients without UDP
-// association still receive world state over WebSocket as a fallback.
-func TestUDP_WorldStateFallsBackToWS(t *testing.T) {
+// TestUDP_NoWorldStateWithoutAssociation verifies that clients without UDP
+// association do NOT receive world state. UDP is mandatory.
+func TestUDP_NoWorldStateWithoutAssociation(t *testing.T) {
 	gw := startUDPTestGateway(t)
 
 	tc := connect(t, gw.URL)
@@ -341,8 +341,8 @@ func TestUDP_WorldStateFallsBackToWS(t *testing.T) {
 	// Receive OpUDPAssociate but DON'T send the ack (simulate NAT/firewall).
 	tc.WaitForMessage(message.OpUDPAssociate, 2*time.Second)
 
-	// World state should still arrive over WS (fallback for non-UDP clients).
-	tc.WaitForMessage(message.OpWorldState, 2*time.Second)
+	// World state must NOT arrive over WS; UDP is required.
+	tc.ExpectNoMessage(message.OpWorldState, 500*time.Millisecond)
 }
 
 func putF32LE(b []byte, v float32) {

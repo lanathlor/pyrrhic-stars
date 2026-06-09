@@ -46,6 +46,7 @@ func newMockClient(peerID uint16) (*Client, *sentMessages) {
 		Username: "test",
 		Send:     sm.add,
 		SendUDP:  sm.add,
+		HasUDP:   func() bool { return true },
 	}
 	return c, sm
 }

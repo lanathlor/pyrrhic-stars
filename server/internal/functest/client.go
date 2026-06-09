@@ -23,6 +23,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"net"
+	"net/url"
 	"sync"
 	"testing"
 	"time"
@@ -37,7 +39,7 @@ import (
 // DefaultAddr is the gateway address when running via docker compose.
 const DefaultAddr = "ws://localhost:7777/ws"
 
-// Client is a functional test WebSocket client.
+// Client is a functional test WebSocket + UDP client.
 type Client struct {
 	t      *testing.T
 	conn   *websocket.Conn
@@ -47,6 +49,11 @@ type Client struct {
 	PeerID   uint16
 	Username string
 	UUID     string
+
+	// UDP transport (set after association completes).
+	udpConn      *net.UDPConn
+	wsHost       string // gateway host for UDP connection
+	pendingAssoc []byte // buffered OpUDPAssociate payload (if PeerID not yet set)
 
 	mu   sync.Mutex
 	msgs []RawMsg
@@ -65,9 +72,9 @@ type RawMsg struct {
 // cannot be established.
 // TryDial attempts to connect without failing the test. Returns an error if unreachable.
 func TryDial(addr, username string) (*Client, error) {
-	url := fmt.Sprintf("%s?uuid=%s&username=%s", addr, uuid.New().String(), username)
+	dialURL := fmt.Sprintf("%s?uuid=%s&username=%s", addr, uuid.New().String(), username)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	conn, _, err := websocket.Dial(ctx, url, nil)
+	conn, _, err := websocket.Dial(ctx, dialURL, nil)
 	if err != nil {
 		cancel()
 		return nil, err
@@ -77,6 +84,7 @@ func TryDial(addr, username string) (*Client, error) {
 		conn:   conn,
 		ctx:    ctx,
 		cancel: cancel,
+		wsHost: extractHost(addr),
 	}
 	c.cond = sync.NewCond(&c.mu)
 	go c.readLoop()
@@ -97,10 +105,10 @@ func Dial(t *testing.T, addr string, username ...string) *Client {
 func DialWithUUID(t *testing.T, addr, playerUUID, username string) *Client {
 	t.Helper()
 
-	url := fmt.Sprintf("%s?uuid=%s&username=%s", addr, playerUUID, username)
+	dialURL := fmt.Sprintf("%s?uuid=%s&username=%s", addr, playerUUID, username)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	conn, _, err := websocket.Dial(ctx, url, nil)
+	conn, _, err := websocket.Dial(ctx, dialURL, nil)
 	if err != nil {
 		cancel()
 		t.Fatalf("functest.Dial: %v (is the gateway running?)", err)
@@ -115,6 +123,7 @@ func DialWithUUID(t *testing.T, addr, playerUUID, username string) *Client {
 		cancel:   cancel,
 		Username: username,
 		UUID:     playerUUID,
+		wsHost:   extractHost(addr),
 	}
 	c.cond = sync.NewCond(&c.mu)
 	go c.readLoop()
@@ -125,11 +134,15 @@ func DialWithUUID(t *testing.T, addr, playerUUID, username string) *Client {
 
 // Close shuts down the connection.
 func (c *Client) Close() {
+	if c.udpConn != nil {
+		_ = c.udpConn.Close()
+	}
 	_ = c.conn.Close(websocket.StatusNormalClosure, "test done")
 	c.cancel()
 }
 
 // readLoop receives messages and appends them to the buffer.
+// It also handles OpUDPAssociate by completing the UDP handshake.
 func (c *Client) readLoop() {
 	for {
 		_, data, err := c.conn.Read(c.ctx)
@@ -140,11 +153,90 @@ func (c *Client) readLoop() {
 		if err != nil {
 			continue
 		}
+		if opcode == message.OpUDPAssociate {
+			// Buffer if PeerID is not yet set; it will be flushed by JoinZone.
+			if c.PeerID == 0 {
+				c.mu.Lock()
+				c.pendingAssoc = append([]byte(nil), payload...)
+				c.mu.Unlock()
+			} else {
+				c.handleUDPAssociate(payload)
+			}
+			continue
+		}
 		c.mu.Lock()
 		c.msgs = append(c.msgs, RawMsg{
 			Opcode:   opcode,
 			SenderID: senderID,
 			Payload:  append([]byte(nil), payload...),
+		})
+		c.cond.Broadcast()
+		c.mu.Unlock()
+	}
+}
+
+// flushPendingUDP completes a buffered UDP association (if any).
+// Called after PeerID is set by JoinZone/SelectCharacter/CreateCharacter.
+func (c *Client) flushPendingUDP() {
+	c.mu.Lock()
+	payload := c.pendingAssoc
+	c.pendingAssoc = nil
+	c.mu.Unlock()
+	if payload != nil {
+		c.handleUDPAssociate(payload)
+	}
+}
+
+// handleUDPAssociate completes the UDP association handshake.
+// Payload: [token:16][port:2 BE].
+func (c *Client) handleUDPAssociate(payload []byte) {
+	if len(payload) < 18 {
+		return
+	}
+	token := payload[:16]
+	port := binary.BigEndian.Uint16(payload[16:18])
+
+	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", c.wsHost, port))
+	if err != nil {
+		return
+	}
+	conn, err := net.DialUDP("udp", nil, addr)
+	if err != nil {
+		return
+	}
+	c.udpConn = conn
+
+	// Send OpUDPAssociateAck: [opcode:2 BE][peerID:2 BE][token:16]
+	ack := make([]byte, 20)
+	binary.BigEndian.PutUint16(ack[0:2], message.OpUDPAssociateAck)
+	binary.BigEndian.PutUint16(ack[2:4], c.PeerID)
+	copy(ack[4:], token)
+	_, _ = conn.Write(ack)
+
+	go c.udpReadLoop()
+}
+
+// udpReadLoop reads UDP packets and feeds them into the shared message buffer.
+func (c *Client) udpReadLoop() {
+	buf := make([]byte, 2048)
+	for {
+		n, err := c.udpConn.Read(buf)
+		if err != nil {
+			return
+		}
+		if n < 4 {
+			continue
+		}
+		opcode := binary.BigEndian.Uint16(buf[0:2])
+		senderID := binary.BigEndian.Uint16(buf[2:4])
+		payload := make([]byte, n-4)
+		copy(payload, buf[4:n])
+
+		c.mu.Lock()
+		c.msgs = append(c.msgs, RawMsg{
+			Opcode:   opcode,
+			SenderID: senderID,
+			Payload:  payload,
 		})
 		c.cond.Broadcast()
 		c.mu.Unlock()
@@ -175,6 +267,7 @@ func (c *Client) JoinZone(zoneID string) {
 		c.t.Fatalf("ZoneJoined payload too short: %d bytes", len(msg.Payload))
 	}
 	c.PeerID = binary.BigEndian.Uint16(msg.Payload[0:2])
+	c.flushPendingUDP()
 }
 
 // SelectCharacter sends OpSelectCharacter with a character ID, waits for
@@ -191,6 +284,7 @@ func (c *Client) SelectCharacter(charID uint32) CharacterState {
 		c.t.Fatalf("ZoneJoined payload too short: %d bytes", len(msg.Payload))
 	}
 	c.PeerID = binary.BigEndian.Uint16(msg.Payload[0:2])
+	c.flushPendingUDP()
 	return cs
 }
 
@@ -212,6 +306,7 @@ func (c *Client) CreateCharacter(className, charName string) CharacterState {
 		c.t.Fatalf("ZoneJoined payload too short: %d bytes", len(msg.Payload))
 	}
 	c.PeerID = binary.BigEndian.Uint16(msg.Payload[0:2])
+	c.flushPendingUDP()
 	return cs
 }
 
@@ -706,6 +801,19 @@ func decodeCharacterState(data []byte) CharacterState {
 // ---------------------------------------------------------------------------
 // Wire helpers (little-endian)
 // ---------------------------------------------------------------------------
+
+// extractHost returns the hostname from a WebSocket URL (e.g. "ws://localhost:7777/ws" → "localhost").
+func extractHost(addr string) string {
+	u, err := url.Parse(addr)
+	if err != nil {
+		return "localhost"
+	}
+	host := u.Hostname()
+	if host == "" {
+		return "localhost"
+	}
+	return host
+}
 
 func leU16(b []byte) uint16 { return binary.LittleEndian.Uint16(b) }
 func leU32(b []byte) uint32 { return binary.LittleEndian.Uint32(b) }

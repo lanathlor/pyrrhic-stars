@@ -288,7 +288,7 @@ func BenchmarkBroadcastDamageEventPooled(b *testing.B) {
 	}
 	// Add test clients so broadcast actually runs
 	for i := uint16(1); i <= 5; i++ {
-		w.Clients[i] = &Client{PeerID: i, Send: func([]byte) {}}
+		w.Clients[i] = &Client{PeerID: i, Send: func([]byte) {}, SendUDP: func([]byte) {}, HasUDP: func() bool { return true }}
 	}
 	b.ReportAllocs()
 
@@ -430,8 +430,10 @@ func benchArenaInstance(b testing.TB, instanceID uint16) *World {
 	for i := range uint16(5) {
 		peerID := instanceID*10 + i + 1
 		clients[peerID] = &Client{
-			PeerID: peerID,
-			Send:   func([]byte) {},
+			PeerID:  peerID,
+			Send:    func([]byte) {},
+			SendUDP: func([]byte) {},
+			HasUDP:  func() bool { return true },
 		}
 	}
 

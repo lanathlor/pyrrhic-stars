@@ -141,6 +141,7 @@ func startZoneGateway(t *testing.T) *testZoneGateway {
 					Username: username,
 					Send:     sendFn,
 					SendUDP:  sendFn,
+					HasUDP:   func() bool { return true },
 				})
 
 				resp := make([]byte, 3)

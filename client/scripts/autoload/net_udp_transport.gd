@@ -10,10 +10,12 @@ var _attempt_time: float = 0.0
 var _token: PackedByteArray = PackedByteArray()
 var _host: String = ""
 var _on_message: Callable
+var _on_failed: Callable
 
 
-func _init(on_message: Callable) -> void:
+func _init(on_message: Callable, on_failed: Callable) -> void:
 	_on_message = on_message
+	_on_failed = on_failed
 
 
 func is_confirmed() -> bool:
@@ -44,10 +46,11 @@ func poll() -> void:
 	if not _confirmed and _attempt_time > 0.0:
 		var elapsed := Time.get_ticks_msec() / 1000.0 - _attempt_time
 		if elapsed > 2.0:
-			print("[Net] UDP association timed out, falling back to WS only")
+			print("[Net] UDP association timed out, disconnecting")
 			_udp.close()
 			_connected = false
 			_attempt_time = 0.0
+			_on_failed.call()
 			return
 	while _udp.get_available_packet_count() > 0:
 		var pkt := _udp.get_packet()

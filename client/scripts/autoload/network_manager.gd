@@ -56,7 +56,7 @@ var _ws_host: String = ""
 
 
 func _ready() -> void:
-	_udp = UDPTransport.new(_on_message)
+	_udp = UDPTransport.new(_on_message, _on_udp_failed)
 	debug = NetworkDebugHandler.new(self)
 	loadout = NetworkLoadoutHandler.new(self)
 
@@ -123,18 +123,17 @@ func send_msg(opcode: int, payload: PackedByteArray = PackedByteArray()) -> void
 
 
 ## Send position + rotation + visual state for one simulation tick.
-## Uses UDP when associated for zero-latency fire-and-forget delivery.
+## Requires confirmed UDP association; no-op until UDP is ready.
 func send_player_position(
 	pos: Vector3, rot_y: float, visual_state: int = 0, aim_pitch: float = 0.0
 ) -> void:
+	if not _udp.is_confirmed():
+		return
 	_input_tick += 1
 	var payload := NetSerializer.Inp.encode_player_input(
 		pos, rot_y, _input_tick, visual_state, aim_pitch
 	)
-	if _udp.is_confirmed():
-		_udp.send(NetSerializer.OP_PLAYER_INPUT, _my_peer_id, payload)
-	else:
-		send_msg(NetSerializer.OP_PLAYER_INPUT, payload)
+	_udp.send(NetSerializer.OP_PLAYER_INPUT, _my_peer_id, payload)
 
 
 ## Send a combat action to the server.
@@ -273,9 +272,13 @@ func _process(_delta: float) -> void:
 
 func _on_ws_connected() -> void:
 	print("[Net] WebSocket connected, waiting for character list...")
-	# Auth is handled via query params during WebSocket handshake.
-	# Server will send OpCharacterList; client shows select screen before joining.
 	connection_succeeded.emit()
+
+
+func _on_udp_failed() -> void:
+	print("[Net] UDP required but association failed, disconnecting")
+	disconnect_game()
+	connection_failed.emit()
 
 
 # =============================================================================
