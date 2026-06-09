@@ -14,7 +14,6 @@ func makeHubWorld(t testing.TB, players map[uint16]*entity.Player) *World {
 	return &World{
 		ZoneType:       0, // hub
 		TickNum:        100,
-		State:          StateLobby, // hub never enters StateFight
 		Players:        players,
 		Level:          testHubLevel(t),
 		AbilityEngine:  ability.NewEngine(nil),
@@ -386,7 +385,6 @@ func TestHandlePlayerInput_AcceptsNearbyPosition(t *testing.T) {
 	w := &World{
 		ZoneType: 1,
 		TickNum:  100,
-		State:    StateFight,
 		Players:  map[uint16]*entity.Player{1: p},
 		Level:    lvl,
 	}
@@ -418,7 +416,6 @@ func TestHandlePlayerInput_RejectsTeleport(t *testing.T) {
 	w := &World{
 		ZoneType: 1,
 		TickNum:  100,
-		State:    StateFight,
 		Players:  map[uint16]*entity.Player{1: p},
 		Level:    lvl,
 	}
@@ -445,7 +442,6 @@ func TestHandlePlayerInput_SpawnGraceRejectsPosition(t *testing.T) {
 	w := &World{
 		ZoneType: 1,
 		TickNum:  100,
-		State:    StateFight,
 		Players:  map[uint16]*entity.Player{1: p},
 		Level:    lvl,
 	}
@@ -471,7 +467,6 @@ func TestHandlePlayerInput_AfterSpawnGraceAccepts(t *testing.T) {
 	w := &World{
 		ZoneType: 1,
 		TickNum:  100,
-		State:    StateFight,
 		Players:  map[uint16]*entity.Player{1: p},
 		Level:    lvl,
 	}
@@ -497,7 +492,6 @@ func TestHandlePlayerInput_YBoundsRejection(t *testing.T) {
 	w := &World{
 		ZoneType: 1,
 		TickNum:  100,
-		State:    StateFight,
 		Players:  map[uint16]*entity.Player{1: p},
 		Level:    lvl,
 	}
@@ -524,7 +518,6 @@ func TestHandlePlayerInput_YBelowBoundsRejection(t *testing.T) {
 	w := &World{
 		ZoneType: 1,
 		TickNum:  100,
-		State:    StateFight,
 		Players:  map[uint16]*entity.Player{1: p},
 		Level:    lvl,
 	}
@@ -702,7 +695,6 @@ func TestHandleInteractInput_ExitPortal(t *testing.T) {
 	w := &World{
 		ZoneType: 1,
 		TickNum:  100,
-		State:    StateFightOver,
 		Players:  map[uint16]*entity.Player{1: p},
 		Level:    lvl,
 		OnPlayerRespawnHub: func(peerID uint16) {
@@ -725,34 +717,6 @@ func TestHandleInteractInput_ExitPortal(t *testing.T) {
 	}
 }
 
-func TestHandleInteractInput_ExitPortal_NotFightOver(t *testing.T) {
-	p := entity.NewPlayer(1, entity.ClassGunner)
-	hubRespawnCalled := false
-
-	lvl := testArenaLevel(t)
-	w := &World{
-		ZoneType: 1,
-		TickNum:  100,
-		State:    StateFight, // not FightOver
-		Players:  map[uint16]*entity.Player{1: p},
-		Level:    lvl,
-		OnPlayerRespawnHub: func(_ uint16) {
-			hubRespawnCalled = true
-		},
-	}
-	w.BossDefeated = true
-
-	payload := codec.EncodeInteractInput(message.InteractExitPortal, "")
-	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpInteractInput, Payload: payload}}
-
-	is := &InputSystem{}
-	is.Tick(w, 0.05)
-
-	if hubRespawnCalled {
-		t.Error("exit portal should only work in StateFightOver")
-	}
-}
-
 func TestHandleInteractInput_ExitPortal_BossNotDefeated(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	hubRespawnCalled := false
@@ -761,7 +725,6 @@ func TestHandleInteractInput_ExitPortal_BossNotDefeated(t *testing.T) {
 	w := &World{
 		ZoneType: 1,
 		TickNum:  100,
-		State:    StateFightOver,
 		Players:  map[uint16]*entity.Player{1: p},
 		Level:    lvl,
 		OnPlayerRespawnHub: func(_ uint16) {
@@ -817,7 +780,6 @@ func TestHandleRespawnRequest_HubRespawn(t *testing.T) {
 	w := &World{
 		ZoneType: 1,
 		TickNum:  100,
-		State:    StateFight,
 		Players:  map[uint16]*entity.Player{1: p},
 		Level:    lvl,
 		OnPlayerRespawnHub: func(peerID uint16) {
@@ -842,15 +804,11 @@ func TestHandleRespawnRequest_HubRespawn(t *testing.T) {
 func TestHandleRespawnRequest_ArenaRespawn(t *testing.T) {
 	tests := []struct {
 		name           string
-		state          GameFlowState
 		bossGateActive bool
 		wantAlive      bool
 	}{
-		{"in StateFightOver", StateFightOver, false, true},
-		{"in StateLobby", StateLobby, false, true},
-		{"in StateSpawned", StateSpawned, false, true},
-		{"in StateFight boss gate active", StateFight, true, false},
-		{"in StateFight trash (no boss gate)", StateFight, false, true},
+		{"no gates closed", false, true},
+		{"boss gate active blocks respawn", true, false},
 	}
 
 	for _, tc := range tests {
@@ -863,7 +821,6 @@ func TestHandleRespawnRequest_ArenaRespawn(t *testing.T) {
 			w := &World{
 				ZoneType: 1,
 				TickNum:  100,
-				State:    tc.state,
 				Players:  map[uint16]*entity.Player{1: p},
 				Level:    lvl,
 			}
@@ -903,7 +860,6 @@ func TestHandleRespawnRequest_AlivePlayerIgnored(t *testing.T) {
 	w := &World{
 		ZoneType: 1,
 		TickNum:  100,
-		State:    StateFightOver,
 		Players:  map[uint16]*entity.Player{1: p},
 		Level:    lvl,
 	}
@@ -928,7 +884,6 @@ func TestHandleRespawnRequest_NilPayload(t *testing.T) {
 	w := &World{
 		ZoneType: 1,
 		TickNum:  100,
-		State:    StateFightOver,
 		Players:  map[uint16]*entity.Player{1: p},
 		Level:    lvl,
 	}
@@ -949,7 +904,6 @@ func TestHandleRespawnRequest_UnknownPeerIgnored(t *testing.T) {
 	w := &World{
 		ZoneType: 1,
 		TickNum:  100,
-		State:    StateFightOver,
 		Players:  map[uint16]*entity.Player{},
 		Level:    lvl,
 	}

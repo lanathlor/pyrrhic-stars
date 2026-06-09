@@ -17,7 +17,6 @@ func makeArenaWorld(t testing.TB, players map[uint16]*entity.Player, enemies []*
 		ZoneID:        testArenaZoneID,
 		ZoneType:      1,
 		TickNum:       100,
-		State:         StateLobby,
 		Players:       players,
 		Enemies:       enemies,
 		Level:         lvl,
@@ -29,174 +28,19 @@ func makeArenaWorld(t testing.TB, players map[uint16]*entity.Player, enemies []*
 }
 
 // ---------------------------------------------------------------------------
-// GameFlowSystem.Tick — hub skip
-// ---------------------------------------------------------------------------
-
-func TestGameFlowSystem_SkipsInHub(t *testing.T) {
-	p := entity.NewPlayer(1, entity.ClassGunner)
-	p.Ready = true
-	w := &World{
-		ZoneType: 0, // Hub
-		State:    StateLobby,
-		Players:  map[uint16]*entity.Player{1: p},
-		Level:    testHubLevel(t),
-	}
-
-	sys := &GameFlowSystem{}
-	sys.Tick(w, 0.05)
-
-	if w.State != StateLobby {
-		t.Errorf("hub zone should remain in StateLobby, got %d", w.State)
-	}
-	if len(w.GameFlowEvents) > 0 {
-		t.Errorf("hub zone should produce no game flow events, got %d", len(w.GameFlowEvents))
-	}
-}
-
-// ---------------------------------------------------------------------------
-// tickLobby
-// ---------------------------------------------------------------------------
-
-func TestTickLobby(t *testing.T) {
-	tests := []struct {
-		name          string
-		players       map[uint16]*entity.Player
-		wantState     GameFlowState
-		wantFlowEvent bool
-	}{
-		{
-			name:          "no players stays in lobby",
-			players:       map[uint16]*entity.Player{},
-			wantState:     StateLobby,
-			wantFlowEvent: false,
-		},
-		{
-			name: "not all ready stays in lobby",
-			players: func() map[uint16]*entity.Player {
-				p1 := entity.NewPlayer(1, entity.ClassGunner)
-				p1.Ready = true
-				p2 := entity.NewPlayer(2, entity.ClassVanguard)
-				p2.Ready = false
-				return map[uint16]*entity.Player{1: p1, 2: p2}
-			}(),
-			wantState:     StateLobby,
-			wantFlowEvent: false,
-		},
-		{
-			name: "all ready transitions to StateSpawned",
-			players: func() map[uint16]*entity.Player {
-				p1 := entity.NewPlayer(1, entity.ClassGunner)
-				p1.Ready = true
-				p2 := entity.NewPlayer(2, entity.ClassVanguard)
-				p2.Ready = true
-				return map[uint16]*entity.Player{1: p1, 2: p2}
-			}(),
-			wantState:     StateSpawned,
-			wantFlowEvent: true,
-		},
-		{
-			name: "single player ready transitions",
-			players: func() map[uint16]*entity.Player {
-				p := entity.NewPlayer(1, entity.ClassGunner)
-				p.Ready = true
-				return map[uint16]*entity.Player{1: p}
-			}(),
-			wantState:     StateSpawned,
-			wantFlowEvent: true,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			w := makeArenaWorld(t, tc.players, nil)
-			w.State = StateLobby
-
-			sys := &GameFlowSystem{}
-			sys.Tick(w, 0.05)
-
-			if w.State != tc.wantState {
-				t.Errorf("state = %d, want %d", w.State, tc.wantState)
-			}
-			hasFlowEvent := len(w.GameFlowEvents) > 0
-			if hasFlowEvent != tc.wantFlowEvent {
-				t.Errorf("hasFlowEvent = %v, want %v", hasFlowEvent, tc.wantFlowEvent)
-			}
-			if tc.wantFlowEvent && len(w.GameFlowEvents) > 0 {
-				if w.GameFlowEvents[0].FlowType != message.FlowSpawnPlayers {
-					t.Errorf("flow type = %d, want FlowSpawnPlayers (%d)",
-						w.GameFlowEvents[0].FlowType, message.FlowSpawnPlayers)
-				}
-			}
-		})
-	}
-}
-
-// ---------------------------------------------------------------------------
-// tickSpawned
-// ---------------------------------------------------------------------------
-
-func TestTickSpawned(t *testing.T) {
-	tests := []struct {
-		name      string
-		players   map[uint16]*entity.Player
-		wantState GameFlowState
-		wantEvent bool
-	}{
-		{
-			name:      "no players stays spawned",
-			players:   map[uint16]*entity.Player{},
-			wantState: StateSpawned,
-			wantEvent: false,
-		},
-		{
-			name: "with players transitions to StateFight",
-			players: func() map[uint16]*entity.Player {
-				p := entity.NewPlayer(1, entity.ClassGunner)
-				return map[uint16]*entity.Player{1: p}
-			}(),
-			wantState: StateFight,
-			wantEvent: true,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			w := makeArenaWorld(t, tc.players, nil)
-			w.State = StateSpawned
-
-			sys := &GameFlowSystem{}
-			sys.Tick(w, 0.05)
-
-			if w.State != tc.wantState {
-				t.Errorf("state = %d, want %d", w.State, tc.wantState)
-			}
-			if tc.wantEvent {
-				if len(w.GameFlowEvents) == 0 {
-					t.Fatal("expected FlowFightStart event")
-				}
-				if w.GameFlowEvents[0].FlowType != message.FlowFightStart {
-					t.Errorf("flow type = %d, want FlowFightStart (%d)",
-						w.GameFlowEvents[0].FlowType, message.FlowFightStart)
-				}
-			}
-		})
-	}
-}
-
-// ---------------------------------------------------------------------------
 // checkFightEnd
 // ---------------------------------------------------------------------------
 
 func TestCheckFightEnd(t *testing.T) {
 	tests := []struct {
-		name           string
-		setupEnemies   func() []*entity.Enemy
-		setupPlayers   func() map[uint16]*entity.Player
-		bossGateActive bool // pre-set gate state to avoid checkBossGate side effects
-		wantState      GameFlowState
-		wantDefeated   bool
-		wantFlowType   uint8
-		wantTransition bool
+		name            string
+		setupEnemies    func() []*entity.Enemy
+		setupPlayers    func() map[uint16]*entity.Player
+		bossGateActive  bool // pre-set gate state to avoid checkBossGate side effects
+		wantDefeated    bool
+		wantWipeHandled bool
+		wantFlowType    uint8
+		wantTransition  bool
 	}{
 		{
 			name: "boss dead triggers victory",
@@ -213,7 +57,6 @@ func TestCheckFightEnd(t *testing.T) {
 				return map[uint16]*entity.Player{1: p}
 			},
 			bossGateActive: true,
-			wantState:      StateFightOver,
 			wantDefeated:   true,
 			wantFlowType:   message.FlowBossDead,
 			wantTransition: true,
@@ -234,11 +77,11 @@ func TestCheckFightEnd(t *testing.T) {
 				p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5} // in boss room
 				return map[uint16]*entity.Player{1: p}
 			},
-			bossGateActive: true, // gate already active, boss in combat
-			wantState:      StateFightOver,
-			wantDefeated:   false,
-			wantFlowType:   message.FlowAllDead,
-			wantTransition: true,
+			bossGateActive:  true, // gate already active, boss in combat
+			wantDefeated:    false,
+			wantWipeHandled: true,
+			wantFlowType:    message.FlowAllDead,
+			wantTransition:  true,
 		},
 		{
 			name: "some alive no transition",
@@ -259,7 +102,6 @@ func TestCheckFightEnd(t *testing.T) {
 				return map[uint16]*entity.Player{1: p1, 2: p2}
 			},
 			bossGateActive: true,
-			wantState:      StateFight,
 			wantDefeated:   false,
 			wantTransition: false,
 		},
@@ -283,7 +125,6 @@ func TestCheckFightEnd(t *testing.T) {
 				return map[uint16]*entity.Player{1: human, entity.BotIDBase: bot}
 			},
 			bossGateActive: true,
-			wantState:      StateFight,
 			wantDefeated:   false,
 			wantTransition: false,
 		},
@@ -307,11 +148,11 @@ func TestCheckFightEnd(t *testing.T) {
 				bot.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5}
 				return map[uint16]*entity.Player{1: human, entity.BotIDBase: bot}
 			},
-			bossGateActive: true,
-			wantState:      StateFightOver,
-			wantDefeated:   false,
-			wantFlowType:   message.FlowAllDead,
-			wantTransition: true,
+			bossGateActive:  true,
+			wantDefeated:    false,
+			wantWipeHandled: true,
+			wantFlowType:    message.FlowAllDead,
+			wantTransition:  true,
 		},
 		{
 			name: "boss alive players alive no transition",
@@ -328,7 +169,6 @@ func TestCheckFightEnd(t *testing.T) {
 				return map[uint16]*entity.Player{1: p}
 			},
 			bossGateActive: true,
-			wantState:      StateFight,
 			wantDefeated:   false,
 			wantTransition: false,
 		},
@@ -339,17 +179,20 @@ func TestCheckFightEnd(t *testing.T) {
 			enemies := tc.setupEnemies()
 			players := tc.setupPlayers()
 			w := makeArenaWorld(t, players, enemies)
-			w.State = StateFight
 			w.GateStates["boss_gate"] = tc.bossGateActive
 
 			sys := &GameFlowSystem{}
 			sys.Tick(w, 0.05)
 
-			if w.State != tc.wantState {
-				t.Errorf("state = %d, want %d", w.State, tc.wantState)
-			}
 			if w.BossDefeated != tc.wantDefeated {
 				t.Errorf("BossDefeated = %v, want %v", w.BossDefeated, tc.wantDefeated)
+			}
+			if w.WipeHandled != tc.wantWipeHandled {
+				t.Errorf("WipeHandled = %v, want %v", w.WipeHandled, tc.wantWipeHandled)
+			}
+			// After a wipe, gates should be reset (all open)
+			if tc.wantWipeHandled && w.AnyGateClosed() {
+				t.Error("gates should be reset (all open) after wipe")
 			}
 			if tc.wantTransition {
 				found := false
@@ -378,89 +221,18 @@ func TestCheckFightEnd(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// tickFightOver — wipe recovery
+// Cooldowns tick via CombatSystem (no state gating)
 // ---------------------------------------------------------------------------
 
-func TestTickFightOver_WipeAllRespawnReturnsToLobby(t *testing.T) {
-	p1 := entity.NewPlayer(1, entity.ClassGunner)
-	p1.Alive = true
-	p1.Health = p1.MaxHealth
-
-	p2 := entity.NewPlayer(2, entity.ClassVanguard)
-	p2.Alive = true
-	p2.Health = p2.MaxHealth
-
-	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p1, 2: p2}, nil)
-	w.State = StateFightOver
-	w.BossDefeated = false
-
-	sys := &GameFlowSystem{}
-	sys.Tick(w, 0.05)
-
-	// All alive + not boss defeated should transition back to StateSpawned
-	if w.State != StateSpawned {
-		t.Errorf("state = %d, want StateSpawned (%d)", w.State, StateSpawned)
-	}
-	found := false
-	for _, evt := range w.GameFlowEvents {
-		if evt.FlowType == message.FlowReturnLobby {
-			found = true
-		}
-	}
-	if !found {
-		t.Error("expected FlowReturnLobby event")
-	}
-}
-
-func TestTickFightOver_BossDefeatedNoReturn(t *testing.T) {
-	p := entity.NewPlayer(1, entity.ClassGunner)
-	p.Alive = true
-
-	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p}, nil)
-	w.State = StateFightOver
-	w.BossDefeated = true
-
-	sys := &GameFlowSystem{}
-	sys.Tick(w, 0.05)
-
-	// Boss defeated: should stay in StateFightOver
-	if w.State != StateFightOver {
-		t.Errorf("state = %d, want StateFightOver", w.State)
-	}
-}
-
-func TestTickFightOver_WipeSomeDeadNoReturn(t *testing.T) {
-	p1 := entity.NewPlayer(1, entity.ClassGunner)
-	p1.Alive = true
-
-	p2 := entity.NewPlayer(2, entity.ClassVanguard)
-	p2.Alive = false
-	p2.Health = 0
-
-	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p1, 2: p2}, nil)
-	w.State = StateFightOver
-	w.BossDefeated = false
-
-	sys := &GameFlowSystem{}
-	sys.Tick(w, 0.05)
-
-	// Not all alive yet, should stay in StateFightOver
-	if w.State != StateFightOver {
-		t.Errorf("state = %d, want StateFightOver", w.State)
-	}
-}
-
-func TestTickFightOver_CooldownsTick(t *testing.T) {
+func TestCooldownsTick(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Alive = true
 	p.Cooldowns[ability.IDFireShot] = 1.0
 
 	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p}, nil)
-	w.State = StateFightOver
 	w.BossDefeated = true
 
-	// Cooldowns are now ticked by CombatSystem (via AbilityEngine.TickPlayer),
-	// not by GameFlowSystem. Verify they still tick during fight-over state.
+	// Cooldowns are ticked by CombatSystem (via AbilityEngine.TickPlayer).
 	sys := &CombatSystem{}
 	sys.Tick(w, 0.5)
 
@@ -677,7 +449,6 @@ func TestCheckBossState_AggroClosesGate(t *testing.T) {
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5} // in boss room (Z < gate at 12)
 
 	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{boss})
-	w.State = StateFight
 
 	sys := &GameFlowSystem{}
 	sys.Tick(w, 0.05)
@@ -717,7 +488,6 @@ func TestCheckBossState_NoPlayersInBossRoomResetsBoss(t *testing.T) {
 
 	enemies := []*entity.Enemy{boss}
 	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p}, enemies)
-	w.State = StateFight
 	w.GateStates["boss_gate"] = true
 	w.RebuildObstacles()
 
@@ -771,7 +541,6 @@ func TestCheckBossState_PushesPlayersNearGate(t *testing.T) {
 	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 11.0}
 
 	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{boss})
-	w.State = StateFight
 
 	sys := &GameFlowSystem{}
 	sys.Tick(w, 0.05)
@@ -799,7 +568,6 @@ func TestCheckBossState_RemovesThreatForOutsidePlayers(t *testing.T) {
 	p2.Position = entity.Vec3{X: 0, Y: 0.1, Z: 20}
 
 	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p1, 2: p2}, []*entity.Enemy{boss})
-	w.State = StateFight
 
 	sys := &GameFlowSystem{}
 	sys.Tick(w, 0.05)
@@ -821,7 +589,6 @@ func TestCheckBossState_DeadBossSkipped(t *testing.T) {
 	boss.State = entity.EnemyDead
 
 	w := makeArenaWorld(t, map[uint16]*entity.Player{}, []*entity.Enemy{boss})
-	w.State = StateFight
 
 	sys := &GameFlowSystem{}
 	sys.Tick(w, 0.05)
@@ -942,132 +709,7 @@ func TestFindBossIndex(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Full wipe → respawn → fight: boss must not chase after reset
-// ---------------------------------------------------------------------------
-
-func TestWipeAndRespawn_BossStaysPatrol(t *testing.T) {
-	boss := entity.NewEnemy(0, 2000, "guard_captain")
-	boss.IsBoss = true
-	boss.State = entity.EnemyChase
-	boss.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0} // in boss room
-	boss.TargetPlayerID = 1
-	boss.AddThreat(1, 100)
-
-	p := entity.NewPlayer(1, entity.ClassGunner)
-	p.Alive = false
-	p.Health = 0
-	p.State = entity.PlayerStateDead
-	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5} // died in boss room
-
-	enemies := []*entity.Enemy{boss}
-	players := map[uint16]*entity.Player{1: p}
-	w := makeArenaWorld(t, players, enemies)
-	w.State = StateFight
-	w.GateStates["boss_gate"] = true
-	w.RebuildObstacles()
-
-	sys := &GameFlowSystem{}
-
-	// Tick 1: all dead → checkBossState resets boss, checkFightEnd → StateFightOver
-	sys.Tick(w, 0.05)
-	if w.State != StateFightOver {
-		t.Fatalf("after wipe: state = %d, want StateFightOver", w.State)
-	}
-
-	// Simulate player respawn (client sends respawn)
-	p.Alive = true
-	p.Health = p.MaxHealth
-
-	// Tick 2: all alive + !bossDefeated → returnToLobby → StateSpawned
-	w.GameFlowEvents = w.GameFlowEvents[:0]
-	sys.Tick(w, 0.05)
-	if w.State != StateSpawned {
-		t.Fatalf("after respawn: state = %d, want StateSpawned", w.State)
-	}
-
-	// Tick 3: players present → StateFight
-	w.GameFlowEvents = w.GameFlowEvents[:0]
-	sys.Tick(w, 0.05)
-	if w.State != StateFight {
-		t.Fatalf("after spawned: state = %d, want StateFight", w.State)
-	}
-
-	// Verify boss is patrol with no stale target
-	if boss.State != entity.EnemyPatrol {
-		t.Errorf("boss state = %d, want EnemyPatrol", boss.State)
-	}
-	if boss.TargetPlayerID != 0 {
-		t.Errorf("boss TargetPlayerID = %d, want 0 (should be cleared on reset)", boss.TargetPlayerID)
-	}
-	if boss.HasThreat(1) {
-		t.Error("boss should have empty threat table after reset")
-	}
-}
-
-// ---------------------------------------------------------------------------
-// returnToLobby (tested indirectly via tickFightOver)
-// ---------------------------------------------------------------------------
-
-func TestReturnToLobby_ResetsPlayerState(t *testing.T) {
-	lvl := testArenaLevel(t)
-
-	p := entity.NewPlayer(1, entity.ClassGunner)
-	p.Ready = true
-	p.Health = 50
-	p.Alive = false
-	p.Position = entity.Vec3{X: 5, Y: 2, Z: 5}
-	p.Velocity = entity.Vec3{X: 1, Y: 1, Z: 1}
-
-	eAlive := entity.NewEnemy(0, 200, "hallway_melee")
-	eAlive.State = entity.EnemyChase
-	eAlive.Position = entity.Vec3{X: 99, Y: 0, Z: 99}
-
-	eDead := entity.NewEnemy(1, 200, "hallway_melee")
-	eDead.Alive = false
-	eDead.State = entity.EnemyDead
-	eDead.Health = 0
-
-	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{eAlive, eDead})
-	w.State = StateFightOver
-	w.BossDefeated = false
-	w.Level = lvl
-
-	// Make player alive to trigger returnToLobby
-	p.Alive = true
-	p.Health = p.MaxHealth
-
-	sys := &GameFlowSystem{}
-	sys.Tick(w, 0.05)
-
-	if w.State != StateSpawned {
-		t.Errorf("state = %d, want StateSpawned", w.State)
-	}
-	if !p.Alive {
-		t.Error("player should be alive")
-	}
-	if p.Health != p.MaxHealth {
-		t.Errorf("health = %f, want %f", p.Health, p.MaxHealth)
-	}
-	if p.Ready {
-		t.Error("player ready should be reset to false")
-	}
-	if p.Position.Z != 48.0 {
-		t.Errorf("player Z = %f, want 48.0 (warmup position)", p.Position.Z)
-	}
-
-	// Alive enemy should be reset
-	if eAlive.State != entity.EnemyPatrol {
-		t.Errorf("alive enemy state = %d, want EnemyPatrol", eAlive.State)
-	}
-
-	// Dead enemy should remain dead
-	if eDead.Alive {
-		t.Error("dead enemy should remain dead")
-	}
-}
-
-// ---------------------------------------------------------------------------
-// pickSpawnPoint — conditional spawn selection
+// pickSpawnPoint -- conditional spawn selection
 // ---------------------------------------------------------------------------
 
 func TestPickSpawnPoint(t *testing.T) {

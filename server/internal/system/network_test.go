@@ -64,7 +64,6 @@ func TestNetworkSystem_Hub_BroadcastsWorldState(t *testing.T) {
 	w := &World{
 		ZoneType: 0, // Hub
 		TickNum:  50,
-		State:    StateLobby,
 		Players:  map[uint16]*entity.Player{1: p},
 		Enemies:  []*entity.Enemy{},
 		Level:    testHubLevel(t),
@@ -92,45 +91,6 @@ func TestNetworkSystem_Hub_BroadcastsWorldState(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// NetworkSystem.Tick — Arena Lobby
-// ---------------------------------------------------------------------------
-
-func TestNetworkSystem_ArenaLobby_BroadcastsLobbyState(t *testing.T) {
-	p := entity.NewPlayer(1, entity.ClassGunner)
-	p.Ready = true
-
-	c1, sent1 := newMockClient(1)
-
-	w := &World{
-		ZoneType: 1, // Arena
-		TickNum:  50,
-		State:    StateLobby,
-		Players:  map[uint16]*entity.Player{1: p},
-		Enemies:  []*entity.Enemy{},
-		Level:    testArenaLevel(t),
-		Clients:  map[uint16]*Client{1: c1},
-		TestMode: true,
-	}
-
-	sys := &NetworkSystem{}
-	sys.Tick(w, 0.05)
-
-	if sent1.count() == 0 {
-		t.Fatal("expected at least one message")
-	}
-
-	foundLobby := false
-	for i := 0; i < sent1.count(); i++ {
-		if sent1.opcode(i) == message.OpLobbyState {
-			foundLobby = true
-		}
-	}
-	if !foundLobby {
-		t.Error("arena lobby should broadcast OpLobbyState")
-	}
-}
-
-// ---------------------------------------------------------------------------
 // NetworkSystem.Tick — Arena Fight
 // ---------------------------------------------------------------------------
 
@@ -143,7 +103,6 @@ func TestNetworkSystem_ArenaFight_BroadcastsWorldStateAndDamage(t *testing.T) {
 	w := &World{
 		ZoneType: 1,
 		TickNum:  100,
-		State:    StateFight,
 		Players:  map[uint16]*entity.Player{1: p},
 		Enemies:  []*entity.Enemy{e},
 		Level:    testArenaLevel(t),
@@ -192,7 +151,6 @@ func TestNetworkSystem_BroadcastsGameFlowEvents(t *testing.T) {
 	w := &World{
 		ZoneType: 1,
 		TickNum:  100,
-		State:    StateFight,
 		Players:  map[uint16]*entity.Player{1: entity.NewPlayer(1, entity.ClassGunner), 2: entity.NewPlayer(2, entity.ClassVanguard)},
 		Enemies:  []*entity.Enemy{},
 		Level:    testArenaLevel(t),
@@ -243,7 +201,6 @@ func TestNetworkSystem_MultipleClients(t *testing.T) {
 	w := &World{
 		ZoneType: 0, // Hub
 		TickNum:  10,
-		State:    StateLobby,
 		Players: map[uint16]*entity.Player{
 			1: entity.NewPlayer(1, entity.ClassGunner),
 			2: entity.NewPlayer(2, entity.ClassVanguard),
@@ -272,16 +229,15 @@ func TestNetworkSystem_MultipleClients(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// NetworkSystem.Tick — StateFightOver broadcasts world state
+// NetworkSystem.Tick — broadcasts world state
 // ---------------------------------------------------------------------------
 
-func TestNetworkSystem_FightOverBroadcastsWorldState(t *testing.T) {
+func TestNetworkSystem_BroadcastsWorldState(t *testing.T) {
 	c1, sent1 := newMockClient(1)
 
 	w := &World{
 		ZoneType: 1,
 		TickNum:  200,
-		State:    StateFightOver,
 		Players:  map[uint16]*entity.Player{1: entity.NewPlayer(1, entity.ClassGunner)},
 		Enemies:  []*entity.Enemy{},
 		Level:    testArenaLevel(t),
@@ -299,7 +255,7 @@ func TestNetworkSystem_FightOverBroadcastsWorldState(t *testing.T) {
 		}
 	}
 	if !foundWorld {
-		t.Error("StateFightOver should broadcast OpWorldState")
+		t.Error("should broadcast OpWorldState")
 	}
 }
 
@@ -311,7 +267,6 @@ func TestNetworkSystem_NoClients(t *testing.T) {
 	w := &World{
 		ZoneType: 1,
 		TickNum:  100,
-		State:    StateFight,
 		Players:  map[uint16]*entity.Player{1: entity.NewPlayer(1, entity.ClassGunner)},
 		Enemies:  []*entity.Enemy{},
 		Level:    testArenaLevel(t),

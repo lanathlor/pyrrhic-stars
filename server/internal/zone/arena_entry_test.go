@@ -60,23 +60,27 @@ func TestArenaInstance_EnemiesAliveFromCreation(t *testing.T) {
 	t.Logf("zone created with %d alive enemies, all patrolling", aliveCount)
 }
 
-// TestArenaInstance_FightStartsOnPlayerJoin verifies that the state
-// transitions to StateFight once a player joins and a tick runs.
-func TestArenaInstance_FightStartsOnPlayerJoin(t *testing.T) {
+// TestArenaInstance_TicksWithPlayer verifies that the zone ticks normally
+// once a player joins and enemies are alive.
+func TestArenaInstance_TicksWithPlayer(t *testing.T) {
 	z := New("test_arena", testArenaLevel(t))
 
 	send, msgs := captureSend()
 	c := &Client{PeerID: 1, Username: testPlayerName, Send: send, SendUDP: send, HasUDP: func() bool { return true }}
 	z.AddClient(c)
 
-	// Run a tick — should transition from Spawned to Fight
+	// Run a tick
 	z.processTick()
 
-	if z.world.State != StateFight {
-		t.Errorf("State = %d, want StateFight (%d)", z.world.State, StateFight)
+	// Should broadcast world state
+	if !findOpcode(*msgs, message.OpWorldState) {
+		t.Error("client did not receive OpWorldState after tick")
 	}
-	if !findGameFlowEvent(*msgs, message.FlowFightStart) {
-		t.Error("client did not receive FlowFightStart")
+	// Enemies should still be alive
+	for _, e := range z.world.Enemies {
+		if !e.Alive {
+			t.Errorf("Enemy %d should be alive after first tick", e.ID)
+		}
 	}
 }
 
@@ -129,14 +133,10 @@ func TestArenaInstance_ConcurrentTickSafe(t *testing.T) {
 	cancel()
 	time.Sleep(50 * time.Millisecond)
 
-	// Should be in fight state (ticked at least once with a player).
-	// Read under lock to avoid racing with the final tick.
+	// Should have ticked at least once with a player. Read under lock to
+	// avoid racing with the final tick.
 	z.mu.Lock()
-	state := z.world.State
 	pos := z.world.Players[1].Position
 	z.mu.Unlock()
-	if state != StateFight {
-		t.Errorf("State = %d after 200ms, want StateFight", state)
-	}
-	t.Logf("Final state: %d, Player pos: %+v", state, pos)
+	t.Logf("Player pos: %+v", pos)
 }

@@ -18,14 +18,9 @@ func (s *NetworkSystem) Tick(w *World, _ float32) {
 	}
 	w.GameFlowEvents = w.GameFlowEvents[:0]
 
-	// Dispatch state broadcast: arena lobby gets lobby UI state,
-	// everything else (hub, arena fight, etc.) gets world + damage.
-	if w.ZoneType != 0 && w.State == StateLobby {
-		broadcastLobbyState(w)
-	} else {
-		broadcastWorldState(w)
-		broadcastDamageEvents(w)
-	}
+	// Broadcast world state and damage events to all clients.
+	broadcastWorldState(w)
+	broadcastDamageEvents(w)
 
 	// Clear damage events after broadcast
 	w.DamageEvents = w.DamageEvents[:0]
@@ -65,27 +60,6 @@ func broadcastBufUDP(w *World, buf []byte) {
 			c.SendUDP(buf)
 		}
 	}
-}
-
-func broadcastLobbyState(w *World) {
-	w.lobbyInfoBuf = w.lobbyInfoBuf[:0]
-	for _, p := range w.Players {
-		w.lobbyInfoBuf = append(w.lobbyInfoBuf, codec.LobbyPlayerInfo{
-			PeerID:    p.ID,
-			ClassName: p.ClassName(),
-			SpecName:  p.SpecID,
-			Username:  p.Username,
-			Ready:     p.Ready,
-		})
-	}
-	payload := codec.EncodeLobbyState(w.lobbyInfoBuf)
-	// Pooled LobbyBuf: encode the full message.
-	if cap(w.LobbyBuf) < 4+len(payload) {
-		w.LobbyBuf = make([]byte, 0, 512)
-	}
-	w.LobbyBuf = w.LobbyBuf[:0]
-	w.LobbyBuf = message.AppendEncode(w.LobbyBuf, message.OpLobbyState, 0, payload)
-	broadcastBufWS(w, w.LobbyBuf)
 }
 
 func broadcastWorldState(w *World) {

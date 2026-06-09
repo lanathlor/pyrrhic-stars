@@ -18,7 +18,6 @@ func testWorldWithLevel() *system.World {
 		Clients:       make(map[uint16]*system.Client),
 		AbilityEngine: ability.NewEngine(nil),
 		TickNum:       100,
-		State:         system.StateFight,
 		Level: &level.Level{
 			PlayerSpawns: []level.PlayerSpawn{
 				{Position: entity.Vec3{X: 0, Y: 0, Z: 50}}, // spawn point
@@ -38,7 +37,7 @@ func testWorldWithLevel() *system.World {
 }
 
 func TestBotRespawnAfterTrashDeath(t *testing.T) {
-	// Scenario: bot dies fighting trash mobs during StateFight (no gate closed).
+	// Scenario: bot dies fighting trash mobs (no gate closed).
 	// Expected: bot respawns after BotRespawnDelay at spawn point.
 	m := NewManager("")
 	w := testWorldWithLevel()
@@ -71,8 +70,8 @@ func TestBotRespawnAfterTrashDeath(t *testing.T) {
 	}
 
 	if !bot.Alive {
-		t.Errorf("bot should have respawned after %.1fs (state=%d, anyGateClosed=%v)",
-			BotRespawnDelay, w.State, w.AnyGateClosed())
+		t.Errorf("bot should have respawned after %.1fs (anyGateClosed=%v)",
+			BotRespawnDelay, w.AnyGateClosed())
 	}
 }
 
@@ -114,10 +113,9 @@ func TestBotNoRespawnDuringBossFight(t *testing.T) {
 }
 
 func TestBotRespawnAfterWipe(t *testing.T) {
-	// Scenario: wipe happened, state is FightOver, bot should respawn.
+	// Scenario: wipe happened, gates are open (no gate closed), bot should respawn.
 	m := NewManager("")
 	w := testWorldWithLevel()
-	w.State = system.StateFightOver
 
 	owner := entity.NewPlayer(1, entity.ClassGunner)
 	owner.Alive = true
@@ -132,6 +130,7 @@ func TestBotRespawnAfterWipe(t *testing.T) {
 	bot.Alive = false
 	bot.Health = 0
 
+	// No gates closed -- respawn should work
 	dt := float32(0.05)
 	ticksNeeded := int(BotRespawnDelay/dt) + 1
 	inputSys := &system.InputSystem{}
@@ -143,7 +142,7 @@ func TestBotRespawnAfterWipe(t *testing.T) {
 	}
 
 	if !bot.Alive {
-		t.Error("bot should respawn after wipe (StateFightOver)")
+		t.Error("bot should respawn after wipe (no gate closed)")
 	}
 }
 
@@ -151,7 +150,6 @@ func TestBotRespawnUsesSpawnPoint(t *testing.T) {
 	// Verify bot respawns at a spawn point, not at owner position.
 	m := NewManager("")
 	w := testWorldWithLevel()
-	w.State = system.StateFightOver
 
 	spawnPos := w.Level.PlayerSpawns[0].Position
 
@@ -200,7 +198,6 @@ func TestBotRespawnRequestQueued(t *testing.T) {
 	// Low-level test: verify the respawn request opcode is actually queued.
 	m := NewManager("")
 	w := testWorldWithLevel()
-	w.State = system.StateFightOver
 
 	owner := entity.NewPlayer(1, entity.ClassGunner)
 	w.Players[1] = owner

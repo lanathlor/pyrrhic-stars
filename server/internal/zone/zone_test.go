@@ -34,13 +34,12 @@ func findBoss(z *Zone) *entity.Enemy {
 	return nil
 }
 
-// setupFightZone creates an arena zone in the FIGHT state with one gunner
-// player aimed directly at the boss, and returns it ready for testing.
+// setupFightZone creates an arena zone with one gunner player aimed directly
+// at the boss, and returns it ready for testing.
 // All enemies (trash + boss) are activated and alive.
 func setupFightZone(t *testing.T) (*Zone, uint16) {
 	t.Helper()
 	z := New("test_arena", testArenaLevel(t))
-	z.world.State = StateFight
 
 	peerID := uint16(1)
 
@@ -202,11 +201,10 @@ func TestEnemyDamageEventsStillWork(t *testing.T) {
 // Additional helpers
 // =============================================================================
 
-// setupMultiPlayerFightZone creates a fight zone with N players.
+// setupMultiPlayerFightZone creates an arena zone with N players.
 func setupMultiPlayerFightZone(t *testing.T, n int) (*Zone, []uint16) {
 	t.Helper()
 	z := New("test_arena", testArenaLevel(t))
-	z.world.State = StateFight
 	// Activate all enemies
 	for _, e := range z.world.Enemies {
 		e.Alive = true
@@ -292,9 +290,6 @@ func TestCheckFightEnd_BossDead(t *testing.T) {
 
 	z.processTick()
 
-	if z.world.State != StateFightOver {
-		t.Errorf("State = %d, want StateFightOver (%d)", z.world.State, StateFightOver)
-	}
 	if !z.world.BossDefeated {
 		t.Error("BossDefeated = false, want true")
 	}
@@ -327,8 +322,8 @@ func TestCheckFightEnd_AllPlayersDead(t *testing.T) {
 
 	z.processTick()
 
-	if z.world.State != StateFightOver {
-		t.Errorf("State = %d, want StateFightOver (%d)", z.world.State, StateFightOver)
+	if !z.world.WipeHandled {
+		t.Error("WipeHandled = false, want true after all players dead")
 	}
 	if z.world.BossDefeated {
 		t.Error("BossDefeated = true, want false after wipe")
@@ -338,6 +333,10 @@ func TestCheckFightEnd_AllPlayersDead(t *testing.T) {
 		if e.Alive && e.State != entity.EnemyPatrol {
 			t.Errorf("Enemy %d State = %d, want EnemyPatrol after wipe reset", e.ID, e.State)
 		}
+	}
+	// Gates should be reset (enemies reset, projectiles nil)
+	if z.world.Projectiles != nil {
+		t.Errorf("Projectiles = %v, want nil after wipe", z.world.Projectiles)
 	}
 	if !findGameFlowEvent(*msgs, message.FlowAllDead) {
 		t.Error("client did not receive FlowAllDead game flow event")
@@ -354,79 +353,11 @@ func TestCheckFightEnd_FightContinues(t *testing.T) {
 	// Player alive, enemy alive — fight should continue
 	z.processTick()
 
-	if z.world.State != StateFight {
-		t.Errorf("State = %d, want StateFight (%d)", z.world.State, StateFight)
+	if z.world.BossDefeated {
+		t.Error("BossDefeated should be false while fight continues")
 	}
-}
-
-// =============================================================================
-// Test: tickFightOver -- All Respawn After Wipe -> Lobby Transition
-// =============================================================================
-
-func TestTickFightOver_AllRespawnedAfterWipe(t *testing.T) {
-	z, ids := setupMultiPlayerFightZone(t, 2)
-	z.world.State = StateFightOver
-	z.world.BossDefeated = false
-
-	send, msgs := captureSend()
-	for _, pid := range ids {
-		z.world.Clients[pid].Send = send
-		z.world.Clients[pid].SendUDP = send
-	}
-
-	// All players alive (they have respawned)
-	for _, pid := range ids {
-		z.world.Players[pid].Alive = true
-	}
-
-	z.processTick()
-
-	if z.world.State != StateSpawned {
-		t.Errorf("State = %d, want StateSpawned (%d)", z.world.State, StateSpawned)
-	}
-	if !findGameFlowEvent(*msgs, message.FlowReturnLobby) {
-		t.Error("client did not receive FlowReturnLobby game flow event")
-	}
-}
-
-// =============================================================================
-// Test: tickFightOver -- Boss Dead, No Auto-Lobby
-// =============================================================================
-
-func TestTickFightOver_BossDeadNoAutoLobby(t *testing.T) {
-	z, ids := setupMultiPlayerFightZone(t, 2)
-	z.world.State = StateFightOver
-	z.world.BossDefeated = true
-
-	for _, pid := range ids {
-		z.world.Players[pid].Alive = true
-	}
-
-	z.processTick()
-
-	if z.world.State != StateFightOver {
-		t.Errorf("State = %d, want StateFightOver (%d) — boss dead should not auto-lobby", z.world.State, StateFightOver)
-	}
-}
-
-// =============================================================================
-// Test: tickFightOver -- Wipe, Not All Respawned Yet
-// =============================================================================
-
-func TestTickFightOver_WipeNotAllRespawned(t *testing.T) {
-	z, ids := setupMultiPlayerFightZone(t, 2)
-	z.world.State = StateFightOver
-	z.world.BossDefeated = false
-
-	// One alive, one still dead
-	z.world.Players[ids[0]].Alive = true
-	z.world.Players[ids[1]].Alive = false
-	z.world.Players[ids[1]].State = entity.PlayerStateDead
-
-	z.processTick()
-
-	if z.world.State != StateFightOver {
-		t.Errorf("State = %d, want StateFightOver (%d) — not all respawned yet", z.world.State, StateFightOver)
+	if z.world.WipeHandled {
+		t.Error("WipeHandled should be false while fight continues")
 	}
 }
 
@@ -437,7 +368,6 @@ func TestTickFightOver_WipeNotAllRespawned(t *testing.T) {
 func TestHandleRespawnRequest(t *testing.T) {
 	tests := []struct {
 		name            string
-		state           GameFlowState
 		bossGateActive  bool
 		playerAlive     bool
 		respawnType     byte // 0 = arena, 1 = hub
@@ -447,8 +377,7 @@ func TestHandleRespawnRequest(t *testing.T) {
 		wantCallback    bool
 	}{
 		{
-			name:            "arena respawn in FightOver",
-			state:           StateFightOver,
+			name:            "arena respawn allowed (no gate)",
 			playerAlive:     false,
 			respawnType:     0,
 			wantAlive:       true,
@@ -456,17 +385,14 @@ func TestHandleRespawnRequest(t *testing.T) {
 			wantPosition:    &entity.Vec3{X: -2, Y: 0.1, Z: 48},
 		},
 		{
-			name:           "arena respawn rejected during boss fight",
-			state:          StateFight,
+			name:           "arena respawn rejected when gate closed",
 			bossGateActive: true,
 			playerAlive:    false,
 			respawnType:    0,
 			wantAlive:      false,
 		},
 		{
-			name:            "arena respawn allowed during trash fight",
-			state:           StateFight,
-			bossGateActive:  false,
+			name:            "arena respawn allowed (no gate closed)",
 			playerAlive:     false,
 			respawnType:     0,
 			wantAlive:       true,
@@ -475,7 +401,6 @@ func TestHandleRespawnRequest(t *testing.T) {
 		},
 		{
 			name:         "hub respawn calls callback",
-			state:        StateFightOver,
 			playerAlive:  false,
 			respawnType:  1,
 			wantAlive:    false, // hub respawn does not revive locally
@@ -483,7 +408,6 @@ func TestHandleRespawnRequest(t *testing.T) {
 		},
 		{
 			name:        "alive player ignored",
-			state:       StateFightOver,
 			playerAlive: true,
 			respawnType: 0,
 			wantAlive:   true,
@@ -493,7 +417,6 @@ func TestHandleRespawnRequest(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			z, peerID := setupFightZone(t)
-			z.world.State = tc.state
 			if tc.bossGateActive {
 				z.world.GateStates["boss_gate"] = true
 				z.world.RebuildObstacles()
@@ -557,25 +480,16 @@ func TestHandleRespawnRequest(t *testing.T) {
 func TestInteractExitPortal(t *testing.T) {
 	tests := []struct {
 		name         string
-		state        GameFlowState
 		bossDefeated bool
 		wantCallback bool
 	}{
 		{
 			name:         "triggers hub transfer after boss kill",
-			state:        StateFightOver,
 			bossDefeated: true,
 			wantCallback: true,
 		},
 		{
 			name:         "rejected when boss not dead",
-			state:        StateFightOver,
-			bossDefeated: false,
-			wantCallback: false,
-		},
-		{
-			name:         "rejected during fight",
-			state:        StateFight,
 			bossDefeated: false,
 			wantCallback: false,
 		},
@@ -584,7 +498,6 @@ func TestInteractExitPortal(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			z, peerID := setupFightZone(t)
-			z.world.State = tc.state
 			z.world.BossDefeated = tc.bossDefeated
 
 			var callbackCalled bool
@@ -611,64 +524,12 @@ func TestInteractExitPortal(t *testing.T) {
 }
 
 // =============================================================================
-// Test: Lobby -> Spawned -> Fight Transition
-// =============================================================================
-
-func TestLobbyToSpawnedToFight(t *testing.T) {
-	z := New("test_arena", testArenaLevel(t))
-	peerID := uint16(1)
-
-	p := entity.NewPlayer(peerID, entity.ClassGunner)
-	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 48}
-	p.Alive = true
-	z.world.Players[peerID] = p
-
-	send, msgs := captureSend()
-	z.world.Clients[peerID] = &Client{PeerID: peerID, Username: "TestPlayer", Send: send, SendUDP: send, HasUDP: func() bool { return true }}
-
-	// Step 1: lobby — player not ready, should stay in lobby
-	z.processTick()
-	if z.world.State != StateLobby {
-		t.Fatalf("expected StateLobby before ready, got %d", z.world.State)
-	}
-
-	// Step 2: player readies up
-	z.mu.Lock()
-	z.pendingInputs = append(z.pendingInputs, system.InputMsg{
-		PeerID:  peerID,
-		Opcode:  message.OpInteractInput,
-		Payload: []byte{message.InteractReadyToggle},
-	})
-	z.mu.Unlock()
-
-	z.processTick()
-
-	if z.world.State != StateSpawned {
-		t.Fatalf("expected StateSpawned after all ready, got %d", z.world.State)
-	}
-	if !findGameFlowEvent(*msgs, message.FlowSpawnPlayers) {
-		t.Error("client did not receive FlowSpawnPlayers game flow event")
-	}
-
-	// Step 3: next tick transitions Spawned → Fight automatically (players present)
-	z.processTick()
-
-	if z.world.State != StateFight {
-		t.Fatalf("expected StateFight after spawned tick, got %d", z.world.State)
-	}
-	if !findGameFlowEvent(*msgs, message.FlowFightStart) {
-		t.Error("client did not receive FlowFightStart game flow event")
-	}
-}
-
-// =============================================================================
-// Test: broadcastState includes FightOver
+// Test: broadcastState after boss defeated
 // =============================================================================
 
 func TestBroadcastState_FightOver(t *testing.T) {
 	z, peerID := setupFightZone(t)
-	z.world.State = StateFightOver
-	z.world.BossDefeated = true // keeps state at FightOver (no auto-lobby)
+	z.world.BossDefeated = true
 
 	send, msgs := captureSend()
 	z.world.Clients[peerID].Send = send
@@ -677,7 +538,7 @@ func TestBroadcastState_FightOver(t *testing.T) {
 	z.processTick()
 
 	if !findOpcode(*msgs, message.OpWorldState) {
-		t.Error("client did not receive OpWorldState during StateFightOver")
+		t.Error("client did not receive OpWorldState after boss defeated")
 	}
 }
 
@@ -940,44 +801,26 @@ func TestArenaInstance_EnemiesAliveOnCreation(t *testing.T) {
 	}
 }
 
-func TestArenaInstance_FightAfterPlayerJoin(t *testing.T) {
-	z := New("test_arena", testArenaLevel(t))
-
-	send, msgs := captureSend()
-	c := &Client{PeerID: 1, Username: "TestPlayer", Send: send, SendUDP: send, HasUDP: func() bool { return true }}
-	z.AddClient(c)
-
-	// First tick transitions Spawned → Fight (player is present)
-	z.processTick()
-
-	if z.world.State != StateFight {
-		t.Errorf("State = %d, want StateFight (%d)", z.world.State, StateFight)
-	}
-	if !findGameFlowEvent(*msgs, message.FlowFightStart) {
-		t.Error("Client did NOT receive FlowFightStart")
-	}
-}
-
 func TestArenaInstance_SecondPlayerGetsCatchUp(t *testing.T) {
 	z := New("test_arena", testArenaLevel(t))
 
 	c1 := &Client{PeerID: 1, Username: "Player1", Send: func([]byte) {}, SendUDP: func([]byte) {}, HasUDP: func() bool { return true }}
 	z.AddClient(c1)
 
-	// Tick to enter fight
+	// Tick so the zone is running
 	z.processTick()
 
-	if z.world.State != StateFight {
-		t.Fatalf("State = %d, want StateFight", z.world.State)
-	}
-
-	// Second player joins mid-fight
+	// Second player joins -- neither BossDefeated nor WipeHandled is set,
+	// so no catch-up flow event should be sent.
 	send2, msgs2 := captureSend()
 	c2 := &Client{PeerID: 2, Username: "Player2", Send: send2, HasUDP: func() bool { return true }}
 	z.AddClient(c2)
 
-	if !findGameFlowEvent(*msgs2, message.FlowFightStart) {
-		t.Error("Second player did NOT receive FlowFightStart catch-up on join")
+	if findGameFlowEvent(*msgs2, message.FlowBossDead) {
+		t.Error("Second player received FlowBossDead catch-up unexpectedly")
+	}
+	if findGameFlowEvent(*msgs2, message.FlowAllDead) {
+		t.Error("Second player received FlowAllDead catch-up unexpectedly")
 	}
 
 	// Second player should be in warmup area

@@ -328,7 +328,6 @@ func TestAISystem_SkipsNonFightState(t *testing.T) {
 
 	w := &World{
 		ZoneType: 1,
-		State:    StateLobby, // not fight
 		Players:  map[uint16]*entity.Player{1: p},
 		Enemies:  []*entity.Enemy{e},
 		Level:    testArenaLevel(t),
@@ -350,7 +349,6 @@ func TestAISystem_SkipsDeadEnemies(t *testing.T) {
 
 	w := &World{
 		ZoneType: 1,
-		State:    StateFight,
 		Players:  map[uint16]*entity.Player{1: entity.NewPlayer(1, entity.ClassGunner)},
 		Enemies:  []*entity.Enemy{e},
 		Level:    testArenaLevel(t),
@@ -364,7 +362,6 @@ func TestAISystem_SkipsDeadEnemies(t *testing.T) {
 func TestAISystem_SkipsNilEnemies(t *testing.T) {
 	w := &World{
 		ZoneType: 1,
-		State:    StateFight,
 		Players:  map[uint16]*entity.Player{1: entity.NewPlayer(1, entity.ClassGunner)},
 		Enemies:  []*entity.Enemy{nil},
 		Brains:   []enemyai.BrainTicker{}, // brains shorter than enemies

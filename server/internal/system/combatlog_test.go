@@ -24,7 +24,6 @@ func makeLoggedWorld(t testing.TB, players map[uint16]*entity.Player, enemies []
 		ZoneID:        testArenaZoneID,
 		ZoneType:      1, // arena
 		TickNum:       100,
-		State:         StateFight,
 		Players:       players,
 		Enemies:       enemies,
 		Level:         testArenaLevel(t),
@@ -178,7 +177,6 @@ func TestCombatLog_FightLifecycle_BossKill(t *testing.T) {
 		ZoneID:        testArenaZoneID,
 		ZoneType:      1,
 		TickNum:       50,
-		State:         StateSpawned,
 		Players:       map[uint16]*entity.Player{1: p},
 		Enemies:       []*entity.Enemy{e},
 		Level:         testArenaLevel(t),
@@ -186,13 +184,6 @@ func TestCombatLog_FightLifecycle_BossKill(t *testing.T) {
 		CombatLogSink: sink,
 	}
 	p.Position = w.Level.PlayerSpawns[0].Position
-
-	// tickSpawned transitions to fight
-	gf := &GameFlowSystem{}
-	gf.Tick(w, 0.05)
-	if w.State != StateFight {
-		t.Fatalf("State = %d, want StateFight", w.State)
-	}
 
 	// Aggro the boss — this starts the per-group combat log
 	w.AggroEnemy(e, 1)
@@ -205,6 +196,7 @@ func TestCombatLog_FightLifecycle_BossKill(t *testing.T) {
 	e.Alive = false
 
 	w.TickNum = 200
+	gf := &GameFlowSystem{}
 	gf.Tick(w, 0.05)
 
 	if len(w.CombatLogs) != 0 {
@@ -236,7 +228,6 @@ func TestCombatLog_FightLifecycle_Wipe(t *testing.T) {
 		ZoneID:        testArenaZoneID,
 		ZoneType:      1,
 		TickNum:       50,
-		State:         StateSpawned,
 		Players:       map[uint16]*entity.Player{1: p},
 		Enemies:       []*entity.Enemy{e},
 		Level:         testArenaLevel(t),
@@ -244,10 +235,6 @@ func TestCombatLog_FightLifecycle_Wipe(t *testing.T) {
 		CombatLogSink: sink,
 	}
 	p.Position = w.Level.PlayerSpawns[0].Position
-
-	// Start fight
-	gf := &GameFlowSystem{}
-	gf.Tick(w, 0.05)
 
 	// Aggro the boss to start the combat log
 	w.AggroEnemy(e, 1)
@@ -259,6 +246,7 @@ func TestCombatLog_FightLifecycle_Wipe(t *testing.T) {
 	p.State = entity.PlayerStateDead
 
 	w.TickNum = 200
+	gf := &GameFlowSystem{}
 	gf.Tick(w, 0.05)
 
 	instances := sink.Instances()
@@ -285,7 +273,6 @@ func TestCombatLog_SoloBoss_NegativeKey(t *testing.T) {
 		ZoneID:        testArenaZoneID,
 		ZoneType:      1,
 		TickNum:       50,
-		State:         StateFight,
 		Players:       map[uint16]*entity.Player{1: p},
 		Enemies:       []*entity.Enemy{e},
 		Level:         testArenaLevel(t),
@@ -373,7 +360,6 @@ func TestCombatLog_ProximityAggro_Boss(t *testing.T) {
 		ZoneID:        testArenaZoneID,
 		ZoneType:      1,
 		TickNum:       100,
-		State:         StateFight,
 		Players:       map[uint16]*entity.Player{1: p},
 		Enemies:       []*entity.Enemy{e},
 		Brains:        []enemyai.BrainTicker{brain},
@@ -474,7 +460,6 @@ func TestCombatLog_ProximityAggro_TrashPack(t *testing.T) {
 		ZoneID:        testArenaZoneID,
 		ZoneType:      1,
 		TickNum:       100,
-		State:         StateFight,
 		Players:       map[uint16]*entity.Player{1: p},
 		Enemies:       []*entity.Enemy{e1, e2},
 		Brains:        []enemyai.BrainTicker{b1, b2},
@@ -533,7 +518,6 @@ func TestCombatLog_DamageAggroAlsoWorks(t *testing.T) {
 		ZoneID:        testArenaZoneID,
 		ZoneType:      1,
 		TickNum:       100,
-		State:         StateFight,
 		Players:       map[uint16]*entity.Player{1: p},
 		Enemies:       []*entity.Enemy{e},
 		Level:         testArenaLevel(t),
@@ -584,7 +568,6 @@ func TestCombatLog_FullFight_EndToEnd(t *testing.T) {
 		ZoneType:      1,
 		RunID:         "run-test-1",
 		TickNum:       100,
-		State:         StateFight,
 		Players:       map[uint16]*entity.Player{1: p},
 		Enemies:       []*entity.Enemy{e},
 		Brains:        []enemyai.BrainTicker{brain},

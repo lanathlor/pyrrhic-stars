@@ -10,62 +10,16 @@ import (
 	"codex-online/server/internal/message"
 )
 
-// GameFlowSystem manages the arena FSM: Lobby -> Spawned -> Fight -> FightOver.
-// During Fight, trash mobs activate first; once all trash is dead, the boss activates.
+// GameFlowSystem detects combat events (boss activation, boss death, wipe)
+// and manages data-driven gates. Runs every tick for all zone types.
 type GameFlowSystem struct{}
 
-func (s *GameFlowSystem) Tick(w *World, dt float32) {
-	if w.ZoneType == 0 { // OpenWorld zones have no game flow
-		return
-	}
-
-	switch w.State {
-	case StateLobby:
-		tickLobby(w)
-	case StateSpawned:
-		tickSpawned(w)
-	case StateFight:
+func (s *GameFlowSystem) Tick(w *World, _ float32) {
+	if len(w.Enemies) > 0 {
 		checkBossState(w)
 		checkFightEnd(w)
-	case StateFightOver:
-		tickFightOver(w, dt)
 	}
 	processGateEvents(w)
-}
-
-func tickLobby(w *World) {
-	if len(w.Players) < 1 {
-		return
-	}
-	allReady := true
-	for _, p := range w.Players {
-		if !p.Ready {
-			allReady = false
-			break
-		}
-	}
-	if !allReady {
-		return
-	}
-
-	SpawnPlayers(w)
-	w.State = StateSpawned
-	slog.Info("all players ready, spawning", "zone_id", w.ZoneID, "players", len(w.Players))
-	w.GameFlowEvents = append(w.GameFlowEvents, GameFlowEvent{
-		FlowType: message.FlowSpawnPlayers,
-	})
-}
-
-func tickSpawned(w *World) {
-	// Instance is already initialized — transition to fight immediately
-	// when any player is present.
-	if len(w.Players) > 0 {
-		w.State = StateFight
-		slog.Info("fight active", "zone_id", w.ZoneID, "players", len(w.Players))
-		w.GameFlowEvents = append(w.GameFlowEvents, GameFlowEvent{
-			FlowType: message.FlowFightStart,
-		})
-	}
 }
 
 // checkBossState detects boss aggro/reset and emits boss flow events.
@@ -252,11 +206,10 @@ func ResetAliveEnemies(w *World) {
 }
 
 func checkFightEnd(w *World) {
-	// Boss dead → victory
+	// Boss dead → victory (guard: only trigger once via BossDefeated flag)
 	boss := findBoss(w)
-	if boss != nil && boss.State == entity.EnemyDead {
+	if boss != nil && boss.State == entity.EnemyDead && !w.BossDefeated {
 		finalizeAllCombatLogs(w, combatlog.OutcomePlayerWin)
-		w.State = StateFightOver
 		w.BossDefeated = true
 		w.Projectiles = nil
 		w.GameFlowEvents = append(w.GameFlowEvents, GameFlowEvent{
@@ -265,8 +218,11 @@ func checkFightEnd(w *World) {
 		return
 	}
 
-	// Check all players dead → wipe. Bots are players: alive bots prevent
-	// wipes. humanCount ensures an empty-of-humans room doesn't wipe.
+	// All players dead → wipe (guard: only trigger once via WipeHandled flag;
+	// reset when any player respawns in handleRespawnRequest).
+	if w.WipeHandled {
+		return
+	}
 	allDead := true
 	humanCount := 0
 	for _, p := range w.Players {
@@ -280,62 +236,15 @@ func checkFightEnd(w *World) {
 	}
 	if allDead && humanCount > 0 {
 		finalizeAllCombatLogs(w, combatlog.OutcomeBossWin)
-		w.State = StateFightOver
-		w.BossDefeated = false
+		w.WipeHandled = true
+		w.Projectiles = nil
 		ResetAliveEnemies(w)
+		// Emit FlowAllDead; processGateEvents will open gates that have
+		// "all_dead" in their open_on list, sending FlowGateOpen to clients.
 		w.GameFlowEvents = append(w.GameFlowEvents, GameFlowEvent{
 			FlowType: message.FlowAllDead,
 		})
 	}
-}
-
-func tickFightOver(w *World, _ float32) {
-	// After a wipe, transition back to lobby once all human players have respawned.
-	// Bots are auto-respawned by BotSystem — don't let them block the transition.
-	if !w.BossDefeated {
-		allAlive := true
-		humanCount := 0
-		for _, p := range w.Players {
-			if entity.IsBotID(p.ID) {
-				continue
-			}
-			humanCount++
-			if !p.Alive {
-				allAlive = false
-				break
-			}
-		}
-		if allAlive && humanCount > 0 {
-			returnToLobby(w)
-		}
-	}
-}
-
-func returnToLobby(w *World) {
-	w.State = StateSpawned
-	w.Projectiles = nil
-	// Reset gates to defaults
-	w.InitGateStates()
-
-	// Reset players to warmup — use conditional spawn points
-	deadGroups := w.DeadGroupIDs()
-	idx := 0
-	for _, p := range w.Players {
-		p.Ready = false
-		p.Alive = true
-		p.Health = p.MaxHealth
-		p.State = entity.PlayerStateMove
-		p.Position = pickSpawnPoint(w.Level.PlayerSpawns, level.ZoneState{BossDefeated: w.BossDefeated, DeadGroupIDs: deadGroups}, idx)
-		p.Velocity = entity.Vec3{}
-		idx++
-	}
-
-	// Reset alive enemies to patrol — dead ones stay dead
-	ResetAliveEnemies(w)
-
-	w.GameFlowEvents = append(w.GameFlowEvents, GameFlowEvent{
-		FlowType: message.FlowReturnLobby,
-	})
 }
 
 // pickSpawnPoint selects the best spawn point for a player given the current zone state.

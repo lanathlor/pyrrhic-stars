@@ -71,7 +71,6 @@ func benchWorld(b testing.TB) *World {
 	return &World{
 		ZoneType:      1,
 		TickNum:       100,
-		State:         StateFight,
 		Players:       players,
 		Enemies:       enemies,
 		Brains:        brains,
@@ -85,7 +84,6 @@ func benchWorld(b testing.TB) *World {
 		SendBuf:     make([]byte, 0, 4096),
 		DamageBuf:   make([]byte, 0, 256),
 		GameFlowBuf: make([]byte, 0, 256),
-		LobbyBuf:    make([]byte, 0, 512),
 	}
 }
 
@@ -189,7 +187,6 @@ func BenchmarkHandleInteractInput(b *testing.B) {
 
 func BenchmarkHandleRespawnRequest(b *testing.B) {
 	w := benchWorld(b)
-	w.State = StateFightOver
 	payload := codec.EncodeRespawnRequest(0) // arena respawn
 	b.ReportAllocs()
 
@@ -440,7 +437,6 @@ func benchArenaInstance(b testing.TB, instanceID uint16) *World {
 	w := &World{
 		ZoneType:      1,
 		TickNum:       100,
-		State:         StateFight,
 		Players:       players,
 		Enemies:       enemies,
 		Brains:        brains,
@@ -452,7 +448,6 @@ func benchArenaInstance(b testing.TB, instanceID uint16) *World {
 		SendBuf:     make([]byte, 0, 4096),
 		DamageBuf:   make([]byte, 0, 256),
 		GameFlowBuf: make([]byte, 0, 256),
-		LobbyBuf:    make([]byte, 0, 512),
 	}
 	w.InitGateStates()
 	w.GateStates["boss_gate"] = true

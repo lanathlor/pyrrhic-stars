@@ -4,7 +4,6 @@ import (
 	"math/rand/v2"
 
 	"codex-online/server/internal/ability"
-	"codex-online/server/internal/codec"
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/combatlog"
 	"codex-online/server/internal/enemyai"
@@ -22,16 +21,6 @@ type System interface {
 type NoOpSystem struct{}
 
 func (NoOpSystem) Tick(*World, float32) {}
-
-// GameFlowState tracks the zone's game state.
-type GameFlowState uint8
-
-const (
-	StateLobby   GameFlowState = iota
-	StateSpawned               // players spawned, waiting for arena entry
-	StateFight
-	StateFightOver
-)
 
 // Client represents a connected player for sending messages.
 type Client struct {
@@ -67,8 +56,8 @@ type World struct {
 	TickNum uint32
 
 	// Game state
-	State        GameFlowState
 	BossDefeated bool
+	WipeHandled  bool            // true while all humans dead; reset on first respawn
 	GateStates   map[string]bool // gate_id → is_closed
 
 	// Group scaling — multiplier applied to all enemy damage (1.0 = no scaling)
@@ -128,10 +117,6 @@ type World struct {
 	// Reused every tick to avoid per-call allocations.
 	GameFlowBuf []byte
 
-	// LobbyBuf is a pooled buffer for lobby state messages.
-	// Reused every tick to avoid per-call allocations.
-	LobbyBuf []byte
-
 	// Dev mode fields (active only when CODEX_DEV=1).
 	DevMode            bool
 	TimeScale          float32         // 0 = use default 1.0
@@ -155,9 +140,6 @@ type World struct {
 
 	// Reusable buffer for enemy→Target interface conversion.
 	enemyTargetBuf []entity.Target
-
-	// Reusable buffer for lobby state broadcast.
-	lobbyInfoBuf []codec.LobbyPlayerInfo
 
 	// Reusable ability tick context (avoids per-player allocation in CombatSystem).
 	abilTickCtx ability.TickContext
@@ -279,16 +261,6 @@ func (w *World) InitGateStates() {
 		w.GateStates[g.ID] = g.DefaultClosed
 	}
 	w.RebuildObstacles()
-}
-
-// CombatActive returns true when combat systems (AI, Physics) should tick.
-// Open-world zones are always active; instanced zones are active only during
-// the Fight state of the arena FSM.
-func (w *World) CombatActive() bool {
-	if w.ZoneType == 0 { // OpenWorld
-		return true
-	}
-	return w.State == StateFight
 }
 
 // EnemyDmgMult returns the enemy damage multiplier, defaulting to 1.0 if unset.

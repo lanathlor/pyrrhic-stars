@@ -16,7 +16,6 @@ func makeWorld(t testing.TB, players map[uint16]*entity.Player, enemies []*entit
 	return &World{
 		ZoneType:       1, // arena
 		TickNum:        100,
-		State:          StateFight,
 		Players:        players,
 		Enemies:        enemies,
 		Level:          testArenaLevel(t),
@@ -228,7 +227,6 @@ func TestThreatGeneratedOnPlayerAttack(t *testing.T) {
 	e.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
 
 	w := makeWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
-	w.State = StateFight
 
 	// Simulate a gunner shoot input
 	inputSys := InputSystem{}
