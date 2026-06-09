@@ -35,7 +35,7 @@ func TestOverclockAT(t *testing.T) {
 			wantConfluence: 1,
 			wantCooldown:   true,
 			wantGCD:        true,
-			wantFlux:       50, // bioarcanotechnic pool: 160*0.5=80, 80-30=50
+			wantFlux:       66, // bioarcanotechnic pool: 160*0.6=96, 96-30=66
 		},
 		{
 			name: "spends bioarcanotechnic flux",
@@ -51,7 +51,7 @@ func TestOverclockAT(t *testing.T) {
 			wantConfluence: 1,
 			wantCooldown:   true,
 			wantGCD:        true,
-			wantFlux:       50,
+			wantFlux:       66,
 		},
 		{
 			name: "sets GCD to 0.8",
@@ -67,7 +67,7 @@ func TestOverclockAT(t *testing.T) {
 			wantConfluence: 1,
 			wantCooldown:   true,
 			wantGCD:        true,
-			wantFlux:       50,
+			wantFlux:       66,
 		},
 		{
 			name: "sets cooldown",
@@ -83,7 +83,7 @@ func TestOverclockAT(t *testing.T) {
 			wantConfluence: 1,
 			wantCooldown:   true,
 			wantGCD:        true,
-			wantFlux:       50,
+			wantFlux:       66,
 		},
 		{
 			name: tcGrantsConfluence,
@@ -99,7 +99,7 @@ func TestOverclockAT(t *testing.T) {
 			wantConfluence: 1,
 			wantCooldown:   true,
 			wantGCD:        true,
-			wantFlux:       50,
+			wantFlux:       66,
 		},
 		{
 			name: "falls back to self-buff if target peer ID is invalid",
@@ -114,7 +114,7 @@ func TestOverclockAT(t *testing.T) {
 			wantConfluence: 1,
 			wantCooldown:   true,
 			wantGCD:        true,
-			wantFlux:       50,
+			wantFlux:       66,
 		},
 		{
 			name: tcRejectsInsufficientFlux,

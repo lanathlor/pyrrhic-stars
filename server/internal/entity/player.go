@@ -350,10 +350,8 @@ func initArcanotechnicien(p *Player, spec *SpecDef, resources map[string]Resourc
 		}
 		if spec.ID == SpecHarmonist {
 			p.FluxCommit.SetCommitment(map[string]float32{
-				SchoolBioarcanotechnic: 0.5,
-				SchoolBiometabolic:     0.3,
-				SchoolFrost:            0.1,
-				SchoolAerokinetic:      0.1,
+				SchoolBioarcanotechnic: 0.6,
+				SchoolBiometabolic:     0.4,
 			})
 		}
 	}

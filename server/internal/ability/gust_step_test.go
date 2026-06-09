@@ -7,6 +7,18 @@ import (
 	"codex-online/server/internal/entity"
 )
 
+// newAeroCaster creates a harmonist with an aerokinetic flux pool for testing Gust Step.
+func newAeroCaster(id uint16) *entity.Player {
+	p := newHarmonist(id)
+	p.FluxCommit.SetCommitment(map[string]float32{
+		entity.SchoolBioarcanotechnic: 0.4,
+		entity.SchoolBiometabolic:     0.3,
+		entity.SchoolAerokinetic:      0.3,
+	})
+	p.SyncFluxAggregate()
+	return p
+}
+
 func TestGustStepHandler(t *testing.T) {
 	eng := NewEngine(nil)
 
@@ -22,7 +34,7 @@ func TestGustStepHandler(t *testing.T) {
 		{
 			name: "success: spends flux and grants i-frames",
 			setup: func() *entity.Player {
-				return newHarmonist(1)
+				return newAeroCaster(1)
 			},
 			wantOK:       true,
 			wantIFrames:  true,
@@ -32,7 +44,7 @@ func TestGustStepHandler(t *testing.T) {
 		{
 			name: tcRejectsInsufficientFlux,
 			setup: func() *entity.Player {
-				p := newHarmonist(1)
+				p := newAeroCaster(1)
 				p.SetAllFluxPoolsCurrent(1)
 				return p
 			},
@@ -42,7 +54,7 @@ func TestGustStepHandler(t *testing.T) {
 		{
 			name: tcRejectsGCD,
 			setup: func() *entity.Player {
-				p := newHarmonist(1)
+				p := newAeroCaster(1)
 				p.GCDTimer = 0.5
 				return p
 			},
@@ -52,7 +64,7 @@ func TestGustStepHandler(t *testing.T) {
 		{
 			name: tcRejectsCooldown,
 			setup: func() *entity.Player {
-				p := newHarmonist(1)
+				p := newAeroCaster(1)
 				p.Cooldowns["gust_step"] = 5.0
 				return p
 			},
@@ -119,8 +131,8 @@ func TestGustStepHandler(t *testing.T) {
 			// Check aerokinetic flux was spent (secondary school: 10 * 1.25 = 12.5).
 			pool := p.FluxCommit.GetPool("aerokinetic")
 			if pool != nil {
-				// Default aerokinetic pool: 10% of 160 = 16. After spend: 16 - 12.5 = 3.5
-				expected := float32(16.0 - 12.5)
+				// Aerokinetic pool: 30% of 160 = 48. After spend: 48 - 12.5 = 35.5
+				expected := float32(48.0 - 12.5)
 				if math.Abs(float64(pool.Current-expected)) > 0.5 {
 					t.Errorf("aerokinetic flux = %.1f, want ~%.1f", pool.Current, expected)
 				}

@@ -70,22 +70,26 @@ func TestAffinityCostMult(t *testing.T) {
 }
 
 func TestSpendFluxBySchool_AffinityScaling(t *testing.T) {
-	// Create a harmonist with known flux pools.
+	// Create a harmonist and add pools for primary + secondary schools.
 	p := NewPlayer(1, ClassArcanotechnicien)
-	// Harmonist default: bioarcanotechnic=50%, biometabolic=30%, frost=10%, aerokinetic=10%
-	// Total flux = 160, so frost pool = 16, aerokinetic pool = 16.
+	// Override commitment to include a secondary school pool for testing.
+	p.FluxCommit.SetCommitment(map[string]float32{
+		SchoolBioarcanotechnic: 0.5,
+		SchoolBiometabolic:     0.3,
+		SchoolAerokinetic:      0.2,
+	})
 
-	// Frost is primary (1.0x). Spending 10 base should deduct exactly 10.
-	frostPool := p.FluxCommit.GetPool(SchoolFrost)
-	if frostPool == nil {
-		t.Fatal("frost pool not found")
+	// Bioarcanotechnic is primary (1.0x). Spending 10 base should deduct exactly 10.
+	bioPool := p.FluxCommit.GetPool(SchoolBioarcanotechnic)
+	if bioPool == nil {
+		t.Fatal("bioarcanotechnic pool not found")
 	}
-	startFrost := frostPool.Current
-	if !p.SpendFluxBySchool(SchoolFrost, 10) {
-		t.Fatal("SpendFluxBySchool(frost, 10) should succeed")
+	startBio := bioPool.Current
+	if !p.SpendFluxBySchool(SchoolBioarcanotechnic, 10) {
+		t.Fatal("SpendFluxBySchool(bioarcanotechnic, 10) should succeed")
 	}
-	if frostPool.Current != startFrost-10 {
-		t.Errorf("frost pool: got %v, want %v", frostPool.Current, startFrost-10)
+	if bioPool.Current != startBio-10 {
+		t.Errorf("bioarcanotechnic pool: got %v, want %v", bioPool.Current, startBio-10)
 	}
 
 	// Aerokinetic is secondary (1.25x). Spending 10 base should deduct 12.5.
@@ -107,6 +111,11 @@ func TestSpendFluxBySchool_RejectsScaledInsufficient(t *testing.T) {
 	// If you have 12 flux in aerokinetic (secondary, 1.25x) and try to spend
 	// 10 base cost, scaled = 12.5 > 12 → should fail.
 	p := NewPlayer(1, ClassArcanotechnicien)
+	// Add an aerokinetic pool explicitly for testing secondary scaling.
+	p.FluxCommit.SetCommitment(map[string]float32{
+		SchoolBioarcanotechnic: 0.5,
+		SchoolAerokinetic:      0.5,
+	})
 	aeroPool := p.FluxCommit.GetPool(SchoolAerokinetic)
 	if aeroPool == nil {
 		t.Fatal("aerokinetic pool not found")

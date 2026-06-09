@@ -7,15 +7,16 @@ import (
 	"codex-online/server/internal/entity"
 )
 
-// newFrostCaster creates a harmonist with enough frost flux to cast Frost Ward.
-// The default harmonist frost pool is 16 (10% of 160), but Frost Ward costs 20,
-// so we increase the frost pool for test purposes.
+// newFrostCaster creates a harmonist with a frost flux pool for testing Frost Ward.
+// The default harmonist commitment only has bioarcanotechnic/biometabolic,
+// so we add a frost pool explicitly.
 func newFrostCaster(id uint16) *entity.Player {
 	p := newHarmonist(id)
-	if pool := p.FluxCommit.GetPool("frost"); pool != nil {
-		pool.Max = 40
-		pool.Current = 40
-	}
+	p.FluxCommit.SetCommitment(map[string]float32{
+		entity.SchoolBioarcanotechnic: 0.4,
+		entity.SchoolBiometabolic:     0.3,
+		entity.SchoolFrost:            0.3,
+	})
 	p.SyncFluxAggregate()
 	return p
 }
@@ -111,7 +112,7 @@ func TestFrostWardHandler(t *testing.T) {
 			wantShield: 30,
 			wantBuff:   true,
 			wantActive: true,
-			wantFlux:   20, // 40 - 20 = 20 remaining in frost pool
+			wantFlux:   28, // 48 - 20 = 28 remaining in frost pool
 		},
 		{
 			name: tcGrantsConfluence,
