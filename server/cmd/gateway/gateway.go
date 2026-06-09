@@ -373,7 +373,7 @@ func (g *gateway) loadAndSendLoadout(sess *session.Session, zi *zoneInstance) {
 		}
 	}
 	if !hasLoadout {
-		slots = [6]string{"mending_surge", "mending_beam", "vital_bloom", "restoration_matrix", "life_swap", "transfusion"}
+		slots = entity.HarmonistDefaultLoadoutSlots()
 	}
 
 	// Send catalog with affinity info for the spec.
@@ -479,10 +479,8 @@ func (g *gateway) loadFluxCommitment(charID uint) []codec.FluxCommitEntry {
 	}
 	if len(commitEntries) == 0 {
 		commitEntries = []codec.FluxCommitEntry{
-			{School: "bioarcanotechnic", Percentage: 50},
-			{School: "biometabolic", Percentage: 30},
-			{School: "frost", Percentage: 10},
-			{School: "aerokinetic", Percentage: 10},
+			{School: "bioarcanotechnic", Percentage: 60},
+			{School: "biometabolic", Percentage: 40},
 		}
 	}
 	return commitEntries

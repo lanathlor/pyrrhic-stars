@@ -20,20 +20,16 @@ func TestSetCommitmentDistributes(t *testing.T) {
 		wantPools  []FluxPool
 	}{
 		{
-			name:       "harmonist default 4 schools",
+			name:       "harmonist default 2 schools",
 			totalMax:   160,
 			totalRegen: 7,
 			schools: map[string]float32{
-				SchoolBioarcanotechnic: 0.5,
-				SchoolBiometabolic:     0.3,
-				SchoolFrost:            0.1,
-				SchoolAerokinetic:      0.1,
+				SchoolBioarcanotechnic: 0.6,
+				SchoolBiometabolic:     0.4,
 			},
 			wantPools: []FluxPool{
-				{School: SchoolAerokinetic, Percentage: 0.1, Current: 16, Max: 16, Regen: 0.7},
-				{School: SchoolBioarcanotechnic, Percentage: 0.5, Current: 80, Max: 80, Regen: 3.5},
-				{School: SchoolBiometabolic, Percentage: 0.3, Current: 48, Max: 48, Regen: 2.1},
-				{School: SchoolFrost, Percentage: 0.1, Current: 16, Max: 16, Regen: 0.7},
+				{School: SchoolBioarcanotechnic, Percentage: 0.6, Current: 96, Max: 96, Regen: 4.2},
+				{School: SchoolBiometabolic, Percentage: 0.4, Current: 64, Max: 64, Regen: 2.8},
 			},
 		},
 		{
@@ -105,21 +101,19 @@ func TestSpendFromSchool(t *testing.T) {
 		wantOK      bool
 		wantCurrent float32
 	}{
-		{"spend within budget", SchoolBioarcanotechnic, 30, true, 50},
-		{"spend exact amount", SchoolBioarcanotechnic, 80, true, 0},
-		{"spend too much", SchoolBioarcanotechnic, 81, false, 80},
-		{"spend from smaller pool", SchoolFrost, 10, true, 6},
-		{"spend too much from small pool", SchoolFrost, 17, false, 16},
+		{"spend within budget", SchoolBioarcanotechnic, 30, true, 66},
+		{"spend exact amount", SchoolBioarcanotechnic, 96, true, 0},
+		{"spend too much", SchoolBioarcanotechnic, 97, false, 96},
+		{"spend from smaller pool", SchoolBiometabolic, 10, true, 54},
+		{"spend too much from small pool", SchoolBiometabolic, 65, false, 64},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fc := &FluxCommitment{TotalMax: 160, TotalRegen: 7}
 			fc.SetCommitment(map[string]float32{
-				SchoolBioarcanotechnic: 0.5,
-				SchoolBiometabolic:     0.3,
-				SchoolFrost:            0.1,
-				SchoolAerokinetic:      0.1,
+				SchoolBioarcanotechnic: 0.6,
+				SchoolBiometabolic:     0.4,
 			})
 
 			ok := fc.SpendFromSchool(tt.school, tt.amount)
@@ -156,20 +150,18 @@ func TestTickRegen(t *testing.T) {
 		dt          float32
 		wantCurrent float32
 	}{
-		{"regen partial", SchoolBioarcanotechnic, 40, 2.0, 47},            // 80-40=40, +3.5*2=47
-		{"regen caps at max", SchoolBioarcanotechnic, 5, 10.0, 80},        // 80-5=75, +3.5*10=110, capped at 80
-		{"regen from empty", SchoolFrost, 16, 1.0, 0.7},                   // 16-16=0, +0.7*1=0.7
-		{"no spend full pool stays full", SchoolBiometabolic, 0, 5.0, 48}, // already at max 48
+		{"regen partial", SchoolBioarcanotechnic, 40, 2.0, 64.4},          // 96-40=56, +4.2*2=64.4
+		{"regen caps at max", SchoolBioarcanotechnic, 5, 10.0, 96},        // 96-5=91, +4.2*10=133, capped at 96
+		{"regen from empty", SchoolBiometabolic, 64, 1.0, 2.8},            // 64-64=0, +2.8*1=2.8
+		{"no spend full pool stays full", SchoolBiometabolic, 0, 5.0, 64}, // already at max 64
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fc := &FluxCommitment{TotalMax: 160, TotalRegen: 7}
 			fc.SetCommitment(map[string]float32{
-				SchoolBioarcanotechnic: 0.5,
-				SchoolBiometabolic:     0.3,
-				SchoolFrost:            0.1,
-				SchoolAerokinetic:      0.1,
+				SchoolBioarcanotechnic: 0.6,
+				SchoolBiometabolic:     0.4,
 			})
 
 			if tt.spendFirst > 0 {
@@ -251,20 +243,20 @@ func TestNewPlayerHarmonistHasFluxCommitment(t *testing.T) {
 	if !approxEq(p.FluxCommit.TotalRegen, 3) {
 		t.Errorf("TotalRegen = %f, want 3", p.FluxCommit.TotalRegen)
 	}
-	if len(p.FluxCommit.Pools) != 4 {
-		t.Fatalf("expected 4 pools, got %d", len(p.FluxCommit.Pools))
+	if len(p.FluxCommit.Pools) != 2 {
+		t.Fatalf("expected 2 pools, got %d", len(p.FluxCommit.Pools))
 	}
 
-	// Verify bioarcanotechnic is the largest pool (50%).
+	// Verify bioarcanotechnic is the largest pool (60%).
 	bio := p.FluxCommit.GetPool(SchoolBioarcanotechnic)
 	if bio == nil {
 		t.Fatal("bioarcanotechnic pool should exist")
 	}
-	if !approxEq(bio.Max, 80) {
-		t.Errorf("bioarcanotechnic.Max = %f, want 80", bio.Max)
+	if !approxEq(bio.Max, 96) {
+		t.Errorf("bioarcanotechnic.Max = %f, want 96", bio.Max)
 	}
-	if !approxEq(bio.Regen, 1.5) {
-		t.Errorf("bioarcanotechnic.Regen = %f, want 1.5", bio.Regen)
+	if !approxEq(bio.Regen, 1.8) {
+		t.Errorf("bioarcanotechnic.Regen = %f, want 1.8", bio.Regen)
 	}
 }
 

@@ -30,66 +30,9 @@ const ABILITY_SLOT_ACTIONS: Array[StringName] = [
 
 const SLOT_KEYBINDS: Array[String] = ["1", "2", "R", "T", "F", "C"]
 
-## Harmonist ability table. action_id = 50 + slot_index.
-const HARMONIST_ABILITIES: Array[Dictionary] = [
-	{
-		name = "Mending Surge",
-		keybind = "1",
-		desc = "Direct. Massive single-target emergency heal. High Flux cost.",
-		action_id = 50,
-		dur = 0.4,
-		delivery = "direct",
-		cooldown_max = 0.0,
-	},
-	{
-		name = "Mending Beam",
-		keybind = "2",
-		desc = "Beam. High sustained single-target throughput. Channel.",
-		action_id = 51,
-		dur = 2.0,
-		delivery = "beam",
-		cooldown_max = 0.0,
-		sustain = true,
-	},
-	{
-		name = "Life Swap",
-		keybind = "R",
-		desc = "Direct. Drain healthy ally to empower next heal. Low Flux.",
-		action_id = 52,
-		dur = 0.3,
-		delivery = "direct",
-		cooldown_max = 6.0,
-	},
-	{
-		name = "Transfusion",
-		keybind = "T",
-		desc = "Beam to Zone. Drain one ally, AoE heal everyone else.",
-		action_id = 53,
-		dur = 1.5,
-		delivery = "zone",
-		cooldown_max = 8.0,
-		sustain = true,
-	},
-	{
-		name = "Frost Ward",
-		keybind = "F",
-		desc = "Instant. Frost barrier on ally. Absorbs damage.",
-		action_id = 54,
-		dur = 0.2,
-		delivery = "direct",
-		cooldown_max = 12.0,
-	},
-	{
-		name = "Transfusion",
-		keybind = "C",
-		desc = "Beam to Zone. Drain one ally, AoE heal everyone else.",
-		action_id = 55,
-		dur = 1.5,
-		delivery = "zone",
-		cooldown_max = 8.0,
-		sustain = true,
-	},
-]
+## Harmonist ability table. Populated from server via AbilityCatalog.
+## Empty: the server loadout is the source of truth.
+const HARMONIST_ABILITIES: Array[Dictionary] = []
 
 const MovementScript := preload(
 	"res://scenes/controllers/arcanotechnicien/arcanotechnicien_movement.gd"

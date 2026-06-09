@@ -226,10 +226,11 @@ func _apply_sustain_cooldown() -> void:
 		return
 	var slot: int = _sustain_slot
 	if slot < 0:
-		# Look up slot from ability name in HARMONIST_ABILITIES
+		# Look up slot from ability name in server loadout
 		var ability_name: String = ctrl._committing_ability.get("name", "")
-		for i in ctrl.HARMONIST_ABILITIES.size():
-			if ctrl.HARMONIST_ABILITIES[i].get("name", "") == ability_name:
+		for i in AbilityCatalog.current_loadout.size():
+			var entry: Dictionary = AbilityCatalog.get_ability(AbilityCatalog.current_loadout[i])
+			if entry.get("name", "") == ability_name:
 				slot = i
 				break
 	if slot < 0 or slot >= ctrl._cooldowns.size():

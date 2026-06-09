@@ -38,6 +38,12 @@ var arcanotechnicienBattlemageSpec = SpecDef{
 	SecondarySchools: []string{SchoolShadow, SchoolAerokinetic, SchoolPure},
 }
 
+// HarmonistDefaultLoadoutSlots returns a copy of the default Harmonist loadout
+// as a [6]string for use by the gateway when no persisted loadout exists.
+func HarmonistDefaultLoadoutSlots() [6]string {
+	return harmonistDefaultLoadout.Slots
+}
+
 // harmonistDefaultLoadout is the default loadout for the Harmonist spec.
 // Players can customize this by swapping abilities from the class codex.
 var harmonistDefaultLoadout = Loadout{
