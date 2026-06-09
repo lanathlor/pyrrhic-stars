@@ -24,7 +24,6 @@ func TestVitalDrainSustainDamage(t *testing.T) {
 	enemy.State = entity.EnemyChase
 
 	w := World{
-		State:          StateFight,
 		Players:        map[uint16]*entity.Player{1: p},
 		Enemies:        []*entity.Enemy{enemy},
 		Level:          lvl,
@@ -35,7 +34,6 @@ func TestVitalDrainSustainDamage(t *testing.T) {
 		SendBuf:        make([]byte, 0, 256),
 		DamageBuf:      make([]byte, 0, 256),
 		GameFlowBuf:    make([]byte, 0, 256),
-		LobbyBuf:       make([]byte, 0, 256),
 	}
 
 	def := eng.GetAbility("vital_drain")

@@ -10,10 +10,6 @@ import (
 type PhysicsSystem struct{}
 
 func (s *PhysicsSystem) Tick(w *World, dt float32) {
-	if !w.CombatActive() {
-		return
-	}
-
 	tickPatternSpawns(w, dt)
 
 	alive := w.Projectiles[:0]

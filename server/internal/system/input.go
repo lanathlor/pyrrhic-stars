@@ -448,7 +448,7 @@ func handleInteractInput(w *World, peerID uint16, payload []byte) {
 	case message.InteractReadyToggle:
 		p.Ready = !p.Ready
 	case message.InteractExitPortal:
-		if w.State == StateFightOver && w.BossDefeated {
+		if w.BossDefeated {
 			if w.OnPlayerRespawnHub != nil {
 				w.OnPlayerRespawnHub(peerID)
 			}
@@ -551,18 +551,15 @@ func handleRespawnRequest(w *World, peerID uint16, payload []byte) {
 		if w.OnPlayerRespawnHub != nil {
 			w.OnPlayerRespawnHub(peerID)
 		}
-	case 0: // arena
-		canRespawn := w.State == StateFightOver || w.State == StateLobby || w.State == StateSpawned
-		// Allow respawn during fight if the boss room is not sealed (trash mob deaths).
-		if !canRespawn && w.State == StateFight && !w.AnyGateClosed() {
-			canRespawn = true
-		}
-		if canRespawn {
+	case 0: // local respawn (allowed unless boss room is sealed)
+		if !w.AnyGateClosed() {
 			player.Alive = true
 			player.Health = player.MaxHealth
 			player.State = entity.PlayerStateMove
+			player.Velocity = entity.Vec3{}
 			deadGroups := w.DeadGroupIDs()
 			player.Position = pickSpawnPoint(w.Level.PlayerSpawns, level.ZoneState{BossDefeated: w.BossDefeated, DeadGroupIDs: deadGroups}, 0)
+			w.WipeHandled = false // allow future wipe detection
 		}
 	}
 }

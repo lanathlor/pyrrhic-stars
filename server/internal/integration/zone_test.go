@@ -221,27 +221,15 @@ func TestGunnerFireBroadcastsAttackStateIntegration(t *testing.T) {
 
 	t.Logf("shooter peer=%d, observer peer=%d", shooter.PeerID, observer.PeerID)
 
-	// --- Both players ready up → zone transitions to Spawned ---
-	shooter.ReadyUp()
-	observer.ReadyUp()
-
-	// Wait for SpawnPlayers game flow event
-	shooter.WaitForMessage(message.OpGameFlowEvent, 3*time.Second)
-	observer.WaitForMessage(message.OpGameFlowEvent, 3*time.Second)
-	t.Log("both players spawned")
-
 	// Wait for spawn grace period to expire (10 ticks @ 20Hz = 500ms)
 	time.Sleep(600 * time.Millisecond)
 
-	// --- Move both players into the hallway (Z < ArenaEntryZ=40) to trigger fight ---
+	// Move both players into the hallway area near enemies.
 	// Positions must be within 10 units of spawn (Z=48) to pass teleport check.
 	aimPitch := float32(math.Atan2(-1.0, 39.0)) // aiming slightly down at enemy
 	shooter.SendPlayerInput(-2, 0.1, 39, 0, 1, aimPitch)
 	observer.SendPlayerInput(0, 0.1, 39, 0, 1, 0)
-
-	// Wait for FightStart game flow event
-	shooter.WaitForMessage(message.OpGameFlowEvent, 3*time.Second)
-	t.Log("fight started")
+	time.Sleep(200 * time.Millisecond)
 
 	// Drain any buffered world states
 	observer.DrainMessages()
@@ -276,24 +264,15 @@ func TestGunnerHitBroadcastsDamageEventIntegration(t *testing.T) {
 	shooter.WaitForMessage(message.OpPeerConnected, 2*time.Second)
 	observer.WaitForMessage(message.OpPeerConnected, 2*time.Second)
 
-	// Ready up
-	shooter.ReadyUp()
-	observer.ReadyUp()
-	shooter.WaitForMessage(message.OpGameFlowEvent, 3*time.Second)
-	observer.WaitForMessage(message.OpGameFlowEvent, 3*time.Second)
-
 	// Wait for spawn grace period to expire (10 ticks @ 20Hz = 500ms)
 	time.Sleep(600 * time.Millisecond)
 
-	// Walk both players into the hallway (Z < ArenaEntryZ=40) concurrently
+	// Walk both players into the hallway (Z < ArenaEntryZ=40) near enemies,
 	// using incremental steps so the server-side speed clamp accepts each move.
 	var wg sync.WaitGroup
 	wg.Go(func() { shooter.WalkTo(0, 0.1, 48, 0, 0.1, 39, 0.35) })
 	wg.Go(func() { observer.WalkTo(0, 0.1, 48, 0, 0.1, 39, 0.35) })
 	wg.Wait()
-
-	// Wait for fight start
-	shooter.WaitForMessage(message.OpGameFlowEvent, 3*time.Second)
 
 	// Drain
 	shooter.DrainMessages()

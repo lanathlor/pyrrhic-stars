@@ -11,7 +11,6 @@ func makePhysicsWorld(t testing.TB) *World {
 	t.Helper()
 	w := &World{
 		ZoneType: 1,
-		State:    StateFight,
 		Players:  make(map[uint16]*entity.Player),
 		Level:    testArenaLevel(t),
 	}
@@ -129,24 +128,6 @@ func TestPhysicsEnemyProjectileSkipsDeadPlayer(t *testing.T) {
 
 	if len(w.DamageEvents) != 0 {
 		t.Error("dead player should not be hit")
-	}
-}
-
-func TestPhysicsNotInFightState(t *testing.T) {
-	w := makePhysicsWorld(t)
-	w.State = StateLobby
-	proj := entity.NewProjectile(1, 0, -1,
-		entity.Vec3{X: 0, Y: 1.5, Z: 25},
-		entity.Vec3{X: 0, Z: -1},
-		20, 10, 5.0)
-	w.Projectiles = []*entity.Projectile{proj}
-
-	sys := PhysicsSystem{}
-	sys.Tick(w, 0.05)
-
-	// Projectile should not be processed
-	if proj.Position.Z < 24.9 {
-		t.Error("physics should not run outside fight state")
 	}
 }
 

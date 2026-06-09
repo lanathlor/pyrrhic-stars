@@ -213,7 +213,6 @@ func buildWorld(cfg SimConfig, es enemySetup, playerMap map[uint16]*entity.Playe
 		ZoneID:          fmt.Sprintf("%s_%d", cfg.GroupID, cfg.Seed),
 		ZoneType:        1, // instanced
 		RunID:           cfg.RunID,
-		State:           system.StateFight,
 		EnemyDamageMult: dmgMult,
 		Players:         playerMap,
 		Enemies:         []*entity.Enemy{es.enemy},
@@ -228,7 +227,6 @@ func buildWorld(cfg SimConfig, es enemySetup, playerMap map[uint16]*entity.Playe
 		SendBuf:         make([]byte, 0, 4096),
 		DamageBuf:       make([]byte, 0, 256),
 		GameFlowBuf:     make([]byte, 0, 256),
-		LobbyBuf:        make([]byte, 0, 512),
 	}
 	if w.CombatLogSink == nil {
 		w.CombatLogSink = combatlog.NullSink{}

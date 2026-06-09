@@ -27,17 +27,6 @@ const (
 	DeltaTime  = 1.0 / float32(TickRate)
 )
 
-// Re-export types from system package so gateway and tests can use them
-// without importing system directly.
-type GameFlowState = system.GameFlowState
-
-const (
-	StateLobby     = system.StateLobby
-	StateSpawned   = system.StateSpawned
-	StateFight     = system.StateFight
-	StateFightOver = system.StateFightOver
-)
-
 // ZoneType distinguishes open-world (persistent) zones from instanced (combat) zones.
 type ZoneType uint8
 
@@ -102,7 +91,6 @@ func New(id string, lvl *level.Level) *Zone {
 		ZoneID:          id,
 		ZoneType:        uint8(zoneType),
 		RunID:           fmt.Sprintf("%s_%d", id, time.Now().UnixMilli()),
-		State:           system.StateLobby,
 		EnemyDamageMult: 1.0,
 		DevMode:         devMode,
 		Players:         make(map[uint16]*entity.Player),
@@ -260,26 +248,17 @@ func (z *Zone) AddClient(c *Client) {
 		p.Username = c.Username
 	}
 
-	// Arena: initialize player fully and send catch-up state
-	var catchUpFlow uint8
+	// Initialize player fully for instanced zones (spawn at correct position).
 	if z.Type == ZoneTypeInstanced {
 		system.SpawnPlayer(&z.world, c.PeerID)
-		switch z.world.State {
-		case system.StateLobby:
-			z.world.State = system.StateSpawned
-			catchUpFlow = message.FlowSpawnPlayers
-			slog.Info("arena entered, skipping lobby", "zone_id", z.ID)
-		case system.StateSpawned:
-			catchUpFlow = message.FlowSpawnPlayers
-		case system.StateFight:
-			catchUpFlow = message.FlowFightStart
-		case system.StateFightOver:
-			if z.world.BossDefeated {
-				catchUpFlow = message.FlowBossDead
-			} else {
-				catchUpFlow = message.FlowAllDead
-			}
-		}
+	}
+
+	// Send catch-up flow event so late-joiners see the correct UI state.
+	var catchUpFlow uint8
+	if z.world.BossDefeated {
+		catchUpFlow = message.FlowBossDead
+	} else if z.world.WipeHandled {
+		catchUpFlow = message.FlowAllDead
 	}
 
 	// Rescale enemies for new player count (already under z.mu).

@@ -11,7 +11,7 @@ import (
 type AISystem struct{}
 
 func (s *AISystem) Tick(w *World, dt float32) {
-	if !w.CombatActive() {
+	if len(w.Enemies) == 0 {
 		return
 	}
 

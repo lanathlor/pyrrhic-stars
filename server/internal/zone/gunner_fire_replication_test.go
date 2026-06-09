@@ -30,13 +30,12 @@ func (c *mockSendCollector) collect(msg []byte) {
 	c.msgs = append(c.msgs, msg)
 }
 
-// setupTwoPlayerFight creates an arena in StateFight with a gunner (shooter)
-// and a second player (observer). Returns the zone, both peer IDs, and the
-// observer's message collector.
+// setupTwoPlayerFight creates an arena with a gunner (shooter) and a second
+// player (observer). Returns the zone, both peer IDs, and the observer's
+// message collector.
 func setupTwoPlayerFight(t *testing.T) (*Zone, uint16, uint16, *mockSendCollector) {
 	t.Helper()
 	z := New("test-arena", testArenaLevel(t))
-	z.world.State = StateFight
 
 	// Gunner (shooter)
 	var shooterID uint16 = 1
@@ -379,27 +378,21 @@ func TestGunnerFire_TickByTickStateSequence(t *testing.T) {
 }
 
 // =============================================================================
-// ROOT CAUSE: Server silently drops ability inputs outside StateFight.
-//
-// Abilities now work in every zone state (hub, lobby, warmup, fight).
-// The server processes the input, sets PlayerStateAttack, and remote
-// clients see the tracer/animation transition in all cases.
+// Abilities work in every zone type (hub, arena). The server processes the
+// input, sets PlayerStateAttack, and remote clients see the tracer/animation
+// transition in all cases.
 // =============================================================================
 
-func TestGunnerFire_WorksInAllZoneStates(t *testing.T) {
+func TestGunnerFire_WorksInAllZoneTypes(t *testing.T) {
 	hubLvl := testHubLevel(t)
 	arenaLvl := testArenaLevel(t)
 
 	tests := []struct {
-		name      string
-		lvl       *level.Level
-		zoneState GameFlowState
+		name string
+		lvl  *level.Level
 	}{
-		{name: "Hub zone", lvl: hubLvl, zoneState: StateLobby},
-		// Arena lobby broadcasts LobbyState (not WorldState), so observer
-		// tracer detection doesn't apply — players aren't in-world yet.
-		{name: "Arena spawned/warmup", lvl: arenaLvl, zoneState: StateSpawned},
-		{name: "Arena fight", lvl: arenaLvl, zoneState: StateFight},
+		{name: "Hub zone", lvl: hubLvl},
+		{name: "Arena zone", lvl: arenaLvl},
 	}
 
 	for _, tc := range tests {
@@ -410,9 +403,6 @@ func TestGunnerFire_WorksInAllZoneStates(t *testing.T) {
 			var observerMsgs [][]byte
 			z.AddClient(&Client{PeerID: peerID, Username: "Gunner", Send: func([]byte) {}, SendUDP: func([]byte) {}, HasUDP: func() bool { return true }})
 			z.AddClient(&Client{PeerID: 2, Username: "Observer", Send: func(m []byte) { observerMsgs = append(observerMsgs, m) }, SendUDP: func(m []byte) { observerMsgs = append(observerMsgs, m) }, HasUDP: func() bool { return true }})
-
-			// Set state after AddClient — arena AddClient auto-advances to fight
-			z.world.State = tc.zoneState
 
 			p := z.world.Players[peerID]
 			p.ClassID = entity.ClassGunner
