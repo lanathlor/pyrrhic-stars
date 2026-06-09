@@ -240,8 +240,8 @@ func loadPortals(l *Level, portals []portalJSON) {
 
 func loadZoneTriggers(l *Level, triggers []zoneTriggerJSON) {
 	for _, zt := range triggers {
-		if zt.TriggerID == "arena_entry" {
-			l.ArenaEntryZ = zt.Threshold
+		if zt.TriggerID == "instance_entry" {
+			l.InstanceEntryZ = zt.Threshold
 		}
 	}
 }

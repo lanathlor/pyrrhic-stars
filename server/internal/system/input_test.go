@@ -697,7 +697,7 @@ func TestHandleInteractInput_ExitPortal(t *testing.T) {
 		TickNum:  100,
 		Players:  map[uint16]*entity.Player{1: p},
 		Level:    lvl,
-		OnPlayerRespawnHub: func(peerID uint16) {
+		OnPlayerReturnToOpenWorld: func(peerID uint16) {
 			hubRespawnCalled = true
 			if peerID != 1 {
 				t.Errorf("respawn peerID = %d, want 1", peerID)
@@ -713,7 +713,7 @@ func TestHandleInteractInput_ExitPortal(t *testing.T) {
 	is.Tick(w, 0.05)
 
 	if !hubRespawnCalled {
-		t.Error("OnPlayerRespawnHub should be called for exit portal after boss defeated")
+		t.Error("OnPlayerReturnToOpenWorld should be called for exit portal after boss defeated")
 	}
 }
 
@@ -727,7 +727,7 @@ func TestHandleInteractInput_ExitPortal_BossNotDefeated(t *testing.T) {
 		TickNum:  100,
 		Players:  map[uint16]*entity.Player{1: p},
 		Level:    lvl,
-		OnPlayerRespawnHub: func(_ uint16) {
+		OnPlayerReturnToOpenWorld: func(_ uint16) {
 			hubRespawnCalled = true
 		},
 	}
@@ -782,7 +782,7 @@ func TestHandleRespawnRequest_HubRespawn(t *testing.T) {
 		TickNum:  100,
 		Players:  map[uint16]*entity.Player{1: p},
 		Level:    lvl,
-		OnPlayerRespawnHub: func(peerID uint16) {
+		OnPlayerReturnToOpenWorld: func(peerID uint16) {
 			hubRespawnCalled = true
 			if peerID != 1 {
 				t.Errorf("hub respawn peerID = %d, want 1", peerID)

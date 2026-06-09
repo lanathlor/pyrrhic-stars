@@ -34,7 +34,7 @@ const (
 	OpPlayerInput    uint16 = 0x0030 // movement + continuous actions
 	OpAbilityInput   uint16 = 0x0031 // discrete ability activation
 	OpInteractInput  uint16 = 0x0032 // lobby actions (class select, ready)
-	OpRespawnRequest uint16 = 0x0033 // death respawn (arena or hub)
+	OpRespawnRequest uint16 = 0x0033 // death respawn (local or open-world)
 
 	// Server → Client authoritative state.
 	OpWorldState    uint16 = 0x0040 // full entity snapshot per tick
@@ -57,7 +57,7 @@ const (
 	OpGroupState      uint16 = 0x0060
 	OpGroupInviteRecv uint16 = 0x0061
 	OpGroupError      uint16 = 0x0062
-	OpHubState        uint16 = 0x0063
+	OpZoneState       uint16 = 0x0063
 	OpPlayerNames     uint16 = 0x0064
 
 	// Inventory — client → server.
@@ -226,7 +226,7 @@ const (
 	FlowShowResult      uint8 = 3
 	FlowPhaseTransition uint8 = 4
 	FlowReturnLobby     uint8 = 5
-	FlowReturnHub       uint8 = 6
+	FlowReturnOpenWorld uint8 = 6
 	FlowBossDead        uint8 = 7
 	FlowAllDead         uint8 = 8
 	FlowBossActivated   uint8 = 9

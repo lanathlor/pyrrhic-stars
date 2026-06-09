@@ -24,7 +24,6 @@ import (
 	"codex-online/server/internal/session"
 	"codex-online/server/internal/telemetry"
 	"codex-online/server/internal/validation"
-	"codex-online/server/internal/zone"
 
 	clickhousedriver "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/coder/websocket"
@@ -167,12 +166,12 @@ func configureGateway(gw *gateway) error {
 	// Create ability engine for stat lookups (catalog enrichment).
 	gw.abilityEng = ability.NewEngine(nil)
 
-	// Create persistent hub zone at startup. Fail fast if hub level is missing.
-	hubLvl, err2 := gw.loadLevel("hub")
+	// Create persistent open-world zone at startup. Fail fast if level is missing.
+	owLvl, err2 := gw.loadLevel(defaultOpenWorldZone)
 	if err2 != nil {
-		return fmt.Errorf("hub level not found: %w", err2)
+		return fmt.Errorf("open-world level not found: %w", err2)
 	}
-	gw.getOrCreateZone(zone.ZoneHub, hubLvl, 0)
+	gw.getOrCreateZone(defaultOpenWorldZone, owLvl, 0)
 	return nil
 }
 
@@ -320,8 +319,8 @@ func handleConnection(gw *gateway, w http.ResponseWriter, req *http.Request) {
 		client.Send(encodeCharacterListMsg(username, allChars))
 	}
 	defer func() {
-		// Save character position before cleanup (hub only).
-		if sess.UserUUID != "" && sess.Class != "" && sess.ZoneID == zone.ZoneHub {
+		// Save character position before cleanup (open-world zones only).
+		if sess.UserUUID != "" && sess.Class != "" && sess.ZoneType == 0 {
 			gw.savePlayerPosition(sess)
 		}
 		// Remove from group.

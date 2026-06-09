@@ -172,13 +172,13 @@ func findNearestAggroedEnemy(p *entity.Player, enemies []*entity.Enemy) *entity.
 	return best
 }
 
-// respawnBot queues an arena respawn request, same as a real player clicking respawn.
+// respawnBot queues a local respawn request, same as a real player clicking respawn.
 func respawnBot(lb *LiveBot, w *system.World) {
 	lb.deathTimer = 0
 	w.InputQueue = append(w.InputQueue, system.InputMsg{
 		PeerID:  lb.BotID,
 		Opcode:  message.OpRespawnRequest,
-		Payload: codec.EncodeRespawnRequest(0), // 0 = arena respawn
+		Payload: codec.EncodeRespawnRequest(0), // 0 = local respawn
 	})
 }
 

@@ -123,15 +123,15 @@ func TestLoadLevelData_PreservesGameLogic(t *testing.T) {
 		"player_spawns": []
 	}`)
 	l := &Level{
-		ArenaEntryZ: 40.0,
-		EnemyRadius: 1.0,
+		InstanceEntryZ: 40.0,
+		EnemyRadius:    1.0,
 	}
 	if err := loadLevelData(p, l); err != nil {
 		t.Fatal(err)
 	}
 	// Game logic fields must be untouched
-	if l.ArenaEntryZ != 40.0 {
-		t.Errorf("ArenaEntryZ = %f, want 40", l.ArenaEntryZ)
+	if l.InstanceEntryZ != 40.0 {
+		t.Errorf("InstanceEntryZ = %f, want 40", l.InstanceEntryZ)
 	}
 	if l.EnemyRadius != 1.0 {
 		t.Errorf("EnemyRadius = %f, want 1", l.EnemyRadius)
@@ -273,12 +273,12 @@ func TestLoadLevelData_V3Features(t *testing.T) {
 			{ "name": "Portal1", "x": 33, "y": 102, "z": 5.5, "target_zone": "arena", "interaction_radius": 4.0 }
 		],
 		"zone_triggers": [
-			{ "name": "Entry", "trigger_id": "arena_entry", "axis": "z", "threshold": 40 },
+			{ "name": "Entry", "trigger_id": "instance_entry", "axis": "z", "threshold": 40 },
 			{ "name": "BossGate", "trigger_id": "boss_room_entry", "axis": "z", "threshold": 12 }
 		]
 	}`)
 
-	l := &Level{ArenaEntryZ: 99} // will be overwritten by zone_triggers
+	l := &Level{InstanceEntryZ: 99} // will be overwritten by zone_triggers
 	if err := loadLevelData(p, l); err != nil {
 		t.Fatal(err)
 	}
@@ -326,8 +326,8 @@ func TestLoadLevelData_V3Features(t *testing.T) {
 	}
 
 	// Zone triggers override existing values
-	if l.ArenaEntryZ != 40 {
-		t.Errorf("ArenaEntryZ = %f, want 40", l.ArenaEntryZ)
+	if l.InstanceEntryZ != 40 {
+		t.Errorf("InstanceEntryZ = %f, want 40", l.InstanceEntryZ)
 	}
 }
 
@@ -341,7 +341,7 @@ func TestLoadLevelData_V2BackwardCompat(t *testing.T) {
 		"obstacles": [],
 		"player_spawns": [ { "x": 0, "y": 0.1, "z": 5 } ]
 	}`)
-	l := &Level{ArenaEntryZ: 40.0}
+	l := &Level{InstanceEntryZ: 40.0}
 	if err := loadLevelData(p, l); err != nil {
 		t.Fatal(err)
 	}
@@ -353,9 +353,9 @@ func TestLoadLevelData_V2BackwardCompat(t *testing.T) {
 	if len(l.Portals) != 0 {
 		t.Errorf("v2 portals = %d, want 0", len(l.Portals))
 	}
-	// ArenaEntryZ should be untouched (no zone_triggers in v2 JSON)
-	if l.ArenaEntryZ != 40.0 {
-		t.Errorf("ArenaEntryZ = %f, want 40 (preserved)", l.ArenaEntryZ)
+	// InstanceEntryZ should be untouched (no zone_triggers in v2 JSON)
+	if l.InstanceEntryZ != 40.0 {
+		t.Errorf("InstanceEntryZ = %f, want 40 (preserved)", l.InstanceEntryZ)
 	}
 }
 
@@ -500,7 +500,7 @@ func TestLoadLevelData_V4Features(t *testing.T) {
 		"obstacles": [],
 		"player_spawns": [{ "x": 0, "y": 0.1, "z": 5 }],
 		"zone_triggers": [
-			{ "name": "Entry", "trigger_id": "arena_entry", "axis": "z", "threshold": 40 }
+			{ "name": "Entry", "trigger_id": "instance_entry", "axis": "z", "threshold": 40 }
 		]
 	}`)
 	l := &Level{}
@@ -513,8 +513,8 @@ func TestLoadLevelData_V4Features(t *testing.T) {
 	if l.EnemyRadius != 1.5 {
 		t.Errorf("EnemyRadius = %f, want 1.5", l.EnemyRadius)
 	}
-	if l.ArenaEntryZ != 40 {
-		t.Errorf("ArenaEntryZ = %f, want 40", l.ArenaEntryZ)
+	if l.InstanceEntryZ != 40 {
+		t.Errorf("InstanceEntryZ = %f, want 40", l.InstanceEntryZ)
 	}
 }
 

@@ -431,7 +431,7 @@ func TestHandleRespawnRequest(t *testing.T) {
 
 			var callbackPeerID uint16
 			var callbackCalled bool
-			z.SetOnPlayerRespawnHub(func(pid uint16) {
+			z.SetOnPlayerReturnToOpenWorld(func(pid uint16) {
 				callbackCalled = true
 				callbackPeerID = pid
 			})
@@ -460,14 +460,14 @@ func TestHandleRespawnRequest(t *testing.T) {
 			}
 			if tc.wantCallback {
 				if !callbackCalled {
-					t.Error("OnPlayerRespawnHub callback was not called")
+					t.Error("OnPlayerReturnToOpenWorld callback was not called")
 				}
 				if callbackCalled && callbackPeerID != peerID {
 					t.Errorf("callback peerID = %d, want %d", callbackPeerID, peerID)
 				}
 			}
 			if !tc.wantCallback && callbackCalled {
-				t.Error("OnPlayerRespawnHub callback was called unexpectedly")
+				t.Error("OnPlayerReturnToOpenWorld callback was called unexpectedly")
 			}
 		})
 	}
@@ -501,7 +501,7 @@ func TestInteractExitPortal(t *testing.T) {
 			z.world.BossDefeated = tc.bossDefeated
 
 			var callbackCalled bool
-			z.SetOnPlayerRespawnHub(func(_ uint16) {
+			z.SetOnPlayerReturnToOpenWorld(func(_ uint16) {
 				callbackCalled = true
 			})
 

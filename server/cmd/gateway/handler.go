@@ -5,7 +5,6 @@ import (
 
 	"codex-online/server/internal/message"
 	"codex-online/server/internal/session"
-	"codex-online/server/internal/zone"
 )
 
 func handleServerMessage(gw *gateway, sess *session.Session, opcode uint16, payload []byte) {
@@ -34,7 +33,7 @@ func handleServerMessage(gw *gateway, sess *session.Session, opcode uint16, payl
 	case message.OpJoinZone:
 		zoneID := string(payload)
 		if zoneID == "" {
-			zoneID = zone.ZoneHub
+			zoneID = defaultOpenWorldZone
 		}
 		lvl, err := gw.loadLevel(zoneID)
 		if err != nil {
@@ -49,16 +48,16 @@ func handleServerMessage(gw *gateway, sess *session.Session, opcode uint16, payl
 	}
 }
 
-// joinHubAfterCharSelect handles the shared logic for joining the hub zone
-// after a character is selected or created. In dev mode, skips hub and
-// transfers directly to an arena instance.
+// joinHubAfterCharSelect handles the shared logic for joining the open-world
+// zone after a character is selected or created. In dev mode, skips the
+// open-world zone and transfers directly to an instanced zone.
 func (g *gateway) joinHubAfterCharSelect(sess *session.Session) {
-	hubLvl, err := g.loadLevel("hub")
+	lvl, err := g.loadLevel(defaultOpenWorldZone)
 	if err != nil {
-		slog.Error("hub level not found", "error", err)
+		slog.Error("open-world level not found", "error", err)
 		return
 	}
-	zi := g.getOrCreateZone(zone.ZoneHub, hubLvl, 0)
+	zi := g.getOrCreateZone(defaultOpenWorldZone, lvl, 0)
 	g.joinZone(sess, zi, joinResponseZoneJoined)
 }
 

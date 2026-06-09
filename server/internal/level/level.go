@@ -90,8 +90,8 @@ type Level struct {
 	SpawnYaw     float32 // initial facing direction (radians) for spawned players
 	EnemySpawns  []EnemySpawnPoint
 
-	// Arena entry trigger Z threshold (0 = disabled)
-	ArenaEntryZ float32
+	// Instance entry trigger Z threshold (0 = disabled)
+	InstanceEntryZ float32
 
 	// Gates (data-driven barriers that open/close on game flow events)
 	Gates []GateDef
@@ -112,7 +112,7 @@ type Level struct {
 	Navmesh *Navmesh
 }
 
-// NPCSpawnPoint defines a hub NPC with patrol waypoints.
+// NPCSpawnPoint defines an open-world NPC with patrol waypoints.
 type NPCSpawnPoint struct {
 	DefName      string  // visual definition name
 	Speed        float32 // walk speed (m/s)

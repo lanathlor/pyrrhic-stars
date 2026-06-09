@@ -35,9 +35,6 @@ const (
 	ZoneTypeInstanced ZoneType = 1
 )
 
-// ZoneHub is the well-known zone ID for the persistent hub zone.
-const ZoneHub = "hub"
-
 // Client is a re-export of system.Client for use by the gateway.
 type Client = system.Client
 
@@ -55,9 +52,9 @@ type Zone struct {
 	pendingInputs []system.InputMsg
 	mu            sync.Mutex
 
-	// onPlayerRespawnHub is called when a dead player requests to return to hub.
-	// Set by the gateway via SetOnPlayerRespawnHub to trigger zone transfer.
-	onPlayerRespawnHub func(peerID uint16)
+	// onPlayerReturnToOpenWorld is called when a dead player requests to leave
+	// an instance. Set by the gateway via SetOnPlayerReturnToOpenWorld.
+	onPlayerReturnToOpenWorld func(peerID uint16)
 
 	// CombatLogSink receives combat events. Set before Run(). NullSink if nil.
 	CombatLogSink combatlog.EventSink
@@ -177,12 +174,12 @@ func spawnEnemies(z *Zone, l *level.Level) {
 	}
 }
 
-// SetOnPlayerRespawnHub sets the callback invoked when a dead player requests
-// to return to the hub. Thread-safe: acquires z.mu to synchronize with the
-// tick goroutine that reads this callback in processTick.
-func (z *Zone) SetOnPlayerRespawnHub(fn func(peerID uint16)) {
+// SetOnPlayerReturnToOpenWorld sets the callback invoked when a dead player
+// requests to leave an instance. Thread-safe: acquires z.mu to synchronize
+// with the tick goroutine that reads this callback in processTick.
+func (z *Zone) SetOnPlayerReturnToOpenWorld(fn func(peerID uint16)) {
 	z.mu.Lock()
-	z.onPlayerRespawnHub = fn
+	z.onPlayerReturnToOpenWorld = fn
 	z.mu.Unlock()
 }
 
@@ -364,7 +361,7 @@ func (z *Zone) processTick() {
 	z.world.InputQueue = append(z.world.InputQueue[:0], z.pendingInputs...)
 	z.pendingInputs = z.pendingInputs[:0]
 	// Copy the callback into the world so systems can access it
-	z.world.OnPlayerRespawnHub = z.onPlayerRespawnHub
+	z.world.OnPlayerReturnToOpenWorld = z.onPlayerReturnToOpenWorld
 	// Wire combat log sink
 	z.world.CombatLogSink = z.CombatLogSink
 	// Snapshot client list for broadcast (prevents race with RemoveClient)

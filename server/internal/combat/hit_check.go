@@ -6,7 +6,7 @@ import (
 	"codex-online/server/internal/entity"
 )
 
-// Obstacle represents a rectangular obstacle in the arena.
+// Obstacle represents a rectangular obstacle in the zone.
 type Obstacle struct {
 	CX, CZ float32 // center (XZ plane)
 	HX, HZ float32 // half-extents (XZ plane)

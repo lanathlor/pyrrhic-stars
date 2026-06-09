@@ -22,7 +22,7 @@ const (
 	EnemyPatrol
 )
 
-// Enemy represents a server-side enemy entity (the arena boss).
+// Enemy represents a server-side enemy entity (e.g. a boss).
 type Enemy struct {
 	Combatant
 

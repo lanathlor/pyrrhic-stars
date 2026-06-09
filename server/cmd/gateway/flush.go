@@ -6,12 +6,11 @@ import (
 	"time"
 
 	"codex-online/server/internal/session"
-	"codex-online/server/internal/zone"
 )
 
-// savePlayerPosition snapshots a player's hub position to the database.
+// savePlayerPosition snapshots a player's open-world position to the database.
 func (g *gateway) savePlayerPosition(sess *session.Session) {
-	zi := g.getZone(zone.ZoneHub)
+	zi := g.getZone(defaultOpenWorldZone)
 	if zi == nil {
 		return
 	}
@@ -33,7 +32,7 @@ func (g *gateway) savePlayerPosition(sess *session.Session) {
 	}
 }
 
-// periodicFlush saves all hub player positions every 30 seconds.
+// periodicFlush saves all open-world player positions every 30 seconds.
 func (g *gateway) periodicFlush(ctx context.Context) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
@@ -48,12 +47,12 @@ func (g *gateway) periodicFlush(ctx context.Context) {
 }
 
 func (g *gateway) flushAllPositions() {
-	targets := g.sessions.HubFlushTargets()
+	targets := g.sessions.PersistFlushTargets()
 	if len(targets) == 0 {
 		return
 	}
 
-	hubZI := g.getZone(zone.ZoneHub)
+	hubZI := g.getZone(defaultOpenWorldZone)
 	if hubZI == nil {
 		return
 	}

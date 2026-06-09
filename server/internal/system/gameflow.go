@@ -180,7 +180,7 @@ func pushPlayersOnGateClose(w *World, g *level.GateDef) {
 }
 
 // InitInstance activates all enemies in patrol state. Called once when the
-// arena zone is created — enemies are alive and patrolling from the start.
+// instanced zone is created: enemies are alive and patrolling from the start.
 func InitInstance(w *World) {
 	w.Projectiles = nil
 	w.InitGateStates()
