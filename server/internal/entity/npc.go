@@ -27,10 +27,13 @@ type NPC struct {
 	// Idle timer: when > 0 the NPC stands still
 	IdleTimer    float32
 	IdleDuration float32 // how long to idle at each waypoint
+
+	// Metadata holds optional key-value pairs from the level definition (e.g. "tier": "0").
+	Metadata map[string]string
 }
 
 // NewNPC creates an open-world NPC at the first waypoint.
-func NewNPC(id uint16, defName string, speed float32, idleDuration float32, waypoints []Vec3) *NPC {
+func NewNPC(id uint16, defName string, speed float32, idleDuration float32, waypoints []Vec3, metadata map[string]string) *NPC {
 	pos := Vec3{}
 	if len(waypoints) > 0 {
 		pos = waypoints[0]
@@ -45,5 +48,6 @@ func NewNPC(id uint16, defName string, speed float32, idleDuration float32, wayp
 		WaypointIdx:  0,
 		IdleTimer:    idleDuration, // start idle
 		IdleDuration: idleDuration,
+		Metadata:     metadata,
 	}
 }

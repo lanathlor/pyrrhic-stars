@@ -118,6 +118,7 @@ type NPCSpawnPoint struct {
 	Speed        float32 // walk speed (m/s)
 	IdleDuration float32 // seconds to idle at each waypoint
 	Waypoints    []entity.Vec3
+	Metadata     map[string]string // optional key-value pairs (e.g. "tier": "0")
 }
 
 // FlowEventName maps a flow type constant to the gate trigger string used in JSON.

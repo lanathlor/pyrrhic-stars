@@ -1973,13 +1973,29 @@
 			"def_name": "merchant",
 			"idle_duration": 999.0,
 			"speed": 0.0,
-			"waypoints": [
-				{
-					"x": 15.0,
-					"y": -199.95,
-					"z": -45.0
-				}
-			]
+			"waypoints": [{"x": -18.0, "y": 100.15, "z": 35.0}],
+			"metadata": {"tier": "0"}
+		},
+		{
+			"def_name": "merchant",
+			"idle_duration": 999.0,
+			"speed": 0.0,
+			"waypoints": [{"x": -6.0, "y": 100.15, "z": 35.0}],
+			"metadata": {"tier": "1"}
+		},
+		{
+			"def_name": "merchant",
+			"idle_duration": 999.0,
+			"speed": 0.0,
+			"waypoints": [{"x": 6.0, "y": 100.15, "z": 35.0}],
+			"metadata": {"tier": "2"}
+		},
+		{
+			"def_name": "merchant",
+			"idle_duration": 999.0,
+			"speed": 0.0,
+			"waypoints": [{"x": 18.0, "y": 100.15, "z": 35.0}],
+			"metadata": {"tier": "3"}
 		},
 		{
 			"def_name": "citizen",
