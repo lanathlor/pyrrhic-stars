@@ -126,7 +126,7 @@ func New(id string, lvl *level.Level, oflx *overflux.State) *Zone {
 
 	// Spawn NPCs from level data (all zone types).
 	for i, sp := range l.NPCSpawns {
-		npc := entity.NewNPC(uint16(2000+i), sp.DefName, sp.Speed, sp.IdleDuration, sp.Waypoints)
+		npc := entity.NewNPC(uint16(2000+i), sp.DefName, sp.Speed, sp.IdleDuration, sp.Waypoints, sp.Metadata)
 		z.world.NPCs = append(z.world.NPCs, npc)
 	}
 

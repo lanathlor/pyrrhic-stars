@@ -84,10 +84,11 @@ type zoneTriggerJSON struct {
 }
 
 type npcSpawnJSON struct {
-	DefName      string     `json:"def_name"`
-	Speed        float32    `json:"speed"`
-	IdleDuration float32    `json:"idle_duration"`
-	Waypoints    []vec3JSON `json:"waypoints"`
+	DefName      string            `json:"def_name"`
+	Speed        float32           `json:"speed"`
+	IdleDuration float32           `json:"idle_duration"`
+	Waypoints    []vec3JSON        `json:"waypoints"`
+	Metadata     map[string]string `json:"metadata,omitempty"`
 }
 
 type gateJSON struct {
@@ -221,6 +222,7 @@ func loadNPCSpawns(l *Level, spawns []npcSpawnJSON) {
 			Speed:        s.Speed,
 			IdleDuration: s.IdleDuration,
 			Waypoints:    wps,
+			Metadata:     s.Metadata,
 		}
 	}
 }

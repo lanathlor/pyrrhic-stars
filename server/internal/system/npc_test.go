@@ -11,7 +11,7 @@ func TestNPCSystem_IdleCountdown(t *testing.T) {
 	npc := entity.NewNPC(1, "citizen", 2.0, 3.0, []entity.Vec3{
 		{X: 0, Y: 0, Z: 0},
 		{X: 10, Y: 0, Z: 0},
-	})
+	}, nil)
 	w := &World{NPCs: []*entity.NPC{npc}}
 	sys := &NPCSystem{}
 
@@ -46,7 +46,7 @@ func TestNPCSystem_WalkToWaypoint(t *testing.T) {
 	npc := entity.NewNPC(1, "citizen", 5.0, 1.0, []entity.Vec3{
 		{X: 0, Y: 0, Z: 0},
 		{X: 10, Y: 0, Z: 0},
-	})
+	}, nil)
 	npc.State = entity.NPCWalk
 	npc.WaypointIdx = 1
 	w := &World{NPCs: []*entity.NPC{npc}}
@@ -79,7 +79,7 @@ func TestNPCSystem_WaypointWrap(t *testing.T) {
 		{X: 0, Y: 0, Z: 0},
 		{X: 1, Y: 0, Z: 0},
 		{X: 2, Y: 0, Z: 0},
-	})
+	}, nil)
 	w := &World{NPCs: []*entity.NPC{npc}}
 	sys := &NPCSystem{}
 
@@ -111,7 +111,7 @@ func TestNPCSystem_FacingDirection(t *testing.T) {
 	npc := entity.NewNPC(1, "citizen", 5.0, 1.0, []entity.Vec3{
 		{X: 0, Y: 0, Z: 0},
 		{X: 10, Y: 0, Z: 0},
-	})
+	}, nil)
 	npc.State = entity.NPCWalk
 	npc.WaypointIdx = 1
 	w := &World{NPCs: []*entity.NPC{npc}}
@@ -129,7 +129,7 @@ func TestNPCSystem_FacingDirection(t *testing.T) {
 func TestNPCSystem_SingleWaypointStaysIdle(t *testing.T) {
 	npc := entity.NewNPC(1, "merchant", 0.0, 999.0, []entity.Vec3{
 		{X: 5, Y: 0, Z: 5},
-	})
+	}, nil)
 	w := &World{NPCs: []*entity.NPC{npc}}
 	sys := &NPCSystem{}
 
@@ -149,7 +149,7 @@ func TestNPCSystem_YAxisIgnored(t *testing.T) {
 	npc := entity.NewNPC(1, "citizen", 5.0, 0.0, []entity.Vec3{
 		{X: 0, Y: -200, Z: 0},
 		{X: 10, Y: -200, Z: 0},
-	})
+	}, nil)
 	npc.State = entity.NPCWalk
 	npc.WaypointIdx = 1
 	w := &World{NPCs: []*entity.NPC{npc}}
