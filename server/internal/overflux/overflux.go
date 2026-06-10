@@ -134,6 +134,17 @@ func ComputeScore(conditions []ActiveCondition) int {
 	return score
 }
 
+// MaxScore returns the theoretical maximum overflux score across all conditions.
+// It sums ScorePerRank * MaxRank for every entry in the Registry.
+// The value updates automatically when conditions are added or removed.
+func MaxScore() int {
+	total := 0
+	for _, def := range Registry {
+		total += def.ScorePerRank * def.MaxRank
+	}
+	return total
+}
+
 func lookupDef(id ConditionID) *ConditionDef {
 	for i := range Registry {
 		if Registry[i].ID == id {
