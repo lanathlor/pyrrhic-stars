@@ -1,0 +1,79 @@
+class: arcanotechnicien
+spec: harmonist
+bosses: [guard_captain]
+profiles: [bad]
+preferred_range: 7.0
+
+# Bad harmonist: knows the kit, executes sloppily.
+# - Tunnel-visions the tank (heals tank first even when DPS are lower)
+# - Reactive not proactive (places zones late, heals late)
+# - No DPS filler (stands idle between heals -- doesn't weave siphon_pulse)
+# - Forgets life_swap empowerment step
+# - Still dodges (slowly) -- knows mechanics exist
+# - CooldownWaste=0.08 and RotationDelay=0.06 from profile model idle time
+
+tree:
+  reactive_selector:
+    # Dodge: charge (slow reaction but tries)
+    - sequence: [has_reacted, in_charge_path, strafe_charge]
+    # Dodge: AoE (slow reaction)
+    - sequence: [has_reacted, in_aoe_danger, flee_aoe]
+    # No projectile dodge -- doesn't track incoming projectiles well
+
+    # Emergency heal: reacts at 30% (same threshold, just slower from ReactionTime)
+    - sequence:
+        - "ally_below_hp(0.30)"
+        - "!is_channeling"
+        - "can_commit(mending_surge)"
+        - "has_school_flux(bioarcanotechnic:40)"
+        - "heal_lowest(mending_surge)"
+
+    # Tunnel vision: always heals tank first, even if DPS are lower
+    - sequence:
+        - "ally_below_hp(0.70)"
+        - "!is_channeling"
+        - "can_commit(mending_beam)"
+        - "has_school_flux(bioarcanotechnic:8)"
+        - "heal_tank(mending_beam)"
+
+    # Zone placement: reactive (waits until someone is hurt)
+    - sequence:
+        - "ally_below_hp(0.65)"
+        - "!is_channeling"
+        - "!zone_active(restoration_matrix)"
+        - "can_commit(restoration_matrix)"
+        - "has_school_flux(bioarcanotechnic:50)"
+        - "place_zone(restoration_matrix)"
+
+    # Vital bloom (if in loadout)
+    - sequence:
+        - "ally_below_hp(0.60)"
+        - "!is_channeling"
+        - "!zone_active(vital_bloom)"
+        - "can_commit(vital_bloom)"
+        - "has_school_flux(biometabolic:8)"
+        - "place_zone(vital_bloom)"
+
+    # Spot heal lowest when ally below 60%
+    - sequence:
+        - "ally_below_hp(0.60)"
+        - "!is_channeling"
+        - "can_commit(mending_surge)"
+        - "has_school_flux(bioarcanotechnic:40)"
+        - "heal_lowest(mending_surge)"
+
+    # Group sustain: transfusion when someone is moderately hurt
+    - sequence:
+        - "ally_below_hp(0.75)"
+        - "!is_channeling"
+        - "!school_flux_low(biometabolic)"
+        - "can_commit(transfusion)"
+        - "heal_lowest(transfusion)"
+
+    # Repositioning
+    - sequence:
+        - "!is_channeling"
+        - too_far
+        - move_to_center
+
+    # No DPS filler -- idle between heals (profile params model the gaps)

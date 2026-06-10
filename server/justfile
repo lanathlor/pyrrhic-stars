@@ -71,6 +71,10 @@ test-boss-scenario *BOSS:
     go test ./internal/bosstest/ -v -count=1 -timeout=2m -run=TestBoss $BOSS_ARGS
 
 # Run fuzz simulation (tier 3)
+# Args: [boss_name] [iteration_count] [overflux:config_name]
+# Examples: just test-boss-fuzz guard_captain 100
+#           just test-boss-fuzz guard_captain overflux:fortified_5
+#           just test-boss-fuzz 30 overflux:baseline
 test-boss-fuzz *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -84,6 +88,7 @@ test-boss-fuzz *ARGS:
     for arg in {{ARGS}}; do
         case "$arg" in
             [0-9]*) BOSS_ARGS="$BOSS_ARGS -boss.fuzz-iterations=$arg" ;;
+            overflux:*) BOSS_ARGS="$BOSS_ARGS -boss.overflux=${arg#overflux:}" ;;
             *) BOSS_ARGS="$BOSS_ARGS -boss.only=$arg" ;;
         esac
     done
