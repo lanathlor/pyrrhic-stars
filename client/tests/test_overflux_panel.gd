@@ -51,9 +51,9 @@ func test_open_resets_ranks() -> void:
 
 func test_rank_selection_updates_score() -> void:
 	_panel.open()
-	# enemy_hp has score_per_rank=4, setting rank to 3 -> score = 12
+	# enemy_hp has score_per_rank=5, setting rank to 3 -> score = 15
 	_panel._on_rank_pressed("enemy_hp", 3)
-	assert_str(_panel._score_label.text).is_equal("Overflux: 12")
+	assert_str(_panel._score_label.text).is_equal("Overflux: 15")
 
 
 # =============================================================================

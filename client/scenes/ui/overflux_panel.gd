@@ -21,14 +21,14 @@ const CONDITIONS := [
 		"name": "Fortified",
 		"desc": "Increases enemy max health by 20% per rank",
 		"max_rank": 5,
-		"score_per_rank": 4,
+		"score_per_rank": 5,
 	},
 	{
 		"id": "tempered",
 		"name": "Tempered",
 		"desc": "Boss uses a smarter behavior tree with new abilities",
 		"max_rank": 1,
-		"score_per_rank": 10,
+		"score_per_rank": 20,
 	},
 	{
 		"id": "frenzied",
@@ -42,6 +42,13 @@ const CONDITIONS := [
 		"name": "Volatile",
 		"desc": "Boss ability patterns are denser and more complex",
 		"max_rank": 1,
+		"score_per_rank": 20,
+	},
+	{
+		"id": "wounded_prey",
+		"name": "Wounded Prey",
+		"desc": "Boss regenerates HP when incoming DPS drops",
+		"max_rank": 5,
 		"score_per_rank": 10,
 	},
 ]

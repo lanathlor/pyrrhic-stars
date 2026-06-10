@@ -27,6 +27,7 @@ func (s *CombatSystem) Tick(w *World, dt float32) {
 	tickHoTs(w, dt)
 	tickDamageLinks(w, dt)
 	tickLastBreath(w)
+	tickWoundedPrey(w, dt)
 	tickCombatState(w, dt)
 }
 
@@ -677,5 +678,48 @@ func healLowestAllyForAmount(w *World, p *entity.Player, healAmount float32) {
 			HitPos:       healTarget.Position.Add(entity.Vec3{Y: 1.0}),
 			SourceType:   combat.SourcePlayerHeal,
 		})
+	}
+}
+
+// tickWoundedPrey implements the Wounded Prey overflux condition.
+// Tracks rolling DPS to the boss over the last 1 second (20 ticks).
+// When DPS drops below the threshold, the boss regenerates HP.
+func tickWoundedPrey(w *World, dt float32) {
+	if w.OverfluxState == nil || w.Boss == nil || !w.Boss.Alive {
+		return
+	}
+	threshold := w.OverfluxState.WoundedPreyDPSThreshold(w.Boss.MaxHealth)
+	if threshold == 0 {
+		return
+	}
+
+	// Sum damage dealt to boss this tick from player attacks.
+	var tickDmg float32
+	for _, ev := range w.DamageEvents {
+		if ev.SourcePeerID != 0 && ev.SourceType == combat.SourcePlayerAttack {
+			tickDmg += ev.Amount
+		}
+	}
+
+	// Update rolling window.
+	w.BossDamageWindow[w.DPSWindowIdx] = tickDmg
+	w.DPSWindowIdx = (w.DPSWindowIdx + 1) % len(w.BossDamageWindow)
+
+	// Compute rolling DPS (sum over 1 second window).
+	var windowTotal float32
+	for _, v := range w.BossDamageWindow {
+		windowTotal += v
+	}
+
+	// If DPS below threshold, regenerate.
+	if windowTotal < threshold {
+		regenRate := w.OverfluxState.WoundedPreyRegenRate(w.Boss.MaxHealth)
+		regen := regenRate * dt
+		if regen > 0 && w.Boss.Health < w.Boss.MaxHealth {
+			w.Boss.Health += regen
+			if w.Boss.Health > w.Boss.MaxHealth {
+				w.Boss.Health = w.Boss.MaxHealth
+			}
+		}
 	}
 }

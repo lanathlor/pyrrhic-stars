@@ -67,6 +67,10 @@ type World struct {
 	// Overflux difficulty conditions (set at zone creation, immutable during run).
 	OverfluxState *overflux.State
 
+	// Wounded Prey: rolling DPS window for boss regen trigger (20 ticks = 1 second at 20Hz).
+	BossDamageWindow [20]float32
+	DPSWindowIdx     int
+
 	// Entities
 	Players      map[uint16]*entity.Player
 	Enemies      []*entity.Enemy

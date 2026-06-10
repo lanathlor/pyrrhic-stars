@@ -40,6 +40,20 @@ overflux:
     win_rate:
       min: 0.0
       max: 0.90
+  - name: wounded_prey_3
+    conditions:
+      - id: wounded_prey
+        rank: 3
+    win_rate:
+      min: 0.0
+      max: 1.0
+  - name: wounded_prey_5
+    conditions:
+      - id: wounded_prey
+        rank: 5
+    win_rate:
+      min: 0.0
+      max: 1.0
   - name: all_max
     conditions:
       - id: enemy_hp
@@ -48,6 +62,8 @@ overflux:
         rank: 1
       - id: volatile
         rank: 1
+      - id: wounded_prey
+        rank: 5
     win_rate:
       min: 0.0
       max: 0.70
