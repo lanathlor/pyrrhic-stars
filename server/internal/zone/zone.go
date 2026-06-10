@@ -57,6 +57,10 @@ type Zone struct {
 	// an instance. Set by the gateway via SetOnPlayerReturnToOpenWorld.
 	onPlayerReturnToOpenWorld func(peerID uint16)
 
+	// onBossDefeated is called when the boss dies. Receives peer IDs of all
+	// players present and the overflux score for reward calculation.
+	onBossDefeated func(peerIDs []uint16, overfluxScore int)
+
 	// CombatLogSink receives combat events. Set before Run(). NullSink if nil.
 	CombatLogSink combatlog.EventSink
 
@@ -184,6 +188,13 @@ func spawnEnemies(z *Zone, l *level.Level) {
 func (z *Zone) SetOnPlayerReturnToOpenWorld(fn func(peerID uint16)) {
 	z.mu.Lock()
 	z.onPlayerReturnToOpenWorld = fn
+	z.mu.Unlock()
+}
+
+// SetOnBossDefeated sets the callback invoked when the boss is defeated.
+func (z *Zone) SetOnBossDefeated(fn func(peerIDs []uint16, overfluxScore int)) {
+	z.mu.Lock()
+	z.onBossDefeated = fn
 	z.mu.Unlock()
 }
 
@@ -375,8 +386,9 @@ func (z *Zone) processTick() {
 	// Drain pending inputs into the world's input queue
 	z.world.InputQueue = append(z.world.InputQueue[:0], z.pendingInputs...)
 	z.pendingInputs = z.pendingInputs[:0]
-	// Copy the callback into the world so systems can access it
+	// Copy the callbacks into the world so systems can access them
 	z.world.OnPlayerReturnToOpenWorld = z.onPlayerReturnToOpenWorld
+	z.world.OnBossDefeated = z.onBossDefeated
 	// Wire combat log sink
 	z.world.CombatLogSink = z.CombatLogSink
 	// Snapshot client list for broadcast (prevents race with RemoveClient)
