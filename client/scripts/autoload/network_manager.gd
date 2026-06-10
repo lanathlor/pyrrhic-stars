@@ -31,6 +31,8 @@ signal ability_catalog_received(catalog: Array)
 signal loadout_state_received(slots: Array)
 signal flux_commit_state_received(entries: Array)
 signal preset_list_received(presets: Array)
+signal instance_join_prompt_received(data: Dictionary)
+signal overflux_state_received(data: Dictionary)
 
 const UDPTransport := preload("res://scripts/autoload/net_udp_transport.gd")
 const DEFAULT_PORT := 7777
@@ -216,6 +218,21 @@ func send_enter_portal() -> void:
 	send_msg(NetSerializer.OP_ENTER_PORTAL)
 
 
+func send_enter_portal_with_conditions(conditions: Array) -> void:
+	send_msg(
+		NetSerializer.OP_ENTER_PORTAL, NetSerializer.Char.encode_overflux_conditions(conditions)
+	)
+
+
+func send_instance_join_reply(accept: bool) -> void:
+	var payload := NetSerializer.Char.encode_instance_join_reply(accept)
+	send_msg(NetSerializer.OP_INSTANCE_JOIN_REPLY, payload)
+
+
+func send_instance_reset() -> void:
+	send_msg(NetSerializer.OP_INSTANCE_RESET)
+
+
 ## Send a respawn request. type: 0 = arena, 1 = hub.
 func send_respawn_request(type: int) -> void:
 	send_msg(NetSerializer.OP_RESPAWN_REQUEST, PackedByteArray([type]))
@@ -352,6 +369,10 @@ func _handle_group_opcodes(opcode: int, payload: PackedByteArray) -> bool:
 			_handle_group_invite(payload)
 		NetSerializer.OP_GROUP_ERROR:
 			_handle_group_error(payload)
+		NetSerializer.OP_INSTANCE_JOIN_PROMPT:
+			_handle_instance_join_prompt(payload)
+		NetSerializer.OP_OVERFLUX_STATE:
+			_handle_overflux_state(payload)
 		_:
 			return false
 	return true
@@ -498,3 +519,13 @@ func _handle_group_invite(payload: PackedByteArray) -> void:
 func _handle_group_error(payload: PackedByteArray) -> void:
 	var data := NetSerializer.Char.decode_group_error(payload)
 	group_error_received.emit(data.error_code, data.message)
+
+
+func _handle_instance_join_prompt(payload: PackedByteArray) -> void:
+	var data := NetSerializer.Char.decode_instance_join_prompt(payload)
+	instance_join_prompt_received.emit(data)
+
+
+func _handle_overflux_state(payload: PackedByteArray) -> void:
+	var data := NetSerializer.Char.decode_overflux_state(payload)
+	overflux_state_received.emit(data)

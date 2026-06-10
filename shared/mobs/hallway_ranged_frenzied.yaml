@@ -1,0 +1,43 @@
+# Hallway Ranged: Frenzied variant
+# Burst fire pattern at close range, faster energy bolts, targets low-HP players.
+
+abilities:
+  - name: scatter_shot
+    type: ranged
+    target: nearest
+    telegraph_time: 0.4
+    execute_time: 0.1
+    cooldown_time: 4.0
+    base_weight: 40
+    min_range: 0
+    track_target: true
+    projectile_origin_y: 1.2
+    damage_source: 2
+    pattern:
+      emitters:
+        - type: cone
+          count: 5
+          waves: 1
+          arc_angle: 30
+          projectile:
+            speed: 16
+            damage: 10
+            lifetime: 3
+
+ability_overrides:
+  energy_bolt:
+    cooldown_time: 0.8
+    damage: 14
+
+tree:
+  reactive_selector:
+    - sequence: [is_dead, stop]
+    - sequence: [phase_transitioning, wait_transition]
+    - sequence: ["!has_target", aggro_or_patrol]
+    - sequence: ["!in_leash_range", leash_reset]
+    - sequence: [is_committed, wait_ability]
+    # Scatter shot when target is close
+    - sequence: ["!target_beyond(5)", has_los, "ability_ready(scatter_shot)", "commit(scatter_shot)", wait_ability]
+    # Energy bolt, prefer low-HP targets
+    - sequence: [has_los, "ability_ready(energy_bolt)", "commit(energy_bolt)", wait_ability]
+    - chase

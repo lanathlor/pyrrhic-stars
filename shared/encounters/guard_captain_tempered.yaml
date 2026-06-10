@@ -1,0 +1,135 @@
+# Guard Captain: Tempered variant
+# Smarter BT with tactical targeting, lunge+slam combo to punish ranged players,
+# war_cry AoE, shield_bash melee interrupt. Pattern abilities remain core rotation.
+
+abilities:
+  - name: lunge
+    type: charge
+    target: farthest
+    telegraph_time: 0.3
+    cooldown_time: 8.0
+    base_weight: 25
+    min_range: 5.0
+    face_target: true
+    charge_speed: 22.0
+    charge_damage: 10.0
+    charge_max_distance: 14.0
+    charge_hit_radius: 2.0
+    charge_stop_on_wall: true
+    charge_stop_on_obstacle: true
+    damage_source: 4
+
+  - name: shield_bash
+    type: melee
+    target: nearest
+    telegraph_time: 0.4
+    execute_time: 0.2
+    cooldown_time: 6.0
+    base_weight: 25
+    max_range: 3.5
+    face_target: true
+    melee_range: 3.5
+    melee_damage: 35.0
+    melee_cone_deg: 120
+    damage_source: 1
+
+  - name: war_cry
+    type: aoe
+    target: nearest
+    telegraph_time: 0.5
+    execute_time: 0.1
+    cooldown_time: 10.0
+    base_weight: 20
+    max_range: 100
+    face_target: false
+    aoe_radius: 10.0
+    aoe_damage: 25.0
+    damage_source: 3
+
+ability_overrides:
+  melee_swipe:
+    cooldown_time: 2.0
+    damage: 45.0
+    telegraph_time: 0.8
+  fireball_burst:
+    cooldown_time: 8.0
+    telegraph_time: 0.7
+  void_barrage:
+    cooldown_time: 9.0
+    telegraph_time: 0.8
+  ground_slam:
+    cooldown_time: 6.0
+    damage: 55.0
+    aoe_radius: 8.0
+    telegraph_time: 0.8
+  bull_charge:
+    cooldown_time: 10.0
+    damage: 50.0
+    telegraph_time: 0.7
+
+tree:
+  reactive_selector:
+    # --- Lifecycle guards ---
+    - sequence: [is_dead, stop]
+    - sequence: [phase_transitioning, wait_transition]
+    - sequence: ["!has_target", aggro_or_patrol]
+    - sequence: ["!in_leash_range", leash_reset]
+    - sequence: [is_committed, wait_ability]
+
+    # === Phase 3: Relentless - patterns + lunge+slam + war_cry ===
+    - sequence:
+        - phase_eq(3)
+        - selector:
+            # Void barrage (high priority -- patterns are the killer)
+            - sequence: ["ability_ready(void_barrage)", set_target_clustered, "commit(void_barrage)", wait_ability]
+            # Lunge to farthest + immediate ground slam chain
+            - sequence: ["target_beyond(8)", "ability_ready(lunge)", "commit(lunge)", wait_ability, "ability_ready(ground_slam)", "commit(ground_slam)", wait_ability]
+            # Fireball burst
+            - sequence: [has_los, "ability_ready(fireball_burst)", "commit(fireball_burst)", wait_ability]
+            # War cry
+            - sequence: ["ability_ready(war_cry)", "commit(war_cry)", wait_ability]
+            # Ground slam when clustered
+            - sequence: ["players_in_aoe(5)", "ability_ready(ground_slam)", "commit(ground_slam)", wait_ability]
+            # Shield bash in melee
+            - sequence: [target_in_melee_range, has_los, "ability_ready(shield_bash)", "commit(shield_bash)", wait_ability]
+            # Melee fallback
+            - sequence: [target_in_melee_range, has_los, "ability_ready(melee_swipe)", "commit(melee_swipe)", wait_ability]
+            - chase
+
+    # === Phase 2: Aggressive - lunge+slam between pattern casts ===
+    - sequence:
+        - phase_eq(2)
+        - selector:
+            # Lunge to farthest + ground slam chain (signature combo)
+            - sequence: ["target_beyond(8)", "ability_ready(lunge)", "commit(lunge)", wait_ability, "ability_ready(ground_slam)", "commit(ground_slam)", wait_ability]
+            # Void barrage on clusters
+            - sequence: ["n_players_clustered(2)", "ability_ready(void_barrage)", set_target_clustered, "commit(void_barrage)", wait_ability]
+            # Fireball at range
+            - sequence: ["target_beyond(3)", has_los, "ability_ready(fireball_burst)", "commit(fireball_burst)", wait_ability]
+            # Shield bash in melee
+            - sequence: [target_in_melee_range, has_los, "ability_ready(shield_bash)", "commit(shield_bash)", wait_ability]
+            # Bull charge distant targets
+            - sequence: ["target_beyond(10)", has_los, "ability_ready(bull_charge)", "commit(bull_charge)", wait_ability]
+            # Ground slam when clustered
+            - sequence: ["players_in_aoe(5)", "ability_ready(ground_slam)", "commit(ground_slam)", wait_ability]
+            # Melee
+            - sequence: [target_in_melee_range, has_los, "ability_ready(melee_swipe)", "commit(melee_swipe)", wait_ability]
+            - chase
+
+    # === Phase 1: Methodical - war_cry opener, patterns + lunge ===
+    - selector:
+        # War cry as opener
+        - sequence: ["players_in_aoe(6)", "ability_ready(war_cry)", "commit(war_cry)", wait_ability]
+        # Lunge to farthest + ground slam
+        - sequence: ["target_beyond(8)", "ability_ready(lunge)", "commit(lunge)", wait_ability, "ability_ready(ground_slam)", "commit(ground_slam)", wait_ability]
+        # Void barrage on clusters
+        - sequence: ["n_players_clustered(2)", "ability_ready(void_barrage)", set_target_clustered, "commit(void_barrage)", wait_ability]
+        # Melee if close
+        - sequence: [target_in_melee_range, has_los, "ability_ready(melee_swipe)", "commit(melee_swipe)", wait_ability]
+        # Ground slam when clustered
+        - sequence: ["players_in_aoe(5)", "ability_ready(ground_slam)", "commit(ground_slam)", wait_ability]
+        # Fireball at range
+        - sequence: ["target_beyond(3)", has_los, "ability_ready(fireball_burst)", "commit(fireball_burst)", wait_ability]
+        # Bull charge distant
+        - sequence: ["target_beyond(10)", has_los, "ability_ready(bull_charge)", "commit(bull_charge)", wait_ability]
+        - chase

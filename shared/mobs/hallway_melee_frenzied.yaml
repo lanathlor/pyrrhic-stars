@@ -1,0 +1,39 @@
+# Hallway Melee: Frenzied variant
+# More aggressive BT with cleave ability and faster attacks.
+# Targets low-HP players when possible.
+
+abilities:
+  - name: cleave
+    type: melee
+    target: nearest
+    telegraph_time: 0.3
+    execute_time: 0.2
+    cooldown_time: 3.0
+    base_weight: 40
+    max_range: 3.0
+    face_target: true
+    melee_range: 3.0
+    melee_damage: 25
+    melee_cone_deg: 270
+    damage_source: 1
+
+ability_overrides:
+  melee_slash:
+    telegraph_time: 0.3
+    cooldown_time: 0.3
+    damage: 18
+
+tree:
+  reactive_selector:
+    - sequence: [is_dead, stop]
+    - sequence: [phase_transitioning, wait_transition]
+    - sequence: ["!has_target", aggro_or_patrol]
+    - sequence: ["!in_leash_range", leash_reset]
+    - sequence: [is_committed, wait_ability]
+    # Cleave when multiple targets nearby
+    - sequence: ["players_in_aoe(3)", has_los, "ability_ready(cleave)", "commit(cleave)", wait_ability]
+    # Melee slash
+    - sequence: [target_in_melee_range, has_los, "ability_ready(melee_slash)", "commit(melee_slash)", wait_ability]
+    # Chase low-HP targets when possible
+    - sequence: ["any_below_hp_pct(50)", set_target_lowest_hp, chase]
+    - chase

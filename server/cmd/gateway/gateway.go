@@ -20,6 +20,7 @@ import (
 	"codex-online/server/internal/level"
 	"codex-online/server/internal/message"
 	"codex-online/server/internal/network"
+	"codex-online/server/internal/overflux"
 	"codex-online/server/internal/session"
 	"codex-online/server/internal/user"
 	"codex-online/server/internal/zone"
@@ -128,13 +129,14 @@ func (g *gateway) loadLevel(zoneName string) (*level.Level, error) {
 }
 
 // getOrCreateZone returns the zone for the given ID, creating it if needed.
-// The level defines all zone properties including type.
-func (g *gateway) getOrCreateZone(zoneID string, lvl *level.Level, groupSize int) *zoneInstance {
+// The level defines all zone properties including type. Pass oflx for instanced
+// zones with overflux conditions (nil for open-world zones or joining existing).
+func (g *gateway) getOrCreateZone(zoneID string, lvl *level.Level, groupSize int, oflx *overflux.State) *zoneInstance {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	zi, ok := g.zones[zoneID]
 	if !ok {
-		z := zone.New(zoneID, lvl)
+		z := zone.New(zoneID, lvl, oflx)
 		z.CombatLogSink = g.container.CombatLogSink
 		ctx, cancel := context.WithCancel(context.Background())
 		zi = &zoneInstance{zone: z, cancel: cancel, nextID: 1}
@@ -246,6 +248,11 @@ func (g *gateway) joinZone(sess *session.Session, zi *zoneInstance, resp joinRes
 	if sess.CharID != 0 {
 		g.loadAndApplyGear(sess, zi)
 		g.loadAndSendLoadout(sess, zi)
+	}
+
+	// Send overflux state to players entering instanced zones.
+	if oflx := zi.zone.OverfluxState(); oflx != nil && len(oflx.Conditions) > 0 {
+		sess.Conn.Send(message.Encode(message.OpOverfluxState, 0, overflux.EncodeState(oflx)))
 	}
 
 	slog.Info("peer joined zone", "zone_id", zi.zone.ID, "peer_id", peerID, "username", displayName)
@@ -533,11 +540,12 @@ func itemToCodec(it *item.Item) codec.InventoryItemInfo {
 }
 
 // transferPlayer moves a player from their current zone to a new zone.
-// groupSize is used for instance scaling.
-func (g *gateway) transferPlayer(sess *session.Session, targetZoneID string, lvl *level.Level, groupSize int) {
+// groupSize is used for instance scaling. Pass oflx for new instanced zones
+// with overflux conditions (nil for open-world or joining existing).
+func (g *gateway) transferPlayer(sess *session.Session, targetZoneID string, lvl *level.Level, groupSize int, oflx *overflux.State) {
 	g.leaveZone(sess)
 
-	zi := g.getOrCreateZone(targetZoneID, lvl, groupSize)
+	zi := g.getOrCreateZone(targetZoneID, lvl, groupSize, oflx)
 	if zi.zone.Type == zone.ZoneTypeInstanced {
 		zi.zone.SetOnPlayerReturnToOpenWorld(func(peerID uint16) {
 			g.handlePlayerReturnToOpenWorld(targetZoneID, peerID)
@@ -563,7 +571,7 @@ func (g *gateway) handlePlayerReturnToOpenWorld(zoneID string, peerID uint16) {
 		slog.Error("open-world level not found for return", "error", err)
 		return
 	}
-	g.transferPlayer(sess, defaultOpenWorldZone, lvl, 0)
+	g.transferPlayer(sess, defaultOpenWorldZone, lvl, 0, nil)
 
 	grp := g.groups.GetGroup(sess.ID)
 	if grp != nil {

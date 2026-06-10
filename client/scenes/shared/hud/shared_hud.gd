@@ -23,6 +23,9 @@ const POWER_COLOR := Color(0.82, 0.68, 0.24, 1.0)
 const BOSS_PHASE_ONE := Color(0.56, 0.22, 0.22, 1.0)
 const BOSS_PHASE_TWO := Color(0.74, 0.44, 0.18, 1.0)
 const BOSS_PHASE_THREE := Color(0.78, 0.18, 0.18, 1.0)
+const OFX_COLOR := Color(0.85, 0.55, 0.2, 0.95)
+const OFX_BG := Color(0.04, 0.05, 0.07, 0.75)
+const OFX_BORDER := Color(0.85, 0.55, 0.2, 0.4)
 
 # --- Sub-renderers ---
 var _minimap: MinimapRenderer = MinimapRenderer.new()
@@ -68,6 +71,10 @@ var _player_rot_y: float = 0.0
 var _boss_max_health: float = 2000.0
 var _hub_mode: bool = false
 
+# --- Overflux Widget (top left, below group frames) ---
+var _overflux_conditions: Array = []
+var _overflux_score: int = 0
+
 
 func _process(delta: float) -> void:
 	# Read local player state each frame for responsive bars
@@ -105,6 +112,8 @@ func _draw() -> void:
 		MeterRenderer.draw_healing_meter(
 			self, _healing_totals, _overheal_totals, _damage_totals, _fight_duration, _player_names
 		)
+	if _overflux_score > 0:
+		_draw_overflux_widget()
 	if _hub_mode or _fight_active or _boss_visible or _fight_over:
 		_minimap.local_peer_id = _local_peer_id
 		_minimap.world_players = _world_players
@@ -242,11 +251,22 @@ func on_enter_hub() -> void:
 	_fight_duration = 0.0
 	_world_players.clear()
 	_minimap.on_enter_hub()
+	clear_overflux_state()
 
 
 func on_enter_arena() -> void:
 	_hub_mode = false
 	_minimap.on_enter_arena()
+
+
+func set_overflux_state(conditions: Array, total_score: int) -> void:
+	_overflux_conditions = conditions
+	_overflux_score = total_score
+
+
+func clear_overflux_state() -> void:
+	_overflux_conditions = []
+	_overflux_score = 0
 
 
 # =============================================================================
@@ -481,6 +501,44 @@ func _draw_boss_health_bar(font: Font, bar_rect: Rect2) -> void:
 		10,
 		TEXT_PRIMARY
 	)
+
+
+# =============================================================================
+# Drawing — Overflux Widget (top left)
+# =============================================================================
+
+
+func _draw_overflux_widget() -> void:
+	var font := get_theme_default_font()
+	var x := 12.0
+	var y := 12.0
+
+	# Pill background
+	var text := "OFX: %d" % _overflux_score
+	var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14)
+	var pill_w := text_size.x + 16.0
+	var pill_h := text_size.y + 8.0
+	var pill_rect := Rect2(x, y, pill_w, pill_h)
+	draw_rect(pill_rect, OFX_BG)
+	draw_rect(pill_rect, OFX_BORDER, false, 1.0)
+	draw_string(
+		font, Vector2(x + 8.0, y + pill_h - 6.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, OFX_COLOR
+	)
+
+	# Condition list below the pill
+	var cy := y + pill_h + 4.0
+	for c in _overflux_conditions:
+		var cond_text := "%s: %d" % [c.get("id", "?"), c.get("rank", 0)]
+		draw_string(
+			font,
+			Vector2(x + 4.0, cy + 12.0),
+			cond_text,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1,
+			11,
+			TEXT_MUTED
+		)
+		cy += 16.0
 
 
 # =============================================================================

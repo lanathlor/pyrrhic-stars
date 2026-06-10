@@ -195,6 +195,13 @@ func on_all_dead() -> void:
 	CombatLog.end_fight("WIPE")
 	if ctrl._shared_hud:
 		ctrl._shared_hud.on_fight_end()
+	# Show reset button for group leader on wipe
+	var gdata: Dictionary = ctrl.group_mgr.group_data
+	var leader_peer: int = gdata.get("leader_peer", 0)
+	var my_id: int = NetworkManager.get_my_id()
+	ctrl._death_overlay_layer.reset_instance_btn.visible = (
+		leader_peer > 0 and leader_peer == my_id
+	)
 
 
 # =============================================================================
@@ -218,6 +225,7 @@ func on_zone_transfer(zone_type: int, _new_peer_id: int) -> void:
 	if zone_type == NetSerializer.ZONE_TYPE_ARENA:
 		ctrl.env_builder.unload_environment()
 		ctrl.env_builder.load_environment(ctrl.ARENA_SCENE)
+		ctrl.group_mgr.pending_instance_zone = ""  # entered the instance, clear pending
 		# Spawn local player in warmup room immediately
 		ctrl.state = ctrl.GameState.ARENA_LOBBY
 		show_portal_prompt_only()
@@ -304,3 +312,4 @@ func hide_death_overlay() -> void:
 	ctrl._local_player_dead = false
 	ctrl._death_overlay_layer.visible = false
 	ctrl._respawn_btn.disabled = true
+	ctrl._death_overlay_layer.reset_instance_btn.visible = false

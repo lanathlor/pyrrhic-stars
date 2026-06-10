@@ -15,7 +15,7 @@ func TestRemoveClient_DoesNotDeadlockUnderTick(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load hub level: %v", err)
 	}
-	z := New("hub", lvl)
+	z := New("hub", lvl, nil)
 
 	go z.Run(t.Context())
 
@@ -57,7 +57,7 @@ func TestRemoveClient_DevMode_DoesNotDeadlock(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load hub level: %v", err)
 	}
-	z := New("hub", lvl)
+	z := New("hub", lvl, nil)
 
 	go z.Run(t.Context())
 
@@ -90,7 +90,7 @@ func TestRemoveClient_WithUDPClient_DoesNotDeadlock(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load hub level: %v", err)
 	}
-	z := New("hub", lvl)
+	z := New("hub", lvl, nil)
 
 	go z.Run(t.Context())
 
@@ -124,7 +124,7 @@ func TestRemoveClient_WhileQueueingInput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load hub level: %v", err)
 	}
-	z := New("hub", lvl)
+	z := New("hub", lvl, nil)
 
 	go z.Run(t.Context())
 

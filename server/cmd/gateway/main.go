@@ -171,7 +171,7 @@ func configureGateway(gw *gateway) error {
 	if err2 != nil {
 		return fmt.Errorf("open-world level not found: %w", err2)
 	}
-	gw.getOrCreateZone(defaultOpenWorldZone, owLvl, 0)
+	gw.getOrCreateZone(defaultOpenWorldZone, owLvl, 0, nil)
 	return nil
 }
 

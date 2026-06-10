@@ -117,6 +117,8 @@ var _portal_trail: Node3D:
 			return env_builder.portal_trail
 		return null
 
+var _overflux_panel: CanvasLayer
+
 # Sub-systems (static children in main.tscn)
 @onready var entity_mgr: Node = $EntityManager
 @onready var world_sync: Node = $WorldStateSync
@@ -162,6 +164,14 @@ func _ready() -> void:
 		_menu_welcome_label.visible = true
 
 	_shared_hud.set_player_names(_player_names)
+
+	# Overflux selection panel (code-built, no .tscn)
+	var OverfluxPanel := preload("res://scenes/ui/overflux_panel.gd")
+	_overflux_panel = OverfluxPanel.new()
+	add_child(_overflux_panel)
+	_overflux_panel.confirmed.connect(_on_overflux_confirmed)
+	_overflux_panel.cancelled.connect(_on_overflux_cancelled)
+
 	_connect_network_signals()
 
 	# Dev mode: --dev CLI arg enables debug panel + auto-start server
@@ -231,6 +241,9 @@ func _connect_ui_signals() -> void:
 	_invite_popup.decline_btn.pressed.connect(group_mgr.decline_invite)
 	_respawn_btn.pressed.connect(game_flow.on_respawn)
 	_respawn_hub_btn.pressed.connect(game_flow.on_respawn_hub)
+	_death_overlay_layer.reset_instance_btn.pressed.connect(
+		func(): NetworkManager.send_instance_reset()
+	)
 	_inventory_layer.toolbar_panel.spec_pressed.connect(char_mgr.toggle_spec_panel)
 	_inventory_layer.toolbar_panel.equip_pressed.connect(_toggle_equip_panel)
 	_inventory_layer.toolbar_panel.bag_pressed.connect(_toggle_bag_panel)
@@ -253,6 +266,8 @@ func _connect_network_signals() -> void:
 	NetworkManager.character_state_received.connect(char_mgr.on_character_state)
 	NetworkManager.character_list_received.connect(char_mgr.on_character_list)
 	NetworkManager.character_error_received.connect(char_mgr.on_character_error)
+	NetworkManager.instance_join_prompt_received.connect(group_mgr.on_instance_join_prompt)
+	NetworkManager.overflux_state_received.connect(_on_overflux_state)
 
 
 func _input(event: InputEvent) -> void:
@@ -359,7 +374,10 @@ func _handle_gameplay_input(event: InputEvent) -> void:
 		if hub_interact.near_lift:
 			hub_interact.interact_lift()
 		elif hub_interact.near_portal:
-			NetworkManager.send_enter_portal()
+			if group_mgr.pending_instance_zone != "":
+				NetworkManager.send_enter_portal()  # join existing group instance
+			else:
+				_overflux_panel.open()
 		elif hub_interact.aimed_peer_id > 0:
 			NetworkManager.send_group_invite(hub_interact.aimed_peer_id)
 		elif state == GameState.FIGHT_OVER and env_builder.is_near_exit_portal():
@@ -383,6 +401,25 @@ func _physics_process(_delta: float) -> void:
 			hub_interact.check_aim_at_player()
 		elif state == GameState.FIGHT_OVER:
 			env_builder.check_exit_portal_proximity()
+
+
+# =============================================================================
+# Overflux
+# =============================================================================
+
+
+func _on_overflux_confirmed(conditions: Array) -> void:
+	NetworkManager.send_enter_portal_with_conditions(conditions)
+	_update_cursor_mode()
+
+
+func _on_overflux_cancelled() -> void:
+	_update_cursor_mode()
+
+
+func _on_overflux_state(data: Dictionary) -> void:
+	if _shared_hud:
+		_shared_hud.set_overflux_state(data.get("conditions", []), data.get("total_score", 0))
 
 
 # =============================================================================
@@ -436,7 +473,10 @@ func _update_cursor_mode() -> void:
 	var inv_open: bool = _inventory_layer.equip_panel.visible or _inventory_layer.bag_panel.visible
 	var spec_open: bool = _spec_panel.visible
 	var bot_open: bool = dev_mgr.bot_panel != null and dev_mgr.bot_panel.visible
-	var want_cursor: bool = _cursor_toggled or _alt_held or inv_open or spec_open or bot_open
+	var overflux_open: bool = _overflux_panel != null and _overflux_panel.visible
+	var want_cursor: bool = (
+		_cursor_toggled or _alt_held or inv_open or spec_open or bot_open or overflux_open
+	)
 	if want_cursor:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	else:

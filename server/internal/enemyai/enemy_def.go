@@ -1,6 +1,9 @@
 package enemyai
 
-import "codex-online/server/internal/ability"
+import (
+	"codex-online/server/internal/ability"
+	"codex-online/server/internal/combat"
+)
 
 // PhaseDef defines stat overrides for a specific HP phase.
 type PhaseDef struct {
@@ -24,7 +27,7 @@ type PhaseDef struct {
 	AbilityOverrides map[string]AbilityOverride
 }
 
-// AbilityOverride lets a phase modify specific fields of an ability.
+// AbilityOverride lets a phase or overflux variant modify specific fields of an ability.
 // Nil pointers mean "use the base definition."
 type AbilityOverride struct {
 	CommitTime        *float32 // overrides CommitTime (YAML: telegraph_time)
@@ -33,7 +36,17 @@ type AbilityOverride struct {
 	AoERadius         *float32
 	ChargeSpeed       *float32
 	ChargeMaxDistance *float32
-	CooldownTime      *float32 // overrides Cooldown
+	CooldownTime      *float32           // overrides Cooldown
+	Pattern           *combat.PatternDef // full pattern replacement (nil = keep base)
+}
+
+// OverfluxVariant holds data-driven overrides applied when a specific overflux
+// condition is active. Loaded from a separate YAML file referenced by the base
+// enemy definition's overflux_variants field.
+type OverfluxVariant struct {
+	TreeData         any                        // full BT replacement (nil = keep base tree)
+	Abilities        []ability.AbilityDef       // additional abilities appended to the base list
+	AbilityOverrides map[string]AbilityOverride // per-ability overrides (cooldown, damage, pattern)
 }
 
 // EnemyDef declares a complete enemy type.
@@ -61,6 +74,10 @@ type EnemyDef struct {
 	// TreeData holds parsed YAML tree data for data-driven mobs (Tier 1/2).
 	// Nil for Go-defined mobs (Tier 3 bosses) which use hardcoded tree builders.
 	TreeData any
+
+	// OverfluxVariants maps overflux condition IDs to their variant definitions.
+	// Loaded from separate YAML files referenced by the base enemy's overflux_variants field.
+	OverfluxVariants map[string]*OverfluxVariant
 }
 
 // CurrentPhase returns the PhaseDef for the given phase number, or nil for phase 1.
@@ -78,7 +95,7 @@ func (d *EnemyDef) CurrentPhase(phase int) *PhaseDef {
 }
 
 // ResolveAbility returns a copy of the ability with phase overrides applied.
-func (d *EnemyDef) ResolveAbility(abil *ability.AbilityDef, phase int) ability.AbilityDef {
+func (d *EnemyDef) ResolveAbility(abil *ability.AbilityDef, phase int) ability.AbilityDef { //nolint:funlen // linear override application
 	resolved := *abil // copy
 
 	pd := d.CurrentPhase(phase)
@@ -114,6 +131,9 @@ func (d *EnemyDef) ResolveAbility(abil *ability.AbilityDef, phase int) ability.A
 			cp.MaxDistance = *ovr.ChargeMaxDistance
 		}
 		resolved.Charge = &cp
+	}
+	if ovr.Pattern != nil {
+		resolved.Pattern = ovr.Pattern
 	}
 	if ovr.Damage != nil {
 		switch {

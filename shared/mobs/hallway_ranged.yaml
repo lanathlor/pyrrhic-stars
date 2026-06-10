@@ -1,5 +1,7 @@
 name: hallway_ranged
 tier: 1
+overflux_variants:
+  frenzied: hallway_ranged_frenzied.yaml
 max_health: 150
 move_speed: 3.5
 radius: 0.8

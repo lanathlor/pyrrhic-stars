@@ -54,6 +54,8 @@ const OP_GROUP_INVITE_REPLY := 0x0052
 const OP_GROUP_LEAVE := 0x0053
 const OP_GROUP_KICK := 0x0054
 const OP_ENTER_PORTAL := 0x0055
+const OP_INSTANCE_JOIN_REPLY := 0x0056
+const OP_INSTANCE_RESET := 0x0057
 
 # Social / group — server -> client
 const OP_GROUP_STATE := 0x0060
@@ -61,6 +63,8 @@ const OP_GROUP_INVITE_RECV := 0x0061
 const OP_GROUP_ERROR := 0x0062
 const OP_HUB_STATE := 0x0063
 const OP_PLAYER_NAMES := 0x0064
+const OP_INSTANCE_JOIN_PROMPT := 0x0065
+const OP_OVERFLUX_STATE := 0x0066
 
 # Inventory — client -> server
 const OP_EQUIP_ITEM := 0x0070

@@ -25,17 +25,38 @@ const (
 
 // mobFile is the YAML schema for a Tier 1 mob definition.
 type mobFile struct {
-	Name           string        `yaml:"name"`
-	Tier           int           `yaml:"tier"`
-	MaxHealth      float32       `yaml:"max_health"`
-	MoveSpeed      float32       `yaml:"move_speed"`
-	Radius         float32       `yaml:"radius"`
-	PreferredRange float32       `yaml:"preferred_range"`
-	BackpedalSpeed float32       `yaml:"backpedal_speed"`
-	AntiRepeat     float32       `yaml:"anti_repeat"`
-	Abilities      []abilityFile `yaml:"abilities"`
-	Phases         []phaseFile   `yaml:"phases"`
-	Tree           any           `yaml:"tree"`
+	Name             string            `yaml:"name"`
+	Tier             int               `yaml:"tier"`
+	MaxHealth        float32           `yaml:"max_health"`
+	MoveSpeed        float32           `yaml:"move_speed"`
+	Radius           float32           `yaml:"radius"`
+	PreferredRange   float32           `yaml:"preferred_range"`
+	BackpedalSpeed   float32           `yaml:"backpedal_speed"`
+	AntiRepeat       float32           `yaml:"anti_repeat"`
+	Abilities        []abilityFile     `yaml:"abilities"`
+	Phases           []phaseFile       `yaml:"phases"`
+	Tree             any               `yaml:"tree"`
+	OverfluxVariants map[string]string `yaml:"overflux_variants"` // condition_id -> filename
+}
+
+// variantFile is the YAML schema for an overflux variant definition.
+type variantFile struct {
+	Tree             any                       `yaml:"tree"`
+	Abilities        []abilityFile             `yaml:"abilities"`
+	AbilityOverrides map[string]variantOvrFile `yaml:"ability_overrides"`
+}
+
+// variantOvrFile represents a single ability override in a variant.
+// Uses the same fields as abilityOvrFile plus a full pattern replacement.
+type variantOvrFile struct {
+	TelegraphTime     *float32     `yaml:"telegraph_time"`
+	Damage            *float32     `yaml:"damage"`
+	ProjectileCount   *int         `yaml:"projectile_count"`
+	AoERadius         *float32     `yaml:"aoe_radius"`
+	ChargeSpeed       *float32     `yaml:"charge_speed"`
+	ChargeMaxDistance *float32     `yaml:"charge_max_distance"`
+	CooldownTime      *float32     `yaml:"cooldown_time"`
+	Pattern           *patternFile `yaml:"pattern"`
 }
 
 type abilityFile struct {
@@ -159,52 +180,142 @@ func EncountersDir() string {
 // are overwritten. Uses the same schema as LoadMobs (Tier 3 bosses are
 // expressed identically to Tier 1/2 mobs in YAML).
 func LoadEncounters(dir string) error {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return fmt.Errorf("LoadEncounters: read dir %q: %w", dir, err)
-	}
-
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".yaml") {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join(dir, e.Name()))
-		if err != nil {
-			return fmt.Errorf("LoadEncounters: read %q: %w", e.Name(), err)
-		}
-		def, err := parseMobYAML(data)
-		if err != nil {
-			return fmt.Errorf("LoadEncounters: parse %q: %w", e.Name(), err)
-		}
-		DefRegistry[def.Name] = def
-	}
-	return nil
+	return loadDir(dir, "LoadEncounters")
 }
 
 // LoadMobs reads all .yaml files from dir, parses each into an EnemyDef,
 // and registers them in DefRegistry. Existing entries with the same name
 // are overwritten.
 func LoadMobs(dir string) error {
+	return loadDir(dir, "LoadMobs")
+}
+
+// loadDir is the shared implementation for LoadEncounters and LoadMobs.
+// It loads base YAML files and resolves any overflux variant references.
+func loadDir(dir, caller string) error { //nolint:funlen // two-pass loader with variant resolution
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return fmt.Errorf("LoadMobs: read dir %q: %w", dir, err)
+		return fmt.Errorf("%s: read dir %q: %w", caller, dir, err)
 	}
 
+	// Collect base files (skip variant files which are referenced by include).
+	referenced := make(map[string]bool)
+	var baseFiles []string
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".yaml") {
 			continue
 		}
-		data, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		baseFiles = append(baseFiles, e.Name())
+	}
+
+	// First pass: parse base files to discover variant references.
+	type pending struct {
+		name string
+		data []byte
+	}
+	var bases []pending
+	for _, fname := range baseFiles {
+		data, err := os.ReadFile(filepath.Join(dir, fname))
 		if err != nil {
-			return fmt.Errorf("LoadMobs: read %q: %w", e.Name(), err)
+			return fmt.Errorf("%s: read %q: %w", caller, fname, err)
 		}
-		def, err := parseMobYAML(data)
+		// Peek at overflux_variants to skip variant files in the main parse.
+		var peek struct {
+			OverfluxVariants map[string]string `yaml:"overflux_variants"`
+		}
+		_ = yaml.Unmarshal(data, &peek)
+		for _, vf := range peek.OverfluxVariants {
+			referenced[vf] = true
+		}
+		bases = append(bases, pending{name: fname, data: data})
+	}
+
+	// Second pass: parse base files (skip referenced variant files).
+	for _, b := range bases {
+		if referenced[b.name] {
+			continue
+		}
+		def, err := parseMobYAML(b.data)
 		if err != nil {
-			return fmt.Errorf("LoadMobs: parse %q: %w", e.Name(), err)
+			return fmt.Errorf("%s: parse %q: %w", caller, b.name, err)
 		}
+
+		// Load overflux variants.
+		var peek struct {
+			OverfluxVariants map[string]string `yaml:"overflux_variants"`
+		}
+		_ = yaml.Unmarshal(b.data, &peek)
+		if len(peek.OverfluxVariants) > 0 {
+			def.OverfluxVariants = make(map[string]*OverfluxVariant, len(peek.OverfluxVariants))
+			for condID, vfName := range peek.OverfluxVariants {
+				vData, err := os.ReadFile(filepath.Join(dir, vfName))
+				if err != nil {
+					return fmt.Errorf("%s: load variant %q for %q: %w", caller, vfName, def.Name, err)
+				}
+				variant, err := parseVariantYAML(vData, def.Name, condID)
+				if err != nil {
+					return fmt.Errorf("%s: parse variant %q for %q: %w", caller, vfName, def.Name, err)
+				}
+				def.OverfluxVariants[condID] = variant
+			}
+		}
+
 		DefRegistry[def.Name] = def
 	}
 	return nil
+}
+
+// parseVariantYAML parses an overflux variant YAML file into an OverfluxVariant.
+func parseVariantYAML(data []byte, baseName, condID string) (*OverfluxVariant, error) {
+	var vf variantFile
+	if err := yaml.Unmarshal(data, &vf); err != nil {
+		return nil, fmt.Errorf("yaml unmarshal: %w", err)
+	}
+
+	variant := &OverfluxVariant{}
+
+	// Tree replacement
+	if vf.Tree != nil {
+		if _, err := bt.BuildTreeFromYAML(vf.Tree, resolveLeaf); err != nil {
+			return nil, fmt.Errorf("variant %s/%s tree: %w", baseName, condID, err)
+		}
+		variant.TreeData = vf.Tree
+	}
+
+	// Additional abilities
+	for _, af := range vf.Abilities {
+		ad, err := convertAbility(af)
+		if err != nil {
+			return nil, fmt.Errorf("variant %s/%s ability %q: %w", baseName, condID, af.Name, err)
+		}
+		variant.Abilities = append(variant.Abilities, ad)
+	}
+
+	// Ability overrides
+	if len(vf.AbilityOverrides) > 0 {
+		variant.AbilityOverrides = make(map[string]AbilityOverride, len(vf.AbilityOverrides))
+		for abilID, ovr := range vf.AbilityOverrides {
+			ao := AbilityOverride{
+				CommitTime:        ovr.TelegraphTime,
+				Damage:            ovr.Damage,
+				ProjectileCount:   ovr.ProjectileCount,
+				AoERadius:         ovr.AoERadius,
+				ChargeSpeed:       ovr.ChargeSpeed,
+				ChargeMaxDistance: ovr.ChargeMaxDistance,
+				CooldownTime:      ovr.CooldownTime,
+			}
+			if ovr.Pattern != nil {
+				p, err := convertPattern(ovr.Pattern)
+				if err != nil {
+					return nil, fmt.Errorf("variant %s/%s override %q pattern: %w", baseName, condID, abilID, err)
+				}
+				ao.Pattern = p
+			}
+			variant.AbilityOverrides[abilID] = ao
+		}
+	}
+
+	return variant, nil
 }
 
 // parseMobYAML unmarshals YAML bytes into an EnemyDef.

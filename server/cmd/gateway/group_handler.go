@@ -9,11 +9,16 @@ import (
 	"codex-online/server/internal/group"
 	"codex-online/server/internal/message"
 	"codex-online/server/internal/network"
+	"codex-online/server/internal/overflux"
 	"codex-online/server/internal/session"
+	"codex-online/server/internal/zone"
 )
 
+// defaultPortalTarget is the fallback zone when a portal has no TargetZone set.
+const defaultPortalTarget = "arena"
+
 // handleGroupMessage processes all group-related opcodes (0x0050–0x005F).
-func (g *gateway) handleGroupMessage(sess *session.Session, opcode uint16, payload []byte) {
+func (g *gateway) handleGroupMessage(sess *session.Session, opcode uint16, payload []byte) { //nolint:funlen // switch dispatch
 	switch opcode {
 	case message.OpGroupCreate:
 		grp, err := g.groups.CreateGroup(sess.ID)
@@ -60,7 +65,13 @@ func (g *gateway) handleGroupMessage(sess *session.Session, opcode uint16, paylo
 		g.handleGroupKick(sess, payload)
 
 	case message.OpEnterPortal:
-		g.handleEnterPortal(sess)
+		g.handleEnterPortal(sess, payload)
+
+	case message.OpInstanceJoinReply:
+		g.handleInstanceJoinReply(sess, payload)
+
+	case message.OpInstanceReset:
+		g.handleInstanceReset(sess)
 
 	default:
 		slog.Warn("unknown group opcode", "opcode", opcode)
@@ -68,10 +79,12 @@ func (g *gateway) handleGroupMessage(sess *session.Session, opcode uint16, paylo
 }
 
 // handleEnterPortal resolves the portal target for the player's current zone and
-// transfers them to the appropriate zone.
-func (g *gateway) handleEnterPortal(sess *session.Session) {
-	// Determine target zone from portal definitions, fallback to "arena"
-	targetZone := "arena"
+// transfers them to the appropriate zone. For instanced zones, it either creates
+// a new instance (with overflux conditions from payload) or joins an existing
+// group instance. Group members in open-world zones receive a join prompt.
+func (g *gateway) handleEnterPortal(sess *session.Session, payload []byte) { //nolint:funlen // portal flow has create+join+notify paths
+	// Determine target zone from portal definitions, fallback to "arena".
+	targetZone := defaultPortalTarget
 	g.mu.Lock()
 	if zi, ok := g.zones[sess.ZoneID]; ok {
 		portals := zi.zone.Portals()
@@ -90,7 +103,7 @@ func (g *gateway) handleEnterPortal(sess *session.Session) {
 	// Open-world zones are shared; use the zone name directly.
 	if lvl.ZoneType != "instanced" {
 		slog.Info("player entering portal to open-world zone", "player_id", sess.ID, "target", targetZone)
-		g.transferPlayer(sess, targetZone, lvl, 0)
+		g.transferPlayer(sess, targetZone, lvl, 0, nil)
 		return
 	}
 
@@ -104,11 +117,148 @@ func (g *gateway) handleEnterPortal(sess *session.Session) {
 	} else {
 		instanceID = fmt.Sprintf("%s_s%d", targetZone, sess.ID)
 	}
-	slog.Info("player entering portal", "player_id", sess.ID, "target_zone", targetZone, "instance", instanceID, "group_size", groupSize)
-	g.transferPlayer(sess, instanceID, lvl, groupSize)
+
+	// If the instance already exists, join it directly (no new conditions).
+	if existing := g.getZone(instanceID); existing != nil {
+		slog.Info("player joining existing instance", "player_id", sess.ID, "instance", instanceID)
+		g.transferPlayer(sess, instanceID, lvl, groupSize, nil)
+		if grp != nil {
+			g.broadcastGroupState(grp)
+		}
+		return
+	}
+
+	// New instance: decode overflux conditions from payload.
+	conditions, decErr := overflux.DecodeConditions(payload)
+	if decErr != nil {
+		slog.Warn("bad overflux payload", "player_id", sess.ID, "error", decErr)
+	}
+	oflx := overflux.NewState(conditions)
+
+	slog.Info("player creating instance", "player_id", sess.ID, "target_zone", targetZone, "instance", instanceID, "group_size", groupSize, "overflux", oflx.TotalScore)
+	g.transferPlayer(sess, instanceID, lvl, groupSize, oflx)
+
+	// Notify group members in open-world zones about the new instance.
 	if grp != nil {
 		g.broadcastGroupState(grp)
+		promptPayload := overflux.EncodeJoinPrompt(targetZone, sess.Username, oflx)
+		promptMsg := message.Encode(message.OpInstanceJoinPrompt, 0, promptPayload)
+		for _, memberID := range grp.Members {
+			if memberID == sess.ID {
+				continue
+			}
+			ms := g.sessions.GetByID(memberID)
+			if ms == nil {
+				continue
+			}
+			// Only prompt members in open-world zones (not already in an instance).
+			if ms.ZoneType != uint8(zone.ZoneTypeOpenWorld) {
+				continue
+			}
+			ms.Conn.Send(promptMsg)
+		}
 	}
+}
+
+// handleInstanceJoinReply processes a group member's accept/decline of an
+// instance join prompt.
+func (g *gateway) handleInstanceJoinReply(sess *session.Session, payload []byte) {
+	if len(payload) < 1 {
+		return
+	}
+	accept := payload[0] == 1
+	if !accept {
+		slog.Info("instance join declined", "player_id", sess.ID)
+		return
+	}
+
+	grp := g.groups.GetGroup(sess.ID)
+	if grp == nil {
+		sendGroupError(sess.Conn, "not in a group")
+		return
+	}
+
+	// Resolve the portal target from the player's current zone.
+	targetZone := defaultPortalTarget
+	g.mu.Lock()
+	if zi, ok := g.zones[sess.ZoneID]; ok {
+		portals := zi.zone.Portals()
+		if len(portals) > 0 {
+			targetZone = portals[0].TargetZone
+		}
+	}
+	g.mu.Unlock()
+
+	instanceID := fmt.Sprintf("%s_g%d", targetZone, grp.ID)
+	if g.getZone(instanceID) == nil {
+		sendGroupError(sess.Conn, "instance no longer exists")
+		return
+	}
+
+	lvl, err := g.loadLevel(targetZone)
+	if err != nil {
+		slog.Error("load level for instance join", "zone", targetZone, "error", err)
+		return
+	}
+
+	slog.Info("player joining instance via prompt", "player_id", sess.ID, "instance", instanceID)
+	g.transferPlayer(sess, instanceID, lvl, len(grp.Members), nil)
+	g.broadcastGroupState(grp)
+}
+
+// handleInstanceReset allows the group leader to destroy the group's current
+// instance so a fresh one can be created with new overflux conditions.
+func (g *gateway) handleInstanceReset(sess *session.Session) {
+	grp := g.groups.GetGroup(sess.ID)
+	if grp == nil {
+		sendGroupError(sess.Conn, "not in a group")
+		return
+	}
+	if grp.LeaderID != sess.ID {
+		sendGroupError(sess.Conn, "only the leader can reset")
+		return
+	}
+
+	// Find and destroy group instances. Convention: {zone}_g{groupID}.
+	prefix := fmt.Sprintf("_g%d", grp.ID)
+	g.mu.Lock()
+	var toRemove []string
+	for zoneID, zi := range g.zones {
+		if zi.zone.Type != zone.ZoneTypeInstanced {
+			continue
+		}
+		if len(zoneID) > len(prefix) && zoneID[len(zoneID)-len(prefix):] == prefix {
+			toRemove = append(toRemove, zoneID)
+		}
+	}
+	g.mu.Unlock()
+
+	for _, zoneID := range toRemove {
+		zi := g.getZone(zoneID)
+		if zi == nil {
+			continue
+		}
+		// Transfer any players still in the instance back to hub.
+		for _, peerID := range zi.zone.GetPeerIDs() {
+			globalID := g.sessions.ResolveZonePeer(zoneID, peerID)
+			if globalID == 0 {
+				continue
+			}
+			peerSess := g.sessions.GetByID(globalID)
+			if peerSess == nil {
+				continue
+			}
+			hubLvl, err := g.loadLevel(defaultOpenWorldZone)
+			if err != nil {
+				slog.Error("load hub for instance reset", "error", err)
+				continue
+			}
+			g.transferPlayer(peerSess, defaultOpenWorldZone, hubLvl, 0, nil)
+		}
+		g.removeZone(zoneID)
+		slog.Info("instance reset", "zone_id", zoneID, "leader", sess.ID)
+	}
+	g.broadcastGroupState(grp)
 }
 
 // handleGroupInviteReply processes an accept or decline for a pending group invite.

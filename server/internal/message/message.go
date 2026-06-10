@@ -46,19 +46,23 @@ const (
 	OpInputAck      uint16 = 0x0046 // acknowledges client input tick
 
 	// Social / group — client → server (gateway-handled).
-	OpGroupCreate      uint16 = 0x0050
-	OpGroupInvite      uint16 = 0x0051
-	OpGroupInviteReply uint16 = 0x0052
-	OpGroupLeave       uint16 = 0x0053
-	OpGroupKick        uint16 = 0x0054
-	OpEnterPortal      uint16 = 0x0055
+	OpGroupCreate       uint16 = 0x0050
+	OpGroupInvite       uint16 = 0x0051
+	OpGroupInviteReply  uint16 = 0x0052
+	OpGroupLeave        uint16 = 0x0053
+	OpGroupKick         uint16 = 0x0054
+	OpEnterPortal       uint16 = 0x0055
+	OpInstanceJoinReply uint16 = 0x0056 // [accept:u8]
+	OpInstanceReset     uint16 = 0x0057 // (no payload) — leader force-reset
 
 	// Social / group — server → client.
-	OpGroupState      uint16 = 0x0060
-	OpGroupInviteRecv uint16 = 0x0061
-	OpGroupError      uint16 = 0x0062
-	OpZoneState       uint16 = 0x0063
-	OpPlayerNames     uint16 = 0x0064
+	OpGroupState         uint16 = 0x0060
+	OpGroupInviteRecv    uint16 = 0x0061
+	OpGroupError         uint16 = 0x0062
+	OpZoneState          uint16 = 0x0063
+	OpPlayerNames        uint16 = 0x0064
+	OpInstanceJoinPrompt uint16 = 0x0065 // [zone:str8][leader:str8][score:u16 LE][count:u8][per: id:str8 + rank:u8]
+	OpOverfluxState      uint16 = 0x0066 // [score:u16 LE][count:u8][per: id:str8 + rank:u8]
 
 	// Inventory — client → server.
 	OpEquipItem   uint16 = 0x0070 // [itemID:u32][slotID:u8]

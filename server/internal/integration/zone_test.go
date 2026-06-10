@@ -124,7 +124,7 @@ func startZoneGateway(t *testing.T) *testZoneGateway {
 				gw.mu.Lock()
 				z, ok := gw.zones[zoneID]
 				if !ok {
-					z = zone.New(zoneID, lvl)
+					z = zone.New(zoneID, lvl, nil)
 					gw.zones[zoneID] = z
 					gw.nextID[zoneID] = 1
 					go z.Run(ctx)

@@ -1,5 +1,7 @@
 name: hallway_melee
 tier: 1
+overflux_variants:
+  frenzied: hallway_melee_frenzied.yaml
 max_health: 200
 move_speed: 5.0
 radius: 0.8
