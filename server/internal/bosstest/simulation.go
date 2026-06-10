@@ -12,6 +12,7 @@ import (
 	"codex-online/server/internal/enemyai"
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/level"
+	"codex-online/server/internal/overflux"
 	"codex-online/server/internal/system"
 )
 
@@ -38,6 +39,7 @@ type SimConfig struct {
 	GroupID     string
 	RunID       string
 	PuppetTrees *PuppetTreeRegistry // optional: YAML-defined puppet BTs
+	Overflux    *overflux.State     // optional: overflux conditions for difficulty scaling
 }
 
 // AbilityResult tracks per-ability combat statistics from a simulation run.
@@ -61,6 +63,8 @@ type SimResult struct {
 	SpecPlayers   map[string]int            // spec → number of players with that spec
 	AbilityStats  map[string]*AbilityResult // ability name → stats
 	CompName      string                    // composition name (set by runner)
+	OverfluxName  string                    // overflux config name (set by runner, empty = baseline)
+	OverfluxScore int                       // total overflux score (0 = baseline)
 }
 
 // simState holds the fully initialised state handed off from setupSimulation to
@@ -166,12 +170,29 @@ func setupSimulation(cfg SimConfig) simState {
 	rng := rand.New(rand.NewPCG(cfg.Seed, cfg.Seed+42))
 
 	es := initEnemy(def, cfg.Seed)
+
+	// Apply overflux variants (BT replacement, ability overrides) before
+	// instrumentation so the variant tree gets profiled.
+	if cfg.Overflux != nil {
+		es.brain.ApplyOverfluxVariants(cfg.Overflux)
+		// Re-instrument if the BT was replaced by a variant.
+		es.instrumented = InstrumentTree(es.brain.Tree())
+		es.brain.SetTree(es.instrumented.Root)
+	}
+
 	puppets, playerMap, specPlayers := initPuppets(cfg)
 
 	// Compute group-size scaling (HP: 1x→4x, Damage: 1x→2x over 1→5 players)
 	groupSize := len(cfg.Party)
 	hpMult := float32(1.0 + 0.75*float64(groupSize-1))
 	dmgMult := float32(1.0 + 0.25*float64(groupSize-1))
+
+	// Apply overflux multipliers on top of group scaling.
+	if cfg.Overflux != nil {
+		hpMult *= cfg.Overflux.HPMultiplier()
+		dmgMult *= cfg.Overflux.DamageMultiplier()
+	}
+
 	es.enemy.MaxHealth *= hpMult
 	es.enemy.Health = es.enemy.MaxHealth
 
@@ -214,6 +235,7 @@ func buildWorld(cfg SimConfig, es enemySetup, playerMap map[uint16]*entity.Playe
 		ZoneType:        1, // instanced
 		RunID:           cfg.RunID,
 		EnemyDamageMult: dmgMult,
+		OverfluxState:   cfg.Overflux,
 		Players:         playerMap,
 		Enemies:         []*entity.Enemy{es.enemy},
 		Brains:          []enemyai.BrainTicker{es.brain},

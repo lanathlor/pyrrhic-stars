@@ -2,27 +2,24 @@ class: gunner
 bosses: [guard_captain]
 profiles: [bad]
 
-# Bad gunner: slow reactions, no projectile awareness.
-# But still has basic gamer instinct: backpedals and shoots when boss is close.
-# 1.0s reaction time means most telegraphs are already executing before noticing.
-# Rotation is near-perfect — overclock + fire_shot is trivial to execute.
-# DPS loss comes from mechanic disruption, not rotation quality.
+# Bad gunner: slow reactions, knows mechanics exist but reacts late.
+# Tries to dodge AoE and charge (late), doesn't dodge projectiles well.
+# Still has gamer instinct: kites melee, maintains rotation.
 
 tree:
   reactive_selector:
-    # Charge: late reaction, bare strafe (stops shooting while panicking)
+    # Charge: late reaction, bare strafe
     - sequence: [has_reacted, in_charge_path, strafe_charge]
+    # AoE: late reaction but tries to flee
+    - sequence: [has_reacted, in_aoe_danger, flee_aoe]
     # Ranged telegraph: late reaction, bare strafe
     - sequence: [has_reacted, targeted_by_ranged, strafe_ranged]
-    # No projectile dodge — doesn't notice incoming projectiles
-    # No AoE dodge — at 10m usually safe, and wouldn't react anyway
-    # Kiting: even bad players backpedal when a melee mob is in their face
+    # No projectile dodge -- doesn't track individual projectiles
+    # Kiting: backpedal when boss is close
     - sequence: [too_close, kite_and_shoot]
-    # Positioning: walk toward boss when too far
+    # Positioning
     - sequence: [too_far, advance]
-    # Rotation: overclock on cooldown (single button, easy)
+    # Rotation
     - sequence: ["can_commit(overclock)", "commit(overclock)"]
-    # Tactical reload when magazine is low
     - sequence: [should_reload, "commit(reload)"]
-    # Filler: hold M1
     - "commit(fire_shot)"

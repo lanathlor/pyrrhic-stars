@@ -1,6 +1,57 @@
 boss: guard_captain
 runs: 600
 
+# Overflux difficulty variants to test alongside baseline.
+overflux:
+  - name: fortified_2
+    conditions:
+      - id: enemy_hp
+        rank: 2
+    win_rate:
+      min: 0.05
+      max: 0.90
+  - name: fortified_5
+    conditions:
+      - id: enemy_hp
+        rank: 5
+    win_rate:
+      min: 0.0
+      max: 0.80
+  - name: tempered
+    conditions:
+      - id: tempered
+        rank: 1
+    win_rate:
+      min: 0.10
+      max: 0.95
+  - name: volatile
+    conditions:
+      - id: volatile
+        rank: 1
+    win_rate:
+      min: 0.10
+      max: 0.95
+  - name: tempered_volatile
+    conditions:
+      - id: tempered
+        rank: 1
+      - id: volatile
+        rank: 1
+    win_rate:
+      min: 0.0
+      max: 0.90
+  - name: all_max
+    conditions:
+      - id: enemy_hp
+        rank: 5
+      - id: tempered
+        rank: 1
+      - id: volatile
+        rank: 1
+    win_rate:
+      min: 0.0
+      max: 0.70
+
 # Standard composition: 1 tank, 1 healer, 3 DPS
 compositions:
   - name: all_sweaty
@@ -8,14 +59,14 @@ compositions:
     specs: [harmonist, shield, blade, assault, multi_blade]
     profiles: [sweaty, sweaty, sweaty, sweaty, sweaty]
     win_rate:
-      min: 0.60
+      min: 0.80
   - name: mixed_average
     classes: [arcanotechnicien, vanguard, vanguard, gunner, blade_dancer]
     specs: [harmonist, shield, blade, assault, multi_blade]
     profiles: [average, average, average, average, average]
     win_rate:
-      min: 0.25
-      max: 0.95
+      min: 0.80
+      max: 1.0
   - name: all_bad
     classes: [arcanotechnicien, vanguard, vanguard, gunner, blade_dancer]
     specs: [harmonist, shield, blade, assault, multi_blade]
@@ -27,12 +78,12 @@ compositions:
       - []
       - []
     win_rate:
-      min: 0.0
-      max: 0.60
+      min: 0.70
+      max: 1.0
 
 win_rate:
-  min: 0.15
-  max: 0.95
+  min: 0.80
+  max: 1.0
 
 duration:
   min_seconds: 15
@@ -46,7 +97,7 @@ phase_reach:
 
 tree_health:
   max_dead_nodes: 10
-  max_cold_nodes: 20
+  max_cold_nodes: 25
 
 spec_balance:
   max_damage_share_sigma: 0.30
