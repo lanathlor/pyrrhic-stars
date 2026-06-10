@@ -6,6 +6,8 @@ var ctrl: Node
 
 var near_portal: bool = false
 var near_lift: bool = false
+var near_merchant: bool = false
+var merchant_tier: int = 0
 var aimed_peer_id: int = 0
 
 
@@ -94,6 +96,47 @@ func check_lift_proximity() -> void:
 			else:
 				ctrl._lift_prompt.text = "Press [E] — Call lift"
 		ctrl._lift_prompt.visible = near_lift
+
+
+func check_merchant_proximity() -> void:
+	var entity_mgr: Node = ctrl.entity_mgr
+	var my_id: int = NetworkManager.get_my_id()
+	if my_id not in entity_mgr.spawned_players:
+		near_merchant = false
+		if ctrl._merchant_prompt:
+			ctrl._merchant_prompt.visible = false
+		return
+	var player: CharacterBody3D = entity_mgr.spawned_players[my_id]
+	if not is_instance_valid(player):
+		return
+
+	var pos: Vector3 = player.global_position
+	near_merchant = false
+	for nid in entity_mgr.npc_nodes:
+		var npc: Node3D = entity_mgr.npc_nodes[nid]
+		if not is_instance_valid(npc):
+			continue
+		if npc.get_meta("def_name", "") != "merchant":
+			continue
+		var dist: float = pos.distance_to(npc.global_position)
+		if dist < 3.0:
+			near_merchant = true
+			# Determine tier from NPC X position
+			var npc_x: float = npc.global_position.x
+			if npc_x < -12.0:
+				merchant_tier = 0
+			elif npc_x < 0.0:
+				merchant_tier = 1
+			elif npc_x < 12.0:
+				merchant_tier = 2
+			else:
+				merchant_tier = 3
+			break
+
+	if ctrl._merchant_prompt:
+		ctrl._merchant_prompt.visible = near_merchant
+		if near_merchant:
+			ctrl._merchant_prompt.text = "Press [E] to trade"
 
 
 func interact_lift() -> void:

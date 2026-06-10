@@ -221,6 +221,7 @@ func _create_npc_node(ndata: Dictionary) -> Node3D:
 	root.set_script(load(NPC_PUPPET_SCRIPT))
 
 	var def_name: String = ndata.get("def_name", "citizen")
+	root.set_meta("def_name", def_name)
 
 	# Character model (Mixamo) — same as enemies/players
 	var model_scene: PackedScene = load(NPC_MODEL_SCENE) as PackedScene

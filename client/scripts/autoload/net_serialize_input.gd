@@ -83,6 +83,26 @@ static func decode_interact_input(data: PackedByteArray) -> Dictionary:
 
 
 # =============================================================================
+# Merchant input (client -> server)
+# =============================================================================
+
+
+static func encode_merchant_interact(tier: int) -> PackedByteArray:
+	var buf := PackedByteArray()
+	buf.append(tier)
+	return buf
+
+
+static func encode_merchant_buy(tier: int, def_id: String) -> PackedByteArray:
+	var buf := PackedByteArray()
+	buf.append(tier)
+	var id_bytes := def_id.to_utf8_buffer()
+	buf.append(id_bytes.size())
+	buf.append_array(id_bytes)
+	return buf
+
+
+# =============================================================================
 # Legacy sync (kept for backwards compat / tests)
 # =============================================================================
 
