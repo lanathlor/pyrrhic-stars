@@ -18,6 +18,7 @@ import (
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/level"
 	"codex-online/server/internal/message"
+	"codex-online/server/internal/overflux"
 	"codex-online/server/internal/system"
 )
 
@@ -68,9 +69,10 @@ type Zone struct {
 }
 
 // New creates a zone ready to run. The level defines geometry, spawns, zone type,
-// and all spatial data. Set CombatLogSink on the returned Zone before calling
-// Run() to enable combat event logging.
-func New(id string, lvl *level.Level) *Zone {
+// and all spatial data. Pass oflx for instanced zones with overflux conditions
+// (nil for open-world zones). Set CombatLogSink on the returned Zone before
+// calling Run() to enable combat event logging.
+func New(id string, lvl *level.Level, oflx *overflux.State) *Zone {
 	var zoneType ZoneType
 	if lvl.ZoneType == "instanced" {
 		zoneType = ZoneTypeInstanced
@@ -97,6 +99,7 @@ func New(id string, lvl *level.Level) *Zone {
 		AbilityRunners:  make(map[uint16]*ability.PlayerAbilityRunner),
 		PatternEngine:   combat.NewPatternEngine(),
 		PatternRng:      rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), 0)),
+		OverfluxState:   oflx,
 	}
 	if devMode {
 		z.world.DebugGodModePeers = make(map[uint16]bool)
@@ -162,6 +165,7 @@ func spawnEnemies(z *Zone, l *level.Level) {
 		enemy.LeashRadius = sp.LeashRadius
 		enemy.GroupID = sp.GroupID
 		brain := enemyai.NewBrain(def, enemy, z.world.AbilityEngine)
+		brain.ApplyOverfluxVariants(z.world.OverfluxState)
 		brain.BoundsMinX = l.EnemyBoundsMinX
 		brain.BoundsMaxX = l.EnemyBoundsMaxX
 		brain.BoundsMinZ = l.EnemyBoundsMinZ
@@ -181,6 +185,11 @@ func (z *Zone) SetOnPlayerReturnToOpenWorld(fn func(peerID uint16)) {
 	z.mu.Lock()
 	z.onPlayerReturnToOpenWorld = fn
 	z.mu.Unlock()
+}
+
+// OverfluxState returns the overflux conditions for this zone, or nil.
+func (z *Zone) OverfluxState() *overflux.State {
+	return z.world.OverfluxState
 }
 
 // SetGroupSize configures instance scaling based on the number of players.
@@ -206,7 +215,13 @@ func (z *Zone) rescaleEnemies(n int) {
 		n = 1
 	}
 	hpMult := float32(1.0 + 0.75*float64(n-1))
+	if z.world.OverfluxState != nil {
+		hpMult *= z.world.OverfluxState.HPMultiplier()
+	}
 	dmgMult := float32(1.0 + 0.25*float64(n-1))
+	if z.world.OverfluxState != nil {
+		dmgMult *= z.world.OverfluxState.DamageMultiplier()
+	}
 	z.world.EnemyDamageMult = dmgMult
 	for _, e := range z.world.Enemies {
 		if e.BaseMaxHealth == 0 {

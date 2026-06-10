@@ -261,3 +261,63 @@ static func encode_group_invite_reply(group_id: int, accept: bool) -> PackedByte
 	buf.put_u32(group_id)
 	buf.put_u8(1 if accept else 0)
 	return buf.data_array
+
+
+# =============================================================================
+# Overflux
+# =============================================================================
+
+
+## Encode overflux conditions for OpEnterPortal payload.
+## Format: [count:u8][per: id_len:u8 + id:bytes + rank:u8]
+static func encode_overflux_conditions(conditions: Array) -> PackedByteArray:
+	var buf := StreamPeerBuffer.new()
+	buf.put_u8(conditions.size())
+	for c in conditions:
+		var id_bytes := (c.id as String).to_utf8_buffer()
+		buf.put_u8(id_bytes.size())
+		buf.put_data(id_bytes)
+		buf.put_u8(c.rank)
+	return buf.data_array
+
+
+## Decode OpInstanceJoinPrompt.
+## Format: [zone:str8][leader:str8][total_score:u16 LE][count:u8][per: id:str8 + rank:u8]
+static func decode_instance_join_prompt(data: PackedByteArray) -> Dictionary:
+	var buf := StreamPeerBuffer.new()
+	buf.data_array = data
+	var zone_name := H.get_str8(buf)
+	var leader_name := H.get_str8(buf)
+	var total_score := buf.get_u16()
+	var count := buf.get_u8()
+	var conditions: Array = []
+	for i in range(count):
+		var cond_id := H.get_str8(buf)
+		var rank := buf.get_u8()
+		conditions.append({"id": cond_id, "rank": rank})
+	return {
+		"zone_name": zone_name,
+		"leader_name": leader_name,
+		"total_score": total_score,
+		"conditions": conditions,
+	}
+
+
+## Decode OpOverfluxState.
+## Format: [total_score:u16 LE][count:u8][per: id:str8 + rank:u8]
+static func decode_overflux_state(data: PackedByteArray) -> Dictionary:
+	var buf := StreamPeerBuffer.new()
+	buf.data_array = data
+	var total_score := buf.get_u16()
+	var count := buf.get_u8()
+	var conditions: Array = []
+	for i in range(count):
+		var cond_id := H.get_str8(buf)
+		var rank := buf.get_u8()
+		conditions.append({"id": cond_id, "rank": rank})
+	return {"total_score": total_score, "conditions": conditions}
+
+
+## Encode OpInstanceJoinReply: [accept:u8]
+static func encode_instance_join_reply(accept: bool) -> PackedByteArray:
+	return PackedByteArray([1 if accept else 0])

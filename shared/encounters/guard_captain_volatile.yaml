@@ -1,0 +1,63 @@
+# Guard Captain: Volatile variant
+# Same BT as base, but ability patterns are denser with more projectiles.
+# Tuned for ~60-80% sweaty win rate.
+
+ability_overrides:
+  fireball_burst:
+    damage: 12.0
+    pattern:
+      emitters:
+        # Denser cone: 7 projectiles (base 5), 3 waves
+        - type: cone
+          count: 7
+          waves: 3
+          wave_interval: 0.18
+          arc_angle: 45
+          offset_per_wave: 6
+          projectile:
+            speed: 13
+            damage: 12
+            lifetime: 3.5
+        # Spiraling radial: 14 projectiles (base 12), 2 waves
+        - type: radial
+          count: 14
+          waves: 2
+          wave_interval: 0.13
+          offset_per_wave: 18
+          projectile:
+            speed: 7
+            damage: 9
+            lifetime: 4.5
+            angular_velocity: 25
+
+  void_barrage:
+    damage: 12.0
+    pattern:
+      emitters:
+        # Larger contracting ring: 16 projectiles (base 12)
+        - type: ring_contract
+          count: 16
+          waves: 1
+          start_radius: 13
+          projectile:
+            speed: 5.5
+            damage: 11
+            lifetime: 3.5
+        # Denser spiraling cone: 9 projectiles (base 7), 3 waves
+        - type: cone
+          count: 9
+          waves: 3
+          wave_interval: 0.14
+          arc_angle: 55
+          offset_per_wave: 10
+          projectile:
+            speed: 11
+            damage: 8
+            lifetime: 2.8
+
+  ground_slam:
+    damage: 50.0
+    aoe_radius: 7.5
+
+  melee_swipe:
+    damage: 40.0

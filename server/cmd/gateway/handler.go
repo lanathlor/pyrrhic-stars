@@ -40,7 +40,7 @@ func handleServerMessage(gw *gateway, sess *session.Session, opcode uint16, payl
 			slog.Warn("level not found for OpJoinZone", "zone_id", zoneID, "error", err)
 			return
 		}
-		zi := gw.getOrCreateZone(zoneID, lvl, 1)
+		zi := gw.getOrCreateZone(zoneID, lvl, 1, nil)
 		gw.joinZone(sess, zi, joinResponseZoneJoined)
 
 	default:
@@ -57,7 +57,7 @@ func (g *gateway) joinHubAfterCharSelect(sess *session.Session) {
 		slog.Error("open-world level not found", "error", err)
 		return
 	}
-	zi := g.getOrCreateZone(defaultOpenWorldZone, lvl, 0)
+	zi := g.getOrCreateZone(defaultOpenWorldZone, lvl, 0, nil)
 	g.joinZone(sess, zi, joinResponseZoneJoined)
 }
 
@@ -66,7 +66,7 @@ func (g *gateway) joinHubAfterCharSelect(sess *session.Session) {
 func (g *gateway) devJoinZone(sess *session.Session, devZone string) {
 	baseZone := devZone
 	if baseZone == "" {
-		baseZone = "arena"
+		baseZone = defaultPortalTarget
 	}
 	lvl, err := g.loadLevel(baseZone)
 	if err != nil {
@@ -79,5 +79,5 @@ func (g *gateway) devJoinZone(sess *session.Session, devZone string) {
 		instanceID = baseZone + "_dev"
 		groupSize = 1
 	}
-	g.transferPlayer(sess, instanceID, lvl, groupSize)
+	g.transferPlayer(sess, instanceID, lvl, groupSize, nil)
 }

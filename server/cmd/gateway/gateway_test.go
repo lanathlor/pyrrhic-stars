@@ -65,7 +65,7 @@ func newTestZoneInstance(t testing.TB, id string, zoneName string) *zoneInstance
 	if err != nil {
 		t.Fatalf("load level %q: %v", zoneName, err)
 	}
-	z := zone.New(id, lvl)
+	z := zone.New(id, lvl, nil)
 	_, cancel := context.WithCancel(context.Background())
 	return &zoneInstance{zone: z, cancel: cancel, nextID: 1}
 }
@@ -567,7 +567,7 @@ func TestTransferPlayer_MovesPlayerBetweenZones(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load arena level: %v", err)
 	}
-	gw.transferPlayer(sess, "arena_test", arenaLvl, 1)
+	gw.transferPlayer(sess, "arena_test", arenaLvl, 1, nil)
 
 	if hubZI.zone.ClientCount() != 0 {
 		t.Errorf("hub ClientCount after transfer = %d, want 0", hubZI.zone.ClientCount())
@@ -614,7 +614,7 @@ func TestEnterPortal_PlayerReceivesZoneTransfer(t *testing.T) {
 	spy.Reset() // discard initial join messages
 
 	// Simulate pressing 'E' at the portal.
-	gw.handleEnterPortal(sess)
+	gw.handleEnterPortal(sess, nil)
 
 	// The client must receive OpZoneTransfer.
 	msgs := drainSpy(spy)
@@ -661,7 +661,7 @@ func TestEnterPortal_PlayerReceivesUDPAssociate(t *testing.T) {
 	gw.joinZone(sess, hubZI, joinResponseZoneJoined)
 	spy.Reset()
 
-	gw.handleEnterPortal(sess)
+	gw.handleEnterPortal(sess, nil)
 
 	msgs := drainSpy(spy)
 
@@ -715,7 +715,7 @@ func TestEnterPortal_NoUDPAssociateWhenAlreadyAssociated(t *testing.T) {
 	spy.Reset()
 
 	// Simulate pressing 'E' at the portal.
-	gw.handleEnterPortal(sess)
+	gw.handleEnterPortal(sess, nil)
 
 	msgs := drainSpy(spy)
 
@@ -778,7 +778,7 @@ func TestEnterPortal_ArenaTickLowerThanHub(t *testing.T) {
 	spy.Reset()
 
 	// Enter portal -> creates fresh arena zone.
-	gw.handleEnterPortal(sess)
+	gw.handleEnterPortal(sess, nil)
 
 	// Find the arena zone.
 	arenaZI := findArenaZone(gw)
@@ -931,7 +931,7 @@ func BenchmarkTransferPlayer(b *testing.B) {
 
 	for b.Loop() {
 		gw.joinZone(sess, hubZI, joinResponseZoneJoined)
-		gw.transferPlayer(sess, "arena_bench", arenaLvl, 1)
+		gw.transferPlayer(sess, "arena_bench", arenaLvl, 1, nil)
 		arenaZI.zone.RemoveClient(sess.PeerID)
 	}
 }

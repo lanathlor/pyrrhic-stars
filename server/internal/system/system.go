@@ -9,6 +9,7 @@ import (
 	"codex-online/server/internal/enemyai"
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/level"
+	"codex-online/server/internal/overflux"
 )
 
 // System is a discrete unit of game logic that runs once per tick.
@@ -62,6 +63,9 @@ type World struct {
 
 	// Group scaling — multiplier applied to all enemy damage (1.0 = no scaling)
 	EnemyDamageMult float32
+
+	// Overflux difficulty conditions (set at zone creation, immutable during run).
+	OverfluxState *overflux.State
 
 	// Entities
 	Players      map[uint16]*entity.Player

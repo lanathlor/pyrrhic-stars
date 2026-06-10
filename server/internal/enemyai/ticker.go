@@ -1,8 +1,10 @@
 package enemyai
 
 import (
+	"codex-online/server/internal/bt"
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
+	"codex-online/server/internal/overflux"
 )
 
 // BrainTicker is the interface satisfied by Brain. It decouples the AI system
@@ -14,6 +16,13 @@ type BrainTicker interface {
 		castPattern func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3),
 	) []combat.DamageEvent
 	Enemy() *entity.Enemy
+
+	// Overflux variant support.
+	ApplyOverfluxVariants(oflx *overflux.State)
+
+	// Tree access (used by bosstest instrumentation).
+	Tree() bt.Node
+	SetTree(root bt.Node)
 
 	// Debug / dev mode methods.
 	ForceCommit(abilityID string) bool

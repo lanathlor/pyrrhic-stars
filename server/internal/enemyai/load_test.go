@@ -157,8 +157,8 @@ func TestLoadEncounters_GuardCaptain(t *testing.T) {
 	if def.TreeData == nil {
 		t.Error("guard_captain.TreeData should be set (YAML-defined)")
 	}
-	if def.MaxHealth != 2000 {
-		t.Errorf("guard_captain MaxHealth = %f, want 2000", def.MaxHealth)
+	if def.MaxHealth != 1800 {
+		t.Errorf("guard_captain MaxHealth = %f, want 1800", def.MaxHealth)
 	}
 	if len(def.Abilities) != 5 {
 		t.Errorf("guard_captain abilities = %d, want 5", len(def.Abilities))

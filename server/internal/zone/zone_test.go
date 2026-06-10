@@ -39,7 +39,7 @@ func findBoss(z *Zone) *entity.Enemy {
 // All enemies (trash + boss) are activated and alive.
 func setupFightZone(t *testing.T) (*Zone, uint16) {
 	t.Helper()
-	z := New("test_arena", testArenaLevel(t))
+	z := New("test_arena", testArenaLevel(t), nil)
 
 	peerID := uint16(1)
 
@@ -204,7 +204,7 @@ func TestEnemyDamageEventsStillWork(t *testing.T) {
 // setupMultiPlayerFightZone creates an arena zone with N players.
 func setupMultiPlayerFightZone(t *testing.T, n int) (*Zone, []uint16) {
 	t.Helper()
-	z := New("test_arena", testArenaLevel(t))
+	z := New("test_arena", testArenaLevel(t), nil)
 	// Activate all enemies
 	for _, e := range z.world.Enemies {
 		e.Alive = true
@@ -765,7 +765,7 @@ func TestRemotePlayerReceivesGunnerAttackState(t *testing.T) {
 // =============================================================================
 
 func TestHubZoneTick(t *testing.T) {
-	z := New("test_hub", testHubLevel(t))
+	z := New("test_hub", testHubLevel(t), nil)
 	peerID := uint16(1)
 
 	p := entity.NewPlayer(peerID, entity.ClassGunner)
@@ -788,7 +788,7 @@ func TestHubZoneTick(t *testing.T) {
 // =============================================================================
 
 func TestArenaInstance_EnemiesAliveOnCreation(t *testing.T) {
-	z := New("test_arena", testArenaLevel(t))
+	z := New("test_arena", testArenaLevel(t), nil)
 
 	// Enemies should be alive and patrolling from zone creation
 	for _, e := range z.world.Enemies {
@@ -802,7 +802,7 @@ func TestArenaInstance_EnemiesAliveOnCreation(t *testing.T) {
 }
 
 func TestArenaInstance_SecondPlayerGetsCatchUp(t *testing.T) {
-	z := New("test_arena", testArenaLevel(t))
+	z := New("test_arena", testArenaLevel(t), nil)
 
 	c1 := &Client{PeerID: 1, Username: "Player1", Send: func([]byte) {}, SendUDP: func([]byte) {}, HasUDP: func() bool { return true }}
 	z.AddClient(c1)
@@ -850,7 +850,7 @@ func TestOpenWorldZone_EnemiesAndCombat(t *testing.T) {
 		},
 	}
 
-	z := New("test_hub_combat", hubLvl)
+	z := New("test_hub_combat", hubLvl, nil)
 
 	// Zone type should be open-world.
 	if z.Type != ZoneTypeOpenWorld {

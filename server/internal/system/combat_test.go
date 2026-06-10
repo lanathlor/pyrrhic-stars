@@ -82,6 +82,30 @@ func TestRegenOnlyOutOfCombat(t *testing.T) {
 	}
 }
 
+// TestNoRegenDuringActiveBossFight verifies that HP regen never procs during
+// a sustained boss fight, even over many ticks. Regression test for overflux
+// HP scaling: higher boss HP must not give free recovery time.
+func TestNoRegenDuringActiveBossFight(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassGunner)
+	p.Health = 50.0 // well below max (150)
+
+	e := entity.NewEnemy(0, 2000.0, "guard_captain")
+	e.Alive = true
+	e.AddThreat(1, 10.0)
+
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	sys := CombatSystem{}
+
+	// Simulate 100 ticks (5 seconds) of boss fight
+	for range 100 {
+		sys.Tick(w, 0.05)
+	}
+
+	if p.Health != 50.0 {
+		t.Errorf("health = %f after 100 combat ticks, want 50.0 (no regen during combat)", p.Health)
+	}
+}
+
 func TestMultiplePlayersAllInCombat(t *testing.T) {
 	p1 := entity.NewPlayer(1, entity.ClassGunner)
 	p2 := entity.NewPlayer(2, entity.ClassVanguard)

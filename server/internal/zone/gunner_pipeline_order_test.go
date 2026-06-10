@@ -283,7 +283,7 @@ func TestPipelineOrder_CombatSystemBeforeInput(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			z := New("test", tc.lvl)
+			z := New("test", tc.lvl, nil)
 			combatIdx := -1
 			inputIdx := -1
 			for i, sys := range z.systems {

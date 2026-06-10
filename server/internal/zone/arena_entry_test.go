@@ -38,7 +38,7 @@ func buildPlayerInputPayload(x, y, z, rotY float32, tick uint32, visualState uin
 // TestArenaInstance_EnemiesAliveFromCreation verifies that enemies are
 // alive and patrolling as soon as the arena zone is created.
 func TestArenaInstance_EnemiesAliveFromCreation(t *testing.T) {
-	z := New("test_arena", testArenaLevel(t))
+	z := New("test_arena", testArenaLevel(t), nil)
 
 	aliveCount := 0
 	patrolCount := 0
@@ -63,7 +63,7 @@ func TestArenaInstance_EnemiesAliveFromCreation(t *testing.T) {
 // TestArenaInstance_TicksWithPlayer verifies that the zone ticks normally
 // once a player joins and enemies are alive.
 func TestArenaInstance_TicksWithPlayer(t *testing.T) {
-	z := New("test_arena", testArenaLevel(t))
+	z := New("test_arena", testArenaLevel(t), nil)
 
 	send, msgs := captureSend()
 	c := &Client{PeerID: 1, Username: testPlayerName, Send: send, SendUDP: send, HasUDP: func() bool { return true }}
@@ -87,7 +87,7 @@ func TestArenaInstance_TicksWithPlayer(t *testing.T) {
 // TestArenaInstance_TeleportRejected verifies that a (0,0,0) position
 // from client input is rejected as a teleport.
 func TestArenaInstance_TeleportRejected(t *testing.T) {
-	z := New("test_arena_zero", testArenaLevel(t))
+	z := New("test_arena_zero", testArenaLevel(t), nil)
 
 	send, _ := captureSend()
 	c := &Client{PeerID: 1, Username: testPlayerName, Send: send, SendUDP: send, HasUDP: func() bool { return true }}
@@ -118,7 +118,7 @@ func TestArenaInstance_TeleportRejected(t *testing.T) {
 
 // TestArenaInstance_ConcurrentTickSafe verifies no race between Run and AddClient.
 func TestArenaInstance_ConcurrentTickSafe(t *testing.T) {
-	z := New("test_arena_concurrent", testArenaLevel(t))
+	z := New("test_arena_concurrent", testArenaLevel(t), nil)
 
 	send, _ := captureSend()
 	c := &Client{PeerID: 1, Username: testPlayerName, Send: send, SendUDP: send, HasUDP: func() bool { return true }}

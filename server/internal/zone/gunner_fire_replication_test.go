@@ -35,7 +35,7 @@ func (c *mockSendCollector) collect(msg []byte) {
 // message collector.
 func setupTwoPlayerFight(t *testing.T) (*Zone, uint16, uint16, *mockSendCollector) {
 	t.Helper()
-	z := New("test-arena", testArenaLevel(t))
+	z := New("test-arena", testArenaLevel(t), nil)
 
 	// Gunner (shooter)
 	var shooterID uint16 = 1
@@ -397,7 +397,7 @@ func TestGunnerFire_WorksInAllZoneTypes(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			z := New("test", tc.lvl)
+			z := New("test", tc.lvl, nil)
 
 			var peerID uint16 = 1
 			var observerMsgs [][]byte

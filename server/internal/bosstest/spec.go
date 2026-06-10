@@ -5,8 +5,36 @@ import (
 	"os"
 	"strings"
 
+	"codex-online/server/internal/overflux"
+
 	"gopkg.in/yaml.v3"
 )
+
+// OverfluxSpec defines overflux conditions to test. Each entry produces a
+// separate fuzz batch with the given conditions applied.
+type OverfluxSpec struct {
+	Name       string             `yaml:"name"` // label for reporting (e.g. "fortified_3")
+	Conditions []OverfluxCondSpec `yaml:"conditions"`
+	WinRate    *RangeSpec         `yaml:"win_rate"` // optional: per-overflux assertion
+}
+
+// OverfluxCondSpec is a single overflux condition with its rank.
+type OverfluxCondSpec struct {
+	ID   string `yaml:"id"`   // e.g. "enemy_hp"
+	Rank int    `yaml:"rank"` // 1-5
+}
+
+// ToOverfluxState converts the spec conditions into an overflux.State.
+func (s OverfluxSpec) ToOverfluxState() *overflux.State {
+	var conditions []overflux.ActiveCondition
+	for _, c := range s.Conditions {
+		conditions = append(conditions, overflux.ActiveCondition{
+			ID:   overflux.ConditionID(c.ID),
+			Rank: c.Rank,
+		})
+	}
+	return overflux.NewState(conditions)
+}
 
 // EncounterSpec defines expected balance values for a boss encounter.
 // Tests fail if simulation results drift outside these ranges.
@@ -14,6 +42,7 @@ type EncounterSpec struct {
 	Boss         string         `yaml:"boss"`
 	Runs         int            `yaml:"runs"`
 	Compositions []CompSpec     `yaml:"compositions"`
+	Overflux     []OverfluxSpec `yaml:"overflux"` // optional: test under overflux conditions
 	WinRate      RangeSpec      `yaml:"win_rate"`
 	Duration     DurationSpec   `yaml:"duration"`
 	PhaseReach   []PhaseSpec    `yaml:"phase_reach"`

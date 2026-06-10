@@ -29,9 +29,11 @@ type reportLine struct {
 
 // FuzzReport collects all assertion outcomes for the summary table.
 type FuzzReport struct {
-	Boss  string
-	Runs  int
-	Lines []reportLine
+	Boss          string
+	Runs          int
+	OverfluxName  string // "baseline" or overflux config name
+	OverfluxScore int    // total overflux score (0 = baseline)
+	Lines         []reportLine
 
 	// Outcome distribution
 	Wins     int
@@ -105,7 +107,11 @@ func (r *FuzzReport) PrintReport(t *testing.T) {
 	var sb strings.Builder
 
 	fmt.Fprintf(&sb, "\n%s\n", strings.Repeat("━", 64))
-	fmt.Fprintf(&sb, "  FUZZ REPORT: %s\n", r.Boss)
+	if r.OverfluxScore > 0 {
+		fmt.Fprintf(&sb, "  FUZZ REPORT: %s [overflux: %s, score=%d]\n", r.Boss, r.OverfluxName, r.OverfluxScore)
+	} else {
+		fmt.Fprintf(&sb, "  FUZZ REPORT: %s [baseline]\n", r.Boss)
+	}
 	fmt.Fprintf(&sb, "  %d runs | %d wins | %d losses | %d timeouts\n",
 		r.Runs, r.Wins, r.Losses, r.Timeouts)
 	fmt.Fprintf(&sb, "  duration: avg %s | min %s | max %s\n",
@@ -911,4 +917,124 @@ func (tr *TierReport) Print(t *testing.T) {
 
 	fmt.Fprintf(&sb, "\n%s\n", strings.Repeat("━", 64))
 	t.Log(sb.String())
+}
+
+// --- Summary Matrix (win rate: conditions x compositions) ---
+
+// SummaryMatrix collects results across all overflux batches to print a single
+// cross-cutting table: rows = compositions (player skill), columns = overflux conditions.
+type SummaryMatrix struct {
+	Boss    string
+	Results []SimResult
+}
+
+// PrintMatrix outputs the win rate matrix via t.Log.
+func (m *SummaryMatrix) PrintMatrix(t *testing.T) { //nolint:gocognit,funlen // table rendering
+	t.Helper()
+	if len(m.Results) == 0 {
+		return
+	}
+
+	oflxOrder, compOrder := m.collectAxes()
+	if len(oflxOrder) == 0 || len(compOrder) == 0 {
+		return
+	}
+
+	type cell struct{ wins, total int }
+	data := make(map[string]map[string]*cell)
+	for _, r := range m.Results {
+		if data[r.CompName] == nil {
+			data[r.CompName] = make(map[string]*cell)
+		}
+		if data[r.CompName][r.OverfluxName] == nil {
+			data[r.CompName][r.OverfluxName] = &cell{}
+		}
+		data[r.CompName][r.OverfluxName].total++
+		if r.Outcome == combatlog.OutcomePlayerWin {
+			data[r.CompName][r.OverfluxName].wins++
+		}
+	}
+
+	oflxTotals := make(map[string]*cell)
+	for _, r := range m.Results {
+		if oflxTotals[r.OverfluxName] == nil {
+			oflxTotals[r.OverfluxName] = &cell{}
+		}
+		oflxTotals[r.OverfluxName].total++
+		if r.Outcome == combatlog.OutcomePlayerWin {
+			oflxTotals[r.OverfluxName].wins++
+		}
+	}
+
+	labelW := 18
+	for _, c := range compOrder {
+		if len(c)+2 > labelW {
+			labelW = len(c) + 2
+		}
+	}
+	colW := 12
+	for _, o := range oflxOrder {
+		if len(o)+3 > colW {
+			colW = len(o) + 3
+		}
+	}
+
+	totalW := labelW + colW*len(oflxOrder) + 4
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "\n%s\n", strings.Repeat("━", totalW))
+	fmt.Fprintf(&sb, "  WIN RATE MATRIX: %s\n", m.Boss)
+	fmt.Fprintf(&sb, "%s\n\n", strings.Repeat("━", totalW))
+
+	fmt.Fprintf(&sb, "  %-*s", labelW, "")
+	for _, oflx := range oflxOrder {
+		fmt.Fprintf(&sb, " %*s", colW, oflx)
+	}
+	sb.WriteString("\n")
+	fmt.Fprintf(&sb, "  %s\n", strings.Repeat("─", labelW+colW*len(oflxOrder)))
+
+	for _, comp := range compOrder {
+		fmt.Fprintf(&sb, "  %-*s", labelW, comp)
+		for _, oflx := range oflxOrder {
+			c := data[comp][oflx]
+			if c == nil || c.total == 0 {
+				fmt.Fprintf(&sb, " %*s", colW, "-")
+			} else {
+				pct := 100.0 * float64(c.wins) / float64(c.total)
+				fmt.Fprintf(&sb, " %*.1f%%", colW-1, pct)
+			}
+		}
+		sb.WriteString("\n")
+	}
+
+	fmt.Fprintf(&sb, "  %s\n", strings.Repeat("─", labelW+colW*len(oflxOrder)))
+	fmt.Fprintf(&sb, "  %-*s", labelW, "TOTAL")
+	for _, oflx := range oflxOrder {
+		c := oflxTotals[oflx]
+		if c == nil || c.total == 0 {
+			fmt.Fprintf(&sb, " %*s", colW, "-")
+		} else {
+			pct := 100.0 * float64(c.wins) / float64(c.total)
+			fmt.Fprintf(&sb, " %*.1f%%", colW-1, pct)
+		}
+	}
+	sb.WriteString("\n")
+
+	fmt.Fprintf(&sb, "\n%s\n", strings.Repeat("━", totalW))
+	t.Log(sb.String())
+}
+
+func (m *SummaryMatrix) collectAxes() (oflxOrder, compOrder []string) {
+	oflxSeen := make(map[string]bool)
+	compSeen := make(map[string]bool)
+	for _, r := range m.Results {
+		if !oflxSeen[r.OverfluxName] {
+			oflxSeen[r.OverfluxName] = true
+			oflxOrder = append(oflxOrder, r.OverfluxName)
+		}
+		if !compSeen[r.CompName] {
+			compSeen[r.CompName] = true
+			compOrder = append(compOrder, r.CompName)
+		}
+	}
+	return
 }
