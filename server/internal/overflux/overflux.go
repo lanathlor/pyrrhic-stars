@@ -9,10 +9,11 @@ import (
 type ConditionID string
 
 const (
-	CondEnemyHP  ConditionID = "enemy_hp"
-	CondTempered ConditionID = "tempered" // boss: different BT, cooldown overrides, new abilities
-	CondFrenzied ConditionID = "frenzied" // mobs: different BT, cooldown overrides, new abilities
-	CondVolatile ConditionID = "volatile" // boss: pattern/damage replacement on abilities
+	CondEnemyHP     ConditionID = "enemy_hp"
+	CondTempered    ConditionID = "tempered"     // boss: different BT, cooldown overrides, new abilities
+	CondFrenzied    ConditionID = "frenzied"     // mobs: different BT, cooldown overrides, new abilities
+	CondVolatile    ConditionID = "volatile"     // boss: pattern/damage replacement on abilities
+	CondWoundedPrey ConditionID = "wounded_prey" // boss: regenerates HP when incoming DPS drops
 )
 
 // ConditionDef describes a single toggleable condition with ranked severity.
@@ -37,11 +38,16 @@ type State struct {
 }
 
 // Registry is the global list of available overflux conditions.
+// Registry is the global list of available overflux conditions.
+// ScorePerRank values are calibrated from fuzz simulation data using
+// `just test-boss-calibrate`. Each score point represents ~2% total
+// win-rate reduction. Re-calibrate after boss/puppet tuning changes.
 var Registry = []ConditionDef{
-	{ID: CondEnemyHP, Name: "Fortified", Description: "Increases enemy max health", MaxRank: 5, ScorePerRank: 4},
-	{ID: CondTempered, Name: "Tempered", Description: "Boss uses a smarter behavior tree with new abilities", MaxRank: 1, ScorePerRank: 10},
+	{ID: CondEnemyHP, Name: "Fortified", Description: "Increases enemy max health and damage", MaxRank: 5, ScorePerRank: 5},
+	{ID: CondTempered, Name: "Tempered", Description: "Boss uses a smarter behavior tree with new abilities", MaxRank: 1, ScorePerRank: 20},
 	{ID: CondFrenzied, Name: "Frenzied", Description: "Mobs use a more aggressive behavior tree with new abilities", MaxRank: 1, ScorePerRank: 10},
-	{ID: CondVolatile, Name: "Volatile", Description: "Boss ability patterns are denser and more complex", MaxRank: 1, ScorePerRank: 10},
+	{ID: CondVolatile, Name: "Volatile", Description: "Boss ability patterns are denser and more complex", MaxRank: 1, ScorePerRank: 20},
+	{ID: CondWoundedPrey, Name: "Wounded Prey", Description: "Boss regenerates HP when incoming DPS drops", MaxRank: 5, ScorePerRank: 10},
 }
 
 // HPMultiplier returns the enemy HP multiplier from active conditions.
@@ -71,6 +77,36 @@ func (s *State) DamageMultiplier() float32 {
 		}
 	}
 	return 1.0
+}
+
+// WoundedPreyDPSThreshold returns the DPS threshold below which the boss
+// starts regenerating. Expressed as HP per second. Returns 0 if inactive.
+func (s *State) WoundedPreyDPSThreshold(maxHP float32) float32 {
+	if s == nil {
+		return 0
+	}
+	for _, c := range s.Conditions {
+		if c.ID == CondWoundedPrey && c.Rank > 0 {
+			// rank 1: 1.5% MaxHP/s, rank 5: 3.5% MaxHP/s
+			return maxHP * (0.01 + 0.005*float32(c.Rank))
+		}
+	}
+	return 0
+}
+
+// WoundedPreyRegenRate returns the boss HP regeneration rate when DPS is below
+// threshold. Expressed as HP per second. Returns 0 if inactive.
+func (s *State) WoundedPreyRegenRate(maxHP float32) float32 {
+	if s == nil {
+		return 0
+	}
+	for _, c := range s.Conditions {
+		if c.ID == CondWoundedPrey && c.Rank > 0 {
+			// rank 1: 1% MaxHP/s, rank 5: 3% MaxHP/s
+			return maxHP * (0.005 + 0.005*float32(c.Rank))
+		}
+	}
+	return 0
 }
 
 // HasCondition returns true if the given condition is active (rank > 0).

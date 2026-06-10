@@ -83,12 +83,12 @@ func TestComputeScore(t *testing.T) {
 		{
 			name:       "single condition rank 1",
 			conditions: []ActiveCondition{{ID: CondEnemyHP, Rank: 1}},
-			want:       4, // ScorePerRank(4) * rank(1)
+			want:       5, // ScorePerRank(5) * rank(1)
 		},
 		{
 			name:       "single condition rank 5",
 			conditions: []ActiveCondition{{ID: CondEnemyHP, Rank: 5}},
-			want:       20, // ScorePerRank(4) * rank(5)
+			want:       25, // ScorePerRank(5) * rank(5)
 		},
 		{
 			name: "multiple conditions with same id",
@@ -96,7 +96,7 @@ func TestComputeScore(t *testing.T) {
 				{ID: CondEnemyHP, Rank: 2},
 				{ID: CondEnemyHP, Rank: 3},
 			},
-			want: 20, // (4*2) + (4*3)
+			want: 25, // (5*2) + (5*3)
 		},
 		{
 			name:       "unknown condition ID returns 0",
@@ -109,7 +109,7 @@ func TestComputeScore(t *testing.T) {
 				{ID: CondEnemyHP, Rank: 2},
 				{ID: "nonexistent", Rank: 5},
 			},
-			want: 8, // only the known condition counts
+			want: 10, // only the known condition counts (5*2)
 		},
 		{
 			name:       "rank 0 skipped",
@@ -153,8 +153,8 @@ func TestNewState(t *testing.T) {
 		if s.Conditions[0].ID != CondEnemyHP || s.Conditions[0].Rank != 3 {
 			t.Errorf("unexpected condition: %+v", s.Conditions[0])
 		}
-		if s.TotalScore != 12 {
-			t.Errorf("want score 12, got %d", s.TotalScore)
+		if s.TotalScore != 15 {
+			t.Errorf("want score 15, got %d", s.TotalScore)
 		}
 	})
 
@@ -197,8 +197,8 @@ func TestNewState(t *testing.T) {
 		if s.Conditions[0].Rank != 2 {
 			t.Errorf("want rank 2, got %d", s.Conditions[0].Rank)
 		}
-		if s.TotalScore != 8 {
-			t.Errorf("want score 8, got %d", s.TotalScore)
+		if s.TotalScore != 10 {
+			t.Errorf("want score 10, got %d", s.TotalScore)
 		}
 	})
 }

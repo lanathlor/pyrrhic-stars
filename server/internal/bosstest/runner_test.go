@@ -385,3 +385,135 @@ func runFuzzBatch(t *testing.T, spec *bosstest.EncounterSpec, oflxName string, o
 	report.PrintReport(t)
 	return allResults
 }
+
+// --- Calibration ---
+
+var flagCalibrate = flag.Bool("boss.calibrate", false, "run score calibration (outputs recommended ScorePerRank)")
+var flagCalibIters = flag.Int("boss.calibrate-iterations", 150, "iterations per condition per rank")
+
+func TestBoss_Calibrate(t *testing.T) {
+	if !*flagCalibrate {
+		t.Skip("score calibration disabled (pass -boss.calibrate to enable)")
+	}
+
+	specs, err := filepath.Glob("testdata/specs/*.yaml")
+	if err != nil {
+		t.Fatalf("glob specs: %v", err)
+	}
+
+	for _, specPath := range specs {
+		base := strings.TrimSuffix(filepath.Base(specPath), ".yaml")
+		if !shouldRunBoss(base) {
+			continue
+		}
+		spec, err := bosstest.LoadSpec(specPath)
+		if err != nil {
+			t.Fatalf("load spec: %v", err)
+		}
+		spec.ExpandVariants()
+		t.Run(base, func(t *testing.T) {
+			runCalibration(t, spec)
+		})
+	}
+}
+
+func runCalibration(t *testing.T, spec *bosstest.EncounterSpec) {
+	iters := *flagCalibIters
+	sink := &combatlog.InMemorySink{}
+
+	// Run baseline
+	baselineWinRate := runCalibBatch(t, spec, nil, "baseline", iters, sink)
+
+	type calibResult struct {
+		condID  string
+		rank    int
+		winRate float64
+		delta   float64
+		score   int
+	}
+	var results []calibResult
+
+	// Run each condition at each rank individually
+	for _, def := range overflux.Registry {
+		for rank := 1; rank <= def.MaxRank; rank++ {
+			oflx := overflux.NewState([]overflux.ActiveCondition{
+				{ID: def.ID, Rank: rank},
+			})
+			label := fmt.Sprintf("%s_%d", def.ID, rank)
+			wr := runCalibBatch(t, spec, oflx, label, iters, sink)
+			delta := baselineWinRate - wr
+			if delta < 0 {
+				delta = 0
+			}
+			// K=0.5: 2% win-rate drop per score point
+			score := int(delta * 50)
+			results = append(results, calibResult{
+				condID: string(def.ID), rank: rank,
+				winRate: wr, delta: delta, score: score,
+			})
+		}
+	}
+
+	// Print calibration table
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "\n%s\n", strings.Repeat("━", 80))
+	fmt.Fprintf(&sb, "  SCORE CALIBRATION: %s (%d iterations per condition)\n", spec.Boss, iters)
+	fmt.Fprintf(&sb, "  Baseline win rate: %.1f%%\n", baselineWinRate*100)
+	fmt.Fprintf(&sb, "%s\n\n", strings.Repeat("━", 80))
+	fmt.Fprintf(&sb, "  %-20s %5s %10s %10s %10s\n", "Condition", "Rank", "Win%", "Delta", "Score")
+	fmt.Fprintf(&sb, "  %s\n", strings.Repeat("─", 60))
+	for _, r := range results {
+		fmt.Fprintf(&sb, "  %-20s %5d %9.1f%% %9.1f%% %10d\n",
+			r.condID, r.rank, r.winRate*100, r.delta*100, r.score)
+	}
+
+	// Compute recommended ScorePerRank (average score across ranks for ranked conditions)
+	fmt.Fprintf(&sb, "\n  %s\n", strings.Repeat("─", 60))
+	sb.WriteString("  Recommended ScorePerRank:\n")
+	condScores := make(map[string][]int)
+	for _, r := range results {
+		condScores[r.condID] = append(condScores[r.condID], r.score)
+	}
+	for condID, scores := range condScores {
+		if len(scores) == 1 {
+			fmt.Fprintf(&sb, "    %-20s %d (single rank)\n", condID, scores[0])
+		} else {
+			// For ranked conditions, use score-per-rank = max_score / max_rank
+			maxScore := scores[len(scores)-1]
+			maxRank := len(scores)
+			perRank := max(maxScore/maxRank, 1)
+			fmt.Fprintf(&sb, "    %-20s %d (max score %d / %d ranks)\n", condID, perRank, maxScore, maxRank)
+		}
+	}
+	fmt.Fprintf(&sb, "\n%s\n", strings.Repeat("━", 80))
+	t.Log(sb.String())
+}
+
+func runCalibBatch(t *testing.T, spec *bosstest.EncounterSpec, oflx *overflux.State, label string, iters int, sink combatlog.EventSink) float64 {
+	t.Helper()
+	wins := 0
+	total := 0
+	groupID := fmt.Sprintf("calib_%s_%s_%d", spec.Boss, label, os.Getpid())
+
+	for _, comp := range spec.Compositions {
+		party := comp.ToPartyConfigs()
+		runsPerComp := iters / len(spec.Compositions)
+		for i := range runsPerComp {
+			result := bosstest.RunSimulation(bosstest.SimConfig{
+				Boss:        spec.Boss,
+				Party:       party,
+				Seed:        uint64(i),
+				Sink:        sink,
+				GroupID:     groupID,
+				RunID:       fmt.Sprintf("%s_%d", groupID, i),
+				PuppetTrees: puppetTrees,
+				Overflux:    oflx,
+			})
+			total++
+			if result.Outcome == combatlog.OutcomePlayerWin {
+				wins++
+			}
+		}
+	}
+	return float64(wins) / float64(total)
+}

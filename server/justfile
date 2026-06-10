@@ -94,6 +94,23 @@ test-boss-fuzz *ARGS:
     done
     go test ./internal/bosstest/ -v -count=1 -timeout=10m -run=TestBoss $BOSS_ARGS
 
+# Run score calibration (outputs recommended ScorePerRank from fuzz data)
+# Args: [boss_name] [iterations_per_condition]
+# Example: just test-boss-calibrate guard_captain 200
+test-boss-calibrate *ARGS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export CODEX_MOBS_DIR="{{source_directory()}}/../shared/mobs"
+    export CODEX_ENCOUNTERS_DIR="{{source_directory()}}/../shared/encounters"
+    BOSS_ARGS="-boss.calibrate"
+    for arg in {{ARGS}}; do
+        case "$arg" in
+            [0-9]*) BOSS_ARGS="$BOSS_ARGS -boss.calibrate-iterations=$arg" ;;
+            *) BOSS_ARGS="$BOSS_ARGS -boss.only=$arg" ;;
+        esac
+    done
+    go test ./internal/bosstest/ -v -count=1 -timeout=30m -run=TestBoss_Calibrate $BOSS_ARGS
+
 # Run all tests with race detector
 test-race:
     go test ./... -race -count=1

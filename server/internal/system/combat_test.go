@@ -7,8 +7,10 @@ import (
 
 	"codex-online/server/internal/ability"
 	"codex-online/server/internal/codec"
+	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/message"
+	"codex-online/server/internal/overflux"
 )
 
 func makeWorld(t testing.TB, players map[uint16]*entity.Player, enemies []*entity.Enemy) *World {
@@ -103,6 +105,68 @@ func TestNoRegenDuringActiveBossFight(t *testing.T) {
 
 	if p.Health != 50.0 {
 		t.Errorf("health = %f after 100 combat ticks, want 50.0 (no regen during combat)", p.Health)
+	}
+}
+
+func TestWoundedPrey_BossRegensWhenNoDPS(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassGunner)
+	e := entity.NewEnemy(0, 2000.0, "guard_captain")
+	e.Alive = true
+	e.IsBoss = true
+	e.Health = 1000.0 // 50% HP
+
+	oflx := overflux.NewState([]overflux.ActiveCondition{
+		{ID: overflux.CondWoundedPrey, Rank: 3},
+	})
+
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	w.Boss = e
+	w.OverfluxState = oflx
+	sys := CombatSystem{}
+
+	hpBefore := e.Health
+	// Tick 40 times (2 seconds) with no player damage
+	for range 40 {
+		w.DamageEvents = w.DamageEvents[:0]
+		sys.Tick(w, 0.05)
+	}
+
+	if e.Health <= hpBefore {
+		t.Errorf("boss health = %f, want > %f (should regen with no DPS)", e.Health, hpBefore)
+	}
+}
+
+func TestWoundedPrey_BossDoesNotRegenUnderSustainedDPS(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassGunner)
+	e := entity.NewEnemy(0, 2000.0, "guard_captain")
+	e.Alive = true
+	e.IsBoss = true
+	e.Health = 1000.0
+
+	oflx := overflux.NewState([]overflux.ActiveCondition{
+		{ID: overflux.CondWoundedPrey, Rank: 1},
+	})
+
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	w.Boss = e
+	w.OverfluxState = oflx
+	sys := CombatSystem{}
+
+	// Simulate high DPS: inject player damage events each tick
+	for range 40 {
+		w.DamageEvents = w.DamageEvents[:0]
+		// Inject 50 damage per tick = 1000 DPS (way above threshold)
+		w.DamageEvents = append(w.DamageEvents, combat.DamageEvent{
+			SourcePeerID: 1,
+			Amount:       50,
+			SourceType:   combat.SourcePlayerAttack,
+		})
+		sys.Tick(w, 0.05)
+	}
+
+	// Boss should NOT have regenerated (sustained DPS above threshold)
+	if e.Health > 1000.0 {
+		t.Errorf("boss health = %f, want <= 1000.0 (should not regen under sustained DPS)", e.Health)
 	}
 }
 
