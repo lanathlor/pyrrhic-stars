@@ -81,6 +81,13 @@ func (r *stubRepo) GetLoadoutPresets(uint) ([]*persistence.CharacterLoadoutPrese
 	return nil, nil
 }
 
+// Merchant scrip stubs (not used by character service tests).
+func (r *stubRepo) GetScrip(uint, uint16) (int, error)      { return 0, nil }
+func (r *stubRepo) AddScrip(uint, uint16, int) error        { return nil }
+func (r *stubRepo) DeductScrip(uint, uint16, int) error     { return nil }
+func (r *stubRepo) GetWatermark(uint, uint16) (int, error)  { return 0, nil }
+func (r *stubRepo) UpdateWatermark(uint, uint16, int) error { return nil }
+
 func TestSelect(t *testing.T) {
 	repo := newStubRepo()
 	repo.chars[1] = &persistence.Character{ID: 1, UserID: "player-1", ClassName: entity.ClassGunner, Name: "Hero"}

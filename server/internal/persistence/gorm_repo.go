@@ -45,7 +45,7 @@ func NewGormRepo(driver, dsn string) (*GormRepo, error) {
 		return nil, fmt.Errorf("persistence open: %w", err)
 	}
 
-	if err := db.AutoMigrate(&User{}, &Character{}, &CharacterItem{}, &CharacterEquipment{}, &CharacterLoadout{}, &CharacterFluxCommitment{}, &CharacterLoadoutPreset{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &Character{}, &CharacterItem{}, &CharacterEquipment{}, &CharacterLoadout{}, &CharacterFluxCommitment{}, &CharacterLoadoutPreset{}, &CharacterScrip{}, &CharacterWatermark{}); err != nil {
 		return nil, fmt.Errorf("persistence migrate: %w", err)
 	}
 
@@ -250,4 +250,72 @@ func (r *GormRepo) GetLoadoutPresets(charID uint) ([]*CharacterLoadoutPreset, er
 	var presets []*CharacterLoadoutPreset
 	result := r.db.Where("character_id = ?", charID).Order("name").Find(&presets)
 	return presets, result.Error
+}
+
+func (r *GormRepo) GetScrip(charID uint, season uint16) (int, error) {
+	var row CharacterScrip
+	result := r.db.Where("character_id = ? AND season = ?", charID, season).First(&row)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return 0, nil
+	}
+	if result.Error != nil {
+		return 0, result.Error
+	}
+	return row.Balance, nil
+}
+
+func (r *GormRepo) AddScrip(charID uint, season uint16, amount int) error {
+	var row CharacterScrip
+	result := r.db.Where("character_id = ? AND season = ?", charID, season).First(&row)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		row = CharacterScrip{CharacterID: charID, Season: season, Balance: amount}
+		return r.db.Create(&row).Error
+	}
+	if result.Error != nil {
+		return result.Error
+	}
+	return r.db.Model(&row).Update("balance", row.Balance+amount).Error
+}
+
+func (r *GormRepo) DeductScrip(charID uint, season uint16, amount int) error {
+	var row CharacterScrip
+	result := r.db.Where("character_id = ? AND season = ?", charID, season).First(&row)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("deduct scrip: no scrip record for character %d season %d", charID, season)
+	}
+	if result.Error != nil {
+		return result.Error
+	}
+	if row.Balance < amount {
+		return fmt.Errorf("deduct scrip: insufficient balance (%d < %d)", row.Balance, amount)
+	}
+	return r.db.Model(&row).Update("balance", row.Balance-amount).Error
+}
+
+func (r *GormRepo) GetWatermark(charID uint, season uint16) (int, error) {
+	var row CharacterWatermark
+	result := r.db.Where("character_id = ? AND season = ?", charID, season).First(&row)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return 0, nil
+	}
+	if result.Error != nil {
+		return 0, result.Error
+	}
+	return row.BestScore, nil
+}
+
+func (r *GormRepo) UpdateWatermark(charID uint, season uint16, score int) error {
+	var row CharacterWatermark
+	result := r.db.Where("character_id = ? AND season = ?", charID, season).First(&row)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		row = CharacterWatermark{CharacterID: charID, Season: season, BestScore: score}
+		return r.db.Create(&row).Error
+	}
+	if result.Error != nil {
+		return result.Error
+	}
+	if score <= row.BestScore {
+		return nil
+	}
+	return r.db.Model(&row).Update("best_score", score).Error
 }

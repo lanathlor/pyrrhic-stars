@@ -67,6 +67,21 @@ type Repository interface {
 
 	// GetLoadoutPresets returns all presets for a character, ordered by name.
 	GetLoadoutPresets(charID uint) ([]*CharacterLoadoutPreset, error)
+
+	// GetScrip returns the scrip balance for a character in a season. Returns 0 if no row.
+	GetScrip(charID uint, season uint16) (int, error)
+
+	// AddScrip adds amount to the character's scrip balance for the season (upsert).
+	AddScrip(charID uint, season uint16, amount int) error
+
+	// DeductScrip subtracts amount from balance. Returns error if insufficient funds.
+	DeductScrip(charID uint, season uint16, amount int) error
+
+	// GetWatermark returns the best overflux score for a character in a season. Returns 0 if no row.
+	GetWatermark(charID uint, season uint16) (int, error)
+
+	// UpdateWatermark sets the watermark to score if it exceeds the current value (upsert).
+	UpdateWatermark(charID uint, season uint16, score int) error
 }
 
 // FluxCommitmentEntry is a school+percentage pair for the repo interface.
