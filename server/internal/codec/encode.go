@@ -664,3 +664,85 @@ func EncodeAbilityCatalog(entries []AbilityCatalogEntry) []byte {
 	}
 	return buf
 }
+
+// MerchantTierInfo holds display data for one merchant tier.
+type MerchantTierInfo struct {
+	ILvl     int
+	Unlocked bool
+	Price    int
+	Items    []MerchantItemInfo
+}
+
+// MerchantItemInfo holds display data for one item in a merchant's inventory.
+type MerchantItemInfo struct {
+	DefID     string
+	Name      string
+	SlotID    uint8
+	StatLines []InventoryStatLine
+}
+
+// EncodeMerchantState encodes the full merchant state for a player.
+// Wire: [balance:u32 LE][watermark:u16 LE][season:u16 LE][max_score:u16 LE][tier_count:u8]
+//
+//	per tier: [ilvl:u8][unlocked:u8][price:u32 LE][item_count:u8]
+//	  per item: [def_id:str8][name:str8][slot:u8][stat_count:u8][per stat: stat_id:u8 + value:f32 LE]
+func EncodeMerchantState(balance int, watermark int, season, maxScore uint16, tiers []MerchantTierInfo) []byte {
+	buf := make([]byte, 0, 256)
+	buf = appendU32(buf, uint32(balance))
+	buf = appendU16(buf, uint16(watermark))
+	buf = appendU16(buf, season)
+	buf = appendU16(buf, maxScore)
+	buf = append(buf, byte(len(tiers)))
+	for _, t := range tiers {
+		buf = append(buf, byte(t.ILvl))
+		if t.Unlocked {
+			buf = append(buf, 1)
+		} else {
+			buf = append(buf, 0)
+		}
+		buf = appendU32(buf, uint32(t.Price))
+		buf = append(buf, byte(len(t.Items)))
+		for _, it := range t.Items {
+			buf = appendStr8(buf, it.DefID)
+			buf = appendStr8(buf, it.Name)
+			buf = append(buf, it.SlotID)
+			buf = append(buf, byte(len(it.StatLines)))
+			for _, sl := range it.StatLines {
+				buf = append(buf, sl.Stat)
+				buf = appendF32(buf, sl.Value)
+			}
+		}
+	}
+	return buf
+}
+
+// EncodeMerchantBuySuccess encodes a successful purchase result.
+// Wire: [success:1][new_balance:u32 LE][item_id:u32 LE][err_len:0]
+func EncodeMerchantBuySuccess(newBalance int, itemID uint32) []byte {
+	buf := make([]byte, 0, 16)
+	buf = append(buf, 1)
+	buf = appendU32(buf, uint32(newBalance))
+	buf = appendU32(buf, itemID)
+	buf = appendStr8(buf, "")
+	return buf
+}
+
+// EncodeMerchantBuyError encodes a failed purchase result.
+// Wire: [success:0][new_balance:0][item_id:0][err_msg:str8]
+func EncodeMerchantBuyError(errMsg string) []byte {
+	buf := make([]byte, 0, 16)
+	buf = append(buf, 0)
+	buf = appendU32(buf, 0)
+	buf = appendU32(buf, 0)
+	buf = appendStr8(buf, errMsg)
+	return buf
+}
+
+// EncodeScripAward encodes a scrip reward notification.
+// Wire: [amount:u16 LE][new_balance:u32 LE]
+func EncodeScripAward(amount int, newBalance int) []byte {
+	buf := make([]byte, 0, 6)
+	buf = appendU16(buf, uint16(amount))
+	buf = appendU32(buf, uint32(newBalance))
+	return buf
+}
