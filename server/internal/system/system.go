@@ -110,6 +110,7 @@ type World struct {
 
 	// Callbacks (set by zone/gateway)
 	OnPlayerReturnToOpenWorld func(peerID uint16)
+	OnBossDefeated            func(peerIDs []uint16, overfluxScore int)
 	BroadcastToAll            func(msg []byte, excludePeerID uint16)
 
 	// SendBuf is a pooled buffer for the broadcast path.

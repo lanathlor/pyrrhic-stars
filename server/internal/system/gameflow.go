@@ -215,6 +215,17 @@ func checkFightEnd(w *World) {
 		w.GameFlowEvents = append(w.GameFlowEvents, GameFlowEvent{
 			FlowType: message.FlowBossDead,
 		})
+		if w.OnBossDefeated != nil {
+			peerIDs := make([]uint16, 0, len(w.Players))
+			for id := range w.Players {
+				peerIDs = append(peerIDs, id)
+			}
+			score := 0
+			if w.OverfluxState != nil {
+				score = w.OverfluxState.TotalScore
+			}
+			w.OnBossDefeated(peerIDs, score)
+		}
 		return
 	}
 

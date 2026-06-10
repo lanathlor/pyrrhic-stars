@@ -18,6 +18,7 @@ import (
 	"codex-online/server/internal/inventory"
 	"codex-online/server/internal/item"
 	"codex-online/server/internal/level"
+	"codex-online/server/internal/merchant"
 	"codex-online/server/internal/message"
 	"codex-online/server/internal/network"
 	"codex-online/server/internal/overflux"
@@ -39,6 +40,7 @@ type gateway struct {
 	users      *user.Service
 	characters *character.Service
 	inventory  *inventory.Service
+	merchant   *merchant.Service
 	catalog    *abilitycatalog.Catalog
 	abilityEng *ability.Engine    // for stat lookups when building catalog
 	udpServer  *network.UDPServer // shared UDP socket for game state transport
@@ -109,6 +111,7 @@ func newGateway(ctr *container.Container) *gateway {
 		users:      user.NewService(ctr.Repo),
 		characters: character.NewService(ctr.Repo),
 		inventory:  inventory.NewService(ctr.Repo),
+		merchant:   merchant.NewService(ctr.Repo),
 		connPerIP:  make(map[string]int),
 	}
 }
@@ -550,9 +553,32 @@ func (g *gateway) transferPlayer(sess *session.Session, targetZoneID string, lvl
 		zi.zone.SetOnPlayerReturnToOpenWorld(func(peerID uint16) {
 			g.handlePlayerReturnToOpenWorld(targetZoneID, peerID)
 		})
+		zi.zone.SetOnBossDefeated(func(peerIDs []uint16, overfluxScore int) {
+			g.handleBossDefeated(targetZoneID, peerIDs, overfluxScore)
+		})
 	}
 
 	g.joinZone(sess, zi, joinResponseZoneTransfer)
+}
+
+// handleBossDefeated awards mercenary scrip to all players in the instance when the boss dies.
+func (g *gateway) handleBossDefeated(zoneID string, peerIDs []uint16, overfluxScore int) {
+	for _, peerID := range peerIDs {
+		globalID := g.sessions.ResolveZonePeer(zoneID, peerID)
+		if globalID == 0 {
+			continue
+		}
+		sess := g.sessions.GetByID(globalID)
+		if sess == nil || sess.CharID == 0 {
+			continue
+		}
+		amount, err := g.merchant.AwardScrip(sess.CharID, overfluxScore)
+		if err != nil {
+			slog.Error("award scrip failed", "char_id", sess.CharID, "error", err)
+			continue
+		}
+		slog.Info("scrip awarded", "char_id", sess.CharID, "amount", amount, "overflux", overfluxScore)
+	}
 }
 
 // handlePlayerReturnToOpenWorld transfers a single dead player back to the open-world zone.
