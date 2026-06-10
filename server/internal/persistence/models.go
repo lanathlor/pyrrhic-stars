@@ -83,3 +83,21 @@ type CharacterLoadoutPreset struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
+
+// CharacterScrip stores the mercenary scrip balance for a character in a given season.
+// One row per (character, season). Balance resets each season.
+type CharacterScrip struct {
+	ID          uint   `gorm:"primaryKey"`
+	CharacterID uint   `gorm:"uniqueIndex:idx_char_scrip_season"`
+	Season      uint16 `gorm:"uniqueIndex:idx_char_scrip_season"`
+	Balance     int
+}
+
+// CharacterWatermark stores the highest overflux score achieved by a character in a season.
+// Used to determine merchant tier unlock. One row per (character, season).
+type CharacterWatermark struct {
+	ID          uint   `gorm:"primaryKey"`
+	CharacterID uint   `gorm:"uniqueIndex:idx_char_watermark_season"`
+	Season      uint16 `gorm:"uniqueIndex:idx_char_watermark_season"`
+	BestScore   int
+}
