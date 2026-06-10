@@ -1,6 +1,7 @@
 package persistence
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -359,5 +360,280 @@ func TestUpsertLoadoutEmptySlots(t *testing.T) {
 	gotSlots := [6]string{got.Slot0, got.Slot1, got.Slot2, got.Slot3, got.Slot4, got.Slot5}
 	if gotSlots != empty {
 		t.Errorf("slots = %v, want all empty strings", gotSlots)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// GetScrip
+// ---------------------------------------------------------------------------
+
+func TestGetScripMissing(t *testing.T) {
+	repo := newTestRepo(t)
+	charID := createTestCharacter(t, repo, "aaaa0001-0000-4000-8000-000000000001", "ScripUser1", "ScripChar1")
+
+	balance, err := repo.GetScrip(charID, 1)
+	if err != nil {
+		t.Fatalf("GetScrip: %v", err)
+	}
+	if balance != 0 {
+		t.Errorf("balance = %d for missing row, want 0", balance)
+	}
+}
+
+func TestGetScripAfterAdd(t *testing.T) {
+	repo := newTestRepo(t)
+	charID := createTestCharacter(t, repo, "aaaa0001-0000-4000-8000-000000000002", "ScripUser2", "ScripChar2")
+
+	if err := repo.AddScrip(charID, 1, 50); err != nil {
+		t.Fatalf("AddScrip: %v", err)
+	}
+
+	balance, err := repo.GetScrip(charID, 1)
+	if err != nil {
+		t.Fatalf("GetScrip: %v", err)
+	}
+	if balance != 50 {
+		t.Errorf("balance = %d, want 50", balance)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// AddScrip
+// ---------------------------------------------------------------------------
+
+func TestAddScripCreatesRow(t *testing.T) {
+	repo := newTestRepo(t)
+	charID := createTestCharacter(t, repo, "aaaa0002-0000-4000-8000-000000000001", "ScripUser3", "ScripChar3")
+
+	if err := repo.AddScrip(charID, 2, 100); err != nil {
+		t.Fatalf("AddScrip (first): %v", err)
+	}
+
+	balance, err := repo.GetScrip(charID, 2)
+	if err != nil {
+		t.Fatalf("GetScrip: %v", err)
+	}
+	if balance != 100 {
+		t.Errorf("balance = %d after first AddScrip, want 100", balance)
+	}
+}
+
+func TestAddScripAccumulates(t *testing.T) {
+	repo := newTestRepo(t)
+	charID := createTestCharacter(t, repo, "aaaa0002-0000-4000-8000-000000000002", "ScripUser4", "ScripChar4")
+
+	if err := repo.AddScrip(charID, 1, 40); err != nil {
+		t.Fatalf("AddScrip (first): %v", err)
+	}
+	if err := repo.AddScrip(charID, 1, 60); err != nil {
+		t.Fatalf("AddScrip (second): %v", err)
+	}
+
+	balance, err := repo.GetScrip(charID, 1)
+	if err != nil {
+		t.Fatalf("GetScrip: %v", err)
+	}
+	if balance != 100 {
+		t.Errorf("balance = %d after two adds, want 100", balance)
+	}
+}
+
+func TestAddScripSeasonsAreIndependent(t *testing.T) {
+	repo := newTestRepo(t)
+	charID := createTestCharacter(t, repo, "aaaa0002-0000-4000-8000-000000000003", "ScripUser5", "ScripChar5")
+
+	if err := repo.AddScrip(charID, 1, 200); err != nil {
+		t.Fatalf("AddScrip season 1: %v", err)
+	}
+	if err := repo.AddScrip(charID, 2, 300); err != nil {
+		t.Fatalf("AddScrip season 2: %v", err)
+	}
+
+	bal1, err := repo.GetScrip(charID, 1)
+	if err != nil {
+		t.Fatalf("GetScrip season 1: %v", err)
+	}
+	bal2, err := repo.GetScrip(charID, 2)
+	if err != nil {
+		t.Fatalf("GetScrip season 2: %v", err)
+	}
+	if bal1 != 200 {
+		t.Errorf("season 1 balance = %d, want 200", bal1)
+	}
+	if bal2 != 300 {
+		t.Errorf("season 2 balance = %d, want 300", bal2)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// DeductScrip
+// ---------------------------------------------------------------------------
+
+func TestDeductScripExactBalance(t *testing.T) {
+	repo := newTestRepo(t)
+	charID := createTestCharacter(t, repo, "aaaa0003-0000-4000-8000-000000000001", "ScripUser6", "ScripChar6")
+
+	if err := repo.AddScrip(charID, 1, 75); err != nil {
+		t.Fatalf("AddScrip: %v", err)
+	}
+	if err := repo.DeductScrip(charID, 1, 75); err != nil {
+		t.Fatalf("DeductScrip (exact): %v", err)
+	}
+
+	balance, err := repo.GetScrip(charID, 1)
+	if err != nil {
+		t.Fatalf("GetScrip: %v", err)
+	}
+	if balance != 0 {
+		t.Errorf("balance = %d after full deduction, want 0", balance)
+	}
+}
+
+func TestDeductScripInsufficientBalance(t *testing.T) {
+	repo := newTestRepo(t)
+	charID := createTestCharacter(t, repo, "aaaa0003-0000-4000-8000-000000000002", "ScripUser7", "ScripChar7")
+
+	if err := repo.AddScrip(charID, 1, 10); err != nil {
+		t.Fatalf("AddScrip: %v", err)
+	}
+
+	err := repo.DeductScrip(charID, 1, 20)
+	if err == nil {
+		t.Fatal("expected error deducting more than balance, got nil")
+	}
+	if !strings.Contains(err.Error(), "insufficient") {
+		t.Errorf("error = %q, want it to contain \"insufficient\"", err.Error())
+	}
+}
+
+func TestDeductScripMissingRow(t *testing.T) {
+	repo := newTestRepo(t)
+	charID := createTestCharacter(t, repo, "aaaa0003-0000-4000-8000-000000000003", "ScripUser8", "ScripChar8")
+
+	err := repo.DeductScrip(charID, 1, 50)
+	if err == nil {
+		t.Fatal("expected error deducting from missing row, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// GetWatermark
+// ---------------------------------------------------------------------------
+
+func TestGetWatermarkMissing(t *testing.T) {
+	repo := newTestRepo(t)
+	charID := createTestCharacter(t, repo, "aaaa0004-0000-4000-8000-000000000001", "WMUser1", "WMChar1")
+
+	score, err := repo.GetWatermark(charID, 1)
+	if err != nil {
+		t.Fatalf("GetWatermark: %v", err)
+	}
+	if score != 0 {
+		t.Errorf("score = %d for missing row, want 0", score)
+	}
+}
+
+func TestGetWatermarkAfterUpdate(t *testing.T) {
+	repo := newTestRepo(t)
+	charID := createTestCharacter(t, repo, "aaaa0004-0000-4000-8000-000000000002", "WMUser2", "WMChar2")
+
+	if err := repo.UpdateWatermark(charID, 1, 500); err != nil {
+		t.Fatalf("UpdateWatermark: %v", err)
+	}
+
+	score, err := repo.GetWatermark(charID, 1)
+	if err != nil {
+		t.Fatalf("GetWatermark: %v", err)
+	}
+	if score != 500 {
+		t.Errorf("score = %d, want 500", score)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// UpdateWatermark
+// ---------------------------------------------------------------------------
+
+func TestUpdateWatermarkCreatesRow(t *testing.T) {
+	repo := newTestRepo(t)
+	charID := createTestCharacter(t, repo, "aaaa0005-0000-4000-8000-000000000001", "WMUser3", "WMChar3")
+
+	if err := repo.UpdateWatermark(charID, 1, 100); err != nil {
+		t.Fatalf("UpdateWatermark (first): %v", err)
+	}
+
+	score, err := repo.GetWatermark(charID, 1)
+	if err != nil {
+		t.Fatalf("GetWatermark: %v", err)
+	}
+	if score != 100 {
+		t.Errorf("score = %d after first UpdateWatermark, want 100", score)
+	}
+}
+
+func TestUpdateWatermarkHigherScoreUpdates(t *testing.T) {
+	repo := newTestRepo(t)
+	charID := createTestCharacter(t, repo, "aaaa0005-0000-4000-8000-000000000002", "WMUser4", "WMChar4")
+
+	if err := repo.UpdateWatermark(charID, 1, 100); err != nil {
+		t.Fatalf("UpdateWatermark (initial): %v", err)
+	}
+	if err := repo.UpdateWatermark(charID, 1, 250); err != nil {
+		t.Fatalf("UpdateWatermark (higher): %v", err)
+	}
+
+	score, err := repo.GetWatermark(charID, 1)
+	if err != nil {
+		t.Fatalf("GetWatermark: %v", err)
+	}
+	if score != 250 {
+		t.Errorf("score = %d after higher update, want 250", score)
+	}
+}
+
+func TestUpdateWatermarkLowerScoreIgnored(t *testing.T) {
+	repo := newTestRepo(t)
+	charID := createTestCharacter(t, repo, "aaaa0005-0000-4000-8000-000000000003", "WMUser5", "WMChar5")
+
+	if err := repo.UpdateWatermark(charID, 1, 300); err != nil {
+		t.Fatalf("UpdateWatermark (initial): %v", err)
+	}
+	if err := repo.UpdateWatermark(charID, 1, 150); err != nil {
+		t.Fatalf("UpdateWatermark (lower): %v", err)
+	}
+
+	score, err := repo.GetWatermark(charID, 1)
+	if err != nil {
+		t.Fatalf("GetWatermark: %v", err)
+	}
+	if score != 300 {
+		t.Errorf("score = %d after lower update, want 300 (watermark must not decrease)", score)
+	}
+}
+
+func TestUpdateWatermarkSeasonsAreIndependent(t *testing.T) {
+	repo := newTestRepo(t)
+	charID := createTestCharacter(t, repo, "aaaa0005-0000-4000-8000-000000000004", "WMUser6", "WMChar6")
+
+	if err := repo.UpdateWatermark(charID, 1, 400); err != nil {
+		t.Fatalf("UpdateWatermark season 1: %v", err)
+	}
+	if err := repo.UpdateWatermark(charID, 2, 600); err != nil {
+		t.Fatalf("UpdateWatermark season 2: %v", err)
+	}
+
+	sc1, err := repo.GetWatermark(charID, 1)
+	if err != nil {
+		t.Fatalf("GetWatermark season 1: %v", err)
+	}
+	sc2, err := repo.GetWatermark(charID, 2)
+	if err != nil {
+		t.Fatalf("GetWatermark season 2: %v", err)
+	}
+	if sc1 != 400 {
+		t.Errorf("season 1 watermark = %d, want 400", sc1)
+	}
+	if sc2 != 600 {
+		t.Errorf("season 2 watermark = %d, want 600", sc2)
 	}
 }

@@ -1452,3 +1452,397 @@ func TestWorldStateArcanotechnicienFieldOrder(t *testing.T) {
 		t.Errorf("MaxHealth = %f, want 170.0", dp.MaxHealth)
 	}
 }
+
+// =============================================================================
+// DecodeMerchantInteract
+// =============================================================================
+
+func TestDecodeMerchantInteract_Valid(t *testing.T) {
+	tier, ok := DecodeMerchantInteract([]byte{2})
+	if !ok {
+		t.Fatal("DecodeMerchantInteract returned !ok for valid 1-byte payload")
+	}
+	if tier != 2 {
+		t.Errorf("tier = %d, want 2", tier)
+	}
+}
+
+func TestDecodeMerchantInteract_ZeroTier(t *testing.T) {
+	tier, ok := DecodeMerchantInteract([]byte{0})
+	if !ok {
+		t.Fatal("DecodeMerchantInteract returned !ok for tier 0")
+	}
+	if tier != 0 {
+		t.Errorf("tier = %d, want 0", tier)
+	}
+}
+
+func TestDecodeMerchantInteract_Empty(t *testing.T) {
+	if _, ok := DecodeMerchantInteract(nil); ok {
+		t.Error("nil payload should return !ok")
+	}
+	if _, ok := DecodeMerchantInteract([]byte{}); ok {
+		t.Error("empty payload should return !ok")
+	}
+}
+
+// =============================================================================
+// DecodeMerchantBuy
+// =============================================================================
+
+func TestDecodeMerchantBuy_Valid(t *testing.T) {
+	defID := "iron_helm"
+	// [tier:u8][len:u8][defID:...]
+	payload := []byte{1, byte(len(defID))}
+	payload = append(payload, []byte(defID)...)
+
+	tier, got, ok := DecodeMerchantBuy(payload)
+	if !ok {
+		t.Fatal("DecodeMerchantBuy returned !ok for valid payload")
+	}
+	if tier != 1 {
+		t.Errorf("tier = %d, want 1", tier)
+	}
+	if got != defID {
+		t.Errorf("defID = %q, want %q", got, defID)
+	}
+}
+
+func TestDecodeMerchantBuy_TooShort(t *testing.T) {
+	tests := []struct {
+		name    string
+		payload []byte
+	}{
+		{"nil", nil},
+		{"empty", []byte{}},
+		{"one byte", []byte{0}},
+		{"two bytes", []byte{0, 3}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, _, ok := DecodeMerchantBuy(tc.payload); ok {
+				t.Errorf("payload %v should return !ok", tc.payload)
+			}
+		})
+	}
+}
+
+func TestDecodeMerchantBuy_TruncatedDefID(t *testing.T) {
+	// Length byte claims 10 bytes but only 3 follow.
+	payload := []byte{0, 10, 'a', 'b', 'c'}
+	if _, _, ok := DecodeMerchantBuy(payload); ok {
+		t.Error("truncated defID should return !ok")
+	}
+}
+
+func TestDecodeMerchantBuy_EmptyDefID(t *testing.T) {
+	// tier=0, len=0 (empty def ID) - valid minimal payload of 3+ bytes: [tier][len=0][nothing]
+	// Minimum valid: [tier:1][len:1][len=0 means no bytes follow] = 2 bytes total but
+	// the check is len < 3, so we need [tier][0x00] padded to 3 bytes.
+	// Looking at decode.go: len < 3 check triggers before reading nameLen, so supply exactly 3.
+	payload := []byte{5, 0, 0} // tier=5, nameLen=0, extra byte (ignored)
+	tier, defID, ok := DecodeMerchantBuy(payload)
+	if !ok {
+		t.Fatal("DecodeMerchantBuy returned !ok for empty defID with 3-byte payload")
+	}
+	if tier != 5 {
+		t.Errorf("tier = %d, want 5", tier)
+	}
+	if defID != "" {
+		t.Errorf("defID = %q, want empty", defID)
+	}
+}
+
+// =============================================================================
+// EncodeMerchantBuySuccess
+// =============================================================================
+
+func TestEncodeMerchantBuySuccess_WireFormat(t *testing.T) {
+	buf := EncodeMerchantBuySuccess(5000, 42)
+
+	// [success:1][balance:u32 LE][itemID:u32 LE][errLen:0]
+	wantLen := 1 + 4 + 4 + 1
+	if len(buf) != wantLen {
+		t.Fatalf("len = %d, want %d", len(buf), wantLen)
+	}
+
+	off := 0
+	if buf[off] != 1 {
+		t.Errorf("success byte = %d, want 1", buf[off])
+	}
+	off++
+
+	balance := binary.LittleEndian.Uint32(buf[off:])
+	off += 4
+	if balance != 5000 {
+		t.Errorf("balance = %d, want 5000", balance)
+	}
+
+	itemID := binary.LittleEndian.Uint32(buf[off:])
+	off += 4
+	if itemID != 42 {
+		t.Errorf("itemID = %d, want 42", itemID)
+	}
+
+	if buf[off] != 0 {
+		t.Errorf("err_len = %d, want 0 (empty error string)", buf[off])
+	}
+}
+
+func TestEncodeMerchantBuySuccess_ZeroBalance(t *testing.T) {
+	buf := EncodeMerchantBuySuccess(0, 0)
+	if buf[0] != 1 {
+		t.Errorf("success byte = %d, want 1", buf[0])
+	}
+	balance := binary.LittleEndian.Uint32(buf[1:5])
+	if balance != 0 {
+		t.Errorf("balance = %d, want 0", balance)
+	}
+	itemID := binary.LittleEndian.Uint32(buf[5:9])
+	if itemID != 0 {
+		t.Errorf("itemID = %d, want 0", itemID)
+	}
+}
+
+// =============================================================================
+// EncodeMerchantBuyError
+// =============================================================================
+
+func TestEncodeMerchantBuyError_WireFormat(t *testing.T) {
+	errMsg := "insufficient scrip"
+	buf := EncodeMerchantBuyError(errMsg)
+
+	// [success:0][balance:u32(0)][itemID:u32(0)][errLen:u8][errMsg:...]
+	wantLen := 1 + 4 + 4 + 1 + len(errMsg)
+	if len(buf) != wantLen {
+		t.Fatalf("len = %d, want %d", len(buf), wantLen)
+	}
+
+	off := 0
+	if buf[off] != 0 {
+		t.Errorf("success byte = %d, want 0", buf[off])
+	}
+	off++
+
+	balance := binary.LittleEndian.Uint32(buf[off:])
+	off += 4
+	if balance != 0 {
+		t.Errorf("balance = %d, want 0 (error path)", balance)
+	}
+
+	itemID := binary.LittleEndian.Uint32(buf[off:])
+	off += 4
+	if itemID != 0 {
+		t.Errorf("itemID = %d, want 0 (error path)", itemID)
+	}
+
+	errLen := int(buf[off])
+	off++
+	if errLen != len(errMsg) {
+		t.Fatalf("errLen = %d, want %d", errLen, len(errMsg))
+	}
+	gotMsg := string(buf[off : off+errLen])
+	if gotMsg != errMsg {
+		t.Errorf("errMsg = %q, want %q", gotMsg, errMsg)
+	}
+}
+
+func TestEncodeMerchantBuyError_Empty(t *testing.T) {
+	buf := EncodeMerchantBuyError("")
+	// [success:0][balance:4][itemID:4][errLen:0] = 10 bytes
+	wantLen := 1 + 4 + 4 + 1
+	if len(buf) != wantLen {
+		t.Fatalf("len = %d, want %d", len(buf), wantLen)
+	}
+	if buf[0] != 0 {
+		t.Errorf("success byte = %d, want 0", buf[0])
+	}
+	if buf[9] != 0 {
+		t.Errorf("err_len = %d, want 0", buf[9])
+	}
+}
+
+// =============================================================================
+// EncodeScripAward
+// =============================================================================
+
+func TestEncodeScripAward_WireFormat(t *testing.T) {
+	buf := EncodeScripAward(250, 3500)
+
+	// Wire: [amount:u16 LE][new_balance:u32 LE]
+	if len(buf) != 6 {
+		t.Fatalf("len = %d, want 6", len(buf))
+	}
+
+	amount := binary.LittleEndian.Uint16(buf[0:2])
+	if amount != 250 {
+		t.Errorf("amount = %d, want 250", amount)
+	}
+
+	balance := binary.LittleEndian.Uint32(buf[2:6])
+	if balance != 3500 {
+		t.Errorf("balance = %d, want 3500", balance)
+	}
+}
+
+func TestEncodeScripAward_ZeroValues(t *testing.T) {
+	buf := EncodeScripAward(0, 0)
+	if len(buf) != 6 {
+		t.Fatalf("len = %d, want 6", len(buf))
+	}
+	for i, b := range buf {
+		if b != 0 {
+			t.Errorf("buf[%d] = %d, want 0", i, b)
+		}
+	}
+}
+
+func TestEncodeScripAward_MaxUint16Amount(t *testing.T) {
+	buf := EncodeScripAward(65535, 100000)
+	amount := binary.LittleEndian.Uint16(buf[0:2])
+	if amount != 65535 {
+		t.Errorf("amount = %d, want 65535", amount)
+	}
+	balance := binary.LittleEndian.Uint32(buf[2:6])
+	if balance != 100000 {
+		t.Errorf("balance = %d, want 100000", balance)
+	}
+}
+
+// =============================================================================
+// EncodeMerchantState roundtrip
+// =============================================================================
+
+func TestEncodeMerchantState_ByteLength(t *testing.T) {
+	tiers := []MerchantTierInfo{
+		{
+			ILvl:     10,
+			Unlocked: true,
+			Price:    500,
+			Items: []MerchantItemInfo{
+				{
+					DefID:  "iron_helm",
+					Name:   "Iron Helm",
+					SlotID: 1,
+					StatLines: []InventoryStatLine{
+						{Stat: 1, Value: 5.0},
+					},
+				},
+				{
+					DefID:  "iron_chestplate",
+					Name:   "Iron Chestplate",
+					SlotID: 2,
+					StatLines: []InventoryStatLine{
+						{Stat: 2, Value: 10.0},
+						{Stat: 3, Value: 3.0},
+					},
+				},
+			},
+		},
+	}
+
+	buf := EncodeMerchantState(1200, 800, 1, 2000, tiers)
+
+	// Header: balance(4) + watermark(2) + season(2) + max_score(2) + tier_count(1) = 11
+	// Per tier: ilvl(1) + unlocked(1) + price(4) + item_count(1) = 7
+	// Item 0: defID str8(1+9) + name str8(1+9) + slot(1) + stat_count(1) + 1 stat(1+4) = 27
+	// Item 1: defID str8(1+15) + name str8(1+15) + slot(1) + stat_count(1) + 2 stats(2*(1+4)) = 44
+	// Total = 11 + 7 + 27 + 44 = 89
+	wantMin := 11 + 7 + 27 + 44
+	if len(buf) < wantMin {
+		t.Errorf("encoded len = %d, want >= %d", len(buf), wantMin)
+	}
+}
+
+func TestEncodeMerchantState_HeaderFields(t *testing.T) {
+	tiers := []MerchantTierInfo{
+		{ILvl: 5, Unlocked: false, Price: 100},
+	}
+
+	buf := EncodeMerchantState(9999, 1234, 3, 5000, tiers)
+
+	off := 0
+
+	// balance: u32 LE
+	balance := binary.LittleEndian.Uint32(buf[off:])
+	off += 4
+	if balance != 9999 {
+		t.Errorf("balance = %d, want 9999", balance)
+	}
+
+	// watermark: u16 LE
+	watermark := binary.LittleEndian.Uint16(buf[off:])
+	off += 2
+	if watermark != 1234 {
+		t.Errorf("watermark = %d, want 1234", watermark)
+	}
+
+	// season: u16 LE
+	season := binary.LittleEndian.Uint16(buf[off:])
+	off += 2
+	if season != 3 {
+		t.Errorf("season = %d, want 3", season)
+	}
+
+	// max_score: u16 LE
+	maxScore := binary.LittleEndian.Uint16(buf[off:])
+	off += 2
+	if maxScore != 5000 {
+		t.Errorf("max_score = %d, want 5000", maxScore)
+	}
+
+	// tier_count: u8
+	tierCount := buf[off]
+	off++
+	if tierCount != 1 {
+		t.Errorf("tier_count = %d, want 1", tierCount)
+	}
+
+	// First tier: ilvl(1) + unlocked(1) + price(4) + item_count(1)
+	ilvl := buf[off]
+	off++
+	if ilvl != 5 {
+		t.Errorf("tier[0].ilvl = %d, want 5", ilvl)
+	}
+
+	unlocked := buf[off]
+	off++
+	if unlocked != 0 {
+		t.Errorf("tier[0].unlocked = %d, want 0", unlocked)
+	}
+
+	price := binary.LittleEndian.Uint32(buf[off:])
+	off += 4
+	if price != 100 {
+		t.Errorf("tier[0].price = %d, want 100", price)
+	}
+
+	itemCount := buf[off]
+	if itemCount != 0 {
+		t.Errorf("tier[0].item_count = %d, want 0", itemCount)
+	}
+}
+
+func TestEncodeMerchantState_UnlockedFlag(t *testing.T) {
+	tiers := []MerchantTierInfo{
+		{ILvl: 1, Unlocked: true, Price: 0},
+	}
+	buf := EncodeMerchantState(0, 0, 0, 0, tiers)
+
+	// Header is 11 bytes; unlocked byte is at offset 11+1 (after ilvl).
+	unlockedOff := 11 + 1
+	if buf[unlockedOff] != 1 {
+		t.Errorf("unlocked = %d, want 1", buf[unlockedOff])
+	}
+}
+
+func TestEncodeMerchantState_EmptyTiers(t *testing.T) {
+	buf := EncodeMerchantState(0, 0, 0, 0, nil)
+	// Header only: balance(4) + watermark(2) + season(2) + max_score(2) + tier_count(1) = 11
+	if len(buf) != 11 {
+		t.Errorf("len = %d, want 11 (header only, no tiers)", len(buf))
+	}
+	if buf[10] != 0 {
+		t.Errorf("tier_count = %d, want 0", buf[10])
+	}
+}
