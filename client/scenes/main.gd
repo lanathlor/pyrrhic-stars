@@ -119,6 +119,8 @@ var _portal_trail: Node3D:
 		return null
 
 var _overflux_panel: CanvasLayer
+var _merchant_layer: CanvasLayer
+var _merchant_panel: Control
 
 # Sub-systems (static children in main.tscn)
 @onready var entity_mgr: Node = $EntityManager
@@ -172,6 +174,16 @@ func _ready() -> void:
 	add_child(_overflux_panel)
 	_overflux_panel.confirmed.connect(_on_overflux_confirmed)
 	_overflux_panel.cancelled.connect(_on_overflux_cancelled)
+
+	# Merchant shop panel (code-built, no .tscn)
+	_merchant_layer = CanvasLayer.new()
+	_merchant_layer.layer = 18
+	add_child(_merchant_layer)
+	var MerchantPanel := preload("res://scenes/ui/merchant_panel.gd")
+	_merchant_panel = MerchantPanel.new()
+	_merchant_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_merchant_layer.add_child(_merchant_panel)
+	_merchant_panel.closed.connect(_update_cursor_mode)
 
 	_connect_network_signals()
 
@@ -270,6 +282,9 @@ func _connect_network_signals() -> void:
 	NetworkManager.character_error_received.connect(char_mgr.on_character_error)
 	NetworkManager.instance_join_prompt_received.connect(group_mgr.on_instance_join_prompt)
 	NetworkManager.overflux_state_received.connect(_on_overflux_state)
+	NetworkManager.merchant_state_received.connect(_merchant_panel._on_merchant_state)
+	NetworkManager.merchant_buy_result.connect(_merchant_panel._on_buy_result)
+	NetworkManager.scrip_awarded.connect(_merchant_panel._on_scrip_awarded)
 
 
 func _input(event: InputEvent) -> void:
@@ -381,7 +396,7 @@ func _handle_gameplay_input(event: InputEvent) -> void:
 			else:
 				_overflux_panel.open()
 		elif hub_interact.near_merchant:
-			NetworkManager.send_merchant_interact(hub_interact.merchant_tier)
+			_merchant_panel.open_shop(hub_interact.merchant_tier)
 		elif hub_interact.aimed_peer_id > 0:
 			NetworkManager.send_group_invite(hub_interact.aimed_peer_id)
 		elif state == GameState.FIGHT_OVER and env_builder.is_near_exit_portal():
@@ -479,8 +494,15 @@ func _update_cursor_mode() -> void:
 	var spec_open: bool = _spec_panel.visible
 	var bot_open: bool = dev_mgr.bot_panel != null and dev_mgr.bot_panel.visible
 	var overflux_open: bool = _overflux_panel != null and _overflux_panel.visible
+	var merchant_open: bool = _merchant_panel != null and _merchant_panel.visible
 	var want_cursor: bool = (
-		_cursor_toggled or _alt_held or inv_open or spec_open or bot_open or overflux_open
+		_cursor_toggled
+		or _alt_held
+		or inv_open
+		or spec_open
+		or bot_open
+		or overflux_open
+		or merchant_open
 	)
 	if want_cursor:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
