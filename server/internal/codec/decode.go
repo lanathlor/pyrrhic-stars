@@ -185,3 +185,24 @@ func DecodeDeletePreset(payload []byte) (uint32, bool) {
 	}
 	return getU32(payload[0:4]), true
 }
+
+// DecodeMerchantInteract decodes an OpMerchantInteract payload. Returns the tier index.
+func DecodeMerchantInteract(payload []byte) (tier uint8, ok bool) {
+	if len(payload) < 1 {
+		return 0, false
+	}
+	return payload[0], true
+}
+
+// DecodeMerchantBuy decodes an OpMerchantBuy payload. Returns tier and item def ID.
+func DecodeMerchantBuy(payload []byte) (tier uint8, defID string, ok bool) {
+	if len(payload) < 3 {
+		return 0, "", false
+	}
+	tier = payload[0]
+	nameLen := int(payload[1])
+	if len(payload) < 2+nameLen {
+		return 0, "", false
+	}
+	return tier, string(payload[2 : 2+nameLen]), true
+}

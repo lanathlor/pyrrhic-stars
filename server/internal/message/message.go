@@ -98,6 +98,15 @@ const (
 	// Debug — server → client.
 	OpDebugInfo uint16 = 0x00E0 // [str8: def_name][uint8: n][str8: ability_id]...
 
+	// Merchant -- client -> server.
+	OpMerchantInteract uint16 = 0x00B0 // [tier:u8]
+	OpMerchantBuy      uint16 = 0x00B1 // [tier:u8][def_id:str8]
+
+	// Merchant -- server -> client.
+	OpMerchantState     uint16 = 0x00C0 // full shop state
+	OpMerchantBuyResult uint16 = 0x00C1 // purchase result
+	OpScripAward        uint16 = 0x00C2 // reward notification
+
 	// Zone management — server-handled, never relayed.
 	OpJoinZone            uint16 = 0xFF00
 	OpZoneJoined          uint16 = 0xFF01
@@ -179,7 +188,7 @@ func BroadcastExcludeSender(opcode uint16) bool {
 // IsServerHandled returns true for opcodes that the server processes directly
 // and does not relay to other clients.
 func IsServerHandled(opcode uint16) bool {
-	return opcode >= 0xFF00 || IsGroupRelated(opcode) || IsInventoryRelated(opcode) || IsLoadoutRelated(opcode)
+	return opcode >= 0xFF00 || IsGroupRelated(opcode) || IsInventoryRelated(opcode) || IsLoadoutRelated(opcode) || IsMerchantRelated(opcode)
 }
 
 // IsInventoryRelated returns true for inventory/equipment opcodes (0x0070–0x007F).
@@ -221,6 +230,11 @@ func IsClientInput(opcode uint16) bool {
 // These are routed to the zone simulation only in dev mode.
 func IsDebugInput(opcode uint16) bool {
 	return opcode >= 0x00D0 && opcode <= 0x00DF
+}
+
+// IsMerchantRelated returns true for merchant opcodes (0x00B0-0x00BF).
+func IsMerchantRelated(opcode uint16) bool {
+	return opcode >= 0x00B0 && opcode <= 0x00BF
 }
 
 // Game flow event types sent within OpGameFlowEvent payload.

@@ -578,6 +578,14 @@ func (g *gateway) handleBossDefeated(zoneID string, peerIDs []uint16, overfluxSc
 			continue
 		}
 		slog.Info("scrip awarded", "char_id", sess.CharID, "amount", amount, "overflux", overfluxScore)
+		// Send award notification to the player.
+		bal, _ := g.merchant.GetState(sess.CharID)
+		newBalance := 0
+		if bal != nil {
+			newBalance = bal.ScripBalance
+		}
+		sess.Conn.Send(message.Encode(message.OpScripAward, 0,
+			codec.EncodeScripAward(amount, newBalance)))
 	}
 }
 
