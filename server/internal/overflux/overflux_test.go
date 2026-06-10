@@ -467,6 +467,19 @@ func TestEncodeJoinPrompt_NilState(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// MaxScore
+// ---------------------------------------------------------------------------
+
+func TestMaxScore(t *testing.T) {
+	// Registry: EnemyHP(5*5) + Tempered(20*1) + Frenzied(10*1) + Volatile(20*1) + WoundedPrey(10*5)
+	// = 25 + 20 + 10 + 20 + 50 = 125
+	want := 125
+	if got := MaxScore(); got != want {
+		t.Errorf("MaxScore() = %d, want %d", got, want)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // DamageMultiplier
 // ---------------------------------------------------------------------------
 
