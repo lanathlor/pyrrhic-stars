@@ -85,6 +85,15 @@ const OP_ABILITY_CATALOG := 0x00A1
 const OP_FLUX_COMMIT_STATE := 0x00A2
 const OP_PRESET_LIST := 0x00A3
 
+# Merchant — client -> server
+const OP_MERCHANT_INTERACT := 0x00B0
+const OP_MERCHANT_BUY := 0x00B1
+
+# Merchant — server -> client
+const OP_MERCHANT_STATE := 0x00C0
+const OP_MERCHANT_BUY_RESULT := 0x00C1
+const OP_SCRIP_AWARD := 0x00C2
+
 # Game flow event types
 const FLOW_SPAWN_PLAYERS := 1
 const FLOW_FIGHT_START := 2

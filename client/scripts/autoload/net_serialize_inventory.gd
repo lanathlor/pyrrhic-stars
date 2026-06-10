@@ -231,3 +231,79 @@ static func _decode_str16(buf: StreamPeerBuffer) -> String:
 	if result[0] == OK:
 		return (result[1] as PackedByteArray).get_string_from_utf8()
 	return ""
+
+
+# =============================================================================
+# Merchant codecs (server -> client)
+# =============================================================================
+
+
+static func decode_merchant_state(payload: PackedByteArray) -> Dictionary:
+	var off := 0
+	var balance := payload.decode_u32(off)
+	off += 4
+	var watermark := payload.decode_u16(off)
+	off += 2
+	var season := payload.decode_u16(off)
+	off += 2
+	var max_score := payload.decode_u16(off)
+	off += 2
+	var tier_count := payload[off]
+	off += 1
+	var tiers := []
+	for _i in tier_count:
+		var ilvl := payload[off]
+		off += 1
+		var unlocked := payload[off] == 1
+		off += 1
+		var price := payload.decode_u32(off)
+		off += 4
+		var item_count := payload[off]
+		off += 1
+		var items := []
+		for _j in item_count:
+			var def_len := payload[off]
+			off += 1
+			var def_id := payload.slice(off, off + def_len).get_string_from_utf8()
+			off += def_len
+			var name_len := payload[off]
+			off += 1
+			var item_name := payload.slice(off, off + name_len).get_string_from_utf8()
+			off += name_len
+			var slot_id := payload[off]
+			off += 1
+			var stat_count := payload[off]
+			off += 1
+			var stats := []
+			for _k in stat_count:
+				var stat_id := payload[off]
+				off += 1
+				var value := payload.decode_float(off)
+				off += 4
+				stats.append({"stat": stat_id, "value": value})
+			items.append({"def_id": def_id, "name": item_name, "slot": slot_id, "stats": stats})
+		tiers.append({"ilvl": ilvl, "unlocked": unlocked, "price": price, "items": items})
+	return {
+		"balance": balance,
+		"watermark": watermark,
+		"season": season,
+		"max_score": max_score,
+		"tiers": tiers,
+	}
+
+
+static func decode_merchant_buy_result(payload: PackedByteArray) -> Dictionary:
+	var success := payload[0] == 1
+	var new_balance := payload.decode_u32(1)
+	var item_id := payload.decode_u32(5)
+	var err_len := payload[9]
+	var err_msg := ""
+	if err_len > 0:
+		err_msg = payload.slice(10, 10 + err_len).get_string_from_utf8()
+	return {"success": success, "new_balance": new_balance, "item_id": item_id, "error": err_msg}
+
+
+static func decode_scrip_award(payload: PackedByteArray) -> Dictionary:
+	var amount := payload.decode_u16(0)
+	var new_balance := payload.decode_u32(2)
+	return {"amount": amount, "new_balance": new_balance}

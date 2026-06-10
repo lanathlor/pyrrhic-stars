@@ -91,6 +91,7 @@ var _hub_class_label: Label
 var _hub_status_label: Label
 var _portal_prompt: Label
 var _lift_prompt: Label
+var _merchant_prompt: Label
 var _group_panel: PanelContainer
 var _group_label: Label
 var _group_leave_btn: Button
@@ -200,6 +201,7 @@ func _init_ui_references() -> void:
 	_hub_status_label = _hub_layer.status_label
 	_portal_prompt = _hub_layer.portal_prompt
 	_lift_prompt = _hub_layer.lift_prompt
+	_merchant_prompt = _hub_layer.merchant_prompt
 	_group_panel = _hub_layer.group_panel
 	_group_label = _hub_layer.group_label
 	_group_leave_btn = _hub_layer.group_leave_btn
@@ -378,6 +380,8 @@ func _handle_gameplay_input(event: InputEvent) -> void:
 				NetworkManager.send_enter_portal()  # join existing group instance
 			else:
 				_overflux_panel.open()
+		elif hub_interact.near_merchant:
+			NetworkManager.send_merchant_interact(hub_interact.merchant_tier)
 		elif hub_interact.aimed_peer_id > 0:
 			NetworkManager.send_group_invite(hub_interact.aimed_peer_id)
 		elif state == GameState.FIGHT_OVER and env_builder.is_near_exit_portal():
@@ -398,6 +402,7 @@ func _physics_process(_delta: float) -> void:
 		hub_interact.check_portal_proximity()
 		if state == GameState.HUB:
 			hub_interact.check_lift_proximity()
+			hub_interact.check_merchant_proximity()
 			hub_interact.check_aim_at_player()
 		elif state == GameState.FIGHT_OVER:
 			env_builder.check_exit_portal_proximity()

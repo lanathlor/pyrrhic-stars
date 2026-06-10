@@ -33,6 +33,9 @@ signal flux_commit_state_received(entries: Array)
 signal preset_list_received(presets: Array)
 signal instance_join_prompt_received(data: Dictionary)
 signal overflux_state_received(data: Dictionary)
+signal merchant_state_received(data: Dictionary)
+signal merchant_buy_result(data: Dictionary)
+signal scrip_awarded(data: Dictionary)
 
 const UDPTransport := preload("res://scripts/autoload/net_udp_transport.gd")
 const DEFAULT_PORT := 7777
@@ -239,6 +242,19 @@ func send_respawn_request(type: int) -> void:
 
 
 # =============================================================================
+# Merchant
+# =============================================================================
+
+
+func send_merchant_interact(tier: int) -> void:
+	send_msg(NetSerializer.OP_MERCHANT_INTERACT, NetSerializer.Inp.encode_merchant_interact(tier))
+
+
+func send_merchant_buy(tier: int, def_id: String) -> void:
+	send_msg(NetSerializer.OP_MERCHANT_BUY, NetSerializer.Inp.encode_merchant_buy(tier, def_id))
+
+
+# =============================================================================
 # Character management
 # =============================================================================
 
@@ -390,6 +406,15 @@ func _handle_delegated_opcodes(opcode: int, payload: PackedByteArray) -> bool:
 			loadout.handle_flux_commit_state(payload)
 		NetSerializer.OP_PRESET_LIST:
 			loadout.handle_preset_list(payload)
+		NetSerializer.OP_MERCHANT_STATE:
+			var data := NetSerializer.Inv.decode_merchant_state(payload)
+			merchant_state_received.emit(data)
+		NetSerializer.OP_MERCHANT_BUY_RESULT:
+			var data := NetSerializer.Inv.decode_merchant_buy_result(payload)
+			merchant_buy_result.emit(data)
+		NetSerializer.OP_SCRIP_AWARD:
+			var data := NetSerializer.Inv.decode_scrip_award(payload)
+			scrip_awarded.emit(data)
 		NetSerializer.OP_DEBUG_INFO:
 			debug.handle_debug_info(payload)
 		_:
