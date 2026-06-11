@@ -47,20 +47,11 @@ func _cleanup_catalog() -> void:
 # =============================================================================
 
 
-func test_hardcoded_slot5_matches_server_default() -> void:
-	## The hardcoded HARMONIST_ABILITIES[5] is Gust Step, but the server's
-	## default loadout slot 5 is Transfusion. This mismatch means the
-	## offline fallback commits a completely different ability than the
-	## server expects.
-	var ability: Dictionary = ArcanoScript.HARMONIST_ABILITIES[5]
-	assert_str(ability.name).is_equal("Transfusion")
-
-
-func test_hardcoded_fallback_has_no_displacement() -> void:
-	## The hardcoded fallback table should not contain displacement abilities.
-	## Displacement triggers client-side movement without server authorization.
-	var ability: Dictionary = ArcanoScript.HARMONIST_ABILITIES[5]
-	assert_str(ability.get("delivery", "")).is_not_equal("displacement")
+func test_hardcoded_table_is_empty() -> void:
+	## HARMONIST_ABILITIES must be empty -- the server loadout is the sole
+	## source of truth. A non-empty fallback table risks committing abilities
+	## that don't match the player's actual server-side loadout.
+	assert_int(ArcanoScript.HARMONIST_ABILITIES.size()).is_equal(0)
 
 
 # =============================================================================
