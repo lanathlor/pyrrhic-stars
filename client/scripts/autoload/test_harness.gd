@@ -17,6 +17,7 @@ var remote_mode: bool = false
 var capture_mode: bool = false
 var e2e_mode: bool = false
 var bot_class: String = "gunner"  # "gunner", "vanguard", or "blade_dancer"
+var scenario_names: PackedStringArray = []
 
 var output_dir: String = "res://test_output/"
 var _tick: int = 0
@@ -34,16 +35,18 @@ func _ready() -> void:
 	capture_mode = "--capture" in args or remote_mode
 	e2e_mode = "--e2e" in args
 
-	# Parse flags: --duration=60, --class=vanguard
+	# Parse flags: --duration=60, --class=vanguard, --e2e-scenarios=a,b
 	for arg in args:
 		if arg.begins_with("--duration="):
 			_e2e_duration = arg.split("=")[1].to_float()
 		elif arg.begins_with("--class="):
 			bot_class = arg.split("=")[1]
+		elif arg.begins_with("--e2e-scenarios="):
+			scenario_names = PackedStringArray(arg.split("=")[1].split(","))
 
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(output_dir))
 
-	if bot_mode or remote_mode:
+	if bot_mode or remote_mode or scenario_names.size() > 0:
 		# Wait one frame for scene tree to be ready, then attach
 		get_tree().process_frame.connect(_on_first_frame, CONNECT_ONE_SHOT)
 
@@ -56,10 +59,21 @@ func _ready() -> void:
 
 
 func _on_first_frame() -> void:
+	if scenario_names.size() > 0:
+		_start_scenario_runner()
+		return
 	if bot_mode:
 		_attach_bot()
 	if remote_mode:
 		_write_state()  # initial state
+
+
+func _start_scenario_runner() -> void:
+	var RunnerScript: GDScript = load("res://scripts/e2e/e2e_runner.gd")
+	var runner: Node = RunnerScript.new()
+	runner.scenario_names = scenario_names
+	add_child(runner)
+	print("[TestHarness] E2E scenario runner started: %s" % ", ".join(scenario_names))
 
 
 func _process(_delta: float) -> void:
