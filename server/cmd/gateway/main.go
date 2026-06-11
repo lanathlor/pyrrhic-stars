@@ -179,13 +179,10 @@ func configureGateway(gw *gateway) error {
 // returns an initialized GormRepo. Errors are logged before being returned.
 func initDatabase(devMode bool) (*persistence.GormRepo, error) { //nolint:revive // init helper, flag coupling is fine
 	dbDriver := os.Getenv("DB_DRIVER")
-	if dbDriver == "" || devMode {
+	if dbDriver == "" {
 		dbDriver = "sqlite"
 	}
 	pgDSN := os.Getenv("POSTGRES_DSN")
-	if devMode {
-		pgDSN = ""
-	}
 	repo, err := persistence.NewGormRepo(dbDriver, pgDSN)
 	if err != nil {
 		slog.Error("database init failed", "driver", dbDriver, "error", err)
