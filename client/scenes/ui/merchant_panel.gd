@@ -19,6 +19,13 @@ const UI_BUY_BG := Color(0.12, 0.18, 0.32, 0.85)
 const UI_BUY_HOVER := Color(0.18, 0.26, 0.44, 0.95)
 const UI_ITEM_BG := Color(0.04, 0.05, 0.07, 0.55)
 const UI_ITEM_HOVER := Color(0.06, 0.08, 0.12, 0.7)
+const UI_LOCKED_ITEM := Color(0.04, 0.05, 0.07, 0.4)
+const UI_LOCKED_TEXT := Color(0.4, 0.43, 0.48, 0.6)
+const UI_LOCKED_STAT := Color(0.35, 0.38, 0.42, 0.5)
+const DIFF_UP := Color(0.3, 0.85, 0.3)
+const DIFF_DOWN := Color(0.85, 0.3, 0.3)
+const TIP_W := 240.0
+const TIP_STAT_H := 14.0
 
 const TIER_NAMES := ["Standard Issue", "Veteran", "Elite", "Commander"]
 const STAT_NAMES := ["Hull", "Output", "Plating", "Tempo", "Identity", "Mastery"]
@@ -223,158 +230,149 @@ func _draw() -> void:
 	var font := ThemeDB.fallback_font
 	var pr := _panel_rect
 
-	# Panel background
 	draw_rect(pr, UI_SURFACE)
 	draw_rect(pr, UI_BORDER, false, 1.0)
-
-	# Title
-	var tier_name: String = ""
-	if current_tier >= 0 and current_tier < TIER_NAMES.size():
-		tier_name = TIER_NAMES[current_tier]
-	else:
-		tier_name = "Tier %d" % current_tier
-	var title_str := "Mercenary Scrip Exchange : %s" % tier_name
+	var w := pr.size.x - PAD * 2.0
+	var lx := pr.position.x + PAD
+	var ty := pr.position.y + 24.0
+	var tier_name: String = (
+		TIER_NAMES[current_tier]
+		if current_tier >= 0 and current_tier < TIER_NAMES.size()
+		else "Tier %d" % current_tier
+	)
 	draw_string(
 		font,
-		Vector2(pr.position.x + PAD, pr.position.y + 24.0),
-		title_str,
+		Vector2(lx, ty),
+		"Mercenary Scrip Exchange : %s" % tier_name,
 		HORIZONTAL_ALIGNMENT_LEFT,
-		pr.size.x - PAD * 2.0 - 120.0,
+		w - 120.0,
 		14,
 		UI_TEXT
 	)
-
-	# Balance (top-right)
-	var balance: int = merchant_data.get("balance", 0)
 	draw_string(
 		font,
-		Vector2(pr.position.x + PAD, pr.position.y + 24.0),
-		"Scrip: %d" % balance,
+		Vector2(lx, ty),
+		"Scrip: %d" % merchant_data.get("balance", 0),
 		HORIZONTAL_ALIGNMENT_RIGHT,
-		pr.size.x - PAD * 2.0,
+		w,
 		13,
 		UI_BORDER_ACTIVE
 	)
-
-	# Divider below title
 	var div_y := pr.position.y + TITLE_H
-	draw_line(Vector2(pr.position.x + PAD, div_y), Vector2(pr.end.x - PAD, div_y), UI_BORDER, 1.0)
-
-	# Content
+	draw_line(Vector2(lx, div_y), Vector2(pr.end.x - PAD, div_y), UI_BORDER, 1.0)
 	var tier_data := _get_current_tier()
-
 	if merchant_data.size() == 0:
-		_draw_centered_text(font, "Loading...", pr.position.y + TITLE_H + 40.0, 13, UI_TEXT_DIM)
-	elif tier_data.size() == 0:
-		_draw_centered_text(
-			font, "No data for this tier.", pr.position.y + TITLE_H + 40.0, 13, UI_TEXT_DIM
+		draw_string(
+			font,
+			Vector2(lx, div_y + 40.0),
+			"Loading...",
+			HORIZONTAL_ALIGNMENT_CENTER,
+			w,
+			13,
+			UI_TEXT_DIM
 		)
-	elif not tier_data.get("unlocked", false):
-		_draw_locked_tier(font, tier_data)
+	elif tier_data.size() == 0:
+		draw_string(
+			font,
+			Vector2(lx, div_y + 40.0),
+			"No data for this tier.",
+			HORIZONTAL_ALIGNMENT_CENTER,
+			w,
+			13,
+			UI_TEXT_DIM
+		)
 	else:
-		_draw_unlocked_tier(font, tier_data)
-
-	# Feedback text at bottom
+		_draw_tier(font, tier_data)
+	if hovered_item >= 0:
+		var items_tip: Array = tier_data.get("items", [])
+		if hovered_item < items_tip.size():
+			_draw_item_tooltip(font, items_tip[hovered_item])
 	_draw_feedback(font)
-
-	# Close hint
 	draw_string(
 		font,
-		Vector2(pr.position.x + PAD, pr.end.y - 4.0),
+		Vector2(lx, pr.end.y - 4.0),
 		"[Esc] Close",
 		HORIZONTAL_ALIGNMENT_RIGHT,
-		pr.size.x - PAD * 2.0,
+		w,
 		9,
 		UI_TEXT_DIM
 	)
 
 
-func _draw_centered_text(font: Font, text: String, y: float, fs: int, color: Color) -> void:
-	draw_string(
-		font,
-		Vector2(_panel_rect.position.x + PAD, y),
-		text,
-		HORIZONTAL_ALIGNMENT_CENTER,
-		_panel_rect.size.x - PAD * 2.0,
-		fs,
-		color
-	)
-
-
-func _draw_locked_tier(font: Font, _tier_data: Dictionary) -> void:
+func _draw_tier(font: Font, tier_data: Dictionary) -> void:
 	var pr := _panel_rect
-	var max_score: int = merchant_data.get("max_score", 0)
-	var watermark: int = merchant_data.get("watermark", 0)
-	var lock_y := pr.position.y + TITLE_H + PAD + 60.0
-
-	draw_string(
-		font,
-		Vector2(pr.position.x + PAD, lock_y),
-		"LOCKED",
-		HORIZONTAL_ALIGNMENT_CENTER,
-		pr.size.x - PAD * 2.0,
-		18,
-		UI_LOCKED
-	)
-
-	var req_str := "Requires higher overflux score to unlock."
-	if max_score > 0:
-		var pct: int = clampi(watermark * 100 / max_score, 0, 100)
-		req_str = "Progress: %d%% overflux score (watermark: %d)" % [pct, watermark]
-
-	draw_string(
-		font,
-		Vector2(pr.position.x + PAD, lock_y + 28.0),
-		req_str,
-		HORIZONTAL_ALIGNMENT_CENTER,
-		pr.size.x - PAD * 2.0,
-		12,
-		UI_TEXT_MUTED
-	)
-
-
-func _draw_unlocked_tier(font: Font, tier_data: Dictionary) -> void:
-	var pr := _panel_rect
+	var locked: bool = not tier_data.get("unlocked", false)
 	var items: Array = tier_data.get("items", [])
 	var price: int = tier_data.get("price", 0)
-	var ilvl: int = tier_data.get("ilvl", 1)
-
-	# Sub-header
-	var sub_y := pr.position.y + TITLE_H + PAD + 2.0
-	draw_string(
-		font,
-		Vector2(pr.position.x + PAD, sub_y + 12.0),
-		"Item Level: %d" % ilvl,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		200.0,
-		11,
-		UI_TEXT_MUTED
-	)
-	draw_string(
-		font,
-		Vector2(pr.position.x + PAD, sub_y + 12.0),
-		"Cost per item: %d Scrip" % price,
-		HORIZONTAL_ALIGNMENT_RIGHT,
-		pr.size.x - PAD * 2.0,
-		11,
-		UI_TEXT_MUTED
-	)
-
+	var sub_y := pr.position.y + TITLE_H + PAD + 14.0
+	var w := pr.size.x - PAD * 2.0
+	if locked:
+		draw_string(
+			font,
+			Vector2(pr.position.x + PAD, sub_y),
+			"LOCKED",
+			HORIZONTAL_ALIGNMENT_LEFT,
+			100.0,
+			11,
+			UI_LOCKED
+		)
+		var req_str := "Requires higher overflux score"
+		var max_score: int = merchant_data.get("max_score", 0)
+		if max_score > 0:
+			var pct: int = clampi(merchant_data.get("watermark", 0) * 100 / max_score, 0, 100)
+			req_str = "Progress: %d%%" % pct
+		draw_string(
+			font,
+			Vector2(pr.position.x + PAD, sub_y),
+			req_str,
+			HORIZONTAL_ALIGNMENT_RIGHT,
+			w,
+			11,
+			UI_TEXT_MUTED
+		)
+	else:
+		var ilvl: int = tier_data.get("ilvl", 1)
+		draw_string(
+			font,
+			Vector2(pr.position.x + PAD, sub_y),
+			"Item Level: %d" % ilvl,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			200.0,
+			11,
+			UI_TEXT_MUTED
+		)
+		draw_string(
+			font,
+			Vector2(pr.position.x + PAD, sub_y),
+			"Cost per item: %d Scrip" % price,
+			HORIZONTAL_ALIGNMENT_RIGHT,
+			w,
+			11,
+			UI_TEXT_MUTED
+		)
 	for i in range(items.size()):
-		_draw_item_row(font, i, items[i], price)
+		_draw_item_row(font, i, items[i], price, locked)
 
 
-func _draw_item_row(font: Font, index: int, item: Dictionary, price: int) -> void:
+func _draw_item_row(
+	font: Font, index: int, item: Dictionary, price: int, locked: bool = false
+) -> void:
 	if index >= _item_rects.size():
 		return
 
 	var r: Rect2 = _item_rects[index]
 	var hovered := hovered_item == index
+	var c_text: Color = UI_LOCKED_TEXT if locked else UI_TEXT
+	var c_dim: Color = UI_LOCKED_STAT if locked else UI_TEXT_DIM
+	var c_price: Color = UI_LOCKED_STAT if locked else UI_BORDER_ACTIVE
 
 	# Row background
-	var bg := UI_ITEM_HOVER if hovered else UI_ITEM_BG
-	draw_rect(r, bg)
-	draw_rect(r, UI_BORDER, false, 1.0)
+	if locked:
+		draw_rect(r, Color(0.06, 0.07, 0.1, 0.5) if hovered else UI_LOCKED_ITEM)
+		draw_rect(r, Color(UI_BORDER, 0.4), false, 1.0)
+	else:
+		draw_rect(r, UI_ITEM_HOVER if hovered else UI_ITEM_BG)
+		draw_rect(r, UI_BORDER, false, 1.0)
 
 	var x := r.position.x + 8.0
 	var y := r.position.y
@@ -388,14 +386,21 @@ func _draw_item_row(font: Font, index: int, item: Dictionary, price: int) -> voi
 		HORIZONTAL_ALIGNMENT_LEFT,
 		r.size.x - BUY_BTN_W - 20.0,
 		12,
-		UI_TEXT
+		c_text
 	)
 
-	# Slot name
+	# Slot name + price
 	var slot_id: int = item.get("slot", 0)
 	var slot_name: String = SLOT_NAMES[slot_id] if slot_id < SLOT_NAMES.size() else "?"
+	draw_string(font, Vector2(x, y + 30.0), slot_name, HORIZONTAL_ALIGNMENT_LEFT, 200.0, 10, c_dim)
 	draw_string(
-		font, Vector2(x, y + 30.0), slot_name, HORIZONTAL_ALIGNMENT_LEFT, 200.0, 10, UI_TEXT_DIM
+		font,
+		Vector2(x, y + 30.0),
+		"%d Scrip" % price,
+		HORIZONTAL_ALIGNMENT_RIGHT,
+		r.size.x - BUY_BTN_W - 24.0,
+		10,
+		c_price
 	)
 
 	# Stats (compact, horizontal)
@@ -406,7 +411,7 @@ func _draw_item_row(font: Font, index: int, item: Dictionary, price: int) -> voi
 		var sid: int = s.get("stat", 0)
 		var sval: float = s.get("value", 0.0)
 		var sname: String = STAT_NAMES[sid] if sid < STAT_NAMES.size() else "?"
-		var scolor: Color = STAT_COLORS.get(sid, UI_TEXT_MUTED)
+		var scolor: Color = UI_LOCKED_STAT if locked else STAT_COLORS.get(sid, UI_TEXT_MUTED)
 		var stat_str := "+%.0f %s" % [sval, sname]
 		draw_string(
 			font, Vector2(stat_x, stat_y), stat_str, HORIZONTAL_ALIGNMENT_LEFT, 120.0, 9, scolor
@@ -416,37 +421,42 @@ func _draw_item_row(font: Font, index: int, item: Dictionary, price: int) -> voi
 	# Buy button
 	if index < _buy_rects.size():
 		var br: Rect2 = _buy_rects[index]
-		var mouse_pos := get_viewport().get_mouse_position()
-		var btn_hover := hovered and br.has_point(mouse_pos)
-		var btn_bg := UI_BUY_HOVER if btn_hover else UI_BUY_BG
-		draw_rect(br, btn_bg)
-		draw_rect(br, UI_BORDER_ACTIVE, false, 1.0)
-		draw_string(
-			font,
-			Vector2(br.position.x, br.position.y + br.size.y / 2.0 + 5.0),
-			"Buy : %d" % price,
-			HORIZONTAL_ALIGNMENT_CENTER,
-			br.size.x,
-			11,
-			UI_TEXT
-		)
+		if locked:
+			draw_rect(br, Color(UI_BUY_BG, 0.4))
+			draw_rect(br, Color(UI_BORDER, 0.3), false, 1.0)
+			draw_string(
+				font,
+				Vector2(br.position.x, br.position.y + br.size.y / 2.0 + 5.0),
+				"Locked",
+				HORIZONTAL_ALIGNMENT_CENTER,
+				br.size.x,
+				11,
+				UI_LOCKED_TEXT
+			)
+		else:
+			var mouse_pos := get_viewport().get_mouse_position()
+			var btn_hover := hovered and br.has_point(mouse_pos)
+			draw_rect(br, UI_BUY_HOVER if btn_hover else UI_BUY_BG)
+			draw_rect(br, UI_BORDER_ACTIVE, false, 1.0)
+			draw_string(
+				font,
+				Vector2(br.position.x, br.position.y + br.size.y / 2.0 + 5.0),
+				"Buy : %d" % price,
+				HORIZONTAL_ALIGNMENT_CENTER,
+				br.size.x,
+				11,
+				UI_TEXT
+			)
 
 
 func _draw_feedback(font: Font) -> void:
 	if feedback_text == "":
 		return
 
+	var fb_alpha := 1.0 if feedback_timer >= 0.5 else maxf(feedback_timer / 0.5, 0.0)
+	var is_good := feedback_text.begins_with("+") or feedback_text == "Purchased!"
+	var fb_color := Color(UI_SUCCESS, fb_alpha) if is_good else Color(UI_ERROR, fb_alpha)
 	var pr := _panel_rect
-	var fb_alpha := 1.0
-	if feedback_timer < 0.5:
-		fb_alpha = maxf(feedback_timer / 0.5, 0.0)
-
-	var fb_color: Color
-	if feedback_text.begins_with("+") or feedback_text == "Purchased!":
-		fb_color = Color(UI_SUCCESS, fb_alpha)
-	else:
-		fb_color = Color(UI_ERROR, fb_alpha)
-
 	draw_string(
 		font,
 		Vector2(pr.position.x + PAD, pr.end.y - 16.0),
@@ -456,3 +466,132 @@ func _draw_feedback(font: Font) -> void:
 		13,
 		fb_color
 	)
+
+
+func _draw_item_tooltip(font: Font, item: Dictionary) -> void:
+	var stats: Array = item.get("stats", [])
+	var slot_id: int = item.get("slot", 0)
+	var equipped: Variant = InventoryManager.get_equipped(slot_id)
+	var eq_lines: Array = equipped.get("stat_lines", []) if equipped != null else []
+	var compare_data := _compute_compare(stats, eq_lines) if equipped != null else []
+	var split := ItemData.merge_and_split(stats)
+	var p_stats: Array = split[0]
+	var s_stats: Array = split[1]
+	var has_div := p_stats.size() > 0 and s_stats.size() > 0
+	var n := p_stats.size() + s_stats.size()
+	var stats_h := n * TIP_STAT_H + (8.0 if has_div else 0.0)
+	var cmp_h := (20.0 + compare_data.size() * TIP_STAT_H) if equipped != null else 0.0
+	var tr := _position_tooltip(TIP_W, 48.0 + stats_h + cmp_h)
+	draw_rect(tr, UI_SURFACE)
+	draw_rect(tr, UI_BORDER, false, 1.0)
+	var tx := tr.position.x + 8.0
+	var item_name: String = item.get("name", item.get("def_id", "???"))
+	var slot_name: String = SLOT_NAMES[slot_id] if slot_id < SLOT_NAMES.size() else "?"
+	draw_string(
+		font,
+		Vector2(tx, tr.position.y + 14.0),
+		item_name,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		TIP_W - 16.0,
+		11,
+		UI_TEXT
+	)
+	draw_string(
+		font,
+		Vector2(tx, tr.position.y + 28.0),
+		slot_name,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		TIP_W - 16.0,
+		9,
+		UI_TEXT_DIM
+	)
+	var sy := tr.position.y + 42.0
+	for sl in p_stats:
+		_draw_tip_stat(font, tr.position.x, sy, sl, 11)
+		sy += TIP_STAT_H
+	if has_div:
+		sy += 2.0
+		draw_line(
+			Vector2(tx, sy), Vector2(tr.position.x + TIP_W - 8.0, sy), Color(UI_BORDER, 0.5), 1.0
+		)
+		sy += 6.0
+	for sl in s_stats:
+		_draw_tip_stat(font, tr.position.x, sy, sl, 9)
+		sy += TIP_STAT_H
+	if equipped != null:
+		sy += 4.0
+		var eq_name: String = equipped.get("name", "???")
+		var eq_ilvl: int = equipped.get("ilvl", 1)
+		draw_string(
+			font,
+			Vector2(tx, sy),
+			"Equipped: %s (iLvl %d)" % [eq_name, eq_ilvl],
+			HORIZONTAL_ALIGNMENT_LEFT,
+			TIP_W - 16.0,
+			8,
+			UI_TEXT_DIM
+		)
+		sy += TIP_STAT_H
+		for cd in compare_data:
+			var sid: int = cd["stat"]
+			var diff: float = cd["diff"]
+			var dc: Color = DIFF_UP if diff > 0.0 else DIFF_DOWN
+			var prefix: String = "+" if diff > 0.0 else ""
+			var sname: String = STAT_NAMES[sid] if sid < STAT_NAMES.size() else "?"
+			draw_string(
+				font,
+				Vector2(tx, sy),
+				"%s%.0f %s" % [prefix, diff, sname],
+				HORIZONTAL_ALIGNMENT_LEFT,
+				TIP_W - 16.0,
+				9,
+				dc
+			)
+			sy += TIP_STAT_H
+
+
+func _position_tooltip(tip_w: float, tip_h: float) -> Rect2:
+	var r: Rect2 = _item_rects[hovered_item]
+	var vp := get_viewport_rect().size
+	var tip_x := r.end.x + 8.0
+	var tip_y := r.position.y
+	if tip_x + tip_w > vp.x - 4.0:
+		tip_x = r.position.x - tip_w - 8.0
+	return Rect2(tip_x, clampf(tip_y, 4.0, vp.y - tip_h - 4.0), tip_w, tip_h)
+
+
+func _draw_tip_stat(font: Font, tx: float, sy: float, sl: Dictionary, fs: int) -> void:
+	var sid: int = sl.get("stat", 0)
+	var sval: float = sl.get("value", 0.0)
+	var dname := ItemData.class_stat_name(sid, InventoryManager.current_class)
+	draw_string(
+		font,
+		Vector2(tx + 8.0, sy),
+		"+%.0f %s" % [sval, dname],
+		HORIZONTAL_ALIGNMENT_LEFT,
+		TIP_W - 16.0,
+		fs,
+		STAT_COLORS.get(sid, UI_TEXT_MUTED)
+	)
+
+
+func _compute_compare(item_stats: Array, eq_lines: Array) -> Array:
+	var item_m := {}
+	for sl in item_stats:
+		var sid: int = sl.get("stat", 0)
+		item_m[sid] = item_m.get(sid, 0.0) + sl.get("value", 0.0)
+	var eq_m := {}
+	for sl in eq_lines:
+		var sid: int = sl.get("stat", 0)
+		eq_m[sid] = eq_m.get(sid, 0.0) + sl.get("value", 0.0)
+	var result := []
+	for sid in range(6):
+		var bv: float = item_m.get(sid, 0.0)
+		var ev: float = eq_m.get(sid, 0.0)
+		if bv == 0.0 and ev == 0.0:
+			continue
+		var diff := bv - ev
+		if absf(diff) < 0.5:
+			continue
+		result.append({"stat": sid, "diff": diff})
+	return result

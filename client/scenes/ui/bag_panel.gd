@@ -37,6 +37,7 @@ const DIFF_UP := Color(0.3, 0.85, 0.3)
 const DIFF_DOWN := Color(0.85, 0.3, 0.3)
 const DIFF_NEUTRAL := Color(0.5, 0.5, 0.5)
 
+var merchant_open: bool = false
 var _hovered_index: int = -1
 var _panel_rect := Rect2()
 var _slot_rects: Array[Rect2] = []
@@ -61,8 +62,16 @@ func _compute_layout() -> void:
 	var grid_h := rows * ICON_SIZE + (rows - 1) * ICON_GAP
 	var panel_w := grid_w + PAD * 2.0
 	var panel_h := TITLE_H + grid_h + PAD * 2.0
-	var panel_x := vp.x / 2.0 + 120.0 - panel_w / 2.0
-	var panel_y := vp.y / 2.0 - panel_h / 2.0
+	var panel_x: float
+	var panel_y: float
+	if merchant_open:
+		panel_x = vp.x / 2.0 + 300.0 + 16.0
+		panel_y = vp.y / 2.0 + 40.0
+		panel_x = minf(panel_x, vp.x - panel_w - 8.0)
+		panel_y = minf(panel_y, vp.y - panel_h - 8.0)
+	else:
+		panel_x = vp.x / 2.0 + 120.0 - panel_w / 2.0
+		panel_y = vp.y / 2.0 - panel_h / 2.0
 	_panel_rect = Rect2(panel_x, panel_y, panel_w, panel_h)
 
 	_slot_rects.clear()
