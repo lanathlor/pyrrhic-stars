@@ -52,6 +52,8 @@ var dev_params: Dictionary = {}  # Set by main.gd in dev mode: {class, zone}
 var debug: NetworkDebugHandler
 var loadout: NetworkLoadoutHandler
 
+var previous_peer_id: int = 0  # peer_id from previous zone (for stale data rejection)
+
 var _ws := WebSocketPeer.new()
 var _my_peer_id: int = 0
 var _was_connected := false
@@ -523,6 +525,7 @@ func _handle_zone_transfer(payload: PackedByteArray) -> void:
 	var data := NetSerializer.Char.decode_zone_transfer(payload)
 	if data.is_empty():
 		return
+	previous_peer_id = _my_peer_id
 	_my_peer_id = data.new_peer_id
 	current_zone_type = data.zone_type
 	player_info.clear()

@@ -43,6 +43,7 @@ func spawn_player(
 	_players_node.add_child(player)
 	player.add_to_group("players")
 	player.global_position = spawn_pos
+	player.set_meta("_spawn_frame", Engine.get_physics_frames())
 	# Initialize net sync targets so remote interpolation starts at the correct position
 	player._net_position = spawn_pos
 	player._net_rotation_y = player.rotation.y
@@ -69,9 +70,17 @@ func spawn_player(
 
 
 func despawn_all_players() -> void:
+	print(
+		(
+			"[EntityMgr] despawn_all: %d in dict, %d in node"
+			% [spawned_players.size(), _players_node.get_child_count()]
+		)
+	)
 	for pid in spawned_players:
 		var player = spawned_players[pid]
+		print("[EntityMgr] despawn pid=%d valid=%s" % [pid, is_instance_valid(player)])
 		if is_instance_valid(player):
+			player.get_parent().remove_child(player)
 			player.queue_free()
 	spawned_players.clear()
 	despawn_all_projectiles()

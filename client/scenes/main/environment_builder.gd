@@ -20,14 +20,28 @@ func _ready() -> void:
 
 
 func load_environment(scene_path: String) -> void:
+	if current_env and is_instance_valid(current_env):
+		push_error(
+			(
+				(
+					"[EnvironmentBuilder] BUG: loading %s while %s is still in tree. "
+					+ "Call unload_environment() first."
+				)
+				% [scene_path, current_env.name]
+			)
+		)
+		var msg := "dual env: %s loaded when loading %s" % [current_env.name, scene_path]
+		assert(false, msg)
+	var we_before := _count_world_environments(ctrl.get_tree().root)
 	var scene: PackedScene = load(scene_path) as PackedScene
 	current_env = scene.instantiate()
 	ctrl.add_child(current_env)
+	var we_after := _count_world_environments(ctrl.get_tree().root)
 	# Scan for gate nodes tagged with server_gate group
 	_discover_gates(current_env)
 	if ctrl._shared_hud:
 		ctrl._shared_hud.set_environment(current_env)
-	print("[Main] Loaded environment: %s" % scene_path)
+	print("[EnvBuilder] loaded %s (WorldEnvs: %d -> %d)" % [scene_path, we_before, we_after])
 
 
 func _discover_gates(root: Node) -> void:
@@ -58,8 +72,21 @@ func _walk_for_gates(node: Node) -> void:
 
 func unload_environment() -> void:
 	if current_env and is_instance_valid(current_env):
-		current_env.queue_free()
+		var env_name: String = current_env.name
+		# Count WorldEnvironment nodes before unload
+		var we_count := _count_world_environments(ctrl.get_tree().root)
+		print("[EnvBuilder] unload %s (WorldEnvs before: %d)" % [env_name, we_count])
+		# Immediate free: both hub and arena have a WorldEnvironment node.
+		# queue_free defers deletion, so both coexist for a frame. Godot
+		# only supports one active WorldEnvironment per viewport; the
+		# overlap breaks rendering on the next zone entry.
+		current_env.get_parent().remove_child(current_env)
+		current_env.free()
 		current_env = null
+		var we_after := _count_world_environments(ctrl.get_tree().root)
+		print("[EnvBuilder] unloaded %s (WorldEnvs after: %d)" % [env_name, we_after])
+	else:
+		print("[EnvBuilder] unload: nothing to unload (current_env=%s)" % str(current_env))
 	ctrl.entity_mgr.clear_all_enemies()
 	ctrl.entity_mgr.clear_all_npcs()
 	gates.clear()
@@ -225,3 +252,12 @@ func bake_hub_navigation() -> void:
 	)
 
 	NavigationServer3D.bake_from_source_geometry_data(nav_mesh, source_geo)
+
+
+func _count_world_environments(node: Node) -> int:
+	var count := 0
+	if node is WorldEnvironment:
+		count += 1
+	for child in node.get_children():
+		count += _count_world_environments(child)
+	return count

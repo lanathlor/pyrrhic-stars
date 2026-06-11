@@ -115,13 +115,16 @@ func _draw() -> void:
 	if _overflux_score > 0:
 		_draw_overflux_widget()
 	if _hub_mode or _fight_active or _boss_visible or _fight_over:
-		_minimap.local_peer_id = _local_peer_id
-		_minimap.world_players = _world_players
-		_minimap.local_player = _local_player
-		_minimap.enemy_positions = _enemy_positions
-		_minimap.npc_positions = _npc_positions
-		_minimap.player_rot_y = _player_rot_y
-		_minimap.draw(self)
+		if not _local_player or not is_instance_valid(_local_player):
+			_minimap.local_player = null
+		else:
+			_minimap.local_peer_id = _local_peer_id
+			_minimap.world_players = _world_players
+			_minimap.local_player = _local_player
+			_minimap.enemy_positions = _enemy_positions
+			_minimap.npc_positions = _npc_positions
+			_minimap.player_rot_y = _player_rot_y
+			_minimap.draw(self)
 
 
 # =============================================================================
