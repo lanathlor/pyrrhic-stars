@@ -10,9 +10,62 @@ const ARCANO_SCENE := "res://scenes/controllers/arcanotechnicien/arcanotechnicie
 const DELTA := 1.0 / 60.0
 
 var _arcano: ArcanoScript
+var _saved_catalog: Array
+var _saved_loadout: Array
+var _test_abilities: Array[Dictionary] = [
+	{
+		name = "Mending Surge",
+		id = "mending_surge",
+		dur = 0.4,
+		delivery = "direct",
+		cooldown_max = 0.0
+	},
+	{
+		name = "Mending Beam",
+		id = "mending_beam",
+		dur = 2.0,
+		delivery = "beam",
+		cooldown_max = 0.0,
+		sustain = true
+	},
+	{name = "Life Swap", id = "life_swap", dur = 0.3, delivery = "direct", cooldown_max = 6.0},
+	{
+		name = "Transfusion",
+		id = "transfusion",
+		dur = 1.5,
+		delivery = "zone",
+		cooldown_max = 8.0,
+		sustain = true
+	},
+	{name = "Frost Ward", id = "frost_ward", dur = 0.2, delivery = "direct", cooldown_max = 12.0},
+	{
+		name = "Transfusion",
+		id = "transfusion_c",
+		dur = 1.5,
+		delivery = "zone",
+		cooldown_max = 8.0,
+		sustain = true
+	},
+]
 
 
 func before_test() -> void:
+	_saved_catalog = AbilityCatalog.catalog.duplicate()
+	_saved_loadout = AbilityCatalog.current_loadout.duplicate()
+	AbilityCatalog._on_catalog(_test_abilities)
+	(
+		AbilityCatalog
+		. _on_loadout(
+			[
+				"mending_surge",
+				"mending_beam",
+				"life_swap",
+				"transfusion",
+				"frost_ward",
+				"transfusion_c",
+			]
+		)
+	)
 	_arcano = auto_free(load(ARCANO_SCENE).instantiate()) as ArcanoScript
 	_arcano.position = Vector3(0.0, 5.0, 0.0)
 	add_child(_arcano)
@@ -20,6 +73,8 @@ func before_test() -> void:
 
 
 func after_test() -> void:
+	AbilityCatalog._on_catalog(_saved_catalog)
+	AbilityCatalog._on_loadout(_saved_loadout)
 	for action in [
 		"dodge", "harmonist_slot_0", "harmonist_slot_1", "heavy_attack", "ability_1", "ability_2"
 	]:
@@ -39,7 +94,7 @@ func test_bug1a_transfusion_cooldown_set_at_commit_time() -> void:
 	## Verify: sustain abilities do NOT set cooldown at commit time.
 	## Transfusion (slot 3, cooldown_max=8.0) cooldown should remain ZERO
 	## after committing because the sustain hasn't ended yet.
-	var ability: Dictionary = ArcanoScript.HARMONIST_ABILITIES[3]  # Transfusion
+	var ability: Dictionary = _test_abilities[3]  # Transfusion
 	assert_bool(ability.get("sustain", false)).is_true()
 	var cd_max: float = ability.get("cooldown_max", 0.0)
 	assert_float(cd_max).is_equal(8.0)

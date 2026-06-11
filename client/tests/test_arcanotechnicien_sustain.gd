@@ -13,9 +13,62 @@ const DELTA := 1.0 / 60.0
 
 var _arcano: ArcanoScript
 var _hud: HudScript
+var _saved_catalog: Array
+var _saved_loadout: Array
+var _test_abilities: Array[Dictionary] = [
+	{
+		name = "Mending Surge",
+		id = "mending_surge",
+		dur = 0.4,
+		delivery = "direct",
+		cooldown_max = 0.0
+	},
+	{
+		name = "Mending Beam",
+		id = "mending_beam",
+		dur = 2.0,
+		delivery = "beam",
+		cooldown_max = 0.0,
+		sustain = true
+	},
+	{name = "Life Swap", id = "life_swap", dur = 0.3, delivery = "direct", cooldown_max = 6.0},
+	{
+		name = "Transfusion",
+		id = "transfusion",
+		dur = 1.5,
+		delivery = "zone",
+		cooldown_max = 8.0,
+		sustain = true
+	},
+	{name = "Frost Ward", id = "frost_ward", dur = 0.2, delivery = "direct", cooldown_max = 12.0},
+	{
+		name = "Transfusion",
+		id = "transfusion_c",
+		dur = 1.5,
+		delivery = "zone",
+		cooldown_max = 8.0,
+		sustain = true
+	},
+]
 
 
 func before_test() -> void:
+	_saved_catalog = AbilityCatalog.catalog.duplicate()
+	_saved_loadout = AbilityCatalog.current_loadout.duplicate()
+	AbilityCatalog._on_catalog(_test_abilities)
+	(
+		AbilityCatalog
+		. _on_loadout(
+			[
+				"mending_surge",
+				"mending_beam",
+				"life_swap",
+				"transfusion",
+				"frost_ward",
+				"transfusion_c",
+			]
+		)
+	)
 	_arcano = auto_free(load(ARCANO_SCENE).instantiate()) as ArcanoScript
 	_arcano.position = Vector3(0.0, 5.0, 0.0)
 	add_child(_arcano)
@@ -24,6 +77,8 @@ func before_test() -> void:
 
 
 func after_test() -> void:
+	AbilityCatalog._on_catalog(_saved_catalog)
+	AbilityCatalog._on_loadout(_saved_loadout)
 	for action in [
 		"move_forward",
 		"move_backward",
@@ -47,37 +102,37 @@ func after_test() -> void:
 
 
 func test_ability_table_mending_beam_has_sustain_flag() -> void:
-	var ability: Dictionary = ArcanoScript.HARMONIST_ABILITIES[1]
+	var ability: Dictionary = _test_abilities[1]
 	assert_str(ability.name).is_equal("Mending Beam")
 	assert_bool(ability.get("sustain", false)).is_true()
 
 
 func test_ability_table_transfusion_has_sustain_flag() -> void:
-	var ability: Dictionary = ArcanoScript.HARMONIST_ABILITIES[3]
+	var ability: Dictionary = _test_abilities[3]
 	assert_str(ability.name).is_equal("Transfusion")
 	assert_bool(ability.get("sustain", false)).is_true()
 
 
 func test_ability_table_mending_surge_no_sustain() -> void:
-	var ability: Dictionary = ArcanoScript.HARMONIST_ABILITIES[0]
+	var ability: Dictionary = _test_abilities[0]
 	assert_str(ability.name).is_equal("Mending Surge")
 	assert_bool(ability.get("sustain", false)).is_false()
 
 
 func test_ability_table_life_swap_no_sustain() -> void:
-	var ability: Dictionary = ArcanoScript.HARMONIST_ABILITIES[2]
+	var ability: Dictionary = _test_abilities[2]
 	assert_str(ability.name).is_equal("Life Swap")
 	assert_bool(ability.get("sustain", false)).is_false()
 
 
 func test_ability_table_frost_ward_no_sustain() -> void:
-	var ability: Dictionary = ArcanoScript.HARMONIST_ABILITIES[4]
+	var ability: Dictionary = _test_abilities[4]
 	assert_str(ability.name).is_equal("Frost Ward")
 	assert_bool(ability.get("sustain", false)).is_false()
 
 
 func test_ability_table_slot5_is_transfusion_with_sustain() -> void:
-	var ability: Dictionary = ArcanoScript.HARMONIST_ABILITIES[5]
+	var ability: Dictionary = _test_abilities[5]
 	assert_str(ability.name).is_equal("Transfusion")
 	assert_bool(ability.get("sustain", false)).is_true()
 
@@ -85,7 +140,7 @@ func test_ability_table_slot5_is_transfusion_with_sustain() -> void:
 func test_ability_table_sustain_count() -> void:
 	# Exactly 3 out of 6 abilities should have sustain (Mending Beam, Transfusion x2)
 	var count: int = 0
-	for ability in ArcanoScript.HARMONIST_ABILITIES:
+	for ability in _test_abilities:
 		if ability.get("sustain", false):
 			count += 1
 	assert_int(count).is_equal(3)
@@ -97,13 +152,13 @@ func test_ability_table_sustain_count() -> void:
 
 
 func test_mending_beam_is_channel_duration() -> void:
-	var ability: Dictionary = ArcanoScript.HARMONIST_ABILITIES[1]
+	var ability: Dictionary = _test_abilities[1]
 	# Sustained abilities must be channels (dur > 0.5 routes to CHANNELING)
 	assert_float(ability.dur).is_greater(0.5)
 
 
 func test_transfusion_is_channel_duration() -> void:
-	var ability: Dictionary = ArcanoScript.HARMONIST_ABILITIES[3]
+	var ability: Dictionary = _test_abilities[3]
 	assert_float(ability.dur).is_greater(0.5)
 
 
