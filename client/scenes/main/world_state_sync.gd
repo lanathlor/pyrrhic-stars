@@ -36,7 +36,10 @@ func _sync_players(players_data: Array, entity_mgr: Node, my_id: int) -> Diction
 		if uname != "":
 			ctrl._player_names[pid] = uname
 
-		if pid != my_id and pid not in entity_mgr.spawned_players:
+		# Skip self and stale peer_id from previous zone (UDP packets in flight)
+		if pid == my_id or pid == NetworkManager.previous_peer_id:
+			pass
+		elif pid not in entity_mgr.spawned_players:
 			var cls: String = p_data.get("class_name", "gunner")
 			var spec: String = p_data.get("spec_name", "")
 			entity_mgr.spawn_player(pid, cls, p_data["pos"], spec)
@@ -63,7 +66,11 @@ func _apply_player_state(
 ) -> void:
 	if pid == my_id and ctrl.state == ctrl.GameState.HUB:
 		var server_pos: Vector3 = p_data["pos"]
-		if player.global_position.distance_to(server_pos) > 8.0:
+		# Skip teleport correction for ~1s after spawn. The first world
+		# state ticks after zone transfer carry stale position data
+		# (arena coords), which would override the correct hub spawn.
+		var spawn_age: int = Engine.get_physics_frames() - player.get_meta("_spawn_frame", 0)
+		if spawn_age > 60 and player.global_position.distance_to(server_pos) > 8.0:
 			player.global_position = server_pos
 		if player.has_method("apply_server_state"):
 			player.apply_server_state(p_data)

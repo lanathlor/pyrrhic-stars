@@ -91,15 +91,35 @@ func enter_hub() -> void:
 	var my_id: int = NetworkManager.get_my_id()
 	if my_id > 0:
 		var spawn_pos: Vector3 = ctrl.HUB_SPAWNS[0]
-		if ctrl._has_saved_state:
+		if ctrl._has_saved_state and ctrl._saved_hub_position != Vector3.ZERO:
 			spawn_pos = ctrl._saved_hub_position
-			ctrl._has_saved_state = false
+		ctrl._has_saved_state = false
+		print(
+			(
+				"[enter_hub] spawning id=%d at %s (saved=%s)"
+				% [my_id, spawn_pos, ctrl._saved_hub_position]
+			)
+		)
 		ctrl.entity_mgr.spawn_player(my_id, ctrl._local_class, spawn_pos, ctrl._local_spec)
 		if ctrl._saved_hub_rot_y != 0.0:
 			var player: CharacterBody3D = ctrl.entity_mgr.spawned_players.get(my_id)
 			if player:
 				player.rotation.y = ctrl._saved_hub_rot_y
 			ctrl._saved_hub_rot_y = 0.0
+
+	# Debug: camera state after spawn
+	var cam3d: Camera3D = ctrl.get_viewport().get_camera_3d()
+	var player_children: int = ctrl.entity_mgr._players_node.get_child_count()
+	print(
+		(
+			"[enter_hub] spawn done: players_children=%d active_cam=%s cam_pos=%s"
+			% [
+				player_children,
+				cam3d.name if cam3d else "NONE",
+				str(cam3d.global_position) if cam3d else "N/A",
+			]
+		)
+	)
 
 	ctrl.hub_interact.update_hub_display()
 	ctrl.group_mgr.update_group_panel()
@@ -210,9 +230,29 @@ func on_all_dead() -> void:
 
 
 func on_zone_transfer(zone_type: int, _new_peer_id: int) -> void:
-	print("[Main] Zone transfer: type=%d, new_peer=%d" % [zone_type, _new_peer_id])
+	var prev_state: int = ctrl.state
+	var prev_zone: Node3D = ctrl.env_builder.current_env
+	var prev_env_name: String = "null"
+	if prev_zone and is_instance_valid(prev_zone):
+		prev_env_name = prev_zone.name
+	print(
+		(
+			"[ZoneTransfer] START type=%d peer=%d prev_state=%d prev_env=%s"
+			% [
+				zone_type,
+				_new_peer_id,
+				prev_state,
+				prev_env_name,
+			]
+		)
+	)
 	hide_death_overlay()
+	# Discard any saved hub position set by OP_CHARACTER_STATE that arrived
+	# in the same packet batch. The server sends the player's current
+	# (arena) position, not their last hub position.
+	ctrl._has_saved_state = false
 	ctrl.env_builder.remove_exit_portal()
+	print("[ZoneTransfer] despawn players: %d alive" % ctrl.entity_mgr.spawned_players.size())
 	ctrl.entity_mgr.despawn_all_players()
 	ctrl.entity_mgr.clear_all_enemies()
 	if ctrl._map_overlay:
@@ -223,10 +263,20 @@ func on_zone_transfer(zone_type: int, _new_peer_id: int) -> void:
 	ctrl.entity_mgr.clear_all_npcs()
 
 	if zone_type == NetSerializer.ZONE_TYPE_ARENA:
+		print("[ZoneTransfer] -> ARENA: unloading %s" % prev_env_name)
 		ctrl.env_builder.unload_environment()
 		ctrl.env_builder.load_environment(ctrl.ARENA_SCENE)
-		ctrl.group_mgr.pending_instance_zone = ""  # entered the instance, clear pending
-		# Spawn local player in warmup room immediately
+		var new_env: Node3D = ctrl.env_builder.current_env
+		print(
+			(
+				"[ZoneTransfer] -> ARENA: loaded %s valid=%s"
+				% [
+					new_env.name if new_env else "null",
+					str(is_instance_valid(new_env)) if new_env else "false",
+				]
+			)
+		)
+		ctrl.group_mgr.pending_instance_zone = ""
 		ctrl.state = ctrl.GameState.ARENA_LOBBY
 		show_portal_prompt_only()
 		ctrl._menu_layer.visible = false
@@ -239,14 +289,60 @@ func on_zone_transfer(zone_type: int, _new_peer_id: int) -> void:
 		else:
 			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		var my_id: int = NetworkManager.get_my_id()
+		print(
+			(
+				"[ZoneTransfer] -> ARENA: spawning local player id=%d class=%s"
+				% [
+					my_id,
+					ctrl._local_class,
+				]
+			)
+		)
 		if my_id > 0:
 			ctrl.entity_mgr.spawn_player(
 				my_id, ctrl._local_class, ctrl.LOBBY_SPAWN, ctrl._local_spec
 			)
+			var spawned: bool = my_id in ctrl.entity_mgr.spawned_players
+			print(
+				(
+					"[ZoneTransfer] -> ARENA: spawn result=%s players_node_children=%d"
+					% [
+						str(spawned),
+						ctrl.entity_mgr._players_node.get_child_count(),
+					]
+				)
+			)
+		else:
+			print("[ZoneTransfer] -> ARENA: WARNING my_id <= 0, no player spawned")
 	else:
-		ctrl.env_builder.unload_environment()
-		ctrl.env_builder.load_environment(ctrl.HUB_SCENE)
+		print("[ZoneTransfer] -> HUB: delegating to enter_hub (handles env loading)")
 		enter_hub()
+	var final_env: Node3D = ctrl.env_builder.current_env
+	var final_env_name: String = final_env.name if final_env else "null"
+	var we_final: int = ctrl.env_builder._count_world_environments(ctrl.get_tree().root)
+	var done_cam: Camera3D = ctrl.get_viewport().get_camera_3d()
+	var done_cam_info := "NONE"
+	if done_cam:
+		done_cam_info = (
+			"%s at %s (parent=%s)"
+			% [
+				done_cam.name,
+				str(done_cam.global_position),
+				done_cam.get_parent().name if done_cam.get_parent() else "?",
+			]
+		)
+	# Dump visible CanvasLayers to catch UI covering the 3D view
+	var visible_layers: Array[String] = []
+	for child in ctrl.get_children():
+		if child is CanvasLayer and child.visible:
+			visible_layers.append(child.name)
+	print("[ZoneTransfer] visible layers: %s" % ", ".join(visible_layers))
+	print(
+		(
+			"[ZoneTransfer] DONE state=%d env=%s WorldEnvs=%d cam=%s mouse=%d"
+			% [ctrl.state, final_env_name, we_final, done_cam_info, Input.get_mouse_mode()]
+		)
+	)
 
 	# Re-spawn bots after zone transfer (they are zone-local on the server)
 	ctrl.dev_mgr.respawn_bots_after_transfer()

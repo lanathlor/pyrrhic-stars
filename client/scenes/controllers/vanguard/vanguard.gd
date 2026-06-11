@@ -351,6 +351,19 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if Engine.get_physics_frames() % 600 == 0:
+		print(
+			(
+				"[Vanguard] tick peer=%d my_id=%d local=%s pos=%s cam=%s"
+				% [
+					peer_id,
+					NetworkManager.get_my_id(),
+					_is_local(),
+					global_position,
+					camera.global_position
+				]
+			)
+		)
 	if not _is_local():
 		var prev_pos := global_position
 		global_position = global_position.move_toward(_net_position, 12.0 * delta)
