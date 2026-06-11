@@ -184,6 +184,11 @@ func _ready() -> void:
 	_merchant_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_merchant_layer.add_child(_merchant_panel)
 	_merchant_panel.closed.connect(_update_cursor_mode)
+	_merchant_panel.closed.connect(
+		func():
+			_inventory_layer.bag_panel.merchant_open = false
+			_inventory_layer.bag_panel.queue_redraw()
+	)
 
 	_connect_network_signals()
 
@@ -391,16 +396,22 @@ func _handle_gameplay_input(event: InputEvent) -> void:
 		if hub_interact.near_lift:
 			hub_interact.interact_lift()
 		elif hub_interact.near_portal:
-			if group_mgr.pending_instance_zone != "":
-				NetworkManager.send_enter_portal()  # join existing group instance
+			if state == GameState.HUB:
+				# Hub portal: show overflux conditions before entering an instance,
+				# unless a group instance is already pending.
+				if group_mgr.pending_instance_zone != "":
+					NetworkManager.send_enter_portal()
+				else:
+					_overflux_panel.open()
 			else:
-				_overflux_panel.open()
+				# Instance portal: leave directly, no overflux selection.
+				NetworkManager.send_enter_portal()
 		elif hub_interact.near_merchant:
 			_merchant_panel.open_shop(hub_interact.merchant_tier)
+			_inventory_layer.bag_panel.merchant_open = true
+			_inventory_layer.bag_panel.queue_redraw()
 		elif hub_interact.aimed_peer_id > 0:
 			NetworkManager.send_group_invite(hub_interact.aimed_peer_id)
-		elif state == GameState.FIGHT_OVER and env_builder.is_near_exit_portal():
-			NetworkManager.send_interact(2)  # InteractExitPortal
 	elif event.physical_keycode == KEY_G and event.ctrl_pressed:
 		if dev_mode:
 			dev_mgr.toggle_bot_panel()
@@ -415,12 +426,12 @@ func _handle_gameplay_input(event: InputEvent) -> void:
 func _physics_process(_delta: float) -> void:
 	if state in [GameState.HUB, GameState.ARENA_LOBBY, GameState.FIGHT, GameState.FIGHT_OVER]:
 		hub_interact.check_portal_proximity()
-		if state == GameState.HUB:
-			hub_interact.check_lift_proximity()
-			hub_interact.check_merchant_proximity()
-			hub_interact.check_aim_at_player()
-		elif state == GameState.FIGHT_OVER:
-			env_builder.check_exit_portal_proximity()
+	if state == GameState.HUB:
+		hub_interact.check_lift_proximity()
+		hub_interact.check_merchant_proximity()
+		hub_interact.check_aim_at_player()
+	elif state == GameState.FIGHT_OVER:
+		env_builder.check_exit_portal_proximity()
 
 
 # =============================================================================
