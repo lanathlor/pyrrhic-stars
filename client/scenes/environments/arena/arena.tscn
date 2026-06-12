@@ -1,50 +1,96 @@
-[gd_scene load_steps=74 format=3 uid="uid://owdspxx3egli"]
+[gd_scene load_steps=90 format=3 uid="uid://owdspxx3egli"]
 
 [ext_resource type="Script" uid="uid://bw6hj1k8d7sth" path="res://scenes/environments/arena/dungeon_atmosphere.gd" id="dungeon_atmo"]
 [ext_resource type="PackedScene" uid="uid://bs8the8f3rpcd" path="res://assets/models/environments/hub/i_ship.glb" id="i_ship"]
+[ext_resource type="Texture2D" uid="uid://d0ed1w4na666s" path="res://assets/textures/derelict_city/asphalt_031_albedo.jpg" id="tex_asphalt_albedo"]
+[ext_resource type="Texture2D" uid="uid://blmnyxgi7chy" path="res://assets/textures/derelict_city/asphalt_031_normal.jpg" id="tex_asphalt_normal"]
+[ext_resource type="Texture2D" uid="uid://6vcx46mtqvy5" path="res://assets/textures/derelict_city/asphalt_031_roughness.jpg" id="tex_asphalt_rough"]
+[ext_resource type="Texture2D" uid="uid://dlrvkn706kh8t" path="res://assets/textures/derelict_city/concrete_034_albedo.jpg" id="tex_concrete_albedo"]
+[ext_resource type="Texture2D" uid="uid://iwpwckfkgipm" path="res://assets/textures/derelict_city/concrete_034_normal.jpg" id="tex_concrete_normal"]
+[ext_resource type="Texture2D" uid="uid://btwjr3cja3ak7" path="res://assets/textures/derelict_city/concrete_034_roughness.jpg" id="tex_concrete_rough"]
+[ext_resource type="Texture2D" uid="uid://bjarf84xqt1o5" path="res://assets/textures/derelict_city/facade_017_albedo.jpg" id="tex_facade2_albedo"]
+[ext_resource type="Texture2D" uid="uid://dii851rm26w03" path="res://assets/textures/derelict_city/facade_017_emission.jpg" id="tex_facade2_emit"]
+[ext_resource type="Texture2D" uid="uid://cvu1hputlv3dk" path="res://assets/textures/derelict_city/facade_017_normal.jpg" id="tex_facade2_normal"]
+[ext_resource type="Texture2D" uid="uid://cga514c8dsrn8" path="res://assets/textures/derelict_city/facade_017_roughness.jpg" id="tex_facade2_rough"]
+[ext_resource type="Texture2D" uid="uid://baiaxspawnj8y" path="res://assets/textures/derelict_city/facade_013_albedo.jpg" id="tex_facade_albedo"]
+[ext_resource type="Texture2D" uid="uid://dmjvdqkhdxxhp" path="res://assets/textures/derelict_city/facade_013_emission.jpg" id="tex_facade_emit"]
+[ext_resource type="Texture2D" uid="uid://dajw43jj43h6g" path="res://assets/textures/derelict_city/facade_013_normal.jpg" id="tex_facade_normal"]
+[ext_resource type="Texture2D" uid="uid://carrfkdfgyobo" path="res://assets/textures/derelict_city/facade_013_roughness.jpg" id="tex_facade_rough"]
+[ext_resource type="Texture2D" uid="uid://di1y7g5do7jfc" path="res://assets/textures/derelict_city/metal_plates_006_albedo.jpg" id="tex_metal_albedo"]
+[ext_resource type="Texture2D" uid="uid://bs7m25wjtk7gc" path="res://assets/textures/derelict_city/metal_plates_006_metalness.jpg" id="tex_metal_metal"]
+[ext_resource type="Texture2D" uid="uid://bahowbqmqjd00" path="res://assets/textures/derelict_city/metal_plates_006_normal.jpg" id="tex_metal_normal"]
+[ext_resource type="Texture2D" uid="uid://ruxn5dffesvl" path="res://assets/textures/derelict_city/metal_plates_006_roughness.jpg" id="tex_metal_rough"]
+[ext_resource type="Texture2D" uid="uid://b20frq0fl5uba" path="res://assets/textures/skies/satara_night_2k.hdr" id="tex_night_sky"]
+[ext_resource type="Texture2D" uid="uid://coxpmb42jggb5" path="res://assets/textures/derelict_city/road_007_albedo.jpg" id="tex_road_albedo"]
+[ext_resource type="Texture2D" uid="uid://b1cbuvdt8mdbx" path="res://assets/textures/derelict_city/road_007_normal.jpg" id="tex_road_normal"]
+[ext_resource type="Texture2D" uid="uid://bkp3ya0icaq72" path="res://assets/textures/derelict_city/road_007_roughness.jpg" id="tex_road_rough"]
 
-[sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
-sky_top_color = Color(0.01, 0.01, 0.04, 1)
-sky_horizon_color = Color(0.03, 0.04, 0.08, 1)
-ground_bottom_color = Color(0.01, 0.01, 0.02, 1)
-ground_horizon_color = Color(0.03, 0.04, 0.07, 1)
+[sub_resource type="PanoramaSkyMaterial" id="sky_panorama"]
+panorama = ExtResource("tex_night_sky")
+energy_multiplier = 1.5
 
 [sub_resource type="Sky" id="sky"]
-sky_material = SubResource("sky_mat")
+sky_material = SubResource("sky_panorama")
 
 [sub_resource type="Environment" id="env"]
 background_mode = 2
 sky = SubResource("sky")
 ambient_light_source = 2
-ambient_light_color = Color(0.12, 0.13, 0.2, 1)
-ambient_light_energy = 1.2
+ambient_light_color = Color(0.15, 0.17, 0.26, 1)
 tonemap_mode = 2
+tonemap_exposure = 1.25
 tonemap_white = 8.0
+ssr_enabled = true
 glow_enabled = true
-glow_intensity = 0.6
+glow_intensity = 0.7
 glow_bloom = 0.15
 glow_blend_mode = 1
 fog_enabled = true
-fog_light_color = Color(0.05, 0.06, 0.12, 1)
-fog_density = 0.005
+fog_light_color = Color(0.08, 0.1, 0.18, 1)
+fog_density = 0.006
 
 [sub_resource type="StandardMaterial3D" id="mat_wet_floor"]
-albedo_color = Color(0.18, 0.18, 0.22, 1)
+albedo_color = Color(0.5, 0.5, 0.55, 1)
+albedo_texture = ExtResource("tex_asphalt_albedo")
 metallic_specular = 0.15
-roughness = 0.25
+roughness = 0.45
+roughness_texture = ExtResource("tex_asphalt_rough")
+normal_enabled = true
+normal_texture = ExtResource("tex_asphalt_normal")
+uv1_scale = Vector3(0.12, 0.12, 0.12)
+uv1_triplanar = true
 
 [sub_resource type="StandardMaterial3D" id="mat_wall"]
-albedo_color = Color(0.2, 0.2, 0.24, 1)
-roughness = 0.75
+albedo_color = Color(0.5, 0.5, 0.55, 1)
+albedo_texture = ExtResource("tex_concrete_albedo")
+roughness = 0.85
+roughness_texture = ExtResource("tex_concrete_rough")
+normal_enabled = true
+normal_texture = ExtResource("tex_concrete_normal")
+uv1_scale = Vector3(0.25, 0.25, 0.25)
+uv1_triplanar = true
 
 [sub_resource type="StandardMaterial3D" id="mat_pillar"]
-albedo_color = Color(0.25, 0.25, 0.3, 1)
-metallic = 0.1
-roughness = 0.65
+albedo_color = Color(0.22, 0.26, 0.34, 1)
+albedo_texture = ExtResource("tex_metal_albedo")
+metallic = 1.0
+metallic_texture = ExtResource("tex_metal_metal")
+roughness = 0.7
+roughness_texture = ExtResource("tex_metal_rough")
+normal_enabled = true
+normal_texture = ExtResource("tex_metal_normal")
+uv1_scale = Vector3(0.5, 0.5, 0.5)
+uv1_triplanar = true
 
 [sub_resource type="StandardMaterial3D" id="mat_cover"]
-albedo_color = Color(0.18, 0.2, 0.24, 1)
-roughness = 0.7
+albedo_color = Color(0.42, 0.44, 0.48, 1)
+albedo_texture = ExtResource("tex_concrete_albedo")
+roughness = 0.8
+roughness_texture = ExtResource("tex_concrete_rough")
+normal_enabled = true
+normal_texture = ExtResource("tex_concrete_normal")
+uv1_scale = Vector3(0.5, 0.5, 0.5)
+uv1_triplanar = true
 
 [sub_resource type="StandardMaterial3D" id="mat_floor"]
 albedo_color = Color(0.15, 0.15, 0.18, 1)
@@ -52,33 +98,62 @@ metallic = 0.15
 roughness = 0.6
 
 [sub_resource type="StandardMaterial3D" id="mat_hallway_floor"]
-albedo_color = Color(0.12, 0.12, 0.15, 1)
+albedo_color = Color(0.45, 0.45, 0.5, 1)
+albedo_texture = ExtResource("tex_road_albedo")
 metallic_specular = 0.15
-roughness = 0.3
+roughness = 0.4
+roughness_texture = ExtResource("tex_road_rough")
+normal_enabled = true
+normal_texture = ExtResource("tex_road_normal")
+uv1_scale = Vector3(0.1, 0.1, 0.1)
+uv1_triplanar = true
 
 [sub_resource type="StandardMaterial3D" id="mat_gate"]
-albedo_color = Color(0.6, 0.15, 0.15, 1)
+albedo_color = Color(0.4, 0.25, 0.25, 1)
+albedo_texture = ExtResource("tex_metal_albedo")
+metallic = 1.0
+metallic_texture = ExtResource("tex_metal_metal")
+roughness = 0.6
+roughness_texture = ExtResource("tex_metal_rough")
 emission_enabled = true
 emission = Color(0.5, 0.1, 0.1, 1)
-emission_energy_multiplier = 0.5
+emission_energy_multiplier = 1.2
+normal_enabled = true
+normal_texture = ExtResource("tex_metal_normal")
+uv1_scale = Vector3(0.3, 0.3, 0.3)
+uv1_triplanar = true
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6v5t7"]
-albedo_color = Color(0.22, 0.22, 0.26, 1)
+albedo_color = Color(0.45, 0.45, 0.5, 1)
+albedo_texture = ExtResource("tex_facade_albedo")
 roughness = 0.8
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_7xvje"]
-albedo_color = Color(0.05, 0.06, 0.12, 1)
+roughness_texture = ExtResource("tex_facade_rough")
 emission_enabled = true
-emission = Color(0.08, 0.1, 0.25, 1)
-emission_energy_multiplier = 0.4
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_8egiw"]
-albedo_color = Color(0.08, 0.08, 0.1, 1)
-roughness = 0.9
+emission = Color(1, 1, 1, 1)
+emission_energy_multiplier = 0.08
+emission_texture = ExtResource("tex_facade_emit")
+normal_enabled = true
+normal_texture = ExtResource("tex_facade_normal")
+uv1_scale = Vector3(0.04, 0.04, 0.04)
+uv1_triplanar = true
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_qcu05"]
 albedo_color = Color(0.28, 0.28, 0.32, 1)
 roughness = 0.7
+
+[sub_resource type="StandardMaterial3D" id="mat_facade_b"]
+albedo_color = Color(0.45, 0.45, 0.5, 1)
+albedo_texture = ExtResource("tex_facade2_albedo")
+roughness = 0.8
+roughness_texture = ExtResource("tex_facade2_rough")
+emission_enabled = true
+emission = Color(1, 1, 1, 1)
+emission_energy_multiplier = 0.08
+emission_texture = ExtResource("tex_facade2_emit")
+normal_enabled = true
+normal_texture = ExtResource("tex_facade2_normal")
+uv1_scale = Vector3(0.035, 0.035, 0.035)
+uv1_triplanar = true
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_06b35"]
 albedo_color = Color(0.14, 0.14, 0.17, 1)
@@ -143,12 +218,6 @@ billboard_mode = 1
 material = SubResource("StandardMaterial3D_7q5wu")
 size = Vector2(2, 2)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_4y5q4"]
-albedo_color = Color(0.15, 0.05, 0.02, 1)
-emission_enabled = true
-emission = Color(0.8, 0.35, 0.05, 1)
-emission_energy_multiplier = 1.5
-
 [sub_resource type="Gradient" id="Gradient_bq1rb"]
 offsets = PackedFloat32Array(0, 0.3, 0.6, 1)
 colors = PackedColorArray(1, 0.8, 0.3, 0.9, 0.1, 0.1, 0.1, 0, 0.6, 0.15, 0.02, 0.5, 1, 1, 1, 1)
@@ -207,12 +276,6 @@ billboard_mode = 1
 [sub_resource type="QuadMesh" id="QuadMesh_pc8p2"]
 material = SubResource("StandardMaterial3D_1autn")
 size = Vector2(2, 2)
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_lguix"]
-albedo_color = Color(0.15, 0.05, 0.02, 1)
-emission_enabled = true
-emission = Color(0.8, 0.35, 0.05, 1)
-emission_energy_multiplier = 1.5
 
 [sub_resource type="Gradient" id="Gradient_05mep"]
 offsets = PackedFloat32Array(0, 0.3, 0.6, 1)
@@ -273,12 +336,6 @@ billboard_mode = 1
 material = SubResource("StandardMaterial3D_kaupd")
 size = Vector2(2, 2)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_27ney"]
-albedo_color = Color(0.15, 0.05, 0.02, 1)
-emission_enabled = true
-emission = Color(0.8, 0.35, 0.05, 1)
-emission_energy_multiplier = 1.5
-
 [sub_resource type="Gradient" id="Gradient_nb5ln"]
 offsets = PackedFloat32Array(0, 0.3, 0.6, 1)
 colors = PackedColorArray(1, 0.8, 0.3, 0.9, 0.1, 0.1, 0.1, 0, 0.6, 0.15, 0.02, 0.5, 1, 1, 1, 1)
@@ -337,12 +394,6 @@ billboard_mode = 1
 [sub_resource type="QuadMesh" id="QuadMesh_floqy"]
 material = SubResource("StandardMaterial3D_8tu5f")
 size = Vector2(2, 2)
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_0unet"]
-albedo_color = Color(0.15, 0.05, 0.02, 1)
-emission_enabled = true
-emission = Color(0.8, 0.35, 0.05, 1)
-emission_energy_multiplier = 1.5
 
 [sub_resource type="Gradient" id="Gradient_6nfo2"]
 offsets = PackedFloat32Array(0, 0.3, 0.6, 1)
@@ -403,12 +454,6 @@ billboard_mode = 1
 material = SubResource("StandardMaterial3D_fkgif")
 size = Vector2(2, 2)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_boj84"]
-albedo_color = Color(0.15, 0.05, 0.02, 1)
-emission_enabled = true
-emission = Color(0.8, 0.35, 0.05, 1)
-emission_energy_multiplier = 1.5
-
 [sub_resource type="CylinderShape3D" id="portal_shape"]
 height = 4.0
 radius = 2.5
@@ -419,17 +464,17 @@ radius = 2.5
 environment = SubResource("env")
 
 [node name="MoonLight" type="DirectionalLight3D" parent="."]
-transform = Transform3D(0.866, -0.25, 0.433, 0, 0.866, 0.5, -0.5, -0.433, 0.75, 0, 15, 0)
+transform = Transform3D(0.8660063, -0.40956476, 0.28678665, 0, 0.5735607, 0.8191476, -0.499989, -0.709387, 0.49672905, 0, 15, 0)
 light_color = Color(0.45, 0.5, 0.75, 1)
-light_energy = 2.0
+light_energy = 1.5
 shadow_enabled = true
 shadow_bias = 0.03
 directional_shadow_max_distance = 80.0
 
 [node name="FillLight" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.866, 0.25, -0.433, 0, 0.866, 0.5, 0.5, -0.433, 0.75, 0, 10, 0)
-light_color = Color(0.25, 0.25, 0.4, 1)
-light_energy = 1.2
+light_color = Color(0.2, 0.22, 0.38, 1)
+light_energy = 0.7
 
 [node name="Floor" type="CSGBox3D" parent="." groups=["server_ignore"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, -1.5)
@@ -547,33 +592,33 @@ spot_angle = 35.0
 
 [node name="CenterLight" type="OmniLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, -1.5)
-light_color = Color(0.4, 0.4, 0.6, 1)
-light_energy = 4.0
+light_color = Color(0.45, 0.5, 0.75, 1)
+light_energy = 8.0
 omni_range = 25.0
 
 [node name="FloorOmniN" type="OmniLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -10)
 light_color = Color(0.35, 0.35, 0.55, 1)
-light_energy = 3.0
-omni_range = 18.0
+light_energy = 6.0
+omni_range = 22.0
 
 [node name="FloorOmniS" type="OmniLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 8)
 light_color = Color(0.35, 0.35, 0.55, 1)
-light_energy = 3.0
-omni_range = 18.0
+light_energy = 6.0
+omni_range = 22.0
 
 [node name="FloorOmniW" type="OmniLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14, 2, -1.5)
 light_color = Color(0.3, 0.3, 0.5, 1)
-light_energy = 2.5
-omni_range = 16.0
+light_energy = 6.0
+omni_range = 22.0
 
 [node name="FloorOmniE" type="OmniLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 2, -1.5)
 light_color = Color(0.3, 0.3, 0.5, 1)
-light_energy = 2.5
-omni_range = 16.0
+light_energy = 6.0
+omni_range = 22.0
 
 [node name="LobbyFloor" type="CSGBox3D" parent="." groups=["server_ignore"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 52)
@@ -599,8 +644,8 @@ material = SubResource("mat_wall")
 [node name="LobbyLight" type="OmniLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.5, 46)
 light_color = Color(0.3, 0.3, 0.55, 1)
-light_energy = 2.5
-omni_range = 12.0
+light_energy = 4.0
+omni_range = 14.0
 
 [node name="HallwayFloor" type="CSGBox3D" parent="." groups=["server_ignore"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 26)
@@ -676,6 +721,18 @@ metadata/close_on = "boss_activated"
 metadata/open_on = "boss_dead,all_dead,boss_reset"
 metadata/push_axis = "z"
 metadata/push_offset = -3.0
+
+[node name="LobbyGate" type="CSGBox3D" parent="." groups=["server_gate"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 40)
+visible = false
+collision_mask = 0
+size = Vector3(40, 5, 0.5)
+material = SubResource("mat_gate")
+metadata/gate_id = "lobby_gate"
+metadata/default_closed = true
+metadata/open_on = "fight_start,all_dead,boss_reset"
+metadata/push_axis = "z"
+metadata/push_offset = 3.0
 
 [node name="LevelData" type="Node3D" parent="."]
 
@@ -807,26 +864,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13, 22.5, 19.5)
 size = Vector3(10, 45, 9)
 material = SubResource("StandardMaterial3D_6v5t7")
 
-[node name="SE1Strip0" type="CSGBox3D" parent="ArenaBuildings/StreetEast"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.95, 23, 16.125)
-size = Vector3(0.15, 40, 0.8)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="SE1Strip1" type="CSGBox3D" parent="ArenaBuildings/StreetEast"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.95, 23, 18.375)
-size = Vector3(0.15, 40, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="SE1Strip2" type="CSGBox3D" parent="ArenaBuildings/StreetEast"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.95, 23, 20.625)
-size = Vector3(0.15, 40, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="SE1Strip3" type="CSGBox3D" parent="ArenaBuildings/StreetEast"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.95, 23, 22.875)
-size = Vector3(0.15, 40, 0.8)
-material = SubResource("StandardMaterial3D_7xvje")
-
 [node name="SE1Ledge0" type="CSGBox3D" parent="ArenaBuildings/StreetEast"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13.18, 4, 19.5)
 size = Vector3(0.4, 0.15, 9)
@@ -885,22 +922,7 @@ material = SubResource("StandardMaterial3D_qcu05")
 [node name="SE2" type="CSGBox3D" parent="ArenaBuildings/StreetEast"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 27.5, 28.5)
 size = Vector3(12, 55, 7)
-material = SubResource("StandardMaterial3D_6v5t7")
-
-[node name="SE2Strip0" type="CSGBox3D" parent="ArenaBuildings/StreetEast"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.95, 28, 26.166666)
-size = Vector3(0.15, 50, 0.8)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="SE2Strip1" type="CSGBox3D" parent="ArenaBuildings/StreetEast"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.95, 28, 28.5)
-size = Vector3(0.15, 50, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="SE2Strip2" type="CSGBox3D" parent="ArenaBuildings/StreetEast"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.95, 28, 30.833334)
-size = Vector3(0.15, 50, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
+material = SubResource("mat_facade_b")
 
 [node name="SE2Ledge0" type="CSGBox3D" parent="ArenaBuildings/StreetEast"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14.18, 4, 28.5)
@@ -972,21 +994,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 17.5, 36.5)
 size = Vector3(8, 35, 7)
 material = SubResource("StandardMaterial3D_6v5t7")
 
-[node name="SE3Strip0" type="CSGBox3D" parent="ArenaBuildings/StreetEast"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.95, 18, 34.166668)
-size = Vector3(0.15, 30, 0.8)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="SE3Strip1" type="CSGBox3D" parent="ArenaBuildings/StreetEast"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.95, 18, 36.5)
-size = Vector3(0.15, 30, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="SE3Strip2" type="CSGBox3D" parent="ArenaBuildings/StreetEast"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.95, 18, 38.833332)
-size = Vector3(0.15, 30, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
-
 [node name="SE3Ledge0" type="CSGBox3D" parent="ArenaBuildings/StreetEast"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.18, 4, 36.5)
 size = Vector3(0.4, 0.15, 7)
@@ -1030,7 +1037,7 @@ material = SubResource("StandardMaterial3D_qcu05")
 [node name="SE1B" type="CSGBox3D" parent="ArenaBuildings/StreetEast"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 30, 19.5)
 size = Vector3(8, 60, 9)
-material = SubResource("StandardMaterial3D_6v5t7")
+material = SubResource("mat_facade_b")
 
 [node name="StreetWest" type="Node3D" parent="ArenaBuildings"]
 
@@ -1038,21 +1045,6 @@ material = SubResource("StandardMaterial3D_6v5t7")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13, 25, 18.5)
 size = Vector3(10, 50, 7)
 material = SubResource("StandardMaterial3D_6v5t7")
-
-[node name="SW1Strip0" type="CSGBox3D" parent="ArenaBuildings/StreetWest"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.95, 25.5, 16.166666)
-size = Vector3(0.15, 45, 0.8)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="SW1Strip1" type="CSGBox3D" parent="ArenaBuildings/StreetWest"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.95, 25.5, 18.5)
-size = Vector3(0.15, 45, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="SW1Strip2" type="CSGBox3D" parent="ArenaBuildings/StreetWest"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.95, 25.5, 20.833334)
-size = Vector3(0.15, 45, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
 
 [node name="SW1Ledge0" type="CSGBox3D" parent="ArenaBuildings/StreetWest"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13.18, 4, 18.5)
@@ -1117,27 +1109,7 @@ material = SubResource("StandardMaterial3D_qcu05")
 [node name="SW2" type="CSGBox3D" parent="ArenaBuildings/StreetWest"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14, 20, 28)
 size = Vector3(12, 40, 10)
-material = SubResource("StandardMaterial3D_6v5t7")
-
-[node name="SW2Strip0" type="CSGBox3D" parent="ArenaBuildings/StreetWest"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.95, 20.5, 24.25)
-size = Vector3(0.15, 35, 0.8)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="SW2Strip1" type="CSGBox3D" parent="ArenaBuildings/StreetWest"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.95, 20.5, 26.75)
-size = Vector3(0.15, 35, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="SW2Strip2" type="CSGBox3D" parent="ArenaBuildings/StreetWest"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.95, 20.5, 29.25)
-size = Vector3(0.15, 35, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="SW2Strip3" type="CSGBox3D" parent="ArenaBuildings/StreetWest"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.95, 20.5, 31.75)
-size = Vector3(0.15, 35, 0.8)
-material = SubResource("StandardMaterial3D_7xvje")
+material = SubResource("mat_facade_b")
 
 [node name="SW2Ledge0" type="CSGBox3D" parent="ArenaBuildings/StreetWest"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14.18, 4, 28)
@@ -1188,21 +1160,6 @@ material = SubResource("StandardMaterial3D_qcu05")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13, 30, 37)
 size = Vector3(10, 60, 6)
 material = SubResource("StandardMaterial3D_6v5t7")
-
-[node name="SW3Strip0" type="CSGBox3D" parent="ArenaBuildings/StreetWest"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.95, 30.5, 35)
-size = Vector3(0.15, 55, 0.8)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="SW3Strip1" type="CSGBox3D" parent="ArenaBuildings/StreetWest"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.95, 30.5, 37)
-size = Vector3(0.15, 55, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="SW3Strip2" type="CSGBox3D" parent="ArenaBuildings/StreetWest"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.95, 30.5, 39)
-size = Vector3(0.15, 55, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
 
 [node name="SW3Ledge0" type="CSGBox3D" parent="ArenaBuildings/StreetWest"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13.18, 4, 37)
@@ -1277,7 +1234,7 @@ material = SubResource("StandardMaterial3D_qcu05")
 [node name="SW2B" type="CSGBox3D" parent="ArenaBuildings/StreetWest"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24, 27.5, 28)
 size = Vector3(8, 55, 10)
-material = SubResource("StandardMaterial3D_6v5t7")
+material = SubResource("mat_facade_b")
 
 [node name="BossEast" type="Node3D" parent="ArenaBuildings"]
 
@@ -1285,21 +1242,6 @@ material = SubResource("StandardMaterial3D_6v5t7")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.25, 20, -10)
 size = Vector3(8, 40, 8)
 material = SubResource("StandardMaterial3D_6v5t7")
-
-[node name="BE1Strip0" type="CSGBox3D" parent="ArenaBuildings/BossEast"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.2, 20.5, -12.666667)
-size = Vector3(0.15, 35, 0.8)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="BE1Strip1" type="CSGBox3D" parent="ArenaBuildings/BossEast"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.2, 20.5, -10)
-size = Vector3(0.15, 35, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="BE1Strip2" type="CSGBox3D" parent="ArenaBuildings/BossEast"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.2, 20.5, -7.3333335)
-size = Vector3(0.15, 35, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
 
 [node name="BE1Ledge0" type="CSGBox3D" parent="ArenaBuildings/BossEast"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.43, 4, -10)
@@ -1349,27 +1291,7 @@ material = SubResource("StandardMaterial3D_qcu05")
 [node name="BE2" type="CSGBox3D" parent="ArenaBuildings/BossEast"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25.25, 25, 0)
 size = Vector3(10, 50, 10)
-material = SubResource("StandardMaterial3D_6v5t7")
-
-[node name="BE2Strip0" type="CSGBox3D" parent="ArenaBuildings/BossEast"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.2, 25.5, -3.75)
-size = Vector3(0.15, 45, 0.8)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="BE2Strip1" type="CSGBox3D" parent="ArenaBuildings/BossEast"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.2, 25.5, -1.25)
-size = Vector3(0.15, 45, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="BE2Strip2" type="CSGBox3D" parent="ArenaBuildings/BossEast"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.2, 25.5, 1.25)
-size = Vector3(0.15, 45, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="BE2Strip3" type="CSGBox3D" parent="ArenaBuildings/BossEast"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.2, 25.5, 3.75)
-size = Vector3(0.15, 45, 0.8)
-material = SubResource("StandardMaterial3D_7xvje")
+material = SubResource("mat_facade_b")
 
 [node name="BE2Ledge0" type="CSGBox3D" parent="ArenaBuildings/BossEast"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25.43, 4, 0)
@@ -1436,21 +1358,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23.75, 17.5, 9)
 size = Vector3(7, 35, 6)
 material = SubResource("StandardMaterial3D_6v5t7")
 
-[node name="BE3Strip0" type="CSGBox3D" parent="ArenaBuildings/BossEast"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.2, 18, 7)
-size = Vector3(0.15, 30, 0.8)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="BE3Strip1" type="CSGBox3D" parent="ArenaBuildings/BossEast"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.2, 18, 9)
-size = Vector3(0.15, 30, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="BE3Strip2" type="CSGBox3D" parent="ArenaBuildings/BossEast"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.2, 18, 11)
-size = Vector3(0.15, 30, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
-
 [node name="BE3Ledge0" type="CSGBox3D" parent="ArenaBuildings/BossEast"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23.93, 4, 9)
 size = Vector3(0.4, 0.15, 6)
@@ -1496,22 +1403,7 @@ material = SubResource("StandardMaterial3D_qcu05")
 [node name="BW1" type="CSGBox3D" parent="ArenaBuildings/BossWest"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24.75, 22.5, -10.5)
 size = Vector3(9, 45, 7)
-material = SubResource("StandardMaterial3D_6v5t7")
-
-[node name="BW1Strip0" type="CSGBox3D" parent="ArenaBuildings/BossWest"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20.2, 23, -12.833333)
-size = Vector3(0.15, 40, 0.8)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="BW1Strip1" type="CSGBox3D" parent="ArenaBuildings/BossWest"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20.2, 23, -10.5)
-size = Vector3(0.15, 40, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="BW1Strip2" type="CSGBox3D" parent="ArenaBuildings/BossWest"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20.2, 23, -8.166667)
-size = Vector3(0.15, 40, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
+material = SubResource("mat_facade_b")
 
 [node name="BW1Ledge0" type="CSGBox3D" parent="ArenaBuildings/BossWest"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24.93, 4, -10.5)
@@ -1573,26 +1465,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24.25, 17.5, -1)
 size = Vector3(8, 35, 10)
 material = SubResource("StandardMaterial3D_6v5t7")
 
-[node name="BW2Strip0" type="CSGBox3D" parent="ArenaBuildings/BossWest"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20.2, 18, -4.75)
-size = Vector3(0.15, 30, 0.8)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="BW2Strip1" type="CSGBox3D" parent="ArenaBuildings/BossWest"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20.2, 18, -2.25)
-size = Vector3(0.15, 30, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="BW2Strip2" type="CSGBox3D" parent="ArenaBuildings/BossWest"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20.2, 18, 0.25)
-size = Vector3(0.15, 30, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="BW2Strip3" type="CSGBox3D" parent="ArenaBuildings/BossWest"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20.2, 18, 2.75)
-size = Vector3(0.15, 30, 0.8)
-material = SubResource("StandardMaterial3D_7xvje")
-
 [node name="BW2Ledge0" type="CSGBox3D" parent="ArenaBuildings/BossWest"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24.43, 4, -1)
 size = Vector3(0.4, 0.15, 10)
@@ -1636,22 +1508,7 @@ material = SubResource("StandardMaterial3D_qcu05")
 [node name="BW3" type="CSGBox3D" parent="ArenaBuildings/BossWest"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -25.25, 27.5, 8.5)
 size = Vector3(10, 55, 7)
-material = SubResource("StandardMaterial3D_6v5t7")
-
-[node name="BW3Strip0" type="CSGBox3D" parent="ArenaBuildings/BossWest"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20.2, 28, 6.1666665)
-size = Vector3(0.15, 50, 0.8)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="BW3Strip1" type="CSGBox3D" parent="ArenaBuildings/BossWest"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20.2, 28, 8.5)
-size = Vector3(0.15, 50, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="BW3Strip2" type="CSGBox3D" parent="ArenaBuildings/BossWest"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20.2, 28, 10.833333)
-size = Vector3(0.15, 50, 0.8)
-material = SubResource("StandardMaterial3D_8egiw")
+material = SubResource("mat_facade_b")
 
 [node name="BW3Ledge0" type="CSGBox3D" parent="ArenaBuildings/BossWest"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -25.43, 4, 8.5)
@@ -1725,31 +1582,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13, 27.5, -19.25)
 size = Vector3(12, 55, 8)
 material = SubResource("StandardMaterial3D_6v5t7")
 
-[node name="N1Strip0" type="CSGBox3D" parent="ArenaBuildings/NorthBuildings"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17.8, 28, -15.3)
-size = Vector3(0.8, 50, 0.15)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="N1Strip1" type="CSGBox3D" parent="ArenaBuildings/NorthBuildings"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15.4, 28, -15.3)
-size = Vector3(0.8, 50, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="N1Strip2" type="CSGBox3D" parent="ArenaBuildings/NorthBuildings"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13, 28, -15.3)
-size = Vector3(0.8, 50, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="N1Strip3" type="CSGBox3D" parent="ArenaBuildings/NorthBuildings"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10.6, 28, -15.3)
-size = Vector3(0.8, 50, 0.15)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="N1Strip4" type="CSGBox3D" parent="ArenaBuildings/NorthBuildings"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8.2, 28, -15.3)
-size = Vector3(0.8, 50, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
 [node name="N1Ledge0" type="CSGBox3D" parent="ArenaBuildings/NorthBuildings"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13, 4, -19.07)
 size = Vector3(12, 0.15, 0.4)
@@ -1818,27 +1650,7 @@ material = SubResource("StandardMaterial3D_qcu05")
 [node name="N2" type="CSGBox3D" parent="ArenaBuildings/NorthBuildings"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 22.5, -20.25)
 size = Vector3(10, 45, 10)
-material = SubResource("StandardMaterial3D_6v5t7")
-
-[node name="N2Strip0" type="CSGBox3D" parent="ArenaBuildings/NorthBuildings"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 23, -15.3)
-size = Vector3(0.8, 40, 0.15)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="N2Strip1" type="CSGBox3D" parent="ArenaBuildings/NorthBuildings"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.25, 23, -15.3)
-size = Vector3(0.8, 40, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="N2Strip2" type="CSGBox3D" parent="ArenaBuildings/NorthBuildings"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.25, 23, -15.3)
-size = Vector3(0.8, 40, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="N2Strip3" type="CSGBox3D" parent="ArenaBuildings/NorthBuildings"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 23, -15.3)
-size = Vector3(0.8, 40, 0.15)
-material = SubResource("StandardMaterial3D_7xvje")
+material = SubResource("mat_facade_b")
 
 [node name="N2Ledge0" type="CSGBox3D" parent="ArenaBuildings/NorthBuildings"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, -20.07)
@@ -1899,31 +1711,6 @@ material = SubResource("StandardMaterial3D_qcu05")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13, 25, -19.25)
 size = Vector3(12, 50, 8)
 material = SubResource("StandardMaterial3D_6v5t7")
-
-[node name="N3Strip0" type="CSGBox3D" parent="ArenaBuildings/NorthBuildings"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.2, 25.5, -15.3)
-size = Vector3(0.8, 45, 0.15)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="N3Strip1" type="CSGBox3D" parent="ArenaBuildings/NorthBuildings"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.6, 25.5, -15.3)
-size = Vector3(0.8, 45, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="N3Strip2" type="CSGBox3D" parent="ArenaBuildings/NorthBuildings"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13, 25.5, -15.3)
-size = Vector3(0.8, 45, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="N3Strip3" type="CSGBox3D" parent="ArenaBuildings/NorthBuildings"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15.4, 25.5, -15.3)
-size = Vector3(0.8, 45, 0.15)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="N3Strip4" type="CSGBox3D" parent="ArenaBuildings/NorthBuildings"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17.8, 25.5, -15.3)
-size = Vector3(0.8, 45, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
 
 [node name="N3Ledge0" type="CSGBox3D" parent="ArenaBuildings/NorthBuildings"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13, 4, -19.07)
@@ -1988,7 +1775,7 @@ material = SubResource("StandardMaterial3D_qcu05")
 [node name="N1B" type="CSGBox3D" parent="ArenaBuildings/NorthBuildings"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13, 40, -28)
 size = Vector3(14, 80, 10)
-material = SubResource("StandardMaterial3D_6v5t7")
+material = SubResource("mat_facade_b")
 
 [node name="TransitionBuilding" type="Node3D" parent="ArenaBuildings"]
 
@@ -2007,132 +1794,12 @@ material = SubResource("StandardMaterial3D_6v5t7")
 [node name="TransPillarE" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 3.125, 12.5)
 size = Vector3(12, 6.25, 5)
-material = SubResource("StandardMaterial3D_6v5t7")
+material = SubResource("mat_facade_b")
 
 [node name="TransPillarW" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14, 3.125, 12.5)
 size = Vector3(12, 6.25, 5)
 material = SubResource("StandardMaterial3D_6v5t7")
-
-[node name="TransSStrip0" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18.333334, 12.5, 9.95)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="TransSStrip1" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 12.5, 9.95)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="TransSStrip2" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.666667, 12.5, 9.95)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="TransSStrip3" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8.333333, 12.5, 9.95)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="TransSStrip4" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 12.5, 9.95)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="TransSStrip5" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.6666666, 12.5, 9.95)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="TransSStrip6" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6666666, 12.5, 9.95)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="TransSStrip7" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 12.5, 9.95)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="TransSStrip8" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.333333, 12.5, 9.95)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="TransSStrip9" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.666667, 12.5, 9.95)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="TransSStrip10" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 12.5, 9.95)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="TransSStrip11" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18.333334, 12.5, 9.95)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="TransNStrip0" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18.333334, 12.5, 15.05)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="TransNStrip1" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 12.5, 15.05)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="TransNStrip2" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.666667, 12.5, 15.05)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="TransNStrip3" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8.333333, 12.5, 15.05)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="TransNStrip4" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 12.5, 15.05)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="TransNStrip5" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.6666666, 12.5, 15.05)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="TransNStrip6" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6666666, 12.5, 15.05)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="TransNStrip7" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 12.5, 15.05)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="TransNStrip8" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.333333, 12.5, 15.05)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="TransNStrip9" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.666667, 12.5, 15.05)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="TransNStrip10" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 12.5, 15.05)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="TransNStrip11" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18.333334, 12.5, 15.05)
-size = Vector3(0.8, 19, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
 
 [node name="TransSLedge0" type="CSGBox3D" parent="ArenaBuildings/TransitionBuilding"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, 12.68)
@@ -2196,42 +1863,7 @@ material = SubResource("StandardMaterial3D_06b35")
 [node name="LobbyUpper" type="CSGBox3D" parent="ArenaBuildings/LobbyBuilding"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.75, 44)
 size = Vector3(20, 40, 8)
-material = SubResource("StandardMaterial3D_6v5t7")
-
-[node name="LobbySouthStrip0" type="CSGBox3D" parent="ArenaBuildings/LobbyBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8.571428, 17.5, 37.95)
-size = Vector3(0.8, 29, 0.15)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="LobbySouthStrip1" type="CSGBox3D" parent="ArenaBuildings/LobbyBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.714286, 17.5, 37.95)
-size = Vector3(0.8, 29, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="LobbySouthStrip2" type="CSGBox3D" parent="ArenaBuildings/LobbyBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.857143, 17.5, 37.95)
-size = Vector3(0.8, 29, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="LobbySouthStrip3" type="CSGBox3D" parent="ArenaBuildings/LobbyBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17.5, 37.95)
-size = Vector3(0.8, 29, 0.15)
-material = SubResource("StandardMaterial3D_7xvje")
-
-[node name="LobbySouthStrip4" type="CSGBox3D" parent="ArenaBuildings/LobbyBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.857143, 17.5, 37.95)
-size = Vector3(0.8, 29, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="LobbySouthStrip5" type="CSGBox3D" parent="ArenaBuildings/LobbyBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.714286, 17.5, 37.95)
-size = Vector3(0.8, 29, 0.15)
-material = SubResource("StandardMaterial3D_8egiw")
-
-[node name="LobbySouthStrip6" type="CSGBox3D" parent="ArenaBuildings/LobbyBuilding"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.571428, 17.5, 37.95)
-size = Vector3(0.8, 29, 0.15)
-material = SubResource("StandardMaterial3D_7xvje")
+material = SubResource("mat_facade_b")
 
 [node name="LobbySouthLedge0" type="CSGBox3D" parent="ArenaBuildings/LobbyBuilding"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, 46.18)
@@ -2304,11 +1936,6 @@ visibility_aabb = AABB(-6, -2, -6, 12, 32, 12)
 process_material = SubResource("ParticleProcessMaterial_3nfcr")
 draw_pass_1 = SubResource("QuadMesh_mhrws")
 
-[node name="FireGlow0" type="CSGBox3D" parent="ArenaBuildings/BurningBuildings"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 18, 28)
-size = Vector3(3, 12, 0.1)
-material = SubResource("StandardMaterial3D_4y5q4")
-
 [node name="FireLight1" type="OmniLight3D" parent="ArenaBuildings/BurningBuildings"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -9, 14, 18)
 light_color = Color(1, 0.55, 0.15, 1)
@@ -2338,11 +1965,6 @@ visibility_aabb = AABB(-6, -2, -6, 12, 28, 12)
 process_material = SubResource("ParticleProcessMaterial_q6gdx")
 draw_pass_1 = SubResource("QuadMesh_pc8p2")
 
-[node name="FireGlow1" type="CSGBox3D" parent="ArenaBuildings/BurningBuildings"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -9, 14, 18)
-size = Vector3(3, 8, 0.1)
-material = SubResource("StandardMaterial3D_lguix")
-
 [node name="FireLight2" type="OmniLight3D" parent="ArenaBuildings/BurningBuildings"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -21, 8, 7)
 light_color = Color(1, 0.55, 0.15, 1)
@@ -2370,11 +1992,6 @@ lifetime = 3.0
 visibility_aabb = AABB(-6, -2, -6, 12, 30, 12)
 process_material = SubResource("ParticleProcessMaterial_0xoi4")
 draw_pass_1 = SubResource("QuadMesh_xasgf")
-
-[node name="FireGlow2" type="CSGBox3D" parent="ArenaBuildings/BurningBuildings"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -21, 8, 7)
-size = Vector3(3, 10, 0.1)
-material = SubResource("StandardMaterial3D_27ney")
 
 [node name="FireLight3" type="OmniLight3D" parent="ArenaBuildings/BurningBuildings"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14, 22, -16)
@@ -2404,11 +2021,6 @@ visibility_aabb = AABB(-6, -2, -6, 12, 30, 12)
 process_material = SubResource("ParticleProcessMaterial_6uw2v")
 draw_pass_1 = SubResource("QuadMesh_floqy")
 
-[node name="FireGlow3" type="CSGBox3D" parent="ArenaBuildings/BurningBuildings"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14, 22, -16)
-size = Vector3(3, 10, 0.1)
-material = SubResource("StandardMaterial3D_0unet")
-
 [node name="FireLight4" type="OmniLight3D" parent="ArenaBuildings/BurningBuildings"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 4, 36)
 light_color = Color(1, 0.55, 0.15, 1)
@@ -2436,11 +2048,6 @@ lifetime = 3.0
 visibility_aabb = AABB(-6, -2, -6, 12, 26, 12)
 process_material = SubResource("ParticleProcessMaterial_8se0f")
 draw_pass_1 = SubResource("QuadMesh_pd35q")
-
-[node name="FireGlow4" type="CSGBox3D" parent="ArenaBuildings/BurningBuildings"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 4, 36)
-size = Vector3(3, 6, 0.1)
-material = SubResource("StandardMaterial3D_boj84")
 
 [node name="LobbyWallBack" type="CSGBox3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 64)
