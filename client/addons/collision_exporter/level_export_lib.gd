@@ -17,11 +17,12 @@ static func extract_level(root: Node, scene_path: String) -> Dictionary:
 	var npc_spawns: Array = []
 	var portals: Array = []
 	var zone_triggers: Array = []
+	var gates: Array = []
 	var bounds_override: Dictionary = {}
 	var zone_config: Dictionary = {}
 
 	_walk_tree(root, obstacles, elevators, player_spawns, enemy_spawns,
-		npc_spawns, portals, zone_triggers, bounds_override, zone_config)
+		npc_spawns, portals, zone_triggers, gates, bounds_override, zone_config)
 
 	var zone_name: String = ""
 	if zone_config.has("zone_name"):
@@ -51,6 +52,7 @@ static func extract_level(root: Node, scene_path: String) -> Dictionary:
 		"npc_spawns": npc_spawns,
 		"portals": portals,
 		"zone_triggers": zone_triggers,
+		"gates": gates,
 	}
 	var spawn_yaw: float = float(zone_config.get("spawn_yaw", 0.0))
 	if spawn_yaw != 0.0:
@@ -111,13 +113,18 @@ static func _walk_tree(
 	npc_spawns: Array,
 	portals: Array,
 	zone_triggers: Array,
+	gates: Array,
 	bounds_override: Dictionary,
 	zone_config: Dictionary,
 ) -> void:
 	if node.is_in_group("server_ignore"):
 		return
 
-	if node is CSGBox3D:
+	# Gates are dynamic server-side obstacles; they must not leak into the
+	# static obstacle list or they block movement even while open.
+	if node.is_in_group("server_gate"):
+		_extract_gate(node, gates)
+	elif node is CSGBox3D:
 		_extract_collision(node, obstacles)
 	elif node.is_in_group("server_collision"):
 		_extract_collision(node, obstacles)
@@ -140,7 +147,7 @@ static func _walk_tree(
 
 	for child in node.get_children():
 		_walk_tree(child, obstacles, elevators, player_spawns, enemy_spawns,
-			npc_spawns, portals, zone_triggers, bounds_override, zone_config)
+			npc_spawns, portals, zone_triggers, gates, bounds_override, zone_config)
 
 
 # --- Extractors ---
@@ -301,6 +308,45 @@ static func _extract_zone_trigger(node: Node, zone_triggers: Array) -> void:
 		"axis": axis,
 		"threshold": snapped(threshold, 0.01),
 	})
+
+
+static func _extract_gate(node: Node, gates: Array) -> void:
+	if not node is CSGBox3D:
+		printerr("LevelExportLib: server_gate node '%s' is not CSGBox3D, skipping" % node.name)
+		return
+	var box := node as CSGBox3D
+	var pos := _global_pos(box)
+	var half := box.size / 2.0
+	var gate_id: String = str(box.get_meta("gate_id", ""))
+	if gate_id == "":
+		printerr("LevelExportLib: server_gate node '%s' has no gate_id, skipping" % node.name)
+		return
+	var close_on := _split_meta_list(box, "close_on")
+	var open_on := _split_meta_list(box, "open_on")
+	var gate: Dictionary = {
+		"name": str(box.name),
+		"gate_id": gate_id,
+		"center": [snapped(pos.x, 0.01), snapped(pos.y, 0.01), snapped(pos.z, 0.01)],
+		"half_extents": [snapped(half.x, 0.01), snapped(half.y, 0.01), snapped(half.z, 0.01)],
+		"close_on": close_on,
+		"open_on": open_on,
+	}
+	if box.get_meta("default_closed", false):
+		gate["default_closed"] = true
+	var push_axis: String = str(box.get_meta("push_axis", ""))
+	if push_axis != "":
+		gate["push_axis"] = push_axis
+		gate["push_offset"] = float(box.get_meta("push_offset", 0.0))
+	gates.append(gate)
+
+
+static func _split_meta_list(node: Node, meta_name: String) -> Array:
+	var out: Array = []
+	for s in str(node.get_meta(meta_name, "")).split(","):
+		var trimmed: String = s.strip_edges()
+		if trimmed != "":
+			out.append(trimmed)
+	return out
 
 
 static func _extract_bounds(node: Node, bounds: Dictionary) -> void:
