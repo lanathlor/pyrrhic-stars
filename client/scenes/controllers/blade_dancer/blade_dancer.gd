@@ -161,8 +161,8 @@ func _ready() -> void:
 				"jump": "jump",
 				"dash": "roll",
 				"casting": "slash",
-				"stagger": "idle",
-				"dead": "idle",
+				"stagger": "ual_hit_chest",
+				"dead": "ual_death",
 			}
 		)
 	)

@@ -156,10 +156,10 @@ func _ready() -> void:
 				"run": "run",
 				"jump": "jump",
 				"dodge": "roll",
-				"casting": "cast",
-				"channeling": "cast",
-				"stagger": "idle",
-				"dead": "idle",
+				"casting": "ual_spell_shoot",
+				"channeling": "ual_spell_idle",
+				"stagger": "ual_hit_chest",
+				"dead": "ual_death",
 			}
 		)
 	)
