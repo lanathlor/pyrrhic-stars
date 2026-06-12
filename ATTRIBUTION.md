@@ -49,3 +49,23 @@ not required by the license; sources are documented for provenance.
 - **License**: CC0 1.0
 - **Used as**: Night sky panorama for the Derelict City arena
 - **File**: `client/assets/textures/skies/satara_night_2k.hdr`
+
+## 3D Props (CC0, Poly Haven)
+
+- **Source**: [Poly Haven](https://polyhaven.com) photoscanned models
+- **License**: CC0 1.0
+- **Files**: `client/assets/models/props/derelict_city/` (glTF, 1k textures)
+  - [concrete_road_barrier](https://polyhaven.com/a/concrete_road_barrier), [concrete_road_barrier_02](https://polyhaven.com/a/concrete_road_barrier_02) - street cover dressing
+  - [covered_car](https://polyhaven.com/a/covered_car) - abandoned vehicle
+  - [old_tyre](https://polyhaven.com/a/old_tyre), [barrel_03](https://polyhaven.com/a/barrel_03), [old_military_crate](https://polyhaven.com/a/old_military_crate) - street debris
+  - [caged_hanging_light](https://polyhaven.com/a/caged_hanging_light) - lamp fixtures
+  - [power_box_01](https://polyhaven.com/a/power_box_01) - wall dressing
+
+## Animations (CC0)
+
+### Universal Animation Library (Standard)
+- **Author**: [Quaternius](https://quaternius.com)
+- **Source**: https://opengameart.org/content/universal-animation-library
+- **License**: CC0 1.0 (see bundled LICENSE.txt)
+- **Contents**: 45 humanoid animations (locomotion, combat, emotes) on a universal rig, Godot-ready GLB for retargeting
+- **File**: `client/assets/animations/universal_animation_library/AnimationLibrary_Godot_Standard.glb`
