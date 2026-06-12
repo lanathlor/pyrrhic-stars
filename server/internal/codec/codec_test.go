@@ -551,12 +551,18 @@ func TestEncodeLobbyStateWireFormat(t *testing.T) {
 		{PeerID: 1, ClassName: entity.ClassGunner, Username: testName, Ready: true},
 		{PeerID: 2, ClassName: entity.ClassVanguard, Username: testNameBob, Ready: false},
 	}
-	buf := EncodeLobbyState(infos)
+	buf := EncodeLobbyState(LobbyPhaseCountdown, 3, infos)
 
-	if buf[0] != 2 {
-		t.Fatalf("player_count = %d, want 2", buf[0])
+	if buf[0] != LobbyPhaseCountdown {
+		t.Fatalf("phase = %d, want %d", buf[0], LobbyPhaseCountdown)
 	}
-	off := 1
+	if buf[1] != 3 {
+		t.Fatalf("countdown_secs = %d, want 3", buf[1])
+	}
+	if buf[2] != 2 {
+		t.Fatalf("player_count = %d, want 2", buf[2])
+	}
+	off := 3
 	// Player 1
 	p1 := binary.LittleEndian.Uint16(buf[off:])
 	off += 2

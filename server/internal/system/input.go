@@ -434,18 +434,11 @@ func handleInteractInput(w *World, peerID uint16, payload []byte) {
 
 	switch inp.Action {
 	case message.InteractClassSelect:
-		className := inp.ClassName
-		if _, ok := entity.Classes[className]; ok {
-			// Re-create player with new class
-			np := entity.NewPlayer(peerID, className)
-			np.Username = p.Username
-			np.Position = p.Position
-			np.RotationY = p.RotationY
-			np.VisualState = p.VisualState
-			np.SpawnTick = p.SpawnTick
-			*p = *np
-		}
+		handleClassSelect(p, peerID, inp.ClassName)
 	case message.InteractReadyToggle:
+		if !w.LobbyActive {
+			return
+		}
 		p.Ready = !p.Ready
 	case message.InteractExitPortal:
 		if w.BossDefeated {
@@ -454,26 +447,50 @@ func handleInteractInput(w *World, peerID uint16, payload []byte) {
 			}
 		}
 	case message.InteractSpecSelect:
-		specID := inp.ClassName // reuse the string field
-		classDef, ok := entity.Classes[p.ClassID]
-		if !ok {
-			return
-		}
-		spec := classDef.GetSpec(specID)
-		if spec == nil || !spec.Implemented {
-			return
-		}
-		if p.SpecID == specID {
-			return // already on this spec
-		}
-		np := entity.NewPlayerWithSpec(peerID, p.ClassID, specID)
-		np.Username = p.Username
-		np.Position = p.Position
-		np.RotationY = p.RotationY
-		np.VisualState = p.VisualState
-		np.SpawnTick = p.SpawnTick
-		*p = *np
+		handleSpecSelect(w, p, peerID, inp.ClassName)
 	}
+}
+
+// handleClassSelect re-creates the player with a new class, preserving
+// identity and position state.
+func handleClassSelect(p *entity.Player, peerID uint16, className string) {
+	if _, ok := entity.Classes[className]; !ok {
+		return
+	}
+	np := entity.NewPlayer(peerID, className)
+	np.Username = p.Username
+	np.Position = p.Position
+	np.RotationY = p.RotationY
+	np.VisualState = p.VisualState
+	np.SpawnTick = p.SpawnTick
+	*p = *np
+}
+
+// handleSpecSelect re-creates the player with a new spec during the lobby
+// phase, preserving identity and position state. Un-readies the player.
+func handleSpecSelect(w *World, p *entity.Player, peerID uint16, specID string) {
+	if !w.LobbyActive {
+		return
+	}
+	classDef, ok := entity.Classes[p.ClassID]
+	if !ok {
+		return
+	}
+	spec := classDef.GetSpec(specID)
+	if spec == nil || !spec.Implemented {
+		return
+	}
+	if p.SpecID == specID {
+		return // already on this spec
+	}
+	np := entity.NewPlayerWithSpec(peerID, p.ClassID, specID)
+	np.Username = p.Username
+	np.Position = p.Position
+	np.RotationY = p.RotationY
+	np.VisualState = p.VisualState
+	np.SpawnTick = p.SpawnTick
+	np.Ready = false // auto-unready on spec change
+	*p = *np
 }
 
 func handleSetLoadout(w *World, peerID uint16, payload []byte) {
@@ -552,7 +569,7 @@ func handleRespawnRequest(w *World, peerID uint16, payload []byte) {
 			w.OnPlayerReturnToOpenWorld(peerID)
 		}
 	case 0: // local respawn (allowed unless boss room is sealed)
-		if !w.AnyGateClosed() {
+		if !w.IsGateClosed("boss_gate") {
 			player.Alive = true
 			player.Health = player.MaxHealth
 			player.State = entity.PlayerStateMove

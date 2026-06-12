@@ -57,9 +57,11 @@ type World struct {
 	TickNum uint32
 
 	// Game state
-	BossDefeated bool
-	WipeHandled  bool            // true while all humans dead; reset on first respawn
-	GateStates   map[string]bool // gate_id → is_closed
+	BossDefeated   bool
+	WipeHandled    bool            // true while all humans dead; reset on first respawn
+	GateStates     map[string]bool // gate_id → is_closed
+	LobbyActive    bool            // true while instance is in lobby phase (before fight start)
+	LobbyCountdown int32           // ticks remaining before fight start (0 = not counting)
 
 	// Group scaling — multiplier applied to all enemy damage (1.0 = no scaling)
 	EnemyDamageMult float32

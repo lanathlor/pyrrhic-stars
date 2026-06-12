@@ -667,6 +667,7 @@ func TestHandleInteractInput_ReadyToggle(t *testing.T) {
 	p.Ready = false
 
 	w := makeHubWorld(t, map[uint16]*entity.Player{1: p})
+	w.LobbyActive = true // ready toggle only works during lobby phase
 
 	payload := codec.EncodeInteractInput(message.InteractReadyToggle, "")
 	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpInteractInput, Payload: payload}}

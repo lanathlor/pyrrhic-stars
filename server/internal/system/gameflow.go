@@ -15,11 +15,65 @@ import (
 type GameFlowSystem struct{}
 
 func (s *GameFlowSystem) Tick(w *World, _ float32) {
+	checkLobbyReady(w)
 	if len(w.Enemies) > 0 {
 		checkBossState(w)
 		checkFightEnd(w)
 	}
 	processGateEvents(w)
+}
+
+// LobbyCountdownTicks is the number of ticks to count down after all players
+// are ready before starting the fight (5 seconds at 20Hz).
+const LobbyCountdownTicks int32 = 100
+
+// checkLobbyReady manages the lobby ready-up phase for instanced zones.
+// When all human players are ready, starts a countdown. When the countdown
+// expires, emits FlowFightStart and deactivates the lobby.
+func checkLobbyReady(w *World) {
+	if !w.LobbyActive {
+		return
+	}
+
+	humanCount, readyCount := 0, 0
+	for _, p := range w.Players {
+		if entity.IsBotID(p.ID) {
+			continue
+		}
+		humanCount++
+		if p.Ready {
+			readyCount++
+		}
+	}
+	if humanCount == 0 {
+		return
+	}
+
+	allReady := readyCount == humanCount
+
+	if allReady && w.LobbyCountdown == 0 {
+		w.LobbyCountdown = LobbyCountdownTicks
+		slog.Info("lobby countdown started", "zone_id", w.ZoneID, "players", humanCount)
+	}
+
+	if !allReady && w.LobbyCountdown > 0 {
+		w.LobbyCountdown = 0
+		slog.Info("lobby countdown cancelled", "zone_id", w.ZoneID, "ready", readyCount, "total", humanCount)
+	}
+
+	if w.LobbyCountdown > 0 {
+		w.LobbyCountdown--
+		if w.LobbyCountdown == 0 {
+			w.LobbyActive = false
+			for _, p := range w.Players {
+				p.Ready = false
+			}
+			w.GameFlowEvents = append(w.GameFlowEvents, GameFlowEvent{
+				FlowType: message.FlowFightStart,
+			})
+			slog.Info("lobby fight start", "zone_id", w.ZoneID)
+		}
+	}
 }
 
 // checkBossState detects boss aggro/reset and emits boss flow events.
@@ -184,6 +238,8 @@ func pushPlayersOnGateClose(w *World, g *level.GateDef) {
 func InitInstance(w *World) {
 	w.Projectiles = nil
 	w.InitGateStates()
+	w.LobbyActive = true
+	w.LobbyCountdown = 0
 	for i, e := range w.Enemies {
 		if i < len(w.Level.EnemySpawns) {
 			e.Reset(w.Level.EnemySpawns[i].Position, entity.EnemyPatrol)

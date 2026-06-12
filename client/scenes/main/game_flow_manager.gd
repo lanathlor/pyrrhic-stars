@@ -22,6 +22,7 @@ func enter_menu() -> void:
 	ctrl._char_select_layer.visible = false
 	ctrl._char_create_layer.visible = false
 	ctrl._pause_layer.visible = false
+	ctrl._lobby_panel.visible = false
 	ctrl._inventory_layer.equip_panel.visible = false
 	ctrl._inventory_layer.bag_panel.visible = false
 	ctrl._inventory_layer.toolbar_panel.visible = false
@@ -68,6 +69,7 @@ func enter_hub() -> void:
 	ctrl._char_select_layer.visible = false
 	ctrl._char_create_layer.visible = false
 	ctrl._hub_layer.visible = true
+	ctrl._lobby_panel.visible = false
 	ctrl._inventory_layer.toolbar_panel.visible = true
 	if not ctrl._is_cursor_always_visible_class():
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
@@ -143,6 +145,7 @@ func enter_arena_warmup() -> void:
 	ctrl._menu_layer.visible = false
 	ctrl.env_builder.remove_exit_portal()
 	show_portal_prompt_only()
+	ctrl._lobby_panel.visible = true
 	if ctrl._shared_hud:
 		ctrl._shared_hud.on_enter_arena()
 	if ctrl._map_overlay:
@@ -186,6 +189,7 @@ func spawn_multiplayer_players() -> void:
 func start_fight() -> void:
 	ctrl.state = ctrl.GameState.FIGHT
 	show_portal_prompt_only()
+	ctrl._lobby_panel.visible = false
 	ctrl._cursor_toggled = false
 	ctrl._alt_held = false
 	ctrl._inventory_layer.equip_panel.visible = false
@@ -279,6 +283,7 @@ func on_zone_transfer(zone_type: int, _new_peer_id: int) -> void:
 		ctrl.group_mgr.pending_instance_zone = ""
 		ctrl.state = ctrl.GameState.ARENA_LOBBY
 		show_portal_prompt_only()
+		ctrl._lobby_panel.visible = true
 		ctrl._menu_layer.visible = false
 		ctrl._char_select_layer.visible = false
 		ctrl._char_create_layer.visible = false
