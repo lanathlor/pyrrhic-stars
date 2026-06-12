@@ -11,6 +11,27 @@ extends Node
 const GUNNER_BOT_SCRIPT := preload("res://scripts/bot/bot_controller.gd")
 const VANGUARD_BOT_SCRIPT := preload("res://scripts/bot/vanguard_bot_controller.gd")
 const BLADE_DANCER_BOT_SCRIPT := preload("res://scripts/bot/blade_dancer_bot_controller.gd")
+const E2E_CONTEXT_SCRIPT := preload("res://scripts/e2e/e2e_context.gd")
+
+const REMOTE_ACTIONS: Array[String] = [
+	"move_forward",
+	"move_backward",
+	"move_left",
+	"move_right",
+	"jump",
+	"sprint",
+	"shoot",
+	"dodge",
+	"light_attack",
+	"heavy_attack",
+	"block",
+	"lock_on",
+	"ability_1",
+	"ability_2",
+	"reload",
+	"load_enhanced",
+	"mag_dump",
+]
 
 var bot_mode: bool = false
 var remote_mode: bool = false
@@ -26,6 +47,9 @@ var _remote_poll_interval: int = 5  # frames between command reads
 var _bot: Node = null
 var _e2e_timer: float = 0.0
 var _e2e_duration: float = 90.0  # seconds for e2e run (boss fight takes ~40-60s)
+var _ctx: RefCounted = null
+var _walk_target: Variant = null  # Vector3 while walking, null when idle
+var _connect_status: String = "idle"  # idle | connecting | connected | failed
 
 
 func _ready() -> void:
@@ -78,6 +102,11 @@ func _start_scenario_runner() -> void:
 
 func _process(_delta: float) -> void:
 	_tick += 1
+
+	if _walk_target != null:
+		var ctx := _get_ctx()
+		if ctx == null or ctx.steer_step(_walk_target):
+			_walk_target = null
 
 	if capture_mode and _tick % _capture_interval == 0:
 		_write_state()
@@ -159,6 +188,27 @@ func get_state() -> Dictionary:
 		"enemies": [],
 	}
 
+	var ctx := _get_ctx()
+	if ctx:
+		var main: Node3D = ctx.main
+		var app := {
+			"state": main.GameState.keys()[main.state],
+			"connected": NetworkManager.is_active,
+			"connect_status": _connect_status,
+			"my_id": NetworkManager.get_my_id(),
+			"walk_target": _vec3_to_array(_walk_target) if _walk_target != null else null,
+			"near_portal": main.hub_interact.near_portal if main.hub_interact else false,
+			"near_exit_portal":
+			main.env_builder.is_near_exit_portal() if main.env_builder else false,
+		}
+		var local: CharacterBody3D = ctx.local_player()
+		if local:
+			app["local_player"] = {
+				"position": _vec3_to_array(local.global_position),
+				"health": local.health if "health" in local else -1,
+			}
+		state["app"] = app
+
 	for player in GameManager.players:
 		if not is_instance_valid(player):
 			continue
@@ -227,36 +277,123 @@ func _read_commands() -> void:
 
 
 func _apply_commands(cmd: Dictionary) -> void:
-	if GameManager.players.is_empty():
-		return
-	var player := GameManager.players[0]
+	var ctx := _get_ctx()
 
-	# Movement actions
+	if cmd.has("connect") and cmd["connect"] is Dictionary and ctx:
+		_remote_connect(ctx, cmd["connect"])
+
+	if cmd.get("stop", false):
+		_walk_target = null
+		if ctx:
+			ctx.release_all()
+
+	if cmd.has("walk_to"):
+		_walk_target = _resolve_walk_target(cmd["walk_to"])
+
+	if cmd.get("enter_portal", false):
+		NetworkManager.send_enter_portal()
+
+	if cmd.has("attach_bot") and ctx:
+		ctx.attach_bot(str(cmd["attach_bot"]))
+	if cmd.get("detach_bot", false) and ctx:
+		ctx.detach_bot()
+
+	# Held actions: {"shoot": true} presses, {"shoot": false} releases
 	var actions := cmd.get("actions", {}) as Dictionary
-	for action_name in [
-		"move_forward",
-		"move_backward",
-		"move_left",
-		"move_right",
-		"sprint",
-		"shoot",
-		"dodge",
-		"jump"
-	]:
+	for action_name in REMOTE_ACTIONS:
 		if actions.has(action_name):
 			if actions[action_name]:
 				Input.action_press(action_name)
 			else:
 				Input.action_release(action_name)
 
-	# Aim at world position
-	if cmd.has("look_at") and cmd["look_at"] is Array:
-		var target := Vector3(cmd["look_at"][0], cmd["look_at"][1], cmd["look_at"][2])
-		_aim_player_at(player, target)
+	# One-shot press+release
+	if cmd.has("tap") and cmd["tap"] is Array:
+		for action_name in cmd["tap"]:
+			if str(action_name) in REMOTE_ACTIONS:
+				_tap_action(str(action_name))
 
-	# Request screenshot
+	# Raw key taps for physical_keycode handlers (R, E, G, 1/2/3, ...)
+	if cmd.has("press_key") and cmd["press_key"] is Array:
+		for key_name in cmd["press_key"]:
+			_tap_physical_key(str(key_name))
+
+	# Aim at world position
+	if cmd.has("look_at") and cmd["look_at"] is Array and cmd["look_at"].size() == 3:
+		var player := _remote_player(ctx)
+		if player:
+			var target := Vector3(cmd["look_at"][0], cmd["look_at"][1], cmd["look_at"][2])
+			_aim_player_at(player, target)
+
+	# Request screenshot + state dump
 	if cmd.get("screenshot", false):
 		_write_state()
+
+
+func _remote_connect(ctx: RefCounted, params: Dictionary) -> void:
+	_connect_status = "connecting"
+	var ok: bool = await ctx.dev_connect(
+		str(params.get("class", "gunner")), str(params.get("zone", "hub"))
+	)
+	_connect_status = "connected" if ok else "failed"
+
+
+func _tap_action(action: String) -> void:
+	Input.action_press(action)
+	await get_tree().create_timer(0.12).timeout
+	Input.action_release(action)
+
+
+func _tap_physical_key(key_name: String) -> void:
+	var keycode := OS.find_keycode_from_string(key_name)
+	if keycode == KEY_NONE:
+		return
+	var ev := InputEventKey.new()
+	ev.keycode = keycode
+	ev.physical_keycode = keycode
+	ev.pressed = true
+	Input.parse_input_event(ev)
+	await get_tree().create_timer(0.1).timeout
+	var ev_up := InputEventKey.new()
+	ev_up.keycode = keycode
+	ev_up.physical_keycode = keycode
+	ev_up.pressed = false
+	Input.parse_input_event(ev_up)
+
+
+func _resolve_walk_target(value: Variant) -> Variant:
+	if value is Array and value.size() == 3:
+		return Vector3(value[0], value[1], value[2])
+	if value is String:
+		var main := get_tree().current_scene
+		if value == "exit_portal":
+			return Vector3(0.0, 0.1, 0.0)
+		if value == "portal" and main and "env_builder" in main:
+			var env: Node3D = main.env_builder.current_env
+			var portal: Node3D = env.get_node_or_null("PortalArea") if env else null
+			if portal:
+				return portal.global_position
+	return null
+
+
+func _remote_player(ctx: RefCounted) -> CharacterBody3D:
+	if ctx:
+		var player: CharacterBody3D = ctx.local_player()
+		if player:
+			return player
+	if GameManager.players.is_empty():
+		return null
+	return GameManager.players[0]
+
+
+func _get_ctx() -> RefCounted:
+	if _ctx != null:
+		return _ctx
+	var main := get_tree().current_scene
+	if main == null or not ("entity_mgr" in main):
+		return null
+	_ctx = E2E_CONTEXT_SCRIPT.new(main)
+	return _ctx
 
 
 func _aim_player_at(player: CharacterBody3D, target: Vector3) -> void:
