@@ -1,4 +1,4 @@
-[gd_scene load_steps=90 format=3 uid="uid://owdspxx3egli"]
+[gd_scene load_steps=94 format=3 uid="uid://owdspxx3egli"]
 
 [ext_resource type="Script" uid="uid://bw6hj1k8d7sth" path="res://scenes/environments/arena/dungeon_atmosphere.gd" id="dungeon_atmo"]
 [ext_resource type="PackedScene" uid="uid://bs8the8f3rpcd" path="res://assets/models/environments/hub/i_ship.glb" id="i_ship"]
@@ -42,12 +42,22 @@ tonemap_exposure = 1.25
 tonemap_white = 8.0
 ssr_enabled = true
 glow_enabled = true
-glow_intensity = 0.7
+glow_intensity = 0.9
 glow_bloom = 0.15
 glow_blend_mode = 1
+glow_hdr_threshold = 0.9
 fog_enabled = true
 fog_light_color = Color(0.08, 0.1, 0.18, 1)
-fog_density = 0.006
+fog_density = 0.0025
+fog_sky_affect = 0.25
+volumetric_fog_enabled = true
+volumetric_fog_density = 0.03
+volumetric_fog_albedo = Color(0.5, 0.6, 0.8, 1)
+volumetric_fog_length = 90.0
+volumetric_fog_sky_affect = 0.3
+adjustment_enabled = true
+adjustment_contrast = 1.06
+adjustment_saturation = 1.08
 
 [sub_resource type="StandardMaterial3D" id="mat_wet_floor"]
 albedo_color = Color(0.5, 0.5, 0.55, 1)
@@ -63,9 +73,10 @@ uv1_triplanar = true
 [sub_resource type="StandardMaterial3D" id="mat_wall"]
 albedo_color = Color(0.5, 0.5, 0.55, 1)
 albedo_texture = ExtResource("tex_concrete_albedo")
-roughness = 0.85
+roughness = 0.95
 roughness_texture = ExtResource("tex_concrete_rough")
 normal_enabled = true
+normal_scale = 0.35
 normal_texture = ExtResource("tex_concrete_normal")
 uv1_scale = Vector3(0.25, 0.25, 0.25)
 uv1_triplanar = true
@@ -457,6 +468,21 @@ size = Vector2(2, 2)
 [sub_resource type="CylinderShape3D" id="portal_shape"]
 height = 4.0
 radius = 2.5
+
+[sub_resource type="SphereMesh" id="mesh_moon"]
+radius = 18.0
+height = 36.0
+
+[sub_resource type="StandardMaterial3D" id="mat_moon"]
+albedo_color = Color(0, 0, 0, 1)
+emission_enabled = true
+emission = Color(0.75, 0.85, 1, 1)
+emission_energy_multiplier = 8.0
+
+[sub_resource type="BoxMesh" id="mesh_backdrop"]
+
+[sub_resource type="StandardMaterial3D" id="mat_backdrop"]
+albedo_color = Color(0.05, 0.06, 0.1, 1)
 
 [node name="Arena" type="Node3D"]
 
@@ -2074,3 +2100,72 @@ shape = SubResource("portal_shape")
 
 [node name="DungeonAtmosphere" type="Node3D" parent="."]
 script = ExtResource("dungeon_atmo")
+
+[node name="Moon" type="MeshInstance3D" parent="." groups=["server_ignore"]]
+transform = Transform3D(2.5, 0, 0, 0, 2.5, 0, 0, 0, 2.5, 0, 400, -150)
+mesh = SubResource("mesh_moon")
+surface_material_override/0 = SubResource("mat_moon")
+
+[node name="StreetLights" type="Node3D" parent="." groups=["server_ignore"]]
+
+[node name="LampL0" type="OmniLight3D" parent="StreetLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.5, 4.5, 16)
+light_color = Color(1, 0.72, 0.42, 1)
+light_energy = 6.0
+omni_range = 11.0
+
+[node name="LampR0" type="OmniLight3D" parent="StreetLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.5, 4.5, 21)
+light_color = Color(1, 0.72, 0.42, 1)
+light_energy = 6.0
+omni_range = 11.0
+
+[node name="LampL1" type="OmniLight3D" parent="StreetLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.5, 4.5, 27)
+light_color = Color(1, 0.72, 0.42, 1)
+light_energy = 6.0
+omni_range = 11.0
+
+[node name="LampR1" type="OmniLight3D" parent="StreetLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.5, 4.5, 33)
+light_color = Color(1, 0.72, 0.42, 1)
+light_energy = 6.0
+omni_range = 11.0
+
+[node name="LampL2" type="OmniLight3D" parent="StreetLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.5, 4.5, 38)
+light_color = Color(1, 0.72, 0.42, 1)
+light_energy = 6.0
+omni_range = 11.0
+
+[node name="BackdropSkyline" type="Node3D" parent="." groups=["server_ignore"]]
+
+[node name="Back0" type="MeshInstance3D" parent="BackdropSkyline"]
+transform = Transform3D(28, 0, 0, 0, 90, 0, 0, 0, 24, -70, 45, -110)
+mesh = SubResource("mesh_backdrop")
+surface_material_override/0 = SubResource("mat_backdrop")
+
+[node name="Back1" type="MeshInstance3D" parent="BackdropSkyline"]
+transform = Transform3D(34, 0, 0, 0, 140, 0, 0, 0, 30, -10, 70, -150)
+mesh = SubResource("mesh_backdrop")
+surface_material_override/0 = SubResource("mat_backdrop")
+
+[node name="Back2" type="MeshInstance3D" parent="BackdropSkyline"]
+transform = Transform3D(26, 0, 0, 0, 110, 0, 0, 0, 26, 55, 55, -120)
+mesh = SubResource("mesh_backdrop")
+surface_material_override/0 = SubResource("mat_backdrop")
+
+[node name="Back3" type="MeshInstance3D" parent="BackdropSkyline"]
+transform = Transform3D(40, 0, 0, 0, 170, 0, 0, 0, 32, 120, 85, -180)
+mesh = SubResource("mesh_backdrop")
+surface_material_override/0 = SubResource("mat_backdrop")
+
+[node name="Back4" type="MeshInstance3D" parent="BackdropSkyline"]
+transform = Transform3D(30, 0, 0, 0, 95, 0, 0, 0, 26, -130, 48, -140)
+mesh = SubResource("mesh_backdrop")
+surface_material_override/0 = SubResource("mat_backdrop")
+
+[node name="Back5" type="MeshInstance3D" parent="BackdropSkyline"]
+transform = Transform3D(36, 0, 0, 0, 200, 0, 0, 0, 30, 30, 100, -230)
+mesh = SubResource("mesh_backdrop")
+surface_material_override/0 = SubResource("mat_backdrop")
