@@ -351,14 +351,18 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if Engine.get_physics_frames() % 600 == 0:
+	var spawn_frame: int = get_meta("_spawn_frame", -1)
+	var age: int = Engine.get_physics_frames() - spawn_frame
+	if age <= 30 or Engine.get_physics_frames() % 600 == 0:
 		print(
 			(
-				"[Vanguard] tick peer=%d my_id=%d local=%s pos=%s cam=%s"
+				"[Vanguard] tick#%d peer=%d my_id=%d local=%s current=%s pos=%s cam=%s"
 				% [
+					age,
 					peer_id,
 					NetworkManager.get_my_id(),
 					_is_local(),
+					camera.current,
 					global_position,
 					camera.global_position
 				]
