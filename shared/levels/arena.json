@@ -182,6 +182,55 @@
 			"z": 0.0
 		}
 	],
+	"gates": [
+		{
+			"center": [
+				0.0,
+				2.5,
+				12.0
+			],
+			"close_on": [
+				"boss_activated"
+			],
+			"gate_id": "boss_gate",
+			"half_extents": [
+				20.0,
+				2.5,
+				0.25
+			],
+			"name": "BossGate",
+			"open_on": [
+				"boss_dead",
+				"all_dead",
+				"boss_reset"
+			],
+			"push_axis": "z",
+			"push_offset": -3.0
+		},
+		{
+			"center": [
+				0.0,
+				2.5,
+				40.0
+			],
+			"close_on": [],
+			"default_closed": true,
+			"gate_id": "lobby_gate",
+			"half_extents": [
+				20.0,
+				2.5,
+				0.25
+			],
+			"name": "LobbyGate",
+			"open_on": [
+				"fight_start",
+				"all_dead",
+				"boss_reset"
+			],
+			"push_axis": "z",
+			"push_offset": 3.0
+		}
+	],
 	"navmesh": {
 		"polygons": [
 			[
@@ -385,34 +434,24 @@
 				77
 			],
 			[
-				81,
-				80,
-				82
-			],
-			[
-				82,
-				80,
-				83
-			],
-			[
-				85,
-				84,
-				86
-			],
-			[
-				86,
-				84,
-				87
-			],
-			[
-				82,
 				83,
+				82,
+				80
+			],
+			[
+				80,
+				82,
+				81
+			],
+			[
+				87,
+				86,
 				84
 			],
 			[
 				84,
-				83,
-				87
+				86,
+				85
 			],
 			[
 				91,
@@ -433,16 +472,6 @@
 				92,
 				94,
 				93
-			],
-			[
-				99,
-				98,
-				96
-			],
-			[
-				96,
-				98,
-				97
 			]
 		],
 		"vertices": [
@@ -854,37 +883,17 @@
 			[
 				9.0,
 				0.5,
-				35.25
+				39.25
 			],
 			[
-				11.25,
+				15.5,
 				0.5,
-				35.5
+				39.25
 			],
 			[
 				15.5,
 				0.5,
 				33.75
-			],
-			[
-				11.0,
-				0.5,
-				36.75
-			],
-			[
-				9.0,
-				0.5,
-				36.75
-			],
-			[
-				9.0,
-				0.5,
-				39.5
-			],
-			[
-				15.5,
-				0.5,
-				39.5
 			],
 			[
 				-17.25,
@@ -894,12 +903,12 @@
 			[
 				-17.25,
 				0.5,
-				39.5
+				39.25
 			],
 			[
 				-8.75,
 				0.5,
-				39.5
+				39.25
 			],
 			[
 				-8.75,
@@ -1301,26 +1310,20 @@
 		}
 	],
 	"source_scene": "res://scenes/environments/arena/arena.tscn",
-	"version": 6,
+	"version": 5,
 	"zone": "arena",
 	"zone_triggers": [
 		{
 			"axis": "z",
-			"name": "InstanceEntry",
+			"name": "ArenaEntry",
 			"threshold": 40.0,
-			"trigger_id": "instance_entry"
-		}
-	],
-	"gates": [
+			"trigger_id": "arena_entry"
+		},
 		{
-			"name": "BossGate",
-			"gate_id": "boss_gate",
-			"center": [0.0, 2.5, 12.0],
-			"half_extents": [20.0, 2.5, 0.25],
-			"close_on": ["boss_activated"],
-			"open_on": ["boss_dead", "all_dead", "boss_reset"],
-			"push_axis": "z",
-			"push_offset": -3.0
+			"axis": "z",
+			"name": "BossRoomEntry",
+			"threshold": 12.0,
+			"trigger_id": "boss_room_entry"
 		}
 	],
 	"zone_type": "instanced"

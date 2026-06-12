@@ -144,6 +144,7 @@ var _merchant_panel: Control
 @onready var _death_overlay_layer: CanvasLayer = $DeathOverlay
 @onready var _inventory_layer: CanvasLayer = $InventoryUI
 @onready var _spec_panel: CanvasLayer = $SpecPanel
+@onready var _lobby_panel: CanvasLayer = $LobbyPanel
 
 
 static func _resolve_server_address() -> String:
@@ -269,6 +270,8 @@ func _connect_ui_signals() -> void:
 	_spec_panel.spec_selected.connect(char_mgr.on_spec_selected)
 	_spec_panel.closed.connect(_update_cursor_mode)
 	_spec_panel.closed.connect(_sync_toolbar_active)
+	_lobby_panel.ready_toggled.connect(func(): NetworkManager.set_player_ready(true))
+	_lobby_panel.spec_change_requested.connect(char_mgr.toggle_spec_panel)
 
 
 func _connect_network_signals() -> void:
@@ -286,6 +289,7 @@ func _connect_network_signals() -> void:
 	NetworkManager.character_list_received.connect(char_mgr.on_character_list)
 	NetworkManager.character_error_received.connect(char_mgr.on_character_error)
 	NetworkManager.instance_join_prompt_received.connect(group_mgr.on_instance_join_prompt)
+	NetworkManager.lobby_state_updated.connect(_on_lobby_state_updated)
 	NetworkManager.overflux_state_received.connect(_on_overflux_state)
 	NetworkManager.merchant_state_received.connect(_merchant_panel._on_merchant_state)
 	NetworkManager.merchant_buy_result.connect(_merchant_panel._on_buy_result)
@@ -412,6 +416,8 @@ func _handle_gameplay_input(event: InputEvent) -> void:
 			_inventory_layer.bag_panel.queue_redraw()
 		elif hub_interact.aimed_peer_id > 0:
 			NetworkManager.send_group_invite(hub_interact.aimed_peer_id)
+	elif event.physical_keycode == KEY_R and state == GameState.ARENA_LOBBY:
+		NetworkManager.set_player_ready(true)
 	elif event.physical_keycode == KEY_G and event.ctrl_pressed:
 		if dev_mode:
 			dev_mgr.toggle_bot_panel()
@@ -451,6 +457,16 @@ func _on_overflux_cancelled() -> void:
 func _on_overflux_state(data: Dictionary) -> void:
 	if _shared_hud:
 		_shared_hud.set_overflux_state(data.get("conditions", []), data.get("total_score", 0))
+
+
+# =============================================================================
+# Lobby
+# =============================================================================
+
+
+func _on_lobby_state_updated(data: Dictionary) -> void:
+	if state == GameState.ARENA_LOBBY:
+		_lobby_panel.update_lobby_state(data)
 
 
 # =============================================================================

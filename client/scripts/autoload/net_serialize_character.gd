@@ -171,10 +171,13 @@ static func decode_character_error(data: PackedByteArray) -> Dictionary:
 # =============================================================================
 
 
-## Format: [player_count:u8] per player: [peer_id:u16][class_len:u8][class:...][ready:u8]
+## Format: [phase:u8][countdown_secs:u8][player_count:u8]
+## Per player: [peer_id:u16][class:str8][spec:str8][username:str8][ready:u8]
 static func decode_lobby_state(data: PackedByteArray) -> Dictionary:
 	var buf := StreamPeerBuffer.new()
 	buf.data_array = data
+	var phase := buf.get_u8()
+	var countdown := buf.get_u8()
 	var player_count := buf.get_u8()
 	var players: Array[Dictionary] = []
 	for i in range(player_count):
@@ -195,7 +198,7 @@ static func decode_lobby_state(data: PackedByteArray) -> Dictionary:
 				}
 			)
 		)
-	return {"players": players}
+	return {"phase": phase, "countdown": countdown, "players": players}
 
 
 static func encode_lobby_state(players: Array[Dictionary]) -> PackedByteArray:

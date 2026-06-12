@@ -13,7 +13,7 @@ signal player_info_changed
 signal message_received(opcode: int, sender_id: int, payload: PackedByteArray)
 
 # -- Server-authoritative signals --
-signal lobby_state_updated(players: Array)
+signal lobby_state_updated(data: Dictionary)
 signal world_state_received(state: Dictionary)
 signal damage_event_received(event: Dictionary)
 signal game_flow_event(flow_type: int, text: String)
@@ -45,7 +45,10 @@ var is_host := false
 var is_active := false
 var username: String = ""
 var current_zone_type: int = NetSerializer.ZONE_TYPE_HUB
-var player_info: Dictionary = {}  # peer_id -> { "class_name": String, "ready": bool }
+# peer_id -> { "class_name": String, "spec_name": String, "ready": bool }
+var player_info: Dictionary = {}
+var lobby_phase: int = 0  # 0=waiting, 1=countdown
+var lobby_countdown: int = 0  # seconds remaining
 var dev_params: Dictionary = {}  # Set by main.gd in dev mode: {class, zone}
 
 ## Sub-handlers for debug and loadout/inventory operations.
@@ -471,12 +474,17 @@ func _handle_peer_disconnected(payload: PackedByteArray) -> void:
 
 func _handle_lobby_state(payload: PackedByteArray) -> void:
 	var data := NetSerializer.Char.decode_lobby_state(payload)
+	lobby_phase = data.phase
+	lobby_countdown = data.countdown
 	player_info.clear()
 	for p in data.players:
 		player_info[p.peer_id] = {
-			"class_name": p.class_name, "username": p.username, "ready": p.is_ready
+			"class_name": p.class_name,
+			"spec_name": p.spec_name,
+			"username": p.username,
+			"ready": p.is_ready,
 		}
-	lobby_state_updated.emit(data.players)
+	lobby_state_updated.emit(data)
 	player_info_changed.emit()
 
 

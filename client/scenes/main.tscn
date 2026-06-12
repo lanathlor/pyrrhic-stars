@@ -1,4 +1,4 @@
-[gd_scene load_steps=22 format=3]
+[gd_scene load_steps=23 format=3]
 
 [ext_resource type="Script" path="res://scenes/main.gd" id="4"]
 [ext_resource type="Script" path="res://scenes/main/entity_manager.gd" id="entity_mgr"]
@@ -21,6 +21,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/death_overlay.tscn" id="death_overlay"]
 [ext_resource type="PackedScene" path="res://scenes/ui/inventory.tscn" id="inventory"]
 [ext_resource type="Script" path="res://scenes/ui/spec_panel.gd" id="spec_panel"]
+[ext_resource type="Script" path="res://scenes/ui/lobby_panel.gd" id="lobby_panel"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("4")
@@ -79,3 +80,6 @@ script = ExtResource("char_mgr")
 
 [node name="SpecPanel" type="CanvasLayer" parent="."]
 script = ExtResource("spec_panel")
+
+[node name="LobbyPanel" type="CanvasLayer" parent="."]
+script = ExtResource("lobby_panel")

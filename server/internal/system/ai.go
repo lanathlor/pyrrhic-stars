@@ -38,17 +38,18 @@ func (s *AISystem) Tick(w *World, dt float32) {
 		if e == nil || !e.Alive || i >= len(w.Brains) {
 			continue
 		}
-		// Skip patrol enemies with no threat and no nearby players.
-		// Avoids the full BT tick (60+ node traversals) for idle mobs.
-		// propagateGroupAggro wakes them when a group member enters combat.
-		if e.State == entity.EnemyPatrol && len(e.ThreatTable) == 0 && !anyPlayerNearby(e.Position, allPlayers, 10) {
-			continue
-		}
+		// Filter players to same side of any closed gate (lobby gate, boss gate).
 		w.spawnEnemyIdx = i
 		visiblePlayers := allPlayers
 		if gateZ, ok := w.ClosedGateZ(); ok {
 			w.filteredPlayers = playersOnSameSide(w.filteredPlayers[:0], allPlayers, e.Position.Z, gateZ)
 			visiblePlayers = w.filteredPlayers
+		}
+		// Skip patrol enemies with no threat and no nearby visible players.
+		// Avoids the full BT tick (60+ node traversals) for idle mobs.
+		// propagateGroupAggro wakes them when a group member enters combat.
+		if e.State == entity.EnemyPatrol && len(e.ThreatTable) == 0 && !anyPlayerNearby(e.Position, visiblePlayers, 10) {
+			continue
 		}
 		tickEnemyBrain(w, i, e, visiblePlayers, dt)
 	}

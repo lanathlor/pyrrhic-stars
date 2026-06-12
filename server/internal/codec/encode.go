@@ -277,9 +277,18 @@ func appendEncodeNPC(buf []byte, n *entity.NPC) []byte {
 	return buf
 }
 
-// EncodeLobbyState serializes the lobby player list.
-func EncodeLobbyState(players []LobbyPlayerInfo) []byte {
+// LobbyPhaseWaiting indicates players are still readying up.
+const LobbyPhaseWaiting uint8 = 0
+
+// LobbyPhaseCountdown indicates all players are ready and countdown is active.
+const LobbyPhaseCountdown uint8 = 1
+
+// EncodeLobbyState serializes the lobby state with phase, countdown, and player list.
+// Wire format: [phase:u8][countdown_secs:u8][player_count:u8][per player...]
+func EncodeLobbyState(phase uint8, countdownSecs uint8, players []LobbyPlayerInfo) []byte {
 	buf := make([]byte, 0, 256)
+	buf = append(buf, phase)
+	buf = append(buf, countdownSecs)
 	buf = append(buf, byte(len(players)))
 	for _, p := range players {
 		buf = appendU16(buf, p.PeerID)

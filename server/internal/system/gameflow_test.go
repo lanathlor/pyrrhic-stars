@@ -755,3 +755,133 @@ func TestPickSpawnPoint(t *testing.T) {
 		}
 	})
 }
+
+// ---------------------------------------------------------------------------
+// checkLobbyReady
+// ---------------------------------------------------------------------------
+
+func makeLobbyWorld(t testing.TB) *World {
+	t.Helper()
+	lvl := testArenaLevel(t)
+	p1 := entity.NewPlayer(1, entity.ClassGunner)
+	p2 := entity.NewPlayer(2, entity.ClassVanguard)
+	w := &World{
+		ZoneID:        testArenaZoneID,
+		ZoneType:      1,
+		TickNum:       100,
+		Players:       map[uint16]*entity.Player{1: p1, 2: p2},
+		Enemies:       nil,
+		Level:         lvl,
+		Clients:       make(map[uint16]*Client),
+		AbilityEngine: ability.NewEngine(nil),
+		LobbyActive:   true,
+	}
+	w.InitGateStates()
+	return w
+}
+
+func TestCheckLobbyReady_AllReadyStartsCountdown(t *testing.T) {
+	w := makeLobbyWorld(t)
+	w.Players[1].Ready = true
+	w.Players[2].Ready = true
+
+	checkLobbyReady(w)
+
+	if w.LobbyCountdown == 0 {
+		t.Fatal("expected countdown to start when all ready")
+	}
+	if w.LobbyCountdown != LobbyCountdownTicks-1 {
+		t.Errorf("countdown = %d, want %d (decremented on first tick)", w.LobbyCountdown, LobbyCountdownTicks-1)
+	}
+}
+
+func TestCheckLobbyReady_NotAllReady(t *testing.T) {
+	w := makeLobbyWorld(t)
+	w.Players[1].Ready = true
+	w.Players[2].Ready = false
+
+	checkLobbyReady(w)
+
+	if w.LobbyCountdown != 0 {
+		t.Errorf("countdown = %d, want 0 (not all ready)", w.LobbyCountdown)
+	}
+}
+
+func TestCheckLobbyReady_UnreadyCancelsCountdown(t *testing.T) {
+	w := makeLobbyWorld(t)
+	w.LobbyCountdown = 50 // mid-countdown
+	w.Players[1].Ready = true
+	w.Players[2].Ready = false
+
+	checkLobbyReady(w)
+
+	if w.LobbyCountdown != 0 {
+		t.Errorf("countdown = %d, want 0 (cancelled)", w.LobbyCountdown)
+	}
+}
+
+func TestCheckLobbyReady_CountdownExpireEmitsFightStart(t *testing.T) {
+	w := makeLobbyWorld(t)
+	w.Players[1].Ready = true
+	w.Players[2].Ready = true
+	w.LobbyCountdown = 1 // about to expire
+
+	checkLobbyReady(w)
+
+	if w.LobbyActive {
+		t.Error("lobby should be inactive after countdown expires")
+	}
+	if w.LobbyCountdown != 0 {
+		t.Errorf("countdown = %d, want 0", w.LobbyCountdown)
+	}
+	if w.Players[1].Ready || w.Players[2].Ready {
+		t.Error("players should be unreadied after fight start")
+	}
+
+	found := false
+	for _, evt := range w.GameFlowEvents {
+		if evt.FlowType == message.FlowFightStart {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected FlowFightStart event")
+	}
+}
+
+func TestCheckLobbyReady_InactiveNoOp(t *testing.T) {
+	w := makeLobbyWorld(t)
+	w.LobbyActive = false
+	w.Players[1].Ready = true
+	w.Players[2].Ready = true
+
+	checkLobbyReady(w)
+
+	if w.LobbyCountdown != 0 {
+		t.Errorf("countdown = %d, want 0 (lobby inactive)", w.LobbyCountdown)
+	}
+}
+
+func TestInitInstance_SetsLobbyActive(t *testing.T) {
+	lvl := testArenaLevel(t)
+	e := entity.NewEnemy(0, 2000, "guard_captain")
+	e.IsBoss = true
+	w := &World{
+		ZoneID:        testArenaZoneID,
+		ZoneType:      1,
+		Players:       make(map[uint16]*entity.Player),
+		Enemies:       []*entity.Enemy{e},
+		Level:         lvl,
+		Clients:       make(map[uint16]*Client),
+		AbilityEngine: ability.NewEngine(nil),
+	}
+
+	InitInstance(w)
+
+	if !w.LobbyActive {
+		t.Error("expected LobbyActive=true after InitInstance")
+	}
+	if w.LobbyCountdown != 0 {
+		t.Errorf("countdown = %d, want 0", w.LobbyCountdown)
+	}
+}

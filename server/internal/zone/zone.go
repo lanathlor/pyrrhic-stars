@@ -116,6 +116,11 @@ func New(id string, lvl *level.Level, oflx *overflux.State) *Zone {
 	// Initialize obstacles (Level.Obstacles + closed gate obstacles).
 	z.world.InitGateStates()
 
+	// Instanced zones start in lobby phase (players must ready up).
+	if z.Type == ZoneTypeInstanced {
+		z.world.LobbyActive = true
+	}
+
 	// Spawn enemies from level data (all zone types).
 	spawnEnemies(z, l)
 	for i, e := range z.world.Enemies {
@@ -284,6 +289,12 @@ func (z *Zone) AddClient(c *Client) {
 		catchUpFlow = message.FlowAllDead
 	}
 
+	// Capture lobby state for catch-up (while under lock).
+	var lobbyCatchUp []byte
+	if z.world.LobbyActive {
+		lobbyCatchUp = system.EncodeLobbyStateMsg(&z.world)
+	}
+
 	// Rescale enemies for new player count (already under z.mu).
 	if len(z.world.Enemies) > 0 {
 		z.rescaleEnemies(len(z.world.Players))
@@ -295,6 +306,11 @@ func (z *Zone) AddClient(c *Client) {
 		payload := codec.EncodeGameFlow(catchUpFlow, "")
 		msg := message.Encode(message.OpGameFlowEvent, 0, payload)
 		c.Send(msg)
+	}
+
+	// Send lobby state catch-up so the joining client sees ready states immediately.
+	if lobbyCatchUp != nil {
+		c.Send(lobbyCatchUp)
 	}
 
 	z.sendGateCatchUp(c)

@@ -18,6 +18,11 @@ func (s *NetworkSystem) Tick(w *World, _ float32) {
 	}
 	w.GameFlowEvents = w.GameFlowEvents[:0]
 
+	// Broadcast lobby state while in lobby phase.
+	if w.LobbyActive {
+		broadcastLobbyState(w)
+	}
+
 	// Broadcast world state and damage events to all clients.
 	broadcastWorldState(w)
 	broadcastDamageEvents(w)
@@ -99,6 +104,34 @@ func broadcastDamageEvents(w *World) {
 		binary.BigEndian.PutUint16(w.DamageBuf[2:4], 0)
 		broadcastBufUDP(w, w.DamageBuf)
 	}
+}
+
+// EncodeLobbyStateMsg builds the full lobby state message for the world's
+// current lobby phase, countdown, and player ready states. Callers must hold
+// the zone lock.
+func EncodeLobbyStateMsg(w *World) []byte {
+	infos := make([]codec.LobbyPlayerInfo, 0, len(w.Players))
+	for _, p := range w.Players {
+		infos = append(infos, codec.LobbyPlayerInfo{
+			PeerID:    p.ID,
+			ClassName: p.ClassID,
+			SpecName:  p.SpecID,
+			Username:  p.Username,
+			Ready:     p.Ready,
+		})
+	}
+	var phase uint8
+	var countdownSecs uint8
+	if w.LobbyCountdown > 0 {
+		phase = codec.LobbyPhaseCountdown
+		countdownSecs = uint8((w.LobbyCountdown + 19) / 20) // ceil(ticks / 20)
+	}
+	payload := codec.EncodeLobbyState(phase, countdownSecs, infos)
+	return message.Encode(message.OpLobbyState, 0, payload)
+}
+
+func broadcastLobbyState(w *World) {
+	broadcastBufWS(w, EncodeLobbyStateMsg(w))
 }
 
 func broadcastGameFlow(w *World, flowType uint8, text string) {
