@@ -25,3 +25,27 @@ are compatible with this project's open-source license.
 - **License**: [CC-BY 4.0](http://creativecommons.org/licenses/by/4.0/)
 - **Used as**: Holographic console desk in military building briefing area
 - **File**: `client/assets/models/environments/prime_hub/architecture/modular_kit/monitoring_station.glb`
+
+## Textures (CC0)
+
+The following assets are dedicated to the public domain under
+[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). Attribution is
+not required by the license; sources are documented for provenance.
+
+### PBR Texture Sets (ambientCG)
+- **Author**: [ambientCG](https://ambientcg.com) (Lennart Demes)
+- **License**: CC0 1.0
+- **Files**: `client/assets/textures/derelict_city/`
+  - `road_007_*` from [Road007](https://ambientcg.com/view?id=Road007) - street asphalt with lane markings
+  - `asphalt_031_*` from [Asphalt031](https://ambientcg.com/view?id=Asphalt031) - plain asphalt (arena floor)
+  - `concrete_034_*` from [Concrete034](https://ambientcg.com/view?id=Concrete034) - concrete (walls, covers, pillars)
+  - `metal_plates_006_*` from [MetalPlates006](https://ambientcg.com/view?id=MetalPlates006) - metal panels (gates, trims)
+  - `facade_013_*` from [Facade013](https://ambientcg.com/view?id=Facade013) - night skyscraper facade with emissive windows
+  - `facade_017_*` from [Facade017](https://ambientcg.com/view?id=Facade017) - night office tower facade with emissive windows
+
+### HDRI Sky (Poly Haven)
+- **Author**: [Greg Zaal](https://polyhaven.com/all?a=Greg%20Zaal) via [Poly Haven](https://polyhaven.com)
+- **Source**: https://polyhaven.com/a/satara_night
+- **License**: CC0 1.0
+- **Used as**: Night sky panorama for the Derelict City arena
+- **File**: `client/assets/textures/skies/satara_night_2k.hdr`
