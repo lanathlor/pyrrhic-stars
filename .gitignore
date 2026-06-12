@@ -41,3 +41,6 @@ web/*/dist/
 
 # Reports
 reports/
+
+# Claude editor bridge
+client/editor_bridge/
