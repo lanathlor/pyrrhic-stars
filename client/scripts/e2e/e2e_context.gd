@@ -241,6 +241,21 @@ func walk_to_exit_portal(timeout := 20.0) -> bool:
 	return true
 
 
+func steer_step(target: Vector3, threshold := 2.0) -> bool:
+	var player := _get_local_player()
+	if not player:
+		return false
+	if player.global_position.distance_to(target) <= threshold:
+		_release_movement()
+		return true
+	_steer_toward(player, target)
+	return false
+
+
+func local_player() -> CharacterBody3D:
+	return _get_local_player()
+
+
 func _steer_toward(player: CharacterBody3D, target: Vector3) -> void:
 	var to_target := target - player.global_position
 	to_target.y = 0.0
@@ -300,20 +315,6 @@ func enter_portal(overflux_conditions: Array = []) -> void:
 		NetworkManager.send_enter_portal()
 	else:
 		NetworkManager.send_enter_portal_with_conditions(overflux_conditions)
-
-
-func press_action(action: String, duration := 0.1) -> void:
-	Input.action_press(action)
-	await tree.create_timer(duration).timeout
-	Input.action_release(action)
-
-
-func hold_action(action: String) -> void:
-	Input.action_press(action)
-
-
-func release_action(action: String) -> void:
-	Input.action_release(action)
 
 
 func release_all() -> void:
