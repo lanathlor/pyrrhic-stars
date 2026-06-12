@@ -54,6 +54,7 @@ var _server_state: int = 0
 var _server_phase: int = 1
 var _server_ranged_target: Vector3 = Vector3.ZERO
 var _server_charge_dir: Vector3 = Vector3.ZERO
+var _death_played: bool = false
 var _server_alive: bool = true
 var _last_synced_state: int = -1
 var _prev_position: Vector3 = Vector3.ZERO
@@ -101,8 +102,27 @@ func _ready() -> void:
 				"melee_windup": "sword_heavy",
 				"melee_attack": "sword_slash_1",
 				"gun_shoot": "rifle_shoot",
+				"death": "ual_death",
 			}
 		)
+	)
+
+
+## Server marked this enemy dead: play the death animation once, then hide.
+## Called by EntityManager instead of an instant visibility cut.
+func on_server_dead() -> void:
+	if _death_played:
+		return
+	_death_played = true
+	collision_layer = 0
+	set_physics_process(false)
+	if character_model:
+		character_model.travel("death")
+	var timer := get_tree().create_timer(2.2)
+	timer.timeout.connect(
+		func() -> void:
+			if is_instance_valid(self) and _death_played:
+				visible = false
 	)
 
 
@@ -124,6 +144,8 @@ func apply_server_state(data: Dictionary) -> void:
 	_server_ranged_target = data.ranged_target
 	_server_charge_dir = data.charge_dir
 	_server_alive = data.alive
+	if _server_alive:
+		_death_played = false
 	health = _server_health
 	_current_phase = _server_phase
 	_ranged_target_position = _server_ranged_target

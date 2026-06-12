@@ -140,6 +140,10 @@ func update_enemies(enemies_data: Array) -> void:
 					node.set_physics_process(true)
 					if node.has_method("apply_server_state"):
 						node.apply_server_state(edata)
+				elif node.has_method("on_server_dead"):
+					# Enemy plays its death animation and hides itself
+					node.apply_server_state(edata)
+					node.on_server_dead()
 				else:
 					node.visible = false
 					node.collision_layer = 0

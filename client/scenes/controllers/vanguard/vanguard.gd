@@ -229,7 +229,7 @@ func _ready() -> void:
 				"stagger": "sword_impact",
 				"vortex": "sword_heavy",
 				"execution": "sword_heavy",
-				"dead": "sword_idle",
+				"dead": "ual_death",
 			}
 		)
 	)
