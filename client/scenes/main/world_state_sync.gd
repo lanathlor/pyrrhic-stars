@@ -82,12 +82,21 @@ func _apply_player_state(
 
 
 func _despawn_stale_players(entity_mgr: Node, seen_peers: Dictionary) -> void:
+	var my_id: int = NetworkManager.get_my_id()
 	var to_remove: Array = []
 	for pid in entity_mgr.spawned_players:
+		# Never despawn the local player here. A stale world state from the
+		# previous zone (UDP in flight during a zone transfer) won't list the
+		# new local peer_id; freeing the local player kills the only active
+		# Camera3D (permanent grey screen) and _sync_players never respawns
+		# self. The local player's lifecycle belongs to the game flow manager.
+		if pid == my_id:
+			continue
 		if pid not in seen_peers:
 			to_remove.append(pid)
 	for pid in to_remove:
 		var player = entity_mgr.spawned_players[pid]
+		print("[WorldSync] despawn stale player pid=%d" % pid)
 		if is_instance_valid(player):
 			player.queue_free()
 		entity_mgr.spawned_players.erase(pid)
