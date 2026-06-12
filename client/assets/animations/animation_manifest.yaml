@@ -85,3 +85,85 @@ animations:
   cast:
     fbx: "res://assets/animations/sword/great sword casting.fbx"
     loop: false
+
+  # Universal Animation Library (Quaternius, CC0) — retargeted at bake time
+  ual_idle:
+    glb: "res://assets/animations/universal_animation_library/AnimationLibrary_Godot_Standard.glb"
+    clip: "Idle"
+    loop: true
+  ual_walk:
+    glb: "res://assets/animations/universal_animation_library/AnimationLibrary_Godot_Standard.glb"
+    clip: "Walk"
+    loop: true
+  ual_jog:
+    glb: "res://assets/animations/universal_animation_library/AnimationLibrary_Godot_Standard.glb"
+    clip: "Jog_Fwd"
+    loop: true
+  ual_sprint:
+    glb: "res://assets/animations/universal_animation_library/AnimationLibrary_Godot_Standard.glb"
+    clip: "Sprint"
+    loop: true
+  ual_crouch_idle:
+    glb: "res://assets/animations/universal_animation_library/AnimationLibrary_Godot_Standard.glb"
+    clip: "Crouch_Idle"
+    loop: true
+  ual_crouch_walk:
+    glb: "res://assets/animations/universal_animation_library/AnimationLibrary_Godot_Standard.glb"
+    clip: "Crouch_Fwd"
+    loop: true
+  ual_roll:
+    glb: "res://assets/animations/universal_animation_library/AnimationLibrary_Godot_Standard.glb"
+    clip: "Roll"
+    loop: false
+  ual_punch_jab:
+    glb: "res://assets/animations/universal_animation_library/AnimationLibrary_Godot_Standard.glb"
+    clip: "Punch_Jab"
+    loop: false
+  ual_punch_cross:
+    glb: "res://assets/animations/universal_animation_library/AnimationLibrary_Godot_Standard.glb"
+    clip: "Punch_Cross"
+    loop: false
+  ual_sword_idle:
+    glb: "res://assets/animations/universal_animation_library/AnimationLibrary_Godot_Standard.glb"
+    clip: "Sword_Idle"
+    loop: true
+  ual_sword_attack:
+    glb: "res://assets/animations/universal_animation_library/AnimationLibrary_Godot_Standard.glb"
+    clip: "Sword_Attack"
+    loop: false
+  ual_hit_chest:
+    glb: "res://assets/animations/universal_animation_library/AnimationLibrary_Godot_Standard.glb"
+    clip: "Hit_Chest"
+    loop: false
+  ual_hit_head:
+    glb: "res://assets/animations/universal_animation_library/AnimationLibrary_Godot_Standard.glb"
+    clip: "Hit_Head"
+    loop: false
+  ual_death:
+    glb: "res://assets/animations/universal_animation_library/AnimationLibrary_Godot_Standard.glb"
+    clip: "Death01"
+    loop: false
+  ual_spell_idle:
+    glb: "res://assets/animations/universal_animation_library/AnimationLibrary_Godot_Standard.glb"
+    clip: "Spell_Simple_Idle"
+    loop: true
+  ual_spell_shoot:
+    glb: "res://assets/animations/universal_animation_library/AnimationLibrary_Godot_Standard.glb"
+    clip: "Spell_Simple_Shoot"
+    loop: false
+  ual_spell_enter:
+    glb: "res://assets/animations/universal_animation_library/AnimationLibrary_Godot_Standard.glb"
+    clip: "Spell_Simple_Enter"
+    loop: false
+  ual_pistol_idle:
+    glb: "res://assets/animations/universal_animation_library/AnimationLibrary_Godot_Standard.glb"
+    clip: "Pistol_Idle"
+    loop: true
+  ual_pistol_shoot:
+    glb: "res://assets/animations/universal_animation_library/AnimationLibrary_Godot_Standard.glb"
+    clip: "Pistol_Shoot"
+    loop: false
+  ual_interact:
+    glb: "res://assets/animations/universal_animation_library/AnimationLibrary_Godot_Standard.glb"
+    clip: "Interact"
+    loop: false
