@@ -152,8 +152,8 @@ func _ready() -> void:
 		character_model
 		. setup_state_machine(
 			{
-				"idle": "idle",
-				"run": "run",
+				"idle": "ual_idle",
+				"run": "ual_jog",
 				"jump": "jump",
 				"dodge": "roll",
 				"casting": "ual_spell_shoot",
