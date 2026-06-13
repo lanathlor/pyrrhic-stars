@@ -662,6 +662,31 @@ func TestHandleInteractInput_ClassSelect_ResetsStats(t *testing.T) {
 	}
 }
 
+func TestHandleInteractInput_ClassSelect_PreservesGearStats(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassGunner)
+	// Simulate equipped gear contributing +50 Hull (as loadAndApplyGear does).
+	p.GearStats.Hull = 50
+	p.RecalcStats()
+	if p.MaxHealth != 200 { // gunner base 150 + 50 hull
+		t.Fatalf("setup: gunner MaxHealth = %f, want 200", p.MaxHealth)
+	}
+
+	w := makeHubWorld(t, map[uint16]*entity.Player{1: p})
+
+	payload := codec.EncodeInteractInput(message.InteractClassSelect, entity.ClassVanguard)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpInteractInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if p.GearStats.Hull != 50 {
+		t.Errorf("GearStats.Hull = %f, want 50 (gear must survive class swap)", p.GearStats.Hull)
+	}
+	if p.MaxHealth != 250 { // vanguard base 200 + 50 hull
+		t.Errorf("MaxHealth = %f, want 250 (vanguard base + gear hull)", p.MaxHealth)
+	}
+}
+
 func TestHandleInteractInput_ReadyToggle(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Ready = false
