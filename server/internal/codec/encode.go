@@ -679,6 +679,7 @@ type MerchantTierInfo struct {
 	ILvl     int
 	Unlocked bool
 	Price    int
+	ReqScore int // overflux watermark required to unlock this tier (0 = always)
 	Items    []MerchantItemInfo
 }
 
@@ -693,7 +694,7 @@ type MerchantItemInfo struct {
 // EncodeMerchantState encodes the full merchant state for a player.
 // Wire: [balance:u32 LE][watermark:u16 LE][season:u16 LE][max_score:u16 LE][tier_count:u8]
 //
-//	per tier: [ilvl:u8][unlocked:u8][price:u32 LE][item_count:u8]
+//	per tier: [ilvl:u8][unlocked:u8][price:u32 LE][req_score:u16 LE][item_count:u8]
 //	  per item: [def_id:str8][name:str8][slot:u8][stat_count:u8][per stat: stat_id:u8 + value:f32 LE]
 func EncodeMerchantState(balance int, watermark int, season, maxScore uint16, tiers []MerchantTierInfo) []byte {
 	buf := make([]byte, 0, 256)
@@ -710,6 +711,7 @@ func EncodeMerchantState(balance int, watermark int, season, maxScore uint16, ti
 			buf = append(buf, 0)
 		}
 		buf = appendU32(buf, uint32(t.Price))
+		buf = appendU16(buf, uint16(t.ReqScore))
 		buf = append(buf, byte(len(t.Items)))
 		for _, it := range t.Items {
 			buf = appendStr8(buf, it.DefID)

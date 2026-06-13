@@ -67,3 +67,13 @@ func IsTierUnlocked(tier int, bestScore, maxScore int) bool {
 	}
 	return bestScore >= maxScore*t.UnlockPercent/100
 }
+
+// RequiredScore returns the minimum overflux watermark a player must reach to
+// unlock the given tier. Returns 0 for tier 0 (always unlocked) or an
+// out-of-range tier index.
+func RequiredScore(tier, maxScore int) int {
+	if tier < 0 || tier >= len(Tiers) {
+		return 0
+	}
+	return maxScore * Tiers[tier].UnlockPercent / 100
+}

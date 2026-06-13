@@ -258,6 +258,8 @@ static func decode_merchant_state(payload: PackedByteArray) -> Dictionary:
 		off += 1
 		var price := payload.decode_u32(off)
 		off += 4
+		var req_score := payload.decode_u16(off)
+		off += 2
 		var item_count := payload[off]
 		off += 1
 		var items := []
@@ -281,8 +283,19 @@ static func decode_merchant_state(payload: PackedByteArray) -> Dictionary:
 				var value := payload.decode_float(off)
 				off += 4
 				stats.append({"stat": stat_id, "value": value})
-			items.append({"def_id": def_id, "name": item_name, "slot": slot_id, "stats": stats})
-		tiers.append({"ilvl": ilvl, "unlocked": unlocked, "price": price, "items": items})
+			# Items inherit the tier's item level; carry it so rows and tooltips
+			# can surface the iLvl even on locked tiers.
+			items.append(
+				{"def_id": def_id, "name": item_name, "slot": slot_id, "ilvl": ilvl, "stats": stats}
+			)
+		var tier := {
+			"ilvl": ilvl,
+			"unlocked": unlocked,
+			"price": price,
+			"req_score": req_score,
+			"items": items,
+		}
+		tiers.append(tier)
 	return {
 		"balance": balance,
 		"watermark": watermark,

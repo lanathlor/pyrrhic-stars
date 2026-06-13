@@ -28,7 +28,6 @@ const TIP_W := 240.0
 const TIP_STAT_H := 14.0
 
 const TIER_NAMES := ["Standard Issue", "Veteran", "Elite", "Commander"]
-const STAT_NAMES := ["Hull", "Output", "Plating", "Tempo", "Identity", "Mastery"]
 const SLOT_NAMES := [
 	"Frame",
 	"Power Core",
@@ -306,21 +305,22 @@ func _draw_tier(font: Font, tier_data: Dictionary) -> void:
 	var price: int = tier_data.get("price", 0)
 	var sub_y := pr.position.y + TITLE_H + PAD + 14.0
 	var w := pr.size.x - PAD * 2.0
+	var ilvl: int = tier_data.get("ilvl", 1)
 	if locked:
 		draw_string(
 			font,
 			Vector2(pr.position.x + PAD, sub_y),
-			"LOCKED",
+			"LOCKED  ·  Item Level %d" % ilvl,
 			HORIZONTAL_ALIGNMENT_LEFT,
-			100.0,
+			300.0,
 			11,
 			UI_LOCKED
 		)
+		var req: int = tier_data.get("req_score", 0)
+		var wm: int = merchant_data.get("watermark", 0)
 		var req_str := "Requires higher overflux score"
-		var max_score: int = merchant_data.get("max_score", 0)
-		if max_score > 0:
-			var pct: int = clampi(merchant_data.get("watermark", 0) * 100 / max_score, 0, 100)
-			req_str = "Progress: %d%%" % pct
+		if req > 0:
+			req_str = "Watermark %d / %d" % [wm, req]
 		draw_string(
 			font,
 			Vector2(pr.position.x + PAD, sub_y),
@@ -331,11 +331,10 @@ func _draw_tier(font: Font, tier_data: Dictionary) -> void:
 			UI_TEXT_MUTED
 		)
 	else:
-		var ilvl: int = tier_data.get("ilvl", 1)
 		draw_string(
 			font,
 			Vector2(pr.position.x + PAD, sub_y),
-			"Item Level: %d" % ilvl,
+			"Item Level %d" % ilvl,
 			HORIZONTAL_ALIGNMENT_LEFT,
 			200.0,
 			11,
@@ -389,10 +388,19 @@ func _draw_item_row(
 		c_text
 	)
 
-	# Slot name + price
+	# Slot name + item level + price
 	var slot_id: int = item.get("slot", 0)
 	var slot_name: String = SLOT_NAMES[slot_id] if slot_id < SLOT_NAMES.size() else "?"
-	draw_string(font, Vector2(x, y + 30.0), slot_name, HORIZONTAL_ALIGNMENT_LEFT, 200.0, 10, c_dim)
+	var ilvl: int = item.get("ilvl", 1)
+	draw_string(
+		font,
+		Vector2(x, y + 30.0),
+		"%s  ·  iLvl %d" % [slot_name, ilvl],
+		HORIZONTAL_ALIGNMENT_LEFT,
+		260.0,
+		10,
+		c_dim
+	)
 	draw_string(
 		font,
 		Vector2(x, y + 30.0),
@@ -403,14 +411,16 @@ func _draw_item_row(
 		c_price
 	)
 
-	# Stats (compact, horizontal)
-	var stats: Array = item.get("stats", [])
+	# Stats (compact, horizontal). Merge duplicate stat lines so a stat never
+	# appears twice (e.g. "+13 Output ... +4 Output" becomes "+17 Output").
+	var split := ItemData.merge_and_split(item.get("stats", []))
+	var merged_stats: Array = split[0] + split[1]
 	var stat_x := x
 	var stat_y := y + 46.0
-	for s in stats:
+	for s in merged_stats:
 		var sid: int = s.get("stat", 0)
 		var sval: float = s.get("value", 0.0)
-		var sname: String = STAT_NAMES[sid] if sid < STAT_NAMES.size() else "?"
+		var sname := ItemData.class_stat_name(sid, InventoryManager.current_class)
 		var scolor: Color = UI_LOCKED_STAT if locked else STAT_COLORS.get(sid, UI_TEXT_MUTED)
 		var stat_str := "+%.0f %s" % [sval, sname]
 		draw_string(
@@ -473,20 +483,21 @@ func _draw_item_tooltip(font: Font, item: Dictionary) -> void:
 	var slot_id: int = item.get("slot", 0)
 	var equipped: Variant = InventoryManager.get_equipped(slot_id)
 	var eq_lines: Array = equipped.get("stat_lines", []) if equipped != null else []
-	var compare_data := _compute_compare(stats, eq_lines) if equipped != null else []
+	var compare_data := ItemData.compare_stats(stats, eq_lines) if equipped != null else []
 	var split := ItemData.merge_and_split(stats)
 	var p_stats: Array = split[0]
 	var s_stats: Array = split[1]
 	var has_div := p_stats.size() > 0 and s_stats.size() > 0
 	var n := p_stats.size() + s_stats.size()
 	var stats_h := n * TIP_STAT_H + (8.0 if has_div else 0.0)
-	var cmp_h := (20.0 + compare_data.size() * TIP_STAT_H) if equipped != null else 0.0
+	var cmp_h := (20.0 + maxi(compare_data.size(), 1) * TIP_STAT_H) if equipped != null else 0.0
 	var tr := _position_tooltip(TIP_W, 48.0 + stats_h + cmp_h)
 	draw_rect(tr, UI_SURFACE)
 	draw_rect(tr, UI_BORDER, false, 1.0)
 	var tx := tr.position.x + 8.0
 	var item_name: String = item.get("name", item.get("def_id", "???"))
 	var slot_name: String = SLOT_NAMES[slot_id] if slot_id < SLOT_NAMES.size() else "?"
+	var item_ilvl: int = item.get("ilvl", 1)
 	draw_string(
 		font,
 		Vector2(tx, tr.position.y + 14.0),
@@ -499,7 +510,7 @@ func _draw_item_tooltip(font: Font, item: Dictionary) -> void:
 	draw_string(
 		font,
 		Vector2(tx, tr.position.y + 28.0),
-		slot_name,
+		"%s  ·  iLvl %d" % [slot_name, item_ilvl],
 		HORIZONTAL_ALIGNMENT_LEFT,
 		TIP_W - 16.0,
 		9,
@@ -525,23 +536,35 @@ func _draw_item_tooltip(font: Font, item: Dictionary) -> void:
 		draw_string(
 			font,
 			Vector2(tx, sy),
-			"Equipped: %s (iLvl %d)" % [eq_name, eq_ilvl],
+			"If equipped (vs %s, iLvl %d):" % [eq_name, eq_ilvl],
 			HORIZONTAL_ALIGNMENT_LEFT,
 			TIP_W - 16.0,
 			8,
 			UI_TEXT_DIM
 		)
 		sy += TIP_STAT_H
+		if compare_data.is_empty():
+			draw_string(
+				font,
+				Vector2(tx + 8.0, sy),
+				"No stat change",
+				HORIZONTAL_ALIGNMENT_LEFT,
+				TIP_W - 16.0,
+				9,
+				UI_TEXT_DIM
+			)
+			sy += TIP_STAT_H
 		for cd in compare_data:
 			var sid: int = cd["stat"]
 			var diff: float = cd["diff"]
 			var dc: Color = DIFF_UP if diff > 0.0 else DIFF_DOWN
-			var prefix: String = "+" if diff > 0.0 else ""
-			var sname: String = STAT_NAMES[sid] if sid < STAT_NAMES.size() else "?"
+			# %+.0f always prints the sign, so upgrades read "+15" and
+			# downgrades read "-9" on every impacted stat.
+			var sname := ItemData.class_stat_name(sid, InventoryManager.current_class)
 			draw_string(
 				font,
-				Vector2(tx, sy),
-				"%s%.0f %s" % [prefix, diff, sname],
+				Vector2(tx + 8.0, sy),
+				"%+.0f %s" % [diff, sname],
 				HORIZONTAL_ALIGNMENT_LEFT,
 				TIP_W - 16.0,
 				9,
@@ -573,25 +596,3 @@ func _draw_tip_stat(font: Font, tx: float, sy: float, sl: Dictionary, fs: int) -
 		fs,
 		STAT_COLORS.get(sid, UI_TEXT_MUTED)
 	)
-
-
-func _compute_compare(item_stats: Array, eq_lines: Array) -> Array:
-	var item_m := {}
-	for sl in item_stats:
-		var sid: int = sl.get("stat", 0)
-		item_m[sid] = item_m.get(sid, 0.0) + sl.get("value", 0.0)
-	var eq_m := {}
-	for sl in eq_lines:
-		var sid: int = sl.get("stat", 0)
-		eq_m[sid] = eq_m.get(sid, 0.0) + sl.get("value", 0.0)
-	var result := []
-	for sid in range(6):
-		var bv: float = item_m.get(sid, 0.0)
-		var ev: float = eq_m.get(sid, 0.0)
-		if bv == 0.0 and ev == 0.0:
-			continue
-		var diff := bv - ev
-		if absf(diff) < 0.5:
-			continue
-		result.append({"stat": sid, "diff": diff})
-	return result

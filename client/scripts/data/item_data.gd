@@ -128,6 +128,31 @@ static func merge_and_split(stat_lines: Array) -> Array:
 	return [primary, secondary]
 
 
+## Compare an item's stat lines against the equipped item's, returning the
+## signed delta per impacted stat: [{stat, diff}, ...]. Stats unchanged (or
+## changed by less than 0.5) are omitted. Used for WoW-style upgrade tooltips.
+static func compare_stats(item_stats: Array, eq_lines: Array) -> Array:
+	var item_m := {}
+	for sl in item_stats:
+		var sid: int = sl.get("stat", 0)
+		item_m[sid] = item_m.get(sid, 0.0) + sl.get("value", 0.0)
+	var eq_m := {}
+	for sl in eq_lines:
+		var sid: int = sl.get("stat", 0)
+		eq_m[sid] = eq_m.get(sid, 0.0) + sl.get("value", 0.0)
+	var result := []
+	for sid in range(6):
+		var bv: float = item_m.get(sid, 0.0)
+		var ev: float = eq_m.get(sid, 0.0)
+		if bv == 0.0 and ev == 0.0:
+			continue
+		var diff := bv - ev
+		if absf(diff) < 0.5:
+			continue
+		result.append({"stat": sid, "diff": diff})
+	return result
+
+
 ## Returns a color based on item level.
 static func ilvl_color(ilvl: int) -> Color:
 	if ilvl >= 5:

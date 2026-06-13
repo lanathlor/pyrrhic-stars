@@ -1750,11 +1750,11 @@ func TestEncodeMerchantState_ByteLength(t *testing.T) {
 	buf := EncodeMerchantState(1200, 800, 1, 2000, tiers)
 
 	// Header: balance(4) + watermark(2) + season(2) + max_score(2) + tier_count(1) = 11
-	// Per tier: ilvl(1) + unlocked(1) + price(4) + item_count(1) = 7
+	// Per tier: ilvl(1) + unlocked(1) + price(4) + req_score(2) + item_count(1) = 9
 	// Item 0: defID str8(1+9) + name str8(1+9) + slot(1) + stat_count(1) + 1 stat(1+4) = 27
 	// Item 1: defID str8(1+15) + name str8(1+15) + slot(1) + stat_count(1) + 2 stats(2*(1+4)) = 44
-	// Total = 11 + 7 + 27 + 44 = 89
-	wantMin := 11 + 7 + 27 + 44
+	// Total = 11 + 9 + 27 + 44 = 91
+	wantMin := 11 + 9 + 27 + 44
 	if len(buf) < wantMin {
 		t.Errorf("encoded len = %d, want >= %d", len(buf), wantMin)
 	}
@@ -1762,7 +1762,7 @@ func TestEncodeMerchantState_ByteLength(t *testing.T) {
 
 func TestEncodeMerchantState_HeaderFields(t *testing.T) {
 	tiers := []MerchantTierInfo{
-		{ILvl: 5, Unlocked: false, Price: 100},
+		{ILvl: 5, Unlocked: false, Price: 100, ReqScore: 1000},
 	}
 
 	buf := EncodeMerchantState(9999, 1234, 3, 5000, tiers)
@@ -1821,6 +1821,12 @@ func TestEncodeMerchantState_HeaderFields(t *testing.T) {
 	off += 4
 	if price != 100 {
 		t.Errorf("tier[0].price = %d, want 100", price)
+	}
+
+	reqScore := binary.LittleEndian.Uint16(buf[off:])
+	off += 2
+	if reqScore != 1000 {
+		t.Errorf("tier[0].req_score = %d, want 1000", reqScore)
 	}
 
 	itemCount := buf[off]

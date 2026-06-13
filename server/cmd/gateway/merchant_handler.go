@@ -91,6 +91,7 @@ func buildMerchantTiers(state *merchant.PlayerState) []codec.MerchantTierInfo {
 			ILvl:     td.ILvl,
 			Unlocked: unlocked,
 			Price:    td.Price,
+			ReqScore: merchant.RequiredScore(i, state.MaxScore),
 			Items:    items,
 		}
 	}
