@@ -463,6 +463,11 @@ func handleClassSelect(p *entity.Player, peerID uint16, className string) {
 	np.RotationY = p.RotationY
 	np.VisualState = p.VisualState
 	np.SpawnTick = p.SpawnTick
+	// Gear is class-independent, so it must survive a class swap. Carry it over
+	// and recompute derived stats (MaxHealth, resource pools) for the new class.
+	np.GearStats = p.GearStats
+	np.RecalcStats()
+	np.Health = np.MaxHealth
 	*p = *np
 }
 
@@ -490,6 +495,11 @@ func handleSpecSelect(w *World, p *entity.Player, peerID uint16, specID string) 
 	np.VisualState = p.VisualState
 	np.SpawnTick = p.SpawnTick
 	np.Ready = false // auto-unready on spec change
+	// Gear is class-independent, so it must survive a spec swap. Carry it over
+	// and recompute derived stats (MaxHealth, resource pools) for the new spec.
+	np.GearStats = p.GearStats
+	np.RecalcStats()
+	np.Health = np.MaxHealth
 	*p = *np
 }
 
