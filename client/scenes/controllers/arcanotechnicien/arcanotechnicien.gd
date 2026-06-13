@@ -156,7 +156,7 @@ func _ready() -> void:
 				"run": "ual_jog",
 				"sprint": "ual_sprint",
 				"jump": "jump",
-				"dodge": "roll",
+				"dodge": "ual_roll",
 				"casting": "ual_spell_shoot",
 				"channeling": "ual_spell_idle",
 				"stagger": "ual_hit_chest",

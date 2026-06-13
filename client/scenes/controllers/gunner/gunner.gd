@@ -157,7 +157,7 @@ func _ready() -> void:
 				"idle": "rifle_idle",
 				"run": "rifle_run",
 				"jump": "rifle_jump",
-				"roll": "roll",
+				"roll": "ual_roll",
 			}
 		)
 	)
