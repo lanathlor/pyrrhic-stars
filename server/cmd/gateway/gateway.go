@@ -343,12 +343,19 @@ func (g *gateway) loadAndApplyGear(sess *session.Session, zi *zoneInstance) {
 	stats := item.ComputeStats(equipped)
 	zi.zone.SetPlayerGear(sess.PeerID, entity.GearStats(stats))
 
+	// Current mercenary scrip balance (0 if it can't be loaded).
+	scrip := 0
+	if ms, mErr := g.merchant.GetState(sess.CharID); mErr == nil && ms != nil {
+		scrip = ms.ScripBalance
+	}
+
 	// Build and send OpInventoryState.
 	sess.Conn.Send(message.Encode(message.OpInventoryState, 0,
 		codec.EncodeInventoryState(
 			buildInventoryInfos(equipped[:]),
 			buildBagInfos(bag),
 			stats,
+			scrip,
 		),
 	))
 }

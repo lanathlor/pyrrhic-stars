@@ -42,6 +42,8 @@ func (stubRepo) GetItemsByCharacterID(uint) ([]*persistence.CharacterItem, error
 func (stubRepo) SetEquipment(uint, uint8, uint) error                         { return nil }
 func (stubRepo) ClearEquipment(uint, uint8) error                             { return nil }
 func (stubRepo) GetEquipment(uint) ([]*persistence.CharacterEquipment, error) { return nil, nil }
+func (stubRepo) GetScrip(uint, uint16) (int, error)                           { return 0, nil }
+func (stubRepo) GetWatermark(uint, uint16) (int, error)                       { return 0, nil }
 
 // posRepo returns a character with a saved position.
 type posRepo struct{ stubRepo }

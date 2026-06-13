@@ -46,6 +46,7 @@ var _slot_rects: Array[Rect2] = []
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	InventoryManager.inventory_changed.connect(func(): queue_redraw())
+	InventoryManager.scrip_changed.connect(func(_b): queue_redraw())
 
 
 func _notification(what: int) -> void:
@@ -105,6 +106,17 @@ func _draw() -> void:
 		_panel_rect.size.x - PAD * 2.0,
 		11,
 		TEXT_MUTED
+	)
+
+	# Scrip balance (right-aligned in the title row)
+	draw_string(
+		font,
+		Vector2(_panel_rect.position.x + PAD, _panel_rect.position.y + 17.0),
+		"Scrip: %d" % InventoryManager.scrip_balance,
+		HORIZONTAL_ALIGNMENT_RIGHT,
+		_panel_rect.size.x - PAD * 2.0,
+		11,
+		HUD_ACCENT
 	)
 
 	# Draw slots

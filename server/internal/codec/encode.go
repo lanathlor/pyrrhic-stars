@@ -541,7 +541,8 @@ type InventoryStatLine struct {
 //
 //	[bag_count:u8]   per: [slotID:u8][itemID:u32][defID:str8][ilvl:u16][name:str8][stat_count:u8][stat_id:u8 + value:f32]...
 //	[6x computed_stat:f32] (hull, output, plating, tempo, identity, mastery)
-func EncodeInventoryState(equipped []InventoryItemInfo, bag []InventoryItemInfo, stats item.Stats) []byte {
+//	[scrip:u32] (mercenary scrip balance for the current season)
+func EncodeInventoryState(equipped []InventoryItemInfo, bag []InventoryItemInfo, stats item.Stats, scrip int) []byte {
 	buf := make([]byte, 0, 512)
 
 	// Equipped items.
@@ -563,6 +564,9 @@ func EncodeInventoryState(equipped []InventoryItemInfo, bag []InventoryItemInfo,
 	buf = appendF32(buf, stats.Tempo)
 	buf = appendF32(buf, stats.Identity)
 	buf = appendF32(buf, stats.Mastery)
+
+	// Mercenary scrip balance.
+	buf = appendU32(buf, uint32(scrip))
 
 	return buf
 }

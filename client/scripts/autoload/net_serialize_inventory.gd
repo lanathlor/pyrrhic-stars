@@ -37,7 +37,12 @@ static func decode_inventory_state(data: PackedByteArray) -> Dictionary:
 		"mastery": buf.get_float(),
 	}
 
-	return {"equipped": equipped, "bag": bag, "stats": stats}
+	# Mercenary scrip balance (trailing u32). Guard for older payloads.
+	var scrip := 0
+	if buf.get_available_bytes() >= 4:
+		scrip = buf.get_u32()
+
+	return {"equipped": equipped, "bag": bag, "stats": stats, "scrip": scrip}
 
 
 static func _decode_inventory_item(buf: StreamPeerBuffer) -> Dictionary:
