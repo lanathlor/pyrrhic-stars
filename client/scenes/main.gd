@@ -410,6 +410,9 @@ func _handle_gameplay_input(event: InputEvent) -> void:
 			else:
 				# Instance portal: leave directly, no overflux selection.
 				NetworkManager.send_enter_portal()
+		elif env_builder.is_near_exit_portal():
+			# Exit portal (spawns after boss death): return to the hub.
+			NetworkManager.send_enter_portal()
 		elif hub_interact.near_merchant:
 			_merchant_panel.open_shop(hub_interact.merchant_tier)
 			_inventory_layer.bag_panel.merchant_open = true
