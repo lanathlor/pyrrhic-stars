@@ -186,7 +186,7 @@ func spawn_multiplayer_players() -> void:
 # =============================================================================
 
 
-func start_fight() -> void:
+func start_fight(time_limit_text := "") -> void:
 	ctrl.state = ctrl.GameState.FIGHT
 	show_portal_prompt_only()
 	ctrl._lobby_panel.visible = false
@@ -199,6 +199,10 @@ func start_fight() -> void:
 	# Enemies are managed dynamically via update_enemies from world state
 	CombatLog.start_fight()
 	if ctrl._shared_hud:
+		# Server sends the dungeon time limit (seconds) in the fight-start text.
+		# Fall back to the default if absent so older flows still show a timer.
+		var limit := float(time_limit_text) if time_limit_text.is_valid_float() else 300.0
+		ctrl._shared_hud.set_time_limit(limit)
 		ctrl._shared_hud.on_fight_start()
 
 
@@ -363,7 +367,7 @@ func on_game_flow_event(flow_type: int, _text: String) -> void:
 		NetSerializer.FLOW_SPAWN_PLAYERS:
 			spawn_multiplayer_players()
 		NetSerializer.FLOW_FIGHT_START:
-			start_fight()
+			start_fight(_text)
 		NetSerializer.FLOW_BOSS_DEAD:
 			on_boss_dead()
 		NetSerializer.FLOW_ALL_DEAD:

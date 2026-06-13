@@ -75,6 +75,11 @@ var _hub_mode: bool = false
 var _overflux_conditions: Array = []
 var _overflux_score: int = 0
 
+# --- Dungeon Timer (top left, with the overflux conditions) ---
+# Counts down from _time_limit using _fight_duration. Past the limit it flips to
+# a red OVERTIME readout; finishing over-time pays only 10% scrip (server-side).
+var _time_limit: float = 300.0
+
 
 func _process(delta: float) -> void:
 	# Read local player state each frame for responsive bars
@@ -112,7 +117,7 @@ func _draw() -> void:
 		MeterRenderer.draw_healing_meter(
 			self, _healing_totals, _overheal_totals, _damage_totals, _fight_duration, _player_names
 		)
-	if _overflux_score > 0:
+	if _overflux_score > 0 or _fight_active or _fight_over:
 		_draw_overflux_widget()
 	if _hub_mode or _fight_active or _boss_visible or _fight_over:
 		if not _local_player or not is_instance_valid(_local_player):
@@ -221,6 +226,11 @@ func on_damage_event(data: Dictionary) -> void:
 	# Only count damage TO enemies (enemy IDs are >= 1000)
 	if target >= 1000 and source > 0:
 		_damage_totals[source] = _damage_totals.get(source, 0.0) + amount
+
+
+func set_time_limit(seconds: float) -> void:
+	# Dungeon completion timer (seconds), sent by the server at fight start.
+	_time_limit = seconds
 
 
 func on_fight_start() -> void:
@@ -516,20 +526,50 @@ func _draw_overflux_widget() -> void:
 	var x := 12.0
 	var y := 12.0
 
-	# Pill background
-	var text := "OFX: %d" % _overflux_score
-	var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14)
-	var pill_w := text_size.x + 16.0
-	var pill_h := text_size.y + 8.0
-	var pill_rect := Rect2(x, y, pill_w, pill_h)
-	draw_rect(pill_rect, OFX_BG)
-	draw_rect(pill_rect, OFX_BORDER, false, 1.0)
-	draw_string(
-		font, Vector2(x + 8.0, y + pill_h - 6.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, OFX_COLOR
-	)
+	# Pill background (overflux score), shown only when a score is present.
+	if _overflux_score > 0:
+		var text := "OFX: %d" % _overflux_score
+		var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14)
+		var pill_w := text_size.x + 16.0
+		var pill_h := text_size.y + 8.0
+		var pill_rect := Rect2(x, y, pill_w, pill_h)
+		draw_rect(pill_rect, OFX_BG)
+		draw_rect(pill_rect, OFX_BORDER, false, 1.0)
+		draw_string(
+			font,
+			Vector2(x + 8.0, y + pill_h - 6.0),
+			text,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1,
+			14,
+			OFX_COLOR
+		)
+		y += pill_h + 4.0
 
-	# Condition list below the pill
-	var cy := y + pill_h + 4.0
+	# Dungeon timer (count down remaining; red OVERTIME past the limit).
+	if _fight_active or _fight_over:
+		var remaining := _time_limit - _fight_duration
+		var timer_text: String
+		var timer_color: Color
+		if remaining > 0.0:
+			timer_text = "TIME %s" % _format_mmss(remaining)
+			timer_color = TEXT_PRIMARY if remaining > 30.0 else POWER_COLOR
+		else:
+			timer_text = "OVERTIME +%s" % _format_mmss(absf(remaining))
+			timer_color = HEALTH_BAD
+		draw_string(
+			font,
+			Vector2(x + 4.0, y + 12.0),
+			timer_text,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1,
+			13,
+			timer_color
+		)
+		y += 18.0
+
+	# Condition list below the pill / timer
+	var cy := y
 	for c in _overflux_conditions:
 		var cond_text := "%s: %d" % [c.get("id", "?"), c.get("rank", 0)]
 		draw_string(
@@ -544,9 +584,9 @@ func _draw_overflux_widget() -> void:
 		cy += 16.0
 
 
-# =============================================================================
-# Drawing utilities
-# =============================================================================
+func _format_mmss(seconds: float) -> String:
+	var total := int(seconds)
+	return "%02d:%02d" % [total / 60, total % 60]
 
 
 func _draw_status_bar(rect: Rect2, ratio: float, fill_color: Color) -> void:
