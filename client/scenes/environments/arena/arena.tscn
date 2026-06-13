@@ -1,15 +1,13 @@
-[gd_scene load_steps=102 format=3 uid="uid://owdspxx3egli"]
+[gd_scene load_steps=100 format=3 uid="uid://owdspxx3egli"]
 
 [ext_resource type="Script" uid="uid://bw6hj1k8d7sth" path="res://scenes/environments/arena/dungeon_atmosphere.gd" id="dungeon_atmo"]
 [ext_resource type="PackedScene" uid="uid://bs8the8f3rpcd" path="res://assets/models/environments/hub/i_ship.glb" id="i_ship"]
-[ext_resource type="PackedScene" uid="uid://88et18g6jg65" path="res://assets/models/props/derelict_city/barrel_03/barrel_03_1k.gltf" id="prop_barrel"]
-[ext_resource type="PackedScene" uid="uid://ceak1a86tqx71" path="res://assets/models/props/derelict_city/concrete_road_barrier/concrete_road_barrier_1k.gltf" id="prop_barrier"]
-[ext_resource type="PackedScene" uid="uid://bu80uj1tr78wq" path="res://assets/models/props/derelict_city/concrete_road_barrier_02/concrete_road_barrier_02_1k.gltf" id="prop_barrier2"]
-[ext_resource type="PackedScene" uid="uid://dhf3skylxxnmq" path="res://assets/models/props/derelict_city/caged_hanging_light/caged_hanging_light_1k.gltf" id="prop_caged_light"]
-[ext_resource type="PackedScene" uid="uid://dm5jbnv1ov7jn" path="res://assets/models/props/derelict_city/covered_car/covered_car_1k.gltf" id="prop_car"]
-[ext_resource type="PackedScene" uid="uid://cukdrv6jhicw4" path="res://assets/models/props/derelict_city/old_military_crate/old_military_crate_1k.gltf" id="prop_crate"]
-[ext_resource type="PackedScene" uid="uid://g5cbdmfy73jk" path="res://assets/models/props/derelict_city/power_box_01/power_box_01_1k.gltf" id="prop_powerbox"]
-[ext_resource type="PackedScene" uid="uid://vuhl3y1p4x62" path="res://assets/models/props/derelict_city/old_tyre/old_tyre_1k.gltf" id="prop_tyre"]
+[ext_resource type="PackedScene" uid="uid://y7dnpsiry8eh" path="res://assets/models/environments/prime_hub/props/ammo_box_large.glb" id="prop_ammo_large"]
+[ext_resource type="PackedScene" uid="uid://cd8njhdp8txvv" path="res://assets/models/environments/prime_hub/props/ammo_box_small.glb" id="prop_ammo_small"]
+[ext_resource type="PackedScene" uid="uid://bae1tp16xmdmb" path="res://assets/models/environments/prime_hub/furniture/bench_future.glb" id="prop_bench"]
+[ext_resource type="PackedScene" uid="uid://dtlujsw6jwxw" path="res://assets/models/environments/prime_hub/consoles/wall_computer_small.glb" id="prop_console"]
+[ext_resource type="PackedScene" uid="uid://cf8hqae2i24gw" path="res://assets/models/environments/prime_hub/props/container_scifi.glb" id="prop_container"]
+[ext_resource type="PackedScene" uid="uid://chvduuhspsg8n" path="res://assets/models/environments/prime_hub/lighting/lamp_scifi_street.glb" id="prop_lamp"]
 [ext_resource type="Texture2D" uid="uid://d0ed1w4na666s" path="res://assets/textures/derelict_city/asphalt_031_albedo.jpg" id="tex_asphalt_albedo"]
 [ext_resource type="Texture2D" uid="uid://blmnyxgi7chy" path="res://assets/textures/derelict_city/asphalt_031_normal.jpg" id="tex_asphalt_normal"]
 [ext_resource type="Texture2D" uid="uid://6vcx46mtqvy5" path="res://assets/textures/derelict_city/asphalt_031_roughness.jpg" id="tex_asphalt_rough"]
@@ -2180,35 +2178,56 @@ surface_material_override/0 = SubResource("mat_backdrop")
 
 [node name="StreetProps" type="Node3D" parent="." groups=["server_ignore"]]
 
-[node name="Barrier1" parent="StreetProps" instance=ExtResource("prop_barrier")]
+[node name="ContainerCoverW" parent="StreetProps" instance=ExtResource("prop_container")]
 transform = Transform3D(0.966, 0, 0.259, 0, 1, 0, -0.259, 0, 0.966, -6, 0.02, 19)
 
-[node name="Barrier2" parent="StreetProps" instance=ExtResource("prop_barrier2")]
+[node name="ContainerCoverW2" parent="StreetProps" instance=ExtResource("prop_container")]
+transform = Transform3D(0.966, 0, 0.259, 0, 1, 0, -0.259, 0, 0.966, -6.95, 0.02, 19.28)
+
+[node name="ContainerCoverE" parent="StreetProps" instance=ExtResource("prop_container")]
 transform = Transform3D(0.259, 0, -0.966, 0, 1, 0, 0.966, 0, 0.259, 5.9, 0.02, 28.5)
 
-[node name="CoveredCar" parent="StreetProps" instance=ExtResource("prop_car")]
+[node name="CargoStackBase" parent="StreetProps" instance=ExtResource("prop_container")]
 transform = Transform3D(-0.259, 0, 0.966, 0, 1, 0, -0.966, 0, -0.259, 3.6, 0.02, 45)
 
-[node name="Crate1" parent="StreetProps" instance=ExtResource("prop_crate")]
+[node name="CargoStackBase2" parent="StreetProps" instance=ExtResource("prop_container")]
+transform = Transform3D(0.966, 0, 0.259, 0, 1, 0, -0.259, 0, 0.966, 4.55, 0.02, 45.1)
+
+[node name="CargoStackTop" parent="StreetProps" instance=ExtResource("prop_container")]
+transform = Transform3D(0.5, 0, 0.866, 0, 1, 0, -0.866, 0, 0.5, 4.05, 1, 45.05)
+
+[node name="CrateCluster1" parent="StreetProps" instance=ExtResource("prop_ammo_large")]
 transform = Transform3D(0.766, 0, 0.643, 0, 1, 0, -0.643, 0, 0.766, -6.3, 0.02, 23)
 
-[node name="Barrel1" parent="StreetProps" instance=ExtResource("prop_barrel")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.7, 0.02, 30.9)
+[node name="CrateCluster2" parent="StreetProps" instance=ExtResource("prop_ammo_large")]
+transform = Transform3D(0.94, 0, -0.342, 0, 1, 0, 0.342, 0, 0.94, -6.85, 0.02, 23.5)
 
-[node name="Barrel2" parent="StreetProps" instance=ExtResource("prop_barrel")]
-transform = Transform3D(0.5, 0, 0.866, 0, 1, 0, -0.866, 0, 0.5, 6.3, 0.02, 31.7)
+[node name="CrateCluster3" parent="StreetProps" instance=ExtResource("prop_ammo_large")]
+transform = Transform3D(0.866, 0, 0.5, 0, 1, 0, -0.5, 0, 0.866, -6.55, 0.5, 23.2)
 
-[node name="Tyre1" parent="StreetProps" instance=ExtResource("prop_tyre")]
-transform = Transform3D(0.866, 0, 0.5, 0, 1, 0, -0.5, 0, 0.866, -5.4, 0.02, 35)
+[node name="AmmoSmall1" parent="StreetProps" instance=ExtResource("prop_ammo_small")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.7, 0.1, 30.9)
 
-[node name="Tyre2" parent="StreetProps" instance=ExtResource("prop_tyre")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.6, 0.02, 13.6)
+[node name="AmmoSmall2" parent="StreetProps" instance=ExtResource("prop_ammo_small")]
+transform = Transform3D(0.5, 0, 0.866, 0, 1, 0, -0.866, 0, 0.5, 6.3, 0.1, 31.7)
 
-[node name="PowerBox" parent="StreetProps" instance=ExtResource("prop_powerbox")]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -7.85, 1.3, 25)
+[node name="AmmoSmall3" parent="StreetProps" instance=ExtResource("prop_ammo_small")]
+transform = Transform3D(0.342, 0, 0.94, 0, 1, 0, -0.94, 0, 0.342, 5.55, 0.1, 31.9)
 
-[node name="ArchLightL" parent="StreetProps" instance=ExtResource("prop_caged_light")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 4.3, 12.6)
+[node name="WallConsole" parent="StreetProps" instance=ExtResource("prop_console")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -7.78, 1.4, 25)
 
-[node name="ArchLightR" parent="StreetProps" instance=ExtResource("prop_caged_light")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 4.3, 12.6)
+[node name="StreetLampL0" parent="StreetProps" instance=ExtResource("prop_lamp")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.8, 0.02, 15)
+
+[node name="StreetLampR0" parent="StreetProps" instance=ExtResource("prop_lamp")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 5.8, 0.02, 15)
+
+[node name="StreetLampL1" parent="StreetProps" instance=ExtResource("prop_lamp")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0.02, 37)
+
+[node name="StreetLampR1" parent="StreetProps" instance=ExtResource("prop_lamp")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 6, 0.02, 37)
+
+[node name="StreetBench" parent="StreetProps" instance=ExtResource("prop_bench")]
+transform = Transform3D(0.031218804, 0, 0.99951255, 0, 1, 0, -0.99951255, 0, 0.031218804, -7.8592525, 0, 31)
