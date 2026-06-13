@@ -81,11 +81,7 @@ func update_animation() -> void:
 
 	ctrl._visual_state = NetSerializer.VS_MOVE
 	var flat_vel: Vector3 = Vector3(ctrl.velocity.x, 0.0, ctrl.velocity.z)
-	if flat_vel.length() > 0.5:
-		var speed_ratio: float = flat_vel.length() / ctrl.sprint_speed
-		ctrl.character_model.travel("run", clampf(speed_ratio, 0.5, 1.5))
-	else:
-		ctrl.character_model.travel("idle")
+	ctrl.character_model.travel_locomotion(flat_vel.length(), ctrl.run_speed, ctrl.sprint_speed)
 
 
 func drive_remote_animation(prev_pos: Vector3, delta: float) -> void:
@@ -115,7 +111,4 @@ func drive_remote_animation(prev_pos: Vector3, delta: float) -> void:
 				(ctrl.global_position - prev_pos) / delta if delta > 0 else Vector3.ZERO
 			)
 			var speed: float = Vector2(vel.x, vel.z).length()
-			if speed > 0.5:
-				ctrl.character_model.travel("run", clampf(speed / ctrl.sprint_speed, 0.5, 1.5))
-			else:
-				ctrl.character_model.travel("idle")
+			ctrl.character_model.travel_locomotion(speed, ctrl.run_speed, ctrl.sprint_speed)

@@ -242,6 +242,19 @@ func travel(state_name: String, speed: float = 1.0) -> void:
 		play_anim(state_name, speed)
 
 
+## Drive the locomotion blend from current planar speed: idle below a small
+## deadzone, sprint near sprint_speed, run in between. Each clip is time-scaled
+## so its foot speed roughly matches actual movement. Requires "idle", "run",
+## and "sprint" states in the state machine.
+func travel_locomotion(speed: float, run_speed: float, sprint_speed: float) -> void:
+	if speed < 0.5:
+		travel("idle")
+	elif speed >= sprint_speed * 0.85:
+		travel("sprint", clampf(speed / sprint_speed, 0.85, 1.2))
+	else:
+		travel("run", clampf(speed / run_speed, 0.6, 1.3))
+
+
 ## Travel to a state scaled to fit a target duration.
 func travel_timed(state_name: String, target_duration: float) -> void:
 	if not _anim_player:

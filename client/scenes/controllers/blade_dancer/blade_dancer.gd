@@ -158,6 +158,7 @@ func _ready() -> void:
 			{
 				"idle": "ual_idle",
 				"run": "ual_jog",
+				"sprint": "ual_sprint",
 				"jump": "jump",
 				"dash": "roll",
 				"casting": "slash",
@@ -329,10 +330,7 @@ func _drive_remote_animation(prev_pos: Vector3, delta: float) -> void:
 		_:  # VS_MOVE or unknown — derive from velocity
 			var vel := (global_position - prev_pos) / delta if delta > 0 else Vector3.ZERO
 			var speed := Vector2(vel.x, vel.z).length()
-			if speed > 0.5:
-				character_model.travel("run", clampf(speed / sprint_speed, 0.5, 1.5))
-			else:
-				character_model.travel("idle")
+			character_model.travel_locomotion(speed, run_speed, sprint_speed)
 
 
 # --- State helpers ---
