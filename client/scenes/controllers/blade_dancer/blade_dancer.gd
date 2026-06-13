@@ -160,8 +160,8 @@ func _ready() -> void:
 				"run": "ual_jog",
 				"sprint": "ual_sprint",
 				"jump": "jump",
-				"dash": "roll",
-				"casting": "slash",
+				"dash": "ual_roll",
+				"casting": "ual_sword_attack",
 				"stagger": "ual_hit_chest",
 				"dead": "ual_death",
 			}

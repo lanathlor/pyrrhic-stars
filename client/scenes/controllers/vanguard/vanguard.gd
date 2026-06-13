@@ -222,13 +222,13 @@ func _ready() -> void:
 				"idle": "sword_idle",
 				"run": "sword_run",
 				"jump": "sword_jump",
-				"dodge": "roll",
+				"dodge": "ual_roll",
 				"cleave": "sword_slash_1",
 				"upheaval": "sword_heavy",
 				"block": "sword_block",
 				"stagger": "sword_impact",
-				"vortex": "sword_heavy",
-				"execution": "sword_heavy",
+				"vortex": "sword_spin",
+				"execution": "sword_slash_3",
 				"dead": "ual_death",
 			}
 		)
