@@ -2,6 +2,7 @@ package merchant
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"codex-online/server/internal/item"
@@ -393,6 +394,29 @@ func TestBuyItem_ErrorInsufficientScrip(t *testing.T) {
 	_, _, err := svc.BuyItem(charID, tier, "frame_basic")
 	if err == nil {
 		t.Fatal("expected insufficient scrip error, got nil")
+	}
+	// The message must be display-ready, not a leaked DB-layer string.
+	if !strings.Contains(err.Error(), "not enough scrip") {
+		t.Errorf("error = %q, want it to contain %q", err.Error(), "not enough scrip")
+	}
+}
+
+func TestBuyItem_FreshCharacterGetsCleanError(t *testing.T) {
+	const charID uint = 31
+	const tier = 0
+	repo := newTestRepo()
+	svc := NewService(repo)
+	// No scrip record at all (fresh character). Previously this leaked the raw
+	// "deduct scrip: no scrip record..." error to the player.
+	_, _, err := svc.BuyItem(charID, tier, "frame_basic")
+	if err == nil {
+		t.Fatal("expected error buying with no scrip, got nil")
+	}
+	if strings.Contains(err.Error(), "no scrip record") {
+		t.Errorf("error leaked DB-layer message: %q", err.Error())
+	}
+	if !strings.Contains(err.Error(), "not enough scrip") {
+		t.Errorf("error = %q, want it to contain %q", err.Error(), "not enough scrip")
 	}
 }
 

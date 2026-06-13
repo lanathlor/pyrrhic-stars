@@ -102,6 +102,16 @@ func (s *Service) BuyItem(charID uint, tier int, defID string) (itemID uint, new
 		return 0, 0, fmt.Errorf("tier %d locked (need %d%% of %d, have %d)", tier, td.UnlockPercent, maxScore, best)
 	}
 
+	// Check the player can afford it, with a clean user-facing message before
+	// touching the scrip ledger (DeductScrip's errors are not display-ready).
+	balance, err := s.repo.GetScrip(charID, CurrentSeason)
+	if err != nil {
+		return 0, 0, fmt.Errorf("get scrip: %w", err)
+	}
+	if balance < td.Price {
+		return 0, 0, fmt.Errorf("not enough scrip: need %d, have %d", td.Price, balance)
+	}
+
 	// Deduct scrip.
 	if err := s.repo.DeductScrip(charID, CurrentSeason, td.Price); err != nil {
 		return 0, 0, err

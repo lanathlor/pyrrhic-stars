@@ -65,6 +65,29 @@ func TestIsTierUnlocked(t *testing.T) {
 	}
 }
 
+func TestRequiredScore(t *testing.T) {
+	tests := []struct {
+		name     string
+		tier     int
+		maxScore int
+		want     int
+	}{
+		{"tier 0 always free", 0, 125, 0},
+		{"tier 1 at 20%", 1, 125, 25},
+		{"tier 2 at 45%", 2, 125, 56},
+		{"tier 3 at 80%", 3, 125, 100},
+		{"invalid tier negative", -1, 125, 0},
+		{"invalid tier too high", 4, 125, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := RequiredScore(tt.tier, tt.maxScore); got != tt.want {
+				t.Errorf("RequiredScore(%d, %d) = %d, want %d", tt.tier, tt.maxScore, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestMerchantItemsCount(t *testing.T) {
 	if got := len(MerchantItems); got != 6 {
 		t.Errorf("len(MerchantItems) = %d, want 6", got)
