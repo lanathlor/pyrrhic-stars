@@ -58,8 +58,9 @@ type Zone struct {
 	onPlayerReturnToOpenWorld func(peerID uint16)
 
 	// onBossDefeated is called when the boss dies. Receives peer IDs of all
-	// players present and the overflux score for reward calculation.
-	onBossDefeated func(peerIDs []uint16, overfluxScore int)
+	// players present, the overflux score for reward calculation, and whether
+	// the boss was defeated after the instance time limit expired (over-time).
+	onBossDefeated func(peerIDs []uint16, overfluxScore int, overTime bool)
 
 	// CombatLogSink receives combat events. Set before Run(). NullSink if nil.
 	CombatLogSink combatlog.EventSink
@@ -197,7 +198,7 @@ func (z *Zone) SetOnPlayerReturnToOpenWorld(fn func(peerID uint16)) {
 }
 
 // SetOnBossDefeated sets the callback invoked when the boss is defeated.
-func (z *Zone) SetOnBossDefeated(fn func(peerIDs []uint16, overfluxScore int)) {
+func (z *Zone) SetOnBossDefeated(fn func(peerIDs []uint16, overfluxScore int, overTime bool)) {
 	z.mu.Lock()
 	z.onBossDefeated = fn
 	z.mu.Unlock()

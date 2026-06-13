@@ -62,6 +62,7 @@ type World struct {
 	GateStates     map[string]bool // gate_id → is_closed
 	LobbyActive    bool            // true while instance is in lobby phase (before fight start)
 	LobbyCountdown int32           // ticks remaining before fight start (0 = not counting)
+	FightStartTick uint32          // TickNum at fight start (ready gate gone); 0 = fight not started
 
 	// Group scaling — multiplier applied to all enemy damage (1.0 = no scaling)
 	EnemyDamageMult float32
@@ -112,7 +113,7 @@ type World struct {
 
 	// Callbacks (set by zone/gateway)
 	OnPlayerReturnToOpenWorld func(peerID uint16)
-	OnBossDefeated            func(peerIDs []uint16, overfluxScore int)
+	OnBossDefeated            func(peerIDs []uint16, overfluxScore int, overTime bool)
 	BroadcastToAll            func(msg []byte, excludePeerID uint16)
 
 	// SendBuf is a pooled buffer for the broadcast path.

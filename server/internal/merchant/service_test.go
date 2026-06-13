@@ -160,7 +160,7 @@ func TestGetState_AfterAward(t *testing.T) {
 	svc := NewService(repo)
 	score := overflux.MaxScore() / 2 // half the max score
 
-	awarded, err := svc.AwardScrip(7, score)
+	awarded, err := svc.AwardScrip(7, score, false)
 	if err != nil {
 		t.Fatalf("AwardScrip error: %v", err)
 	}
@@ -192,7 +192,7 @@ func TestAwardScrip_CorrectAmount(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := NewService(newTestRepo())
-			got, err := svc.AwardScrip(1, tt.score)
+			got, err := svc.AwardScrip(1, tt.score, false)
 			if err != nil {
 				t.Fatalf("AwardScrip error: %v", err)
 			}
@@ -209,7 +209,7 @@ func TestAwardScrip_UpdatesWatermark(t *testing.T) {
 	svc := NewService(repo)
 	score := 60
 
-	if _, err := svc.AwardScrip(3, score); err != nil {
+	if _, err := svc.AwardScrip(3, score, false); err != nil {
 		t.Fatalf("AwardScrip error: %v", err)
 	}
 
@@ -223,8 +223,8 @@ func TestAwardScrip_AccumulatesBalance(t *testing.T) {
 	svc := NewService(newTestRepo())
 	maxScore := overflux.MaxScore()
 
-	first, _ := svc.AwardScrip(5, 0)         // base reward
-	second, _ := svc.AwardScrip(5, maxScore) // max reward
+	first, _ := svc.AwardScrip(5, 0, false)         // base reward
+	second, _ := svc.AwardScrip(5, maxScore, false) // max reward
 
 	state, err := svc.GetState(5)
 	if err != nil {
@@ -240,16 +240,46 @@ func TestAwardScrip_WatermarkOnlyRaisesHigher(t *testing.T) {
 	repo := newTestRepo()
 	svc := NewService(repo)
 
-	if _, err := svc.AwardScrip(9, 80); err != nil {
+	if _, err := svc.AwardScrip(9, 80, false); err != nil {
 		t.Fatalf("first AwardScrip error: %v", err)
 	}
-	if _, err := svc.AwardScrip(9, 40); err != nil {
+	if _, err := svc.AwardScrip(9, 40, false); err != nil {
 		t.Fatalf("second AwardScrip error: %v", err)
 	}
 
 	wm, _ := repo.GetWatermark(9, CurrentSeason)
 	if wm != 80 {
 		t.Errorf("watermark = %d, want 80 (lower second award must not overwrite)", wm)
+	}
+}
+
+func TestAwardScrip_OverTimePenalty(t *testing.T) {
+	repo := newTestRepo()
+	svc := NewService(repo)
+	maxScore := overflux.MaxScore()
+	score := maxScore // full reward = 400 before penalty
+
+	got, err := svc.AwardScrip(1, score, true)
+	if err != nil {
+		t.Fatalf("AwardScrip error: %v", err)
+	}
+	want := ScripReward(score, maxScore) / OverTimePenaltyDivisor
+	if got != want {
+		t.Errorf("over-time AwardScrip = %d, want %d (1/%d of full)", got, want, OverTimePenaltyDivisor)
+	}
+}
+
+func TestAwardScrip_OverTimeSkipsWatermark(t *testing.T) {
+	repo := newTestRepo()
+	svc := NewService(repo)
+
+	if _, err := svc.AwardScrip(2, 75, true); err != nil {
+		t.Fatalf("AwardScrip error: %v", err)
+	}
+
+	wm, _ := repo.GetWatermark(2, CurrentSeason)
+	if wm != 0 {
+		t.Errorf("watermark = %d, want 0 (over-time finish is not a clear, must not improve watermark)", wm)
 	}
 }
 

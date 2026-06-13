@@ -553,8 +553,8 @@ func (g *gateway) transferPlayer(sess *session.Session, targetZoneID string, lvl
 		zi.zone.SetOnPlayerReturnToOpenWorld(func(peerID uint16) {
 			g.handlePlayerReturnToOpenWorld(targetZoneID, peerID)
 		})
-		zi.zone.SetOnBossDefeated(func(peerIDs []uint16, overfluxScore int) {
-			g.handleBossDefeated(targetZoneID, peerIDs, overfluxScore)
+		zi.zone.SetOnBossDefeated(func(peerIDs []uint16, overfluxScore int, overTime bool) {
+			g.handleBossDefeated(targetZoneID, peerIDs, overfluxScore, overTime)
 		})
 	}
 
@@ -562,7 +562,9 @@ func (g *gateway) transferPlayer(sess *session.Session, targetZoneID string, lvl
 }
 
 // handleBossDefeated awards mercenary scrip to all players in the instance when the boss dies.
-func (g *gateway) handleBossDefeated(zoneID string, peerIDs []uint16, overfluxScore int) {
+// An over-time finish (boss killed after the instance timer expired) pays reduced
+// scrip and grants no watermark / tier-unlock progress.
+func (g *gateway) handleBossDefeated(zoneID string, peerIDs []uint16, overfluxScore int, overTime bool) {
 	for _, peerID := range peerIDs {
 		globalID := g.sessions.ResolveZonePeer(zoneID, peerID)
 		if globalID == 0 {
@@ -572,12 +574,12 @@ func (g *gateway) handleBossDefeated(zoneID string, peerIDs []uint16, overfluxSc
 		if sess == nil || sess.CharID == 0 {
 			continue
 		}
-		amount, err := g.merchant.AwardScrip(sess.CharID, overfluxScore)
+		amount, err := g.merchant.AwardScrip(sess.CharID, overfluxScore, overTime)
 		if err != nil {
 			slog.Error("award scrip failed", "char_id", sess.CharID, "error", err)
 			continue
 		}
-		slog.Info("scrip awarded", "char_id", sess.CharID, "amount", amount, "overflux", overfluxScore)
+		slog.Info("scrip awarded", "char_id", sess.CharID, "amount", amount, "overflux", overfluxScore, "over_time", overTime)
 		// Send award notification to the player.
 		bal, _ := g.merchant.GetState(sess.CharID)
 		newBalance := 0
