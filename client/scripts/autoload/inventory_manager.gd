@@ -5,6 +5,7 @@ extends Node
 
 signal inventory_changed
 signal equipment_changed
+signal scrip_changed(balance: int)
 
 ## Equipped items keyed by slot_id (int) → item Dictionary.
 var equipped: Dictionary = {}
@@ -14,6 +15,10 @@ var bag: Array = []
 
 ## Current class name — set by main.gd when class changes.
 var current_class: String = "gunner"
+
+## Mercenary scrip balance for the current season. Sent in the inventory
+## snapshot at login and updated on each scrip award.
+var scrip_balance: int = 0
 
 ## Aggregated gear stats from the server.
 var computed_stats: Dictionary = {
@@ -28,6 +33,7 @@ var computed_stats: Dictionary = {
 
 func _ready() -> void:
 	NetworkManager.inventory_state_received.connect(_on_inventory_state)
+	NetworkManager.scrip_awarded.connect(_on_scrip_awarded)
 
 
 func _on_inventory_state(data: Dictionary) -> void:
@@ -40,9 +46,21 @@ func _on_inventory_state(data: Dictionary) -> void:
 		bag.append(item_info)
 
 	computed_stats = data.stats
+	_set_scrip(data.get("scrip", scrip_balance))
 
 	equipment_changed.emit()
 	inventory_changed.emit()
+
+
+func _on_scrip_awarded(data: Dictionary) -> void:
+	_set_scrip(data.get("new_balance", scrip_balance))
+
+
+func _set_scrip(balance: int) -> void:
+	if balance == scrip_balance:
+		return
+	scrip_balance = balance
+	scrip_changed.emit(scrip_balance)
 
 
 ## Request to equip an item. Server validates and sends back new state.
