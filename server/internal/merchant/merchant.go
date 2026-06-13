@@ -30,6 +30,12 @@ var MerchantItems = []string{
 	"module_basic",
 }
 
+// OverTimePenaltyDivisor is applied to the scrip reward when the boss is
+// defeated after the instance time limit expired (Mythic+-style: an over-time
+// finish is not a "clear"). The player keeps 1/OverTimePenaltyDivisor of the
+// scrip and earns no watermark / tier-unlock progress.
+const OverTimePenaltyDivisor = 10
+
 // ScripReward returns the integer scrip earned for a single run.
 // Base reward is 100 scrip; a bonus of up to 300 scales linearly with
 // score/maxScore. Result is clamped to [100, 400].

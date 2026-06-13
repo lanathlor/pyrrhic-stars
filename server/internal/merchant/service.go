@@ -46,17 +46,27 @@ func (s *Service) GetState(charID uint) (*PlayerState, error) {
 }
 
 // AwardScrip grants scrip to a character based on the overflux score of a completed run.
-// Also updates the watermark if this score is a new personal best.
+// On a timed clear (overTime=false) it also updates the watermark if this score
+// is a new personal best. An over-time finish is not a "clear": scrip is cut to
+// 1/OverTimePenaltyDivisor and the watermark is left untouched, so it grants no
+// tier-unlock progress.
 // Returns the amount of scrip awarded.
-func (s *Service) AwardScrip(charID uint, overfluxScore int) (int, error) {
+//
+//nolint:revive // overTime reflects the run's outcome (a clear vs an over-time finish), not a control toggle the caller flips
+func (s *Service) AwardScrip(charID uint, overfluxScore int, overTime bool) (int, error) {
 	maxScore := overflux.MaxScore()
 	amount := ScripReward(overfluxScore, maxScore)
+	if overTime {
+		amount /= OverTimePenaltyDivisor
+	}
 
 	if err := s.repo.AddScrip(charID, CurrentSeason, amount); err != nil {
 		return 0, fmt.Errorf("add scrip: %w", err)
 	}
-	if err := s.repo.UpdateWatermark(charID, CurrentSeason, overfluxScore); err != nil {
-		return 0, fmt.Errorf("update watermark: %w", err)
+	if !overTime {
+		if err := s.repo.UpdateWatermark(charID, CurrentSeason, overfluxScore); err != nil {
+			return 0, fmt.Errorf("update watermark: %w", err)
+		}
 	}
 	return amount, nil
 }

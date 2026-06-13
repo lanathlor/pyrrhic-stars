@@ -3,6 +3,7 @@ package system
 import (
 	"log/slog"
 	"slices"
+	"strconv"
 
 	"codex-online/server/internal/combatlog"
 	"codex-online/server/internal/entity"
@@ -26,6 +27,15 @@ func (s *GameFlowSystem) Tick(w *World, _ float32) {
 // LobbyCountdownTicks is the number of ticks to count down after all players
 // are ready before starting the fight (5 seconds at 20Hz).
 const LobbyCountdownTicks int32 = 100
+
+// InstanceTimeLimitTicks is the dungeon completion timer (5 minutes at 20Hz).
+// The timer starts at fight start (ready gate gone). Defeating the boss after it
+// expires is an over-time finish: reduced scrip and no watermark progress.
+const InstanceTimeLimitTicks uint32 = 300 * 20
+
+// InstanceTimeLimitSeconds is the time limit in whole seconds, sent to the
+// client in the FlowFightStart event so the HUD count-down matches the server.
+const InstanceTimeLimitSeconds = InstanceTimeLimitTicks / 20
 
 // checkLobbyReady manages the lobby ready-up phase for instanced zones.
 // When all human players are ready, starts a countdown. When the countdown
@@ -65,11 +75,13 @@ func checkLobbyReady(w *World) {
 		w.LobbyCountdown--
 		if w.LobbyCountdown == 0 {
 			w.LobbyActive = false
+			w.FightStartTick = w.TickNum
 			for _, p := range w.Players {
 				p.Ready = false
 			}
 			w.GameFlowEvents = append(w.GameFlowEvents, GameFlowEvent{
 				FlowType: message.FlowFightStart,
+				Text:     strconv.Itoa(int(InstanceTimeLimitSeconds)),
 			})
 			slog.Info("lobby fight start", "zone_id", w.ZoneID)
 		}
@@ -240,6 +252,7 @@ func InitInstance(w *World) {
 	w.InitGateStates()
 	w.LobbyActive = true
 	w.LobbyCountdown = 0
+	w.FightStartTick = 0
 	for i, e := range w.Enemies {
 		if i < len(w.Level.EnemySpawns) {
 			e.Reset(w.Level.EnemySpawns[i].Position, entity.EnemyPatrol)
@@ -280,7 +293,9 @@ func checkFightEnd(w *World) {
 			if w.OverfluxState != nil {
 				score = w.OverfluxState.TotalScore
 			}
-			w.OnBossDefeated(peerIDs, score)
+			overTime := w.FightStartTick != 0 &&
+				w.TickNum-w.FightStartTick > InstanceTimeLimitTicks
+			w.OnBossDefeated(peerIDs, score, overTime)
 		}
 		return
 	}

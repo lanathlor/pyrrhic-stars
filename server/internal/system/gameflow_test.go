@@ -1,6 +1,7 @@
 package system
 
 import (
+	"strconv"
 	"testing"
 
 	"codex-online/server/internal/ability"
@@ -842,10 +843,59 @@ func TestCheckLobbyReady_CountdownExpireEmitsFightStart(t *testing.T) {
 	for _, evt := range w.GameFlowEvents {
 		if evt.FlowType == message.FlowFightStart {
 			found = true
+			wantText := strconv.Itoa(int(InstanceTimeLimitSeconds))
+			if evt.Text != wantText {
+				t.Errorf("fight start text = %q, want %q (time limit seconds for HUD)", evt.Text, wantText)
+			}
 		}
 	}
 	if !found {
 		t.Error("expected FlowFightStart event")
+	}
+	if w.FightStartTick != w.TickNum {
+		t.Errorf("FightStartTick = %d, want %d (TickNum at fight start)", w.FightStartTick, w.TickNum)
+	}
+}
+
+func TestCheckFightEnd_OverTimePenaltyFlag(t *testing.T) {
+	tests := []struct {
+		name           string
+		fightStartTick uint32
+		tickNum        uint32
+		wantOverTime   bool
+	}{
+		{"under limit is clear", 100, 100 + InstanceTimeLimitTicks, false},
+		{"over limit is over-time", 100, 100 + InstanceTimeLimitTicks + 1, true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			boss := entity.NewEnemy(0, 2000, "guard_captain")
+			boss.IsBoss = true
+			boss.State = entity.EnemyDead
+			boss.Alive = false
+			p := entity.NewPlayer(1, entity.ClassGunner)
+			p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5} // in boss room
+			w := makeArenaWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{boss})
+			w.GateStates["boss_gate"] = true
+			w.FightStartTick = tc.fightStartTick
+			w.TickNum = tc.tickNum
+
+			var gotOverTime bool
+			var called bool
+			w.OnBossDefeated = func(_ []uint16, _ int, overTime bool) {
+				called = true
+				gotOverTime = overTime
+			}
+
+			checkFightEnd(w)
+
+			if !called {
+				t.Fatal("OnBossDefeated was not called on boss death")
+			}
+			if gotOverTime != tc.wantOverTime {
+				t.Errorf("overTime = %v, want %v", gotOverTime, tc.wantOverTime)
+			}
+		})
 	}
 }
 
