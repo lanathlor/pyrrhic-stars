@@ -1,33 +1,32 @@
 # Hallway Ranged: Frenzied variant
-# Burst fire pattern at close range, faster energy bolts, targets low-HP players.
+# Twin-lock: fires its salvo at the two nearest players at once, with a tight
+# telegraph, and circle-strafes between volleys. Adds heavy pressure on healers
+# and anyone caught grouped up.
 
 abilities:
-  - name: scatter_shot
+  - name: twin_salvo
     type: ranged
     target: nearest
-    telegraph_time: 0.4
+    telegraph_time: 0.3
     execute_time: 0.1
-    cooldown_time: 4.0
-    base_weight: 40
+    cooldown_time: 1.8
+    base_weight: 200
     min_range: 0
     track_target: true
     projectile_origin_y: 1.2
+    multi_target_count: 2
     damage_source: 2
     pattern:
       emitters:
-        - type: cone
-          count: 5
-          waves: 1
-          arc_angle: 30
+        - type: targeted
+          count: 1
+          waves: 3
+          wave_interval: 0.12
+          aim_at_target: true
           projectile:
-            speed: 16
-            damage: 10
-            lifetime: 3
-
-ability_overrides:
-  energy_bolt:
-    cooldown_time: 0.8
-    damage: 14
+            speed: 18
+            damage: 22
+            lifetime: 4
 
 tree:
   reactive_selector:
@@ -35,9 +34,7 @@ tree:
     - sequence: [phase_transitioning, wait_transition]
     - sequence: ["!has_target", aggro_or_patrol]
     - sequence: ["!in_leash_range", leash_reset]
-    - sequence: [is_committed, wait_ability]
-    # Scatter shot when target is close
-    - sequence: ["!target_beyond(5)", has_los, "ability_ready(scatter_shot)", "commit(scatter_shot)", wait_ability]
-    # Energy bolt, prefer low-HP targets
-    - sequence: [has_los, "ability_ready(energy_bolt)", "commit(energy_bolt)", wait_ability]
+    - sequence: [is_committed, wait_ability]      # hold during a volley
+    - sequence: [has_los, attack]                 # twin-lock salvo (or base energy_bolt)
+    - sequence: ["target_beyond(5)", strafe]      # circle-strafe between volleys
     - chase

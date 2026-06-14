@@ -2,7 +2,7 @@ name: hallway_ranged
 tier: 1
 overflux_variants:
   frenzied: hallway_ranged_frenzied.yaml
-max_health: 150
+max_health: 210
 move_speed: 3.5
 radius: 0.8
 preferred_range: 8.0
@@ -10,21 +10,30 @@ backpedal_speed: 3.0
 anti_repeat: 1.0
 
 abilities:
+  # Energy salvo: a short-telegraph burst of 3 rounds at the same target. The mob
+  # circle-strafes between salvos (see tree) instead of standing still.
   - name: energy_bolt
     type: ranged
     target: nearest
-    telegraph_time: 0.6
+    telegraph_time: 0.35
     execute_time: 0.1
-    cooldown_time: 1.2
+    cooldown_time: 1.0
     base_weight: 100
     min_range: 2.0
     track_target: true
-    projectile_count: 1
-    projectile_speed: 18.0
-    projectile_damage: 12.0
     projectile_origin_y: 1.2
-    projectile_lifetime: 4.0
     damage_source: 2
+    pattern:
+      emitters:
+        - type: targeted
+          count: 1
+          waves: 3
+          wave_interval: 0.12
+          aim_at_target: true
+          projectile:
+            speed: 18.0
+            damage: 25.0
+            lifetime: 4.0
 
 tree:
   reactive_selector:
@@ -32,5 +41,7 @@ tree:
     - sequence: [phase_transitioning, wait_transition]
     - sequence: ["!has_target", aggro_or_patrol]
     - sequence: ["!in_leash_range", leash_reset]
-    - sequence: [has_los, attack]
-    - chase
+    - sequence: [is_committed, wait_ability]      # hold still during a salvo
+    - sequence: [has_los, attack]                 # fire a salvo when ready
+    - sequence: ["target_beyond(5)", strafe]      # between salvos: circle-strafe at range
+    - chase                                       # too close / no LoS: kite (backpedal/advance)

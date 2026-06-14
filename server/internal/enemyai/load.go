@@ -87,6 +87,7 @@ type abilityFile struct {
 	ProjectileSpreadDeg float32 `yaml:"projectile_spread_deg"` // degrees
 	ProjectileOriginY   float32 `yaml:"projectile_origin_y"`
 	ProjectileLifetime  float32 `yaml:"projectile_lifetime"`
+	MultiTargetCount    int     `yaml:"multi_target_count"` // >1 = fire at N nearest players at once
 
 	// AoE
 	AoERadius float32 `yaml:"aoe_radius"`
@@ -378,6 +379,7 @@ func convertAbility(af abilityFile) (ability.AbilityDef, error) {
 		CanMoveCommitted: af.CanMoveCommitted,
 		CanMoveExecuting: af.CanMoveExecuting,
 		DamageSource:     af.DamageSource,
+		MultiTargetCount: af.MultiTargetCount,
 	}
 
 	if err := applyAbilityCategory(&ad, af); err != nil {
