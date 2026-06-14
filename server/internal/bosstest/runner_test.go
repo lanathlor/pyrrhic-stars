@@ -3,8 +3,11 @@ package bosstest_test
 import (
 	"flag"
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -28,6 +31,10 @@ var (
 )
 
 func TestMain(m *testing.M) {
+	// Silence per-spawn INFO logs (e.g. "applying overflux variants"): the fuzz
+	// harness spawns thousands of enemies, so production-level logging is spam here.
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+
 	if err := enemyai.LoadMobs("../../../shared/mobs"); err != nil {
 		panic("TestMain: load mobs: " + err.Error())
 	}
@@ -95,15 +102,19 @@ func runBossTests(t *testing.T, specPath string) {
 		t.Fatalf("load spec: %v", err)
 	}
 
-	if shouldRunTier("injection") {
-		t.Run("injection", func(t *testing.T) {
-			runInjectionTests(t, spec.Boss)
-		})
-	}
-	if shouldRunTier("scenario") {
-		t.Run("scenario", func(t *testing.T) {
-			runScenarioTests(t, spec.Boss)
-		})
+	// Injection and scenario tiers are boss-phase specific (single enemy);
+	// trash-pack encounters only run the fuzz tier.
+	if !spec.IsPack() {
+		if shouldRunTier("injection") {
+			t.Run("injection", func(t *testing.T) {
+				runInjectionTests(t, spec.Boss)
+			})
+		}
+		if shouldRunTier("scenario") {
+			t.Run("scenario", func(t *testing.T) {
+				runScenarioTests(t, spec.Boss)
+			})
+		}
 	}
 	if shouldRunTier("fuzz") {
 		t.Run("fuzz", func(t *testing.T) {
@@ -296,7 +307,8 @@ func runFuzzBatch(t *testing.T, spec *bosstest.EncounterSpec, oflxName string, o
 	}
 
 	var allResults []bosstest.SimResult
-	groupID := fmt.Sprintf("fuzz_%s_%s_%d", spec.Boss, oflxName, os.Getpid())
+	groupID := fmt.Sprintf("fuzz_%s_%s_%d", spec.Label(), oflxName, os.Getpid())
+	enemyDefs := spec.EnemyDefs()
 
 	for _, comp := range spec.Compositions {
 		party := comp.ToPartyConfigs()
@@ -305,7 +317,8 @@ func runFuzzBatch(t *testing.T, spec *bosstest.EncounterSpec, oflxName string, o
 
 		for i := range runsPerComp {
 			result := bosstest.RunSimulation(bosstest.SimConfig{
-				Boss:        spec.Boss,
+				Boss:        spec.Label(),
+				Enemies:     enemyDefs,
 				Party:       party,
 				Seed:        uint64(i),
 				Sink:        sink,
@@ -350,34 +363,36 @@ func runFuzzBatch(t *testing.T, spec *bosstest.EncounterSpec, oflxName string, o
 	report.OverfluxName = oflxName
 	report.OverfluxScore = oflxScore
 
-	// Tree health: only for baseline runs.
+	// Tree health: only for baseline runs. Merge each enemy def's trees across
+	// all runs, then assert per def (a pack has one tree per mob type).
 	if oflxSpec == nil {
-		var merged bosstest.TreeReport
+		merged := make(map[string]*bosstest.TreeReport)
+		var defOrder []string
 		for _, r := range allResults {
-			if r.TreeReport == nil {
-				continue
-			}
-			if len(merged.Nodes) == 0 {
-				merged = *r.TreeReport
-			} else {
-				merged.TotalTicks += r.TreeReport.TotalTicks
-				for i := range merged.Nodes {
-					if i < len(r.TreeReport.Nodes) {
-						merged.Nodes[i].EvalCount += r.TreeReport.Nodes[i].EvalCount
-						merged.Nodes[i].SuccessCount += r.TreeReport.Nodes[i].SuccessCount
-						merged.Nodes[i].FailCount += r.TreeReport.Nodes[i].FailCount
-						merged.Nodes[i].RunningCount += r.TreeReport.Nodes[i].RunningCount
-					}
+			for name, rep := range r.TreeReports {
+				if rep == nil {
+					continue
+				}
+				if existing, ok := merged[name]; ok {
+					bosstest.MergeTreeReport(existing, rep)
+				} else {
+					merged[name] = bosstest.CloneTreeReport(rep)
+					defOrder = append(defOrder, name)
 				}
 			}
 		}
-		if len(merged.Nodes) > 0 {
-			for i := range merged.Nodes {
-				n := &merged.Nodes[i]
-				n.Classification = bosstest.ClassifyFromCounts(n.EvalCount, n.SuccessCount, merged.TotalTicks)
+		slices.Sort(defOrder)
+		// Single-tree encounters (a boss) keep the unprefixed layout.
+		singleTree := len(defOrder) == 1
+		for _, name := range defOrder {
+			m := merged[name]
+			bosstest.ClassifyTreeReport(m)
+			label := name
+			if singleTree {
+				label = ""
 			}
-			t.Run("tree_health", func(t *testing.T) {
-				bosstest.AssertTreeHealth(t, spec.TreeHealth, &merged, report)
+			t.Run("tree_health/"+name, func(t *testing.T) {
+				bosstest.AssertTreeHealth(t, label, spec.TreeHealth, m, report)
 			})
 		}
 	}
@@ -493,14 +508,16 @@ func runCalibBatch(t *testing.T, spec *bosstest.EncounterSpec, oflx *overflux.St
 	t.Helper()
 	wins := 0
 	total := 0
-	groupID := fmt.Sprintf("calib_%s_%s_%d", spec.Boss, label, os.Getpid())
+	groupID := fmt.Sprintf("calib_%s_%s_%d", spec.Label(), label, os.Getpid())
+	enemyDefs := spec.EnemyDefs()
 
 	for _, comp := range spec.Compositions {
 		party := comp.ToPartyConfigs()
 		runsPerComp := iters / len(spec.Compositions)
 		for i := range runsPerComp {
 			result := bosstest.RunSimulation(bosstest.SimConfig{
-				Boss:        spec.Boss,
+				Boss:        spec.Label(),
+				Enemies:     enemyDefs,
 				Party:       party,
 				Seed:        uint64(i),
 				Sink:        sink,

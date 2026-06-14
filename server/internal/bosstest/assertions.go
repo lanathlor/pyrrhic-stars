@@ -172,7 +172,7 @@ func (r *FuzzReport) printAbilityStatsSection(sb *strings.Builder) {
 		return
 	}
 	fmt.Fprintf(sb, "\n  %s\n", strings.Repeat("─", 58))
-	fmt.Fprintf(sb, "  Boss Damage (total: %.0f)\n", r.TotalBossDamage)
+	fmt.Fprintf(sb, "  Enemy damage to party (total: %.0f)\n", r.TotalBossDamage)
 	for _, l := range r.AbilityStats {
 		fmt.Fprintf(sb, "    %-14s %s [%s]\n", l.label, l.result, statusIcon(l.pass))
 	}
@@ -192,7 +192,7 @@ func (r *FuzzReport) printCompDetailsSection(sb *strings.Builder) {
 func (r *FuzzReport) printSingleCompDetail(sb *strings.Builder, cd compDetailReport) {
 	avgDur := cd.TotalDurationSec / float64(cd.Runs)
 	partyDPS := cd.TotalPlayerDamage / cd.TotalDurationSec
-	fmt.Fprintf(sb, "\n    %s (boss dmg: %.0f | party DPS: %.1f/s | avg %.1fs)\n",
+	fmt.Fprintf(sb, "\n    %s (enemy dmg: %.0f | party DPS: %.1f/s | avg %.1fs)\n",
 		cd.Name, cd.TotalBossDamage, partyDPS, avgDur)
 	// Ability damage shares
 	sb.WriteString("      ability:  ")
@@ -278,7 +278,7 @@ func (fr *FuzzResults) AssertAll(t *testing.T) *FuzzReport {
 	t.Helper()
 
 	report := &FuzzReport{
-		Boss: fr.Spec.Boss,
+		Boss: fr.Spec.Label(),
 		Runs: len(fr.Results),
 	}
 
@@ -382,24 +382,30 @@ func groupByComposition(results []SimResult, report *FuzzReport) {
 	})
 }
 
-// AssertTreeHealth validates instrumented tree metrics against spec.
-func AssertTreeHealth(t *testing.T, spec TreeHealthSpec, report *TreeReport, fuzzReport *FuzzReport) {
+// AssertTreeHealth validates instrumented tree metrics against spec. defName
+// labels the tree (the enemy def name); pass "" for a single-tree encounter to
+// keep the unprefixed report layout.
+func AssertTreeHealth(t *testing.T, defName string, spec TreeHealthSpec, report *TreeReport, fuzzReport *FuzzReport) {
 	t.Helper()
+	prefix := ""
+	if defName != "" {
+		prefix = defName + " "
+	}
 	t.Run("dead_nodes", func(t *testing.T) {
 		dead := report.DeadCount()
 		pass := dead <= spec.MaxDeadNodes
 		if !pass {
-			t.Errorf("dead nodes = %d, max allowed = %d", dead, spec.MaxDeadNodes)
+			t.Errorf("%sdead nodes = %d, max allowed = %d", prefix, dead, spec.MaxDeadNodes)
 		}
 		if fuzzReport != nil {
 			fuzzReport.TreeHealth = append(fuzzReport.TreeHealth, reportLine{
-				label:  "dead nodes",
+				label:  prefix + "dead nodes",
 				result: fmt.Sprintf("%d (max %d)", dead, spec.MaxDeadNodes),
 				pass:   pass,
 			})
 			for _, n := range report.Nodes {
 				if n.Classification == ClassDead {
-					fuzzReport.DeadNodes = append(fuzzReport.DeadNodes, n.Name)
+					fuzzReport.DeadNodes = append(fuzzReport.DeadNodes, prefix+n.Name)
 				}
 			}
 		}
@@ -408,18 +414,18 @@ func AssertTreeHealth(t *testing.T, spec TreeHealthSpec, report *TreeReport, fuz
 		cold := report.ColdCount()
 		pass := cold <= spec.MaxColdNodes
 		if !pass {
-			t.Errorf("cold nodes = %d, max allowed = %d", cold, spec.MaxColdNodes)
+			t.Errorf("%scold nodes = %d, max allowed = %d", prefix, cold, spec.MaxColdNodes)
 		}
 		if fuzzReport != nil {
 			fuzzReport.TreeHealth = append(fuzzReport.TreeHealth, reportLine{
-				label:  "cold nodes",
+				label:  prefix + "cold nodes",
 				result: fmt.Sprintf("%d (max %d)", cold, spec.MaxColdNodes),
 				pass:   pass,
 			})
 			for _, n := range report.Nodes {
 				if n.Classification == ClassCold {
 					fuzzReport.ColdNodes = append(fuzzReport.ColdNodes,
-						fmt.Sprintf("%s (evals=%d)", n.Name, n.EvalCount))
+						fmt.Sprintf("%s%s (evals=%d)", prefix, n.Name, n.EvalCount))
 				}
 			}
 		}

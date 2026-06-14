@@ -245,6 +245,37 @@ func (t *InstrumentedTree) instrumentNode(node bt.Node, prefix string, idx int) 
 	}
 }
 
+// CloneTreeReport returns a deep copy of src with an independent Nodes slice,
+// safe to use as a merge accumulator without mutating the source.
+func CloneTreeReport(src *TreeReport) *TreeReport {
+	nodes := make([]NodeReport, len(src.Nodes))
+	copy(nodes, src.Nodes)
+	return &TreeReport{Nodes: nodes, TotalTicks: src.TotalTicks}
+}
+
+// MergeTreeReport adds src's per-node counts and tick total into dst. Both must
+// share the same tree topology (merged by node index); extra src nodes are
+// ignored. Call ClassifyTreeReport afterwards to recompute classifications.
+func MergeTreeReport(dst, src *TreeReport) {
+	dst.TotalTicks += src.TotalTicks
+	for i := range dst.Nodes {
+		if i < len(src.Nodes) {
+			dst.Nodes[i].EvalCount += src.Nodes[i].EvalCount
+			dst.Nodes[i].SuccessCount += src.Nodes[i].SuccessCount
+			dst.Nodes[i].FailCount += src.Nodes[i].FailCount
+			dst.Nodes[i].RunningCount += src.Nodes[i].RunningCount
+		}
+	}
+}
+
+// ClassifyTreeReport recomputes each node's Classification from its merged counts.
+func ClassifyTreeReport(r *TreeReport) {
+	for i := range r.Nodes {
+		n := &r.Nodes[i]
+		n.Classification = ClassifyFromCounts(n.EvalCount, n.SuccessCount, r.TotalTicks)
+	}
+}
+
 // ClassifyFromCounts determines classification given raw counts and total ticks.
 func ClassifyFromCounts(evalCount, successCount, totalTicks int64) Classification {
 	if evalCount == 0 {
