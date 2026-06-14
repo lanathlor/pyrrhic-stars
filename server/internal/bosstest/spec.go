@@ -3,6 +3,7 @@ package bosstest
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"codex-online/server/internal/overflux"
@@ -36,19 +37,56 @@ func (s OverfluxSpec) ToOverfluxState() *overflux.State {
 	return overflux.NewState(conditions)
 }
 
-// EncounterSpec defines expected balance values for a boss encounter.
-// Tests fail if simulation results drift outside these ranges.
+// EncounterSpec defines expected balance values for an encounter. An encounter
+// is either a single boss (Boss set) or a trash-mob pack (Pack set). Tests fail
+// if simulation results drift outside these ranges.
 type EncounterSpec struct {
-	Boss         string         `yaml:"boss"`
-	Runs         int            `yaml:"runs"`
-	Compositions []CompSpec     `yaml:"compositions"`
-	Overflux     []OverfluxSpec `yaml:"overflux"` // optional: test under overflux conditions
-	WinRate      RangeSpec      `yaml:"win_rate"`
-	Duration     DurationSpec   `yaml:"duration"`
-	PhaseReach   []PhaseSpec    `yaml:"phase_reach"`
-	TreeHealth   TreeHealthSpec `yaml:"tree_health"`
-	SpecBalance  *BalanceSpec   `yaml:"spec_balance"`
-	AbilityStats []AbilitySpec  `yaml:"ability_stats"`
+	Boss         string          `yaml:"boss"` // single-enemy encounter (mutually exclusive with pack)
+	Name         string          `yaml:"name"` // label for pack encounters (boss encounters use Boss)
+	Pack         []PackEntrySpec `yaml:"pack"` // multi-enemy trash pack
+	Runs         int             `yaml:"runs"`
+	Compositions []CompSpec      `yaml:"compositions"`
+	Overflux     []OverfluxSpec  `yaml:"overflux"` // optional: test under overflux conditions
+	WinRate      RangeSpec       `yaml:"win_rate"`
+	Duration     DurationSpec    `yaml:"duration"`
+	PhaseReach   []PhaseSpec     `yaml:"phase_reach"`
+	TreeHealth   TreeHealthSpec  `yaml:"tree_health"`
+	SpecBalance  *BalanceSpec    `yaml:"spec_balance"`
+	AbilityStats []AbilitySpec   `yaml:"ability_stats"`
+}
+
+// PackEntrySpec is one mob type in a trash pack: spawn Count copies of Def.
+type PackEntrySpec struct {
+	Def   string `yaml:"def"`
+	Count int    `yaml:"count"`
+}
+
+// IsPack reports whether this spec describes a multi-enemy trash pack.
+func (s *EncounterSpec) IsPack() bool { return len(s.Pack) > 0 }
+
+// Label returns the encounter's display/identifier name: the boss def name for
+// boss encounters, or the pack Name for pack encounters.
+func (s *EncounterSpec) Label() string {
+	if s.Boss != "" {
+		return s.Boss
+	}
+	return s.Name
+}
+
+// EnemyDefs returns the flat list of enemy def names to spawn: [Boss] for a
+// boss encounter, or each pack entry's Def repeated Count times for a pack.
+func (s *EncounterSpec) EnemyDefs() []string {
+	if !s.IsPack() {
+		return []string{s.Boss}
+	}
+	var defs []string
+	for _, e := range s.Pack {
+		count := max(e.Count, 1)
+		for range count {
+			defs = append(defs, e.Def)
+		}
+	}
+	return defs
 }
 
 // CompSpec defines a party composition for testing.
@@ -108,8 +146,12 @@ func LoadSpec(path string) (*EncounterSpec, error) {
 	if err := yaml.Unmarshal(data, &spec); err != nil {
 		return nil, fmt.Errorf("parse spec %q: %w", path, err)
 	}
-	if spec.Boss == "" {
-		return nil, fmt.Errorf("spec %q missing 'boss' field", path)
+	if spec.Boss == "" && !spec.IsPack() {
+		return nil, fmt.Errorf("spec %q must set either 'boss' or 'pack'", path)
+	}
+	// Pack encounters fall back to the file base name for their label.
+	if spec.IsPack() && spec.Name == "" {
+		spec.Name = strings.TrimSuffix(filepath.Base(path), ".yaml")
 	}
 	if spec.Runs == 0 {
 		spec.Runs = 1000
@@ -146,12 +188,12 @@ func (cs CompSpec) ToPartyConfigs() []PuppetConfig {
 // ExpandVariants expands pipe-separated specs into multiple compositions.
 // e.g., specs: [assault, blade|shield, multi_blade] produces two CompSpecs
 // with the same Name (so reporting groups them), one with blade, one with shield.
-func (es *EncounterSpec) ExpandVariants() {
+func (s *EncounterSpec) ExpandVariants() {
 	var expanded []CompSpec
-	for _, cs := range es.Compositions {
+	for _, cs := range s.Compositions {
 		expanded = append(expanded, cs.expandSpecs()...)
 	}
-	es.Compositions = expanded
+	s.Compositions = expanded
 }
 
 func (cs CompSpec) expandSpecs() []CompSpec {

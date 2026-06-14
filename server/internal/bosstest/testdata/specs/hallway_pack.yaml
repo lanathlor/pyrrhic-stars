@@ -1,0 +1,97 @@
+name: hallway_pack
+runs: 300
+
+# The arena's hallway trash pull (shared/levels/arena.json, group 1):
+# 2x melee + 2x ranged. The whole pack shares one GroupID and aggros together.
+pack:
+  - def: hallway_melee
+    count: 2
+  - def: hallway_ranged
+    count: 2
+
+# Overflux difficulty variants to test alongside baseline. Only the conditions
+# with a mob variant matter here: enemy_hp (Fortified: HP+damage scaling) and
+# frenzied (aggressive BT with cleave + low-HP targeting). The boss-only
+# conditions (tempered/volatile/wounded_prey) have no hallway variant.
+overflux:
+  - name: fortified_2
+    conditions:
+      - id: enemy_hp
+        rank: 2
+    win_rate:
+      min: 0.55
+      max: 1.0
+  - name: fortified_5
+    conditions:
+      - id: enemy_hp
+        rank: 5
+    win_rate:
+      min: 0.15
+      max: 1.0
+  - name: frenzied
+    conditions:
+      - id: frenzied
+        rank: 1
+    win_rate:
+      min: 0.50
+      max: 1.0
+  - name: fortified_frenzied
+    conditions:
+      - id: enemy_hp
+        rank: 5
+      - id: frenzied
+        rank: 1
+    win_rate:
+      min: 0.0
+      max: 0.85
+
+# Standard 5-player party (1 tank, 1 healer, 3 DPS), same classes/specs as the
+# guard_captain spec, at three skill levels.
+compositions:
+  - name: all_sweaty
+    classes: [arcanotechnicien, vanguard, vanguard, gunner, blade_dancer]
+    specs:   [harmonist, shield, blade, assault, multi_blade]
+    profiles: [sweaty, sweaty, sweaty, sweaty, sweaty]
+    win_rate:
+      min: 0.95
+  - name: mixed_average
+    classes: [arcanotechnicien, vanguard, vanguard, gunner, blade_dancer]
+    specs:   [harmonist, shield, blade, assault, multi_blade]
+    profiles: [average, average, average, average, average]
+    win_rate:
+      min: 0.80
+  - name: all_bad
+    classes: [arcanotechnicien, vanguard, vanguard, gunner, blade_dancer]
+    specs:   [harmonist, shield, blade, assault, multi_blade]
+    profiles: [bad, bad, bad, bad, bad]
+    win_rate:
+      min: 0.50
+
+# Deadlier baseline: sweaty clears ~100%, average ~90-95% (real damage, the odd
+# wipe), bad parties wipe ~25%. Tuned via the fuzz harness.
+win_rate:
+  min: 0.78
+  max: 1.0
+
+# Pack HP scales with party size (1x->4x over 1->5 players), same model as the
+# boss. Bounds are first guesses; calibrate from the first real run.
+duration:
+  min_seconds: 2
+  max_seconds: 60
+
+# One behavior tree per mob type; bounds applied per def. The patrol / leash /
+# phase-transition branches are structurally dead here: the sim forces chase
+# with a wide leash and trash mobs have no phases, so those 5 nodes never fire.
+tree_health:
+  max_dead_nodes: 6
+  max_cold_nodes: 8
+
+spec_balance:
+  max_damage_share_sigma: 0.35
+
+# Deadly, but should not reliably one-shot: most hits chip, a minority kill.
+ability_stats:
+  - ability: melee_slash
+    max_kill_rate: 0.40
+  - ability: energy_bolt
+    max_kill_rate: 0.40
