@@ -24,8 +24,8 @@ func TestLoadMobs_HallwayMeleeFields(t *testing.T) {
 	if def.Name != "hallway_melee" {
 		t.Errorf("Name = %q, want hallway_melee", def.Name)
 	}
-	if def.MaxHealth != 200 {
-		t.Errorf("MaxHealth = %f, want 200", def.MaxHealth)
+	if def.MaxHealth != 300 {
+		t.Errorf("MaxHealth = %f, want 300", def.MaxHealth)
 	}
 	if def.MoveSpeed != 5.0 {
 		t.Errorf("MoveSpeed = %f, want 5", def.MoveSpeed)
@@ -53,8 +53,8 @@ func TestLoadMobs_HallwayMeleeFields(t *testing.T) {
 	if a.TargetStrategy != ability.TargetNearest {
 		t.Errorf("ability TargetStrategy = %d, want %d (nearest)", a.TargetStrategy, ability.TargetNearest)
 	}
-	if a.CommitTime != 0.5 {
-		t.Errorf("CommitTime = %f, want 0.5", a.CommitTime)
+	if a.CommitTime != 0.3 {
+		t.Errorf("CommitTime = %f, want 0.3", a.CommitTime)
 	}
 	if a.ExecuteTime != 0.2 {
 		t.Errorf("ExecuteTime = %f, want 0.2", a.ExecuteTime)
@@ -74,8 +74,8 @@ func TestLoadMobs_HallwayMeleeFields(t *testing.T) {
 	if a.Hit.Range != 2.5 {
 		t.Errorf("Hit.Range = %f, want 2.5", a.Hit.Range)
 	}
-	if a.BaseDamage != 15 {
-		t.Errorf("BaseDamage = %f, want 15", a.BaseDamage)
+	if a.BaseDamage != 54 {
+		t.Errorf("BaseDamage = %f, want 54", a.BaseDamage)
 	}
 
 	// 120 degrees stored as degrees
@@ -94,8 +94,8 @@ func TestLoadMobs_HallwayRangedFields(t *testing.T) {
 		t.Fatal("hallway_ranged not in DefRegistry after LoadMobs")
 	}
 
-	if def.MaxHealth != 150 {
-		t.Errorf("MaxHealth = %f, want 150", def.MaxHealth)
+	if def.MaxHealth != 210 {
+		t.Errorf("MaxHealth = %f, want 210", def.MaxHealth)
 	}
 	if def.MoveSpeed != 3.5 {
 		t.Errorf("MoveSpeed = %f, want 3.5", def.MoveSpeed)
@@ -117,14 +117,23 @@ func TestLoadMobs_HallwayRangedFields(t *testing.T) {
 	if a.Category != ability.CategoryRanged {
 		t.Errorf("ability Category = %d, want %d (ranged)", a.Category, ability.CategoryRanged)
 	}
-	if a.Projectile.Count != 1 {
-		t.Errorf("Projectile.Count = %d, want 1", a.Projectile.Count)
+	// energy_bolt is a staggered 3-round salvo (targeted pattern); the ability's
+	// Projectile carries only the spawn origin height.
+	if a.Projectile.OriginY != 1.2 {
+		t.Errorf("Projectile.OriginY = %f, want 1.2", a.Projectile.OriginY)
 	}
-	if a.Projectile.Speed != 18.0 {
-		t.Errorf("Projectile.Speed = %f, want 18", a.Projectile.Speed)
+	if a.Pattern == nil || len(a.Pattern.Emitters) != 1 {
+		t.Fatalf("energy_bolt should have a 1-emitter salvo pattern, got %+v", a.Pattern)
 	}
-	if a.Projectile.Damage != 12.0 {
-		t.Errorf("Projectile.Damage = %f, want 12", a.Projectile.Damage)
+	em := a.Pattern.Emitters[0]
+	if em.Type != combat.EmitterTargeted {
+		t.Errorf("emitter Type = %d, want EmitterTargeted (%d)", em.Type, combat.EmitterTargeted)
+	}
+	if em.Count != 1 || em.Waves != 3 {
+		t.Errorf("salvo Count/Waves = %d/%d, want 1/3", em.Count, em.Waves)
+	}
+	if em.Projectile.Speed != 18.0 {
+		t.Errorf("salvo projectile Speed = %f, want 18", em.Projectile.Speed)
 	}
 	if !a.TrackTarget {
 		t.Error("TrackTarget should be true")

@@ -258,30 +258,49 @@ func (ctx *EntityContext) SpawnProjectiles(resolved ability.AbilityDef) {
 		originY = resolved.Projectile.OriginY
 	}
 	origin := e.Position.Add(entity.Vec3{Y: originY})
-	baseDir := e.RangedTargetPos.Sub(origin).Normalized()
 
-	// Pattern engine path: multi-wave bullet-hell patterns
-	if resolved.Pattern != nil && ctx.CommitPatternFn != nil {
-		ctx.CommitPatternFn(resolved.Pattern, resolved.Name, origin, baseDir)
-		return
-	}
+	// Aim direction(s): toward the committed target, or - for a twin-lock
+	// ability - one toward each of the N nearest players, fired at once.
+	for _, baseDir := range ctx.aimDirections(resolved, origin) {
+		// Pattern engine path: multi-wave bullet-hell patterns
+		if resolved.Pattern != nil && ctx.CommitPatternFn != nil {
+			ctx.CommitPatternFn(resolved.Pattern, resolved.Name, origin, baseDir)
+			continue
+		}
 
-	// Fan path: simple fan of projectiles
-	if resolved.Projectile == nil {
-		return
+		// Fan path: simple fan of projectiles
+		if resolved.Projectile == nil {
+			return
+		}
+		proj := resolved.Projectile
+		for i := range proj.Count {
+			offset := (float32(i) - float32(proj.Count-1)/2.0) * proj.Spread
+			dir := combat.RotateVecY(baseDir, offset)
+			ctx.SpawnFn(
+				origin,
+				dir,
+				proj.Speed,
+				proj.Damage,
+				proj.Lifetime,
+			)
+		}
 	}
-	proj := resolved.Projectile
-	for i := range proj.Count {
-		offset := (float32(i) - float32(proj.Count-1)/2.0) * proj.Spread
-		dir := combat.RotateVecY(baseDir, offset)
-		ctx.SpawnFn(
-			origin,
-			dir,
-			proj.Speed,
-			proj.Damage,
-			proj.Lifetime,
-		)
+}
+
+// aimDirections returns the base direction(s) a ranged ability fires along: a
+// single direction toward the committed target (RangedTargetPos), or - when
+// MultiTargetCount > 1 - one toward each of the N nearest alive players.
+func (ctx *EntityContext) aimDirections(resolved ability.AbilityDef, origin entity.Vec3) []entity.Vec3 {
+	if resolved.MultiTargetCount > 1 {
+		if targets := NNearestAlivePlayers(ctx.Enemy.Position, ctx.Players, resolved.MultiTargetCount); len(targets) > 0 {
+			dirs := make([]entity.Vec3, len(targets))
+			for i, p := range targets {
+				dirs[i] = p.Position.Sub(origin).Normalized()
+			}
+			return dirs
+		}
 	}
+	return []entity.Vec3{ctx.Enemy.RangedTargetPos.Sub(origin).Normalized()}
 }
 
 // EnterCooldown sets the enemy into cooldown state using the GCD.

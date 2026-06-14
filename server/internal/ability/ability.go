@@ -177,6 +177,10 @@ type AbilityDef struct {
 	// Bullet-hell pattern (overrides Projectile fan if set)
 	Pattern *combat.PatternDef `yaml:"-"`
 
+	// MultiTargetCount: if >1, a ranged ability fires its volley/pattern at each
+	// of the N nearest players at once ("twin-lock"). 0/1 = single target.
+	MultiTargetCount int `yaml:"multi_target_count"`
+
 	// DamageSource categorizes the damage for client rendering.
 	DamageSource uint8 `yaml:"damage_source"`
 

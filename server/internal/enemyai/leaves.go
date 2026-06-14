@@ -465,6 +465,172 @@ func actionChase(v any) bt.Result {
 	return bt.Running
 }
 
+// Blackboard keys + tuning for strafe/dash movement.
+const (
+	bbStrafeSide = "strafe_side" // flag set => strafe to the mob's left
+	bbStrafeFlip = "strafe_flip" // timer until the next strafe-side flip
+	bbDashActive = "dash_active" // timer: remaining dash burst window
+	bbDashCD     = "dash_cd"     // timer: dash cooldown
+
+	strafeFlipPeriod = float32(0.9) // seconds between strafe direction flips
+	strafeSpeedMult  = float32(0.9) // strafe slightly slower than full move speed
+	dashDuration     = float32(0.25)
+	dashSpeedMult    = float32(2.5) // dash speed relative to move speed
+)
+
+// actionStrafe circle-strafes the current target: it sidesteps perpendicular to
+// the target, flipping direction on a timer so it weaves rather than orbiting,
+// with a small radial nudge to hold its preferred kite distance. Ranged mobs use
+// it between volleys so they reposition instead of standing still. Returns Running.
+func actionStrafe(v any) bt.Result {
+	c := ctx(v)
+	e := c.Enemy
+	def := c.Def
+
+	if !e.Alive || e.State == entity.EnemyPhaseTransition {
+		e.Velocity = entity.Vec3{}
+		return bt.Failure
+	}
+
+	target := c.TargetPlayer()
+	if target == nil {
+		target = c.NearestPlayer()
+	}
+	if target == nil {
+		e.Velocity = entity.Vec3{}
+		return bt.Failure
+	}
+	e.TargetPlayerID = target.ID
+
+	toTarget := target.Position.Sub(e.Position).Flat()
+	distance := toTarget.Length()
+	if distance < 0.1 {
+		e.Velocity = entity.Vec3{}
+		return bt.Failure
+	}
+	dir := toTarget.Normalized()
+	e.RotationY = float32(math.Atan2(float64(-dir.X), float64(-dir.Z)))
+
+	if e.HasDebuff(entity.DebuffRoot) {
+		e.Velocity = entity.Vec3{}
+		return bt.Running
+	}
+	slowMult := float32(1.0)
+	if slow := e.GetDebuffValue(entity.DebuffSlow); slow > 0 {
+		slowMult = 1.0 - slow
+	}
+
+	side := nextStrafeSide(c.BB)
+	moveDir := strafeMoveDir(dir, side, distance, def.PreferredRange)
+	if moveDir.Length() < 0.01 {
+		e.Velocity = entity.Vec3{}
+		return bt.Running
+	}
+	moveDir = moveDir.Normalized()
+	moveDir = c.AvoidObstacles(moveDir, e.Position, e.Position.Add(moveDir.Scale(2)))
+
+	spd := def.CurrentMoveSpeed(e.Phase) * slowMult * strafeSpeedMult
+	e.Velocity = entity.Vec3{X: moveDir.X * spd, Z: moveDir.Z * spd}
+	if c.Logger != nil {
+		c.logAction("strafe", bt.Running, "side", side, "dist", distance)
+	}
+	return bt.Running
+}
+
+// nextStrafeSide returns +1 or -1, flipping the stored strafe side each time the
+// flip timer expires so the mob weaves instead of orbiting one way forever.
+func nextStrafeSide(bb *Blackboard) float32 {
+	if bb.TimerExpired(bbStrafeFlip) {
+		if bb.GetFlag(bbStrafeSide) {
+			bb.ClearFlag(bbStrafeSide)
+		} else {
+			bb.SetFlag(bbStrafeSide)
+		}
+		bb.StartTimer(bbStrafeFlip, strafeFlipPeriod)
+	}
+	if bb.GetFlag(bbStrafeSide) {
+		return -1
+	}
+	return 1
+}
+
+// strafeMoveDir returns the (flat, un-normalized) strafe direction: perpendicular
+// to the target, nudged radially to hold the preferred kite band.
+func strafeMoveDir(dir entity.Vec3, side, distance, preferred float32) entity.Vec3 {
+	moveDir := entity.Vec3{X: -dir.Z, Z: dir.X}.Scale(side)
+	if preferred > 0 {
+		radialErr := entity.Clamp((distance-preferred)/(preferred*0.5), -1, 1)
+		moveDir = moveDir.Add(dir.Scale(radialErr * 0.6))
+	}
+	return moveDir.Flat()
+}
+
+// dashFactory builds a dash action: a short cooldowned burst of speed toward the
+// current target to close distance (movement only, no damage). cooldown sets how
+// often it fires - a long value for an occasional gap-closer, a short one for a
+// relentless chaser. Returns Failure while on cooldown so the BT falls through to
+// plain chase, and Running during the burst.
+func dashFactory(cooldown float32) func(any) bt.Result {
+	return func(v any) bt.Result {
+		c := ctx(v)
+		e := c.Enemy
+		def := c.Def
+
+		if !e.Alive || e.State == entity.EnemyPhaseTransition {
+			e.Velocity = entity.Vec3{}
+			return bt.Failure
+		}
+
+		dashing := !c.BB.TimerExpired(bbDashActive)
+		if !dashing && !c.BB.TimerExpired(bbDashCD) {
+			e.Velocity = entity.Vec3{}
+			return bt.Failure // on cooldown, not mid-burst (chase fallback takes over)
+		}
+
+		target := c.TargetPlayer()
+		if target == nil {
+			target = c.NearestPlayer()
+		}
+		if target == nil {
+			e.Velocity = entity.Vec3{}
+			return bt.Failure
+		}
+		e.TargetPlayerID = target.ID
+
+		toTarget := target.Position.Sub(e.Position).Flat()
+		distance := toTarget.Length()
+		if distance < 0.1 {
+			e.Velocity = entity.Vec3{}
+			return bt.Failure
+		}
+		dir := toTarget.Normalized()
+		e.RotationY = float32(math.Atan2(float64(-dir.X), float64(-dir.Z)))
+
+		if e.HasDebuff(entity.DebuffRoot) {
+			e.Velocity = entity.Vec3{}
+			return bt.Running
+		}
+		slowMult := float32(1.0)
+		if slow := e.GetDebuffValue(entity.DebuffSlow); slow > 0 {
+			slowMult = 1.0 - slow
+		}
+
+		if !dashing {
+			// Begin a new burst and put the dash on cooldown (measured from start).
+			c.BB.StartTimer(bbDashActive, dashDuration)
+			c.BB.StartTimer(bbDashCD, cooldown)
+		}
+
+		moveDir := c.AvoidObstacles(dir, e.Position, target.Position)
+		spd := def.CurrentMoveSpeed(e.Phase) * slowMult * dashSpeedMult
+		e.Velocity = entity.Vec3{X: moveDir.X * spd, Z: moveDir.Z * spd}
+		if c.Logger != nil {
+			c.logAction("dash", bt.Running, "dist", distance)
+		}
+		return bt.Running
+	}
+}
+
 // --- Attack subtree leaves ---
 //
 // The attack lifecycle is modeled as a BT Sequence rather than a blackboard FSM.

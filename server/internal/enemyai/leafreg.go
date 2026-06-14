@@ -41,6 +41,7 @@ var leafRegistry = map[string]leafEntry{
 	LeafLeashReset:         {action: actionLeashReset},
 	"patrol":               {action: actionPatrol},
 	LeafChase:              {action: actionChase},
+	"strafe":               {action: actionStrafe},
 	"select_ability":       {action: actionSelectAbility},
 	"telegraph":            {action: actionTelegraph},
 	"execute_ability":      {action: actionExecuteAbility},
@@ -107,6 +108,13 @@ var paramFactories = map[string]func(string) (leafEntry, error){
 			return leafEntry{}, errors.New("ability_ready: missing ability ID")
 		}
 		return leafEntry{isCond: true, cond: condAbilityReady(arg)}, nil
+	},
+	"dash": func(arg string) (leafEntry, error) {
+		cd, err := strconv.ParseFloat(arg, 32)
+		if err != nil {
+			return leafEntry{}, fmt.Errorf("dash: invalid cooldown %q: %w", arg, err)
+		}
+		return leafEntry{action: dashFactory(float32(cd))}, nil
 	},
 }
 

@@ -121,22 +121,23 @@ func TestFight_HallwayRanged(t *testing.T) {
 		t.Fatalf("should have aggroed player %d, targeting %d", p.ID, e.TargetPlayerID)
 	}
 
-	// Ranged mob should try to maintain PreferredRange (8.0)
-	// Player is at Z=4, so mob should backpedal (moving away)
-	projectiles := 0
-	spawnFn := func(_, _ entity.Vec3, _, _, _ float32) { projectiles++ }
+	// Ranged mob should try to maintain PreferredRange (8.0). energy_bolt is a
+	// targeted salvo pattern, so it commits via the cast-pattern callback rather
+	// than the simple projectile spawner.
+	salvos := 0
+	castFn := func(_ *combat.PatternDef, _ string, _, _ entity.Vec3) { salvos++ }
 
 	// Tick long enough for a ranged attack
 	for range 200 {
-		b.Tick(0.05, players, nil, spawnFn, nil)
-		if projectiles > 0 {
+		b.Tick(0.05, players, nil, noSpawn, castFn)
+		if salvos > 0 {
 			break
 		}
 	}
-	if projectiles == 0 {
-		t.Error("ranged mob should have fired at least one projectile")
+	if salvos == 0 {
+		t.Error("ranged mob should have fired at least one salvo")
 	}
-	t.Logf("ranged mob fired %d projectiles, mob pos=%v", projectiles, e.Position)
+	t.Logf("ranged mob fired %d salvos, mob pos=%v", salvos, e.Position)
 
 	// Kill the mob
 	e.ApplyDamage(e.Health)
