@@ -102,6 +102,10 @@ type Level struct {
 	// ZoneType is "instanced" or "open_world" (from JSON).
 	ZoneType string
 
+	// ClearTimeSeconds is the per-instance dungeon clear timer in seconds
+	// (0 = unset, the gameflow system falls back to its default limit).
+	ClearTimeSeconds float32
+
 	// NPC spawn points
 	NPCSpawns []NPCSpawnPoint
 

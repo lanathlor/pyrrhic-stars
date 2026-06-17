@@ -899,6 +899,72 @@ func TestCheckFightEnd_OverTimePenaltyFlag(t *testing.T) {
 	}
 }
 
+func TestCheckLobbyReady_PerLevelClearTime(t *testing.T) {
+	w := makeLobbyWorld(t)
+	w.Level.ClearTimeSeconds = 120 // override the default fallback
+	w.Players[1].Ready = true
+	w.Players[2].Ready = true
+	w.LobbyCountdown = 1 // about to expire
+
+	checkLobbyReady(w)
+
+	found := false
+	for _, evt := range w.GameFlowEvents {
+		if evt.FlowType == message.FlowFightStart {
+			found = true
+			if evt.Text != "120" {
+				t.Errorf("fight start text = %q, want %q (per-level clear time)", evt.Text, "120")
+			}
+		}
+	}
+	if !found {
+		t.Error("expected FlowFightStart event")
+	}
+}
+
+func TestCheckFightEnd_PerLevelClearTimeThreshold(t *testing.T) {
+	const limitSeconds = 120
+	const limitTicks = uint32(limitSeconds * 20)
+	tests := []struct {
+		name         string
+		elapsedTicks uint32
+		wantOverTime bool
+	}{
+		{"under per-level limit is clear", limitTicks, false},
+		{"over per-level limit is over-time", limitTicks + 1, true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			boss := entity.NewEnemy(0, 2000, "guard_captain")
+			boss.IsBoss = true
+			boss.State = entity.EnemyDead
+			boss.Alive = false
+			p := entity.NewPlayer(1, entity.ClassGunner)
+			p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5} // in boss room
+			w := makeArenaWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{boss})
+			w.Level.ClearTimeSeconds = limitSeconds
+			w.GateStates["boss_gate"] = true
+			w.FightStartTick = 100
+			w.TickNum = 100 + tc.elapsedTicks
+
+			var gotOverTime, called bool
+			w.OnBossDefeated = func(_ []uint16, _ int, overTime bool) {
+				called = true
+				gotOverTime = overTime
+			}
+
+			checkFightEnd(w)
+
+			if !called {
+				t.Fatal("OnBossDefeated was not called on boss death")
+			}
+			if gotOverTime != tc.wantOverTime {
+				t.Errorf("overTime = %v, want %v", gotOverTime, tc.wantOverTime)
+			}
+		})
+	}
+}
+
 func TestCheckLobbyReady_InactiveNoOp(t *testing.T) {
 	w := makeLobbyWorld(t)
 	w.LobbyActive = false

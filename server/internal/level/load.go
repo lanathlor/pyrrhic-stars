@@ -113,6 +113,7 @@ type levelDataJSON struct {
 	Zone         string            `json:"zone"`
 	ZoneType     string            `json:"zone_type,omitempty"`
 	EnemyRadius  float32           `json:"enemy_radius,omitempty"`
+	ClearTime    float32           `json:"clear_time_seconds,omitempty"`
 	SourceScene  string            `json:"source_scene"`
 	Bounds       boundsJSON        `json:"bounds"`
 	Obstacles    []obstacleJSON    `json:"obstacles"`
@@ -167,6 +168,7 @@ func loadLevelData(path string, l *Level) error {
 	if ld.EnemyRadius > 0 {
 		l.EnemyRadius = ld.EnemyRadius
 	}
+	l.ClearTimeSeconds = ld.ClearTime
 
 	return nil
 }

@@ -7,6 +7,7 @@
 		"min_y": -1.0,
 		"min_z": -14.5
 	},
+	"clear_time_seconds": 300.0,
 	"elevators": [],
 	"enemy_radius": 1.0,
 	"enemy_spawns": [
@@ -1310,7 +1311,7 @@
 		}
 	],
 	"source_scene": "res://scenes/environments/arena/arena.tscn",
-	"version": 5,
+	"version": 6,
 	"zone": "arena",
 	"zone_triggers": [
 		{
