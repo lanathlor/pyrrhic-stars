@@ -8,6 +8,7 @@ import (
 	"codex-online/server/internal/item"
 	"codex-online/server/internal/overflux"
 	"codex-online/server/internal/persistence"
+	"codex-online/server/internal/progression"
 )
 
 // testRepo is an in-memory stub that satisfies persistence.Repository.
@@ -25,6 +26,26 @@ func newTestRepo() *testRepo {
 		watermark: make(map[uint]map[uint16]int),
 		nextID:    1,
 	}
+}
+
+func (r *testRepo) GetUserSettings(string) (*persistence.UserSettings, error) {
+	return nil, nil
+}
+func (r *testRepo) UpsertUserSettings(string, string) error { return nil }
+
+func (r *testRepo) GetUsersByUsername(string) ([]*persistence.User, error)    { return nil, nil }
+func (r *testRepo) GetCharacterByName(string) (*persistence.Character, error) { return nil, nil }
+func (r *testRepo) CreateFriendship(string, string) error                     { return nil }
+func (r *testRepo) GetFriendship(string, string) (*persistence.Friendship, error) {
+	return nil, nil
+}
+func (r *testRepo) AcceptFriendship(string, string) error { return nil }
+func (r *testRepo) DeleteFriendship(string, string) error { return nil }
+func (r *testRepo) GetAcceptedFriends(string) ([]*persistence.Friendship, error) {
+	return nil, nil
+}
+func (r *testRepo) GetPendingIncoming(string) ([]*persistence.Friendship, error) {
+	return nil, nil
 }
 
 func (r *testRepo) GetScrip(charID uint, season uint16) (int, error) {
@@ -81,6 +102,7 @@ func (r *testRepo) CreateItem(ci *persistence.CharacterItem) error {
 
 // Unimplemented stubs - return zero values and nil errors.
 func (r *testRepo) UpsertUser(_, _ string) error                   { return nil }
+func (r *testRepo) UpsertUserSyncName(_, _ string) error           { return nil }
 func (r *testRepo) GetUser(_ string) (*persistence.User, error)    { return nil, nil }
 func (r *testRepo) CreateCharacter(_ *persistence.Character) error { return nil }
 func (r *testRepo) UpdateCharacterPosition(_ uint, _, _, _, _ float64) error {
@@ -134,156 +156,6 @@ func TestMain(m *testing.M) {
 	m.Run()
 }
 
-// --- GetState ---
-
-func TestGetState_FreshCharacter(t *testing.T) {
-	svc := NewService(newTestRepo())
-	state, err := svc.GetState(42)
-	if err != nil {
-		t.Fatalf("GetState returned error: %v", err)
-	}
-	if state.ScripBalance != 0 {
-		t.Errorf("ScripBalance = %d, want 0", state.ScripBalance)
-	}
-	if state.BestScore != 0 {
-		t.Errorf("BestScore = %d, want 0", state.BestScore)
-	}
-	if state.Season != CurrentSeason {
-		t.Errorf("Season = %d, want %d", state.Season, CurrentSeason)
-	}
-	if state.MaxScore != overflux.MaxScore() {
-		t.Errorf("MaxScore = %d, want %d", state.MaxScore, overflux.MaxScore())
-	}
-}
-
-func TestGetState_AfterAward(t *testing.T) {
-	repo := newTestRepo()
-	svc := NewService(repo)
-	score := overflux.MaxScore() / 2 // half the max score
-
-	awarded, err := svc.AwardScrip(7, score, false)
-	if err != nil {
-		t.Fatalf("AwardScrip error: %v", err)
-	}
-
-	state, err := svc.GetState(7)
-	if err != nil {
-		t.Fatalf("GetState error: %v", err)
-	}
-	if state.ScripBalance != awarded {
-		t.Errorf("ScripBalance = %d, want %d", state.ScripBalance, awarded)
-	}
-	if state.BestScore != score {
-		t.Errorf("BestScore = %d, want %d", state.BestScore, score)
-	}
-}
-
-// --- AwardScrip ---
-
-func TestAwardScrip_CorrectAmount(t *testing.T) {
-	maxScore := overflux.MaxScore()
-	tests := []struct {
-		name  string
-		score int
-	}{
-		{"zero score", 0},
-		{"half score", maxScore / 2},
-		{"full score", maxScore},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc := NewService(newTestRepo())
-			got, err := svc.AwardScrip(1, tt.score, false)
-			if err != nil {
-				t.Fatalf("AwardScrip error: %v", err)
-			}
-			want := ScripReward(tt.score, maxScore)
-			if got != want {
-				t.Errorf("AwardScrip(%d) = %d, want %d", tt.score, got, want)
-			}
-		})
-	}
-}
-
-func TestAwardScrip_UpdatesWatermark(t *testing.T) {
-	repo := newTestRepo()
-	svc := NewService(repo)
-	score := 60
-
-	if _, err := svc.AwardScrip(3, score, false); err != nil {
-		t.Fatalf("AwardScrip error: %v", err)
-	}
-
-	wm, _ := repo.GetWatermark(3, CurrentSeason)
-	if wm != score {
-		t.Errorf("watermark = %d, want %d", wm, score)
-	}
-}
-
-func TestAwardScrip_AccumulatesBalance(t *testing.T) {
-	svc := NewService(newTestRepo())
-	maxScore := overflux.MaxScore()
-
-	first, _ := svc.AwardScrip(5, 0, false)         // base reward
-	second, _ := svc.AwardScrip(5, maxScore, false) // max reward
-
-	state, err := svc.GetState(5)
-	if err != nil {
-		t.Fatalf("GetState error: %v", err)
-	}
-	want := first + second
-	if state.ScripBalance != want {
-		t.Errorf("balance = %d, want %d (first=%d + second=%d)", state.ScripBalance, want, first, second)
-	}
-}
-
-func TestAwardScrip_WatermarkOnlyRaisesHigher(t *testing.T) {
-	repo := newTestRepo()
-	svc := NewService(repo)
-
-	if _, err := svc.AwardScrip(9, 80, false); err != nil {
-		t.Fatalf("first AwardScrip error: %v", err)
-	}
-	if _, err := svc.AwardScrip(9, 40, false); err != nil {
-		t.Fatalf("second AwardScrip error: %v", err)
-	}
-
-	wm, _ := repo.GetWatermark(9, CurrentSeason)
-	if wm != 80 {
-		t.Errorf("watermark = %d, want 80 (lower second award must not overwrite)", wm)
-	}
-}
-
-func TestAwardScrip_OverTimePenalty(t *testing.T) {
-	repo := newTestRepo()
-	svc := NewService(repo)
-	maxScore := overflux.MaxScore()
-	score := maxScore // full reward = 400 before penalty
-
-	got, err := svc.AwardScrip(1, score, true)
-	if err != nil {
-		t.Fatalf("AwardScrip error: %v", err)
-	}
-	want := ScripReward(score, maxScore) / OverTimePenaltyDivisor
-	if got != want {
-		t.Errorf("over-time AwardScrip = %d, want %d (1/%d of full)", got, want, OverTimePenaltyDivisor)
-	}
-}
-
-func TestAwardScrip_OverTimeSkipsWatermark(t *testing.T) {
-	repo := newTestRepo()
-	svc := NewService(repo)
-
-	if _, err := svc.AwardScrip(2, 75, true); err != nil {
-		t.Fatalf("AwardScrip error: %v", err)
-	}
-
-	wm, _ := repo.GetWatermark(2, CurrentSeason)
-	if wm != 0 {
-		t.Errorf("watermark = %d, want 0 (over-time finish is not a clear, must not improve watermark)", wm)
-	}
-}
-
 // --- BuyItem ---
 
 // buySetup seeds a character with enough scrip and watermark to unlock the
@@ -298,13 +170,13 @@ func buySetup(t *testing.T, charID uint, tier int) (*Service, *testRepo) {
 		needed := maxScore * Tiers[tier].UnlockPercent / 100
 		if needed > 0 {
 			// Bump one point above the threshold to ensure unlock.
-			repo.watermark[charID] = map[uint16]int{CurrentSeason: needed + 1}
+			repo.watermark[charID] = map[uint16]int{progression.CurrentSeason: needed + 1}
 		}
 	}
 
 	// Grant enough scrip for the tier price.
 	if tier < len(Tiers) {
-		repo.scrip[charID] = map[uint16]int{CurrentSeason: Tiers[tier].Price * 2}
+		repo.scrip[charID] = map[uint16]int{progression.CurrentSeason: Tiers[tier].Price * 2}
 	}
 
 	return NewService(repo), repo
@@ -316,7 +188,7 @@ func TestBuyItem_Success(t *testing.T) {
 	const defID = "weapon_basic"
 	svc, repo := buySetup(t, charID, tier)
 
-	startBal, _ := repo.GetScrip(charID, CurrentSeason)
+	startBal, _ := repo.GetScrip(charID, progression.CurrentSeason)
 	itemID, newBal, err := svc.BuyItem(charID, tier, defID)
 	if err != nil {
 		t.Fatalf("BuyItem error: %v", err)
@@ -350,7 +222,7 @@ func TestBuyItem_BalanceDecreasedByTierPrice(t *testing.T) {
 	for tier := 0; tier < len(Tiers); tier++ {
 		t.Run(fmt.Sprintf("tier%d", tier), func(t *testing.T) {
 			svc, repo := buySetup(t, charID, tier)
-			startBal, _ := repo.GetScrip(charID, CurrentSeason)
+			startBal, _ := repo.GetScrip(charID, progression.CurrentSeason)
 			_, newBal, err := svc.BuyItem(charID, tier, "frame_basic")
 			if err != nil {
 				t.Fatalf("BuyItem tier %d error: %v", tier, err)
@@ -390,7 +262,7 @@ func TestBuyItem_ErrorInsufficientScrip(t *testing.T) {
 	repo := newTestRepo()
 	svc := NewService(repo)
 	// Tier 0 is always unlocked (UnlockPercent = 0), but we set scrip below its price.
-	repo.scrip[charID] = map[uint16]int{CurrentSeason: Tiers[tier].Price - 1}
+	repo.scrip[charID] = map[uint16]int{progression.CurrentSeason: Tiers[tier].Price - 1}
 	_, _, err := svc.BuyItem(charID, tier, "frame_basic")
 	if err == nil {
 		t.Fatal("expected insufficient scrip error, got nil")
@@ -425,7 +297,7 @@ func TestBuyItem_ErrorInvalidDefID(t *testing.T) {
 	const tier = 0
 	repo := newTestRepo()
 	svc := NewService(repo)
-	repo.scrip[charID] = map[uint16]int{CurrentSeason: 9999}
+	repo.scrip[charID] = map[uint16]int{progression.CurrentSeason: 9999}
 
 	// "widget_unknown" is not in MerchantItems, so the service should reject it
 	// before even checking the def registry.
@@ -447,7 +319,7 @@ func TestBuyItem_ErrorDefNotInRegistry(t *testing.T) {
 
 	repo := newTestRepo()
 	svc := NewService(repo)
-	repo.scrip[charID] = map[uint16]int{CurrentSeason: 9999}
+	repo.scrip[charID] = map[uint16]int{progression.CurrentSeason: 9999}
 
 	_, _, err := svc.BuyItem(charID, tier, ghostID)
 	if err == nil {

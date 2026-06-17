@@ -10,10 +10,12 @@ import (
 
 	"codex-online/server/internal/ability"
 	"codex-online/server/internal/abilitycatalog"
+	"codex-online/server/internal/auth"
 	"codex-online/server/internal/character"
 	"codex-online/server/internal/codec"
 	"codex-online/server/internal/container"
 	"codex-online/server/internal/entity"
+	"codex-online/server/internal/friend"
 	"codex-online/server/internal/group"
 	"codex-online/server/internal/inventory"
 	"codex-online/server/internal/item"
@@ -22,6 +24,7 @@ import (
 	"codex-online/server/internal/message"
 	"codex-online/server/internal/network"
 	"codex-online/server/internal/overflux"
+	"codex-online/server/internal/progression"
 	"codex-online/server/internal/session"
 	"codex-online/server/internal/user"
 	"codex-online/server/internal/zone"
@@ -32,20 +35,23 @@ const defaultOpenWorldZone = "hub"
 
 // gateway manages zones, player sessions, and groups.
 type gateway struct {
-	container  *container.Container
-	zones      map[string]*zoneInstance
-	levels     map[string]*level.Level // cached level data by zone name
-	sessions   *session.Registry
-	groups     *group.Manager
-	users      *user.Service
-	characters *character.Service
-	inventory  *inventory.Service
-	merchant   *merchant.Service
-	catalog    *abilitycatalog.Catalog
-	abilityEng *ability.Engine    // for stat lookups when building catalog
-	udpServer  *network.UDPServer // shared UDP socket for game state transport
-	mu         sync.Mutex         // protects zones and levels
-	devMode    bool               // CODEX_DEV=1 enables debug features
+	container   *container.Container
+	zones       map[string]*zoneInstance
+	levels      map[string]*level.Level // cached level data by zone name
+	sessions    *session.Registry
+	groups      *group.Manager
+	friends     *friend.Service
+	users       *user.Service
+	characters  *character.Service
+	inventory   *inventory.Service
+	merchant    *merchant.Service
+	progression *progression.Service
+	catalog     *abilitycatalog.Catalog
+	abilityEng  *ability.Engine      // for stat lookups when building catalog
+	udpServer   *network.UDPServer   // shared UDP socket for game state transport
+	verifier    auth.SessionVerifier // resolves Kratos session tokens to identities
+	mu          sync.Mutex           // protects zones and levels
+	devMode     bool                 // CODEX_DEV=1 enables debug features
 
 	// Connection limiting
 	connMu    sync.Mutex
@@ -103,16 +109,18 @@ type zoneInstance struct {
 
 func newGateway(ctr *container.Container) *gateway {
 	return &gateway{
-		container:  ctr,
-		zones:      make(map[string]*zoneInstance),
-		levels:     make(map[string]*level.Level),
-		sessions:   session.NewRegistry(),
-		groups:     group.NewManager(),
-		users:      user.NewService(ctr.Repo),
-		characters: character.NewService(ctr.Repo),
-		inventory:  inventory.NewService(ctr.Repo),
-		merchant:   merchant.NewService(ctr.Repo),
-		connPerIP:  make(map[string]int),
+		container:   ctr,
+		zones:       make(map[string]*zoneInstance),
+		levels:      make(map[string]*level.Level),
+		sessions:    session.NewRegistry(),
+		groups:      group.NewManager(),
+		friends:     friend.NewService(ctr.Repo),
+		users:       user.NewService(ctr.Repo),
+		characters:  character.NewService(ctr.Repo),
+		inventory:   inventory.NewService(ctr.Repo),
+		merchant:    merchant.NewService(ctr.Repo),
+		progression: progression.NewService(ctr.Repo),
+		connPerIP:   make(map[string]int),
 	}
 }
 
@@ -345,7 +353,7 @@ func (g *gateway) loadAndApplyGear(sess *session.Session, zi *zoneInstance) {
 
 	// Current mercenary scrip balance (0 if it can't be loaded).
 	scrip := 0
-	if ms, mErr := g.merchant.GetState(sess.CharID); mErr == nil && ms != nil {
+	if ms, mErr := g.progression.GetState(sess.CharID); mErr == nil && ms != nil {
 		scrip = ms.ScripBalance
 	}
 
@@ -581,14 +589,14 @@ func (g *gateway) handleBossDefeated(zoneID string, peerIDs []uint16, overfluxSc
 		if sess == nil || sess.CharID == 0 {
 			continue
 		}
-		amount, err := g.merchant.AwardScrip(sess.CharID, overfluxScore, overTime)
+		amount, err := g.progression.AwardScrip(sess.CharID, overfluxScore, overTime)
 		if err != nil {
 			slog.Error("award scrip failed", "char_id", sess.CharID, "error", err)
 			continue
 		}
 		slog.Info("scrip awarded", "char_id", sess.CharID, "amount", amount, "overflux", overfluxScore, "over_time", overTime)
 		// Send award notification to the player.
-		bal, _ := g.merchant.GetState(sess.CharID)
+		bal, _ := g.progression.GetState(sess.CharID)
 		newBalance := 0
 		if bal != nil {
 			newBalance = bal.ScripBalance
