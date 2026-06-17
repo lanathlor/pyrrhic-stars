@@ -5,8 +5,18 @@ type Repository interface {
 	// UpsertUser creates a user if not found. Does NOT update username on existing users.
 	UpsertUser(id, username string) error
 
+	// UpsertUserSyncName creates a user if not found, and updates the username on
+	// conflict. Used when an external identity provider (Kratos) owns the name.
+	UpsertUserSyncName(id, username string) error
+
 	// GetUser returns a user by UUID, or nil if not found.
 	GetUser(id string) (*User, error)
+
+	// GetUserSettings returns the settings document for a user, or nil if none.
+	GetUserSettings(userID string) (*UserSettings, error)
+
+	// UpsertUserSettings creates or overwrites the settings document for a user.
+	UpsertUserSettings(userID, data string) error
 
 	// CreateCharacter inserts a new character. Returns error if name is taken.
 	CreateCharacter(c *Character) error
@@ -25,6 +35,30 @@ type Repository interface {
 
 	// IsCharacterNameTaken returns true if a character with the given name exists.
 	IsCharacterNameTaken(name string) (bool, error)
+
+	// GetUsersByUsername returns all users with the given username (non-unique).
+	GetUsersByUsername(username string) ([]*User, error)
+
+	// GetCharacterByName returns a character by its unique name, or nil if not found.
+	GetCharacterByName(name string) (*Character, error)
+
+	// CreateFriendship inserts a pending friendship (requester → addressee).
+	CreateFriendship(requesterID, addresseeID string) error
+
+	// GetFriendship returns the relationship between two users in either direction, or nil.
+	GetFriendship(userA, userB string) (*Friendship, error)
+
+	// AcceptFriendship sets status=accepted for the pending row requester → addressee.
+	AcceptFriendship(requesterID, addresseeID string) error
+
+	// DeleteFriendship removes any relationship between two users (either direction).
+	DeleteFriendship(userA, userB string) error
+
+	// GetAcceptedFriends returns all accepted friendships involving userID (either side).
+	GetAcceptedFriends(userID string) ([]*Friendship, error)
+
+	// GetPendingIncoming returns pending friendships where userID is the addressee.
+	GetPendingIncoming(userID string) ([]*Friendship, error)
 
 	// CountCharacters returns the number of characters owned by a user.
 	CountCharacters(userID string) (int64, error)
