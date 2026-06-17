@@ -6,6 +6,21 @@ var players: Array[CharacterBody3D] = []
 var enemies: Array[CharacterBody3D] = []
 
 
+## True when a text field (e.g. the social panel inputs) has keyboard focus.
+## Controllers consult this so typing does not leak into gameplay actions, since
+## polled input (Input.get_vector / is_action_pressed) ignores GUI focus.
+func text_input_active() -> bool:
+	var focus := get_viewport().gui_get_focus_owner()
+	return focus is LineEdit or focus is TextEdit
+
+
+## Movement vector for the four directional actions, zeroed while typing.
+func move_vector() -> Vector2:
+	if text_input_active():
+		return Vector2.ZERO
+	return Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
+
+
 func register_player(player: CharacterBody3D) -> void:
 	players.append(player)
 

@@ -41,6 +41,106 @@ func _ready() -> void:
 
 
 # =============================================================================
+# Code-built overlay panels (created at startup, owned by main via ctrl fields)
+# =============================================================================
+
+
+func build_overlay_panels() -> void:
+	# Overflux selection panel.
+	var overflux_panel := preload("res://scenes/ui/overflux_panel.gd").new()
+	ctrl.add_child(overflux_panel)
+	overflux_panel.confirmed.connect(ctrl._on_overflux_confirmed)
+	overflux_panel.cancelled.connect(ctrl._on_overflux_cancelled)
+	ctrl._overflux_panel = overflux_panel
+
+	# Merchant shop panel.
+	var merchant_layer := CanvasLayer.new()
+	merchant_layer.layer = 18
+	ctrl.add_child(merchant_layer)
+	var merchant_panel: Control = preload("res://scenes/ui/merchant_panel.gd").new()
+	merchant_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	merchant_layer.add_child(merchant_panel)
+	merchant_panel.closed.connect(ctrl._update_cursor_mode)
+	merchant_panel.closed.connect(
+		func():
+			ctrl._inventory_layer.bag_panel.merchant_open = false
+			ctrl._inventory_layer.bag_panel.queue_redraw()
+	)
+	ctrl._merchant_layer = merchant_layer
+	ctrl._merchant_panel = merchant_panel
+
+	# Settings overlay (opened from the pause and main menus).
+	var settings_panel := preload("res://scenes/ui/settings_panel.gd").new()
+	settings_panel.ui_ctrl = self
+	ctrl.add_child(settings_panel)
+	ctrl._settings_panel = settings_panel
+
+	# Social overlay (group + friends), opened with [G].
+	var social_panel := preload("res://scenes/ui/social_panel.gd").new()
+	ctrl.add_child(social_panel)
+	social_panel.closed.connect(ctrl._update_cursor_mode)
+	social_panel.closed.connect(ctrl._sync_toolbar_active)
+	ctrl._social_panel = social_panel
+
+
+## Close every open gameplay overlay (social, inventory, bag, spec, merchant,
+## overflux). Returns true if at least one was closed, so the caller can swallow
+## the Esc keypress before it reaches the pause menu.
+func close_open_overlay() -> bool:
+	var closed_any := false
+	if ctrl._social_panel and ctrl._social_panel.visible:
+		ctrl._social_panel.close()
+		closed_any = true
+	if ctrl._inventory_layer.equip_panel.visible:
+		ctrl._inventory_layer.equip_panel.toggle()
+		closed_any = true
+	if ctrl._inventory_layer.bag_panel.visible:
+		ctrl._inventory_layer.bag_panel.toggle()
+		closed_any = true
+	if ctrl._spec_panel.visible:
+		ctrl._spec_panel.toggle()
+		closed_any = true
+	if ctrl._merchant_panel.visible:
+		ctrl._merchant_panel.close_shop()
+		closed_any = true
+	if ctrl._overflux_panel.visible:
+		ctrl._overflux_panel.close()
+		closed_any = true
+	if ctrl._map_overlay and ctrl._map_overlay.visible:
+		ctrl._map_overlay.toggle()
+		closed_any = true
+	if closed_any:
+		ctrl._update_cursor_mode()
+		ctrl._sync_toolbar_active()
+	return closed_any
+
+
+func toggle_map_overlay() -> void:
+	var map_overlay: Control = ctrl._map_overlay
+	var entity_mgr: Node = ctrl.entity_mgr
+	var env_builder: Node = ctrl.env_builder
+	var my_id: int = NetworkManager.get_my_id()
+	if my_id in entity_mgr.spawned_players and is_instance_valid(entity_mgr.spawned_players[my_id]):
+		var player: CharacterBody3D = entity_mgr.spawned_players[my_id]
+		map_overlay._player_pos = player.global_position
+		map_overlay._player_rot_y = player.rotation.y
+	map_overlay.toggle()
+	if map_overlay.visible:
+		map_overlay.scan_environment(env_builder.current_env)
+		map_overlay._recompute_scale()
+		if env_builder.portal_trail:
+			if (
+				my_id in entity_mgr.spawned_players
+				and is_instance_valid(entity_mgr.spawned_players[my_id])
+			):
+				map_overlay.set_waypoint_path(
+					env_builder.portal_trail.get_path_to_target(
+						entity_mgr.spawned_players[my_id].global_position
+					)
+				)
+
+
+# =============================================================================
 # Style helpers (public — used by UI scene scripts and other sub-systems)
 # =============================================================================
 

@@ -11,7 +11,7 @@ const UI_ACCENT := Color(0.32, 0.58, 0.92, 0.95)
 
 var _abilities: PackedStringArray = []
 var _def_name: String = ""
-var _god_mode: bool = true  # On by default in dev mode (server also auto-enables)
+var _god_mode: bool = false  # Opt-in: toggle on in the debug panel when needed
 var _repeat_ability: String = ""
 var _info_requested: bool = false
 
@@ -121,7 +121,7 @@ func _build_phase_section() -> void:
 func _build_god_mode_section() -> void:
 	_god_mode_check = CheckButton.new()
 	_god_mode_check.text = "God Mode"
-	_god_mode_check.button_pressed = true
+	_god_mode_check.button_pressed = false
 	_god_mode_check.add_theme_color_override("font_color", UI_TEXT)
 	_god_mode_check.add_theme_font_size_override("font_size", 12)
 	_god_mode_check.toggled.connect(_on_god_mode_toggled)

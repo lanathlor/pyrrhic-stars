@@ -116,8 +116,7 @@ var _camera_pitch: float = -0.3
 # WoW-style click targeting
 var _selected_target: Node3D = null
 var _right_mouse_held: bool = false
-var _rmb_cursor_pos: Vector2 = Vector2.ZERO  # cursor position before RMB drag
-var _rmb_last_mouse: Vector2 = Vector2.ZERO  # last mouse pos for manual delta
+var _rmb_cursor_pos: Vector2 = Vector2.ZERO  # cursor position before RMB drag, restored on release
 
 var _gravity: float = 8.5
 var _alive: bool = true
@@ -280,25 +279,21 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not _is_local():
 		return
 
-	# Right mouse button: hide cursor while held for camera drag
+	# Right mouse button: capture cursor while held for free camera drag
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		_right_mouse_held = event.pressed
 		if _right_mouse_held:
 			_rmb_cursor_pos = get_viewport().get_mouse_position()
-			_rmb_last_mouse = _rmb_cursor_pos
-			Input.set_mouse_mode(Input.MOUSE_MODE_CONFINED_HIDDEN)
+			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		else:
-			get_viewport().warp_mouse(_rmb_cursor_pos)
 			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+			get_viewport().warp_mouse(_rmb_cursor_pos)
 		get_viewport().set_input_as_handled()
 
-	# Camera rotation: compute delta manually (CONFINED_HIDDEN has no relative)
+	# Camera rotation: captured mode reports motion via event.relative (no edge limit)
 	if event is InputEventMouseMotion and _right_mouse_held:
-		var current_mouse: Vector2 = get_viewport().get_mouse_position()
-		var delta_mouse: Vector2 = current_mouse - _rmb_last_mouse
-		_rmb_last_mouse = current_mouse
-		_camera_yaw -= delta_mouse.x * mouse_sensitivity
-		_camera_pitch -= delta_mouse.y * mouse_sensitivity
+		_camera_yaw -= event.relative.x * mouse_sensitivity
+		_camera_pitch -= event.relative.y * mouse_sensitivity
 		_camera_pitch = clampf(_camera_pitch, deg_to_rad(-60.0), deg_to_rad(20.0))
 
 	# Toggle codex with P
