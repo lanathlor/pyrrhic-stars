@@ -74,7 +74,12 @@ func on_net_connected() -> void:
 
 func on_net_connection_failed() -> void:
 	print("[Main] Connection failed")
+	# A rejected handshake most likely means an expired/invalid session token.
+	# Drop it and fall back to the login form so the user can re-authenticate.
+	AuthManager.clear_token()
 	ctrl._enter_menu()
+	ctrl._menu_layer.set_returning(false)
+	ctrl._menu_layer.show_status("Session expired, please log in again")
 
 
 func on_net_player_disconnected(peer_id: int) -> void:
@@ -166,19 +171,53 @@ func on_create_character_pressed() -> void:
 
 
 func on_connect_pressed() -> void:
-	# If no saved username, require input.
-	if ctrl._username == "":
-		ctrl._username = ctrl._username_input.text.strip_edges()
-		if ctrl._username == "":
-			ctrl._username_input.grab_focus()
-			return
-		_save_username(ctrl._username)
+	var menu: CanvasLayer = ctrl._menu_layer
+	# Returning user with a saved session token: connect straight away.
+	if AuthManager.has_token() and not menu.email_input.visible:
+		_begin_connect()
+		return
 
-	NetworkManager.username = ctrl._username
+	var email: String = menu.email_input.text.strip_edges()
+	var password: String = menu.password_input.text
+	if email == "" or password == "":
+		menu.show_status("Enter your email and password")
+		return
+
+	menu.show_status("")
+	menu.play_btn.disabled = true
+	if menu.register_mode:
+		var uname: String = menu.username_input.text.strip_edges()
+		if uname == "":
+			menu.play_btn.disabled = false
+			menu.show_status("Choose a username")
+			return
+		AuthManager.register(ctrl.server_address, email, password, uname)
+	else:
+		AuthManager.login(ctrl.server_address, email, password)
+
+
+## Called when Kratos authentication succeeds. Persists the account label for
+## the "welcome back" view and connects to the gateway.
+func on_auth_succeeded() -> void:
+	var menu: CanvasLayer = ctrl._menu_layer
+	menu.play_btn.disabled = false
+	_save_username(menu.email_input.text.strip_edges())
+	SettingsManager.sync_from_server(ctrl.server_address)
+	_begin_connect()
+
+
+func on_auth_failed(message: String) -> void:
+	var menu: CanvasLayer = ctrl._menu_layer
+	menu.play_btn.disabled = false
+	menu.show_status(message if message != "" else "Authentication failed")
+
+
+func _begin_connect() -> void:
 	NetworkManager.disconnect_game()
 	var err: int = NetworkManager.connect_to_server(ctrl.server_address)
 	if err != OK:
 		print("[Main] Failed to connect: %s" % error_string(err))
+		ctrl._menu_layer.show_status("Could not reach the server")
 		return
 	print("[Main] Connecting to %s:%d..." % [ctrl.server_address, NetworkManager.DEFAULT_PORT])
 	ctrl._menu_layer.visible = false

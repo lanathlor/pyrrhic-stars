@@ -17,11 +17,14 @@ services:
                 condition: service_healthy
             postgres:
                 condition: service_healthy
+            kratos:
+                condition: service_started
         environment:
             CODEX_DEV: '1'
             REDIS_ADDR: redis:6379
             DB_DRIVER: postgres
             POSTGRES_DSN: postgres://codex:codex@postgres:5432/codex?sslmode=disable
+            KRATOS_PUBLIC_URL: http://kratos:4433
             CODEX_LEVELS_DIR: /shared/levels
             CODEX_MOBS_DIR: /shared/mobs
             CLICKHOUSE_ADDR: clickhouse:9000
@@ -61,6 +64,54 @@ services:
                 condition: service_healthy
         environment:
             REDIS_ADDR: redis:6379
+
+    # Idempotently create the dedicated `kratos` database (works on both fresh
+    # and pre-existing postgres volumes, unlike docker-entrypoint-initdb.d which
+    # only runs on first init).
+    kratos-createdb:
+        image: postgres:16-alpine
+        entrypoint:
+            - sh
+            - -c
+            - >
+                psql "postgres://codex:codex@postgres:5432/postgres?sslmode=disable"
+                -tc "SELECT 1 FROM pg_database WHERE datname='kratos'"
+                | grep -q 1 ||
+                psql "postgres://codex:codex@postgres:5432/postgres?sslmode=disable"
+                -c "CREATE DATABASE kratos"
+        depends_on:
+            postgres:
+                condition: service_healthy
+        restart: on-failure
+
+    kratos-migrate:
+        image: oryd/kratos:v1.3.1
+        command: migrate sql -e --yes
+        volumes:
+            - ./ops/kratos:/etc/config/kratos:ro
+        environment:
+            DSN: postgres://codex:codex@postgres:5432/kratos?sslmode=disable
+        depends_on:
+            kratos-createdb:
+                condition: service_completed_successfully
+        restart: on-failure
+
+    kratos:
+        image: oryd/kratos:v1.3.1
+        command: serve --config /etc/config/kratos/kratos.yml --dev --watch-courier
+        ports:
+            - '4433:4433'
+            - '4434:4434'
+        volumes:
+            - ./ops/kratos:/etc/config/kratos:ro
+        environment:
+            DSN: postgres://codex:codex@postgres:5432/kratos?sslmode=disable
+        depends_on:
+            postgres:
+                condition: service_healthy
+            kratos-migrate:
+                condition: service_completed_successfully
+        restart: unless-stopped
 
     combat-logs:
         image: node:22-alpine
