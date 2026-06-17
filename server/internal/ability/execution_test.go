@@ -108,13 +108,47 @@ func TestExecution_BuildsOnslaught(t *testing.T) {
 	}
 }
 
-func TestExecution_EmpoweredShockwave(t *testing.T) {
+func TestExecution_EmpoweredShockwaveCatchesPeripheral(t *testing.T) {
 	eng := NewEngine(nil)
 	p := newVanguard()
 	ons := getOnslaughtState(p)
-	ons.Stacks = 3 // empowered
+	ons.Stacks = 3 // empowered: shockwave arc 60°, range 3
 
-	// Place enemy within shockwave range (3) — must be close
+	// Primary target: directly in front, inside the narrow 30° primary cone.
+	primary := enemyInFront(100, 1e6)
+	primary.Position = entity.Vec3{X: 0, Y: 0, Z: -2.5}
+	// Peripheral target: close (within shockwave range 3) but off-axis so it
+	// falls outside the 30° primary cone yet inside the 60° shockwave cone.
+	peripheral := enemyInFront(101, 1e6)
+	peripheral.Position = entity.Vec3{X: 1.0, Y: 0, Z: -2.0}
+
+	r := eng.Commit("execution", commitCtx(p, primary, peripheral))
+	if !r.OK {
+		t.Fatalf("commit failed: %s", r.Reason)
+	}
+
+	hits := map[uint16][]float32{}
+	for _, ev := range r.Events {
+		hits[ev.TargetID] = append(hits[ev.TargetID], ev.Amount)
+	}
+	if len(hits[100]) != 1 {
+		t.Errorf("primary target hit %d times, want exactly 1 (no double-dip)", len(hits[100]))
+	}
+	if len(hits[101]) != 1 {
+		t.Errorf("peripheral target hit %d times, want exactly 1 (shockwave)", len(hits[101]))
+	}
+}
+
+// A target standing inside both the primary cone and the shockwave cone must
+// only take the primary hit — the shockwave rewards catching EXTRA enemies, it
+// must not stack a second 0.5x hit on whoever the primary already struck.
+func TestExecution_NoShockwaveDoubleDip(t *testing.T) {
+	eng := NewEngine(nil)
+	p := newVanguard()
+	ons := getOnslaughtState(p)
+	ons.Stacks = 6 // maximum: shockwave arc 90°, range 5
+
+	// Single enemy directly in front and close: inside primary AND shockwave.
 	e := enemyInFront(100, 1e6)
 	e.Position = entity.Vec3{X: 0, Y: 0, Z: -2.5}
 
@@ -122,13 +156,21 @@ func TestExecution_EmpoweredShockwave(t *testing.T) {
 	if !r.OK {
 		t.Fatalf("commit failed: %s", r.Reason)
 	}
-	// Empowered should deal more total damage (primary + shockwave)
+
+	var hits int
 	var total float32
 	for _, ev := range r.Events {
-		total += ev.Amount
+		if ev.TargetID == 100 {
+			hits++
+			total += ev.Amount
+		}
 	}
-	// Primary: 120*1.09 ≈ 130.8 + shockwave: 65.4 = ~196
-	if total < 150 {
-		t.Errorf("empowered execution total = %f, want > 150", total)
+	if hits != 1 {
+		t.Fatalf("target hit %d times, want exactly 1 (primary only, no shockwave double-dip)", hits)
+	}
+	// Max tier base 150 * 1.18 onslaught mult ≈ 177 primary; must NOT include the
+	// extra 0.5x shockwave (~88 more) on the same target.
+	if total > 200 {
+		t.Errorf("single-target damage = %f, want primary-only (~177); double-dip leaked in", total)
 	}
 }
