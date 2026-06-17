@@ -55,11 +55,17 @@ func executionVGHandler(eng *Engine, ctx *CommitContext) CommitResult {
 	hit := HitDef{Type: HitAoECone, Range: executionPrimaryRng, ArcDegrees: executionPrimaryArc}
 	eng.hitBuf = resolveAoECone(eng.hitBuf, p, ctx.Targets, ctx.Obstacles, hit, damage, combat.SourcePlayerAttack)
 
-	// Empowered/Maximum: secondary shockwave (wider, shorter range, half damage)
+	// Empowered/Maximum: secondary shockwave (wider, shorter range, half damage).
+	// It only catches EXTRA enemies the primary cone missed — no double-dipping
+	// a second 0.5x hit on whoever the primary already struck.
 	if tuning.shockwaveArc > 0 {
+		primaryHit := make(map[uint16]bool, len(eng.hitBuf))
+		for i := range eng.hitBuf {
+			primaryHit[eng.hitBuf[i].TargetID] = true
+		}
 		shockHit := HitDef{Type: HitAoECone, Range: tuning.shockwaveRng, ArcDegrees: tuning.shockwaveArc}
 		shockDmg := damage * 0.5
-		eng.hitBuf = resolveAoECone(eng.hitBuf, p, ctx.Targets, ctx.Obstacles, shockHit, shockDmg, combat.SourcePlayerAttack)
+		eng.hitBuf = resolveAoEConeExcluding(eng.hitBuf, p, ctx.Targets, ctx.Obstacles, shockHit, shockDmg, combat.SourcePlayerAttack, primaryHit)
 	}
 
 	// Onslaught: increment by number of enemies hit
