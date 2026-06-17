@@ -83,6 +83,7 @@ func dev_auto_start() -> void:
 ## Waits for zone_transfer_received signal which fires when dev auto-join completes.
 func dev_connect_with_retry() -> void:
 	dev_connected = false
+	SettingsManager.sync_from_server("127.0.0.1")
 	NetworkManager.zone_transfer_received.connect(_on_dev_zone_transfer, CONNECT_ONE_SHOT)
 
 	var max_attempts: int = 40  # 40 * 0.5s = 20s max wait (build + start)

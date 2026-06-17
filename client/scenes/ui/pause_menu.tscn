@@ -38,6 +38,12 @@ layout_mode = 2
 custom_minimum_size = Vector2(0, 38)
 text = "Resume"
 
+[node name="SettingsBtn" type="Button" parent="Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 38)
+text = "Settings"
+
 [node name="MenuBtn" type="Button" parent="Panel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
