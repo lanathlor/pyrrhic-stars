@@ -36,6 +36,28 @@ func (s *PhysicsSystem) Tick(w *World, dt float32) {
 		}
 	}
 	w.Projectiles = alive
+
+	tickBossDamageDrought(w, dt)
+}
+
+// tickBossDamageDrought maintains Boss.SecsSinceDealtDamage: time since the
+// boss last landed damage on a player. Runs at the end of the physics tick so
+// it sees every damage source for the tick, projectiles included, before the
+// event buffer is cleared. Resets to zero on any enemy-sourced damage and
+// otherwise grows by dt. The AI reads it to tell a boss trading blows from one
+// being kited around a pillar, where every committed ability whiffs.
+func tickBossDamageDrought(w *World, dt float32) {
+	if w.Boss == nil || !w.Boss.Alive {
+		return
+	}
+	for i := range w.DamageEvents {
+		ev := &w.DamageEvents[i]
+		if ev.Amount > 0 && ev.SourceType >= combat.SourceEnemyMelee && ev.SourceType <= combat.SourceEnemyCharge {
+			w.Boss.SecsSinceDealtDamage = 0
+			return
+		}
+	}
+	w.Boss.SecsSinceDealtDamage += dt
 }
 
 func tickPatternSpawns(w *World, dt float32) {

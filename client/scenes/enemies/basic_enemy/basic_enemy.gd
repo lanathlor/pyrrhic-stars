@@ -114,6 +114,8 @@ func on_server_dead() -> void:
 	if _death_played:
 		return
 	_death_played = true
+	if vfx:
+		vfx.update_health_bar()  # final drain to empty before physics stops
 	collision_layer = 0
 	set_physics_process(false)
 	if character_model:
@@ -199,41 +201,26 @@ func _physics_process(delta: float) -> void:
 
 
 func _update_state_visuals() -> void:
-	# Map server state int to telegraph visibility
+	# Telegraph geometry (melee/ranged/aoe/charge danger zones) is now drawn by
+	# the server-driven TelegraphManager. The enemy only emits charging/impact
+	# particle flavor here, keyed off the same ability-state ints.
 	var synced_state: int = _server_state
-	if synced_state != _last_synced_state:
-		_last_synced_state = synced_state
-		vfx.melee_telegraph_mesh.visible = false
-		vfx.laser_warning_mesh.visible = false
-		vfx.aoe_telegraph_mesh.visible = false
-		vfx.charge_telegraph_mesh.visible = false
-		if vfx.aoe_particles:
-			vfx.aoe_particles.emitting = false
-		# 2=MeleeTelegraph, 4=RangedTelegraph, 6=AoETelegraph,
-		# 7=AoESlam, 8=ChargeTelegraph, 12=Dead
-		match synced_state:
-			2:  # MELEE_TELEGRAPH
-				vfx.update_melee_telegraph_params(melee_range, _melee_cone_angle)
-				vfx.melee_telegraph_mesh.visible = true
-			4:  # RANGED_TELEGRAPH
-				vfx.laser_warning_mesh.visible = true
-			6:  # AOE_TELEGRAPH
-				vfx.aoe_telegraph_mesh.visible = true
-				if vfx.aoe_particles:
-					vfx.aoe_particles.emitting = true
-			7:  # AOE_SLAM
-				if vfx.aoe_slam_particles:
-					vfx.aoe_slam_particles.emitting = true
-			8:  # CHARGE_TELEGRAPH
-				vfx.charge_telegraph_mesh.visible = true
-			12:  # DEAD
-				visible = false
-		state = synced_state as State
-	# Update telegraph positions for synced data
-	if vfx.laser_warning_mesh.visible:
-		vfx.update_laser_warning(_ranged_target_position)
-	if vfx.charge_telegraph_mesh.visible:
-		_update_charge_indicator()
+	if synced_state == _last_synced_state:
+		return
+	_last_synced_state = synced_state
+	if vfx.aoe_particles:
+		vfx.aoe_particles.emitting = false
+	# 6=AoETelegraph, 7=AoESlam, 12=Dead
+	match synced_state:
+		6:  # AOE_TELEGRAPH — boss gathers energy
+			if vfx.aoe_particles:
+				vfx.aoe_particles.emitting = true
+		7:  # AOE_SLAM — impact burst
+			if vfx.aoe_slam_particles:
+				vfx.aoe_slam_particles.emitting = true
+		12:  # DEAD
+			visible = false
+	state = synced_state as State
 
 
 # =============================================================================

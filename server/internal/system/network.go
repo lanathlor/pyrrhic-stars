@@ -80,6 +80,10 @@ func broadcastWorldState(w *World) {
 	// AppendEncodeWorldState grows the buffer if needed.
 	w.SendBuf = codec.AppendEncodeWorldState(w.SendBuf, w.TickNum, w.Players, w.Enemies, w.Projectiles, w.NPCs)
 
+	// Active telegraphs, appended after the world-state body (trailing array,
+	// backward-compatible with older decoders that stop after the NPC block).
+	w.SendBuf = codec.AppendTelegraphs(w.SendBuf, buildTelegraphs(w))
+
 	// Now fill in the header: [opcode:2][senderID:2]
 	binary.BigEndian.PutUint16(w.SendBuf[0:2], message.OpWorldState)
 	binary.BigEndian.PutUint16(w.SendBuf[2:4], 0)

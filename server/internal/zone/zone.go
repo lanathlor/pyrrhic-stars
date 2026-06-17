@@ -269,9 +269,6 @@ func (z *Zone) AddClient(c *Client) {
 			np.Position = z.world.Level.PlayerSpawns[idx].Position
 			np.RotationY = z.world.Level.SpawnYaw
 		}
-		if z.world.DevMode {
-			np.GodMode = true
-		}
 		z.world.Players[c.PeerID] = np
 	} else {
 		p.Username = c.Username

@@ -35,6 +35,12 @@ type Enemy struct {
 	LastAttack    string
 	ActiveAbility int // index into EnemyDef.Abilities
 
+	// SecsSinceDealtDamage tracks how long since this enemy last landed any
+	// damage on a player (maintained by the combat system, includes projectiles).
+	// Read by AI to detect a boss whose abilities keep whiffing (the pillar
+	// cheese: player commits the boss then ducks behind cover before it lands).
+	SecsSinceDealtDamage float32
+
 	// Target
 	TargetPlayerID uint16
 

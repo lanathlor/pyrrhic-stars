@@ -22,6 +22,7 @@ func on_world_state(data: Dictionary) -> void:
 	entity_mgr.update_enemies(data.get("enemies", []))
 	entity_mgr.update_npcs(data.get("npcs", []))
 	_sync_projectiles(data.get("projectiles", []), entity_mgr)
+	ctrl.telegraph_mgr.update_telegraphs(data.get("telegraphs", []), data.get("tick", 0))
 	_update_hud(data, entity_mgr, my_id)
 
 

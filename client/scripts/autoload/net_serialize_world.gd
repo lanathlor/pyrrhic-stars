@@ -59,13 +59,95 @@ static func decode_world_state(data: PackedByteArray) -> Dictionary:
 				)
 			)
 
+	# Telegraphs (appended after NPCs). Server-authoritative danger/heal zones.
+	var telegraphs: Array[Dictionary] = []
+	if buf.get_position() < buf.get_size():
+		var tg_count := buf.get_u8()
+		for i in range(tg_count):
+			telegraphs.append(_decode_telegraph_entry(buf))
+
 	return {
 		"tick": tick,
 		"players": players,
 		"enemies": enemies,
 		"projectiles": projectiles,
 		"npcs": npc_list,
+		"telegraphs": telegraphs,
 	}
+
+
+## Telegraph shapes: 0=circle 1=cone 2=line 3=multi_circle.
+## Categories: 0=unavoidable 1=parryable 2=blockable 3=heal.
+static func _decode_telegraph_entry(buf: StreamPeerBuffer) -> Dictionary:
+	var d := {
+		"id": buf.get_u32(),
+		"shape": buf.get_u8(),
+		"category": buf.get_u8(),
+		"start_tick": buf.get_u32(),
+		"execute_tick": buf.get_u32(),
+	}
+	match d["shape"]:
+		0:  # circle
+			d["cx"] = buf.get_float()
+			d["cz"] = buf.get_float()
+			d["radius"] = buf.get_float()
+		1:  # cone
+			d["cx"] = buf.get_float()
+			d["cz"] = buf.get_float()
+			d["facing"] = buf.get_float()
+			d["half_angle"] = buf.get_float()
+			d["range"] = buf.get_float()
+		2:  # line
+			d["cx"] = buf.get_float()
+			d["cz"] = buf.get_float()
+			d["dir_x"] = buf.get_float()
+			d["dir_z"] = buf.get_float()
+			d["length"] = buf.get_float()
+			d["width"] = buf.get_float()
+		3:  # multi_circle
+			d["radius"] = buf.get_float()
+			var n := buf.get_u8()
+			var centers: Array[Vector2] = []
+			for j in range(n):
+				centers.append(Vector2(buf.get_float(), buf.get_float()))
+			d["centers"] = centers
+	return d
+
+
+## encode_telegraphs mirrors the server's AppendTelegraphs (used by tests).
+static func encode_telegraphs(buf: StreamPeerBuffer, telegraphs: Array) -> void:
+	buf.put_u8(telegraphs.size())
+	for t: Dictionary in telegraphs:
+		buf.put_u32(t["id"])
+		buf.put_u8(t["shape"])
+		buf.put_u8(t["category"])
+		buf.put_u32(t["start_tick"])
+		buf.put_u32(t["execute_tick"])
+		match t["shape"]:
+			0:
+				buf.put_float(t["cx"])
+				buf.put_float(t["cz"])
+				buf.put_float(t["radius"])
+			1:
+				buf.put_float(t["cx"])
+				buf.put_float(t["cz"])
+				buf.put_float(t["facing"])
+				buf.put_float(t["half_angle"])
+				buf.put_float(t["range"])
+			2:
+				buf.put_float(t["cx"])
+				buf.put_float(t["cz"])
+				buf.put_float(t["dir_x"])
+				buf.put_float(t["dir_z"])
+				buf.put_float(t["length"])
+				buf.put_float(t["width"])
+			3:
+				buf.put_float(t["radius"])
+				var centers: Array = t["centers"]
+				buf.put_u8(centers.size())
+				for c: Vector2 in centers:
+					buf.put_float(c.x)
+					buf.put_float(c.y)
 
 
 static func _decode_player_entry(buf: StreamPeerBuffer) -> Dictionary:

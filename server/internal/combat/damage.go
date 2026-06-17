@@ -20,6 +20,7 @@ const (
 	SourceEnemyAoE     uint8 = 3
 	SourceEnemyCharge  uint8 = 4
 	SourcePlayerHeal   uint8 = 5
+	SourceEnemyPillar  uint8 = 6 // pillar_overload; excluded from the boss damage drought
 )
 
 // AoEShapeType identifies the geometry of an AoE check.

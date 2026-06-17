@@ -26,6 +26,7 @@ var leafRegistry = map[string]leafEntry{
 	LeafHasLoS:                 {isCond: true, cond: condHasLoS},
 	LeafPhaseTransitioning:     {isCond: true, cond: condPhaseTransitioning},
 	"in_leash_range":           {isCond: true, cond: condInLeashRange},
+	"player_camping_pillar":    {isCond: true, cond: condPlayerCampingPillar},
 	"active_ability_is_charge": {isCond: true, cond: condActiveAbilityIsCharge},
 	"is_committed":             {isCond: true, cond: condIsCommitted},
 	"can_commit":               {isCond: true, cond: condCanCommit},
