@@ -89,6 +89,7 @@ func unload_environment() -> void:
 		print("[EnvBuilder] unload: nothing to unload (current_env=%s)" % str(current_env))
 	ctrl.entity_mgr.clear_all_enemies()
 	ctrl.entity_mgr.clear_all_npcs()
+	ctrl.telegraph_mgr.clear()
 	gates.clear()
 	remove_portal_trail()
 

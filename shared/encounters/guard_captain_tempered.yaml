@@ -75,6 +75,9 @@ tree:
     - sequence: ["!has_target", aggro_or_patrol]
     - sequence: ["!in_leash_range", leash_reset]
     - sequence: [is_committed, wait_ability]
+    # Anti-cheese: a player has been hugging a pillar to kite. Overload the
+    # pillars with a huge, near-unavoidable blast. Fires in any phase.
+    - sequence: [player_camping_pillar, "ability_ready(pillar_overload)", "commit(pillar_overload)", wait_ability]
 
     # === Phase 3: Relentless - patterns + lunge+slam + war_cry ===
     - sequence:

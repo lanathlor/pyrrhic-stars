@@ -56,6 +56,7 @@ const (
 	HitAllyLowestHP    HitType = 11   // auto-select lowest HP ally
 	HitAllyRandom      HitType = 12   // random ally
 	HitGroundPlacement HitType = 13   // place a ground zone at caster position
+	HitAoEObstacles    HitType = 14   // blast around obstacles (pillars), ignoring cover
 )
 
 // HitDef describes how an ability finds its targets.
@@ -183,6 +184,11 @@ type AbilityDef struct {
 
 	// DamageSource categorizes the damage for client rendering.
 	DamageSource uint8 `yaml:"damage_source"`
+
+	// TelegraphCategory optionally overrides the telegraph color/category that
+	// would otherwise be derived from DamageSource. One of
+	// "parryable"|"blockable"|"unavoidable"|"heal"; empty = use the default.
+	TelegraphCategory string `yaml:"telegraph_category"`
 
 	// Selection (used by encounter design for weighted ability picking)
 	BaseWeight     int            `yaml:"base_weight"`

@@ -263,8 +263,8 @@ func TestGuardCaptainAbilityCount(t *testing.T) {
 	if gc == nil {
 		t.Fatal("guard_captain not in DefRegistry")
 	}
-	if len(gc.Abilities) != 5 {
-		t.Errorf("guard captain abilities = %d, want 5", len(gc.Abilities))
+	if len(gc.Abilities) != 6 {
+		t.Errorf("guard captain abilities = %d, want 6", len(gc.Abilities))
 	}
 }
 

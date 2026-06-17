@@ -169,8 +169,8 @@ func TestLoadEncounters_GuardCaptain(t *testing.T) {
 	if def.MaxHealth != 1800 {
 		t.Errorf("guard_captain MaxHealth = %f, want 1800", def.MaxHealth)
 	}
-	if len(def.Abilities) != 5 {
-		t.Errorf("guard_captain abilities = %d, want 5", len(def.Abilities))
+	if len(def.Abilities) != 6 {
+		t.Errorf("guard_captain abilities = %d, want 6", len(def.Abilities))
 	}
 	if len(def.Phases) != 2 {
 		t.Errorf("guard_captain phases = %d, want 2", len(def.Phases))

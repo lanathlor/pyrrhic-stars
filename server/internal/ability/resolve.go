@@ -41,6 +41,56 @@ func resolveHit(dst []DamageResult, def *AbilityDef, caster entity.Committer, ta
 
 	case HitNearestN:
 		return resolveNearestN(dst, caster, targets, obstacles, def.Hit.TargetCount, damage, sourceType)
+
+	case HitAoEObstacles:
+		return resolveAoEObstacles(dst, caster.CommitterID(), targets, obstacles, def.Hit.Radius, damage, sourceType)
+	}
+	return dst
+}
+
+// resolveAoEObstacles deals damage to every target within radius of any
+// obstacle's footprint, ignoring line of sight. It models a blast that erupts
+// around cover (pillars) to punish players hiding behind it: the pillar is the
+// source of the damage, so the cover that breaks LoS offers no protection.
+// Each target is hit at most once regardless of how many pillars it neighbors.
+func resolveAoEObstacles(dst []DamageResult, sourceID uint16, targets []entity.Target, obstacles []combat.Obstacle, radius, damage float32, sourceType uint8) []DamageResult {
+	rSq := radius * radius
+	for _, t := range targets {
+		if t == nil || !t.TargetAlive() {
+			continue
+		}
+		pos := t.TargetPos()
+		near := false
+		for i := range obstacles {
+			o := &obstacles[i]
+			// Only pillars erupt, not boundary walls.
+			if !combat.IsPillarLike(*o) {
+				continue
+			}
+			// Distance from the target to the closest point on the obstacle's
+			// XZ footprint (an AABB). radius is the blast reach beyond the edge.
+			dx := pos.X - entity.Clamp(pos.X, o.CX-o.HX, o.CX+o.HX)
+			dz := pos.Z - entity.Clamp(pos.Z, o.CZ-o.HZ, o.CZ+o.HZ)
+			if dx*dx+dz*dz <= rSq {
+				near = true
+				break
+			}
+		}
+		if !near {
+			continue
+		}
+		dealt := t.TargetApplyDamage(damage)
+		if dealt == 0 {
+			continue
+		}
+		dst = append(dst, DamageResult{
+			TargetID:   t.TargetID(),
+			SourceID:   sourceID,
+			Amount:     dealt,
+			HitPos:     pos.Add(entity.Vec3{Y: 1.0}),
+			SourceType: sourceType,
+			Target:     t,
+		})
 	}
 	return dst
 }
@@ -142,8 +192,18 @@ func resolveAoECircle(dst []DamageResult, center entity.Vec3, sourceID uint16, t
 }
 
 func resolveAoECone(dst []DamageResult, caster entity.Committer, targets []entity.Target, obstacles []combat.Obstacle, hit HitDef, damage float32, sourceType uint8) []DamageResult {
+	return resolveAoEConeExcluding(dst, caster, targets, obstacles, hit, damage, sourceType, nil)
+}
+
+// resolveAoEConeExcluding is resolveAoECone but skips any target whose ID is in
+// exclude. Used for secondary/follow-up cones (e.g. Execution's shockwave) that
+// should only catch EXTRA enemies, not double-dip on the primary hit's targets.
+func resolveAoEConeExcluding(dst []DamageResult, caster entity.Committer, targets []entity.Target, obstacles []combat.Obstacle, hit HitDef, damage float32, sourceType uint8, exclude map[uint16]bool) []DamageResult {
 	for _, t := range targets {
 		if t == nil || !t.TargetAlive() {
+			continue
+		}
+		if exclude[t.TargetID()] {
 			continue
 		}
 		if !combat.CheckMeleeArc(caster.CommitterPos(), caster.CommitterForward(), t.TargetPos(), hit.Range, hit.ArcDegrees, obstacles) {

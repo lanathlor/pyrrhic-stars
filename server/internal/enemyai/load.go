@@ -17,10 +17,11 @@ import (
 
 // YAML ability type constants.
 const (
-	TypeMelee  = "melee"
-	TypeRanged = "ranged"
-	TypeAoE    = "aoe"
-	TypeCharge = "charge"
+	TypeMelee        = "melee"
+	TypeRanged       = "ranged"
+	TypeAoE          = "aoe"
+	TypeAoEObstacles = "aoe_obstacles"
+	TypeCharge       = "charge"
 )
 
 // mobFile is the YAML schema for a Tier 1 mob definition.
@@ -102,6 +103,10 @@ type abilityFile struct {
 	ChargeStopOnObstacle bool    `yaml:"charge_stop_on_obstacle"`
 
 	DamageSource uint8 `yaml:"damage_source"`
+
+	// TelegraphCategory optionally overrides the telegraph color derived from
+	// damage_source ("parryable"|"blockable"|"unavoidable"|"heal").
+	TelegraphCategory string `yaml:"telegraph_category"`
 
 	// Pattern: bullet-hell emitter composition (replaces ProjectileCount/Spread)
 	Pattern *patternFile `yaml:"pattern"`
@@ -365,21 +370,22 @@ func parseMobYAML(data []byte) (*EnemyDef, error) {
 
 func convertAbility(af abilityFile) (ability.AbilityDef, error) {
 	ad := ability.AbilityDef{
-		ID:               af.Name,
-		Name:             af.Name,
-		CommitTime:       af.TelegraphTime,
-		ExecuteTime:      af.ExecuteTime,
-		Cooldown:         af.CooldownTime,
-		BaseWeight:       af.BaseWeight,
-		MinRange:         af.MinRange,
-		MaxRange:         af.MaxRange,
-		FaceTarget:       af.FaceTarget,
-		TrackTarget:      af.TrackTarget,
-		Cancellable:      af.Cancellable,
-		CanMoveCommitted: af.CanMoveCommitted,
-		CanMoveExecuting: af.CanMoveExecuting,
-		DamageSource:     af.DamageSource,
-		MultiTargetCount: af.MultiTargetCount,
+		ID:                af.Name,
+		Name:              af.Name,
+		CommitTime:        af.TelegraphTime,
+		ExecuteTime:       af.ExecuteTime,
+		Cooldown:          af.CooldownTime,
+		BaseWeight:        af.BaseWeight,
+		MinRange:          af.MinRange,
+		MaxRange:          af.MaxRange,
+		FaceTarget:        af.FaceTarget,
+		TrackTarget:       af.TrackTarget,
+		Cancellable:       af.Cancellable,
+		CanMoveCommitted:  af.CanMoveCommitted,
+		CanMoveExecuting:  af.CanMoveExecuting,
+		DamageSource:      af.DamageSource,
+		MultiTargetCount:  af.MultiTargetCount,
+		TelegraphCategory: af.TelegraphCategory,
 	}
 
 	if err := applyAbilityCategory(&ad, af); err != nil {
@@ -426,6 +432,13 @@ func applyAbilityCategory(ad *ability.AbilityDef, af abilityFile) error {
 		ad.BaseDamage = af.AoEDamage
 		ad.Hit = ability.HitDef{
 			Type:   ability.HitAoECircle,
+			Radius: af.AoERadius,
+		}
+	case TypeAoEObstacles:
+		ad.Category = ability.CategoryAoE
+		ad.BaseDamage = af.AoEDamage
+		ad.Hit = ability.HitDef{
+			Type:   ability.HitAoEObstacles,
 			Radius: af.AoERadius,
 		}
 	case TypeCharge:

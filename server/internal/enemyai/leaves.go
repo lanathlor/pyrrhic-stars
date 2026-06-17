@@ -63,6 +63,65 @@ func condPhaseTransitioning(v any) bool {
 	return result
 }
 
+const (
+	// pillarCampRadius is how close to a pillar (obstacle edge) a player must be
+	// to count as hugging it.
+	pillarCampRadius float32 = 2.5
+	// pillarBossProximity is how close the boss must be to the hugging player to
+	// count as cheese. In the pillar cheese the boss is right on the other side
+	// of the pillar but cannot hit through it; a ranged group whiffing the boss
+	// from across the room is far away and must not trigger the punish.
+	pillarBossProximity float32 = 6.0
+	// pillarCheeseSeconds is how long the boss must go without landing any
+	// damage before a pillar-hugging player is judged to be cheesing. The boss
+	// commits constantly during the cheese but every ability whiffs (the player
+	// ducks behind the pillar), so its damage output dries up. pillar_overload's
+	// own damage (SourceEnemyPillar) is excluded from the drought, so once the
+	// cheese starts the punish keeps refiring on cooldown; the moment the boss
+	// lands any real hit the drought resets and the punish stops.
+	pillarCheeseSeconds float32 = 7.0
+)
+
+// condPlayerCampingPillar is true when an alive player is hugging a pillar with
+// the boss right next to them AND the boss has not landed any real damage for
+// pillarCheeseSeconds. Together these identify the pillar cheese: a player
+// orbiting a pillar the boss is stuck on, so its committed abilities keep
+// whiffing. Proximity alone is not enough (players fight near pillars normally)
+// and the boss-adjacency rules out a ranged group whiffing from range, so the
+// damage drought distinguishes a cheesed boss from one trading blows. Gates
+// pillar_overload.
+func condPlayerCampingPillar(v any) bool {
+	c := ctx(v)
+
+	proxSq := pillarBossProximity * pillarBossProximity
+	camping := false
+	for _, p := range c.Players {
+		if !p.Alive {
+			continue
+		}
+		if !combat.IsAtPillar(p.Position, c.Obs, pillarCampRadius) {
+			continue
+		}
+		if c.Enemy.Position.Flat().DistanceToSq(p.Position.Flat()) > proxSq {
+			continue
+		}
+		camping = true
+		break
+	}
+	if !camping {
+		if c.Logger != nil {
+			c.logCond("player_camping_pillar", false, "camping", false)
+		}
+		return false
+	}
+
+	cheesing := c.Enemy.SecsSinceDealtDamage >= pillarCheeseSeconds
+	if c.Logger != nil {
+		c.logCond("player_camping_pillar", cheesing, "secs_since_dealt", c.Enemy.SecsSinceDealtDamage)
+	}
+	return cheesing
+}
+
 func condInLeashRange(v any) bool {
 	c := ctx(v)
 	e := c.Enemy

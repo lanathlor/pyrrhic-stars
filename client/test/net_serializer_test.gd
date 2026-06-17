@@ -104,18 +104,18 @@ func _build_player_worldstate(
 ## which corrupts the float by reading a u8 mid-stream.
 func test_arcanotechnicien_field_order() -> void:
 	var data := _build_player_worldstate(
-		1,            # peer_id
-		120.0,        # health
-		170.0,        # max_health
+		1,  # peer_id
+		120.0,  # health
+		170.0,  # max_health
 		"arcanotechnicien",  # class
 		"harmonist",  # spec
-		"TestHealer", # username
-		0.0,          # stamina
-		0.0,          # shield
-		0.0,          # munitions
-		42.0,         # resonance
-		87.5,         # flux
-		3,            # mastery_stacks (confluence)
+		"TestHealer",  # username
+		0.0,  # stamina
+		0.0,  # shield
+		0.0,  # munitions
+		42.0,  # resonance
+		87.5,  # flux
+		3,  # mastery_stacks (confluence)
 	)
 
 	var ws: Dictionary = NetSerializer.World.decode_world_state(data)
@@ -138,18 +138,18 @@ func test_arcanotechnicien_field_order() -> void:
 ## Gunner: verify all resource fields decode in the right positions.
 func test_gunner_resource_fields() -> void:
 	var data := _build_player_worldstate(
-		7,            # peer_id
-		100.0,        # health
-		150.0,        # max_health
-		"gunner",     # class
-		"assault",    # spec
-		"TestGunner", # username
-		50.0,         # stamina
-		25.0,         # shield
-		80.0,         # munitions
-		0.0,          # resonance
-		0.0,          # flux
-		0,            # mastery_stacks
+		7,  # peer_id
+		100.0,  # health
+		150.0,  # max_health
+		"gunner",  # class
+		"assault",  # spec
+		"TestGunner",  # username
+		50.0,  # stamina
+		25.0,  # shield
+		80.0,  # munitions
+		0.0,  # resonance
+		0.0,  # flux
+		0,  # mastery_stacks
 	)
 
 	var ws: Dictionary = NetSerializer.World.decode_world_state(data)
@@ -168,19 +168,19 @@ func test_gunner_resource_fields() -> void:
 ## Vanguard: mastery stacks (onslaught/devotion) decode after flux.
 func test_vanguard_mastery_stacks() -> void:
 	var data := _build_player_worldstate(
-		2,            # peer_id
-		200.0,        # health
-		200.0,        # max_health
-		"vanguard",   # class
-		"blade",      # spec
-		"TestTank",   # username
-		100.0,        # stamina
-		50.0,         # shield
-		0.0,          # munitions
-		30.0,         # resonance
-		0.0,          # flux
-		5,            # mastery_stacks (onslaught)
-		(2 << 6),     # buff_flags: onslaught tier 2 in bits 6-7
+		2,  # peer_id
+		200.0,  # health
+		200.0,  # max_health
+		"vanguard",  # class
+		"blade",  # spec
+		"TestTank",  # username
+		100.0,  # stamina
+		50.0,  # shield
+		0.0,  # munitions
+		30.0,  # resonance
+		0.0,  # flux
+		5,  # mastery_stacks (onslaught)
+		2 << 6,  # buff_flags: onslaught tier 2 in bits 6-7
 	)
 
 	var ws: Dictionary = NetSerializer.World.decode_world_state(data)
@@ -204,7 +204,9 @@ func test_two_players_no_offset_drift() -> void:
 	# --- Player 1 (gunner) ---
 	_append_player(buf, 1, 100.0, 150.0, "gunner", "", "Alice", 50.0, 0.0, 10.0, 0.0, 0.0, 0)
 	# --- Player 2 (arcanotechnicien) ---
-	_append_player(buf, 2, 120.0, 170.0, "arcanotechnicien", "harmonist", "Bob", 0.0, 0.0, 0.0, 42.0, 87.5, 3)
+	_append_player(
+		buf, 2, 120.0, 170.0, "arcanotechnicien", "harmonist", "Bob", 0.0, 0.0, 0.0, 42.0, 87.5, 3
+	)
 
 	# enemy count = 0, proj count = 0, npc count = 0
 	buf.put_u8(0)
@@ -237,7 +239,21 @@ func test_player_plus_enemy() -> void:
 	buf.put_u32(10)
 	# 1 player
 	buf.put_u8(1)
-	_append_player(buf, 1, 120.0, 170.0, "arcanotechnicien", "harmonist", "Healer", 0.0, 0.0, 0.0, 42.0, 87.5, 3)
+	_append_player(
+		buf,
+		1,
+		120.0,
+		170.0,
+		"arcanotechnicien",
+		"harmonist",
+		"Healer",
+		0.0,
+		0.0,
+		0.0,
+		42.0,
+		87.5,
+		3
+	)
 	# 1 enemy
 	buf.put_u8(1)
 	_append_enemy(buf, 500, 2000.0, 2000.0, "arena_boss")
@@ -262,6 +278,7 @@ func test_player_plus_enemy() -> void:
 
 # ---- Helpers ----
 
+
 func _append_player(
 	buf: StreamPeerBuffer,
 	peer_id: int,
@@ -280,20 +297,25 @@ func _append_player(
 	visual_state: int = 0,
 ) -> void:
 	buf.put_u16(peer_id)
-	buf.put_float(0.0); buf.put_float(0.0); buf.put_float(0.0)  # pos
+	buf.put_float(0.0)
+	buf.put_float(0.0)
+	buf.put_float(0.0)  # pos
 	buf.put_float(0.0)  # rot_y
 	buf.put_float(health)
 	buf.put_float(max_health)
 	buf.put_u8(0)  # state
 	var cb := cls.to_utf8_buffer()
 	buf.put_u8(cb.size())
-	if cb.size() > 0: buf.put_data(cb)
+	if cb.size() > 0:
+		buf.put_data(cb)
 	var sb := spec.to_utf8_buffer()
 	buf.put_u8(sb.size())
-	if sb.size() > 0: buf.put_data(sb)
+	if sb.size() > 0:
+		buf.put_data(sb)
 	var nb := username.to_utf8_buffer()
 	buf.put_u8(nb.size())
-	if nb.size() > 0: buf.put_data(nb)
+	if nb.size() > 0:
+		buf.put_data(nb)
 	buf.put_u8(visual_state)
 	buf.put_float(0.0)  # aim_pitch
 	buf.put_u8(buff_flags)
@@ -304,7 +326,8 @@ func _append_player(
 	buf.put_float(resonance)
 	buf.put_float(flux)
 	buf.put_u8(mastery_stacks)
-	for i in 7: buf.put_u8(0)  # gunner assault
+	for i in 7:
+		buf.put_u8(0)  # gunner assault
 	buf.put_u8(255)  # speed_mult
 
 
@@ -317,7 +340,9 @@ func _append_enemy(
 ) -> void:
 	buf.put_u8(1)  # alive
 	buf.put_u16(enemy_id)
-	buf.put_float(0.0); buf.put_float(0.0); buf.put_float(0.0)  # pos
+	buf.put_float(0.0)
+	buf.put_float(0.0)
+	buf.put_float(0.0)  # pos
 	buf.put_float(0.0)  # rot_y
 	buf.put_float(health)
 	buf.put_u8(0)  # state
@@ -325,9 +350,11 @@ func _append_enemy(
 	buf.put_float(max_health)
 	var db := def_name.to_utf8_buffer()
 	buf.put_u8(db.size())
-	if db.size() > 0: buf.put_data(db)
+	if db.size() > 0:
+		buf.put_data(db)
 	# ranged_target (3 floats) + charge_dir (3 floats) + melee_cone_angle + melee_range
-	for i in 8: buf.put_float(0.0)
+	for i in 8:
+		buf.put_float(0.0)
 
 
 ## Verify that the entire buffer is consumed after decoding a single arcanotechnicien player.
@@ -335,19 +362,37 @@ func _append_enemy(
 func test_arcanotechnicien_buffer_fully_consumed() -> void:
 	var buf := StreamPeerBuffer.new()
 	buf.put_u32(1)  # tick
-	buf.put_u8(1)   # 1 player
-	_append_player(buf, 1, 120.0, 170.0, "arcanotechnicien", "harmonist", "Healer", 0.0, 0.0, 0.0, 42.0, 87.5, 3)
+	buf.put_u8(1)  # 1 player
+	_append_player(
+		buf,
+		1,
+		120.0,
+		170.0,
+		"arcanotechnicien",
+		"harmonist",
+		"Healer",
+		0.0,
+		0.0,
+		0.0,
+		42.0,
+		87.5,
+		3
+	)
 	# 1 enemy to prove we can read past the player
 	buf.put_u8(1)
 	_append_enemy(buf, 500, 2000.0, 2000.0, "arena_boss")
 	# 1 projectile
 	buf.put_u8(1)
 	buf.put_u32(99)  # proj_id
-	buf.put_float(1.0); buf.put_float(2.0); buf.put_float(3.0)  # pos
-	buf.put_float(0.0); buf.put_float(0.0); buf.put_float(1.0)  # dir
+	buf.put_float(1.0)
+	buf.put_float(2.0)
+	buf.put_float(3.0)  # pos
+	buf.put_float(0.0)
+	buf.put_float(0.0)
+	buf.put_float(1.0)  # dir
 	buf.put_float(22.0)  # speed
-	buf.put_float(0.0)   # angular_vel
-	buf.put_u8(0)        # tag len = 0
+	buf.put_float(0.0)  # angular_vel
+	buf.put_u8(0)  # tag len = 0
 	# 0 npcs
 	buf.put_u8(0)
 
@@ -369,3 +414,99 @@ func test_arcanotechnicien_buffer_fully_consumed() -> void:
 	var proj: Dictionary = ws["projectiles"][0]
 	assert_int(proj["proj_id"]).is_equal(99)
 	assert_float(proj["speed"]).is_equal(22.0)
+
+
+## Telegraph array round-trips through decode_world_state for each shape.
+func test_telegraph_roundtrip() -> void:
+	var buf := StreamPeerBuffer.new()
+	buf.put_u32(7)  # tick
+	buf.put_u8(0)  # 0 players
+	buf.put_u8(0)  # 0 enemies
+	buf.put_u8(0)  # 0 projectiles
+	buf.put_u8(0)  # 0 npcs
+
+	var telegraphs := [
+		{
+			"id": 1000,
+			"shape": 0,
+			"category": 0,
+			"start_tick": 80,
+			"execute_tick": 110,
+			"cx": 3.0,
+			"cz": -4.0,
+			"radius": 6.5,
+		},
+		{
+			"id": 1001,
+			"shape": 1,
+			"category": 1,
+			"start_tick": 5,
+			"execute_tick": 25,
+			"cx": 0.0,
+			"cz": 0.0,
+			"facing": 1.2,
+			"half_angle": 1.57,
+			"range": 3.0,
+		},
+		{
+			"id": 1002,
+			"shape": 2,
+			"category": 0,
+			"start_tick": 0,
+			"execute_tick": 20,
+			"cx": 2.0,
+			"cz": 2.0,
+			"dir_x": 1.0,
+			"dir_z": 0.0,
+			"length": 15.0,
+			"width": 4.0,
+		},
+		{
+			"id": 1003,
+			"shape": 3,
+			"category": 0,
+			"start_tick": 7,
+			"execute_tick": 27,
+			"radius": 9.75,
+			"centers": [Vector2(-8, -6), Vector2(8, -6)],
+		},
+	]
+	NetSerializer.World.encode_telegraphs(buf, telegraphs)
+
+	var ws: Dictionary = NetSerializer.World.decode_world_state(buf.data_array)
+	var tgs: Array = ws["telegraphs"]
+	assert_int(tgs.size()).is_equal(4)
+
+	var circle: Dictionary = tgs[0]
+	assert_int(circle["id"]).is_equal(1000)
+	assert_int(circle["shape"]).is_equal(0)
+	assert_int(circle["start_tick"]).is_equal(80)
+	assert_int(circle["execute_tick"]).is_equal(110)
+	assert_float(circle["radius"]).is_equal(6.5)
+
+	var cone: Dictionary = tgs[1]
+	assert_int(cone["category"]).is_equal(1)
+	assert_float(cone["range"]).is_equal(3.0)
+
+	var line: Dictionary = tgs[2]
+	assert_float(line["length"]).is_equal(15.0)
+	assert_float(line["width"]).is_equal(4.0)
+
+	var multi: Dictionary = tgs[3]
+	assert_int(multi["shape"]).is_equal(3)
+	assert_float(multi["radius"]).is_equal(9.75)
+	var centers: Array = multi["centers"]
+	assert_int(centers.size()).is_equal(2)
+	assert_vector(centers[0]).is_equal(Vector2(-8, -6))
+
+
+## Backward-compat: a packet with no telegraph array still decodes (empty list).
+func test_world_state_without_telegraphs() -> void:
+	var buf := StreamPeerBuffer.new()
+	buf.put_u32(1)
+	buf.put_u8(0)  # players
+	buf.put_u8(0)  # enemies
+	buf.put_u8(0)  # projectiles
+	# no npc byte, no telegraph byte (older server)
+	var ws: Dictionary = NetSerializer.World.decode_world_state(buf.data_array)
+	assert_int((ws["telegraphs"] as Array).size()).is_equal(0)
