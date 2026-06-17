@@ -15,6 +15,7 @@ const World := preload("res://scripts/autoload/net_serialize_world.gd")
 const Char := preload("res://scripts/autoload/net_serialize_character.gd")
 const Inv := preload("res://scripts/autoload/net_serialize_inventory.gd")
 const Inp := preload("res://scripts/autoload/net_serialize_input.gd")
+const Friends := preload("res://scripts/autoload/net_serialize_friends.gd")
 
 # Opcodes — must match server/internal/message/message.go
 const OP_PLAYER_SYNC := 0x0001
@@ -56,6 +57,7 @@ const OP_GROUP_KICK := 0x0054
 const OP_ENTER_PORTAL := 0x0055
 const OP_INSTANCE_JOIN_REPLY := 0x0056
 const OP_INSTANCE_RESET := 0x0057
+const OP_GROUP_INVITE_BY_NAME := 0x0058
 
 # Social / group — server -> client
 const OP_GROUP_STATE := 0x0060
@@ -65,6 +67,18 @@ const OP_HUB_STATE := 0x0063
 const OP_PLAYER_NAMES := 0x0064
 const OP_INSTANCE_JOIN_PROMPT := 0x0065
 const OP_OVERFLUX_STATE := 0x0066
+
+# Friends — server -> client
+const OP_FRIEND_LIST := 0x0067
+const OP_FRIEND_REQUEST_RECV := 0x0068
+const OP_FRIEND_ERROR := 0x0069
+const OP_FRIEND_STATUS := 0x006A
+
+# Friends — client -> server
+const OP_FRIEND_REQUEST := 0x00F0
+const OP_FRIEND_RESPOND := 0x00F1
+const OP_FRIEND_REMOVE := 0x00F2
+const OP_FRIEND_LIST_REQUEST := 0x00F3
 
 # Inventory — client -> server
 const OP_EQUIP_ITEM := 0x0070

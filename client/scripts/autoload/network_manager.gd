@@ -21,6 +21,10 @@ signal zone_transfer_received(zone_type: int, new_peer_id: int)
 signal group_state_updated(data: Dictionary)
 signal group_invite_received(group_id: int, leader_name: String)
 signal group_error_received(code: int, msg: String)
+signal friend_list_received(friends: Array)
+signal friend_request_received(user_id: String, name: String)
+signal friend_status_updated(data: Dictionary)
+signal friend_error_received(msg: String)
 signal player_names_received(names: Dictionary)
 signal character_state_received(data: Dictionary)
 signal character_list_received(data: Dictionary)
@@ -54,6 +58,7 @@ var dev_params: Dictionary = {}  # Set by main.gd in dev mode: {class, zone}
 ## Sub-handlers for debug and loadout/inventory operations.
 var debug: NetworkDebugHandler
 var loadout: NetworkLoadoutHandler
+var social: NetworkSocialHandler
 
 var previous_peer_id: int = 0  # peer_id from previous zone (for stale data rejection)
 
@@ -69,6 +74,7 @@ func _ready() -> void:
 	_udp = UDPTransport.new(_on_message, _on_udp_failed)
 	debug = NetworkDebugHandler.new(self)
 	loadout = NetworkLoadoutHandler.new(self)
+	social = NetworkSocialHandler.new(self)
 
 
 # =============================================================================
@@ -79,13 +85,19 @@ func _ready() -> void:
 func connect_to_server(address: String = "127.0.0.1") -> Error:
 	disconnect_game()
 	var port := DEFAULT_PORT
-	var uuid := IdentityManager.get_player_id()
-	var encoded_name := username.uri_encode()
-	var url := "ws://%s:%d/ws?uuid=%s&username=%s" % [address, port, uuid, encoded_name]
+	var url: String
 	if dev_params.size() > 0:
+		# Dev path: the gateway's CODEX_DEV bypass accepts a client UUID directly,
+		# so local iteration and the MCP harness work without Kratos running.
+		var uuid := IdentityManager.get_player_id()
+		var encoded_name := username.uri_encode()
+		url = "ws://%s:%d/ws?uuid=%s&username=%s" % [address, port, uuid, encoded_name]
 		url += "&dev_auto=1"
 		url += "&dev_class=%s" % dev_params.get("class", "gunner")
 		url += "&dev_zone=%s" % dev_params.get("zone", "arena")
+	else:
+		# Normal path: authenticate with the Kratos session token.
+		url = "ws://%s:%d/ws?token=%s" % [address, port, AuthManager.get_token().uri_encode()]
 	_ws_host = address
 	_udp.set_host(address)
 	print("[Net] Connecting to %s..." % url)
@@ -394,6 +406,14 @@ func _handle_group_opcodes(opcode: int, payload: PackedByteArray) -> bool:
 			_handle_instance_join_prompt(payload)
 		NetSerializer.OP_OVERFLUX_STATE:
 			_handle_overflux_state(payload)
+		NetSerializer.OP_FRIEND_LIST:
+			social.handle_friend_list(payload)
+		NetSerializer.OP_FRIEND_REQUEST_RECV:
+			social.handle_friend_request_recv(payload)
+		NetSerializer.OP_FRIEND_STATUS:
+			social.handle_friend_status(payload)
+		NetSerializer.OP_FRIEND_ERROR:
+			social.handle_friend_error(payload)
 		_:
 			return false
 	return true

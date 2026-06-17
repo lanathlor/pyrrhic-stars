@@ -14,7 +14,7 @@ func _ready() -> void:
 
 ## Get world-space wish direction from input + actual camera transform.
 func get_camera_wish_dir() -> Vector3:
-	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
+	var input_dir := GameManager.move_vector()
 	if input_dir.length() < 0.1:
 		return Vector3.ZERO
 
@@ -106,7 +106,11 @@ func process_move(delta: float) -> void:
 			return
 
 	# Jump
-	if Input.is_action_just_pressed("jump") and ctrl.is_on_floor():
+	if (
+		Input.is_action_just_pressed("jump")
+		and ctrl.is_on_floor()
+		and not GameManager.text_input_active()
+	):
 		ctrl.velocity.y = 3.5
 
 	# Movement

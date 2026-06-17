@@ -121,6 +121,8 @@ var _portal_trail: Node3D:
 var _overflux_panel: CanvasLayer
 var _merchant_layer: CanvasLayer
 var _merchant_panel: Control
+var _settings_panel: CanvasLayer
+var _social_panel: CanvasLayer
 
 # Sub-systems (static children in main.tscn)
 @onready var entity_mgr: Node = $EntityManager
@@ -133,6 +135,7 @@ var _merchant_panel: Control
 @onready var dev_mgr: Node = $DevModeManager
 @onready var replay_mgr: Node = $ReplayManager
 @onready var char_mgr: Node = $CharacterManager
+@onready var telegraph_mgr: Node = $TelegraphManager
 # UI scenes (static instances in main.tscn)
 @onready var _pause_layer: CanvasLayer = $PauseMenu
 @onready var _menu_layer: CanvasLayer = $MenuUI
@@ -159,37 +162,16 @@ func _ready() -> void:
 	_init_ui_references()
 	_connect_ui_signals()
 
-	# Load saved username
-	var saved: String = char_mgr.load_saved_username()
-	if saved != "":
-		_username = saved
-		_username_input.visible = false
-		_menu_welcome_label.text = "Welcome back, %s" % saved
-		_menu_welcome_label.visible = true
+	# A saved Kratos session token lets a returning user skip the login form.
+	if AuthManager.has_token():
+		_menu_layer.set_returning(true, char_mgr.load_saved_username())
+	else:
+		_menu_layer.set_returning(false)
 
 	_shared_hud.set_player_names(_player_names)
 
-	# Overflux selection panel (code-built, no .tscn)
-	var OverfluxPanel := preload("res://scenes/ui/overflux_panel.gd")
-	_overflux_panel = OverfluxPanel.new()
-	add_child(_overflux_panel)
-	_overflux_panel.confirmed.connect(_on_overflux_confirmed)
-	_overflux_panel.cancelled.connect(_on_overflux_cancelled)
-
-	# Merchant shop panel (code-built, no .tscn)
-	_merchant_layer = CanvasLayer.new()
-	_merchant_layer.layer = 18
-	add_child(_merchant_layer)
-	var MerchantPanel := preload("res://scenes/ui/merchant_panel.gd")
-	_merchant_panel = MerchantPanel.new()
-	_merchant_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_merchant_layer.add_child(_merchant_panel)
-	_merchant_panel.closed.connect(_update_cursor_mode)
-	_merchant_panel.closed.connect(
-		func():
-			_inventory_layer.bag_panel.merchant_open = false
-			_inventory_layer.bag_panel.queue_redraw()
-	)
+	# Code-built overlay panels (overflux, merchant, settings, social).
+	ui_ctrl.build_overlay_panels()
 
 	_connect_network_signals()
 
@@ -240,8 +222,18 @@ func _connect_ui_signals() -> void:
 			entity_mgr.despawn_all_players()
 			_enter_menu()
 	)
+	_pause_layer.settings_btn.pressed.connect(func(): _settings_panel.open())
 	_pause_layer.quit_btn.pressed.connect(func(): get_tree().quit())
+	_menu_layer.settings_btn.pressed.connect(func(): _settings_panel.open())
 	_menu_layer.play_btn.pressed.connect(char_mgr.on_connect_pressed)
+	_menu_layer.switch_account_btn.pressed.connect(
+		func():
+			AuthManager.clear_token()
+			_menu_layer.set_returning(false)
+			_menu_layer.show_status("")
+	)
+	AuthManager.auth_succeeded.connect(char_mgr.on_auth_succeeded)
+	AuthManager.auth_failed.connect(char_mgr.on_auth_failed)
 	_menu_layer.replays_btn.pressed.connect(replay_mgr.enter_replay_browser)
 	_char_select_layer.back_btn.pressed.connect(
 		func():
@@ -267,6 +259,7 @@ func _connect_ui_signals() -> void:
 	_inventory_layer.toolbar_panel.spec_pressed.connect(char_mgr.toggle_spec_panel)
 	_inventory_layer.toolbar_panel.equip_pressed.connect(_toggle_equip_panel)
 	_inventory_layer.toolbar_panel.bag_pressed.connect(_toggle_bag_panel)
+	_inventory_layer.toolbar_panel.social_pressed.connect(_toggle_social_panel)
 	_spec_panel.spec_selected.connect(char_mgr.on_spec_selected)
 	_spec_panel.closed.connect(_update_cursor_mode)
 	_spec_panel.closed.connect(_sync_toolbar_active)
@@ -294,10 +287,21 @@ func _connect_network_signals() -> void:
 	NetworkManager.merchant_state_received.connect(_merchant_panel._on_merchant_state)
 	NetworkManager.merchant_buy_result.connect(_merchant_panel._on_buy_result)
 	NetworkManager.scrip_awarded.connect(_merchant_panel._on_scrip_awarded)
+	NetworkManager.friend_error_received.connect(_social_panel.on_friend_error)
+	NetworkManager.friend_list_received.connect(_social_panel.update_friends)
+	NetworkManager.friend_request_received.connect(_social_panel.on_friend_request)
+	NetworkManager.friend_status_updated.connect(_social_panel.on_friend_status)
 
 
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
+		# The settings overlay owns Esc while open (cancel a rebind, else close it).
+		if _settings_panel and _settings_panel.visible:
+			return
+		# Any open overlay (social, inventory, bag, spec) closes on Esc first.
+		if ui_ctrl.close_open_overlay():
+			get_viewport().set_input_as_handled()
+			return
 		if state == GameState.FIGHT_OVER:
 			return
 		if (
@@ -346,9 +350,15 @@ func _handle_menu_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
 
+	# Don't steal keystrokes while the user is typing in a text field
+	# (e.g. the character name input on the create screen).
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused is LineEdit or focused is TextEdit:
+		return
+
 	# Full map toggle
 	if event.physical_keycode == KEY_M and _map_overlay:
-		_toggle_map_overlay()
+		ui_ctrl.toggle_map_overlay()
 		get_viewport().set_input_as_handled()
 		return
 
@@ -366,34 +376,16 @@ func _handle_menu_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-func _toggle_map_overlay() -> void:
-	var my_id: int = NetworkManager.get_my_id()
-	if my_id in entity_mgr.spawned_players and is_instance_valid(entity_mgr.spawned_players[my_id]):
-		var player: CharacterBody3D = entity_mgr.spawned_players[my_id]
-		_map_overlay._player_pos = player.global_position
-		_map_overlay._player_rot_y = player.rotation.y
-	_map_overlay.toggle()
-	if _map_overlay.visible:
-		_map_overlay.scan_environment(env_builder.current_env)
-		_map_overlay._recompute_scale()
-		if env_builder.portal_trail:
-			if (
-				my_id in entity_mgr.spawned_players
-				and is_instance_valid(entity_mgr.spawned_players[my_id])
-			):
-				_map_overlay.set_waypoint_path(
-					env_builder.portal_trail.get_path_to_target(
-						entity_mgr.spawned_players[my_id].global_position
-					)
-				)
-
-
 func _handle_gameplay_input(event: InputEvent) -> void:
 	if paused:
 		return
 	if state not in [GameState.HUB, GameState.ARENA_LOBBY, GameState.FIGHT, GameState.FIGHT_OVER]:
 		return
 	if not (event is InputEventKey and event.pressed):
+		return
+	# Don't steal keystrokes while typing in a text field (e.g. the social panel).
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused is LineEdit or focused is TextEdit:
 		return
 
 	if event.physical_keycode == KEY_E:
@@ -426,10 +418,8 @@ func _handle_gameplay_input(event: InputEvent) -> void:
 			dev_mgr.toggle_bot_panel()
 			get_viewport().set_input_as_handled()
 	elif event.physical_keycode == KEY_G and not event.ctrl_pressed:
-		if group_mgr.group_data.get("group_id", 0) > 0:
-			NetworkManager.send_group_leave()
-		else:
-			NetworkManager.send_group_create()
+		if _toggle_social_panel():
+			get_viewport().set_input_as_handled()
 
 
 func _physics_process(_delta: float) -> void:
@@ -525,6 +515,7 @@ func _update_cursor_mode() -> void:
 	var bot_open: bool = dev_mgr.bot_panel != null and dev_mgr.bot_panel.visible
 	var overflux_open: bool = _overflux_panel != null and _overflux_panel.visible
 	var merchant_open: bool = _merchant_panel != null and _merchant_panel.visible
+	var social_open: bool = _social_panel != null and _social_panel.visible
 	var want_cursor: bool = (
 		_cursor_toggled
 		or _alt_held
@@ -533,6 +524,7 @@ func _update_cursor_mode() -> void:
 		or bot_open
 		or overflux_open
 		or merchant_open
+		or social_open
 	)
 	if want_cursor:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
@@ -552,6 +544,16 @@ func _toggle_bag_panel() -> void:
 	_sync_toolbar_active()
 
 
+## Toggle the social panel (hub / lobby only). Returns true if handled. Shared by [G] + toolbar.
+func _toggle_social_panel() -> bool:
+	if state not in [GameState.HUB, GameState.ARENA_LOBBY]:
+		return false
+	_social_panel.toggle()
+	_update_cursor_mode()
+	_sync_toolbar_active()
+	return true
+
+
 func _sync_toolbar_active() -> void:
 	(
 		_inventory_layer
@@ -560,6 +562,7 @@ func _sync_toolbar_active() -> void:
 			_spec_panel.visible,
 			_inventory_layer.equip_panel.visible,
 			_inventory_layer.bag_panel.visible,
+			_social_panel.visible,
 		)
 	)
 

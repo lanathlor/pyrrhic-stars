@@ -248,12 +248,7 @@ func _input(event: InputEvent) -> void:
 	if not _is_open:
 		return
 
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_ESCAPE:
-			_cancel()
-			get_viewport().set_input_as_handled()
-			return
-
+	# Esc is handled centrally (main._input → ui_controller.close_open_overlay).
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var panel_rect := _outer_panel.get_global_rect()
 		if not panel_rect.has_point(event.position):

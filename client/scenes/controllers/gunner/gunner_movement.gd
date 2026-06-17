@@ -17,7 +17,11 @@ func apply_gravity(delta: float) -> void:
 
 
 func handle_jump() -> void:
-	if Input.is_action_just_pressed("jump") and ctrl.is_on_floor():
+	if (
+		Input.is_action_just_pressed("jump")
+		and ctrl.is_on_floor()
+		and not GameManager.text_input_active()
+	):
 		ctrl.velocity.y = ctrl.jump_velocity
 
 
@@ -29,7 +33,7 @@ func handle_movement(delta: float) -> void:
 	var accel: float = ctrl.ground_accel if on_floor else ctrl.air_accel
 	var decel: float = ctrl.ground_decel if on_floor else ctrl.air_decel
 
-	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
+	var input_dir := GameManager.move_vector()
 	var raw: Vector3 = ctrl.transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)
 	var wish_dir: Vector3 = raw.normalized()
 

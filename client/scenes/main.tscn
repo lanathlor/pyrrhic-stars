@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=3]
+[gd_scene load_steps=24 format=3]
 
 [ext_resource type="Script" path="res://scenes/main.gd" id="4"]
 [ext_resource type="Script" path="res://scenes/main/entity_manager.gd" id="entity_mgr"]
@@ -11,6 +11,7 @@
 [ext_resource type="Script" path="res://scenes/main/dev_mode_manager.gd" id="dev_mgr"]
 [ext_resource type="Script" path="res://scenes/main/replay_manager.gd" id="replay_mgr"]
 [ext_resource type="Script" path="res://scenes/main/character_manager.gd" id="char_mgr"]
+[ext_resource type="Script" path="res://scenes/main/telegraph_manager.gd" id="telegraph_mgr"]
 [ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="pause_menu"]
 [ext_resource type="PackedScene" path="res://scenes/ui/menu.tscn" id="menu_ui"]
 [ext_resource type="PackedScene" path="res://scenes/ui/character_select.tscn" id="char_select"]
@@ -59,6 +60,11 @@ script = ExtResource("char_mgr")
 [node name="Players" type="Node3D" parent="."]
 
 [node name="Projectiles" type="Node3D" parent="."]
+
+[node name="Telegraphs" type="Node3D" parent="."]
+
+[node name="TelegraphManager" type="Node" parent="."]
+script = ExtResource("telegraph_mgr")
 
 [node name="PauseMenu" parent="." instance=ExtResource("pause_menu")]
 

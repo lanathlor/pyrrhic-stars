@@ -308,8 +308,9 @@ func _input(event: InputEvent) -> void:
 	if not _visible:
 		return
 
+	# Esc is handled centrally (main._input → ui_controller.close_open_overlay).
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_ESCAPE or event.keycode == KEY_N:
+		if event.keycode == KEY_N:
 			_close()
 			get_viewport().set_input_as_handled()
 			return
