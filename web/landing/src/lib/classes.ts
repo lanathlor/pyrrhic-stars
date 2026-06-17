@@ -10,6 +10,8 @@ export interface ClassEntry {
   identity: string;
   /** Tailwind 4 token name without the `--color-class-` prefix. */
   accent: ClassAccent;
+  /** Playable in the current build. Engineer and Tutelaire arrive in Phase 3. */
+  playable: boolean;
 }
 
 export type ClassAccent =
@@ -27,6 +29,7 @@ export const CLASSES: ClassEntry[] = [
     genre: "First-Person Shooter",
     identity: "Aim, reposition, pressure. Three specs: assault, marksman, area denial.",
     accent: "gunner",
+    playable: true,
   },
   {
     slug: "vanguard",
@@ -34,6 +37,7 @@ export const CLASSES: ClassEntry[] = [
     genre: "Souls-like Action Melee",
     identity: "Read, commit, punish. Blade swirl, directional block, flanking pressure.",
     accent: "vanguard",
+    playable: true,
   },
   {
     slug: "arcanotechnicien",
@@ -41,6 +45,7 @@ export const CLASSES: ClassEntry[] = [
     genre: "Tactical Channeling",
     identity: "Long commits, huge payoffs. Destroyer, weaving battlemage, healing zones.",
     accent: "arcanotechnicien",
+    playable: true,
   },
   {
     slug: "engineer",
@@ -48,6 +53,7 @@ export const CLASSES: ClassEntry[] = [
     genre: "Deployable Management",
     identity: "Place, pilot, disrupt. Turrets, drones, EMP fields.",
     accent: "engineer",
+    playable: false,
   },
   {
     slug: "blade-dancer",
@@ -55,6 +61,7 @@ export const CLASSES: ClassEntry[] = [
     genre: "Positional State Machine",
     identity: "Configs, GCDs, combos. Two blades for burst, six for sustained AoE.",
     accent: "blade-dancer",
+    playable: true,
   },
   {
     slug: "tutelaire",
@@ -62,5 +69,6 @@ export const CLASSES: ClassEntry[] = [
     genre: "Aura Positioning",
     identity: "Stand here. Don't move. Aura tanking, ticking retribution, channelled healing.",
     accent: "tutelaire",
+    playable: false,
   },
 ];
