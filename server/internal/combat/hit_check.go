@@ -14,6 +14,51 @@ type Obstacle struct {
 	Height float32 // full height from BaseY (0 = infinitely tall)
 }
 
+// PillarMaxExtent is the largest half-extent a free-standing "pillar" can have.
+// Boundary walls have a half-extent in the tens; pillars and set-dressing props
+// are a couple of meters at most. Used to tell cover you can orbit (a pillar)
+// apart from the room boundary (a wall).
+const PillarMaxExtent float32 = 2.5
+
+// PillarMinHeight is the shortest a column can be and still count as a "pillar":
+// tall enough to break a standing target's line of sight and be hidden behind.
+// Short cover crates you shoot over (around a meter) fall below this, so they are
+// not pillars even though their footprint is small. Height==0 means infinitely
+// tall and always qualifies.
+const PillarMinHeight float32 = 2.0
+
+// IsPillarLike reports whether an obstacle is a small free-standing pillar
+// rather than a boundary wall or a short cover crate. A pillar has a small
+// footprint (so you can orbit it) and is tall enough to hide behind.
+func IsPillarLike(o Obstacle) bool {
+	if o.HX > PillarMaxExtent || o.HZ > PillarMaxExtent {
+		return false
+	}
+	return o.Height == 0 || o.Height >= PillarMinHeight
+}
+
+// IsAtPillar reports whether pos is within radius of any pillar-like obstacle
+// (walls excluded). Used to detect players hugging a pillar to kite.
+func IsAtPillar(pos entity.Vec3, obstacles []Obstacle, radius float32) bool {
+	const margin float32 = 0.1
+	for _, obs := range obstacles {
+		if !IsPillarLike(obs) {
+			continue
+		}
+		if obs.Height > 0 && (pos.Y < obs.BaseY-0.5 || pos.Y > obs.BaseY+obs.Height+0.5) {
+			continue
+		}
+		exHx := obs.HX + radius + margin
+		exHz := obs.HZ + radius + margin
+		dx := pos.X - obs.CX
+		dz := pos.Z - obs.CZ
+		if dx > -exHx && dx < exHx && dz > -exHz && dz < exHz {
+			return true
+		}
+	}
+	return false
+}
+
 // SegmentHitsObstacle checks if a line segment from a to b (on the XZ plane)
 // intersects any obstacle. Uses slab intersection (ray-vs-AABB in 2D).
 // Obstacles that contain point a (the origin) are skipped — you can shoot

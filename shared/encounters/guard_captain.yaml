@@ -119,6 +119,21 @@ abilities:
     charge_stop_on_obstacle: true
     damage_source: 4
 
+  # Anti-cheese punish for players who hug pillars to kite. Huge blast around
+  # every pillar, ignores line of sight, near-impossible to dodge without
+  # abandoning cover entirely. Triggered by player_camping_pillar in the tree.
+  - name: pillar_overload
+    type: aoe_obstacles
+    target: nearest
+    telegraph_time: 1.0
+    execute_time: 0.2
+    cooldown_time: 2.0
+    base_weight: 100
+    face_target: false
+    aoe_radius: 2.0
+    aoe_damage: 140.0
+    damage_source: 6
+
 phases:
   - hp_threshold_pct: 0.6
     transition_time: 1.5
@@ -182,6 +197,9 @@ tree:
     - sequence: ["!in_leash_range", leash_reset]
     # Active ability in progress — don't interrupt
     - sequence: [is_committed, wait_ability]
+    # Anti-cheese: a player has been hugging a pillar to kite. Overload the
+    # pillars with a huge, near-unavoidable blast. Fires in any phase.
+    - sequence: [player_camping_pillar, "ability_ready(pillar_overload)", "commit(pillar_overload)", wait_ability]
 
     # === Phase 3: Enraged — relentless, void_barrage always seeks clusters ===
     - sequence:

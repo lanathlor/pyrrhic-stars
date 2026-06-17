@@ -788,6 +788,27 @@ func TestNearestObstacleOnSegment_tMaxZSlabBug(t *testing.T) {
 	}
 }
 
+func TestIsPillarLike(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		obs  Obstacle
+		want bool
+	}{
+		// Tall column with a small footprint: the canonical pillar you orbit.
+		{"tall pillar", Obstacle{HX: 0.75, HZ: 0.75, Height: 4.0}, true},
+		// Infinitely tall obstacle (Height==0) with a small footprint.
+		{"infinite pillar", Obstacle{HX: 1.0, HZ: 1.0, Height: 0}, true},
+		// Short cover crate you shoot over: small footprint but not a pillar.
+		{"short cover crate", Obstacle{HX: 1.5, HZ: 0.5, Height: 1.2}, false},
+		// Boundary wall: large footprint.
+		{"boundary wall", Obstacle{HX: 20.0, HZ: 0.25, Height: 5.0}, false},
+	} {
+		if got := IsPillarLike(tc.obs); got != tc.want {
+			t.Errorf("%s: IsPillarLike = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
 func TestNearestObstacleOnSegment(t *testing.T) {
 	obs1 := Obstacle{CX: 5, CZ: 5, HX: 1.0, HZ: 1.0}
 	obs2 := Obstacle{CX: 5, CZ: 15, HX: 1.0, HZ: 1.0}
