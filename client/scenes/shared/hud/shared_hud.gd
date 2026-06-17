@@ -6,6 +6,7 @@ extends Control
 ## Drawing delegated to MinimapRenderer and MeterRenderer helper classes.
 
 # --- Constants ---
+const HudDraw = preload("res://scenes/shared/hud/hud_draw.gd")
 const CLASS_MAX_HP := {
 	"gunner": 150.0,
 	"vanguard": 200.0,
@@ -241,6 +242,15 @@ func on_fight_start() -> void:
 	_healing_totals.clear()
 	_overheal_totals.clear()
 	_fight_duration = 0.0
+
+
+func on_wipe() -> void:
+	# A party wipe is NOT the end of the run. On the server the clear timer
+	# (FightStartTick) keeps ticking while players respawn and run back, so the
+	# run can still roll into OVERTIME. Keep the count-down and damage meter
+	# active; only on_fight_end (boss kill) stops the clock.
+	_fight_active = true
+	_fight_over = false
 
 
 func on_fight_end() -> void:
@@ -552,10 +562,10 @@ func _draw_overflux_widget() -> void:
 		var timer_text: String
 		var timer_color: Color
 		if remaining > 0.0:
-			timer_text = "TIME %s" % _format_mmss(remaining)
+			timer_text = "TIME %s" % HudDraw.format_mmss(remaining)
 			timer_color = TEXT_PRIMARY if remaining > 30.0 else POWER_COLOR
 		else:
-			timer_text = "OVERTIME +%s" % _format_mmss(absf(remaining))
+			timer_text = "OVERTIME +%s" % HudDraw.format_mmss(absf(remaining))
 			timer_color = HEALTH_BAD
 		draw_string(
 			font,
@@ -584,14 +594,5 @@ func _draw_overflux_widget() -> void:
 		cy += 16.0
 
 
-func _format_mmss(seconds: float) -> String:
-	var total := int(seconds)
-	return "%02d:%02d" % [total / 60, total % 60]
-
-
 func _draw_status_bar(rect: Rect2, ratio: float, fill_color: Color) -> void:
-	draw_rect(rect, HUD_BG)
-	if ratio > 0.0:
-		var fill_width := maxf(rect.size.x * ratio, 0.0)
-		draw_rect(Rect2(rect.position, Vector2(fill_width, rect.size.y)), fill_color)
-	draw_rect(rect, HUD_BORDER, false, 1.0)
+	HudDraw.status_bar(self, rect, ratio, fill_color, HUD_BG, HUD_BORDER)

@@ -37,6 +37,16 @@ const InstanceTimeLimitTicks uint32 = 300 * 20
 // client in the FlowFightStart event so the HUD count-down matches the server.
 const InstanceTimeLimitSeconds = InstanceTimeLimitTicks / 20
 
+// clearTimeLimitTicks returns this instance's dungeon clear timer in ticks. The
+// limit lives on the level (set per-instance from the Godot editor); when the
+// level does not specify one it falls back to InstanceTimeLimitTicks.
+func clearTimeLimitTicks(w *World) uint32 {
+	if w.Level != nil && w.Level.ClearTimeSeconds > 0 {
+		return uint32(w.Level.ClearTimeSeconds * 20)
+	}
+	return InstanceTimeLimitTicks
+}
+
 // checkLobbyReady manages the lobby ready-up phase for instanced zones.
 // When all human players are ready, starts a countdown. When the countdown
 // expires, emits FlowFightStart and deactivates the lobby.
@@ -81,7 +91,7 @@ func checkLobbyReady(w *World) {
 			}
 			w.GameFlowEvents = append(w.GameFlowEvents, GameFlowEvent{
 				FlowType: message.FlowFightStart,
-				Text:     strconv.Itoa(int(InstanceTimeLimitSeconds)),
+				Text:     strconv.Itoa(int(clearTimeLimitTicks(w) / 20)),
 			})
 			slog.Info("lobby fight start", "zone_id", w.ZoneID)
 		}
@@ -294,7 +304,7 @@ func checkFightEnd(w *World) {
 				score = w.OverfluxState.TotalScore
 			}
 			overTime := w.FightStartTick != 0 &&
-				w.TickNum-w.FightStartTick > InstanceTimeLimitTicks
+				w.TickNum-w.FightStartTick > clearTimeLimitTicks(w)
 			w.OnBossDefeated(peerIDs, score, overTime)
 		}
 		return

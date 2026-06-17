@@ -3,7 +3,7 @@ class_name LevelExportLib
 ## headless CI script. Uses manual parent-chain transform walks so it works
 ## correctly without editor transform propagation.
 
-const VERSION := 5
+const VERSION := 6
 
 
 # --- Public API ---
@@ -57,6 +57,9 @@ static func extract_level(root: Node, scene_path: String) -> Dictionary:
 	var spawn_yaw: float = float(zone_config.get("spawn_yaw", 0.0))
 	if spawn_yaw != 0.0:
 		data["spawn_yaw"] = spawn_yaw
+	var clear_time: float = float(zone_config.get("clear_time_seconds", 0.0))
+	if clear_time > 0.0:
+		data["clear_time_seconds"] = clear_time
 	if navmesh_data.size() > 0:
 		data["navmesh"] = navmesh_data
 
@@ -367,6 +370,9 @@ static func _extract_zone_config(node: Node, config: Dictionary) -> void:
 	config["zone_type"] = str(n.get_meta("zone_type", "open_world"))
 	config["enemy_radius"] = float(n.get_meta("enemy_radius", 0.0))
 	config["spawn_yaw"] = float(n.get_meta("spawn_yaw", 0.0))
+	# Per-instance dungeon clear timer in seconds (0 = unset; server falls back
+	# to its default limit).
+	config["clear_time_seconds"] = float(n.get_meta("clear_time_seconds", 0.0))
 
 
 # --- Navmesh baking ---

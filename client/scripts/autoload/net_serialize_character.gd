@@ -266,6 +266,21 @@ static func encode_group_invite_reply(group_id: int, accept: bool) -> PackedByte
 	return buf.data_array
 
 
+## Encode group kick target: [target_peer_id:u16 LE]
+static func encode_group_kick(target_peer_id: int) -> PackedByteArray:
+	var buf := StreamPeerBuffer.new()
+	buf.put_u16(target_peer_id)
+	return buf.data_array
+
+
+## Encode group invite-by-name: [type:u8 (0=account,1=char)][name:str8]
+static func encode_group_invite_by_name(type_flag: int, name: String) -> PackedByteArray:
+	var buf := StreamPeerBuffer.new()
+	buf.put_u8(type_flag)
+	H.put_str8(buf, name)
+	return buf.data_array
+
+
 # =============================================================================
 # Overflux
 # =============================================================================

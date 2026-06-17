@@ -518,6 +518,44 @@ func TestLoadLevelData_V4Features(t *testing.T) {
 	}
 }
 
+func TestLoadLevelData_ClearTimeSeconds(t *testing.T) {
+	p := writeTempJSON(t, `{
+		"version": 6,
+		"zone": "test",
+		"zone_type": "instanced",
+		"clear_time_seconds": 600,
+		"source_scene": "res://test.tscn",
+		"bounds": { "min_x": -10, "max_x": 10, "min_y": -1, "max_y": 5, "min_z": -10, "max_z": 10 },
+		"obstacles": [],
+		"player_spawns": [{ "x": 0, "y": 0.1, "z": 5 }]
+	}`)
+	l := &Level{}
+	if err := loadLevelData(p, l); err != nil {
+		t.Fatal(err)
+	}
+	if l.ClearTimeSeconds != 600 {
+		t.Errorf("ClearTimeSeconds = %f, want 600", l.ClearTimeSeconds)
+	}
+}
+
+func TestLoadLevelData_ClearTimeDefaultsZeroWhenAbsent(t *testing.T) {
+	p := writeTempJSON(t, `{
+		"version": 6,
+		"zone": "test",
+		"source_scene": "res://test.tscn",
+		"bounds": { "min_x": -10, "max_x": 10, "min_y": -1, "max_y": 5, "min_z": -10, "max_z": 10 },
+		"obstacles": [],
+		"player_spawns": [{ "x": 0, "y": 0.1, "z": 5 }]
+	}`)
+	l := &Level{}
+	if err := loadLevelData(p, l); err != nil {
+		t.Fatal(err)
+	}
+	if l.ClearTimeSeconds != 0 {
+		t.Errorf("ClearTimeSeconds = %f, want 0 (unset, gameflow falls back to default)", l.ClearTimeSeconds)
+	}
+}
+
 func writeTestJSON(t *testing.T, dir, name, content string) {
 	t.Helper()
 	err := os.WriteFile(filepath.Join(dir, name+".json"), []byte(content), 0644)

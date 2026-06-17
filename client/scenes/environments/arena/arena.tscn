@@ -797,6 +797,7 @@ metadata/axis = "z"
 metadata/zone_name = "arena"
 metadata/zone_type = "instanced"
 metadata/enemy_radius = 1.0
+metadata/clear_time_seconds = 300.0
 
 [node name="Bounds" type="Node3D" parent="LevelData" groups=["server_bounds"]]
 metadata/min_x = -19.5
