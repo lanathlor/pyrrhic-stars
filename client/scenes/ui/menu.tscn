@@ -17,10 +17,12 @@ mouse_filter = 0
 [node name="Panel" type="PanelContainer" parent="."]
 anchor_left = 0.5
 anchor_right = 0.5
-anchor_top = 0.25
-anchor_bottom = 0.75
-offset_left = -170.0
-offset_right = 170.0
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = -180.0
+offset_right = 180.0
+grow_horizontal = 2
+grow_vertical = 2
 
 [node name="VBox" type="VBoxContainer" parent="Panel"]
 layout_mode = 2
@@ -46,22 +48,61 @@ layout_mode = 2
 visible = false
 horizontal_alignment = 1
 
+[node name="EmailInput" type="LineEdit" parent="Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 42)
+max_length = 254
+placeholder_text = "Email"
+
+[node name="PasswordInput" type="LineEdit" parent="Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 42)
+secret = true
+placeholder_text = "Password"
+
 [node name="UsernameInput" type="LineEdit" parent="Panel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 custom_minimum_size = Vector2(0, 42)
 max_length = 20
-alignment = 1
-placeholder_text = "Choose a username..."
+placeholder_text = "Username"
+
+[node name="StatusLabel" type="Label" parent="Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+visible = false
+horizontal_alignment = 1
+autowrap_mode = 2
 
 [node name="PlayBtn" type="Button" parent="Panel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 custom_minimum_size = Vector2(200, 42)
-text = "Play"
+text = "Log In"
+
+[node name="ToggleModeBtn" type="Button" parent="Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+flat = true
+text = "Need an account? Register"
+
+[node name="SwitchAccountBtn" type="Button" parent="Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+flat = true
+visible = false
+text = "Use a different account"
 
 [node name="ReplaysBtn" type="Button" parent="Panel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 custom_minimum_size = Vector2(200, 42)
 text = "Replays"
+
+[node name="SettingsBtn" type="Button" parent="Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(200, 42)
+text = "Settings"
