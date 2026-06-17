@@ -1,0 +1,92 @@
+version: v1.0.0
+
+# DSN is provided via the DSN env var in docker-compose (points at the
+# dedicated `kratos` database on the shared postgres instance).
+
+serve:
+  public:
+    base_url: http://localhost:4433/
+    cors:
+      enabled: true
+      allowed_origins:
+        - "*"
+      allowed_methods:
+        - POST
+        - GET
+        - PUT
+        - PATCH
+        - DELETE
+      allowed_headers:
+        - Authorization
+        - Content-Type
+        - X-Session-Token
+      exposed_headers:
+        - Content-Type
+  admin:
+    base_url: http://localhost:4434/
+
+selfservice:
+  default_browser_return_url: http://localhost:4433/
+  allowed_return_urls:
+    - http://localhost:4433
+    - http://localhost:4321
+
+  methods:
+    password:
+      enabled: true
+    # Verification/recovery/oidc disabled for the Phase 0 proof of concept.
+
+  flows:
+    error:
+      ui_url: http://localhost:4433/error
+
+    settings:
+      ui_url: http://localhost:4433/settings
+      privileged_session_max_age: 15m
+
+    login:
+      ui_url: http://localhost:4433/login
+      lifespan: 10m
+
+    registration:
+      ui_url: http://localhost:4433/registration
+      lifespan: 10m
+      after:
+        password:
+          hooks:
+            # Issue a session (and session_token for API flows) immediately on
+            # registration so the game can connect without a second login step.
+            - hook: session
+
+session:
+  lifespan: 720h # 30 days
+  whoami:
+    required_aal: aal1
+
+identity:
+  default_schema_id: player
+  schemas:
+    - id: player
+      url: file:///etc/config/kratos/identity.schema.json
+
+courier:
+  # Dev: log emails instead of sending. No SMTP needed for the PoC.
+  delivery_strategy: smtp
+  smtp:
+    connection_uri: smtp://localhost:1025/?disable_starttls=true
+
+log:
+  level: info
+  format: text
+  leak_sensitive_values: true
+
+hashers:
+  algorithm: bcrypt
+  bcrypt:
+    cost: 8
+
+secrets:
+  cookie:
+    - CHANGE-ME-dev-cookie-secret-please
+  cipher:
+    - 32-LONG-SECRET-NOT-SECURE-AT-ALL

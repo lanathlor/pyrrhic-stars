@@ -12,6 +12,7 @@ import (
 
 	"codex-online/server/internal/ability"
 	"codex-online/server/internal/abilitycatalog"
+	"codex-online/server/internal/auth"
 	"codex-online/server/internal/combatlog"
 	combatapi "codex-online/server/internal/combatlog/api"
 	chrepo "codex-online/server/internal/combatlog/clickhouse"
@@ -22,6 +23,7 @@ import (
 	"codex-online/server/internal/network"
 	"codex-online/server/internal/persistence"
 	"codex-online/server/internal/session"
+	"codex-online/server/internal/settings"
 	"codex-online/server/internal/telemetry"
 	"codex-online/server/internal/validation"
 
@@ -69,9 +71,7 @@ func main() {
 
 	ctr := container.New(repo)
 	ctr.CombatLogSink = combatSink
-	gw := newGateway(ctr)
-	gw.devMode = devMode
-	slog.Info("gateway starting", "dev_mode", devMode)
+	gw := buildGateway(ctr, devMode)
 
 	if err := configureGateway(gw); err != nil {
 		slog.Error("gateway configuration failed", "error", err)
@@ -93,6 +93,27 @@ func main() {
 	if err := runHTTPServer(mux); err != nil {
 		slog.Error("listen failed", "error", err)
 	}
+}
+
+// buildGateway constructs and configures the gateway with its dev flag and
+// session verifier.
+func buildGateway(ctr *container.Container, devMode bool) *gateway {
+	gw := newGateway(ctr)
+	gw.devMode = devMode
+	gw.verifier = newSessionVerifier()
+	slog.Info("gateway starting", "dev_mode", devMode)
+	return gw
+}
+
+// newSessionVerifier builds the Kratos-backed session verifier from the
+// KRATOS_PUBLIC_URL env var (defaulting to the local dev address).
+func newSessionVerifier() auth.SessionVerifier {
+	kratosURL := os.Getenv("KRATOS_PUBLIC_URL")
+	if kratosURL == "" {
+		kratosURL = "http://localhost:4433"
+	}
+	slog.Info("kratos session verifier", "kratos_url", kratosURL)
+	return auth.NewKratosVerifier(kratosURL)
 }
 
 func startUDPServer(gw *gateway) error {
@@ -264,6 +285,12 @@ func setupHTTPServer(gw *gateway, logQueryRepo combatlog.ReadRepository) *http.S
 		handleConnection(gw, w, req)
 	})
 
+	// User settings REST API (graphics/audio/keybinds). Always mounted; auth is
+	// per-request via the Kratos token (Authorization header) or the dev ?uuid=
+	// bypass, matching resolveIdentity for the WebSocket path.
+	settingsAPI := settings.NewHandler(gw.verifier, settings.NewService(gw.container.Repo), gw.devMode)
+	settingsAPI.Register(mux)
+
 	if logQueryRepo != nil {
 		apiMux := http.NewServeMux()
 		logAPI := combatapi.NewHandler(logQueryRepo)
@@ -315,27 +342,45 @@ func handleConnection(gw *gateway, w http.ResponseWriter, req *http.Request) {
 		// Normal flow: send character list for the selection screen.
 		client.Send(encodeCharacterListMsg(username, allChars))
 	}
-	defer func() {
-		// Save character position before cleanup (open-world zones only).
-		if sess.UserUUID != "" && sess.Class != "" && sess.ZoneType == 0 {
-			gw.savePlayerPosition(sess)
-		}
-		// Remove from group.
-		if g, disbanded := gw.groups.LeaveGroup(sess.ID); !disbanded && g != nil {
-			gw.broadcastGroupState(g)
-		}
-		gw.leaveZone(sess)
-		if gw.udpServer != nil {
-			gw.udpServer.RemoveClient(client)
-		}
-		gw.sessions.Remove(client)
-		client.Close()
-		_ = conn.CloseNow()
-		connSpan.End()
-	}()
+
+	// Friends: deliver pending requests, send the current list, and tell online
+	// friends this account just came online.
+	if sess.UserUUID != "" {
+		gw.deliverPendingFriendRequests(sess)
+		gw.sendFriendList(sess)
+		gw.notifyFriendsStatus(sess.UserUUID, true)
+	}
+
+	defer gw.cleanupConnection(sess, client, conn, connSpan)
 
 	slog.Info("new connection", "remote_addr", req.RemoteAddr, "player_id", sess.ID)
 	runMessageLoop(gw, sess, client)
+}
+
+// cleanupConnection tears down a client connection: persists position, removes
+// the session from its group/zone, notifies friends of going offline, and closes
+// the underlying transport. Runs as the deferred cleanup of handleConnection.
+func (gw *gateway) cleanupConnection(sess *session.Session, client *network.Client, conn *websocket.Conn, connSpan trace.Span) {
+	// Save character position before cleanup (open-world zones only).
+	if sess.UserUUID != "" && sess.Class != "" && sess.ZoneType == 0 {
+		gw.savePlayerPosition(sess)
+	}
+	// Remove from group.
+	if g, disbanded := gw.groups.LeaveGroup(sess.ID); !disbanded && g != nil {
+		gw.broadcastGroupState(g)
+	}
+	// Tell online friends this account went offline.
+	if sess.UserUUID != "" {
+		gw.notifyFriendsStatus(sess.UserUUID, false)
+	}
+	gw.leaveZone(sess)
+	if gw.udpServer != nil {
+		gw.udpServer.RemoveClient(client)
+	}
+	gw.sessions.Remove(client)
+	client.Close()
+	_ = conn.CloseNow()
+	connSpan.End()
 }
 
 // runMessageLoop reads messages from client and dispatches them until the
@@ -391,29 +436,27 @@ func relayLegacyMessage(gw *gateway, sess *session.Session, opcode uint16, paylo
 // character list. Returns ok=false (and has already written an HTTP error) if
 // auth fails.
 func authenticateRequest(gw *gateway, w http.ResponseWriter, req *http.Request) (userUUID, username string, allChars []*persistence.Character, ok bool) {
-	userUUID = req.URL.Query().Get("uuid")
-	username = req.URL.Query().Get("username")
-
-	if !validation.IsValidUUID(userUUID) {
-		http.Error(w, "invalid or missing uuid", http.StatusUnauthorized)
+	userUUID, username, syncName, ok := resolveIdentity(gw, w, req)
+	if !ok {
 		return "", "", nil, false
 	}
-	username = strings.TrimSpace(username)
-	if username == "" {
-		username = "Player"
-	}
-	if len(username) > 20 {
-		username = username[:20]
-	}
 
-	// Upsert user in DB (only sets username on first creation).
-	if err := gw.container.Repo.UpsertUser(userUUID, username); err != nil {
-		slog.Error("upsert user", "uuid", userUUID, "error", err)
+	// Persist the user. Kratos is the source of truth for the username, so its
+	// trait overwrites the stored value; the dev-bypass path only seeds it on
+	// first creation.
+	var upsertErr error
+	if syncName {
+		upsertErr = gw.container.Repo.UpsertUserSyncName(userUUID, username)
+	} else {
+		upsertErr = gw.container.Repo.UpsertUser(userUUID, username)
+	}
+	if upsertErr != nil {
+		slog.Error("upsert user", "uuid", userUUID, "error", upsertErr)
 		http.Error(w, "auth failed", http.StatusInternalServerError)
 		return "", "", nil, false
 	}
 
-	// Use the stored username as authoritative (query param only used for creation).
+	// Use the stored username as authoritative for the rest of the session.
 	u, err := gw.container.Repo.GetUser(userUUID)
 	if err != nil || u == nil {
 		slog.Error("get user after upsert", "uuid", userUUID, "error", err)
@@ -425,6 +468,49 @@ func authenticateRequest(gw *gateway, w http.ResponseWriter, req *http.Request) 
 	// Load all characters for the selection screen.
 	allChars, _ = gw.container.Repo.GetCharacters(userUUID)
 	return userUUID, username, allChars, true
+}
+
+// resolveIdentity authenticates the handshake and returns the user's UUID and
+// display name. It prefers a Kratos session token (?token=); when CODEX_DEV is
+// set it falls back to the legacy client-supplied ?uuid= path so local
+// iteration and the MCP harness work without Kratos running. syncName reports
+// whether the username is authoritative (Kratos) and should overwrite the
+// stored value. On failure it writes an HTTP error and returns ok=false.
+func resolveIdentity(gw *gateway, w http.ResponseWriter, req *http.Request) (userUUID, username string, syncName, ok bool) {
+	token := req.URL.Query().Get("token")
+	if token != "" {
+		id, err := gw.verifier.Whoami(req.Context(), token)
+		if err != nil {
+			slog.Info("kratos auth rejected", "error", err)
+			http.Error(w, "unauthenticated", http.StatusUnauthorized)
+			return "", "", false, false
+		}
+		return id.ID, cleanUsername(id.Username), true, true
+	}
+
+	// Dev bypass: trust a client-supplied UUID only when dev mode is enabled.
+	if gw.devMode {
+		devUUID := req.URL.Query().Get("uuid")
+		if validation.IsValidUUID(devUUID) {
+			return devUUID, cleanUsername(req.URL.Query().Get("username")), false, true
+		}
+	}
+
+	http.Error(w, "missing session token", http.StatusUnauthorized)
+	return "", "", false, false
+}
+
+// cleanUsername trims, defaults, and truncates a display name to the 20-char
+// column limit.
+func cleanUsername(raw string) string {
+	name := strings.TrimSpace(raw)
+	if name == "" {
+		name = "Player"
+	}
+	if len(name) > 20 {
+		name = name[:20]
+	}
+	return name
 }
 
 // devAutoJoin handles the dev auto-join flow: finds or creates a character of

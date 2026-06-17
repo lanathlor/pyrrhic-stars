@@ -17,6 +17,13 @@ logs *args:
 up-infra:
     docker compose up -d redis postgres
 
+# Bring up auth (Kratos) and its dependencies for local development
+up-auth:
+    docker compose up -d kratos
+
+kratos-logs:
+    docker compose logs -f kratos
+
 # --- Web ---
 
 # Export and serve in one command

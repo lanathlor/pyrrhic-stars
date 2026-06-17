@@ -32,16 +32,12 @@ func enter_menu() -> void:
 	ctrl.env_builder.unload_environment()
 	if ctrl._enter_world_btn:
 		ctrl._enter_world_btn.disabled = false
-	# Show welcome or username input depending on saved state.
-	var saved: String = ctrl.char_mgr.load_saved_username()
-	if saved != "":
-		ctrl._username = saved
-		ctrl._username_input.visible = false
-		ctrl._menu_welcome_label.text = "Welcome back, %s" % saved
-		ctrl._menu_welcome_label.visible = true
+	# Show the returning-user view or the login form depending on whether we
+	# still hold a Kratos session token.
+	if AuthManager.has_token():
+		ctrl._menu_layer.set_returning(true, ctrl.char_mgr.load_saved_username())
 	else:
-		ctrl._username_input.visible = true
-		ctrl._menu_welcome_label.visible = false
+		ctrl._menu_layer.set_returning(false)
 
 
 # =============================================================================
@@ -222,7 +218,9 @@ func on_all_dead() -> void:
 		ctrl._respawn_btn.disabled = false
 	CombatLog.end_fight("WIPE")
 	if ctrl._shared_hud:
-		ctrl._shared_hud.on_fight_end()
+		# A wipe does not stop the clear timer: the run continues while players
+		# respawn and run back, so the count-down keeps ticking toward OVERTIME.
+		ctrl._shared_hud.on_wipe()
 	# Show reset button for group leader on wipe
 	var gdata: Dictionary = ctrl.group_mgr.group_data
 	var leader_peer: int = gdata.get("leader_peer", 0)
