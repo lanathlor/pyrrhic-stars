@@ -49,6 +49,34 @@ func TestUpsertUser(t *testing.T) {
 	}
 }
 
+func TestUpsertUserSyncName(t *testing.T) {
+	repo := newTestRepo(t)
+	id := "cccccccc-dddd-4eee-8fff-aaaaaaaaaaaa"
+
+	if err := repo.UpsertUserSyncName(id, "Original"); err != nil {
+		t.Fatalf("UpsertUserSyncName (create): %v", err)
+	}
+	p, err := repo.GetUser(id)
+	if err != nil || p == nil {
+		t.Fatalf("GetUser: %v (p=%v)", err, p)
+	}
+	if p.Username != "Original" {
+		t.Errorf("username = %q, want %q", p.Username, "Original")
+	}
+
+	// Second call with a new username MUST overwrite (Kratos is source of truth).
+	if err := repo.UpsertUserSyncName(id, "Renamed"); err != nil {
+		t.Fatalf("UpsertUserSyncName (update): %v", err)
+	}
+	p, err = repo.GetUser(id)
+	if err != nil {
+		t.Fatalf("GetUser: %v", err)
+	}
+	if p.Username != "Renamed" {
+		t.Errorf("username = %q after sync, want %q (should overwrite)", p.Username, "Renamed")
+	}
+}
+
 func TestGetUserNotFound(t *testing.T) {
 	repo := newTestRepo(t)
 	p, err := repo.GetUser("nonexistent-uuid")
@@ -635,5 +663,176 @@ func TestUpdateWatermarkSeasonsAreIndependent(t *testing.T) {
 	}
 	if sc2 != 600 {
 		t.Errorf("season 2 watermark = %d, want 600", sc2)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Name lookups
+// ---------------------------------------------------------------------------
+
+func TestGetCharacterByName(t *testing.T) {
+	repo := newTestRepo(t)
+	userID := "bbbb0001-0000-4000-8000-000000000001"
+	if err := repo.UpsertUser(userID, "NameLookup"); err != nil {
+		t.Fatalf("UpsertUser: %v", err)
+	}
+	c := &Character{UserID: userID, ClassName: entity.ClassGunner, Name: "FindByName"}
+	if err := repo.CreateCharacter(c); err != nil {
+		t.Fatalf("CreateCharacter: %v", err)
+	}
+
+	got, err := repo.GetCharacterByName("FindByName")
+	if err != nil {
+		t.Fatalf("GetCharacterByName: %v", err)
+	}
+	if got == nil || got.UserID != userID {
+		t.Errorf("got %+v, want character owned by %s", got, userID)
+	}
+
+	missing, err := repo.GetCharacterByName("NoSuchChar")
+	if err != nil {
+		t.Fatalf("GetCharacterByName (missing): %v", err)
+	}
+	if missing != nil {
+		t.Errorf("expected nil for missing name, got %+v", missing)
+	}
+}
+
+func TestGetUsersByUsername(t *testing.T) {
+	repo := newTestRepo(t)
+	// Usernames are NOT unique: two accounts can share a name.
+	if err := repo.UpsertUser("cccc0001-0000-4000-8000-000000000001", "Dupe"); err != nil {
+		t.Fatalf("UpsertUser 1: %v", err)
+	}
+	if err := repo.UpsertUser("cccc0001-0000-4000-8000-000000000002", "Dupe"); err != nil {
+		t.Fatalf("UpsertUser 2: %v", err)
+	}
+	if err := repo.UpsertUser("cccc0001-0000-4000-8000-000000000003", "Unique"); err != nil {
+		t.Fatalf("UpsertUser 3: %v", err)
+	}
+
+	dupes, err := repo.GetUsersByUsername("Dupe")
+	if err != nil {
+		t.Fatalf("GetUsersByUsername: %v", err)
+	}
+	if len(dupes) != 2 {
+		t.Errorf("got %d users for shared name, want 2", len(dupes))
+	}
+
+	one, err := repo.GetUsersByUsername("Unique")
+	if err != nil {
+		t.Fatalf("GetUsersByUsername: %v", err)
+	}
+	if len(one) != 1 {
+		t.Errorf("got %d users for unique name, want 1", len(one))
+	}
+
+	none, err := repo.GetUsersByUsername("Ghost")
+	if err != nil {
+		t.Fatalf("GetUsersByUsername (missing): %v", err)
+	}
+	if len(none) != 0 {
+		t.Errorf("got %d users for unknown name, want 0", len(none))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Friendship lifecycle
+// ---------------------------------------------------------------------------
+
+func TestFriendshipLifecycle(t *testing.T) {
+	repo := newTestRepo(t)
+	alice := "dddd0001-0000-4000-8000-00000000000a"
+	bob := "dddd0001-0000-4000-8000-00000000000b"
+
+	// Create a pending request alice -> bob.
+	if err := repo.CreateFriendship(alice, bob); err != nil {
+		t.Fatalf("CreateFriendship: %v", err)
+	}
+
+	// GetFriendship resolves from either direction.
+	f, err := repo.GetFriendship(bob, alice)
+	if err != nil {
+		t.Fatalf("GetFriendship: %v", err)
+	}
+	if f == nil || f.Status != FriendStatusPending {
+		t.Fatalf("got %+v, want pending friendship", f)
+	}
+
+	// Not yet accepted: neither side lists the other as a friend.
+	if friends, _ := repo.GetAcceptedFriends(alice); len(friends) != 0 {
+		t.Errorf("alice has %d accepted friends before accept, want 0", len(friends))
+	}
+	// But bob has a pending incoming request.
+	pending, err := repo.GetPendingIncoming(bob)
+	if err != nil {
+		t.Fatalf("GetPendingIncoming: %v", err)
+	}
+	if len(pending) != 1 {
+		t.Fatalf("bob has %d pending incoming, want 1", len(pending))
+	}
+
+	// Accept, then both sides list each other.
+	if err := repo.AcceptFriendship(alice, bob); err != nil {
+		t.Fatalf("AcceptFriendship: %v", err)
+	}
+	for _, uid := range []string{alice, bob} {
+		friends, err := repo.GetAcceptedFriends(uid)
+		if err != nil {
+			t.Fatalf("GetAcceptedFriends(%s): %v", uid, err)
+		}
+		if len(friends) != 1 {
+			t.Errorf("%s has %d accepted friends, want 1", uid, len(friends))
+		}
+	}
+	// No more pending incoming for bob.
+	if pending, _ := repo.GetPendingIncoming(bob); len(pending) != 0 {
+		t.Errorf("bob has %d pending after accept, want 0", len(pending))
+	}
+
+	// Delete removes it from both directions.
+	if err := repo.DeleteFriendship(bob, alice); err != nil {
+		t.Fatalf("DeleteFriendship: %v", err)
+	}
+	if gone, _ := repo.GetFriendship(alice, bob); gone != nil {
+		t.Errorf("expected nil after delete, got %+v", gone)
+	}
+}
+
+func TestUserSettings(t *testing.T) {
+	repo := newTestRepo(t)
+	id := "dddddddd-eeee-4fff-8aaa-bbbbbbbbbbbb"
+
+	// Absent settings return nil, no error.
+	s, err := repo.GetUserSettings(id)
+	if err != nil {
+		t.Fatalf("GetUserSettings (absent): %v", err)
+	}
+	if s != nil {
+		t.Fatalf("expected nil for absent settings, got %+v", s)
+	}
+
+	// Upsert creates the row.
+	if err := repo.UpsertUserSettings(id, `{"graphics":{"vsync":true}}`); err != nil {
+		t.Fatalf("UpsertUserSettings (create): %v", err)
+	}
+	s, err = repo.GetUserSettings(id)
+	if err != nil || s == nil {
+		t.Fatalf("GetUserSettings after create: %v (s=%v)", err, s)
+	}
+	if s.Data != `{"graphics":{"vsync":true}}` {
+		t.Errorf("data = %q, want vsync doc", s.Data)
+	}
+
+	// Second upsert overwrites the document.
+	if err := repo.UpsertUserSettings(id, `{"graphics":{"vsync":false}}`); err != nil {
+		t.Fatalf("UpsertUserSettings (update): %v", err)
+	}
+	s, err = repo.GetUserSettings(id)
+	if err != nil || s == nil {
+		t.Fatalf("GetUserSettings after update: %v (s=%v)", err, s)
+	}
+	if s.Data != `{"graphics":{"vsync":false}}` {
+		t.Errorf("data = %q after update, want vsync=false doc", s.Data)
 	}
 }

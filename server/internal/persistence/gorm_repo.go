@@ -45,7 +45,7 @@ func NewGormRepo(driver, dsn string) (*GormRepo, error) {
 		return nil, fmt.Errorf("persistence open: %w", err)
 	}
 
-	if err := db.AutoMigrate(&User{}, &Character{}, &CharacterItem{}, &CharacterEquipment{}, &CharacterLoadout{}, &CharacterFluxCommitment{}, &CharacterLoadoutPreset{}, &CharacterScrip{}, &CharacterWatermark{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &UserSettings{}, &Character{}, &CharacterItem{}, &CharacterEquipment{}, &CharacterLoadout{}, &CharacterFluxCommitment{}, &CharacterLoadoutPreset{}, &CharacterScrip{}, &CharacterWatermark{}, &Friendship{}); err != nil {
 		return nil, fmt.Errorf("persistence migrate: %w", err)
 	}
 
@@ -74,6 +74,15 @@ func (r *GormRepo) UpsertUser(id, username string) error {
 	return result.Error
 }
 
+func (r *GormRepo) UpsertUserSyncName(id, username string) error {
+	u := User{ID: id, Username: username}
+	result := r.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"username"}),
+	}).Create(&u)
+	return result.Error
+}
+
 func (r *GormRepo) GetUser(id string) (*User, error) {
 	var u User
 	result := r.db.First(&u, "id = ?", id)
@@ -81,6 +90,23 @@ func (r *GormRepo) GetUser(id string) (*User, error) {
 		return nil, nil
 	}
 	return &u, result.Error
+}
+
+func (r *GormRepo) GetUserSettings(userID string) (*UserSettings, error) {
+	var s UserSettings
+	result := r.db.First(&s, "user_id = ?", userID)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &s, result.Error
+}
+
+func (r *GormRepo) UpsertUserSettings(userID, data string) error {
+	s := UserSettings{UserID: userID, Data: data}
+	return r.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "user_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"data", "updated_at"}),
+	}).Create(&s).Error
 }
 
 func (r *GormRepo) CreateCharacter(c *Character) error {
@@ -116,6 +142,66 @@ func (r *GormRepo) IsCharacterNameTaken(name string) (bool, error) {
 	var count int64
 	result := r.db.Model(&Character{}).Where("name = ?", name).Count(&count)
 	return count > 0, result.Error
+}
+
+func (r *GormRepo) GetUsersByUsername(username string) ([]*User, error) {
+	var us []*User
+	result := r.db.Where("username = ?", username).Find(&us)
+	return us, result.Error
+}
+
+func (r *GormRepo) GetCharacterByName(name string) (*Character, error) {
+	var c Character
+	result := r.db.First(&c, "name = ?", name)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &c, result.Error
+}
+
+func (r *GormRepo) CreateFriendship(requesterID, addresseeID string) error {
+	return r.db.Create(&Friendship{
+		RequesterID: requesterID,
+		AddresseeID: addresseeID,
+		Status:      FriendStatusPending,
+	}).Error
+}
+
+func (r *GormRepo) GetFriendship(userA, userB string) (*Friendship, error) {
+	var f Friendship
+	result := r.db.Where(
+		"(requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?)",
+		userA, userB, userB, userA).First(&f)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &f, result.Error
+}
+
+func (r *GormRepo) AcceptFriendship(requesterID, addresseeID string) error {
+	return r.db.Model(&Friendship{}).
+		Where("requester_id = ? AND addressee_id = ? AND status = ?",
+			requesterID, addresseeID, FriendStatusPending).
+		Update("status", FriendStatusAccepted).Error
+}
+
+func (r *GormRepo) DeleteFriendship(userA, userB string) error {
+	return r.db.Where(
+		"(requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?)",
+		userA, userB, userB, userA).Delete(&Friendship{}).Error
+}
+
+func (r *GormRepo) GetAcceptedFriends(userID string) ([]*Friendship, error) {
+	var fs []*Friendship
+	result := r.db.Where("(requester_id = ? OR addressee_id = ?) AND status = ?",
+		userID, userID, FriendStatusAccepted).Find(&fs)
+	return fs, result.Error
+}
+
+func (r *GormRepo) GetPendingIncoming(userID string) ([]*Friendship, error) {
+	var fs []*Friendship
+	result := r.db.Where("addressee_id = ? AND status = ?", userID, FriendStatusPending).Find(&fs)
+	return fs, result.Error
 }
 
 func (r *GormRepo) CountCharacters(userID string) (int64, error) {

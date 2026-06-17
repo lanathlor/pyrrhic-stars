@@ -26,6 +26,33 @@ type Character struct {
 	UpdatedAt time.Time
 }
 
+// FriendStatus values for Friendship.Status.
+const (
+	FriendStatusPending  uint8 = 0
+	FriendStatusAccepted uint8 = 1
+)
+
+// Friendship is a directional friend relationship/request between two users.
+// RequesterID initiated the request; AddresseeID received it. One row per
+// relationship (not mirrored); "list friends" queries either side.
+type Friendship struct {
+	ID          uint   `gorm:"primaryKey"`
+	RequesterID string `gorm:"size:36;index;uniqueIndex:idx_friendship_pair"`
+	AddresseeID string `gorm:"size:36;index;uniqueIndex:idx_friendship_pair"`
+	Status      uint8  // FriendStatusPending | FriendStatusAccepted
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+// UserSettings stores a user's client-side settings (graphics, audio, keybinds)
+// as an opaque JSON document. The server never interprets the contents; it is the
+// authoritative store so settings follow the account across devices.
+type UserSettings struct {
+	UserID    string `gorm:"primaryKey;size:36"`
+	Data      string `gorm:"type:text"` // JSON document
+	UpdatedAt time.Time
+}
+
 // CharacterItem represents an item instance owned by a character.
 type CharacterItem struct {
 	ID          uint   `gorm:"primaryKey"`
