@@ -1,6 +1,7 @@
 package session
 
 import (
+	"strings"
 	"sync"
 
 	"codex-online/server/internal/entity"
@@ -106,6 +107,60 @@ func (r *Registry) ResolveZonePeer(zoneID string, peerID uint16) uint32 {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.zonePeers[zonePeerKey{zoneID, peerID}]
+}
+
+// FindOnlineByUsername returns the first online session whose account username
+// matches (case-insensitive), or nil. Usernames are not unique, so this returns
+// an arbitrary match when several accounts share the name.
+func (r *Registry) FindOnlineByUsername(name string) *Session {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, sess := range r.sessions {
+		sess.Mu.RLock()
+		match := strings.EqualFold(sess.Username, name)
+		sess.Mu.RUnlock()
+		if match {
+			return sess
+		}
+	}
+	return nil
+}
+
+// FindOnlineByCharName returns the online session whose character name matches
+// (case-insensitive), or nil. Character names are unique, so at most one matches.
+func (r *Registry) FindOnlineByCharName(name string) *Session {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, sess := range r.sessions {
+		sess.Mu.RLock()
+		match := strings.EqualFold(sess.CharName, name)
+		sess.Mu.RUnlock()
+		if match {
+			return sess
+		}
+	}
+	return nil
+}
+
+// FindOnlineByUserUUID returns the first online session for the given account
+// UUID, or nil. Used for friend status and live request delivery.
+func (r *Registry) FindOnlineByUserUUID(userUUID string) *Session {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, sess := range r.sessions {
+		sess.Mu.RLock()
+		match := sess.UserUUID == userUUID
+		sess.Mu.RUnlock()
+		if match {
+			return sess
+		}
+	}
+	return nil
+}
+
+// IsUserOnline reports whether any session is logged in under userUUID.
+func (r *Registry) IsUserOnline(userUUID string) bool {
+	return r.FindOnlineByUserUUID(userUUID) != nil
 }
 
 // PersistFlushTargets returns a snapshot of all sessions currently in an

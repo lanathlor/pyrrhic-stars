@@ -54,6 +54,7 @@ const (
 	OpEnterPortal       uint16 = 0x0055
 	OpInstanceJoinReply uint16 = 0x0056 // [accept:u8]
 	OpInstanceReset     uint16 = 0x0057 // (no payload) — leader force-reset
+	OpGroupInviteByName uint16 = 0x0058 // [type:u8 (0=account,1=char)][name:str8] — cross-zone invite
 
 	// Social / group — server → client.
 	OpGroupState         uint16 = 0x0060
@@ -63,6 +64,12 @@ const (
 	OpPlayerNames        uint16 = 0x0064
 	OpInstanceJoinPrompt uint16 = 0x0065 // [zone:str8][leader:str8][score:u16 LE][count:u8][per: id:str8 + rank:u8]
 	OpOverfluxState      uint16 = 0x0066 // [score:u16 LE][count:u8][per: id:str8 + rank:u8]
+
+	// Friends — server → client.
+	OpFriendList        uint16 = 0x0067 // [count:u8] per: [userID:str8][name:str8][online:u8]
+	OpFriendRequestRecv uint16 = 0x0068 // [requesterUserID:str8][requesterName:str8]
+	OpFriendError       uint16 = 0x0069 // [code:u8][msg:str8]
+	OpFriendStatus      uint16 = 0x006A // [userID:str8][online:u8]
 
 	// Inventory — client → server.
 	OpEquipItem   uint16 = 0x0070 // [itemID:u32][slotID:u8]
@@ -106,6 +113,12 @@ const (
 	OpMerchantState     uint16 = 0x00C0 // full shop state
 	OpMerchantBuyResult uint16 = 0x00C1 // purchase result
 	OpScripAward        uint16 = 0x00C2 // reward notification
+
+	// Friends — client → server (dedicated band 0x00F0–0x00FF).
+	OpFriendRequest uint16 = 0x00F0 // [type:u8 (0=account,1=char)][name:str8]
+	OpFriendRespond uint16 = 0x00F1 // [accept:u8][requesterUserID:str8]
+	OpFriendRemove  uint16 = 0x00F2 // [friendUserID:str8]
+	OpFriendListReq uint16 = 0x00F3 // (no payload)
 
 	// Zone management — server-handled, never relayed.
 	OpJoinZone            uint16 = 0xFF00
@@ -188,7 +201,12 @@ func BroadcastExcludeSender(opcode uint16) bool {
 // IsServerHandled returns true for opcodes that the server processes directly
 // and does not relay to other clients.
 func IsServerHandled(opcode uint16) bool {
-	return opcode >= 0xFF00 || IsGroupRelated(opcode) || IsInventoryRelated(opcode) || IsLoadoutRelated(opcode) || IsMerchantRelated(opcode)
+	return opcode >= 0xFF00 || IsGroupRelated(opcode) || IsInventoryRelated(opcode) || IsLoadoutRelated(opcode) || IsMerchantRelated(opcode) || IsFriendRelated(opcode)
+}
+
+// IsFriendRelated returns true for friend opcodes (0x00F0–0x00FF).
+func IsFriendRelated(opcode uint16) bool {
+	return opcode >= 0x00F0 && opcode <= 0x00FF
 }
 
 // IsInventoryRelated returns true for inventory/equipment opcodes (0x0070–0x007F).

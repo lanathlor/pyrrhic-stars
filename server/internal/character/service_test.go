@@ -24,12 +24,32 @@ func newStubRepo() *stubRepo {
 }
 
 func (r *stubRepo) UpsertUser(string, string) error           { return nil }
+func (r *stubRepo) UpsertUserSyncName(string, string) error   { return nil }
 func (r *stubRepo) GetUser(string) (*persistence.User, error) { return nil, nil }
+func (r *stubRepo) GetUserSettings(string) (*persistence.UserSettings, error) {
+	return nil, nil
+}
+func (r *stubRepo) UpsertUserSettings(string, string) error { return nil }
 func (r *stubRepo) UpdateCharacterPosition(uint, float64, float64, float64, float64) error {
 	return nil
 }
 func (r *stubRepo) UpdateCharacterSpec(uint, string) error                 { return nil }
 func (r *stubRepo) GetCharacters(string) ([]*persistence.Character, error) { return nil, nil }
+
+func (r *stubRepo) GetUsersByUsername(string) ([]*persistence.User, error)    { return nil, nil }
+func (r *stubRepo) GetCharacterByName(string) (*persistence.Character, error) { return nil, nil }
+func (r *stubRepo) CreateFriendship(string, string) error                     { return nil }
+func (r *stubRepo) GetFriendship(string, string) (*persistence.Friendship, error) {
+	return nil, nil
+}
+func (r *stubRepo) AcceptFriendship(string, string) error { return nil }
+func (r *stubRepo) DeleteFriendship(string, string) error { return nil }
+func (r *stubRepo) GetAcceptedFriends(string) ([]*persistence.Friendship, error) {
+	return nil, nil
+}
+func (r *stubRepo) GetPendingIncoming(string) ([]*persistence.Friendship, error) {
+	return nil, nil
+}
 
 func (r *stubRepo) GetCharacterByID(id uint) (*persistence.Character, error) {
 	c, ok := r.chars[id]

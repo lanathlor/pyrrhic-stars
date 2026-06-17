@@ -50,6 +50,9 @@ func (g *gateway) handleGroupMessage(sess *session.Session, opcode uint16, paylo
 		}
 		slog.Info("group invite sent", "from", sess.ID, "to", targetGlobalID, "group", invite.GroupID)
 
+	case message.OpGroupInviteByName:
+		g.handleGroupInviteByName(sess, payload)
+
 	case message.OpGroupInviteReply:
 		g.handleGroupInviteReply(sess, payload)
 
@@ -118,14 +121,22 @@ func (g *gateway) handleEnterPortal(sess *session.Session, payload []byte) { //n
 		instanceID = fmt.Sprintf("%s_s%d", targetZone, sess.ID)
 	}
 
-	// If the instance already exists, join it directly (no new conditions).
+	// If the instance already exists and still has live players, join it
+	// directly (no new conditions). An instance with zero clients is an
+	// abandoned run (e.g. a previously cleared dungeon whose leave-time
+	// teardown was missed): tear it down so a fresh instance spawns below,
+	// rather than dropping the player back into an empty, already-cleared zone.
 	if existing := g.getZone(instanceID); existing != nil {
-		slog.Info("player joining existing instance", "player_id", sess.ID, "instance", instanceID)
-		g.transferPlayer(sess, instanceID, lvl, groupSize, nil)
-		if grp != nil {
-			g.broadcastGroupState(grp)
+		if existing.zone.ClientCount() > 0 {
+			slog.Info("player joining existing instance", "player_id", sess.ID, "instance", instanceID)
+			g.transferPlayer(sess, instanceID, lvl, groupSize, nil)
+			if grp != nil {
+				g.broadcastGroupState(grp)
+			}
+			return
 		}
-		return
+		slog.Info("removing abandoned empty instance before re-entry", "player_id", sess.ID, "instance", instanceID)
+		g.removeZone(instanceID)
 	}
 
 	// New instance: decode overflux conditions from payload.
@@ -259,6 +270,44 @@ func (g *gateway) handleInstanceReset(sess *session.Session) {
 		slog.Info("instance reset", "zone_id", zoneID, "leader", sess.ID)
 	}
 	g.broadcastGroupState(grp)
+}
+
+// handleGroupInviteByName invites a player resolved by account or character name,
+// reaching any online player regardless of zone. Payload: [type:u8][name:str8]
+// where type 0=account username, 1=character name.
+func (g *gateway) handleGroupInviteByName(sess *session.Session, payload []byte) {
+	if len(payload) < 2 {
+		return
+	}
+	nameType := payload[0]
+	nameLen := int(payload[1])
+	if len(payload) < 2+nameLen {
+		return
+	}
+	name := string(payload[2 : 2+nameLen])
+
+	var target *session.Session
+	if nameType == 1 {
+		target = g.sessions.FindOnlineByCharName(name)
+	} else {
+		target = g.sessions.FindOnlineByUsername(name)
+	}
+	if target == nil {
+		sendGroupError(sess.Conn, "player not found or offline")
+		return
+	}
+	if target.ID == sess.ID {
+		sendGroupError(sess.Conn, "you cannot invite yourself")
+		return
+	}
+
+	invite, err := g.groups.InvitePlayer(sess.ID, target.ID)
+	if err != nil {
+		sendGroupError(sess.Conn, err.Error())
+		return
+	}
+	sendGroupInviteRecv(target.Conn, invite.GroupID, sess.Username)
+	slog.Info("group invite by name sent", "from", sess.ID, "to", target.ID, "group", invite.GroupID)
 }
 
 // handleGroupInviteReply processes an accept or decline for a pending group invite.

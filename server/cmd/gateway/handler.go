@@ -32,6 +32,10 @@ func handleServerMessage(gw *gateway, sess *session.Session, opcode uint16, payl
 		gw.handleMerchantMessage(sess, opcode, payload)
 		return
 	}
+	if message.IsFriendRelated(opcode) {
+		gw.handleFriendMessage(sess, opcode, payload)
+		return
+	}
 
 	switch opcode {
 	case message.OpJoinZone:
