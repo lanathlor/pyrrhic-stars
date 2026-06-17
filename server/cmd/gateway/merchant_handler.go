@@ -7,6 +7,7 @@ import (
 	"codex-online/server/internal/item"
 	"codex-online/server/internal/merchant"
 	"codex-online/server/internal/message"
+	"codex-online/server/internal/progression"
 	"codex-online/server/internal/session"
 )
 
@@ -31,7 +32,7 @@ func (g *gateway) handleMerchantOpen(sess *session.Session, payload []byte) {
 	if !ok {
 		return
 	}
-	state, err := g.merchant.GetState(sess.CharID)
+	state, err := g.progression.GetState(sess.CharID)
 	if err != nil {
 		slog.Error("merchant get state", "char_id", sess.CharID, "error", err)
 		return
@@ -64,7 +65,7 @@ func (g *gateway) handleMerchantBuyItem(sess *session.Session, payload []byte) {
 }
 
 // buildMerchantTiers builds codec tier info from the player's merchant state.
-func buildMerchantTiers(state *merchant.PlayerState) []codec.MerchantTierInfo {
+func buildMerchantTiers(state *progression.PlayerState) []codec.MerchantTierInfo {
 	tiers := make([]codec.MerchantTierInfo, len(merchant.Tiers))
 	for i, td := range merchant.Tiers {
 		unlocked := merchant.IsTierUnlocked(i, state.BestScore, state.MaxScore)

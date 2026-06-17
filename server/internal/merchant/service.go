@@ -7,9 +7,11 @@ import (
 	"codex-online/server/internal/item"
 	"codex-online/server/internal/overflux"
 	"codex-online/server/internal/persistence"
+	"codex-online/server/internal/progression"
 )
 
-// Service handles mercenary scrip rewards and merchant purchases.
+// Service handles merchant purchases: spending scrip and gating the shop by the
+// player's tier unlocks. Run-completion rewards live in the progression package.
 type Service struct {
 	repo persistence.Repository
 }
@@ -17,58 +19,6 @@ type Service struct {
 // NewService creates a merchant service.
 func NewService(repo persistence.Repository) *Service {
 	return &Service{repo: repo}
-}
-
-// PlayerState holds the scrip/unlock state for a character in the current season.
-type PlayerState struct {
-	ScripBalance int
-	BestScore    int
-	Season       uint16
-	MaxScore     int // theoretical max overflux score
-}
-
-// GetState returns the player's current scrip balance and watermark for the current season.
-func (s *Service) GetState(charID uint) (*PlayerState, error) {
-	balance, err := s.repo.GetScrip(charID, CurrentSeason)
-	if err != nil {
-		return nil, fmt.Errorf("get scrip: %w", err)
-	}
-	best, err := s.repo.GetWatermark(charID, CurrentSeason)
-	if err != nil {
-		return nil, fmt.Errorf("get watermark: %w", err)
-	}
-	return &PlayerState{
-		ScripBalance: balance,
-		BestScore:    best,
-		Season:       CurrentSeason,
-		MaxScore:     overflux.MaxScore(),
-	}, nil
-}
-
-// AwardScrip grants scrip to a character based on the overflux score of a completed run.
-// On a timed clear (overTime=false) it also updates the watermark if this score
-// is a new personal best. An over-time finish is not a "clear": scrip is cut to
-// 1/OverTimePenaltyDivisor and the watermark is left untouched, so it grants no
-// tier-unlock progress.
-// Returns the amount of scrip awarded.
-//
-//nolint:revive // overTime reflects the run's outcome (a clear vs an over-time finish), not a control toggle the caller flips
-func (s *Service) AwardScrip(charID uint, overfluxScore int, overTime bool) (int, error) {
-	maxScore := overflux.MaxScore()
-	amount := ScripReward(overfluxScore, maxScore)
-	if overTime {
-		amount /= OverTimePenaltyDivisor
-	}
-
-	if err := s.repo.AddScrip(charID, CurrentSeason, amount); err != nil {
-		return 0, fmt.Errorf("add scrip: %w", err)
-	}
-	if !overTime {
-		if err := s.repo.UpdateWatermark(charID, CurrentSeason, overfluxScore); err != nil {
-			return 0, fmt.Errorf("update watermark: %w", err)
-		}
-	}
-	return amount, nil
 }
 
 // BuyItem purchases an item from a merchant tier. Validates tier unlock,
@@ -94,7 +44,7 @@ func (s *Service) BuyItem(charID uint, tier int, defID string) (itemID uint, new
 
 	// Check tier unlock.
 	maxScore := overflux.MaxScore()
-	best, err := s.repo.GetWatermark(charID, CurrentSeason)
+	best, err := s.repo.GetWatermark(charID, progression.CurrentSeason)
 	if err != nil {
 		return 0, 0, fmt.Errorf("get watermark: %w", err)
 	}
@@ -104,7 +54,7 @@ func (s *Service) BuyItem(charID uint, tier int, defID string) (itemID uint, new
 
 	// Check the player can afford it, with a clean user-facing message before
 	// touching the scrip ledger (DeductScrip's errors are not display-ready).
-	balance, err := s.repo.GetScrip(charID, CurrentSeason)
+	balance, err := s.repo.GetScrip(charID, progression.CurrentSeason)
 	if err != nil {
 		return 0, 0, fmt.Errorf("get scrip: %w", err)
 	}
@@ -113,7 +63,7 @@ func (s *Service) BuyItem(charID uint, tier int, defID string) (itemID uint, new
 	}
 
 	// Deduct scrip.
-	if err := s.repo.DeductScrip(charID, CurrentSeason, td.Price); err != nil {
+	if err := s.repo.DeductScrip(charID, progression.CurrentSeason, td.Price); err != nil {
 		return 0, 0, err
 	}
 
@@ -126,11 +76,11 @@ func (s *Service) BuyItem(charID uint, tier int, defID string) (itemID uint, new
 	}
 	if err := s.repo.CreateItem(ci); err != nil {
 		// Attempt to refund scrip on failure.
-		_ = s.repo.AddScrip(charID, CurrentSeason, td.Price)
+		_ = s.repo.AddScrip(charID, progression.CurrentSeason, td.Price)
 		return 0, 0, fmt.Errorf("create item: %w", err)
 	}
 
 	// Get updated balance.
-	bal, _ := s.repo.GetScrip(charID, CurrentSeason)
+	bal, _ := s.repo.GetScrip(charID, progression.CurrentSeason)
 	return ci.ID, bal, nil
 }

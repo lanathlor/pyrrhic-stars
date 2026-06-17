@@ -139,12 +139,7 @@ func _input(event: InputEvent) -> void:
 	if not _is_open:
 		return
 
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_ESCAPE:
-			close_shop()
-			get_viewport().set_input_as_handled()
-			return
-
+	# Esc is handled centrally (main._input → ui_controller.close_open_overlay).
 	if event is InputEventMouseMotion:
 		_update_hover(event.position)
 
