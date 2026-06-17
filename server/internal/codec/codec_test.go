@@ -296,6 +296,45 @@ func TestWorldStateFluxRoundtrip(t *testing.T) {
 	}
 }
 
+// TestWorldStateArcanotechFluxPoolsNoDesync guards against a wire desync where
+// appendFluxCommitPools wrote count=len(pools) but always emitted all 4 schools.
+// With the default Harmonist loadout (2 committed schools) the count said 2 while
+// 4 schools' worth of bytes were written, leaving 16 stray bytes that corrupted
+// every section after the player block. In game this made enemies and NPCs
+// (the hub merchants) vanish for Arcanotechnicien players only.
+func TestWorldStateArcanotechFluxPoolsNoDesync(t *testing.T) {
+	p := &entity.Player{
+		Combatant: entity.Combatant{ID: 1, Health: 100.0, MaxHealth: 150.0},
+		ClassID:   entity.ClassArcanotechnicien,
+		Resources: map[string]*entity.Resource{
+			"flux": {Current: 40.0, Max: 100.0},
+		},
+		AbilityState: make(map[string]any),
+		FluxCommit:   &entity.FluxCommitment{TotalMax: 100.0, TotalRegen: 10.0},
+	}
+	// Default Harmonist: only 2 of the 4 schools are committed.
+	p.FluxCommit.SetCommitment(map[string]float32{
+		entity.SchoolBioarcanotechnic: 0.5,
+		entity.SchoolBiometabolic:     0.5,
+	})
+
+	// A trailing entity that must survive decode: if the player block is
+	// mis-sized, this gets eaten by the desync (mirrors the missing merchants).
+	enemy := &entity.Enemy{Combatant: entity.Combatant{ID: 1001, Health: 50.0, MaxHealth: 50.0, Alive: true}}
+
+	buf := EncodeWorldState(7, map[uint16]*entity.Player{1: p}, []*entity.Enemy{enemy}, nil)
+	ws, ok := DecodeWorldState(buf)
+	if !ok {
+		t.Fatal("DecodeWorldState failed")
+	}
+	if len(ws.Enemies) != 1 {
+		t.Fatalf("enemies = %d, want 1 (flux pool desync ate the trailing entity)", len(ws.Enemies))
+	}
+	if ws.Enemies[0].EnemyID != 1001 {
+		t.Errorf("enemy id = %d, want 1001 (flux pool desync corrupted trailing data)", ws.Enemies[0].EnemyID)
+	}
+}
+
 func TestDecodeWorldStateNilProjectiles(t *testing.T) {
 	buf := EncodeWorldState(1, nil, nil, nil)
 	ws, ok := DecodeWorldState(buf)
@@ -976,6 +1015,88 @@ func TestEncodeGroupState(t *testing.T) {
 	off += m2NameLen
 	if m2Name != testNameBob {
 		t.Errorf("m2 name = %q, want %q", m2Name, testNameBob)
+	}
+	if off != len(buf) {
+		t.Errorf("consumed %d bytes, buf has %d", off, len(buf))
+	}
+}
+
+// =============================================================================
+// Friend encoders
+// =============================================================================
+
+// readStr8 reads a [len:u8][bytes] string starting at off, returning the string
+// and the new offset.
+func readStr8(b []byte, off int) (string, int) {
+	n := int(b[off])
+	off++
+	s := string(b[off : off+n])
+	return s, off + n
+}
+
+func TestEncodeFriendList(t *testing.T) {
+	friends := []FriendInfo{
+		{UserID: "uuid-1", Name: testName, Online: true},
+		{UserID: "uuid-2", Name: testNameBob, Online: false},
+	}
+	buf := EncodeFriendList(friends)
+
+	off := 0
+	count := int(buf[off])
+	off++
+	if count != 2 {
+		t.Fatalf("count = %d, want 2", count)
+	}
+	for i, want := range friends {
+		var uid, name string
+		uid, off = readStr8(buf, off)
+		name, off = readStr8(buf, off)
+		online := buf[off] == 1
+		off++
+		if uid != want.UserID || name != want.Name || online != want.Online {
+			t.Errorf("entry %d = (%q,%q,%v), want (%q,%q,%v)", i, uid, name, online, want.UserID, want.Name, want.Online)
+		}
+	}
+	if off != len(buf) {
+		t.Errorf("consumed %d bytes, buf has %d", off, len(buf))
+	}
+}
+
+func TestEncodeFriendRequestRecv(t *testing.T) {
+	buf := EncodeFriendRequestRecv("uuid-req", testName)
+	uid, off := readStr8(buf, 0)
+	name, off := readStr8(buf, off)
+	if uid != "uuid-req" || name != testName {
+		t.Errorf("got (%q,%q), want (uuid-req,%q)", uid, name, testName)
+	}
+	if off != len(buf) {
+		t.Errorf("consumed %d bytes, buf has %d", off, len(buf))
+	}
+}
+
+func TestEncodeFriendStatus(t *testing.T) {
+	buf := EncodeFriendStatus("uuid-x", true)
+	uid, off := readStr8(buf, 0)
+	if uid != "uuid-x" {
+		t.Errorf("uid = %q, want uuid-x", uid)
+	}
+	if buf[off] != 1 {
+		t.Errorf("online byte = %d, want 1", buf[off])
+	}
+	off++
+	if off != len(buf) {
+		t.Errorf("consumed %d bytes, buf has %d", off, len(buf))
+	}
+}
+
+func TestEncodeFriendError(t *testing.T) {
+	buf := EncodeFriendError("nope")
+	if buf[0] != 1 {
+		t.Errorf("code = %d, want 1", buf[0])
+	}
+	msg, off := readStr8(buf, 1)
+	if msg != "nope" {
+		t.Errorf("msg = %q, want nope", msg)
 	}
 	if off != len(buf) {
 		t.Errorf("consumed %d bytes, buf has %d", off, len(buf))

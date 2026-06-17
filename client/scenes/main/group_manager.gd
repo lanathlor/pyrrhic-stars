@@ -22,6 +22,8 @@ func on_group_state(data: Dictionary) -> void:
 	update_group_panel()
 	if ctrl._shared_hud:
 		ctrl._shared_hud.update_group_members(data)
+	if ctrl._social_panel:
+		ctrl._social_panel.update_group(data)
 
 
 func on_group_invite(group_id: int, leader_name: String) -> void:
@@ -104,10 +106,12 @@ func decline_invite() -> void:
 func update_group_panel() -> void:
 	if not ctrl._group_panel:
 		return
+	# The top-left panel is a passive roster summary; all actions live in the
+	# [G] social panel, so the leave button stays hidden.
+	ctrl._group_leave_btn.visible = false
 	var gid: int = group_data.get("group_id", 0)
 	if gid == 0:
-		ctrl._group_label.text = "No group\n[G] Create group"
-		ctrl._group_leave_btn.visible = false
+		ctrl._group_label.text = "No group\n[G] Social"
 		ctrl._group_panel.visible = ctrl.state == ctrl.GameState.HUB
 		return
 
@@ -121,5 +125,4 @@ func update_group_panel() -> void:
 		var you_str := " (you)" if pid == NetworkManager.get_my_id() else ""
 		text += "  %s%s%s\n" % [uname, leader_str, you_str]
 	ctrl._group_label.text = text
-	ctrl._group_leave_btn.visible = true
 	ctrl._group_panel.visible = ctrl.state == ctrl.GameState.HUB

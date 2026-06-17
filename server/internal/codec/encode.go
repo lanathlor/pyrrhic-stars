@@ -199,9 +199,13 @@ func appendFluxCommitPools(buf []byte, p *entity.Player) []byte {
 	// Flux commitment pools (Arcanotechnicien school breakdown).
 	// Fixed order: bioarcanotechnic, biometabolic, frost, aerokinetic.
 	if p.FluxCommit != nil && len(p.FluxCommit.Pools) > 0 {
-		pools := p.FluxCommit.Pools
-		buf = append(buf, byte(len(pools)))
+		// Fixed-layout encoding: all 4 schools are always written (absent ones as
+		// zeros), so the count must match the schools written, not len(Pools).
+		// Using len(Pools) here desynced the frame whenever fewer than 4 schools
+		// were committed (default Harmonist commits 2), making every trailing
+		// section -- enemies and NPCs/merchants -- vanish for Arcanotechnicien.
 		schoolOrder := [4]string{entity.SchoolBioarcanotechnic, entity.SchoolBiometabolic, entity.SchoolFrost, entity.SchoolAerokinetic}
+		buf = append(buf, byte(len(schoolOrder)))
 		for _, school := range schoolOrder {
 			pool := p.FluxCommit.GetPool(school)
 			if pool != nil {
@@ -518,6 +522,58 @@ func EncodeGroupInviteRecv(groupID uint32, leaderName string) []byte {
 // Format: [groupID:u32(0)][leaderPeerID:u16(0)][count:u8(0)]
 func EncodeEmptyGroupState() []byte {
 	return make([]byte, 7) // 4 bytes group_id(0) + 2 bytes leader(0) + 1 byte count(0)
+}
+
+// FriendInfo carries one friend/request entry for wire encoding.
+type FriendInfo struct {
+	UserID string
+	Name   string
+	Online bool
+}
+
+// EncodeFriendList builds the payload for OpFriendList.
+// Format: [count:u8] per: [userID:str8][name:str8][online:u8]
+func EncodeFriendList(friends []FriendInfo) []byte {
+	buf := make([]byte, 0, 16+len(friends)*48)
+	buf = append(buf, byte(len(friends)))
+	for _, f := range friends {
+		buf = appendStr8(buf, f.UserID)
+		buf = appendStr8(buf, f.Name)
+		buf = append(buf, boolByte(f.Online))
+	}
+	return buf
+}
+
+// EncodeFriendRequestRecv builds the payload for OpFriendRequestRecv.
+// Format: [requesterUserID:str8][requesterName:str8]
+func EncodeFriendRequestRecv(requesterUserID, requesterName string) []byte {
+	buf := make([]byte, 0, 48)
+	buf = appendStr8(buf, requesterUserID)
+	buf = appendStr8(buf, requesterName)
+	return buf
+}
+
+// EncodeFriendError builds the payload for OpFriendError.
+// Format: [code:u8(1)][msg:str8]
+func EncodeFriendError(msg string) []byte {
+	buf := []byte{1} // error code 1 = generic
+	return appendStr8(buf, msg)
+}
+
+// EncodeFriendStatus builds the payload for OpFriendStatus (single-friend delta).
+// Format: [userID:str8][online:u8]
+func EncodeFriendStatus(userID string, online bool) []byte {
+	buf := make([]byte, 0, 40)
+	buf = appendStr8(buf, userID)
+	buf = append(buf, boolByte(online))
+	return buf
+}
+
+func boolByte(b bool) byte { //nolint:revive // pure bool-to-byte converter, not a control flag
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // InventoryItemInfo carries item data for inventory encoding (decoupled from persistence).
