@@ -49,7 +49,7 @@ I will not:
 - Pretend the project is further along than it is.
 - Sell you on a vision of the game I cannot yet build.
 
-If that sounds like the kind of project you want to follow, the [subscribe form](/#subscribe) sends you exactly one short email a week. No newsletter, no drip campaign, no upsell.
+If that sounds like the kind of project you want to follow, the devlog has an [RSS feed](/rss.xml), and there is a Discord link at the bottom of every page. No newsletter, no drip campaign, no upsell.
 
 If you want to help, the project is open source. Any help is welcome. Im not a game dev. I can do the backend all right, but the client art and code is hard for me.
 

@@ -17,9 +17,10 @@ const SITE = process.env.PUBLIC_SITE_URL || "http://localhost:4321";
 export default defineConfig({
   site: SITE,
 
-  // Server-rendered by default; individual pages opt into prerendering with
-  // `export const prerender = true`. The only non-prerendered route is the
-  // /api/subscribe POST handler.
+  // Server output with the Node adapter. Every route currently sets
+  // `export const prerender = true`, so the server only serves static pages
+  // today; the adapter is kept so a dynamic endpoint can be added back without
+  // re-architecting the build.
   output: "server",
   adapter: node({ mode: "standalone" }),
 
