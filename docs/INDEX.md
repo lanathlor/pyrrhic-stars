@@ -28,7 +28,7 @@ TTRPG source material: https://github.com/lanathlor/rpg
 - [Vanguard](design/classes/vanguard.md) — Souls-like (Blade / Shield / Shadow)
 - [Arcanotechnicien](design/classes/arcanotechnicien.md) — Tactical channeler (Destroyer / Battlemage / Harmonist)
 - [Engineer](design/classes/engineer.md) — Deployables (Architect / Pilot / Saboteur)
-- [Blade Dancer](design/classes/blade-dancer.md) — State machine (Single / Multi Blade)
+- [Blade Dancer](design/classes/blade-dancer.md) — Combo fighter (Single / Multi Blade)
 - [Tutelaire](design/classes/tutelaire.md) — Aura positioning (Guardian / Adjudicator)
 
 ### Content

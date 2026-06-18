@@ -2,7 +2,7 @@
 
 ## Vision
 
-A PvE co-op action MMO where every class plays a fundamentally different game genre. A Gunner plays a first-person shooter. A Vanguard plays a souls-like. A Blade Dancer plays a telekinetic state machine. All in the same dungeon, fighting the same boss, at the same time.
+A PvE co-op action MMO where every class plays a fundamentally different game genre. A Gunner plays a first-person shooter. A Vanguard plays a souls-like. A Blade Dancer chains telekinetic combos. All in the same dungeon, fighting the same boss, at the same time.
 
 Target: playable with 5-10 friends first, scalable to thousands later.
 

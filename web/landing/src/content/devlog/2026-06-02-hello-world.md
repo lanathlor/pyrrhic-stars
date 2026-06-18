@@ -14,7 +14,7 @@ I have been playing co-op games for twenty years, and they all run on the same t
 
 I want to break that.
 
-In Pyrrhic Stars, the Gunner holds the camera at eye level. The Vanguard orbits the boss in third person, looking for an opening, ready to dodge or parry. The Blade Dancer target-locks and works a state machine, swapping configurations as her cooldowns line up. The Arcanotechnicien stops moving, lines up a Flux channel, and _commits_ to an ability for three full seconds while the boss is locked onto her. Four people, one fight, four completely different games happening at the same time. None of them are more important than the others. None of them replace the others. The fight is not winnable if any of them are missing.
+In Pyrrhic Stars, the Gunner holds the camera at eye level. The Vanguard orbits the boss in third person, looking for an opening, ready to dodge or parry. The Blade Dancer target-locks and chains combos, swapping configurations as her cooldowns line up. The Arcanotechnicien stops moving, lines up a Flux channel, and _commits_ to an ability for three full seconds while the boss is locked onto her. Four people, one fight, four completely different games happening at the same time. None of them are more important than the others. None of them replace the others. The fight is not winnable if any of them are missing.
 
 That is the game. That is what I am building.
 
@@ -30,7 +30,7 @@ I am publishing this in Phase 0, the online alpha. I work alone, on weekends, an
 
 Here is what exists in the repository as of this post:
 
-- **Four class controllers.** Gunner (first-person, raycast gun, recoil, line of sight). Vanguard (third-person souls-like, dodge, parry, directional block, two specs). Blade Dancer (state machine, target-lock, four blade configurations, GCD-driven combos). Arcanotechnicien (channeling, commitment windows, a small kit of VFX-driven abilities).
+- **Four class controllers.** Gunner (first-person, raycast gun, recoil, line of sight). Vanguard (third-person souls-like, dodge, parry, directional block, two specs). Blade Dancer (combo fighter, target-lock, four blade configurations, GCD-driven combos). Arcanotechnicien (channeling, commitment windows, a small kit of VFX-driven abilities).
 - **One arena.** CSG geometry, cover boxes, pillars, a flat floor. Functional, ugly, deliberate. The point of the arena is to be readable, not pretty.
 - **One enemy.** Walks toward the nearest player, swings a telegraphed melee at 1 second wind-up, fires a telegraphed projectile at the farthest player with a half-second laser warning. Two patterns, on a loop. It is enough to test that the controllers can fail and recover.
 - **A Go game server.** Gateway, zone, chat. WebSocket transport, 20Hz tick loop, server-authoritative combat resolution. Hub and arena zones, zone transfer on portal walk. Groups, invites, lobby flow. The game runs on a real network, not on localhost.
