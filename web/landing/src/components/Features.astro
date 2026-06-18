@@ -1,7 +1,7 @@
 ---
-// 4 feature pillars. Wording sourced from docs/design/combat.md and
-// docs/design/classes/README.md. Do not rewrite. This language is what the
-// design docs commit to publicly.
+// 4 feature pillars. Written for the site in plain voice; the underlying
+// principles come from docs/design/combat.md and docs/design/classes/README.md.
+// Keep these consistent with those docs, but they are not verbatim quotes.
 
 interface Pillar {
   title: string;
@@ -11,8 +11,8 @@ interface Pillar {
 
 const pillars: Pillar[] = [
   {
-    title: "Six classes. Six different game genres.",
-    body: "Every class has a different camera, a different input model, and a different combat loop. They share one game, one dungeon, one boss.",
+    title: "Six classes, six different genres.",
+    body: "Each class has its own camera, its own controls, and a combat loop that has little to do with the others. They are still all in the same dungeon, on the same boss, at the same time.",
     tags: [
       "FPS",
       "Souls-like",
@@ -23,16 +23,16 @@ const pillars: Pillar[] = [
     ],
   },
   {
-    title: "Skill-based combat. No threat tables. No auto-attacks.",
-    body: "Every point of damage a boss deals is avoidable with better play. Bosses telegraph, you read, you move. The Shield Vanguard blocks space. It doesn’t taunt.",
+    title: "Skill-based combat, no threat tables.",
+    body: "A boss never chips you with damage you had no way to avoid. It winds up, you see it coming, and you move. The Shield Vanguard holds a piece of the arena by standing in it; nothing in the game forces a boss to attack one player over another.",
   },
   {
-    title: "5-player co-op. No required roles.",
-    body: "Healers and tanks exist. They’re strong. They’re not mandatory. Encounters are completable without them at sufficient skill.",
+    title: "Five-player co-op, no fixed roles.",
+    body: "There are healers and tanks, and they are good at what they do. You just are not required to bring one. With enough skill a group can clear without them.",
   },
   {
-    title: "Weekly devlog. Built in public.",
-    body: "One concrete thing working each week. No vapor. No mockups. Real footage, real systems, no exceptions.",
+    title: "Built in public.",
+    body: "I try to put out something real on a regular basis: a new system, a bit of footage, whatever actually works that week. No mockups, and no promises about things I have not built yet.",
   },
 ];
 ---
