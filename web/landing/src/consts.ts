@@ -2,6 +2,12 @@
 
 export const SITE_TITLE = "Pyrrhic Stars";
 
+// Discord invite. The final site is a static GitHub Pages build with no runtime
+// env, so the link is committed here as the default. PUBLIC_DISCORD_URL still
+// wins when set (e.g. preview builds pointing at a different server).
+export const DISCORD_URL =
+  import.meta.env.PUBLIC_DISCORD_URL || "https://discord.gg/UD5cChCGtd";
+
 // Sourced verbatim from docs/project/marketing.md:5. Do not rewrite.
 export const SITE_TAGLINE =
   "A co-op action game where every class plays a different genre.";

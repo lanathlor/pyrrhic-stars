@@ -1,7 +1,8 @@
 ---
 import { Icon } from "astro-icon/components";
+import { DISCORD_URL } from "../consts";
 
-const discord = import.meta.env.PUBLIC_DISCORD_URL;
+const discord = DISCORD_URL;
 const dlLinux = import.meta.env.PUBLIC_DOWNLOAD_LINUX;
 const dlWindows = import.meta.env.PUBLIC_DOWNLOAD_WINDOWS;
 const steam = import.meta.env.PUBLIC_STEAM_URL;

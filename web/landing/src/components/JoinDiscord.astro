@@ -1,10 +1,11 @@
 ---
 import { Icon } from "astro-icon/components";
+import { DISCORD_URL } from "../consts";
 
 // Bottom CTA: join the Discord. Replaces the email signup form. The button
-// gracefully degrades when PUBLIC_DISCORD_URL is unset (disabled, "Soon"),
+// gracefully degrades when no Discord URL is configured (disabled, "Soon"),
 // mirroring CtaLinks.astro.
-const discord = import.meta.env.PUBLIC_DISCORD_URL;
+const discord = DISCORD_URL;
 ---
 
 <section id="join" class="mx-auto max-w-3xl px-6 py-20 sm:py-28">
