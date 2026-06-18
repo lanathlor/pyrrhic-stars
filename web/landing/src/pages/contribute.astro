@@ -1,0 +1,76 @@
+---
+import Base from '../layouts/Base.astro'
+
+export const prerender = true
+
+const repo = import.meta.env.PUBLIC_REPO_URL
+const discord = import.meta.env.PUBLIC_DISCORD_URL
+---
+
+<Base
+	title='Contribute'
+	description='How to contribute to Pyrrhic Stars. The whole project is open source.'
+>
+	<main class='mx-auto max-w-3xl px-6 py-16 sm:py-24'>
+		<header class='mb-10'>
+			<p class='text-xs uppercase tracking-[0.2em] text-chrome-400 font-medium'>
+				Open source
+			</p>
+			<h1 class='mt-4 text-3xl sm:text-4xl font-semibold tracking-tight text-text-primary'>
+				How to contribute.
+			</h1>
+		</header>
+
+		<div class='prose prose-invert max-w-none text-text-secondary'>
+			<p>
+				Anyone is welcome to contribute. The whole thing is open source, under the AGPL.
+				I come from backend development, so the spots where I need help most are probably
+				obvious to anyone who has played the build.
+			</p>
+
+			<h2>Where I need help most</h2>
+			<ul>
+				<li>
+					<strong>Art and animation.</strong> Graphics, good PBR materials, and especially
+					rigging, meshes, and animation. This is my weakest area by far.
+				</li>
+				<li>
+					<strong>The world.</strong> More nuance: NPCs, set dressing, detailing.
+				</li>
+				<li><strong>Sound and music.</strong> Extremely welcome.</li>
+				<li><strong>Code.</strong> Debugging, advancing features, refactoring.</li>
+				<li>
+					<strong>Feedback.</strong> What feels good, what falls flat, what is confusing.
+					Honestly the most useful thing at this stage.
+				</li>
+			</ul>
+
+			<h2>Getting started</h2>
+			<p>
+				{
+					repo ? (
+						<Fragment>
+							The code lives <a href={repo}>on the public repository</a>. Open an issue or a
+							pull request.
+						</Fragment>
+					) : (
+						<Fragment>The public repository link is coming soon.</Fragment>
+					)
+				}
+			</p>
+
+			<h2>Get in touch</h2>
+			<p>
+				{
+					discord ? (
+						<Fragment>
+							Say hi <a href={discord}>on Discord</a>.
+						</Fragment>
+					) : (
+						<Fragment>A Discord is coming soon.</Fragment>
+					)
+				}
+			</p>
+		</div>
+	</main>
+</Base>
