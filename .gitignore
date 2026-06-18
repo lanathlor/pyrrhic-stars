@@ -44,3 +44,6 @@ reports/
 
 # Claude editor bridge
 client/editor_bridge/
+
+# Local secrets and untracked local config
+.secrets/
