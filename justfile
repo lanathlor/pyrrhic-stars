@@ -1,4 +1,4 @@
-# Codex Online - Task Runner
+# Pyrrhic Stars - Task Runner
 
 mod server
 mod client
