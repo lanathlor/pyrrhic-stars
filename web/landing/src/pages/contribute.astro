@@ -1,10 +1,10 @@
 ---
 import Base from '../layouts/Base.astro'
-import { DISCORD_URL } from '../consts'
+import { DISCORD_URL, REPO_URL } from '../consts'
 
 export const prerender = true
 
-const repo = import.meta.env.PUBLIC_REPO_URL
+const repo = REPO_URL
 const discord = DISCORD_URL
 ---
 
