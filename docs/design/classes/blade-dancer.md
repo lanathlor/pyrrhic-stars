@@ -1,6 +1,6 @@
 # Blade Dancer
 
-**Gameplay: Positional State Machine**
+**Gameplay: Positional Combo Fighter**
 
 Camera: third person, pulled back to see blade positions. Input: target-lock, 4 ability buttons that change based on current blade configuration. Core loop: chain configuration transitions to set up optimal ability sequences.
 
@@ -137,12 +137,12 @@ No cooldowns, small GCD. Beginners mash and blades do stuff. Experts plan 2-3 tr
 
 | Spec        | Identity                 | Playstyle                                                                            |
 | ----------- | ------------------------ | ------------------------------------------------------------------------------------ |
-| Multi Blade | 4-6 blades, AoE constant | Full state machine, complex, highest skill ceiling in the game                       |
+| Multi Blade | 4-6 blades, AoE constant | Full combo system, complex, highest skill ceiling in the game                       |
 | Dual Blade  | 2 blades, mono burst     | Each blade on its own GCD with 3 positions and 2 abilities per position. Piano gameplay |
 
 ## Dual Blade
 
-Two telekinetic blades, each controlled independently on separate GCDs. The player manages two parallel state machines — like playing piano with two hands.
+Two telekinetic blades, each controlled independently on separate GCDs. The player manages two parallel combo flows, like playing piano with two hands.
 
 Each blade has 3 positions:
 

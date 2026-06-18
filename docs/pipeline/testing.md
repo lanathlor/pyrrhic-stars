@@ -12,7 +12,7 @@ Standard Go `testing` package. Test-driven development for all game logic.
 
 GdUnit for GDScript unit testing. Headless Godot for automated testing.
 
-- Unit tests for state machine (Blade Dancer configurations), aura management, input processing
+- Unit tests for the Blade Dancer configuration system, aura management, input processing
 - Scene tests: programmatic assertions on node visibility, interaction triggers, UI state
 
 ## Integration Tests

@@ -37,7 +37,7 @@ Status: **NOT STARTED**
     -   [x] Dodge roll
     -   [x] One melee swing (hitbox)
     -   [x] Stamina bar HUD
--   [x] Blade Dancer (State Machine)
+-   [x] Blade Dancer (Combo Fighter)
     -   [x] Third-person target-lock camera
     -   [x] 4 abilities
     -   [x] 2 blade configurations (Orbit, Lance)

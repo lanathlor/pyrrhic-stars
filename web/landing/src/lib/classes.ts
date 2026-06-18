@@ -58,7 +58,7 @@ export const CLASSES: ClassEntry[] = [
 	{
 		slug: 'blade-dancer',
 		name: 'Blade Dancer',
-		genre: 'Positional State Machine',
+		genre: 'Positional Combo Fighter',
 		identity: 'Every ability flips your blades into a new shape, so you are always mid-combo. Two blades for burst, more for sustained AoE.',
 		accent: 'blade-dancer',
 		playable: true,

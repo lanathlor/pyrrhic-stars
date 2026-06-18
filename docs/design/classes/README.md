@@ -8,7 +8,7 @@
 | [Vanguard](vanguard.md)         | Souls-like Action Melee     | Minimal    |
 | [Arcanotechnicien](arcanotechnicien.md) | Tactical Flux Channeling    | Primary    |
 | [Engineer](engineer.md)         | Deployable Management       | Moderate   |
-| [Blade Dancer](blade-dancer.md) | Positional State Machine    | Moderate   |
+| [Blade Dancer](blade-dancer.md) | Positional Combo Fighter    | Moderate   |
 | [Tutelaire](tutelaire.md)       | Aura Positioning and Triage | Heavy      |
 
 ## Specialization Design Axes
