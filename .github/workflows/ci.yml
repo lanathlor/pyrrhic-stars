@@ -140,8 +140,6 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: barichello/godot-ci:4.5.1
-    # GdUnit in CI can be flaky — drop continue-on-error once stable.
-    continue-on-error: true
     env:
       DISPLAY: ":0"
     steps:
@@ -165,7 +163,7 @@ jobs:
 
   build-client-linux:
     runs-on: ubuntu-latest
-    needs: [lint-client, fmt-client, funlen-client]
+    needs: [lint-client, fmt-client, funlen-client, test-client]
     container:
       image: barichello/godot-ci:4.5.1
     steps:
@@ -204,7 +202,7 @@ jobs:
 
   build-client-windows:
     runs-on: ubuntu-latest
-    needs: [lint-client, fmt-client, funlen-client]
+    needs: [lint-client, fmt-client, funlen-client, test-client]
     container:
       image: barichello/godot-ci:4.5.1
     steps:
@@ -419,6 +417,7 @@ jobs:
         lint-client,
         fmt-client,
         funlen-client,
+        test-client,
       ]
     if: github.ref == 'refs/heads/main'
     outputs:
@@ -446,6 +445,12 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Full history + tags so changelog.sh can list changes since the last tag.
+      - uses: actions/checkout@v5
+        with:
+          lfs: false
+          fetch-depth: 0
+          fetch-tags: true
       - uses: actions/download-artifact@v6
         with:
           name: pyrrhic-stars-linux-${{ github.sha }}
@@ -474,6 +479,7 @@ jobs:
         run: gh release delete nightly --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" || true
       - name: write release notes
         run: |
+          set -euo pipefail
           cat > notes.md <<'EOF'
           Rolling build from the latest commit on `main`.
 
@@ -486,11 +492,14 @@ jobs:
           ### Downloads
           | Platform | File |
           | --- | --- |
-          | Game · Linux | `pyrrhic-stars-linux.x86_64` |
-          | Game · Windows | `pyrrhic-stars-windows.exe` |
-          | Server gateway · Linux | `pyrrhic-stars-gateway-linux` |
-          | Server gateway · Windows | `pyrrhic-stars-gateway-windows.exe` |
+          | Game · Linux | [pyrrhic-stars-linux.x86_64](https://github.com/${{ github.repository }}/releases/download/nightly/pyrrhic-stars-linux.x86_64) |
+          | Game · Windows | [pyrrhic-stars-windows.exe](https://github.com/${{ github.repository }}/releases/download/nightly/pyrrhic-stars-windows.exe) |
+          | Server gateway · Linux | [pyrrhic-stars-gateway-linux](https://github.com/${{ github.repository }}/releases/download/nightly/pyrrhic-stars-gateway-linux) |
+          | Server gateway · Windows | [pyrrhic-stars-gateway-windows.exe](https://github.com/${{ github.repository }}/releases/download/nightly/pyrrhic-stars-gateway-windows.exe) |
+
+          ## Changes since the last release
           EOF
+          bash .github/scripts/changelog.sh >> notes.md
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: nightly
@@ -597,6 +606,7 @@ jobs:
           gh release delete "pr-${PR}" --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" || true
       - name: write release notes
         run: |
+          set -euo pipefail
           cat > notes.md <<'EOF'
           Preview build for **PR #${{ github.event.pull_request.number }}** — release candidate `${{ steps.rc.outputs.rc_name }}`.
 
@@ -608,11 +618,15 @@ jobs:
           ### Downloads
           | Platform | File |
           | --- | --- |
-          | Game · Linux | `pyrrhic-stars-linux.x86_64` |
-          | Game · Windows | `pyrrhic-stars-windows.exe` |
-          | Server gateway · Linux | `pyrrhic-stars-gateway-linux` |
-          | Server gateway · Windows | `pyrrhic-stars-gateway-windows.exe` |
+          | Game · Linux | [pyrrhic-stars-linux.x86_64](https://github.com/${{ github.repository }}/releases/download/pr-${{ github.event.pull_request.number }}/pyrrhic-stars-linux.x86_64) |
+          | Game · Windows | [pyrrhic-stars-windows.exe](https://github.com/${{ github.repository }}/releases/download/pr-${{ github.event.pull_request.number }}/pyrrhic-stars-windows.exe) |
+          | Server gateway · Linux | [pyrrhic-stars-gateway-linux](https://github.com/${{ github.repository }}/releases/download/pr-${{ github.event.pull_request.number }}/pyrrhic-stars-gateway-linux) |
+          | Server gateway · Windows | [pyrrhic-stars-gateway-windows.exe](https://github.com/${{ github.repository }}/releases/download/pr-${{ github.event.pull_request.number }}/pyrrhic-stars-gateway-windows.exe) |
+
+          ## Changes in this PR
           EOF
+          bash .github/scripts/changelog.sh \
+            "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}" >> notes.md
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: pr-${{ github.event.pull_request.number }}
