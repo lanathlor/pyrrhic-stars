@@ -178,6 +178,13 @@ jobs:
           key: godot-import-${{ env.GODOT_VERSION }}-${{ github.ref }}
           restore-keys: |
             godot-import-${{ env.GODOT_VERSION }}-
+      - name: link export templates
+        # The godot-ci image ships templates under /root, but GitHub runs
+        # container jobs with HOME=/github/home, so Godot can't find them.
+        run: |
+          mkdir -p "$HOME/.local/share/godot/export_templates"
+          ln -sfn "/root/.local/share/godot/export_templates/${GODOT_VERSION}.stable" \
+                  "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
       - name: export Linux
         run: |
           mkdir -p build/linux
@@ -209,6 +216,13 @@ jobs:
           key: godot-import-${{ env.GODOT_VERSION }}-${{ github.ref }}
           restore-keys: |
             godot-import-${{ env.GODOT_VERSION }}-
+      - name: link export templates
+        # The godot-ci image ships templates under /root, but GitHub runs
+        # container jobs with HOME=/github/home, so Godot can't find them.
+        run: |
+          mkdir -p "$HOME/.local/share/godot/export_templates"
+          ln -sfn "/root/.local/share/godot/export_templates/${GODOT_VERSION}.stable" \
+                  "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
       - name: export Windows
         run: |
           mkdir -p build/windows
