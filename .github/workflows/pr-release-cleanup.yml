@@ -1,0 +1,20 @@
+name: PR release cleanup
+
+# When a same-repo PR closes (merged or not), delete the per-PR prerelease and
+# its tag created by the release-pr job in ci.yml.
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  delete-pr-release:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: delete PR prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release delete "pr-${{ github.event.pull_request.number }}" --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" || true

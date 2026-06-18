@@ -534,3 +534,54 @@ jobs:
           generate_release_notes: true
           make_latest: true
           files: assets/*
+
+  # A PR against main from a branch in this repo (not a fork) publishes a
+  # per-PR prerelease so the build under review is downloadable. Fork PRs are
+  # excluded: their GITHUB_TOKEN is read-only and cannot publish releases.
+  release-pr:
+    runs-on: ubuntu-latest
+    needs: [build-client-linux, build-client-windows, build-server]
+    if: >
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v6
+        with:
+          name: pyrrhic-stars-linux-${{ github.sha }}
+          path: dl/linux
+      - uses: actions/download-artifact@v6
+        with:
+          name: pyrrhic-stars-windows-${{ github.sha }}
+          path: dl/windows
+      - uses: actions/download-artifact@v6
+        with:
+          name: pyrrhic-stars-server-${{ github.sha }}
+          path: dl/server
+      - name: assemble release assets
+        run: |
+          set -euo pipefail
+          mkdir -p assets
+          cp dl/linux/pyrrhic-stars.x86_64        assets/pyrrhic-stars-linux.x86_64
+          cp dl/windows/pyrrhic-stars.exe         assets/pyrrhic-stars-windows.exe
+          cp dl/server/server-linux/gateway       assets/pyrrhic-stars-gateway-linux
+          cp dl/server/server-windows/gateway.exe assets/pyrrhic-stars-gateway-windows.exe
+      - name: refresh PR prerelease tag
+        # Move the pr-<n> tag + assets to the current head on each push.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release delete "pr-${{ github.event.pull_request.number }}" --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" || true
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: pr-${{ github.event.pull_request.number }}
+          name: "PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}"
+          prerelease: true
+          target_commitish: ${{ github.event.pull_request.head.sha }}
+          make_latest: false
+          body: >
+            Preview build for PR #${{ github.event.pull_request.number }}
+            (head ${{ github.event.pull_request.head.sha }}). Prerelease for
+            review/testing; removed automatically when the PR is closed.
+          files: assets/*
