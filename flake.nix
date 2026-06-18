@@ -1,5 +1,5 @@
 {
-  description = "Codex Online - Action MMO dev environment";
+  description = "Pyrrhic Stars - Action MMO dev environment";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -44,7 +44,7 @@
         ];
 
         shellHook = ''
-          echo "Codex Online dev shell"
+          echo "Pyrrhic Stars dev shell"
           echo "  godot : $(godot --version 2>/dev/null || echo 'available')"
           echo "  blender: $(blender --version 2>&1 | head -1) (from nixos-24.11)"
           echo "  go    : $(go version 2>/dev/null | cut -d' ' -f3)"
