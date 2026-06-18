@@ -101,7 +101,6 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-          cache: pip
       - name: gdlint
         working-directory: client
         run: |
@@ -118,7 +117,6 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-          cache: pip
       - name: gdformat check
         working-directory: client
         run: |
@@ -257,6 +255,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      pull-requests: read
     env:
       IMAGE: ghcr.io/${{ github.repository }}/landing
     steps:
