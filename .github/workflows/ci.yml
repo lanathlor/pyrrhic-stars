@@ -302,6 +302,9 @@ jobs:
         with:
           context: web/landing
           push: true
+          build-args: |
+            PUBLIC_DOWNLOAD_LINUX=https://github.com/${{ github.repository }}/releases/latest/download/pyrrhic-stars-linux.x86_64
+            PUBLIC_DOWNLOAD_WINDOWS=https://github.com/${{ github.repository }}/releases/latest/download/pyrrhic-stars-windows.exe
           tags: |
             ${{ env.IMAGE }}:${{ github.sha }}
             ${{ env.IMAGE }}:latest
@@ -394,3 +397,140 @@ jobs:
           tags: |
             ${{ env.IMAGE }}:${{ github.sha }}
             ${{ env.IMAGE }}:latest
+
+  # --- Release ---
+
+  # Derive the next semver from conventional commits since the last vX.Y.Z tag.
+  # Standard mapping: breaking -> major, feat -> minor, fix/perf -> patch.
+  # First release is pinned to v0.1.0. Outputs an empty release_type when there
+  # is nothing releasable (in which case only the nightly release is refreshed).
+  version:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    outputs:
+      new_tag: ${{ steps.compute.outputs.new_tag }}
+      release_type: ${{ steps.compute.outputs.release_type }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          lfs: false
+          fetch-depth: 0
+          fetch-tags: true
+      - name: compute next version
+        id: compute
+        run: |
+          set -euo pipefail
+          last=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1 || true)
+          if [ -z "$last" ]; then
+            new_tag="v0.1.0"; release_type="minor"
+          else
+            range="${last}..HEAD"
+            subjects=$(git log --no-merges --pretty=format:%s "$range" || true)
+            bodies=$(git log --no-merges --pretty=format:%B "$range" || true)
+            bump="none"
+            if printf '%s\n' "$subjects" | grep -qE '^[a-z]+(\([^)]+\))?!:' \
+               || printf '%s\n' "$bodies" | grep -qE 'BREAKING[ -]CHANGE'; then
+              bump="major"
+            elif printf '%s\n' "$subjects" | grep -qE '^feat(\([^)]+\))?:'; then
+              bump="minor"
+            elif printf '%s\n' "$subjects" | grep -qE '^(fix|perf)(\([^)]+\))?:'; then
+              bump="patch"
+            fi
+            ver="${last#v}"
+            major="${ver%%.*}"; rest="${ver#*.}"; minor="${rest%%.*}"; patch="${rest#*.}"
+            case "$bump" in
+              major) major=$((major + 1)); minor=0; patch=0 ;;
+              minor) minor=$((minor + 1)); patch=0 ;;
+              patch) patch=$((patch + 1)) ;;
+            esac
+            new_tag="v${major}.${minor}.${patch}"
+            release_type="$bump"; [ "$bump" = "none" ] && release_type=""
+          fi
+          echo "new_tag=$new_tag"           >> "$GITHUB_OUTPUT"
+          echo "release_type=$release_type" >> "$GITHUB_OUTPUT"
+          echo "Resolved: last=${last:-<none>} -> new_tag=$new_tag release_type=${release_type:-<none>}"
+
+  # Download artifacts produced by the build jobs and rename them to stable,
+  # version-independent filenames used by every release. The same asset names
+  # back the permanent /releases/latest/download/<name> URLs.
+  release-nightly:
+    runs-on: ubuntu-latest
+    needs: [build-client-linux, build-client-windows, build-server]
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v6
+        with:
+          name: pyrrhic-stars-linux-${{ github.sha }}
+          path: dl/linux
+      - uses: actions/download-artifact@v6
+        with:
+          name: pyrrhic-stars-windows-${{ github.sha }}
+          path: dl/windows
+      - uses: actions/download-artifact@v6
+        with:
+          name: pyrrhic-stars-server-${{ github.sha }}
+          path: dl/server
+      - name: assemble release assets
+        run: |
+          set -euo pipefail
+          mkdir -p assets
+          cp dl/linux/pyrrhic-stars.x86_64        assets/pyrrhic-stars-linux.x86_64
+          cp dl/windows/pyrrhic-stars.exe         assets/pyrrhic-stars-windows.exe
+          cp dl/server/server-linux/gateway       assets/pyrrhic-stars-gateway-linux
+          cp dl/server/server-windows/gateway.exe assets/pyrrhic-stars-gateway-windows.exe
+      - name: refresh nightly tag + release
+        # Delete the old rolling release+tag so the nightly tag and assets move
+        # cleanly to the current commit, then recreate it.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release delete nightly --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" || true
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nightly
+          name: Nightly (main)
+          prerelease: true
+          target_commitish: ${{ github.sha }}
+          make_latest: false
+          body: >
+            Rolling build from the latest commit on `main`
+            (${{ github.sha }}). Unstable; for the latest tested build use the
+            most recent versioned release.
+          files: assets/*
+
+  release-stable:
+    runs-on: ubuntu-latest
+    needs: [version, build-client-linux, build-client-windows, build-server]
+    if: github.ref == 'refs/heads/main' && needs.version.outputs.release_type != ''
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v6
+        with:
+          name: pyrrhic-stars-linux-${{ github.sha }}
+          path: dl/linux
+      - uses: actions/download-artifact@v6
+        with:
+          name: pyrrhic-stars-windows-${{ github.sha }}
+          path: dl/windows
+      - uses: actions/download-artifact@v6
+        with:
+          name: pyrrhic-stars-server-${{ github.sha }}
+          path: dl/server
+      - name: assemble release assets
+        run: |
+          set -euo pipefail
+          mkdir -p assets
+          cp dl/linux/pyrrhic-stars.x86_64        assets/pyrrhic-stars-linux.x86_64
+          cp dl/windows/pyrrhic-stars.exe         assets/pyrrhic-stars-windows.exe
+          cp dl/server/server-linux/gateway       assets/pyrrhic-stars-gateway-linux
+          cp dl/server/server-windows/gateway.exe assets/pyrrhic-stars-gateway-windows.exe
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.new_tag }}
+          name: ${{ needs.version.outputs.new_tag }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          make_latest: true
+          files: assets/*

@@ -20,6 +20,14 @@ RUN pnpm install --frozen-lockfile
 # Now the rest of the source
 COPY . .
 
+# Download URLs for the game builds. Astro inlines PUBLIC_* env vars at build
+# time, so these must be present before `astro build`. CtaLinks enables the
+# download buttons when they are set (and stays disabled when unset).
+ARG PUBLIC_DOWNLOAD_LINUX
+ARG PUBLIC_DOWNLOAD_WINDOWS
+ENV PUBLIC_DOWNLOAD_LINUX=$PUBLIC_DOWNLOAD_LINUX \
+    PUBLIC_DOWNLOAD_WINDOWS=$PUBLIC_DOWNLOAD_WINDOWS
+
 # Build = `astro build` (produces dist/server + dist/client for Node adapter)
 RUN pnpm run build \
  && pnpm prune --prod
