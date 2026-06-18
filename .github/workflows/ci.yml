@@ -1,0 +1,294 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["*"]
+  pull_request:
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.5.1"
+
+jobs:
+  # --- Test: Server ---
+
+  lint-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: server/go.sum
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.12
+          working-directory: server
+          args: --concurrency=2 ./...
+
+  fmt-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: server/go.sum
+      - name: goimports check
+        working-directory: server
+        run: |
+          go install golang.org/x/tools/cmd/goimports@latest
+          OUT=$("$(go env GOPATH)/bin/goimports" -l cmd/ internal/)
+          if [ -n "$OUT" ]; then
+            echo "Files need formatting:" >&2
+            echo "$OUT" >&2
+            exit 1
+          fi
+
+  test-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: server/go.sum
+      - name: go test
+        working-directory: server
+        run: go test ./... -count=1
+
+  # --- Test: Landing ---
+
+  lint-landing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: web/landing/pnpm-lock.yaml
+      - name: install & check
+        working-directory: web/landing
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run check
+
+  # --- Test: Client ---
+
+  lint-client:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: gdlint
+        working-directory: client
+        run: |
+          pip install --quiet "gdtoolkit==4.*"
+          gdlint scripts/ scenes/
+          cd tests/ && gdlint .
+
+  fmt-client:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: gdformat check
+        working-directory: client
+        run: |
+          pip install --quiet "gdtoolkit==4.*"
+          gdformat --check scripts/ scenes/ tests/
+
+  funlen-client:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: check function length
+        working-directory: client
+        run: python3 scripts/tools/check_func_length.py scripts/ scenes/
+
+  test-client:
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.5.1
+    # GdUnit in CI can be flaky — drop continue-on-error once stable.
+    continue-on-error: true
+    env:
+      DISPLAY: ":0"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: cache godot import
+        uses: actions/cache@v4
+        with:
+          path: client/.godot/
+          key: godot-import-${{ env.GODOT_VERSION }}-${{ github.ref }}
+          restore-keys: |
+            godot-import-${{ env.GODOT_VERSION }}-
+      - name: import & test
+        working-directory: client
+        run: |
+          godot --headless --import
+          godot --headless -s addons/gdUnit4/bin/GdUnitCmdTool.gd -a res://tests --ignoreHeadlessMode
+
+  # --- Build: Client ---
+
+  build-client-linux:
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.5.1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: cache godot import
+        uses: actions/cache@v4
+        with:
+          path: client/.godot/
+          key: godot-import-${{ env.GODOT_VERSION }}-${{ github.ref }}
+          restore-keys: |
+            godot-import-${{ env.GODOT_VERSION }}-
+      - name: export Linux
+        run: |
+          mkdir -p build/linux
+          cd client
+          godot --headless --import
+          # Godot 4.5.x may crash during post-export cleanup (signal 11) even
+          # though the pack file was written successfully. Ignore the exit code
+          # and verify the output file exists.
+          godot --headless --export-release "Linux" ../build/linux/pyrrhic-stars.x86_64 || true
+          test -f ../build/linux/pyrrhic-stars.x86_64 || (echo "Export failed — binary not found" && exit 1)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pyrrhic-stars-linux-${{ github.sha }}
+          path: build/linux/
+          retention-days: 30
+
+  build-client-windows:
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.5.1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: cache godot import
+        uses: actions/cache@v4
+        with:
+          path: client/.godot/
+          key: godot-import-${{ env.GODOT_VERSION }}-${{ github.ref }}
+          restore-keys: |
+            godot-import-${{ env.GODOT_VERSION }}-
+      - name: export Windows
+        run: |
+          mkdir -p build/windows
+          cd client
+          godot --headless --import
+          godot --headless --export-release "Windows" ../build/windows/pyrrhic-stars.exe || true
+          test -f ../build/windows/pyrrhic-stars.exe || (echo "Export failed — binary not found" && exit 1)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pyrrhic-stars-windows-${{ github.sha }}
+          path: build/windows/
+          retention-days: 30
+
+  # --- Build: Server ---
+
+  build-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: server/go.sum
+      - name: cross-compile gateway
+        working-directory: server
+        run: |
+          mkdir -p ../build/server-linux ../build/server-windows
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../build/server-linux/gateway ./cmd/gateway
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o ../build/server-windows/gateway.exe ./cmd/gateway
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pyrrhic-stars-server-${{ github.sha }}
+          path: |
+            build/server-linux/
+            build/server-windows/
+          retention-days: 30
+
+  # --- Build: Landing image ---
+
+  build-landing-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}/landing
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - name: detect landing changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            landing:
+              - 'web/landing/**'
+      - name: log in to GHCR
+        if: >
+          github.ref == 'refs/heads/main' ||
+          startsWith(github.ref, 'refs/tags/') ||
+          steps.changes.outputs.landing == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: build & push
+        if: >
+          github.ref == 'refs/heads/main' ||
+          startsWith(github.ref, 'refs/tags/') ||
+          steps.changes.outputs.landing == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: web/landing
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
