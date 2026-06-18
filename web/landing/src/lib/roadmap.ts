@@ -28,9 +28,9 @@ export const PHASES: Phase[] = [
     label: "Phase 0",
     title: "Online alpha",
     status: "done",
-    goal: "Five players, a hub, a class, a dungeon, one real boss.",
+    goal: "Prove the core loop works online.",
     summary:
-      "The proof of concept. Five players meet in a hub, pick a class, group up, walk through a portal into a dungeon, fight one real boss, and leave. Everything runs server-authoritative over the internet, not on a LAN. This is done: four classes are playable across five specs, the combat systems resolve damage and cooldowns on the server, and the first dungeon is live with its first boss.",
+      "The proof of concept, and it is done. Five people meet in a hub, pick a class, group up, and head through a portal into a dungeon to fight a boss. It all runs on a server over the internet, so you can actually play it with friends who are not in the room. There are four playable classes with five specs between them, the server handles the damage and the cooldowns, and the first dungeon has its first boss.",
     bullets: [
       "Server-authoritative online co-op",
       "Four classes, five specs playable",
@@ -42,9 +42,9 @@ export const PHASES: Phase[] = [
     label: "Phase 1",
     title: "Content and economy",
     status: "done",
-    goal: "Make the dungeon worth running: feel, loot, and stakes.",
+    goal: "Turn the demo room into a dungeon worth replaying.",
     summary:
-      "Everything that turns the alpha's single room into a dungeon you actually want to run. Trash packs lead into the boss, the full clear loop runs start to finish against a timer, and the combat-feel pass landed: telegraphs you read and animations that sell every hit. On top of that the reward loop is in: clear a run, earn mercenary scrip, and spend it at the merchant on gear. Difficulty modifiers (Overflux) let you raise the stakes for better payouts. All shipped.",
+      "This is what pushed the alpha past a single empty room, and it is all in the build now. You fight through packs of enemies to reach the boss, and the whole run is played against a clear timer. Combat got a proper feel pass, with telegraphs you can read and animations behind every hit. The reward loop works too. Finish a run, earn mercenary scrip, take it to the merchant for gear. And if you want a harder run for a better payout, the Overflux modifiers let you crank things up.",
     bullets: [
       "Trash packs and full clear loop",
       "Combat feel: telegraphs and animations",
@@ -56,9 +56,9 @@ export const PHASES: Phase[] = [
     label: "Phase 2",
     title: "More bosses and depth",
     status: "now",
-    goal: "Finish the first dungeon's gauntlet of bosses.",
+    goal: "Give the first dungeon more than one boss.",
     summary:
-      "The work in front of me right now. The first dungeon still leans on a single boss, so the focus is more encounters: additional bosses, a full multi-boss clear from the first trash pack to the last, and deeper mechanics that each fight teaches. This is where the active work is going.",
+      "This is the part I am working on now. The dungeon still hangs on a single boss, so it needs more of them, with the fights in between, so that a full clear takes you all the way from the first pack of enemies to the last. The new encounters are also where I get to build deeper, stranger mechanics.",
     bullets: [
       "More bosses for the first dungeon",
       "A full multi-boss clear, start to finish",
@@ -69,9 +69,9 @@ export const PHASES: Phase[] = [
     label: "Phase 3",
     title: "Polish",
     status: "later",
-    goal: "Round out the roster and open up the world.",
+    goal: "Fill out the roster and step outside the dungeon.",
     summary:
-      "Rounding everything out. The last two classes (the Engineer and the Tutelaire) bring the roster to six, and a group finder means you no longer need a pre-made team to play. The world opens up too: a first open-world zone and an adventuring loop to explore it, beyond the dungeon runs. Beyond this lies a longer vision, but I will not promise what I have not started.",
+      "The later stuff. The last two classes, the Engineer and the Tutelaire, bring the roster up to six. A group finder means you do not have to bring your own team to play. And the game starts to leave the dungeon behind, with a first open-world zone and a reason to go wander around in it. There is more I want to do past that, but I would rather not promise things I have not started yet.",
     bullets: [
       "Last two classes (Engineer, Tutelaire)",
       "Group finder",
