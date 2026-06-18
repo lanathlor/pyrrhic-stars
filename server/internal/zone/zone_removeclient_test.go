@@ -21,7 +21,7 @@ func TestRemoveClient_DoesNotDeadlockUnderTick(t *testing.T) {
 
 	z.AddClient(&Client{
 		PeerID:   1,
-		Username: "TestPlayer",
+		Username: testPlayerName,
 		Send:     func([]byte) {},
 	})
 
@@ -63,7 +63,7 @@ func TestRemoveClient_DevMode_DoesNotDeadlock(t *testing.T) {
 
 	z.AddClient(&Client{
 		PeerID:   1,
-		Username: "TestPlayer",
+		Username: testPlayerName,
 		Send:     func([]byte) {},
 	})
 
@@ -96,7 +96,7 @@ func TestRemoveClient_WithUDPClient_DoesNotDeadlock(t *testing.T) {
 
 	z.AddClient(&Client{
 		PeerID:   1,
-		Username: "TestPlayer",
+		Username: testPlayerName,
 		Send:     func([]byte) {},
 		SendUDP:  func([]byte) {},
 	})
@@ -130,7 +130,7 @@ func TestRemoveClient_WhileQueueingInput(t *testing.T) {
 
 	z.AddClient(&system.Client{
 		PeerID:   1,
-		Username: "TestPlayer",
+		Username: testPlayerName,
 		Send:     func([]byte) {},
 		SendUDP:  func([]byte) {},
 	})

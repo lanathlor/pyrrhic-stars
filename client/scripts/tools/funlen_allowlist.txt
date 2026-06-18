@@ -1,0 +1,12 @@
+# Known functions exceeding the 60-line limit, grandfathered in.
+# Shrink this list as functions are refactored; do not add new entries.
+scripts/autoload/net_serialize_inventory.gd:246
+scripts/autoload/net_serialize_world.gd:18
+scenes/controllers/vanguard/vanguard_movement.gd:113
+scenes/main/game_flow_manager.gd:59
+scenes/main/game_flow_manager.gd:238
+scenes/shared/hud/shared_hud.gd:534
+scenes/ui/lobby_panel.gd:33
+scenes/ui/merchant_panel.gd:219
+scenes/ui/merchant_panel.gd:351
+scenes/ui/merchant_panel.gd:476
