@@ -3,23 +3,27 @@ import "../styles/global.css";
 import BaseHead from "../components/BaseHead.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
+import { getLang } from "../i18n/utils";
 
 interface Props {
   title: string;
   description: string;
   image?: { src: string; width: number; height: number; format: string };
+  /** Whether this page has a French counterpart (false for devlog posts). */
+  frAlternate?: boolean;
 }
 
-const { title, description, image } = Astro.props;
+const { title, description, image, frAlternate = true } = Astro.props;
+const lang = getLang(Astro);
 ---
 
 <!doctype html>
-<html lang="en" class="scroll-smooth">
+<html lang={lang} class="scroll-smooth">
   <head>
-    <BaseHead title={title} description={description} image={image} />
+    <BaseHead title={title} description={description} image={image} frAlternate={frAlternate} />
   </head>
   <body class="bg-bg-base text-text-secondary antialiased min-h-screen flex flex-col font-sans">
-    <Header />
+    <Header hasCounterpart={frAlternate} />
     <main class="flex-1">
       <slot />
     </main>

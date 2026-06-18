@@ -20,15 +20,22 @@ export const SITE_TAGLINE =
 export const SITE_DESCRIPTION =
   "Pyrrhic Stars: a co-op action game where every class plays a different genre. FPS, Souls-like, tactical channeling, deployables, blade combos, aura positioning. Build in public, weekly devlog.";
 
+// Navigation. `href` is a locale-neutral path (localized at render time via
+// localePath); `key` resolves the label through the i18n dictionary.
 export interface NavItem {
   href: string;
-  label: string;
+  key:
+    | "nav.home"
+    | "nav.about"
+    | "nav.roadmap"
+    | "nav.devlog"
+    | "nav.contribute";
 }
 
 export const NAV: NavItem[] = [
-  { href: "/", label: "Home" },
-  { href: "/about", label: "About" },
-  { href: "/roadmap", label: "Roadmap" },
-  { href: "/devlog", label: "Devlog" },
-  { href: "/contribute", label: "Contribute" },
+  { href: "/", key: "nav.home" },
+  { href: "/about", key: "nav.about" },
+  { href: "/roadmap", key: "nav.roadmap" },
+  { href: "/devlog", key: "nav.devlog" },
+  { href: "/contribute", key: "nav.contribute" },
 ];

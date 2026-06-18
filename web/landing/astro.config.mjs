@@ -24,7 +24,26 @@ export default defineConfig({
   output: "server",
   adapter: node({ mode: "standalone" }),
 
-  integrations: [mdx(), sitemap(), icon()],
+  // English at the root (`/`), French under `/fr/`. The default locale is not
+  // prefixed so existing URLs are untouched. The site is prerendered/static, so
+  // browser-locale detection happens client-side (see LangRedirect.astro), not
+  // via Accept-Language middleware.
+  i18n: {
+    locales: ["en", "fr"],
+    defaultLocale: "en",
+    routing: { prefixDefaultLocale: false },
+  },
+
+  integrations: [
+    mdx(),
+    sitemap({
+      i18n: {
+        defaultLocale: "en",
+        locales: { en: "en", fr: "fr" },
+      },
+    }),
+    icon(),
+  ],
 
   vite: {
     plugins: [tailwindcss()],

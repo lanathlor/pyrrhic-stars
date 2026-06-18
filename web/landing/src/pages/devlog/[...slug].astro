@@ -22,7 +22,7 @@ const { Content } = await render(post);
 const { title, description, pubDate, updatedDate, heroImage } = post.data;
 ---
 
-<Base title={title} description={description} image={heroImage}>
+<Base title={title} description={description} image={heroImage} frAlternate={false}>
   <DevlogPost
     title={title}
     description={description}

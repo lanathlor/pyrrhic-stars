@@ -1,0 +1,67 @@
+---
+// EN / FR toggle. Each link points at the current page's counterpart in the
+// other locale. Clicking records an explicit choice in `ps_lang` so the
+// auto-detect script (LangRedirect.astro) stops overriding it.
+import { getLang, useTranslations, switchLocalePath, localePath, languages, type Lang } from "../i18n/utils";
+
+interface Props {
+  /** False on pages with no localized counterpart (devlog posts); switching
+   *  locale then lands on that locale's home rather than a 404. */
+  hasCounterpart?: boolean;
+}
+
+const { hasCounterpart = true } = Astro.props;
+const lang = getLang(Astro);
+const t = useTranslations(lang);
+const pathname = Astro.url.pathname;
+
+const opts: Lang[] = ["en", "fr"];
+
+function hrefFor(code: Lang): string {
+  if (code === lang) return switchLocalePath(pathname, code);
+  return hasCounterpart ? switchLocalePath(pathname, code) : localePath(code, "/");
+}
+---
+
+<div class="flex items-center rounded-md border border-border-muted overflow-hidden text-xs font-medium" role="group" aria-label={t("lang.switch")}>
+  {
+    opts.map((code) => {
+      const active = code === lang;
+      return (
+        <a
+          href={hrefFor(code)}
+          hreflang={code}
+          lang={code}
+          data-set-lang={code}
+          aria-label={languages[code]}
+          aria-current={active ? "true" : undefined}
+          class:list={[
+            "px-2 py-1 transition-colors",
+            active
+              ? "bg-bg-raised text-text-primary"
+              : "text-text-muted hover:text-text-primary",
+          ]}
+        >
+          {t(code === "fr" ? "lang.fr" : "lang.en")}
+        </a>
+      );
+    })
+  }
+</div>
+
+<script>
+  // Persist an explicit language choice so auto-detect respects it next visit.
+  document.querySelectorAll<HTMLAnchorElement>("a[data-set-lang]").forEach((el) => {
+    el.addEventListener("click", () => {
+      try {
+        const choice = el.dataset.setLang;
+        if (choice) {
+          localStorage.setItem("ps_lang", choice);
+          document.cookie = `ps_lang=${choice};path=/;max-age=31536000;samesite=lax`;
+        }
+      } catch {
+        /* storage unavailable; navigation still proceeds */
+      }
+    });
+  });
+</script>

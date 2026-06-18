@@ -1,6 +1,9 @@
 ---
 import { SITE_TITLE, DISCORD_URL, REPO_URL } from "../consts";
+import { getLang, useTranslations, localePath } from "../i18n/utils";
 
+const lang = getLang(Astro);
+const t = useTranslations(lang);
 const year = new Date().getFullYear();
 const discord = DISCORD_URL;
 const repo = REPO_URL;
@@ -8,10 +11,10 @@ const repo = REPO_URL;
 
 <footer class="mt-24 border-t border-border-muted">
   <div class="mx-auto max-w-6xl px-6 py-10 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between text-sm text-text-muted">
-    <p>&copy; {year} {SITE_TITLE}. Built in public.</p>
+    <p>&copy; {year} {SITE_TITLE}. {t("footer.builtInPublic")}</p>
     <div class="flex items-center gap-4">
-      <a href="/devlog" class="hover:text-text-primary transition-colors">Devlog</a>
-      <a href="/rss.xml" class="hover:text-text-primary transition-colors">RSS</a>
+      <a href={localePath(lang, "/devlog")} class="hover:text-text-primary transition-colors">{t("footer.devlog")}</a>
+      <a href="/rss.xml" class="hover:text-text-primary transition-colors">{t("footer.rss")}</a>
       {
         repo && (
           <a
@@ -20,7 +23,7 @@ const repo = REPO_URL;
             rel="noopener"
             class="hover:text-text-primary transition-colors"
           >
-            GitHub
+            {t("footer.github")}
           </a>
         )
       }
@@ -32,7 +35,7 @@ const repo = REPO_URL;
             rel="noopener"
             class="hover:text-text-primary transition-colors"
           >
-            Discord
+            {t("footer.discord")}
           </a>
         )
       }

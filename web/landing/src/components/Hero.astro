@@ -1,8 +1,10 @@
 ---
 import { Icon } from 'astro-icon/components'
 import CtaLinks from './CtaLinks.astro'
-import { SITE_TAGLINE } from '../consts'
+import { getLang, useTranslations } from '../i18n/utils'
 
+const lang = getLang(Astro)
+const t = useTranslations(lang)
 const repo = import.meta.env.PUBLIC_REPO_URL
 ---
 
@@ -19,7 +21,7 @@ const repo = import.meta.env.PUBLIC_REPO_URL
 	<div class='relative mx-auto max-w-6xl px-6 pt-24 pb-20 sm:pt-32 sm:pb-28'>
 		<div class='flex flex-wrap items-center gap-x-4 gap-y-2 animate-fade-up'>
 			<p class='text-xs uppercase tracking-[0.2em] text-chrome-400 font-medium'>
-				Phase 2 &middot; More bosses
+				{t('hero.badge')}
 			</p>
 			{
 				repo && (
@@ -35,7 +37,7 @@ const repo = import.meta.env.PUBLIC_REPO_URL
 							height='12'
 							aria-hidden='true'
 						/>
-						Open source
+						{t('hero.openSource')}
 					</a>
 				)
 			}
@@ -44,15 +46,13 @@ const repo = import.meta.env.PUBLIC_REPO_URL
 			class='mt-6 text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight text-text-primary animate-fade-up'
 			style='animation-delay: 60ms'
 		>
-			{SITE_TAGLINE}
+			{t('hero.tagline')}
 		</h1>
 		<p
 			class='mt-6 max-w-2xl text-lg sm:text-xl text-text-secondary animate-fade-up'
 			style='animation-delay: 120ms'
 		>
-			A sci-fi co-op dungeon crawler where the Gunner plays an FPS, the Vanguard plays a
-			Souls-like, and the Blade Dancer chains combos, all in the same fight, against
-			the same boss.
+			{t('hero.description')}
 		</p>
 
 		<div
@@ -62,6 +62,6 @@ const repo = import.meta.env.PUBLIC_REPO_URL
 			<CtaLinks />
 		</div>
 
-		<p class='mt-6 text-sm text-text-muted'>New devlog every week.</p>
+		<p class='mt-6 text-sm text-text-muted'>{t('hero.weeklyDevlog')}</p>
 	</div>
 </section>

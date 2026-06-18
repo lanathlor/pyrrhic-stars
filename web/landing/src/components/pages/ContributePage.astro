@@ -1,0 +1,64 @@
+---
+// Contribute page body, shared by /contribute and /fr/contribute. Prose lives in
+// src/i18n/pages.ts; the "getting started" / "get in touch" lines wrap inline
+// repo and Discord links that degrade gracefully when the URLs are unset.
+import Base from "../../layouts/Base.astro";
+import { DISCORD_URL, REPO_URL } from "../../consts";
+import { getLang } from "../../i18n/utils";
+import { getContent } from "../../i18n/pages";
+
+const lang = getLang(Astro);
+const c = getContent(lang).contribute;
+const repo = REPO_URL;
+const discord = DISCORD_URL;
+---
+
+<Base title={c.metaTitle} description={c.metaDescription}>
+  <main class="mx-auto max-w-3xl px-6 py-16 sm:py-24">
+    <header class="mb-10">
+      <p class="text-xs uppercase tracking-[0.2em] text-chrome-400 font-medium">
+        {c.eyebrow}
+      </p>
+      <h1 class="mt-4 text-3xl sm:text-4xl font-semibold tracking-tight text-text-primary">
+        {c.heading}
+      </h1>
+    </header>
+
+    <div class="prose prose-invert max-w-none text-text-secondary">
+      <p>{c.intro}</p>
+
+      <h2>{c.needHeading}</h2>
+      <ul>
+        {c.needs.map((need) => (
+          <li><strong>{need.name}</strong> {need.desc}</li>
+        ))}
+      </ul>
+
+      <h2>{c.startHeading}</h2>
+      <p>
+        {
+          repo ? (
+            <Fragment>
+              {c.startBefore}<a href={repo}>{c.startLink}</a>{c.startAfter}
+            </Fragment>
+          ) : (
+            <Fragment>{c.startNoRepo}</Fragment>
+          )
+        }
+      </p>
+
+      <h2>{c.touchHeading}</h2>
+      <p>
+        {
+          discord ? (
+            <Fragment>
+              {c.touchBefore}<a href={discord}>{c.touchLink}</a>{c.touchAfter}
+            </Fragment>
+          ) : (
+            <Fragment>{c.touchNoDiscord}</Fragment>
+          )
+        }
+      </p>
+    </div>
+  </main>
+</Base>

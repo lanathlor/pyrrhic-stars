@@ -1,5 +1,10 @@
 ---
-import { CLASSES, type ClassAccent } from "../lib/classes.ts";
+import { getClasses, type ClassAccent } from "../lib/classes.ts";
+import { getLang, useTranslations } from "../i18n/utils";
+
+const lang = getLang(Astro);
+const t = useTranslations(lang);
+const classes = getClasses(lang);
 
 // Tailwind needs to *see* class strings literally to compile them. Mapping
 // the accent enum to fully-qualified utility strings keeps the JIT happy.
@@ -25,16 +30,16 @@ const accentText: Record<ClassAccent, string> = {
 <section id="classes" class="mx-auto max-w-6xl px-6 py-20 sm:py-28">
   <header class="mb-12">
     <p class="text-xs uppercase tracking-[0.2em] text-chrome-400 font-medium">
-      The roster
+      {t("classes.eyebrow")}
     </p>
     <h2 class="mt-4 text-3xl sm:text-4xl font-semibold tracking-tight text-text-primary">
-      Six classes. One dungeon.
+      {t("classes.heading")}
     </h2>
   </header>
 
   <ul class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
     {
-      CLASSES.map((c) => (
+      classes.map((c) => (
         <li
           class:list={[
             "relative rounded-lg border border-border-muted bg-bg-raised p-6 hover:bg-bg-overlay transition-colors",
@@ -55,7 +60,7 @@ const accentText: Record<ClassAccent, string> = {
             {c.identity}
           </p>
           <span class="mt-4 inline-block text-[10px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-border-muted bg-bg-base text-text-muted font-medium">
-            {c.playable ? "Playable" : "Planned"}
+            {c.playable ? t("classes.playable") : t("classes.planned")}
           </span>
         </li>
       ))

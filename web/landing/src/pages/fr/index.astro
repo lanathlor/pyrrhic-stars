@@ -1,0 +1,9 @@
+---
+// French homepage. Astro.currentLocale resolves to "fr" from the /fr/ URL, so
+// the shared body renders in French with no per-page duplication.
+import HomePage from "../../components/pages/HomePage.astro";
+
+export const prerender = true;
+---
+
+<HomePage />

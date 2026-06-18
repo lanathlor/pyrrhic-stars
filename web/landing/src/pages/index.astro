@@ -1,23 +1,7 @@
 ---
-import Base from "../layouts/Base.astro";
-import Hero from "../components/Hero.astro";
-import Features from "../components/Features.astro";
-import ClassesGrid from "../components/ClassesGrid.astro";
-import Roadmap from "../components/Roadmap.astro";
-import DevlogPreview from "../components/DevlogPreview.astro";
-import JoinDiscord from "../components/JoinDiscord.astro";
-import { SITE_TITLE, SITE_DESCRIPTION } from "../consts";
+import HomePage from "../components/pages/HomePage.astro";
 
 export const prerender = true;
 ---
 
-<Base title={SITE_TITLE} description={SITE_DESCRIPTION}>
-  <main>
-    <Hero />
-    <Features />
-    <ClassesGrid />
-    <Roadmap />
-    <DevlogPreview />
-    <JoinDiscord />
-  </main>
-</Base>
+<HomePage />

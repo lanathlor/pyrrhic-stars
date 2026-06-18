@@ -1,0 +1,106 @@
+---
+// Full roadmap page body, shared by /roadmap and /fr/roadmap. Phase data comes
+// from src/lib/roadmap.ts; surrounding prose from src/i18n/pages.ts.
+import Base from "../../layouts/Base.astro";
+import { getRoadmap, type PhaseStatus } from "../../lib/roadmap";
+import { getLang, useTranslations, localePath } from "../../i18n/utils";
+import { getContent } from "../../i18n/pages";
+
+const lang = getLang(Astro);
+const t = useTranslations(lang);
+const c = getContent(lang).roadmap;
+const phases = getRoadmap(lang);
+
+// Quiet status chip per phase. Matches the homepage section's badge language.
+const statusChip: Record<PhaseStatus, { label: string; classes: string } | null> = {
+  done: {
+    label: t("roadmap.status.done"),
+    classes: "bg-bg-overlay text-text-muted border-border-muted",
+  },
+  now: {
+    label: t("roadmap.status.now"),
+    classes: "bg-chrome-500/15 text-chrome-300 border-chrome-500/30",
+  },
+  next: {
+    label: t("roadmap.status.next"),
+    classes: "bg-bg-overlay text-text-muted border-border-muted",
+  },
+  later: null,
+};
+---
+
+<Base title={c.metaTitle} description={c.metaDescription}>
+  <main class="mx-auto max-w-3xl px-6 py-16 sm:py-24">
+    <header class="mb-12">
+      <p class="text-xs uppercase tracking-[0.2em] text-chrome-400 font-medium">
+        {t("roadmap.eyebrow")}
+      </p>
+      <h1 class="mt-4 text-4xl sm:text-5xl font-semibold tracking-tight text-text-primary">
+        {t("roadmap.heading")}
+      </h1>
+      <p class="mt-4 text-text-secondary leading-relaxed">
+        {c.intro}
+      </p>
+    </header>
+
+    <ol class="relative border-l border-border-muted pl-8 space-y-12">
+      {
+        phases.map((phase) => {
+          const chip = statusChip[phase.status];
+          const isNow = phase.status === "now";
+          return (
+            <li class="relative">
+              <span
+                aria-hidden="true"
+                class:list={[
+                  "absolute -left-[2.4rem] top-1.5 h-3 w-3 rounded-full border-2 border-bg-base",
+                  isNow
+                    ? "bg-chrome-400"
+                    : phase.status === "done"
+                      ? "bg-text-muted"
+                      : "bg-border-muted",
+                ]}
+              />
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="text-[11px] font-mono uppercase tracking-[0.15em] text-text-muted">
+                  {phase.label}
+                </span>
+                {chip && (
+                  <span
+                    class:list={[
+                      "text-[10px] px-1.5 py-0.5 rounded border font-medium",
+                      chip.classes,
+                    ]}
+                  >
+                    {chip.label}
+                  </span>
+                )}
+              </div>
+              <h2 class="mt-2 text-2xl font-semibold tracking-tight text-text-primary">
+                {phase.title}
+              </h2>
+              <p class="mt-1 text-sm text-chrome-300">{phase.goal}</p>
+              <p class="mt-4 text-text-secondary leading-relaxed">
+                {phase.summary}
+              </p>
+              <ul class="mt-5 space-y-1.5 text-sm text-text-secondary">
+                {phase.bullets.map((b) => (
+                  <li class="flex gap-2">
+                    <span aria-hidden="true" class="text-text-muted">
+                      &bull;
+                    </span>
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          );
+        })
+      }
+    </ol>
+
+    <p class="mt-16 border-t border-border-muted pt-8 text-sm text-text-muted leading-relaxed">
+      {c.footerBefore}<a href={localePath(lang, "/devlog")} class="text-chrome-300 hover:text-chrome-200">{c.footerLink}</a>{c.footerAfter}
+    </p>
+  </main>
+</Base>

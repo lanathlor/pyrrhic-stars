@@ -1,0 +1,62 @@
+---
+// Client-side locale auto-detection. The site is prerendered/static (GitHub
+// Pages, no runtime), so Accept-Language middleware can't run; this inline,
+// render-blocking script does the redirect before paint to minimise any flash.
+//
+// Rules:
+// - An explicit choice (ps_lang in localStorage/cookie, written by LangSwitcher)
+//   always wins and is sticky in both directions.
+// - With no explicit choice, only auto-UPGRADE an English URL to /fr/ when the
+//   browser prefers French. A visitor who followed a shared /fr/ link is never
+//   bounced back to English (no auto-downgrade), so French links stay shareable.
+// - Only redirects when the target locale differs from the current URL, so there
+//   is no loop.
+---
+
+<script is:inline>
+  (function () {
+    try {
+      var path = location.pathname;
+      var isFr = path === "/fr" || path === "/fr/" || path.indexOf("/fr/") === 0;
+      var current = isFr ? "fr" : "en";
+
+      var stored = null;
+      try {
+        stored = localStorage.getItem("ps_lang");
+      } catch (e) {}
+      if (stored !== "en" && stored !== "fr") {
+        var m = document.cookie.match(/(?:^|;\s*)ps_lang=([^;]+)/);
+        stored = m ? m[1] : null;
+      }
+
+      var target;
+      if (stored === "en" || stored === "fr") {
+        // Explicit choice wins, in both directions.
+        target = stored;
+      } else if (current === "en") {
+        // No choice yet: upgrade to French only if the browser prefers it.
+        var langs = navigator.languages || [navigator.language || "en"];
+        target = "en";
+        for (var i = 0; i < langs.length; i++) {
+          var l = (langs[i] || "").toLowerCase();
+          if (l.indexOf("fr") === 0) { target = "fr"; break; }
+          if (l.indexOf("en") === 0) { target = "en"; break; }
+        }
+      } else {
+        // Already on a /fr/ URL with no explicit choice: respect the link.
+        target = "fr";
+      }
+
+      if (target === current) return;
+
+      var neutral = isFr ? path.replace(/^\/fr(?=\/|$)/, "") : path;
+      if (neutral === "") neutral = "/";
+
+      var dest = target === "fr"
+        ? (neutral === "/" ? "/fr/" : "/fr" + neutral)
+        : neutral;
+
+      location.replace(dest + location.search + location.hash);
+    } catch (e) {}
+  })();
+</script>
