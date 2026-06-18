@@ -1,0 +1,45 @@
+---
+// About page body, shared by /about and /fr/about. Prose lives in
+// src/i18n/pages.ts; the open-source mention wraps an inline repo link.
+import Base from "../../layouts/Base.astro";
+import { getLang } from "../../i18n/utils";
+import { getContent } from "../../i18n/pages";
+
+const lang = getLang(Astro);
+const c = getContent(lang).about;
+const repo = import.meta.env.PUBLIC_REPO_URL;
+---
+
+<Base title={c.metaTitle} description={c.metaDescription}>
+  <main class="mx-auto max-w-3xl px-6 py-16 sm:py-24">
+    <header class="mb-10">
+      <p class="text-xs uppercase tracking-[0.2em] text-chrome-400 font-medium">
+        {c.eyebrow}
+      </p>
+      <h1 class="mt-4 text-3xl sm:text-4xl font-semibold tracking-tight text-text-primary">
+        {c.heading}
+      </h1>
+    </header>
+
+    <div class="prose prose-invert max-w-none text-text-secondary">
+      <p>{c.p1}</p>
+      <p>{c.p2}</p>
+      <p>
+        {c.p3before}{repo ? (<a href={repo}>{c.p3link}</a>) : c.p3link}.
+      </p>
+      <p>{c.p4}</p>
+
+      <h2>{c.tracksHeading}</h2>
+      <p>{c.tracksIntro}</p>
+      <ul>
+        {c.tracks.map((track) => (
+          <li><strong>{track.name}</strong> {track.desc}</li>
+        ))}
+      </ul>
+      <p>{c.tracksClosing}</p>
+
+      <h2>{c.rewardsHeading}</h2>
+      <p>{c.rewardsBody}</p>
+    </div>
+  </main>
+</Base>

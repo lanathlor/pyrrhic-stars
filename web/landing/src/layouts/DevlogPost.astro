@@ -2,15 +2,18 @@
 import { Icon } from "astro-icon/components";
 import type { CollectionEntry } from "astro:content";
 import FormattedDate from "../components/FormattedDate.astro";
+import { getLang, useTranslations, localePath } from "../i18n/utils";
 
 type Props = CollectionEntry<"devlog">["data"];
 
+const lang = getLang(Astro);
+const t = useTranslations(lang);
 const { title, description, pubDate, updatedDate } = Astro.props;
 ---
 
 <article class="mx-auto max-w-3xl px-6 py-16">
   <a
-    href="/devlog"
+    href={localePath(lang, "/devlog")}
     class="group inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-chrome-300 transition-colors mb-8"
   >
     <Icon
@@ -18,7 +21,7 @@ const { title, description, pubDate, updatedDate } = Astro.props;
       class="h-4 w-4 transition-transform group-hover:-translate-x-1"
       aria-hidden="true"
     />
-    Back to devlog
+    {t("devlogPost.back")}
   </a>
 
   <header class="mb-12">
@@ -28,7 +31,7 @@ const { title, description, pubDate, updatedDate } = Astro.props;
     {
       updatedDate && (
         <span class="ml-2 text-sm italic text-text-muted">
-          (updated <FormattedDate date={updatedDate} />)
+          ({t("devlogPost.updated")} <FormattedDate date={updatedDate} />)
         </span>
       )
     }

@@ -1,0 +1,43 @@
+---
+// Devlog index body, shared by /devlog and /fr/devlog. Chrome is localized; the
+// listed posts are the single canonical (English-authored) entries.
+import { getCollection } from "astro:content";
+import Base from "../../layouts/Base.astro";
+import DevlogCard from "../DevlogCard.astro";
+import { getLang, useTranslations } from "../../i18n/utils";
+
+const lang = getLang(Astro);
+const t = useTranslations(lang);
+
+const posts = (await getCollection("devlog", ({ data }) => !data.draft)).sort(
+  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
+);
+---
+
+<Base title={t("devlogIndex.metaTitle")} description={t("devlogIndex.metaDescription")}>
+  <main class="mx-auto max-w-6xl px-6 py-16 sm:py-24">
+    <header class="mb-12">
+      <p class="text-xs uppercase tracking-[0.2em] text-chrome-400 font-medium">
+        {t("devlogIndex.eyebrow")}
+      </p>
+      <h1 class="mt-4 text-4xl sm:text-5xl font-semibold tracking-tight text-text-primary">
+        {t("devlogIndex.heading")}
+      </h1>
+      <p class="mt-4 max-w-2xl text-text-secondary leading-relaxed">
+        {t("devlogIndex.intro")}
+      </p>
+    </header>
+
+    {posts.length === 0 ? (
+      <p class="text-text-muted">{t("devlogIndex.empty")}</p>
+    ) : (
+      <ul class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {posts.map((post) => (
+          <li>
+            <DevlogCard post={post} />
+          </li>
+        ))}
+      </ul>
+    )}
+  </main>
+</Base>

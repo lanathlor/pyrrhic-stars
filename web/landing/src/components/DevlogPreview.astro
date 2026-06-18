@@ -1,6 +1,10 @@
 ---
 import { getCollection } from "astro:content";
 import DevlogCard from "./DevlogCard.astro";
+import { getLang, useTranslations, localePath } from "../i18n/utils";
+
+const lang = getLang(Astro);
+const t = useTranslations(lang);
 
 const posts = (await getCollection("devlog", ({ data }) => !data.draft))
   .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
@@ -13,17 +17,17 @@ const posts = (await getCollection("devlog", ({ data }) => !data.draft))
       <header class="mb-10 flex items-end justify-between gap-4">
         <div>
           <p class="text-xs uppercase tracking-[0.2em] text-chrome-400 font-medium">
-            Build in public
+            {t("devlogPreview.eyebrow")}
           </p>
           <h2 class="mt-4 text-3xl sm:text-4xl font-semibold tracking-tight text-text-primary">
-            From the devlog.
+            {t("devlogPreview.heading")}
           </h2>
         </div>
         <a
-          href="/devlog"
+          href={localePath(lang, "/devlog")}
           class="text-sm text-chrome-300 hover:text-chrome-200 transition-colors whitespace-nowrap"
         >
-          View all &rarr;
+          {t("devlogPreview.viewAll")} &rarr;
         </a>
       </header>
 
