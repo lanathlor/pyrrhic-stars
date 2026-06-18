@@ -1,0 +1,78 @@
+---
+import Base from "../layouts/Base.astro";
+
+export const prerender = true;
+
+const repo = import.meta.env.PUBLIC_REPO_URL;
+---
+
+<Base
+  title="About"
+  description="About Pyrrhic Stars and the person building it."
+>
+  <main class="mx-auto max-w-3xl px-6 py-16 sm:py-24">
+    <header class="mb-10">
+      <p class="text-xs uppercase tracking-[0.2em] text-chrome-400 font-medium">
+        About
+      </p>
+      <h1 class="mt-4 text-3xl sm:text-4xl font-semibold tracking-tight text-text-primary">
+        About Pyrrhic Stars.
+      </h1>
+    </header>
+
+    <div class="prose prose-invert max-w-none text-text-secondary">
+      <p>
+        Pyrrhic Stars is a co-op action game where every class plays a different
+        genre. Five of you take on the same dungeon and the same boss, but what
+        you are actually doing depends on the class you picked. The Gunner is
+        playing a first-person shooter. The Vanguard is in a Souls-like, reading
+        the boss for an opening. The Blade Dancer is working through a state
+        machine of blade configs. Same fight, and none of you are really playing
+        the same game.
+      </p>
+      <p>
+        I have played co-op games for about twenty years, and they nearly all
+        work the same way. You bring a tank, a healer, and some damage, and
+        whatever class you picked, the job underneath was the same one: be in the
+        right place and hit your buttons without dying. Your class decided which
+        buttons. It almost never decided what the game actually felt like to play.
+        That is the part I want to break.
+      </p>
+      <p>
+        I build this on my own, mostly on weekends, on top of a day job. My
+        background is backend development rather than games, which is why the
+        server and the systems are further along than the art is right now. It is
+        all {repo ? (<a href={repo}>open source</a>) : "open source"}.
+      </p>
+      <p>
+        The inspirations are not hard to spot. World of Warcraft, Furi, and the
+        Souls games. There are two things I care about here: that it ends up fun,
+        and that it stays open for people to dig into. It is very early still, an
+        extremely rough early access of some sorts.
+      </p>
+
+      <h2>Progress tracks</h2>
+      <p>In v1, the goal is four progress tracks, each its own way to play:</p>
+      <ul>
+        <li><strong>Mercenary.</strong> Mythic+ style dungeons.</li>
+        <li><strong>Paragon.</strong> Raids.</li>
+        <li>
+          <strong>Hero.</strong> Monster Hunter style: solo or small-group
+          fights against one big boss.
+        </li>
+        <li><strong>Explorer.</strong> Open-world survival.</li>
+      </ul>
+      <p>
+        Each track awards the gear that is best for that track. No need to run
+        dungeons if you want to raid.
+      </p>
+
+      <h2>How rewards work</h2>
+      <p>
+        No levels, no endless grind, no tedious fetch quests. And nothing drops
+        on a dice roll. You clear something, it pays out in tokens, and you spend
+        those on the gear you actually want.
+      </p>
+    </div>
+  </main>
+</Base>
