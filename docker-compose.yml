@@ -136,7 +136,7 @@ services:
             - landing_node_modules:/app/node_modules
         environment:
             PUBLIC_SITE_URL: http://localhost:4321
-            PUBLIC_REPO_URL: ${PUBLIC_REPO_URL:-https://gitlab.com/master-monkey/mmorpg}
+            PUBLIC_REPO_URL: ${PUBLIC_REPO_URL:-https://github.com/lanathlor/pyrrhic-stars}
             PUBLIC_DISCORD_URL: ${PUBLIC_DISCORD_URL:-}
             PUBLIC_DOWNLOAD_LINUX: ${PUBLIC_DOWNLOAD_LINUX:-}
             PUBLIC_DOWNLOAD_WINDOWS: ${PUBLIC_DOWNLOAD_WINDOWS:-}

@@ -171,10 +171,10 @@ build-client-linux:
     # Godot 4.5.x may crash during post-export cleanup (signal 11) even though
     # the pack file was written successfully. Ignore the exit code and verify
     # the output file exists.
-    - godot --headless --export-release "Linux" ../build/linux/codex-online.x86_64 || true
-    - test -f ../build/linux/codex-online.x86_64 || (echo "Export failed — binary not found" && exit 1)
+    - godot --headless --export-release "Linux" ../build/linux/pyrrhic-stars.x86_64 || true
+    - test -f ../build/linux/pyrrhic-stars.x86_64 || (echo "Export failed — binary not found" && exit 1)
   artifacts:
-    name: "codex-online-linux-${CI_COMMIT_SHORT_SHA}"
+    name: "pyrrhic-stars-linux-${CI_COMMIT_SHORT_SHA}"
     paths:
       - build/linux/
     expire_in: 30 days
@@ -193,10 +193,10 @@ build-client-windows:
     - cd client
     - godot --headless --import
   script:
-    - godot --headless --export-release "Windows" ../build/windows/codex-online.exe || true
-    - test -f ../build/windows/codex-online.exe || (echo "Export failed — binary not found" && exit 1)
+    - godot --headless --export-release "Windows" ../build/windows/pyrrhic-stars.exe || true
+    - test -f ../build/windows/pyrrhic-stars.exe || (echo "Export failed — binary not found" && exit 1)
   artifacts:
-    name: "codex-online-windows-${CI_COMMIT_SHORT_SHA}"
+    name: "pyrrhic-stars-windows-${CI_COMMIT_SHORT_SHA}"
     paths:
       - build/windows/
     expire_in: 30 days
@@ -211,7 +211,7 @@ build-server:
     - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../build/server-linux/gateway ./cmd/gateway
     - CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o ../build/server-windows/gateway.exe ./cmd/gateway
   artifacts:
-    name: "codex-online-server-${CI_COMMIT_SHORT_SHA}"
+    name: "pyrrhic-stars-server-${CI_COMMIT_SHORT_SHA}"
     paths:
       - build/server-linux/
       - build/server-windows/

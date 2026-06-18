@@ -53,12 +53,15 @@ func (v stubVerifier) Whoami(_ context.Context, token string) (*auth.Identity, e
 	return nil, auth.ErrUnauthenticated
 }
 
-const kratosUUID = "11111111-2222-3333-4444-555555555555"
+const (
+	kratosUUID = "11111111-2222-3333-4444-555555555555"
+	validToken = "good"
+)
 
 func TestAuthenticateRequest_ValidToken(t *testing.T) {
 	gw := newTestGateway(newAuthRepo())
 	gw.verifier = stubVerifier{
-		goodToken: "good",
+		goodToken: validToken,
 		identity:  &auth.Identity{ID: kratosUUID, Email: "a@b.com", Username: "Kratonaut"},
 	}
 
@@ -78,7 +81,7 @@ func TestAuthenticateRequest_ValidToken(t *testing.T) {
 
 func TestAuthenticateRequest_BadToken(t *testing.T) {
 	gw := newTestGateway(newAuthRepo())
-	gw.verifier = stubVerifier{goodToken: "good"}
+	gw.verifier = stubVerifier{goodToken: validToken}
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/ws?token=wrong", nil)
@@ -92,7 +95,7 @@ func TestAuthenticateRequest_BadToken(t *testing.T) {
 
 func TestAuthenticateRequest_NoTokenRejectedWhenNotDev(t *testing.T) {
 	gw := newTestGateway(newAuthRepo())
-	gw.verifier = stubVerifier{goodToken: "good"}
+	gw.verifier = stubVerifier{goodToken: validToken}
 	gw.devMode = false
 
 	w := httptest.NewRecorder()
@@ -107,7 +110,7 @@ func TestAuthenticateRequest_NoTokenRejectedWhenNotDev(t *testing.T) {
 
 func TestAuthenticateRequest_DevBypass(t *testing.T) {
 	gw := newTestGateway(newAuthRepo())
-	gw.verifier = stubVerifier{goodToken: "good"}
+	gw.verifier = stubVerifier{goodToken: validToken}
 	gw.devMode = true
 
 	w := httptest.NewRecorder()
@@ -126,7 +129,7 @@ func TestAuthenticateRequest_DevBypass(t *testing.T) {
 
 func TestAuthenticateRequest_DevBypassRequiresValidUUID(t *testing.T) {
 	gw := newTestGateway(newAuthRepo())
-	gw.verifier = stubVerifier{goodToken: "good"}
+	gw.verifier = stubVerifier{goodToken: validToken}
 	gw.devMode = true
 
 	w := httptest.NewRecorder()

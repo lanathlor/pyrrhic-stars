@@ -51,7 +51,7 @@ Public (compiled into prerendered pages; must start with `PUBLIC_`):
 |---------------------------|------------------------------------------|----------------|
 | `PUBLIC_SITE_URL`         | Canonical origin for OG, sitemap, RSS    | `http://localhost:4321` |
 | `PUBLIC_DISCORD_URL`      | Discord invite link                      | falls back to committed default in `src/consts.ts` |
-| `PUBLIC_REPO_URL`         | Public source repository URL (GitLab/GitHub) | unset → "Open source" link hidden |
+| `PUBLIC_REPO_URL`         | Public source repository URL             | falls back to committed default in `src/consts.ts` |
 | `PUBLIC_DOWNLOAD_LINUX`   | Linux build download URL                 | unset → button disabled |
 | `PUBLIC_DOWNLOAD_WINDOWS` | Windows build download URL               | unset → button disabled |
 | `PUBLIC_STEAM_URL`        | Steam wishlist URL                       | unset → button hidden   |

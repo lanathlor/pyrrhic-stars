@@ -1,4 +1,4 @@
-# Codex Online - Documentation Index
+# Pyrrhic Stars - Documentation Index
 
 Project codename for the action MMO based on the "Codex RPG - Arcanotechnique" TTRPG universe.
 TTRPG source material: https://github.com/lanathlor/rpg

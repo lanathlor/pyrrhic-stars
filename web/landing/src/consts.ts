@@ -8,6 +8,11 @@ export const SITE_TITLE = "Pyrrhic Stars";
 export const DISCORD_URL =
   import.meta.env.PUBLIC_DISCORD_URL || "https://discord.gg/UD5cChCGtd";
 
+// Public source repository. Like DISCORD_URL, committed here as the default for
+// the static build. PUBLIC_REPO_URL still wins when set.
+export const REPO_URL =
+  import.meta.env.PUBLIC_REPO_URL || "https://github.com/lanathlor/pyrrhic-stars";
+
 // Sourced verbatim from docs/project/marketing.md:5. Do not rewrite.
 export const SITE_TAGLINE =
   "A co-op action game where every class plays a different genre.";

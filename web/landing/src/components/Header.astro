@@ -1,6 +1,8 @@
 ---
 import { Icon } from "astro-icon/components";
-import { NAV, SITE_TITLE } from "../consts";
+import { NAV, SITE_TITLE, REPO_URL } from "../consts";
+
+const repo = REPO_URL;
 
 const pathname = Astro.url.pathname.replace(/\/$/, "") || "/";
 
@@ -33,6 +35,19 @@ function isActive(href: string): boolean {
             {item.label}
           </a>
         ))
+      }
+      {
+        repo && (
+          <a
+            href={repo}
+            target="_blank"
+            rel="noopener"
+            aria-label="GitHub repository"
+            class="ml-1 p-1.5 rounded-md text-text-muted hover:text-text-primary transition-colors"
+          >
+            <Icon name="simple-icons:github" width="18" height="18" aria-hidden="true" />
+          </a>
+        )
       }
     </nav>
   </div>
