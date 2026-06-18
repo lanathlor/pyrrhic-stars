@@ -3,9 +3,12 @@
 // this section and the full /roadmap page stay in sync. Keep it terse here;
 // the full page carries the prose.
 
-import { PHASES } from '../lib/roadmap'
+import { getRoadmap } from '../lib/roadmap'
+import { getLang, useTranslations, localePath } from '../i18n/utils'
 
-const milestones = PHASES
+const lang = getLang(Astro)
+const t = useTranslations(lang)
+const milestones = getRoadmap(lang)
 ---
 
 <section
@@ -14,14 +17,13 @@ const milestones = PHASES
 >
 	<header class='mb-12'>
 		<p class='text-xs uppercase tracking-[0.2em] text-chrome-400 font-medium'>
-			Where this is going
+			{t('roadmap.eyebrow')}
 		</p>
 		<h2 class='mt-4 text-3xl sm:text-4xl font-semibold tracking-tight text-text-primary'>
-			Roadmap.
+			{t('roadmap.heading')}
 		</h2>
 		<p class='mt-4 max-w-2xl text-text-secondary leading-relaxed'>
-			Built in phases. Each phase ends with something concrete: a clip, a playable build, a
-			Steam page. Before the next one starts.
+			{t('roadmap.intro')}
 		</p>
 	</header>
 
@@ -47,12 +49,12 @@ const milestones = PHASES
 						</span>
 						{m.status === 'now' && (
 							<span class='text-[10px] px-1.5 py-0.5 rounded bg-chrome-500/15 text-chrome-300 border border-chrome-500/30 font-medium'>
-								Now
+								{t('roadmap.status.now')}
 							</span>
 						)}
 						{m.status === 'done' && (
 							<span class='text-[10px] px-1.5 py-0.5 rounded bg-bg-overlay text-text-muted border border-border-muted font-medium'>
-								Done
+								{t('roadmap.status.done')}
 							</span>
 						)}
 					</div>
@@ -68,10 +70,10 @@ const milestones = PHASES
 	</ol>
 
 	<a
-		href='/roadmap'
+		href={localePath(lang, '/roadmap')}
 		class='mt-10 inline-flex items-center gap-1.5 text-sm text-chrome-300 hover:text-chrome-200 font-medium transition-colors'
 	>
-		Read the full roadmap
+		{t('roadmap.readFull')}
 		<span aria-hidden='true'>&rarr;</span>
 	</a>
 </section>

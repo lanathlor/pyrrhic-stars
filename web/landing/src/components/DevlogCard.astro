@@ -2,13 +2,18 @@
 import { Icon } from "astro-icon/components";
 import type { CollectionEntry } from "astro:content";
 import FormattedDate from "./FormattedDate.astro";
+import { getLang, useTranslations } from "../i18n/utils";
 
 interface Props {
   post: CollectionEntry<"devlog">;
 }
 
+const lang = getLang(Astro);
+const t = useTranslations(lang);
 const { post } = Astro.props;
 const { title, description, pubDate } = post.data;
+// Posts have a single canonical (English-authored) URL; the French chrome links
+// here too rather than duplicating post bodies.
 const href = `/devlog/${post.id}`;
 ---
 
@@ -24,7 +29,7 @@ const href = `/devlog/${post.id}`;
       {description}
     </p>
     <span class="mt-4 inline-flex items-center gap-1 text-xs text-chrome-300">
-      Read
+      {t("devlogCard.read")}
       <Icon
         name="lucide:arrow-right"
         class="h-3 w-3 transition-transform group-hover:translate-x-0.5"

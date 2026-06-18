@@ -1,0 +1,28 @@
+---
+// Homepage body, shared by the English (/) and French (/fr/) routes. Locale is
+// resolved from the URL inside each child component, so this wrapper only needs
+// to localize the page metadata.
+import Base from "../../layouts/Base.astro";
+import Hero from "../Hero.astro";
+import Features from "../Features.astro";
+import ClassesGrid from "../ClassesGrid.astro";
+import Roadmap from "../Roadmap.astro";
+import DevlogPreview from "../DevlogPreview.astro";
+import JoinDiscord from "../JoinDiscord.astro";
+import { SITE_TITLE } from "../../consts";
+import { getLang, useTranslations } from "../../i18n/utils";
+
+const lang = getLang(Astro);
+const t = useTranslations(lang);
+---
+
+<Base title={SITE_TITLE} description={t("meta.home.description")}>
+  <main>
+    <Hero />
+    <Features />
+    <ClassesGrid />
+    <Roadmap />
+    <DevlogPreview />
+    <JoinDiscord />
+  </main>
+</Base>

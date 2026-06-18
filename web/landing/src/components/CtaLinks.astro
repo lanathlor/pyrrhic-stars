@@ -1,7 +1,10 @@
 ---
 import { Icon } from "astro-icon/components";
 import { DISCORD_URL } from "../consts";
+import { getLang, useTranslations } from "../i18n/utils";
 
+const lang = getLang(Astro);
+const t = useTranslations(lang);
 const discord = DISCORD_URL;
 const dlLinux = import.meta.env.PUBLIC_DOWNLOAD_LINUX;
 const dlWindows = import.meta.env.PUBLIC_DOWNLOAD_WINDOWS;
@@ -26,7 +29,7 @@ const steam = import.meta.env.PUBLIC_STEAM_URL;
     ]}
   >
     <Icon name="simple-icons:discord" width="16" height="16" aria-hidden="true" />
-    Join Discord
+    {t("cta.joinDiscord")}
   </a>
 
   {/* Linux download */}
@@ -41,7 +44,7 @@ const steam = import.meta.env.PUBLIC_STEAM_URL;
     ]}
   >
     <Icon name="lucide:download" width="16" height="16" aria-hidden="true" />
-    {dlLinux ? "Download (Linux)" : "Linux: Soon"}
+    {dlLinux ? t("cta.downloadLinux") : t("cta.linuxSoon")}
   </a>
 
   {/* Windows download */}
@@ -56,7 +59,7 @@ const steam = import.meta.env.PUBLIC_STEAM_URL;
     ]}
   >
     <Icon name="lucide:download" width="16" height="16" aria-hidden="true" />
-    {dlWindows ? "Download (Windows)" : "Windows: Soon"}
+    {dlWindows ? t("cta.downloadWindows") : t("cta.windowsSoon")}
   </a>
 
   {/* Steam wishlist. Hidden entirely when unset (Phase 0). */}
@@ -68,7 +71,7 @@ const steam = import.meta.env.PUBLIC_STEAM_URL;
         rel="noopener"
         class="inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-medium border bg-bg-raised text-text-primary border-border-active hover:border-chrome-400 transition-colors"
       >
-        Wishlist on Steam
+        {t("cta.wishlistSteam")}
       </a>
     )
   }
