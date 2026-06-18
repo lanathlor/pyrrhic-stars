@@ -63,7 +63,7 @@ func generateSelfSignedCert() (tls.Certificate, error) {
 
 	template := x509.Certificate{
 		SerialNumber: big.NewInt(1),
-		Subject:      pkix.Name{Organization: []string{"Codex Online Dev"}},
+		Subject:      pkix.Name{Organization: []string{"Pyrrhic Stars Dev"}},
 		NotBefore:    time.Now(),
 		NotAfter:     time.Now().Add(30 * 24 * time.Hour),
 		KeyUsage:     x509.KeyUsageDigitalSignature,

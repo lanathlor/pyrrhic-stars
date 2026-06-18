@@ -1,4 +1,4 @@
-# Codex Online — Roadmap & Progress
+# Pyrrhic Stars - Roadmap & Progress
 
 > Last updated: 2026-03-30
 
