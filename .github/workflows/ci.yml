@@ -136,8 +136,61 @@ jobs:
         working-directory: client
         run: python3 scripts/tools/check_func_length.py scripts/ scenes/
 
+  # Resolve once whether client files changed (gates the Godot test job on PRs)
+  # and derive a content-addressed import-cache key from the asset git tree. The
+  # key changes only when committed asset bytes change, so the cache stays warm
+  # across branches and commits instead of being rebuilt per ref.
+  client-setup:
+    runs-on: ubuntu-latest
+    outputs:
+      client_changed: ${{ steps.filter.outputs.client }}
+      import_key: ${{ steps.key.outputs.import_key }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          lfs: false
+      - name: detect client changes
+        id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            client:
+              - 'client/**'
+      - name: derive import-cache key
+        id: key
+        run: echo "import_key=godot-import-v1-${GODOT_VERSION}-$(git rev-parse 'HEAD:client/assets')" >> "$GITHUB_OUTPUT"
+
+  # Build the Godot import cache once and publish it to the Actions cache. The
+  # three downstream Godot jobs restore it instead of each running a ~10-min cold
+  # reimport. restore-keys lets an asset change reimport only the changed files
+  # on top of the previous cache, then save under the new exact key. On an exact
+  # hit this job is a fast no-op verify.
+  import-client:
+    runs-on: ubuntu-latest
+    needs: [client-setup]
+    container:
+      image: barichello/godot-ci:4.5.1
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          lfs: true
+      - name: restore/save import cache
+        uses: actions/cache@v5
+        with:
+          path: client/.godot/
+          key: ${{ needs.client-setup.outputs.import_key }}
+          restore-keys: |
+            godot-import-v1-${{ env.GODOT_VERSION }}-
+      - name: import
+        working-directory: client
+        run: godot --headless --import
+
   test-client:
     runs-on: ubuntu-latest
+    needs: [client-setup, import-client]
+    # On PRs, skip the Godot test job unless client/** changed. On main and tags
+    # it always runs (release gating depends on it).
+    if: needs.client-setup.outputs.client_changed == 'true' || github.event_name != 'pull_request'
     container:
       image: barichello/godot-ci:4.5.1
     env:
@@ -146,13 +199,13 @@ jobs:
       - uses: actions/checkout@v5
         with:
           lfs: true
-      - name: cache godot import
-        uses: actions/cache@v5
+      - name: restore import cache
+        uses: actions/cache/restore@v5
         with:
           path: client/.godot/
-          key: godot-import-${{ env.GODOT_VERSION }}-${{ github.ref }}
+          key: ${{ needs.client-setup.outputs.import_key }}
           restore-keys: |
-            godot-import-${{ env.GODOT_VERSION }}-
+            godot-import-v1-${{ env.GODOT_VERSION }}-
       - name: import & test
         working-directory: client
         run: |
@@ -163,20 +216,39 @@ jobs:
 
   build-client-linux:
     runs-on: ubuntu-latest
-    needs: [lint-client, fmt-client, funlen-client, test-client]
+    needs:
+      [
+        client-setup,
+        import-client,
+        lint-client,
+        fmt-client,
+        funlen-client,
+        test-client,
+      ]
+    # test-client is skipped on PRs that don't touch client/** (see its `if`).
+    # Still build for the per-PR release as long as the cheap client checks and
+    # the import job passed; only a real test failure blocks the build.
+    if: >
+      !cancelled() &&
+      needs.client-setup.result == 'success' &&
+      needs.import-client.result == 'success' &&
+      needs.lint-client.result == 'success' &&
+      needs.fmt-client.result == 'success' &&
+      needs.funlen-client.result == 'success' &&
+      needs.test-client.result != 'failure'
     container:
       image: barichello/godot-ci:4.5.1
     steps:
       - uses: actions/checkout@v5
         with:
           lfs: true
-      - name: cache godot import
-        uses: actions/cache@v5
+      - name: restore import cache
+        uses: actions/cache/restore@v5
         with:
           path: client/.godot/
-          key: godot-import-${{ env.GODOT_VERSION }}-${{ github.ref }}
+          key: ${{ needs.client-setup.outputs.import_key }}
           restore-keys: |
-            godot-import-${{ env.GODOT_VERSION }}-
+            godot-import-v1-${{ env.GODOT_VERSION }}-
       - name: link export templates
         # The godot-ci image ships templates under /root, but GitHub runs
         # container jobs with HOME=/github/home, so Godot can't find them.
@@ -202,20 +274,39 @@ jobs:
 
   build-client-windows:
     runs-on: ubuntu-latest
-    needs: [lint-client, fmt-client, funlen-client, test-client]
+    needs:
+      [
+        client-setup,
+        import-client,
+        lint-client,
+        fmt-client,
+        funlen-client,
+        test-client,
+      ]
+    # test-client is skipped on PRs that don't touch client/** (see its `if`).
+    # Still build for the per-PR release as long as the cheap client checks and
+    # the import job passed; only a real test failure blocks the build.
+    if: >
+      !cancelled() &&
+      needs.client-setup.result == 'success' &&
+      needs.import-client.result == 'success' &&
+      needs.lint-client.result == 'success' &&
+      needs.fmt-client.result == 'success' &&
+      needs.funlen-client.result == 'success' &&
+      needs.test-client.result != 'failure'
     container:
       image: barichello/godot-ci:4.5.1
     steps:
       - uses: actions/checkout@v5
         with:
           lfs: true
-      - name: cache godot import
-        uses: actions/cache@v5
+      - name: restore import cache
+        uses: actions/cache/restore@v5
         with:
           path: client/.godot/
-          key: godot-import-${{ env.GODOT_VERSION }}-${{ github.ref }}
+          key: ${{ needs.client-setup.outputs.import_key }}
           restore-keys: |
-            godot-import-${{ env.GODOT_VERSION }}-
+            godot-import-v1-${{ env.GODOT_VERSION }}-
       - name: link export templates
         # The godot-ci image ships templates under /root, but GitHub runs
         # container jobs with HOME=/github/home, so Godot can't find them.
