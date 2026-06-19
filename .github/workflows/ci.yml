@@ -436,6 +436,7 @@ jobs:
           filters: |
             server:
               - 'server/**'
+              - 'shared/**'
       - name: log in to GHCR
         if: >
           github.ref == 'refs/heads/main' ||
@@ -453,7 +454,7 @@ jobs:
           steps.changes.outputs.server == 'true'
         uses: docker/build-push-action@v7
         with:
-          context: server
+          context: .
           file: server/Dockerfile
           push: true
           tags: |
