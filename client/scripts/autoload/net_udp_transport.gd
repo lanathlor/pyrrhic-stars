@@ -62,9 +62,26 @@ func handle_associate(payload: PackedByteArray, peer_id: int) -> void:
 		return
 	_token = payload.slice(0, 16)
 	var port: int = (payload[16] << 8) | payload[17]
+	# Optional UDP host, appended as [host_len:2 BE][host:host_len]. When the server
+	# exposes UDP on a different endpoint than the WebSocket (e.g. a dedicated UDP
+	# LoadBalancer), it tells us which host to dial here. Absent or empty means
+	# reuse the WebSocket host - correct when both share an address (e.g. local dev).
+	var udp_host := _host
+	if payload.size() >= 20:
+		var host_len: int = (payload[18] << 8) | payload[19]
+		if host_len > 0 and payload.size() >= 20 + host_len:
+			udp_host = payload.slice(20, 20 + host_len).get_string_from_utf8()
+	# PacketPeerUDP.connect_to_host() needs an IP, not a DNS name (unlike the WS
+	# WebSocketPeer.connect_to_url(), which resolves internally). Resolve whatever
+	# we are about to dial - the advertised host or the reused WS host. Idempotent
+	# when it is already an IP; keep the raw value if resolution fails so the
+	# connect error below stays meaningful.
+	var resolved := IP.resolve_hostname(udp_host, IP.TYPE_ANY)
+	if resolved != "":
+		udp_host = resolved
 	if _connected:
 		_udp.close()
-	var err := _udp.connect_to_host(_host, port)
+	var err := _udp.connect_to_host(udp_host, port)
 	if err != OK:
 		print("[Net] UDP connect failed: %s" % error_string(err))
 		return
@@ -85,7 +102,7 @@ func handle_associate(payload: PackedByteArray, peer_id: int) -> void:
 	_confirmed = false
 	_last_tick = 0
 	_attempt_time = Time.get_ticks_msec() / 1000.0
-	print("[Net] UDP association sent to %s:%d" % [_host, port])
+	print("[Net] UDP association sent to %s:%d" % [udp_host, port])
 
 
 func send(opcode: int, peer_id: int, payload: PackedByteArray) -> void:

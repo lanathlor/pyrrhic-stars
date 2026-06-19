@@ -53,6 +53,12 @@ type gateway struct {
 	mu          sync.Mutex           // protects zones and levels
 	devMode     bool                 // CODEX_DEV=1 enables debug features
 
+	// udpPublicHost is the host/IP clients dial to reach the UDP socket. When UDP
+	// is exposed separately from the WebSocket (e.g. a dedicated UDP LoadBalancer),
+	// set GATEWAY_UDP_PUBLIC_HOST so clients dial the right host. Empty means
+	// clients reuse the WebSocket host (correct when WS and UDP share an IP).
+	udpPublicHost string
+
 	// Connection limiting
 	connMu    sync.Mutex
 	connPerIP map[string]int // IP -> active connection count
@@ -300,9 +306,16 @@ func (g *gateway) sendUDPAssociate(sess *session.Session) {
 		return
 	}
 	token := g.udpServer.GenerateToken(sess.Conn, sess.ID)
-	payload := make([]byte, 18) // [token:16][port:2 BE]
+	// [token:16][port:2 BE][hostLen:2 BE][host:hostLen]. The host tells the client
+	// which address to dial for UDP. Empty (hostLen 0) means reuse the WS host,
+	// correct when WS and UDP share an IP. A non-empty host is required when UDP is
+	// exposed on a separate endpoint (e.g. a dedicated UDP LoadBalancer).
+	host := []byte(g.udpPublicHost)
+	payload := make([]byte, 20+len(host))
 	copy(payload[0:16], token[:])
 	binary.BigEndian.PutUint16(payload[16:18], uint16(g.udpServer.Port()))
+	binary.BigEndian.PutUint16(payload[18:20], uint16(len(host)))
+	copy(payload[20:], host)
 	sess.Conn.Send(message.Encode(message.OpUDPAssociate, 0, payload))
 }
 
