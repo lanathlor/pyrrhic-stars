@@ -126,6 +126,10 @@ func startUDPServer(gw *gateway) error {
 		return err
 	}
 	gw.udpServer = udpSrv
+	gw.udpPublicHost = os.Getenv("GATEWAY_UDP_PUBLIC_HOST")
+	if gw.udpPublicHost != "" {
+		slog.Info("udp public host configured", "host", gw.udpPublicHost)
+	}
 	go udpSrv.ReadLoop(func(sessID uint32, _, opcode uint16, payload []byte) {
 		sess := gw.sessions.GetByID(sessID)
 		if sess == nil {
