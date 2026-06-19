@@ -96,6 +96,11 @@ config:
 # expose keys: POSTGRES_DSN and (when ClickHouse is enabled) CLICKHOUSE_PASSWORD.
 existingSecret: ""
 
+# Key within existingSecret that holds the Postgres DSN. Defaults to POSTGRES_DSN.
+# Set to "uri" when pointing existingSecret at a CloudNativePG app Secret
+# (pgsql-<name>-app), whose `uri` key is a full postgresql:// connection string.
+existingSecretKey: ""
+
 # -----------------------------------------------------------------------------
 # Gateway - realtime WebSocket (TCP) + UDP game server. The primary workload.
 #
