@@ -1,0 +1,25 @@
+apiVersion: v2
+name: pyrrhic-stars
+description: |
+  Pyrrhic Stars - co-op action game backend and web surfaces. Deploys the Go
+  gateway (realtime WebSocket/UDP server), the Astro landing site, and the
+  combat-logs viewer. Backing services (Postgres, Redis, ClickHouse, Kratos)
+  are expected to run externally and are wired in via values.
+type: application
+
+# Chart version. Bump on chart changes.
+version: 0.1.0
+
+# Tracks the application; ":latest" image tag by default, override per-deploy.
+appVersion: "0.1.0"
+
+keywords:
+  - game
+  - websocket
+  - go
+  - astro
+home: https://github.com/lanathlor/pyrrhic-stars
+sources:
+  - https://github.com/lanathlor/pyrrhic-stars
+maintainers:
+  - name: lanath

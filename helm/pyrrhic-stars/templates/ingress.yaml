@@ -1,0 +1,46 @@
+{{- if .Values.ingress.enabled -}}
+{{- $fullName := include "pyrrhic-stars.fullname" . -}}
+{{/* Map friendly service keys to the rendered Service name + port. */}}
+{{- $backends := dict
+  "gateway"    (dict "name" (printf "%s-gateway" $fullName)     "port" .Values.gateway.service.httpPort)
+  "landing"    (dict "name" (printf "%s-landing" $fullName)     "port" .Values.landing.service.port)
+  "combatLogs" (dict "name" (printf "%s-combat-logs" $fullName) "port" .Values.combatLogs.service.port)
+-}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}
+  labels:
+    {{- include "pyrrhic-stars.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    {{- $backend := index $backends .service }}
+    {{- if not $backend }}
+    {{- fail (printf "ingress host %q references unknown service %q (expected gateway|landing|combatLogs)" .host .service) }}
+    {{- end }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType | default "Prefix" }}
+            backend:
+              service:
+                name: {{ $backend.name }}
+                port:
+                  number: {{ $backend.port }}
+          {{- end }}
+    {{- end }}
+{{- end }}

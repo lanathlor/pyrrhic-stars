@@ -1,0 +1,29 @@
+{{- if .Values.combatLogs.enabled -}}
+{{- $upstream := .Values.combatLogs.apiUpstream | default (printf "%s-gateway:%v" (include "pyrrhic-stars.fullname" .) .Values.gateway.service.httpPort) -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "pyrrhic-stars.fullname" . }}-combat-logs
+  labels:
+    {{- include "pyrrhic-stars.labels" . | nindent 4 }}
+    app.kubernetes.io/component: combat-logs
+data:
+  # Replaces the image's baked default.conf, whose upstream ("gateway:7777") is
+  # the docker-compose hostname and does not resolve in-cluster.
+  default.conf: |
+    server {
+        listen {{ .Values.combatLogs.port }};
+        root /usr/share/nginx/html;
+        index index.html;
+
+        location /api/ {
+            proxy_pass http://{{ $upstream }};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+    }
+{{- end }}

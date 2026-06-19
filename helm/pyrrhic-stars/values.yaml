@@ -1,0 +1,321 @@
+# Default values for the pyrrhic-stars chart.
+# Override per-environment with `-f my-values.yaml` or `--set`.
+
+nameOverride: ""
+fullnameOverride: ""
+
+# -----------------------------------------------------------------------------
+# Images
+#
+# CI (.github/workflows/ci.yml) builds and pushes all three images to GHCR on
+# every push to main, tagged with the commit SHA and `latest`:
+#   ghcr.io/lanathlor/pyrrhic-stars/gateway       (server image; all 3 Go binaries)
+#   ghcr.io/lanathlor/pyrrhic-stars/landing
+#   ghcr.io/lanathlor/pyrrhic-stars/combat-logs
+# The server image (./server/Dockerfile) ships gateway/zone/chat and selects one
+# via the container command.
+# -----------------------------------------------------------------------------
+image:
+  # Registry/project prefix shared by all repositories below.
+  registry: ghcr.io/lanathlor/pyrrhic-stars
+  pullPolicy: IfNotPresent
+  # Default tag for every component when its per-image tag is empty. CI publishes
+  # `latest` and `<sha>`; pin to a SHA per-deploy in production.
+  tag: latest
+  server:
+    repository: gateway
+    tag: ""        # falls back to image.tag
+  landing:
+    repository: landing
+    tag: ""
+  combatLogs:
+    repository: combat-logs
+    tag: ""
+
+imagePullSecrets: []
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod- and container-level security defaults. The server and combat-logs images
+# run fine as non-root; landing already drops to the `node` user.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+
+# -----------------------------------------------------------------------------
+# Backing services (external)
+#
+# These are NOT deployed by this chart. Run them separately and wire them in
+# below: CloudNativePG (CNPG) for Postgres, a Valkey StatefulSet for Redis, the
+# Altinity operator for ClickHouse, and Ory Kratos. Sensitive values (the
+# Postgres DSN and the ClickHouse password) are rendered into a Secret unless
+# you supply `existingSecret` (or, on platforms with External Secrets Operator,
+# point `existingSecret` at the Secret ESO materialises).
+# -----------------------------------------------------------------------------
+config:
+  # When true, sets CODEX_DEV=1: uuid auth bypass, in-memory combat log, sqlite
+  # fallback. Keep false in production.
+  devMode: false
+
+  redis:
+    addr: "redis:6379"
+
+  postgres:
+    driver: "postgres"
+    # Full DSN including credentials. Rendered into the Secret as POSTGRES_DSN.
+    dsn: "postgres://codex:codex@postgres:5432/codex?sslmode=disable"
+
+  clickhouse:
+    # Empty addr disables combat-log persistence (gateway uses a null sink).
+    addr: ""
+    database: "codex"
+    user: "codex"
+    password: "codex"
+
+  kratos:
+    # Ory Kratos public API. Used by the gateway to validate session tokens.
+    publicUrl: "http://kratos:4433"
+
+  gameData:
+    # Optional override dirs for levels/mobs. Empty = built-in Go defaults.
+    levelsDir: ""
+    mobsDir: ""
+
+# Provide an existing Secret instead of rendering one from `config`. It must
+# expose keys: POSTGRES_DSN and (when ClickHouse is enabled) CLICKHOUSE_PASSWORD.
+existingSecret: ""
+
+# -----------------------------------------------------------------------------
+# Gateway - realtime WebSocket (TCP) + UDP game server. The primary workload.
+#
+# Deployed as a StatefulSet, not a Deployment: the gateway holds live sessions
+# and in-memory zone instances per pod, so its pods are NOT interchangeable. The
+# StatefulSet gives stable per-pod DNS (for sharded/affinity routing via the
+# headless Service) and ordered, one-at-a-time rolling updates. It uses no
+# PersistentVolumes - player positions flush to Postgres, combat logs to
+# ClickHouse.
+# -----------------------------------------------------------------------------
+gateway:
+  enabled: true
+  replicaCount: 1
+  command: ["/bin/gateway"]
+  # OrderedReady updates/scales one pod at a time by ordinal. Use "Parallel" if
+  # you shard zones and don't need ordered startup.
+  podManagementPolicy: OrderedReady
+  # Time for in-flight sessions to drain and the periodic position flush to land
+  # on SIGTERM during a rollout.
+  terminationGracePeriodSeconds: 30
+  ports:
+    http: 7777
+    udp: 7778
+  # TCP/WS client service. Front it with the Ingress for WSS + TLS termination.
+  service:
+    type: ClusterIP
+    annotations: {}
+    httpPort: 7777
+  # Dedicated UDP exposure. An HTTP Ingress cannot carry UDP, and folding UDP
+  # into the TCP service forces a fragile mixed-protocol LoadBalancer that also
+  # strips the WS port of its Ingress/cert-manager TLS path. So UDP gets its own
+  # L4 LoadBalancer, kept entirely separate from the WS path.
+  udpService:
+    enabled: true
+    type: LoadBalancer
+    port: 7778
+    # Add external-dns here for a stable name clients can resolve, e.g.:
+    #   external-dns.alpha.kubernetes.io/hostname: udp.pyrrhic-stars.example.com
+    # Whatever name/IP this resolves to must also be set as gateway.udpPublicHost
+    # so the gateway advertises it to clients in the UDP-associate handshake.
+    annotations: {}
+    # Pin the external IP (e.g. a reserved Scaleway flexible IP) if you have one.
+    loadBalancerIP: ""
+  # Public host/IP clients dial for the UDP channel, sent to them in the UDP
+  # associate handshake (GATEWAY_UDP_PUBLIC_HOST). Because UDP is exposed on a
+  # SEPARATE LoadBalancer from the WS/Ingress path, clients cannot infer it from
+  # the WebSocket host - leaving this empty makes them reuse the WS host and UDP
+  # silently fails. Set it to the udpService's external-dns hostname or reserved
+  # IP. Empty is correct only when WS and UDP share an address (e.g. local dev).
+  udpPublicHost: ""
+  # No HPA: the gateway holds live sessions/zones in memory, so scaling in kills
+  # the highest-ordinal pod's players and scaling out splits WS/UDP for the same
+  # client across pods with no shared state. Scale by zone-sharding, not replicas.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  livenessProbe:
+    tcpSocket:
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 20
+  readinessProbe:
+    tcpSocket:
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+  extraEnv: []
+
+# -----------------------------------------------------------------------------
+# Zone / Chat - separate Go binaries. Their main.go are currently stubs, so
+# these are disabled by default. Enable once they are implemented.
+# -----------------------------------------------------------------------------
+zone:
+  enabled: false
+  replicaCount: 1
+  command: ["/bin/zone"]
+  port: 8081
+  resources: {}
+  extraEnv: []
+
+chat:
+  enabled: false
+  replicaCount: 1
+  command: ["/bin/chat"]
+  port: 8082
+  resources: {}
+  extraEnv: []
+
+# -----------------------------------------------------------------------------
+# Landing - Astro SSR marketing site (Node).
+#
+# NOTE: PUBLIC_* vars are inlined at *build* time by Astro, so setting them here
+# only affects runtime SSR fallbacks (e.g. PUBLIC_SITE_URL canonical/og tags).
+# Bake download/store URLs into the image at build time for them to take effect.
+# -----------------------------------------------------------------------------
+landing:
+  enabled: true
+  replicaCount: 1
+  port: 4321
+  service:
+    type: ClusterIP
+    annotations: {}
+    port: 80
+  env:
+    PUBLIC_SITE_URL: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 96Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  livenessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 20
+  readinessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+
+# -----------------------------------------------------------------------------
+# Combat-logs - static nginx-served SPA that proxies /api/ to the gateway.
+# -----------------------------------------------------------------------------
+combatLogs:
+  enabled: true
+  replicaCount: 1
+  port: 80
+  # nginx:alpine binds :80 and writes pid/cache as root, so it can't run under
+  # the chart's default non-root context. These empty overrides let it run as
+  # the image default. Supply a hardened nginx-unprivileged image + non-root
+  # context here if you want to lock it down.
+  podSecurityContext: {}
+  securityContext: {}
+  # The image's baked nginx.conf proxies /api/ to "http://gateway:7777" - the
+  # docker-compose hostname, which does not resolve in-cluster. The chart renders
+  # a replacement nginx.conf (mounted over the baked one) pointing at the real
+  # gateway Service. Override the upstream if the gateway runs elsewhere; empty
+  # derives "<release>-gateway:<gateway httpPort>".
+  apiUpstream: ""
+  service:
+    type: ClusterIP
+    annotations: {}
+    port: 80
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  livenessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 20
+  readinessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 3
+    periodSeconds: 10
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+
+# -----------------------------------------------------------------------------
+# Ingress
+#
+# Routes are host-based. The gateway needs WebSocket upgrade support - most
+# controllers handle this by default, but UDP (7778) cannot be exposed via a
+# standard HTTP Ingress; use a LoadBalancer Service or a separate UDP path for
+# it (see gateway.service.type).
+# -----------------------------------------------------------------------------
+ingress:
+  enabled: false
+  className: ""
+  # WebSocket-friendly defaults for ingress-nginx: the gateway holds long-lived
+  # WS upgrades, and the controller's default 60s idle timeout would sever them.
+  # Harmless on other controllers; drop/replace if you don't use ingress-nginx.
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  # Each host maps a service name (gateway | landing | combatLogs) to one or
+  # more paths.
+  hosts:
+    - host: pyrrhic-stars.example.com
+      service: landing
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: api.pyrrhic-stars.example.com
+      service: gateway
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: logs.pyrrhic-stars.example.com
+      service: combatLogs
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: pyrrhic-stars-tls
+  #    hosts:
+  #      - pyrrhic-stars.example.com

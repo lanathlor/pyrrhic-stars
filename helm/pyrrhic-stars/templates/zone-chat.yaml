@@ -1,0 +1,75 @@
+{{/*
+Zone and chat are separate Go binaries from the same server image. Their
+main.go are currently stubs, so both are disabled by default. They share the
+server env block and a minimal Deployment + Service.
+*/}}
+{{- range $name := (list "zone" "chat") }}
+{{- $svc := index $.Values $name }}
+{{- if $svc.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pyrrhic-stars.fullname" $ }}-{{ $name }}
+  labels:
+    {{- include "pyrrhic-stars.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+spec:
+  replicas: {{ $svc.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "pyrrhic-stars.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: {{ $name }}
+  template:
+    metadata:
+      labels:
+        {{- include "pyrrhic-stars.selectorLabels" $ | nindent 8 }}
+        app.kubernetes.io/component: {{ $name }}
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") $ | sha256sum }}
+    spec:
+      {{- with $.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "pyrrhic-stars.serviceAccountName" $ }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ $name }}
+          image: {{ include "pyrrhic-stars.image" (dict "root" $ "repository" $.Values.image.server.repository "tag" $.Values.image.server.tag) }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          command: {{ toYaml $svc.command | nindent 12 }}
+          securityContext:
+            {{- toYaml $.Values.securityContext | nindent 12 }}
+          ports:
+            - name: tcp
+              containerPort: {{ $svc.port }}
+              protocol: TCP
+          env:
+            {{- include "pyrrhic-stars.serverEnv" $ | nindent 12 }}
+            {{- with $svc.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml $svc.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pyrrhic-stars.fullname" $ }}-{{ $name }}
+  labels:
+    {{- include "pyrrhic-stars.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "pyrrhic-stars.selectorLabels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+  ports:
+    - name: tcp
+      port: {{ $svc.port }}
+      targetPort: tcp
+      protocol: TCP
+{{- end }}
+{{- end }}
