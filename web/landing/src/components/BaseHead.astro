@@ -1,11 +1,13 @@
 ---
 import { SITE_TITLE } from "../consts";
 import LangRedirect from "./LangRedirect.astro";
-import { switchLocalePath } from "../i18n/utils";
+import { getLang, switchLocalePath } from "../i18n/utils";
+import { ogId } from "../lib/og";
 
 interface Props {
   title: string;
   description: string;
+  /** Explicit OG image override; defaults to this page's generated card. */
   image?: { src: string; width: number; height: number; format: string };
   /** Whether this page has a French counterpart (false for devlog posts). */
   frAlternate?: boolean;
@@ -13,10 +15,17 @@ interface Props {
 
 const { title, description, image, frAlternate = true } = Astro.props;
 
+const lang = getLang(Astro);
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+
+// Per-route social card, generated as a 1200x630 PNG by src/pages/og/. SVG
+// og:images are rejected by every major platform, so we always serve a raster.
 const ogImage = image
   ? new URL(image.src, Astro.site).toString()
-  : new URL("/og.svg", Astro.site).toString();
+  : new URL(`/og/${ogId(Astro.url.pathname)}.png`, Astro.site).toString();
+
+const ogLocale = lang === "fr" ? "fr_FR" : "en_US";
+const ogLocaleAlt = lang === "fr" ? "en_US" : "fr_FR";
 
 // hreflang alternates. English is always present and is the x-default. The
 // French alternate is emitted only for pages that have a /fr/ counterpart.
@@ -65,9 +74,16 @@ const frURL = new URL(switchLocalePath(Astro.url.pathname, "fr"), Astro.site);
 <meta property="og:description" content={description} />
 <meta property="og:url" content={canonicalURL} />
 <meta property="og:image" content={ogImage} />
+<meta property="og:image:type" content="image/png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content={title} />
+<meta property="og:locale" content={ogLocale} />
+{frAlternate && <meta property="og:locale:alternate" content={ogLocaleAlt} />}
 
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content={title} />
 <meta name="twitter:description" content={description} />
 <meta name="twitter:image" content={ogImage} />
+<meta name="twitter:image:alt" content={title} />
