@@ -1,0 +1,171 @@
+{{- if .Values.gateway.enabled -}}
+{{- $gw := .Values.gateway -}}
+{{- $headless := printf "%s-gateway-headless" (include "pyrrhic-stars.fullname" .) -}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "pyrrhic-stars.fullname" . }}-gateway
+  labels:
+    {{- include "pyrrhic-stars.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+spec:
+  # Governing headless Service: gives each pod a stable DNS name
+  # (<name>-gateway-0.<headless>...) so a router/matchmaker can address the
+  # specific pod holding a given in-memory zone instance.
+  serviceName: {{ $headless }}
+  podManagementPolicy: {{ $gw.podManagementPolicy }}
+  replicas: {{ $gw.replicaCount }}
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      {{- include "pyrrhic-stars.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: gateway
+  template:
+    metadata:
+      labels:
+        {{- include "pyrrhic-stars.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: gateway
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with $gw.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "pyrrhic-stars.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      # Give live sessions time to drain and the periodic position flush to land
+      # before the pod is killed during a rollout.
+      terminationGracePeriodSeconds: {{ $gw.terminationGracePeriodSeconds }}
+      containers:
+        - name: gateway
+          image: {{ include "pyrrhic-stars.image" (dict "root" . "repository" .Values.image.server.repository "tag" .Values.image.server.tag) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: {{ toYaml $gw.command | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ $gw.ports.http }}
+              protocol: TCP
+            - name: udp
+              containerPort: {{ $gw.ports.udp }}
+              protocol: UDP
+          env:
+            {{- include "pyrrhic-stars.serverEnv" . | nindent 12 }}
+            {{- with $gw.udpPublicHost }}
+            # Address clients dial for UDP. Must be set when UDP is exposed on a
+            # separate LoadBalancer from the WS/Ingress path (see values.yaml).
+            - name: GATEWAY_UDP_PUBLIC_HOST
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with $gw.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with $gw.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $gw.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml $gw.resources | nindent 12 }}
+      {{- with $gw.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $gw.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $gw.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+# Headless Service backing the StatefulSet's stable per-pod DNS.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $headless }}
+  labels:
+    {{- include "pyrrhic-stars.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    {{- include "pyrrhic-stars.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+  ports:
+    - name: http
+      port: {{ $gw.ports.http }}
+      targetPort: http
+      protocol: TCP
+    - name: udp
+      port: {{ $gw.ports.udp }}
+      targetPort: udp
+      protocol: UDP
+---
+# Client-facing TCP/WS Service. Front this with the Ingress for WSS + TLS.
+# NOTE: with multiple replicas this load-balances across pods and does NOT
+# preserve session affinity - use the headless per-pod DNS above for sharded
+# routing, or keep replicaCount at 1.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pyrrhic-stars.fullname" . }}-gateway
+  labels:
+    {{- include "pyrrhic-stars.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+  {{- with $gw.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ $gw.service.type }}
+  selector:
+    {{- include "pyrrhic-stars.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+  ports:
+    - name: http
+      port: {{ $gw.service.httpPort }}
+      targetPort: http
+      protocol: TCP
+{{- if $gw.udpService.enabled }}
+---
+# Dedicated UDP Service. HTTP Ingress cannot carry UDP, so the realtime channel
+# is exposed on its own L4 LoadBalancer, separate from the WS/TLS path.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pyrrhic-stars.fullname" . }}-gateway-udp
+  labels:
+    {{- include "pyrrhic-stars.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+  {{- with $gw.udpService.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ $gw.udpService.type }}
+  {{- with $gw.udpService.loadBalancerIP }}
+  loadBalancerIP: {{ . | quote }}
+  {{- end }}
+  selector:
+    {{- include "pyrrhic-stars.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+  ports:
+    - name: udp
+      port: {{ $gw.udpService.port }}
+      targetPort: udp
+      protocol: UDP
+{{- end }}
+{{- end }}

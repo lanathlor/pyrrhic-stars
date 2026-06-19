@@ -1,0 +1,53 @@
+Pyrrhic Stars has been deployed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+Workloads:
+{{- if .Values.gateway.enabled }}
+  - gateway      (game server, WS :{{ .Values.gateway.ports.http }} / UDP :{{ .Values.gateway.ports.udp }})
+{{- end }}
+{{- if .Values.landing.enabled }}
+  - landing      (marketing site, :{{ .Values.landing.port }})
+{{- end }}
+{{- if .Values.combatLogs.enabled }}
+  - combat-logs  (log viewer, :{{ .Values.combatLogs.port }})
+{{- end }}
+{{- if .Values.zone.enabled }}
+  - zone
+{{- end }}
+{{- if .Values.chat.enabled }}
+  - chat
+{{- end }}
+
+Backing services (NOT managed by this chart) point at:
+  Redis:      {{ .Values.config.redis.addr }}
+  Postgres:   {{ .Values.config.postgres.driver }} (DSN in secret {{ include "pyrrhic-stars.secretName" . }})
+  ClickHouse: {{ .Values.config.clickhouse.addr | default "(disabled - no combat-log persistence)" }}
+  Kratos:     {{ .Values.config.kratos.publicUrl }}
+
+{{- if .Values.config.devMode }}
+
+WARNING: config.devMode is true (CODEX_DEV=1). The gateway accepts the
+?uuid= auth bypass and uses an in-memory combat log. Do not run this in
+production.
+{{- end }}
+
+{{- if .Values.ingress.enabled }}
+
+Ingress is enabled. Hosts:
+{{- range .Values.ingress.hosts }}
+  - http(s)://{{ .host }}  ->  {{ .service }}
+{{- end }}
+NOTE: UDP :{{ .Values.gateway.ports.udp }} cannot be served via HTTP Ingress.
+{{- if .Values.gateway.udpService.enabled }}
+It is exposed by the dedicated {{ .Values.gateway.udpService.type }} Service
+"{{ include "pyrrhic-stars.fullname" . }}-gateway-udp".
+{{- else }}
+gateway.udpService is disabled - the realtime UDP channel is unreachable.
+{{- end }}
+{{- else }}
+
+No Ingress configured. Reach the gateway from inside the cluster at:
+  {{ include "pyrrhic-stars.fullname" . }}-gateway:{{ .Values.gateway.service.httpPort }}
+
+Port-forward to test locally:
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "pyrrhic-stars.fullname" . }}-gateway {{ .Values.gateway.service.httpPort }}:{{ .Values.gateway.service.httpPort }}
+{{- end }}

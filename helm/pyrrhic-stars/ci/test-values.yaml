@@ -1,0 +1,41 @@
+# Values exercising the optional paths for `helm template`/lint coverage:
+# ClickHouse enabled, zone+chat enabled, ingress + TLS, dedicated UDP LoadBalancer.
+config:
+  clickhouse:
+    addr: clickhouse:9000
+    password: secret
+
+gateway:
+  service:
+    type: ClusterIP
+  udpService:
+    enabled: true
+    type: LoadBalancer
+    annotations:
+      external-dns.alpha.kubernetes.io/hostname: udp.pyrrhic-stars.example
+  udpPublicHost: udp.pyrrhic-stars.example
+
+zone:
+  enabled: true
+chat:
+  enabled: true
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: pyrrhicstars.example
+      service: landing
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: api.pyrrhicstars.example
+      service: gateway
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: pyrrhicstars-tls
+      hosts:
+        - pyrrhicstars.example
+        - api.pyrrhicstars.example

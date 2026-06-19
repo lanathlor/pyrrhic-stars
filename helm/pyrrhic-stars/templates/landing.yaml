@@ -1,0 +1,100 @@
+{{- if .Values.landing.enabled -}}
+{{- $l := .Values.landing -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pyrrhic-stars.fullname" . }}-landing
+  labels:
+    {{- include "pyrrhic-stars.labels" . | nindent 4 }}
+    app.kubernetes.io/component: landing
+spec:
+  replicas: {{ $l.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "pyrrhic-stars.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: landing
+  template:
+    metadata:
+      labels:
+        {{- include "pyrrhic-stars.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: landing
+      {{- with $l.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "pyrrhic-stars.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: landing
+          image: {{ include "pyrrhic-stars.image" (dict "root" . "repository" .Values.image.landing.repository "tag" .Values.image.landing.tag) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ $l.port }}
+              protocol: TCP
+          env:
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: {{ $l.port | quote }}
+            - name: NODE_ENV
+              value: "production"
+            {{- range $k, $v := $l.env }}
+            {{- if $v }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+            {{- end }}
+          {{- with $l.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $l.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml $l.resources | nindent 12 }}
+      {{- with $l.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $l.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $l.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pyrrhic-stars.fullname" . }}-landing
+  labels:
+    {{- include "pyrrhic-stars.labels" . | nindent 4 }}
+    app.kubernetes.io/component: landing
+  {{- with $l.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ $l.service.type }}
+  selector:
+    {{- include "pyrrhic-stars.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: landing
+  ports:
+    - name: http
+      port: {{ $l.service.port }}
+      targetPort: http
+      protocol: TCP
+{{- end }}
