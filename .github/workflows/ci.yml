@@ -181,7 +181,9 @@ jobs:
       - name: restore/save import cache
         uses: actions/cache@v5
         with:
-          path: client/.godot/
+          path: |
+            client/.godot/
+            client/**/*.import
           key: ${{ needs.client-setup.outputs.import_key }}
           restore-keys: |
             godot-import-v1-${{ env.GODOT_VERSION }}-
@@ -206,7 +208,9 @@ jobs:
       - name: restore import cache
         uses: actions/cache/restore@v5
         with:
-          path: client/.godot/
+          path: |
+            client/.godot/
+            client/**/*.import
           key: ${{ needs.client-setup.outputs.import_key }}
           restore-keys: |
             godot-import-v1-${{ env.GODOT_VERSION }}-
@@ -249,7 +253,9 @@ jobs:
       - name: restore import cache
         uses: actions/cache/restore@v5
         with:
-          path: client/.godot/
+          path: |
+            client/.godot/
+            client/**/*.import
           key: ${{ needs.client-setup.outputs.import_key }}
           restore-keys: |
             godot-import-v1-${{ env.GODOT_VERSION }}-
@@ -307,7 +313,9 @@ jobs:
       - name: restore import cache
         uses: actions/cache/restore@v5
         with:
-          path: client/.godot/
+          path: |
+            client/.godot/
+            client/**/*.import
           key: ${{ needs.client-setup.outputs.import_key }}
           restore-keys: |
             godot-import-v1-${{ env.GODOT_VERSION }}-
