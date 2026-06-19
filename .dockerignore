@@ -1,0 +1,9 @@
+# The gateway image builds from the repo root but only needs the server module
+# and the shared game data. Exclude everything else to keep the context small.
+*
+!server
+!shared
+
+# Build artifacts inside the included dirs.
+server/bin
+server/tmp
