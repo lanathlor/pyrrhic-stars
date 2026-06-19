@@ -98,7 +98,7 @@ Pass the root context.
   valueFrom:
     secretKeyRef:
       name: {{ include "pyrrhic-stars.secretName" . }}
-      key: POSTGRES_DSN
+      key: {{ .Values.existingSecretKey | default "POSTGRES_DSN" }}
 - name: KRATOS_PUBLIC_URL
   value: {{ $c.kratos.publicUrl | quote }}
 {{- if $c.clickhouse.addr }}
