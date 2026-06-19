@@ -142,6 +142,10 @@ jobs:
   # across branches and commits instead of being rebuilt per ref.
   client-setup:
     runs-on: ubuntu-latest
+    # paths-filter calls the GitHub API to list a PR's changed files.
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       client_changed: ${{ steps.filter.outputs.client }}
       import_key: ${{ steps.key.outputs.import_key }}
