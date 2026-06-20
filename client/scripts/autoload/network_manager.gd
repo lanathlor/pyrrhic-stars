@@ -42,7 +42,6 @@ signal merchant_buy_result(data: Dictionary)
 signal scrip_awarded(data: Dictionary)
 
 const UDPTransport := preload("res://scripts/autoload/net_udp_transport.gd")
-const DEFAULT_PORT := 7777
 
 ## Kept for migration compatibility. Always false -- server is the authority.
 var is_host := false
@@ -84,20 +83,20 @@ func _ready() -> void:
 
 func connect_to_server(address: String = "127.0.0.1") -> Error:
 	disconnect_game()
-	var port := DEFAULT_PORT
+	var ws_base := ServerConfig.gateway_ws_base(address)
 	var url: String
 	if dev_params.size() > 0:
 		# Dev path: the gateway's CODEX_DEV bypass accepts a client UUID directly,
 		# so local iteration and the MCP harness work without Kratos running.
 		var uuid := IdentityManager.get_player_id()
 		var encoded_name := username.uri_encode()
-		url = "ws://%s:%d/ws?uuid=%s&username=%s" % [address, port, uuid, encoded_name]
+		url = "%s/ws?uuid=%s&username=%s" % [ws_base, uuid, encoded_name]
 		url += "&dev_auto=1"
 		url += "&dev_class=%s" % dev_params.get("class", "gunner")
 		url += "&dev_zone=%s" % dev_params.get("zone", "arena")
 	else:
 		# Normal path: authenticate with the Kratos session token.
-		url = "ws://%s:%d/ws?token=%s" % [address, port, AuthManager.get_token().uri_encode()]
+		url = "%s/ws?token=%s" % [ws_base, AuthManager.get_token().uri_encode()]
 	_ws_host = address
 	_udp.set_host(address)
 	print("[Net] Connecting to %s..." % url)

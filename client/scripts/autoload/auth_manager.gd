@@ -9,7 +9,6 @@ signal auth_succeeded
 signal auth_failed(message: String)
 
 const TOKEN_SAVE_PATH := "user://session_token.txt"
-const KRATOS_PORT := 4433
 
 var session_token: String = ""
 
@@ -73,7 +72,7 @@ func register(host: String, email: String, password: String, username: String) -
 
 
 func _base_url(host: String) -> String:
-	return "http://%s:%d" % [host, KRATOS_PORT]
+	return ServerConfig.auth_base(host)
 
 
 ## GET /self-service/<kind>/api -> returns the flow JSON (with its id).

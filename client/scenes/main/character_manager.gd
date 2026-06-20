@@ -219,7 +219,7 @@ func _begin_connect() -> void:
 		print("[Main] Failed to connect: %s" % error_string(err))
 		ctrl._menu_layer.show_status("Could not reach the server")
 		return
-	print("[Main] Connecting to %s:%d..." % [ctrl.server_address, NetworkManager.DEFAULT_PORT])
+	print("[Main] Connecting to %s..." % ServerConfig.gateway_ws_base(ctrl.server_address))
 	ctrl._menu_layer.visible = false
 
 
