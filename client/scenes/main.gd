@@ -154,7 +154,7 @@ static func _resolve_server_address() -> String:
 	# A DNS hostname routes through the production TLS ingress (see ServerConfig);
 	# an IP or localhost uses plaintext dev ports. Override with SERVER_ADDRESS.
 	var env := OS.get_environment("SERVER_ADDRESS")
-	return env if env != "" else "pyrrhic.dosismart.com"
+	return env if env != "" else "pyrrhic-stars.com"
 
 
 func _ready() -> void:
