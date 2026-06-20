@@ -56,6 +56,13 @@ spec:
             - name: udp
               containerPort: {{ $gw.ports.udp }}
               protocol: UDP
+              {{- if $gw.udpHostPort }}
+              # Bind the node's UDP port directly so clients can dial it at the
+              # node's public IP. Required on Scaleway Kapsule, whose CCM cannot
+              # provision UDP LoadBalancers. Pairs with a NodePort Service that
+              # external-dns uses to track the hosting node's IP.
+              hostPort: {{ $gw.ports.udp }}
+              {{- end }}
           env:
             {{- include "pyrrhic-stars.serverEnv" . | nindent 12 }}
             {{- with $gw.udpPublicHost }}
@@ -142,7 +149,14 @@ spec:
 {{- if $gw.udpService.enabled }}
 ---
 # Dedicated UDP Service. HTTP Ingress cannot carry UDP, so the realtime channel
-# is exposed on its own L4 LoadBalancer, separate from the WS/TLS path.
+# is exposed separately from the WS/TLS path.
+#
+# On a UDP-capable cloud, set type: LoadBalancer. On Scaleway Kapsule (whose CCM
+# refuses UDP) use type: NodePort + externalTrafficPolicy: Local together with
+# gateway.udpHostPort: the pod binds the node's UDP port via hostPort (the real
+# data path, since NodePorts can't be 7778), while externalTrafficPolicy: Local
+# makes external-dns publish only the IP of the node actually running the gateway
+# to the annotated hostname - and re-publish it if the node is recycled.
 apiVersion: v1
 kind: Service
 metadata:
@@ -156,6 +170,9 @@ metadata:
   {{- end }}
 spec:
   type: {{ $gw.udpService.type }}
+  {{- with $gw.udpService.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ . }}
+  {{- end }}
   {{- with $gw.udpService.loadBalancerIP }}
   loadBalancerIP: {{ . | quote }}
   {{- end }}

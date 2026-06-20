@@ -135,15 +135,24 @@ gateway:
   # L4 LoadBalancer, kept entirely separate from the WS path.
   udpService:
     enabled: true
-    type: LoadBalancer
+    # LoadBalancer on UDP-capable clouds. On Scaleway Kapsule the CCM refuses UDP
+    # LoadBalancers, so use NodePort + externalTrafficPolicy: Local + udpHostPort
+    # below: the pod binds the node's UDP port (hostPort) for the data path, and
+    # external-dns publishes the hosting node's public IP to the annotated name.
+    type: NodePort
+    externalTrafficPolicy: Local
     port: 7778
-    # Add external-dns here for a stable name clients can resolve, e.g.:
-    #   external-dns.alpha.kubernetes.io/hostname: udp.pyrrhic-stars.example.com
-    # Whatever name/IP this resolves to must also be set as gateway.udpPublicHost
-    # so the gateway advertises it to clients in the UDP-associate handshake.
-    annotations: {}
-    # Pin the external IP (e.g. a reserved Scaleway flexible IP) if you have one.
+    # external-dns name clients resolve. With NodePort + Local, external-dns emits
+    # the public IP of the node running the gateway, and re-publishes on recycle.
+    # This name must also be set as gateway.udpPublicHost.
+    annotations:
+      external-dns.alpha.kubernetes.io/hostname: udp.pyrrhic-stars.example.com
+    # Only used when type: LoadBalancer.
     loadBalancerIP: ""
+  # Bind the node's UDP port directly (hostPort) so clients can reach it at the
+  # node's public IP. Required on Kapsule (no UDP LoadBalancer). The single-replica
+  # StatefulSet means exactly one pod owns the node's :7778.
+  udpHostPort: true
   # Public host/IP clients dial for the UDP channel, sent to them in the UDP
   # associate handshake (GATEWAY_UDP_PUBLIC_HOST). Because UDP is exposed on a
   # SEPARATE LoadBalancer from the WS/Ingress path, clients cannot infer it from
