@@ -305,25 +305,16 @@ ingress:
   annotations:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-  # Each host maps a service name (gateway | landing | combatLogs) to one or
-  # more paths.
-  hosts:
-    - host: pyrrhic-stars.example.com
-      service: landing
-      paths:
-        - path: /
-          pathType: Prefix
-    - host: api.pyrrhic-stars.example.com
-      service: gateway
-      paths:
-        - path: /
-          pathType: Prefix
-    - host: logs.pyrrhic-stars.example.com
-      service: combatLogs
-      paths:
-        - path: /
-          pathType: Prefix
+  # Root domain. When set, one host is derived per ENABLED web service from
+  # `subdomains` (an empty prefix = the apex domain), all covered by tlsSecretName.
+  # Leave empty to specify `hosts`/`tls` explicitly instead.
+  domain: ""
+  subdomains:
+    landing: ""        # apex: the root domain itself
+    gateway: "api"
+    combatLogs: "logs"
+  tlsSecretName: pyrrhic-stars-tls
+  # Explicit host -> service (gateway | landing | combatLogs) mapping. Used only
+  # when `domain` is empty.
+  hosts: []
   tls: []
-  #  - secretName: pyrrhic-stars-tls
-  #    hosts:
-  #      - pyrrhic-stars.example.com
