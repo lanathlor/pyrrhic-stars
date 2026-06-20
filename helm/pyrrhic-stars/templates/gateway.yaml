@@ -59,14 +59,13 @@ spec:
           env:
             {{- include "pyrrhic-stars.serverEnv" . | nindent 12 }}
             {{- with $gw.udpPublicHost }}
-            # Host clients dial for UDP (the node's public IP via external-dns).
+            # Public host clients dial for UDP (advertised in the associate handshake).
             - name: GATEWAY_UDP_PUBLIC_HOST
               value: {{ . | quote }}
             {{- end }}
-            {{- with $gw.udpService.nodePort }}
-            # Port clients dial for UDP. On Kapsule the gateway is reached through
-            # this fixed NodePort (Cilium handles NodePort but not hostPort/UDP-LB),
-            # so the gateway advertises it in the associate handshake.
+            {{- with $gw.udpPublicPort }}
+            # Public UDP port, when it differs from the listen port. Empty advertises
+            # the listen port.
             - name: GATEWAY_UDP_PUBLIC_PORT
               value: {{ . | quote }}
             {{- end }}
@@ -150,13 +149,9 @@ spec:
 # Dedicated UDP Service. HTTP Ingress cannot carry UDP, so the realtime channel
 # is exposed separately from the WS/TLS path.
 #
-# On a UDP-capable cloud, set type: LoadBalancer. On Scaleway Kapsule none of
-# LoadBalancer, hostPort, or node-public-IP NodePort can carry inbound UDP, so a
-# VPC Public Gateway PAT rule (Terraform) forwards a public UDP port to this
-# NodePort on a node's private IP. Use externalTrafficPolicy: Local so the return
-# path is a single symmetric PGW NAT (Cluster's extra SNAT breaks it); pin the
-# gateway to the PAT-target node via gateway.nodeSelector. The gateway advertises
-# the public host/port via GATEWAY_UDP_PUBLIC_HOST/_PORT.
+# Set type: LoadBalancer where the cloud supports UDP. Where it does not, use
+# type: NodePort and put an external UDP forwarder in front of it; the gateway
+# advertises the public host/port to clients via GATEWAY_UDP_PUBLIC_HOST/_PORT.
 apiVersion: v1
 kind: Service
 metadata:
@@ -184,7 +179,7 @@ spec:
       port: {{ $gw.udpService.port }}
       targetPort: udp
       {{- with $gw.udpService.nodePort }}
-      # Pinned so the advertised GATEWAY_UDP_PUBLIC_PORT stays stable across deploys.
+      # Pinned so an external forwarder has a stable target across deploys.
       nodePort: {{ . }}
       {{- end }}
       protocol: UDP
