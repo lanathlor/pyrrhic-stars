@@ -56,19 +56,18 @@ spec:
             - name: udp
               containerPort: {{ $gw.ports.udp }}
               protocol: UDP
-              {{- if $gw.udpHostPort }}
-              # Bind the node's UDP port directly so clients can dial it at the
-              # node's public IP. Required on Scaleway Kapsule, whose CCM cannot
-              # provision UDP LoadBalancers. Pairs with a NodePort Service that
-              # external-dns uses to track the hosting node's IP.
-              hostPort: {{ $gw.ports.udp }}
-              {{- end }}
           env:
             {{- include "pyrrhic-stars.serverEnv" . | nindent 12 }}
             {{- with $gw.udpPublicHost }}
-            # Address clients dial for UDP. Must be set when UDP is exposed on a
-            # separate LoadBalancer from the WS/Ingress path (see values.yaml).
+            # Host clients dial for UDP (the node's public IP via external-dns).
             - name: GATEWAY_UDP_PUBLIC_HOST
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with $gw.udpService.nodePort }}
+            # Port clients dial for UDP. On Kapsule the gateway is reached through
+            # this fixed NodePort (Cilium handles NodePort but not hostPort/UDP-LB),
+            # so the gateway advertises it in the associate handshake.
+            - name: GATEWAY_UDP_PUBLIC_PORT
               value: {{ . | quote }}
             {{- end }}
             {{- with $gw.extraEnv }}
@@ -152,11 +151,11 @@ spec:
 # is exposed separately from the WS/TLS path.
 #
 # On a UDP-capable cloud, set type: LoadBalancer. On Scaleway Kapsule (whose CCM
-# refuses UDP) use type: NodePort + externalTrafficPolicy: Local together with
-# gateway.udpHostPort: the pod binds the node's UDP port via hostPort (the real
-# data path, since NodePorts can't be 7778), while externalTrafficPolicy: Local
-# makes external-dns publish only the IP of the node actually running the gateway
-# to the annotated hostname - and re-publish it if the node is recycled.
+# refuses UDP LoadBalancers and whose Cilium ignores hostPort) use type: NodePort
+# + externalTrafficPolicy: Local: the gateway advertises the pinned nodePort to
+# clients (GATEWAY_UDP_PUBLIC_PORT), and Local makes external-dns publish only the
+# public IP of the node actually running the gateway to the annotated hostname -
+# re-publishing it if the node is recycled.
 apiVersion: v1
 kind: Service
 metadata:
@@ -183,6 +182,10 @@ spec:
     - name: udp
       port: {{ $gw.udpService.port }}
       targetPort: udp
+      {{- with $gw.udpService.nodePort }}
+      # Pinned so the advertised GATEWAY_UDP_PUBLIC_PORT stays stable across deploys.
+      nodePort: {{ . }}
+      {{- end }}
       protocol: UDP
 {{- end }}
 {{- end }}

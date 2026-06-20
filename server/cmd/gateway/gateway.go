@@ -59,6 +59,12 @@ type gateway struct {
 	// clients reuse the WebSocket host (correct when WS and UDP share an IP).
 	udpPublicHost string
 
+	// udpPublicPort is the port clients dial to reach the UDP socket, when it
+	// differs from the listen port (e.g. a Kubernetes NodePort fronting the
+	// gateway, since Scaleway Kapsule cannot expose UDP via LoadBalancer or
+	// hostPort). Set GATEWAY_UDP_PUBLIC_PORT. Zero means advertise the listen port.
+	udpPublicPort uint16
+
 	// Connection limiting
 	connMu    sync.Mutex
 	connPerIP map[string]int // IP -> active connection count
@@ -311,9 +317,13 @@ func (g *gateway) sendUDPAssociate(sess *session.Session) {
 	// correct when WS and UDP share an IP. A non-empty host is required when UDP is
 	// exposed on a separate endpoint (e.g. a dedicated UDP LoadBalancer).
 	host := []byte(g.udpPublicHost)
+	port := uint16(g.udpServer.Port())
+	if g.udpPublicPort != 0 {
+		port = g.udpPublicPort
+	}
 	payload := make([]byte, 20+len(host))
 	copy(payload[0:16], token[:])
-	binary.BigEndian.PutUint16(payload[16:18], uint16(g.udpServer.Port()))
+	binary.BigEndian.PutUint16(payload[16:18], port)
 	binary.BigEndian.PutUint16(payload[18:20], uint16(len(host)))
 	copy(payload[20:], host)
 	sess.Conn.Send(message.Encode(message.OpUDPAssociate, 0, payload))

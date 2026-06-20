@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"time"
 
@@ -129,6 +130,14 @@ func startUDPServer(gw *gateway) error {
 	gw.udpPublicHost = os.Getenv("GATEWAY_UDP_PUBLIC_HOST")
 	if gw.udpPublicHost != "" {
 		slog.Info("udp public host configured", "host", gw.udpPublicHost)
+	}
+	if envPort := os.Getenv("GATEWAY_UDP_PUBLIC_PORT"); envPort != "" {
+		p, perr := strconv.ParseUint(envPort, 10, 16)
+		if perr != nil {
+			return fmt.Errorf("invalid GATEWAY_UDP_PUBLIC_PORT %q: %w", envPort, perr)
+		}
+		gw.udpPublicPort = uint16(p)
+		slog.Info("udp public port configured", "port", gw.udpPublicPort)
 	}
 	go udpSrv.ReadLoop(func(sessID uint32, _, opcode uint16, payload []byte) {
 		sess := gw.sessions.GetByID(sessID)
