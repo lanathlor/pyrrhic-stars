@@ -505,6 +505,38 @@ jobs:
             ${{ env.IMAGE }}:${{ github.sha }}
             ${{ env.IMAGE }}:latest
 
+  # --- Promote: record the deployed version for ArgoCD ---
+
+  # After the images are pushed, write this commit SHA into deploy/version.json.
+  # The pyrrhic-stars ApplicationSet (git generator) watches the file and rolls the
+  # deployment to the matching immutable chart + image. Pushes made with
+  # GITHUB_TOKEN do not retrigger workflows; [skip ci] is belt-and-suspenders.
+  update-deploy-version:
+    runs-on: ubuntu-latest
+    needs: [build-gateway-image, build-combat-logs-image, build-landing-image]
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          lfs: false
+      - name: write deploy/version.json
+        run: |
+          mkdir -p deploy
+          printf '{ "version": "%s" }\n' "${{ github.sha }}" > deploy/version.json
+      - name: commit & push if changed
+        run: |
+          if git diff --quiet -- deploy/version.json; then
+            echo "version.json unchanged; nothing to do"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add deploy/version.json
+          git commit -m "chore(deploy): release ${{ github.sha }} [skip ci]"
+          git push
+
   # --- Release ---
 
   # Derive the next semver from conventional commits since the last vX.Y.Z tag.
