@@ -6,6 +6,30 @@
   "landing"    (dict "name" (printf "%s-landing" $fullName)     "port" .Values.landing.service.port)
   "combatLogs" (dict "name" (printf "%s-combat-logs" $fullName) "port" .Values.combatLogs.service.port)
 -}}
+{{/*
+Build the host->service rules. When ingress.domain is set, derive one host per
+enabled web service from `subdomains` (an empty prefix means the apex domain) and
+cover them with a single TLS secret. Otherwise use the explicit ingress.hosts/tls.
+*/}}
+{{- $rules := .Values.ingress.hosts -}}
+{{- $tls := .Values.ingress.tls -}}
+{{- if .Values.ingress.domain -}}
+  {{- $d := .Values.ingress.domain -}}
+  {{- $sub := .Values.ingress.subdomains -}}
+  {{- $enabled := dict "gateway" .Values.gateway.enabled "landing" .Values.landing.enabled "combatLogs" .Values.combatLogs.enabled -}}
+  {{- $rules = list -}}
+  {{- $tlsHosts := list -}}
+  {{- range $svc := (list "landing" "gateway" "combatLogs") -}}
+    {{- if index $enabled $svc -}}
+      {{- $prefix := index $sub $svc -}}
+      {{- $host := $d -}}
+      {{- if $prefix }}{{- $host = printf "%s.%s" $prefix $d -}}{{- end -}}
+      {{- $rules = append $rules (dict "host" $host "service" $svc "paths" (list (dict "path" "/" "pathType" "Prefix"))) -}}
+      {{- $tlsHosts = append $tlsHosts $host -}}
+    {{- end -}}
+  {{- end -}}
+  {{- $tls = list (dict "secretName" .Values.ingress.tlsSecretName "hosts" $tlsHosts) -}}
+{{- end -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -20,12 +44,12 @@ spec:
   {{- with .Values.ingress.className }}
   ingressClassName: {{ . }}
   {{- end }}
-  {{- with .Values.ingress.tls }}
+  {{- with $tls }}
   tls:
     {{- toYaml . | nindent 4 }}
   {{- end }}
   rules:
-    {{- range .Values.ingress.hosts }}
+    {{- range $rules }}
     {{- $backend := index $backends .service }}
     {{- if not $backend }}
     {{- fail (printf "ingress host %q references unknown service %q (expected gateway|landing|combatLogs)" .host .service) }}
