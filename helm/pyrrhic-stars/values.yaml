@@ -136,23 +136,21 @@ gateway:
   udpService:
     enabled: true
     # LoadBalancer on UDP-capable clouds. On Scaleway Kapsule the CCM refuses UDP
-    # LoadBalancers, so use NodePort + externalTrafficPolicy: Local + udpHostPort
-    # below: the pod binds the node's UDP port (hostPort) for the data path, and
-    # external-dns publishes the hosting node's public IP to the annotated name.
+    # LoadBalancers AND its managed Cilium doesn't honor hostPort, so expose UDP
+    # through a NodePort (which Cilium kube-proxy-replacement does handle) with
+    # externalTrafficPolicy: Local. The gateway advertises the nodePort to clients
+    # via GATEWAY_UDP_PUBLIC_PORT, and external-dns publishes the hosting node's
+    # public IP to the annotated name (re-publishing on node recycle).
     type: NodePort
     externalTrafficPolicy: Local
     port: 7778
-    # external-dns name clients resolve. With NodePort + Local, external-dns emits
-    # the public IP of the node running the gateway, and re-publishes on recycle.
-    # This name must also be set as gateway.udpPublicHost.
+    # Pinned NodePort (30000-32767) clients dial for UDP. Kept stable so the
+    # advertised port doesn't change across deploys. Empty = ephemeral (not for prod).
+    nodePort: 30778
     annotations:
       external-dns.alpha.kubernetes.io/hostname: udp.pyrrhic-stars.example.com
     # Only used when type: LoadBalancer.
     loadBalancerIP: ""
-  # Bind the node's UDP port directly (hostPort) so clients can reach it at the
-  # node's public IP. Required on Kapsule (no UDP LoadBalancer). The single-replica
-  # StatefulSet means exactly one pod owns the node's :7778.
-  udpHostPort: true
   # Public host/IP clients dial for the UDP channel, sent to them in the UDP
   # associate handshake (GATEWAY_UDP_PUBLIC_HOST). Because UDP is exposed on a
   # SEPARATE LoadBalancer from the WS/Ingress path, clients cannot infer it from
