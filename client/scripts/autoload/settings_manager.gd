@@ -18,7 +18,6 @@ signal settings_changed
 
 const SAVE_PATH := "user://settings.json"
 const SETTINGS_VERSION := 1
-const REST_PORT := 7777
 const SERVER_PUSH_DEBOUNCE := 0.6
 
 const RESOLUTIONS: Array[String] = [
@@ -473,7 +472,7 @@ func _on_get_completed(
 ## Authorization header when available, else the dev ?uuid= bypass. Returns an
 ## empty dict when neither identity is available.
 func _build_request(_method: String) -> Dictionary:
-	var url := "http://%s:%d/api/v1/settings" % [_server_host, REST_PORT]
+	var url := "%s/api/v1/settings" % ServerConfig.gateway_http_base(_server_host)
 	var headers: Array = ["Accept: application/json"]
 	if AuthManager.has_token():
 		headers.append("Authorization: Bearer %s" % AuthManager.get_token())
