@@ -153,9 +153,10 @@ spec:
 # On a UDP-capable cloud, set type: LoadBalancer. On Scaleway Kapsule none of
 # LoadBalancer, hostPort, or node-public-IP NodePort can carry inbound UDP, so a
 # VPC Public Gateway PAT rule (Terraform) forwards a public UDP port to this
-# NodePort on a node's private IP. externalTrafficPolicy: Cluster lets the PAT
-# target any node and still reach the pod; the gateway advertises the public
-# host/port via GATEWAY_UDP_PUBLIC_HOST/_PORT.
+# NodePort on a node's private IP. Use externalTrafficPolicy: Local so the return
+# path is a single symmetric PGW NAT (Cluster's extra SNAT breaks it); pin the
+# gateway to the PAT-target node via gateway.nodeSelector. The gateway advertises
+# the public host/port via GATEWAY_UDP_PUBLIC_HOST/_PORT.
 apiVersion: v1
 kind: Service
 metadata:

@@ -138,11 +138,14 @@ gateway:
     # LoadBalancer on UDP-capable clouds. On Scaleway Kapsule none of LoadBalancer,
     # hostPort, or node-public-IP NodePort can carry inbound UDP, so a VPC Public
     # Gateway PAT rule (Terraform) forwards a public UDP port to this NodePort on a
-    # node's PRIVATE IP. externalTrafficPolicy: Cluster lets the PAT target any node
-    # and still reach the pod wherever it runs. DNS (udp.pyrrhic) is a static record
-    # to the Public Gateway IP, so no external-dns annotation here.
+    # node's PRIVATE IP. Use externalTrafficPolicy: Local (NOT Cluster): Cluster adds
+    # a second SNAT on top of the PGW's, and the server then replies to an internal
+    # Cilium address whose return path through the PGW breaks. Local keeps a single
+    # symmetric NAT (the pod sees the PGW directly), but means the PAT must hit the
+    # node running the pod -- so pin the gateway there with gateway.nodeSelector and
+    # point the PAT rule at that node. DNS is a static record to the PGW IP.
     type: NodePort
-    externalTrafficPolicy: Cluster
+    externalTrafficPolicy: Local
     port: 7778
     # Pinned NodePort (30000-32767) = the PAT rule's private port, and what the
     # gateway advertises (GATEWAY_UDP_PUBLIC_PORT) since the PAT public port matches.
