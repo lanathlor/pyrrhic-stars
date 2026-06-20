@@ -150,12 +150,12 @@ spec:
 # Dedicated UDP Service. HTTP Ingress cannot carry UDP, so the realtime channel
 # is exposed separately from the WS/TLS path.
 #
-# On a UDP-capable cloud, set type: LoadBalancer. On Scaleway Kapsule (whose CCM
-# refuses UDP LoadBalancers and whose Cilium ignores hostPort) use type: NodePort
-# + externalTrafficPolicy: Local: the gateway advertises the pinned nodePort to
-# clients (GATEWAY_UDP_PUBLIC_PORT), and Local makes external-dns publish only the
-# public IP of the node actually running the gateway to the annotated hostname -
-# re-publishing it if the node is recycled.
+# On a UDP-capable cloud, set type: LoadBalancer. On Scaleway Kapsule none of
+# LoadBalancer, hostPort, or node-public-IP NodePort can carry inbound UDP, so a
+# VPC Public Gateway PAT rule (Terraform) forwards a public UDP port to this
+# NodePort on a node's private IP. externalTrafficPolicy: Cluster lets the PAT
+# target any node and still reach the pod; the gateway advertises the public
+# host/port via GATEWAY_UDP_PUBLIC_HOST/_PORT.
 apiVersion: v1
 kind: Service
 metadata:
