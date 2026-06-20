@@ -280,7 +280,10 @@ jobs:
         with:
           name: pyrrhic-stars-linux-${{ github.sha }}
           path: build/linux/
-          retention-days: 30
+          # Short retention: these per-build artifacts are only an intra-run
+          # handoff to the release jobs (which publish to GitHub Releases). Long
+          # retention fills the account-wide artifact storage quota and fails CI.
+          retention-days: 1
 
   build-client-windows:
     runs-on: ubuntu-latest
@@ -337,7 +340,10 @@ jobs:
         with:
           name: pyrrhic-stars-windows-${{ github.sha }}
           path: build/windows/
-          retention-days: 30
+          # Short retention: these per-build artifacts are only an intra-run
+          # handoff to the release jobs (which publish to GitHub Releases). Long
+          # retention fills the account-wide artifact storage quota and fails CI.
+          retention-days: 1
 
   # --- Build: Server ---
 
@@ -364,7 +370,10 @@ jobs:
           path: |
             build/server-linux/
             build/server-windows/
-          retention-days: 30
+          # Short retention: these per-build artifacts are only an intra-run
+          # handoff to the release jobs (which publish to GitHub Releases). Long
+          # retention fills the account-wide artifact storage quota and fails CI.
+          retention-days: 1
 
   # --- Build: Landing image ---
 
