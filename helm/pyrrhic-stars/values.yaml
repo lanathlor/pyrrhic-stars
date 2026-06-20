@@ -135,31 +135,25 @@ gateway:
   # L4 LoadBalancer, kept entirely separate from the WS path.
   udpService:
     enabled: true
-    # LoadBalancer on UDP-capable clouds. On Scaleway Kapsule none of LoadBalancer,
-    # hostPort, or node-public-IP NodePort can carry inbound UDP, so a VPC Public
-    # Gateway PAT rule (Terraform) forwards a public UDP port to this NodePort on a
-    # node's PRIVATE IP. Use externalTrafficPolicy: Local (NOT Cluster): Cluster adds
-    # a second SNAT on top of the PGW's, and the server then replies to an internal
-    # Cilium address whose return path through the PGW breaks. Local keeps a single
-    # symmetric NAT (the pod sees the PGW directly), but means the PAT must hit the
-    # node running the pod -- so pin the gateway there with gateway.nodeSelector and
-    # point the PAT rule at that node. DNS is a static record to the PGW IP.
+    # type: LoadBalancer where the cloud supports UDP. Where it does not, use
+    # NodePort and front it with an external UDP forwarder (see your deployment's
+    # infra); externalTrafficPolicy: Cluster is fine when the forwarder reaches the
+    # NodePort over a private network.
     type: NodePort
-    externalTrafficPolicy: Local
+    externalTrafficPolicy: Cluster
     port: 7778
-    # Pinned NodePort (30000-32767) = the PAT rule's private port, and what the
-    # gateway advertises (GATEWAY_UDP_PUBLIC_PORT) since the PAT public port matches.
+    # Fixed NodePort (30000-32767) an external UDP forwarder targets.
     nodePort: 30778
     annotations: {}
     # Only used when type: LoadBalancer.
     loadBalancerIP: ""
-  # Public host/IP clients dial for the UDP channel, sent to them in the UDP
-  # associate handshake (GATEWAY_UDP_PUBLIC_HOST). Because UDP is exposed on a
-  # SEPARATE LoadBalancer from the WS/Ingress path, clients cannot infer it from
-  # the WebSocket host - leaving this empty makes them reuse the WS host and UDP
-  # silently fails. Set it to the udpService's external-dns hostname or reserved
-  # IP. Empty is correct only when WS and UDP share an address (e.g. local dev).
+  # Public host/IP clients dial for the UDP channel, advertised in the associate
+  # handshake (GATEWAY_UDP_PUBLIC_HOST). Empty makes clients reuse the WebSocket
+  # host (correct only when WS and UDP share an address, e.g. local dev).
   udpPublicHost: ""
+  # Public UDP port, when it differs from the listen port. Empty advertises the
+  # listen port.
+  udpPublicPort: ""
   # No HPA: the gateway holds live sessions/zones in memory, so scaling in kills
   # the highest-ordinal pod's players and scaling out splits WS/UDP for the same
   # client across pods with no shared state. Scale by zone-sharding, not replicas.
