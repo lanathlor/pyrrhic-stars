@@ -77,7 +77,7 @@ func TestEnterPortal_WithOverfluxConditions(t *testing.T) {
 
 	sess, spy := newTestSession(1)
 	defer sess.Conn.Close()
-	gw.joinZone(sess, hubZI, joinResponseZoneJoined)
+	gw.joinZone(sess, hubZI, joinResponseZoneJoined, "")
 	spy.Reset()
 
 	conditions := []overflux.ActiveCondition{
@@ -139,11 +139,11 @@ func TestEnterPortal_JoinsExistingInstance(t *testing.T) {
 	// Use registered sessions so group broadcasts via GetByID work.
 	leaderSess, leaderSpy := registerSession(gw, "Leader")
 	defer leaderSess.Conn.Close()
-	gw.joinZone(leaderSess, hubZI, joinResponseZoneJoined)
+	gw.joinZone(leaderSess, hubZI, joinResponseZoneJoined, "")
 
 	memberSess, memberSpy := registerSession(gw, "Member")
 	defer memberSess.Conn.Close()
-	gw.joinZone(memberSess, hubZI, joinResponseZoneJoined)
+	gw.joinZone(memberSess, hubZI, joinResponseZoneJoined, "")
 
 	// Build a group: leader invites member, member accepts.
 	grp, err := gw.groups.CreateGroup(leaderSess.ID)
@@ -204,12 +204,12 @@ func TestEnterPortal_GroupMembersReceiveJoinPrompt(t *testing.T) {
 	leaderSess, leaderSpy := registerSession(gw, "Leader")
 	leaderSess.Username = "Leader"
 	defer leaderSess.Conn.Close()
-	gw.joinZone(leaderSess, hubZI, joinResponseZoneJoined)
+	gw.joinZone(leaderSess, hubZI, joinResponseZoneJoined, "")
 
 	// Hub member — should receive the prompt.
 	hubMemberSess, hubMemberSpy := registerSession(gw, "HubMember")
 	defer hubMemberSess.Conn.Close()
-	gw.joinZone(hubMemberSess, hubZI, joinResponseZoneJoined)
+	gw.joinZone(hubMemberSess, hubZI, joinResponseZoneJoined, "")
 
 	// Create an arena zone and place a third member inside it.
 	arenaZI := newTestZoneInstance(t, "arena_pre", "arena")
@@ -218,7 +218,7 @@ func TestEnterPortal_GroupMembersReceiveJoinPrompt(t *testing.T) {
 	gw.mu.Unlock()
 	instancedMemberSess, instancedMemberSpy := registerSession(gw, "InstancedMember")
 	defer instancedMemberSess.Conn.Close()
-	gw.joinZone(instancedMemberSess, arenaZI, joinResponseZoneJoined)
+	gw.joinZone(instancedMemberSess, arenaZI, joinResponseZoneJoined, "")
 
 	// Build group with all three members.
 	if _, err := gw.groups.CreateGroup(leaderSess.ID); err != nil {
@@ -315,11 +315,11 @@ func TestInstanceJoinReply_Accept(t *testing.T) {
 
 	leaderSess, leaderSpy := registerSession(gw, "Leader")
 	defer leaderSess.Conn.Close()
-	gw.joinZone(leaderSess, hubZI, joinResponseZoneJoined)
+	gw.joinZone(leaderSess, hubZI, joinResponseZoneJoined, "")
 
 	memberSess, memberSpy := registerSession(gw, "Member")
 	defer memberSess.Conn.Close()
-	gw.joinZone(memberSess, hubZI, joinResponseZoneJoined)
+	gw.joinZone(memberSess, hubZI, joinResponseZoneJoined, "")
 
 	grp, err := gw.groups.CreateGroup(leaderSess.ID)
 	if err != nil {
@@ -364,11 +364,11 @@ func TestInstanceJoinReply_Decline(t *testing.T) {
 
 	leaderSess, leaderSpy := registerSession(gw, "Leader")
 	defer leaderSess.Conn.Close()
-	gw.joinZone(leaderSess, hubZI, joinResponseZoneJoined)
+	gw.joinZone(leaderSess, hubZI, joinResponseZoneJoined, "")
 
 	memberSess, memberSpy := registerSession(gw, "Member")
 	defer memberSess.Conn.Close()
-	gw.joinZone(memberSess, hubZI, joinResponseZoneJoined)
+	gw.joinZone(memberSess, hubZI, joinResponseZoneJoined, "")
 
 	if _, err := gw.groups.CreateGroup(leaderSess.ID); err != nil {
 		t.Fatalf("CreateGroup: %v", err)
@@ -412,11 +412,11 @@ func TestInstanceReset_LeaderOnly(t *testing.T) {
 	// inside handleInstanceReset's player-transfer loop.
 	leaderSess, leaderSpy := registerSession(gw, "Leader")
 	defer leaderSess.Conn.Close()
-	gw.joinZone(leaderSess, hubZI, joinResponseZoneJoined)
+	gw.joinZone(leaderSess, hubZI, joinResponseZoneJoined, "")
 
 	memberSess, memberSpy := registerSession(gw, "Member")
 	defer memberSess.Conn.Close()
-	gw.joinZone(memberSess, hubZI, joinResponseZoneJoined)
+	gw.joinZone(memberSess, hubZI, joinResponseZoneJoined, "")
 
 	grp, err := gw.groups.CreateGroup(leaderSess.ID)
 	if err != nil {
@@ -482,7 +482,7 @@ func TestOverfluxState_BroadcastOnJoin(t *testing.T) {
 
 	sess, spy := newTestSession(1)
 	defer sess.Conn.Close()
-	gw.joinZone(sess, hubZI, joinResponseZoneJoined)
+	gw.joinZone(sess, hubZI, joinResponseZoneJoined, "")
 	spy.Reset()
 
 	conditions := []overflux.ActiveCondition{
@@ -552,7 +552,7 @@ func TestEnterPortal_EmptyPayload_BackwardCompat(t *testing.T) {
 
 			sess, spy := newTestSession(1)
 			defer sess.Conn.Close()
-			gw.joinZone(sess, hubZI, joinResponseZoneJoined)
+			gw.joinZone(sess, hubZI, joinResponseZoneJoined, "")
 			spy.Reset()
 
 			gw.handleEnterPortal(sess, tc.payload)

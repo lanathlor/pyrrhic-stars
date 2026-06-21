@@ -35,7 +35,6 @@ const HUB_SPAWNS := [
 	Vector3(12.5, -199.9, -79.0),
 	Vector3(12.5, -199.9, -81.0),
 ]
-const HUB_SPAWN_YAW := PI / 2.0  # face west
 const CLASS_SCENES := {
 	"gunner": "res://scenes/controllers/gunner/gunner.tscn",
 	"vanguard": "res://scenes/controllers/vanguard/vanguard.tscn",

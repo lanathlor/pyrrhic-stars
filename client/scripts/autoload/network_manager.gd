@@ -48,6 +48,9 @@ var is_host := false
 var is_active := false
 var username: String = ""
 var current_zone_type: int = NetSerializer.ZONE_TYPE_HUB
+# Server-authoritative spawn for the local player in the current zone (from level data).
+var spawn_yaw: float = 0.0  # facing direction, radians
+var spawn_pos: Vector3 = Vector3.ZERO
 # peer_id -> { "class_name": String, "spec_name": String, "ready": bool }
 var player_info: Dictionary = {}
 var lobby_phase: int = 0  # 0=waiting, 1=countdown
@@ -456,6 +459,8 @@ func _handle_zone_joined(payload: PackedByteArray) -> void:
 	if info.is_empty():
 		return
 	_my_peer_id = info.peer_id
+	spawn_yaw = info.get("spawn_yaw", 0.0)
+	spawn_pos = info.get("spawn_pos", Vector3.ZERO)
 	# is_host stays false -- server is always authority
 	print("[Net] Joined zone as peer %d" % _my_peer_id)
 
@@ -555,6 +560,8 @@ func _handle_zone_transfer(payload: PackedByteArray) -> void:
 	previous_peer_id = _my_peer_id
 	_my_peer_id = data.new_peer_id
 	current_zone_type = data.zone_type
+	spawn_yaw = data.get("spawn_yaw", 0.0)
+	spawn_pos = data.get("spawn_pos", Vector3.ZERO)
 	player_info.clear()
 	_udp.reset_tick()
 	print("[Net] Zone transfer: type=%d, new peer_id=%d" % [data.zone_type, data.new_peer_id])

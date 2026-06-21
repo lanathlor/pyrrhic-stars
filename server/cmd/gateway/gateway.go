@@ -5,7 +5,9 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log/slog"
+	"math"
 	"net"
+	"strings"
 	"sync"
 
 	"codex-online/server/internal/ability"
@@ -215,8 +217,10 @@ func (g *gateway) leaveZone(sess *session.Session) {
 
 // joinZone adds a player to a zone, notifies peers, and sends the appropriate
 // response. It handles peer ID allocation, display name resolution, position
-// restore (hub zones), and class selection queuing.
-func (g *gateway) joinZone(sess *session.Session, zi *zoneInstance, resp joinResponse) {
+// restore (hub zones), and class selection queuing. When returnFromZone is set
+// (the player is leaving that dungeon for the hub), they spawn at the dungeon's
+// hub entrance instead of their last-saved position.
+func (g *gateway) joinZone(sess *session.Session, zi *zoneInstance, resp joinResponse, returnFromZone string) {
 	// Allocate peer ID.
 	zi.mu.Lock()
 	peerID := zi.nextID
@@ -252,7 +256,11 @@ func (g *gateway) joinZone(sess *session.Session, zi *zoneInstance, resp joinRes
 			codec.EncodeInteractInput(message.InteractSpecSelect, sess.Spec))
 	}
 
-	g.restoreSavedPosition(zi, peerID, sess)
+	if entrancePos, ok := g.dungeonReturnEntrance(zi, returnFromZone); ok {
+		zi.zone.SetPlayerPosition(peerID, entrancePos, zi.zone.SpawnYaw())
+	} else {
+		g.restoreSavedPosition(zi, peerID, sess)
+	}
 
 	notifyExistingPeers(sess, zi, peerID)
 	sendJoinResponse(sess, zi, peerID, resp)
@@ -292,17 +300,30 @@ func notifyExistingPeers(sess *session.Session, zi *zoneInstance, peerID uint16)
 }
 
 func sendJoinResponse(sess *session.Session, zi *zoneInstance, peerID uint16, resp joinResponse) {
+	// Trailing [spawn_yaw][spawn_x][spawn_y][spawn_z], all f32 BE, lets the client
+	// place the local player at the server-authoritative spawn without guessing.
+	var spawn entity.Vec3
+	if p := zi.zone.GetPlayer(peerID); p != nil {
+		spawn = p.Position
+	}
+	appendSpawn := func(buf []byte) []byte {
+		buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(zi.zone.SpawnYaw()))
+		buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(spawn.X))
+		buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(spawn.Y))
+		buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(spawn.Z))
+		return buf
+	}
 	switch resp {
 	case joinResponseZoneJoined:
-		buf := make([]byte, 3)
+		buf := make([]byte, 3, 19)
 		binary.BigEndian.PutUint16(buf[0:2], peerID)
 		buf[2] = 0
-		sess.Conn.Send(message.Encode(message.OpZoneJoined, 0, buf))
+		sess.Conn.Send(message.Encode(message.OpZoneJoined, 0, appendSpawn(buf)))
 	case joinResponseZoneTransfer:
-		buf := make([]byte, 3)
+		buf := make([]byte, 3, 19)
 		buf[0] = byte(zi.zone.Type)
 		binary.BigEndian.PutUint16(buf[1:3], peerID)
-		sess.Conn.Send(message.Encode(message.OpZoneTransfer, 0, buf))
+		sess.Conn.Send(message.Encode(message.OpZoneTransfer, 0, appendSpawn(buf)))
 	}
 }
 
@@ -582,8 +603,10 @@ func itemToCodec(it *item.Item) codec.InventoryItemInfo {
 
 // transferPlayer moves a player from their current zone to a new zone.
 // groupSize is used for instance scaling. Pass oflx for new instanced zones
-// with overflux conditions (nil for open-world or joining existing).
-func (g *gateway) transferPlayer(sess *session.Session, targetZoneID string, lvl *level.Level, groupSize int, oflx *overflux.State) {
+// with overflux conditions (nil for open-world or joining existing). When the
+// player is leaving a dungeon for the hub, returnFromZone is the source instance
+// ID so joinZone can place them at that dungeon's hub entrance ("" otherwise).
+func (g *gateway) transferPlayer(sess *session.Session, targetZoneID string, lvl *level.Level, groupSize int, oflx *overflux.State, returnFromZone string) {
 	g.leaveZone(sess)
 
 	zi := g.getOrCreateZone(targetZoneID, lvl, groupSize, oflx)
@@ -596,7 +619,7 @@ func (g *gateway) transferPlayer(sess *session.Session, targetZoneID string, lvl
 		})
 	}
 
-	g.joinZone(sess, zi, joinResponseZoneTransfer)
+	g.joinZone(sess, zi, joinResponseZoneTransfer, returnFromZone)
 }
 
 // handleBossDefeated awards mercenary scrip to all players in the instance when the boss dies.
@@ -645,10 +668,49 @@ func (g *gateway) handlePlayerReturnToOpenWorld(zoneID string, peerID uint16) {
 		slog.Error("open-world level not found for return", "error", err)
 		return
 	}
-	g.transferPlayer(sess, defaultOpenWorldZone, lvl, 0, nil)
+	// A player leaving a dungeon appears at that dungeon's hub entrance rather
+	// than their last-saved position; joinZone resolves this from the source zone.
+	g.transferPlayer(sess, defaultOpenWorldZone, lvl, 0, nil, zoneID)
 
 	grp := g.groups.GetGroup(sess.ID)
 	if grp != nil {
 		g.broadcastGroupState(grp)
 	}
+}
+
+// dungeonReturnEntrance returns the hub-entrance spawn for a player leaving the
+// dungeon returnFromZone, or ok=false when this is not a dungeon return into an
+// open-world zone (the caller then restores the last-saved position instead).
+func (g *gateway) dungeonReturnEntrance(zi *zoneInstance, returnFromZone string) (entity.Vec3, bool) {
+	if returnFromZone == "" || zi.zone.Type != zone.ZoneTypeOpenWorld {
+		return entity.Vec3{}, false
+	}
+	return hubEntrance(zi.zone.Portals(), returnFromZone)
+}
+
+// instanceBaseZone strips the instance suffix from an instanced zone ID, yielding
+// the base zone name that matches a hub portal's TargetZone. Instance IDs are
+// formed as "<base>_g<groupID>", "<base>_s<sessionID>", or "<base>_dev"
+// (see handleEnterPortal). Base zone names contain no underscores.
+func instanceBaseZone(zoneID string) string {
+	for _, sep := range []string{"_g", "_s", "_dev"} {
+		if i := strings.Index(zoneID, sep); i > 0 {
+			return zoneID[:i]
+		}
+	}
+	return zoneID
+}
+
+// hubEntrance returns the spawn position at the hub portal leading to
+// dungeonZoneID. The player spawns directly on the portal pad (which the level
+// author places on solid ground); re-entry needs an explicit interact, so the
+// pad is safe to stand on. ok is false when no hub portal targets that dungeon.
+func hubEntrance(portals []level.PortalDef, dungeonZoneID string) (entity.Vec3, bool) {
+	base := instanceBaseZone(dungeonZoneID)
+	for _, portal := range portals {
+		if portal.TargetZone == base {
+			return portal.Position, true
+		}
+	}
+	return entity.Vec3{}, false
 }

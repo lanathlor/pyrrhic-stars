@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"net"
 	"runtime"
 	"testing"
@@ -123,8 +124,8 @@ func TestJoinZone_AllocatesPeerID(t *testing.T) {
 	defer sess1.Conn.Close()
 	defer sess2.Conn.Close()
 
-	gw.joinZone(sess1, zi, joinResponseZoneJoined)
-	gw.joinZone(sess2, zi, joinResponseZoneJoined)
+	gw.joinZone(sess1, zi, joinResponseZoneJoined, "")
+	gw.joinZone(sess2, zi, joinResponseZoneJoined, "")
 
 	if sess1.PeerID != 1 {
 		t.Errorf("sess1.PeerID = %d, want 1", sess1.PeerID)
@@ -141,7 +142,7 @@ func TestJoinZone_SetsSessionState(t *testing.T) {
 	sess, _ := newTestSession(1)
 	defer sess.Conn.Close()
 
-	gw.joinZone(sess, zi, joinResponseZoneJoined)
+	gw.joinZone(sess, zi, joinResponseZoneJoined, "")
 
 	if sess.ZoneID != "my-zone" {
 		t.Errorf("sess.ZoneID = %q, want %q", sess.ZoneID, "my-zone")
@@ -158,7 +159,7 @@ func TestJoinZone_AddsClientToZone(t *testing.T) {
 	sess, _ := newTestSession(1)
 	defer sess.Conn.Close()
 
-	gw.joinZone(sess, zi, joinResponseZoneJoined)
+	gw.joinZone(sess, zi, joinResponseZoneJoined, "")
 
 	if zi.zone.ClientCount() != 1 {
 		t.Errorf("ClientCount = %d, want 1", zi.zone.ClientCount())
@@ -190,7 +191,7 @@ func TestJoinZone_DisplayNameResolution(t *testing.T) {
 			sess.Username = tt.username
 			defer sess.Conn.Close()
 
-			gw.joinZone(sess, zi, joinResponseZoneJoined)
+			gw.joinZone(sess, zi, joinResponseZoneJoined, "")
 
 			p := zi.zone.GetPlayer(sess.PeerID)
 			if p == nil {
@@ -212,7 +213,7 @@ func TestJoinZone_DisplayNameFallbackSetsUsername(t *testing.T) {
 	sess.Username = ""
 	defer sess.Conn.Close()
 
-	gw.joinZone(sess, zi, joinResponseZoneJoined)
+	gw.joinZone(sess, zi, joinResponseZoneJoined, "")
 
 	if sess.Username != "Player_7" {
 		t.Errorf("sess.Username = %q, want %q", sess.Username, "Player_7")
@@ -226,7 +227,7 @@ func TestJoinZone_SendsZoneJoinedResponse(t *testing.T) {
 	sess, spy := newTestSession(1)
 	defer sess.Conn.Close()
 
-	gw.joinZone(sess, zi, joinResponseZoneJoined)
+	gw.joinZone(sess, zi, joinResponseZoneJoined, "")
 
 	msgs := drainSpy(spy)
 	raw := findMessage(msgs, message.OpZoneJoined)
@@ -241,6 +242,13 @@ func TestJoinZone_SendsZoneJoinedResponse(t *testing.T) {
 	if gotPeer != 1 {
 		t.Errorf("peerID in response = %d, want 1", gotPeer)
 	}
+	if len(payload) < 7 {
+		t.Fatalf("payload missing spawn_yaw: %d bytes", len(payload))
+	}
+	gotYaw := math.Float32frombits(binary.BigEndian.Uint32(payload[3:7]))
+	if gotYaw != zi.zone.SpawnYaw() {
+		t.Errorf("spawn_yaw in response = %v, want %v", gotYaw, zi.zone.SpawnYaw())
+	}
 }
 
 func TestJoinZone_SendsZoneTransferResponse(t *testing.T) {
@@ -250,7 +258,7 @@ func TestJoinZone_SendsZoneTransferResponse(t *testing.T) {
 	sess, spy := newTestSession(1)
 	defer sess.Conn.Close()
 
-	gw.joinZone(sess, zi, joinResponseZoneTransfer)
+	gw.joinZone(sess, zi, joinResponseZoneTransfer, "")
 
 	msgs := drainSpy(spy)
 	raw := findMessage(msgs, message.OpZoneTransfer)
@@ -268,6 +276,13 @@ func TestJoinZone_SendsZoneTransferResponse(t *testing.T) {
 	if gotPeer != 1 {
 		t.Errorf("peerID in response = %d, want 1", gotPeer)
 	}
+	if len(payload) < 7 {
+		t.Fatalf("payload missing spawn_yaw: %d bytes", len(payload))
+	}
+	gotYaw := math.Float32frombits(binary.BigEndian.Uint32(payload[3:7]))
+	if gotYaw != zi.zone.SpawnYaw() {
+		t.Errorf("spawn_yaw in response = %v, want %v", gotYaw, zi.zone.SpawnYaw())
+	}
 }
 
 func TestJoinZone_NotifiesExistingPeers(t *testing.T) {
@@ -277,13 +292,13 @@ func TestJoinZone_NotifiesExistingPeers(t *testing.T) {
 	// Add an existing peer.
 	existing, existingSpy := newTestSession(1)
 	defer existing.Conn.Close()
-	gw.joinZone(existing, zi, joinResponseZoneJoined)
+	gw.joinZone(existing, zi, joinResponseZoneJoined, "")
 	existingSpy.Reset()
 
 	// New peer joins.
 	newSess, _ := newTestSession(2)
 	defer newSess.Conn.Close()
-	gw.joinZone(newSess, zi, joinResponseZoneJoined)
+	gw.joinZone(newSess, zi, joinResponseZoneJoined, "")
 
 	// Existing peer should receive OpPeerConnected for new peer.
 	msgs := drainSpy(existingSpy)
@@ -300,12 +315,12 @@ func TestJoinZone_NotifiesNewPeerAboutExisting(t *testing.T) {
 	// Add an existing peer.
 	existing, _ := newTestSession(1)
 	defer existing.Conn.Close()
-	gw.joinZone(existing, zi, joinResponseZoneJoined)
+	gw.joinZone(existing, zi, joinResponseZoneJoined, "")
 
 	// New peer joins.
 	newSess, newSpy := newTestSession(2)
 	defer newSess.Conn.Close()
-	gw.joinZone(newSess, zi, joinResponseZoneJoined)
+	gw.joinZone(newSess, zi, joinResponseZoneJoined, "")
 
 	// New peer should receive OpPeerConnected for the existing peer.
 	msgs := drainSpy(newSpy)
@@ -323,7 +338,7 @@ func TestJoinZone_QueuesClassSelectForNonGunner(t *testing.T) {
 	sess.Class = entity.ClassVanguard
 	defer sess.Conn.Close()
 
-	gw.joinZone(sess, zi, joinResponseZoneJoined)
+	gw.joinZone(sess, zi, joinResponseZoneJoined, "")
 
 	// The class select is queued as an input; verify via player class after
 	// zone processes it. Since we don't run the tick loop, check that the
@@ -342,7 +357,7 @@ func TestJoinZone_DoesNotQueueClassSelectForGunner(t *testing.T) {
 	sess.Class = entity.ClassGunner
 	defer sess.Conn.Close()
 
-	gw.joinZone(sess, zi, joinResponseZoneJoined)
+	gw.joinZone(sess, zi, joinResponseZoneJoined, "")
 
 	// Gunner is the default — no class select should be queued.
 	// Verify player exists and zone is functional.
@@ -359,7 +374,7 @@ func TestJoinZone_RestoresPositionForHub(t *testing.T) {
 	sess.CharID = 42
 	defer sess.Conn.Close()
 
-	gw.joinZone(sess, zi, joinResponseZoneJoined)
+	gw.joinZone(sess, zi, joinResponseZoneJoined, "")
 
 	p := zi.zone.GetPlayer(sess.PeerID)
 	if p == nil {
@@ -381,7 +396,7 @@ func TestJoinZone_NoPositionRestoreForArena(t *testing.T) {
 	sess.CharID = 42
 	defer sess.Conn.Close()
 
-	gw.joinZone(sess, zi, joinResponseZoneJoined)
+	gw.joinZone(sess, zi, joinResponseZoneJoined, "")
 
 	p := zi.zone.GetPlayer(sess.PeerID)
 	if p == nil {
@@ -401,7 +416,7 @@ func TestJoinZone_NoPositionRestoreWithoutCharID(t *testing.T) {
 	sess.CharID = 0 // no character
 	defer sess.Conn.Close()
 
-	gw.joinZone(sess, zi, joinResponseZoneJoined)
+	gw.joinZone(sess, zi, joinResponseZoneJoined, "")
 
 	p := zi.zone.GetPlayer(sess.PeerID)
 	if p == nil {
@@ -422,7 +437,7 @@ func TestLeaveZone_RemovesClientFromZone(t *testing.T) {
 	sess, _ := newTestSession(1)
 	defer sess.Conn.Close()
 
-	gw.joinZone(sess, zi, joinResponseZoneJoined)
+	gw.joinZone(sess, zi, joinResponseZoneJoined, "")
 	if zi.zone.ClientCount() != 1 {
 		t.Fatalf("pre-condition: ClientCount = %d, want 1", zi.zone.ClientCount())
 	}
@@ -449,8 +464,8 @@ func TestLeaveZone_BroadcastsDisconnect(t *testing.T) {
 	defer sess1.Conn.Close()
 	defer sess2.Conn.Close()
 
-	gw.joinZone(sess1, zi, joinResponseZoneJoined)
-	gw.joinZone(sess2, zi, joinResponseZoneJoined)
+	gw.joinZone(sess1, zi, joinResponseZoneJoined, "")
+	gw.joinZone(sess2, zi, joinResponseZoneJoined, "")
 	spy2.Reset()
 
 	gw.mu.Lock()
@@ -491,7 +506,7 @@ func TestLeaveZone_RemovesEmptyArena(t *testing.T) {
 
 	sess, _ := newTestSession(1)
 	defer sess.Conn.Close()
-	gw.joinZone(sess, zi, joinResponseZoneJoined)
+	gw.joinZone(sess, zi, joinResponseZoneJoined, "")
 
 	gw.mu.Lock()
 	gw.zones["arena_1"] = zi
@@ -510,7 +525,7 @@ func TestLeaveZone_DoesNotRemoveEmptyHub(t *testing.T) {
 
 	sess, _ := newTestSession(1)
 	defer sess.Conn.Close()
-	gw.joinZone(sess, zi, joinResponseZoneJoined)
+	gw.joinZone(sess, zi, joinResponseZoneJoined, "")
 
 	gw.mu.Lock()
 	gw.zones["hub"] = zi
@@ -532,8 +547,8 @@ func TestLeaveZone_DoesNotRemoveNonEmptyArena(t *testing.T) {
 	defer sess1.Conn.Close()
 	defer sess2.Conn.Close()
 
-	gw.joinZone(sess1, zi, joinResponseZoneJoined)
-	gw.joinZone(sess2, zi, joinResponseZoneJoined)
+	gw.joinZone(sess1, zi, joinResponseZoneJoined, "")
+	gw.joinZone(sess2, zi, joinResponseZoneJoined, "")
 
 	gw.mu.Lock()
 	gw.zones["arena_1"] = zi
@@ -558,7 +573,7 @@ func TestTransferPlayer_MovesPlayerBetweenZones(t *testing.T) {
 
 	sess, _ := newTestSession(1)
 	defer sess.Conn.Close()
-	gw.joinZone(sess, hubZI, joinResponseZoneJoined)
+	gw.joinZone(sess, hubZI, joinResponseZoneJoined, "")
 
 	if hubZI.zone.ClientCount() != 1 {
 		t.Fatalf("hub ClientCount = %d, want 1", hubZI.zone.ClientCount())
@@ -569,7 +584,7 @@ func TestTransferPlayer_MovesPlayerBetweenZones(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load arena level: %v", err)
 	}
-	gw.transferPlayer(sess, "arena_test", arenaLvl, 1, nil)
+	gw.transferPlayer(sess, "arena_test", arenaLvl, 1, nil, "")
 
 	if hubZI.zone.ClientCount() != 0 {
 		t.Errorf("hub ClientCount after transfer = %d, want 0", hubZI.zone.ClientCount())
@@ -612,7 +627,7 @@ func TestEnterPortal_PlayerReceivesZoneTransfer(t *testing.T) {
 
 	sess, spy := newTestSession(1)
 	defer sess.Conn.Close()
-	gw.joinZone(sess, hubZI, joinResponseZoneJoined)
+	gw.joinZone(sess, hubZI, joinResponseZoneJoined, "")
 	spy.Reset() // discard initial join messages
 
 	// Simulate pressing 'E' at the portal.
@@ -660,7 +675,7 @@ func TestEnterPortal_PlayerReceivesUDPAssociate(t *testing.T) {
 
 	sess, spy := newTestSession(1)
 	defer sess.Conn.Close()
-	gw.joinZone(sess, hubZI, joinResponseZoneJoined)
+	gw.joinZone(sess, hubZI, joinResponseZoneJoined, "")
 	spy.Reset()
 
 	gw.handleEnterPortal(sess, nil)
@@ -707,7 +722,7 @@ func TestEnterPortal_NoUDPAssociateWhenAlreadyAssociated(t *testing.T) {
 
 	sess, spy := newTestSession(1)
 	defer sess.Conn.Close()
-	gw.joinZone(sess, hubZI, joinResponseZoneJoined)
+	gw.joinZone(sess, hubZI, joinResponseZoneJoined, "")
 
 	// Simulate completed UDP association (as if client sent back the ack).
 	sess.Conn.AssociateUDP(udpSrv.Conn(), &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 9999})
@@ -766,7 +781,7 @@ func TestEnterPortal_ArenaTickLowerThanHub(t *testing.T) {
 
 	sess, spy := newTestSession(1)
 	defer sess.Conn.Close()
-	gw.joinZone(sess, hubZI, joinResponseZoneJoined)
+	gw.joinZone(sess, hubZI, joinResponseZoneJoined, "")
 
 	// Simulate completed UDP association.
 	sess.Conn.AssociateUDP(udpSrv.Conn(), &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 9999})
@@ -830,7 +845,7 @@ func BenchmarkJoinZone(b *testing.B) {
 	}
 
 	for b.Loop() {
-		gw.joinZone(sess, zi, joinResponseZoneJoined)
+		gw.joinZone(sess, zi, joinResponseZoneJoined, "")
 		// Reset for next iteration.
 		zi.zone.RemoveClient(sess.PeerID)
 	}
@@ -853,7 +868,7 @@ func BenchmarkJoinZoneWithPeers(b *testing.B) {
 					Username: "Peer",
 					Class:    entity.ClassGunner,
 				}
-				gw.joinZone(pSess, zi, joinResponseZoneJoined)
+				gw.joinZone(pSess, zi, joinResponseZoneJoined, "")
 			}
 
 			conn, _ := network.NewTestClient()
@@ -867,7 +882,7 @@ func BenchmarkJoinZoneWithPeers(b *testing.B) {
 
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				gw.joinZone(sess, zi, joinResponseZoneJoined)
+				gw.joinZone(sess, zi, joinResponseZoneJoined, "")
 				zi.zone.RemoveClient(sess.PeerID)
 			}
 
@@ -900,7 +915,7 @@ func BenchmarkLeaveZone(b *testing.B) {
 	// Each iteration: join + leave. The join cost is included but consistent.
 
 	for b.Loop() {
-		gw.joinZone(sess, zi, joinResponseZoneJoined)
+		gw.joinZone(sess, zi, joinResponseZoneJoined, "")
 		gw.leaveZone(sess)
 	}
 }
@@ -932,8 +947,8 @@ func BenchmarkTransferPlayer(b *testing.B) {
 	}
 
 	for b.Loop() {
-		gw.joinZone(sess, hubZI, joinResponseZoneJoined)
-		gw.transferPlayer(sess, "arena_bench", arenaLvl, 1, nil)
+		gw.joinZone(sess, hubZI, joinResponseZoneJoined, "")
+		gw.transferPlayer(sess, "arena_bench", arenaLvl, 1, nil, "")
 		arenaZI.zone.RemoveClient(sess.PeerID)
 	}
 }
