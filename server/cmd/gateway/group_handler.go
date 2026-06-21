@@ -103,10 +103,12 @@ func (g *gateway) handleEnterPortal(sess *session.Session, payload []byte) { //n
 		return
 	}
 
-	// Open-world zones are shared; use the zone name directly.
+	// Open-world zones are shared; use the zone name directly. Pass the current
+	// (source) zone so that exiting a dungeon via its portal lands the player at
+	// that dungeon's hub entrance rather than their last-saved position.
 	if lvl.ZoneType != "instanced" {
 		slog.Info("player entering portal to open-world zone", "player_id", sess.ID, "target", targetZone)
-		g.transferPlayer(sess, targetZone, lvl, 0, nil)
+		g.transferPlayer(sess, targetZone, lvl, 0, nil, sess.ZoneID)
 		return
 	}
 
@@ -129,7 +131,7 @@ func (g *gateway) handleEnterPortal(sess *session.Session, payload []byte) { //n
 	if existing := g.getZone(instanceID); existing != nil {
 		if existing.zone.ClientCount() > 0 {
 			slog.Info("player joining existing instance", "player_id", sess.ID, "instance", instanceID)
-			g.transferPlayer(sess, instanceID, lvl, groupSize, nil)
+			g.transferPlayer(sess, instanceID, lvl, groupSize, nil, "")
 			if grp != nil {
 				g.broadcastGroupState(grp)
 			}
@@ -147,7 +149,7 @@ func (g *gateway) handleEnterPortal(sess *session.Session, payload []byte) { //n
 	oflx := overflux.NewState(conditions)
 
 	slog.Info("player creating instance", "player_id", sess.ID, "target_zone", targetZone, "instance", instanceID, "group_size", groupSize, "overflux", oflx.TotalScore)
-	g.transferPlayer(sess, instanceID, lvl, groupSize, oflx)
+	g.transferPlayer(sess, instanceID, lvl, groupSize, oflx, "")
 
 	// Notify group members in open-world zones about the new instance.
 	if grp != nil {
@@ -213,7 +215,7 @@ func (g *gateway) handleInstanceJoinReply(sess *session.Session, payload []byte)
 	}
 
 	slog.Info("player joining instance via prompt", "player_id", sess.ID, "instance", instanceID)
-	g.transferPlayer(sess, instanceID, lvl, len(grp.Members), nil)
+	g.transferPlayer(sess, instanceID, lvl, len(grp.Members), nil, "")
 	g.broadcastGroupState(grp)
 }
 
@@ -264,7 +266,7 @@ func (g *gateway) handleInstanceReset(sess *session.Session) {
 				slog.Error("load hub for instance reset", "error", err)
 				continue
 			}
-			g.transferPlayer(peerSess, defaultOpenWorldZone, hubLvl, 0, nil)
+			g.transferPlayer(peerSess, defaultOpenWorldZone, hubLvl, 0, nil, zoneID)
 		}
 		g.removeZone(zoneID)
 		slog.Info("instance reset", "zone_id", zoneID, "leader", sess.ID)

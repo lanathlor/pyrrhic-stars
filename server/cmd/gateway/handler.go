@@ -49,7 +49,7 @@ func handleServerMessage(gw *gateway, sess *session.Session, opcode uint16, payl
 			return
 		}
 		zi := gw.getOrCreateZone(zoneID, lvl, 1, nil)
-		gw.joinZone(sess, zi, joinResponseZoneJoined)
+		gw.joinZone(sess, zi, joinResponseZoneJoined, "")
 
 	default:
 		slog.Warn("unknown server opcode", "opcode", opcode)
@@ -66,7 +66,7 @@ func (g *gateway) joinHubAfterCharSelect(sess *session.Session) {
 		return
 	}
 	zi := g.getOrCreateZone(defaultOpenWorldZone, lvl, 0, nil)
-	g.joinZone(sess, zi, joinResponseZoneJoined)
+	g.joinZone(sess, zi, joinResponseZoneJoined, "")
 }
 
 // devJoinZone joins the player to a zone specified by the dev client.
@@ -87,5 +87,5 @@ func (g *gateway) devJoinZone(sess *session.Session, devZone string) {
 		instanceID = baseZone + "_dev"
 		groupSize = 1
 	}
-	g.transferPlayer(sess, instanceID, lvl, groupSize, nil)
+	g.transferPlayer(sess, instanceID, lvl, groupSize, nil, "")
 }

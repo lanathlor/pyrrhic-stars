@@ -470,6 +470,11 @@ func (z *Zone) Portals() []level.PortalDef {
 	return z.world.Level.Portals
 }
 
+// SpawnYaw returns the level's initial spawn facing direction (radians).
+func (z *Zone) SpawnYaw() float32 {
+	return z.world.Level.SpawnYaw
+}
+
 // SetPlayerPosition overrides a player's position and rotation.
 func (z *Zone) SetPlayerPosition(peerID uint16, pos entity.Vec3, rotY float32) {
 	z.mu.Lock()

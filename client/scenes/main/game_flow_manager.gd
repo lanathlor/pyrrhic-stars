@@ -85,11 +85,16 @@ func enter_hub() -> void:
 	# Despawn existing players
 	ctrl.entity_mgr.despawn_all_players()
 
-	# Spawn local player in hub (use saved position if returning player)
+	# Spawn local player in hub. The server is authoritative for the spawn
+	# position (restored last-known position on login, or the dungeon entrance
+	# when returning from an instance); fall back to client defaults only if it
+	# was not provided.
 	var my_id: int = NetworkManager.get_my_id()
 	if my_id > 0:
 		var spawn_pos: Vector3 = ctrl.HUB_SPAWNS[0]
-		if ctrl._has_saved_state and ctrl._saved_hub_position != Vector3.ZERO:
+		if NetworkManager.spawn_pos != Vector3.ZERO:
+			spawn_pos = NetworkManager.spawn_pos
+		elif ctrl._has_saved_state and ctrl._saved_hub_position != Vector3.ZERO:
 			spawn_pos = ctrl._saved_hub_position
 		ctrl._has_saved_state = false
 		print(

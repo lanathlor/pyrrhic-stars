@@ -17,7 +17,7 @@ func TestEnterPortal_AbandonedInstanceReplacedWithFresh(t *testing.T) {
 
 	sess, _ := registerSession(gw, "Solo")
 	defer sess.Conn.Close()
-	gw.joinZone(sess, hubZI, joinResponseZoneJoined)
+	gw.joinZone(sess, hubZI, joinResponseZoneJoined, "")
 
 	// First entry: creates the solo arena instance.
 	gw.handleEnterPortal(sess, nil)
@@ -37,7 +37,7 @@ func TestEnterPortal_AbandonedInstanceReplacedWithFresh(t *testing.T) {
 	if oldZI.zone.ClientCount() != 0 {
 		t.Fatalf("pre-condition: abandoned instance ClientCount = %d, want 0", oldZI.zone.ClientCount())
 	}
-	gw.joinZone(sess, hubZI, joinResponseZoneJoined)
+	gw.joinZone(sess, hubZI, joinResponseZoneJoined, "")
 
 	// Re-entry: must NOT rejoin the stale empty instance.
 	gw.handleEnterPortal(sess, nil)

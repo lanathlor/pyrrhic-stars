@@ -47,12 +47,13 @@ func spawn_player(
 	# Initialize net sync targets so remote interpolation starts at the correct position
 	player._net_position = spawn_pos
 	player._net_rotation_y = player.rotation.y
-	# Apply hub spawn facing direction for local player
+	# Apply the zone's spawn facing direction (from level data) for the local player.
 	if ctrl.state == ctrl.GameState.HUB and peer_id == NetworkManager.get_my_id():
-		player.rotation.y = ctrl.HUB_SPAWN_YAW
-		player._net_rotation_y = ctrl.HUB_SPAWN_YAW
+		var yaw: float = NetworkManager.spawn_yaw
+		player.rotation.y = yaw
+		player._net_rotation_y = yaw
 		if "_camera_yaw" in player:
-			player._camera_yaw = ctrl.HUB_SPAWN_YAW
+			player._camera_yaw = yaw
 	spawned_players[peer_id] = player
 
 	# Feed local player to shared HUD and connect death signal

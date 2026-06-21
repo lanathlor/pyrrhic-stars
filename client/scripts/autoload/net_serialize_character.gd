@@ -13,16 +13,34 @@ static func encode_join_zone(zone_id: String) -> PackedByteArray:
 	return zone_id.to_utf8_buffer()
 
 
+## Format: [peer_id:u16 BE][is_host:u8][spawn_yaw:f32 BE][spawn_x/y/z:f32 BE]
 static func decode_zone_joined(data: PackedByteArray) -> Dictionary:
 	if data.size() < 3:
 		return {}
 	var buf := StreamPeerBuffer.new()
 	buf.data_array = data
 	buf.big_endian = true
+	var peer_id := buf.get_u16()
+	var is_host := buf.get_u8() == 1
+	var spawn_yaw := buf.get_float() if data.size() >= 7 else 0.0
+	var spawn_pos := _get_spawn_pos(buf, data.size())
 	return {
-		"peer_id": buf.get_u16(),
-		"is_host": buf.get_u8() == 1,
+		"peer_id": peer_id,
+		"is_host": is_host,
+		"spawn_yaw": spawn_yaw,
+		"spawn_pos": spawn_pos,
 	}
+
+
+## Reads [spawn_x][spawn_y][spawn_z] (f32 BE) if present, else Vector3.ZERO.
+## Assumes spawn_yaw has just been consumed, so the floats start at offset 7.
+static func _get_spawn_pos(buf: StreamPeerBuffer, size: int) -> Vector3:
+	if size < 19:
+		return Vector3.ZERO
+	var x := buf.get_float()
+	var y := buf.get_float()
+	var z := buf.get_float()
+	return Vector3(x, y, z)
 
 
 static func decode_peer_id(data: PackedByteArray) -> int:
@@ -54,7 +72,7 @@ static func encode_username(username: String) -> PackedByteArray:
 # =============================================================================
 
 
-## Format: [zone_type:u8][new_peer_id:u16 BE]
+## Format: [zone_type:u8][new_peer_id:u16 BE][spawn_yaw:f32 BE][spawn_x/y/z:f32 BE]
 static func decode_zone_transfer(data: PackedByteArray) -> Dictionary:
 	if data.size() < 3:
 		return {}
@@ -63,7 +81,16 @@ static func decode_zone_transfer(data: PackedByteArray) -> Dictionary:
 	buf.data_array = data.slice(1)
 	buf.big_endian = true
 	var new_peer_id := buf.get_u16()
-	return {"zone_type": zone_type, "new_peer_id": new_peer_id}
+	var spawn_yaw := buf.get_float() if data.size() >= 7 else 0.0
+	# buf is sliced by 1 but the read cursor is already past the yaw; gate on the
+	# original 19-byte message length.
+	var spawn_pos := _get_spawn_pos(buf, data.size())
+	return {
+		"zone_type": zone_type,
+		"new_peer_id": new_peer_id,
+		"spawn_yaw": spawn_yaw,
+		"spawn_pos": spawn_pos,
+	}
 
 
 # =============================================================================
