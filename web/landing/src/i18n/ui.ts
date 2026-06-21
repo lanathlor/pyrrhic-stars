@@ -26,6 +26,7 @@ export const ui = {
     "nav.contribute": "Contribute",
 
     "header.github": "GitHub repository",
+    "header.menu": "Menu",
     "lang.switch": "Language",
     "lang.en": "EN",
     "lang.fr": "FR",
@@ -104,6 +105,7 @@ export const ui = {
     "nav.contribute": "Contribuer",
 
     "header.github": "Dépôt GitHub",
+    "header.menu": "Menu",
     "lang.switch": "Langue",
     "lang.en": "EN",
     "lang.fr": "FR",
