@@ -266,6 +266,7 @@ func _default_settings() -> Dictionary:
 			"music": 0.8,
 			"sfx": 1.0,
 		},
+		"ui": {},
 		"keybinds": _default_keybinds.duplicate(),
 	}
 
@@ -296,6 +297,11 @@ func _merge_document(doc: Dictionary) -> void:
 		for key in stored.keys():
 			if _settings[section].has(key):
 				_settings[section][key] = stored[key]
+	# The "ui" section is free-form (onboarding flags, etc.), so carry every
+	# stored key rather than gating on a fixed default key set.
+	var stored_ui: Dictionary = doc.get("ui", {})
+	for key in stored_ui.keys():
+		_settings["ui"][key] = stored_ui[key]
 	var kb: Dictionary = doc.get("keybinds", {})
 	for action in kb.keys():
 		_settings["keybinds"][action] = int(kb[action])

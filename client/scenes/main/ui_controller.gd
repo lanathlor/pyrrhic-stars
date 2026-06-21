@@ -82,6 +82,15 @@ func build_overlay_panels() -> void:
 	social_panel.closed.connect(ctrl._sync_toolbar_active)
 	ctrl._social_panel = social_panel
 
+	# How-to-play guide: auto-shown once on first hub entry, re-openable via [H]
+	# or the pause menu.
+	var how_to_play := preload("res://scenes/ui/how_to_play_panel.gd").new()
+	how_to_play.ui_ctrl = self
+	ctrl.add_child(how_to_play)
+	how_to_play.closed.connect(ctrl._update_cursor_mode)
+	how_to_play.closed.connect(ctrl._sync_toolbar_active)
+	ctrl._how_to_play_panel = how_to_play
+
 
 ## Close every open gameplay overlay (social, inventory, bag, spec, merchant,
 ## overflux). Returns true if at least one was closed, so the caller can swallow
@@ -106,6 +115,9 @@ func close_open_overlay() -> bool:
 	if ctrl._overflux_panel.visible:
 		ctrl._overflux_panel.close()
 		closed_any = true
+	if ctrl._how_to_play_panel and ctrl._how_to_play_panel.visible:
+		ctrl._how_to_play_panel.close()
+		closed_any = true
 	if ctrl._map_overlay and ctrl._map_overlay.visible:
 		ctrl._map_overlay.toggle()
 		closed_any = true
@@ -113,6 +125,34 @@ func close_open_overlay() -> bool:
 		ctrl._update_cursor_mode()
 		ctrl._sync_toolbar_active()
 	return closed_any
+
+
+## Sets the OS mouse mode from the current game/overlay state, without pausing.
+## Cursor is visible while paused, for always-visible classes, or whenever any
+## overlay is open (inventory, spec, bot, overflux, merchant, social, help);
+## captured otherwise. Also visible when Alt is held or the backtick toggle is on.
+func update_cursor_mode() -> void:
+	if ctrl.paused:
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		return
+	if ctrl._is_cursor_always_visible_class():
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		return
+	var inv: CanvasLayer = ctrl._inventory_layer
+	var inv_open: bool = inv.equip_panel.visible or inv.bag_panel.visible
+	var bot_open: bool = ctrl.dev_mgr.bot_panel != null and ctrl.dev_mgr.bot_panel.visible
+	var want_cursor: bool = (
+		ctrl._cursor_toggled
+		or ctrl._alt_held
+		or inv_open
+		or ctrl._spec_panel.visible
+		or bot_open
+		or (ctrl._overflux_panel != null and ctrl._overflux_panel.visible)
+		or (ctrl._merchant_panel != null and ctrl._merchant_panel.visible)
+		or (ctrl._social_panel != null and ctrl._social_panel.visible)
+		or (ctrl._how_to_play_panel != null and ctrl._how_to_play_panel.visible)
+	)
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE if want_cursor else Input.MOUSE_MODE_CAPTURED)
 
 
 func toggle_map_overlay() -> void:

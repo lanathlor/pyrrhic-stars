@@ -119,6 +119,7 @@ var _portal_trail: Node3D:
 		return null
 
 var _overflux_panel: CanvasLayer
+var _how_to_play_panel: CanvasLayer
 var _merchant_layer: CanvasLayer
 var _merchant_panel: Control
 var _settings_panel: CanvasLayer
@@ -224,6 +225,7 @@ func _connect_ui_signals() -> void:
 			entity_mgr.despawn_all_players()
 			_enter_menu()
 	)
+	_pause_layer.how_to_play_btn.pressed.connect(func(): _how_to_play_panel.open())
 	_pause_layer.settings_btn.pressed.connect(func(): _settings_panel.open())
 	_pause_layer.quit_btn.pressed.connect(func(): get_tree().quit())
 	_menu_layer.settings_btn.pressed.connect(func(): _settings_panel.open())
@@ -262,6 +264,7 @@ func _connect_ui_signals() -> void:
 	_inventory_layer.toolbar_panel.equip_pressed.connect(_toggle_equip_panel)
 	_inventory_layer.toolbar_panel.bag_pressed.connect(_toggle_bag_panel)
 	_inventory_layer.toolbar_panel.social_pressed.connect(_toggle_social_panel)
+	_inventory_layer.toolbar_panel.menu_pressed.connect(_toggle_pause)
 	_spec_panel.spec_selected.connect(char_mgr.on_spec_selected)
 	_spec_panel.closed.connect(_update_cursor_mode)
 	_spec_panel.closed.connect(_sync_toolbar_active)
@@ -361,6 +364,12 @@ func _handle_menu_input(event: InputEvent) -> void:
 	# Full map toggle
 	if event.physical_keycode == KEY_M and _map_overlay:
 		ui_ctrl.toggle_map_overlay()
+		get_viewport().set_input_as_handled()
+		return
+
+	# How-to-play guide (works in any in-game state for a player who feels lost)
+	if event.physical_keycode == KEY_H and _how_to_play_panel:
+		_toggle_how_to_play()
 		get_viewport().set_input_as_handled()
 		return
 
@@ -506,32 +515,9 @@ func _is_cursor_always_visible_class() -> bool:
 	return _local_class == "arcanotechnicien"
 
 
-## Show/hide cursor for UI interaction without pausing.
-## Active when Alt is held or backtick is toggled on.
+## Show/hide cursor for UI interaction without pausing (delegated to UIController).
 func _update_cursor_mode() -> void:
-	if _is_cursor_always_visible_class():
-		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-		return
-	var inv_open: bool = _inventory_layer.equip_panel.visible or _inventory_layer.bag_panel.visible
-	var spec_open: bool = _spec_panel.visible
-	var bot_open: bool = dev_mgr.bot_panel != null and dev_mgr.bot_panel.visible
-	var overflux_open: bool = _overflux_panel != null and _overflux_panel.visible
-	var merchant_open: bool = _merchant_panel != null and _merchant_panel.visible
-	var social_open: bool = _social_panel != null and _social_panel.visible
-	var want_cursor: bool = (
-		_cursor_toggled
-		or _alt_held
-		or inv_open
-		or spec_open
-		or bot_open
-		or overflux_open
-		or merchant_open
-		or social_open
-	)
-	if want_cursor:
-		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-	else:
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	ui_ctrl.update_cursor_mode()
 
 
 func _toggle_equip_panel() -> void:
@@ -556,6 +542,17 @@ func _toggle_social_panel() -> bool:
 	return true
 
 
+## Toggle the how-to-play guide. Shared by [H], the toolbar button, and re-opened
+## (not toggled) from the pause menu.
+func _toggle_how_to_play() -> void:
+	if _how_to_play_panel.visible:
+		_how_to_play_panel.close()
+	else:
+		_how_to_play_panel.open()
+	_update_cursor_mode()
+	_sync_toolbar_active()
+
+
 func _sync_toolbar_active() -> void:
 	(
 		_inventory_layer
@@ -565,6 +562,7 @@ func _sync_toolbar_active() -> void:
 			_inventory_layer.equip_panel.visible,
 			_inventory_layer.bag_panel.visible,
 			_social_panel.visible,
+			paused,
 		)
 	)
 
