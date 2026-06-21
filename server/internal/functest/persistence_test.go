@@ -33,20 +33,21 @@ func TestHubPersistence_PositionSavedOnDisconnect(t *testing.T) {
 	// Wait past spawn grace period (10 ticks @ 20Hz = 500ms).
 	time.Sleep(600 * time.Millisecond)
 
-	// Walk in small steps.
-	walkX := float32(25.0)
-	walkY := float32(100.15)
-	walkZ := float32(-5.0)
-	walkRotY := float32(1.0)
-
+	// Walk in small steps. The spawn landing sits at ground level (~Y 0.02)
+	// near Z -63.5; keep X/Y and walk a short distance in +Z (toward the hub
+	// interior) so the move stays clear of lateral obstacles and Y clamping.
 	startX := me.PosX
 	startZ := me.PosZ
+	walkX := startX
+	walkY := float32(0.02)
+	walkZ := float32(-55.0)
+	walkRotY := float32(1.0)
+
 	steps := 30 // enough steps to stay within server speed clamping
 	for tick := uint32(1); tick <= uint32(steps); tick++ {
 		frac := float32(tick) / float32(steps)
-		x := startX + (walkX-startX)*frac
 		z := startZ + (walkZ-startZ)*frac
-		c1.SendPlayerInput(x, walkY, z, walkRotY, tick)
+		c1.SendPlayerInput(walkX, walkY, z, walkRotY, tick)
 		time.Sleep(55 * time.Millisecond) // ~1 per server tick (50ms)
 	}
 
@@ -55,7 +56,7 @@ func TestHubPersistence_PositionSavedOnDisconnect(t *testing.T) {
 	for !confirmed && time.Now().Before(deadline) {
 		ws := c1.WaitWorldState(3 * time.Second)
 		p := ws.Player(c1.PeerID)
-		if p != nil && p.PosX < 27.0 && p.PosZ < -3.0 {
+		if p != nil && p.PosZ > -60.0 {
 			confirmed = true
 		}
 	}
