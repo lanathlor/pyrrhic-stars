@@ -67,12 +67,14 @@ func TestHubSpawn_Position(t *testing.T) {
 	t.Logf("spawn: pos=(%.1f, %.1f, %.1f) rotY=%.4f class=%s name=%s",
 		me.PosX, me.PosY, me.PosZ, me.RotY, me.ClassName, me.Username)
 
-	assertNear(t, me.PosY, 100.15, 1.0, "spawn Y (upper plaza)")
-	if me.PosX < 31.0 || me.PosX > 35.0 {
-		t.Errorf("spawn X = %.1f, want 31-35", me.PosX)
+	// Player spawn markers cluster around (0, 0.02, -63.55); the server
+	// round-robins among the five, so accept the bounding box they span.
+	assertNear(t, me.PosY, 0.02, 1.0, "spawn Y (ground landing)")
+	if me.PosX < -2.5 || me.PosX > 2.5 {
+		t.Errorf("spawn X = %.1f, want -2.5..2.5", me.PosX)
 	}
-	if me.PosZ < 2.0 || me.PosZ > 6.0 {
-		t.Errorf("spawn Z = %.1f, want 2-6", me.PosZ)
+	if me.PosZ < -66.0 || me.PosZ > -61.0 {
+		t.Errorf("spawn Z = %.1f, want -66..-61", me.PosZ)
 	}
 }
 

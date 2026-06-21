@@ -3341,19 +3341,19 @@ script = ExtResource("portal_trail_script")
 [node name="LevelData" type="Node3D" parent="."]
 
 [node name="SpawnPlayer1" type="Node3D" parent="LevelData" groups=["server_spawn_player"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 33, 100.15, 4)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.023038894, 0.024722338, -63.5548)
 
 [node name="SpawnPlayer2" type="Node3D" parent="LevelData" groups=["server_spawn_player"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31, 100.15, 4)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.9769611, 0.024722338, -63.5548)
 
 [node name="SpawnPlayer3" type="Node3D" parent="LevelData" groups=["server_spawn_player"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 100.15, 4)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0230389, 0.024722338, -63.5548)
 
 [node name="SpawnPlayer4" type="Node3D" parent="LevelData" groups=["server_spawn_player"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 33, 100.15, 6)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.023038894, 0.024722338, -61.5548)
 
 [node name="SpawnPlayer5" type="Node3D" parent="LevelData" groups=["server_spawn_player"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 33, 100.15, 2)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.023038894, 0.024722338, -65.554794)
 
 [node name="ZoneConfig" type="Node3D" parent="LevelData" groups=["server_zone_config"]]
 metadata/zone_name = "hub"
@@ -3402,6 +3402,42 @@ metadata/speed = 0.0
 metadata/idle_duration = 999.0
 
 [node name="NPCMerchantPath" type="Path3D" parent="LevelData/NPCMerchant"]
+curve = SubResource("npc_path_merchant")
+
+[node name="NPCGearMerchant0" type="Node3D" parent="LevelData" groups=["server_spawn_npc"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 100.15, 20)
+metadata/def_name = "merchant"
+metadata/speed = 0.0
+metadata/idle_duration = 999.0
+
+[node name="NPCGearMerchant0Path" type="Path3D" parent="LevelData/NPCGearMerchant0"]
+curve = SubResource("npc_path_merchant")
+
+[node name="NPCGearMerchant1" type="Node3D" parent="LevelData" groups=["server_spawn_npc"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 100.15, 20)
+metadata/def_name = "merchant"
+metadata/speed = 0.0
+metadata/idle_duration = 999.0
+
+[node name="NPCGearMerchant1Path" type="Path3D" parent="LevelData/NPCGearMerchant1"]
+curve = SubResource("npc_path_merchant")
+
+[node name="NPCGearMerchant2" type="Node3D" parent="LevelData" groups=["server_spawn_npc"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 100.15, 20)
+metadata/def_name = "merchant"
+metadata/speed = 0.0
+metadata/idle_duration = 999.0
+
+[node name="NPCGearMerchant2Path" type="Path3D" parent="LevelData/NPCGearMerchant2"]
+curve = SubResource("npc_path_merchant")
+
+[node name="NPCGearMerchant3" type="Node3D" parent="LevelData" groups=["server_spawn_npc"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 100.15, 20)
+metadata/def_name = "merchant"
+metadata/speed = 0.0
+metadata/idle_duration = 999.0
+
+[node name="NPCGearMerchant3Path" type="Path3D" parent="LevelData/NPCGearMerchant3"]
 curve = SubResource("npc_path_merchant")
 
 [node name="NPCCitizen4" type="Node3D" parent="LevelData" groups=["server_spawn_npc"]]
