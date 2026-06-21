@@ -127,6 +127,11 @@ func enter_hub() -> void:
 		ctrl._map_overlay.reset_floor()
 	ctrl.env_builder.create_portal_trail()
 
+	# First time a player ever reaches the hub, show the gameplay-loop guide so
+	# they are not left guessing what to do. Marks itself seen on open.
+	if ctrl._how_to_play_panel:
+		ctrl._how_to_play_panel.open_if_first_time()
+
 
 # =============================================================================
 # Arena warmup

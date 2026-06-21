@@ -7,6 +7,7 @@ signal equip_pressed
 signal bag_pressed
 signal spec_pressed
 signal social_pressed
+signal menu_pressed
 
 const HUD_BG := Color(0.02, 0.025, 0.035, 0.82)
 const HUD_BORDER := Color(0.28, 0.3, 0.36, 0.85)
@@ -27,12 +28,13 @@ const BUTTONS := [
 	{"label": "I", "tooltip": "Character [I]"},
 	{"label": "B", "tooltip": "Bag [B]"},
 	{"label": "G", "tooltip": "Social [G]"},
+	{"label": "Esc", "tooltip": "Menu [Esc]"},
 ]
 
 var _hovered_btn: int = -1
 var _btn_rects: Array[Rect2] = []
 var _bar_rect := Rect2()
-var _active: Array[bool] = [false, false, false, false]
+var _active: Array[bool] = [false, false, false, false, false]
 
 
 func _ready() -> void:
@@ -158,6 +160,9 @@ func _input(event: InputEvent) -> void:
 		elif hit == 3:
 			social_pressed.emit()
 			get_viewport().set_input_as_handled()
+		elif hit == 4:
+			menu_pressed.emit()
+			get_viewport().set_input_as_handled()
 
 
 func _hit_test(pos: Vector2) -> int:
@@ -168,6 +173,6 @@ func _hit_test(pos: Vector2) -> int:
 
 
 func update_active_state(
-	spec_open: bool, equip_open: bool, bag_open: bool, social_open: bool
+	spec_open: bool, equip_open: bool, bag_open: bool, social_open: bool, menu_open: bool
 ) -> void:
-	_active = [spec_open, equip_open, bag_open, social_open]
+	_active = [spec_open, equip_open, bag_open, social_open, menu_open]
