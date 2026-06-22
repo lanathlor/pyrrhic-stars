@@ -96,6 +96,7 @@ var targeting: Node
 
 var spec_id: String = "harmonist"
 
+var _stuck_recovery := StuckRecovery.new()
 var _state_timer: float = 0.0
 var _gcd_timer: float = 0.0
 var _cast_timer: float = 0.0
@@ -347,6 +348,9 @@ func _physics_process(delta: float) -> void:
 			velocity.z = 0.0
 
 	move_and_slide()
+	var commanding := GameManager.move_vector().length() > 0.1
+	if _stuck_recovery.apply(self, commanding, delta) and NetworkManager.is_active:
+		NetworkManager.send_respawn_request(2)
 	if global_position.y < -250.0:
 		global_position.y = -199.0
 

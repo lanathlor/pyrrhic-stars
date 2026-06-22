@@ -72,6 +72,7 @@ var peer_id: int = 0
 var weapon: Node
 var abilities: Node
 var movement: Node
+var _stuck_recovery := StuckRecovery.new()
 
 var _alive: bool = true
 var _fire_cooldown: float = 0.0
@@ -237,6 +238,9 @@ func _physics_process(delta: float) -> void:
 		movement.handle_movement(delta)
 
 	move_and_slide()
+	var commanding := GameManager.move_vector().length() > 0.1
+	if _stuck_recovery.apply(self, commanding, delta) and NetworkManager.is_active:
+		NetworkManager.send_respawn_request(2)
 	_handle_combat_input(delta)
 
 	weapon.update_muzzle_flash(delta)

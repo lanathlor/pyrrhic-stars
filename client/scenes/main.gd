@@ -224,6 +224,8 @@ func _connect_ui_signals() -> void:
 			entity_mgr.despawn_all_players()
 			_enter_menu()
 	)
+	_pause_layer.unstuck_btn.pressed.connect(func(): NetworkManager.send_respawn_request(2))
+	_pause_layer.unstuck_btn.pressed.connect(_toggle_pause)
 	_pause_layer.how_to_play_btn.pressed.connect(func(): _how_to_play_panel.open())
 	_pause_layer.settings_btn.pressed.connect(func(): _settings_panel.open())
 	_pause_layer.quit_btn.pressed.connect(func(): get_tree().quit())

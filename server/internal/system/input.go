@@ -569,7 +569,24 @@ func handleRespawnRequest(w *World, peerID uint16, payload []byte) {
 		return
 	}
 	player := w.Players[peerID]
-	if player == nil || player.Alive {
+	if player == nil {
+		return
+	}
+
+	// Unstuck: teleport an ALIVE player to a spawn point to escape a wedge.
+	// Distinct from the death-respawn paths below, which require a dead player.
+	if respawnType == 2 {
+		if !player.Alive {
+			return
+		}
+		deadGroups := w.DeadGroupIDs()
+		player.Position = pickSpawnPoint(w.Level.PlayerSpawns, level.ZoneState{BossDefeated: w.BossDefeated, DeadGroupIDs: deadGroups}, 0)
+		player.Velocity = entity.Vec3{}
+		player.SpawnTick = w.TickNum // grace window: reject stale wedge positions while the client snaps over
+		return
+	}
+
+	if player.Alive {
 		return
 	}
 
