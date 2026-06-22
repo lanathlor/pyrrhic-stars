@@ -301,6 +301,13 @@ func _physics_process(delta: float) -> void:
 
 	cam.update_animation()
 	blades.update_blade_visual(delta)
+	_update_lock_on_and_hud()
+
+	if NetworkManager.is_active:
+		NetworkManager.send_player_position(global_position, rotation.y, _visual_state)
+
+
+func _update_lock_on_and_hud() -> void:
 	# Clear lock if target is dead, freed, or hidden — use same path as Q toggle
 	if _lock_on_active and _lock_target:
 		if (
@@ -313,9 +320,6 @@ func _physics_process(delta: float) -> void:
 		hud.update_lock_on(_lock_target, camera)
 	hud.update_gcd(_gcd_timer / gcd_duration if _gcd_timer > 0.0 else 0.0)
 	hud.update_flow(_flow_tier, _flow_stacks)
-
-	if NetworkManager.is_active:
-		NetworkManager.send_player_position(global_position, rotation.y, _visual_state)
 
 
 # --- Damage (server-authoritative) ---

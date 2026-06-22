@@ -117,6 +117,17 @@ func _build() -> void:
 	vbox.add_theme_constant_override("separation", 14)
 	_panel.add_child(vbox)
 
+	_build_header(vbox)
+
+	var step_no := 1
+	for step in STEPS:
+		vbox.add_child(_build_step(step_no, step.name, step.body))
+		step_no += 1
+
+	_build_footer(vbox)
+
+
+func _build_header(vbox: VBoxContainer) -> void:
 	var title := Label.new()
 	title.text = "How to Play"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -137,11 +148,8 @@ func _build() -> void:
 		sep.add_theme_stylebox_override("separator", _separator_style())
 	vbox.add_child(sep)
 
-	var step_no := 1
-	for step in STEPS:
-		vbox.add_child(_build_step(step_no, step.name, step.body))
-		step_no += 1
 
+func _build_footer(vbox: VBoxContainer) -> void:
 	var sep2 := HSeparator.new()
 	if ui_ctrl:
 		sep2.add_theme_stylebox_override("separator", _separator_style())

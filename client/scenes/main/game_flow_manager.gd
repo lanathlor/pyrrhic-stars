@@ -95,10 +95,26 @@ func enter_hub() -> void:
 	# Despawn existing players
 	ctrl.entity_mgr.despawn_all_players()
 
-	# Spawn local player in hub. The server is authoritative for the spawn
-	# position (restored last-known position on login, or the dungeon entrance
-	# when returning from an instance); fall back to client defaults only if it
-	# was not provided.
+	_spawn_local_hub_player()
+
+	ctrl.hub_interact.update_hub_display()
+	ctrl.group_mgr.update_group_panel()
+	if ctrl._shared_hud:
+		ctrl._shared_hud.on_enter_hub()
+	if ctrl._map_overlay:
+		ctrl._map_overlay.reset_floor()
+	ctrl.env_builder.create_portal_trail()
+
+	# First time a player ever reaches the hub, show the gameplay-loop guide so
+	# they are not left guessing what to do. Marks itself seen on open.
+	if ctrl._how_to_play_panel:
+		ctrl._how_to_play_panel.open_if_first_time()
+
+
+## Spawn the local player in the hub. The server is authoritative for the spawn
+## position (restored last-known position on login, or the dungeon entrance when
+## returning from an instance); fall back to client defaults only if not provided.
+func _spawn_local_hub_player() -> void:
 	var my_id: int = NetworkManager.get_my_id()
 	if my_id > 0:
 		var spawn_pos: Vector3 = ctrl.HUB_SPAWNS[0]
@@ -133,19 +149,6 @@ func enter_hub() -> void:
 			]
 		)
 	)
-
-	ctrl.hub_interact.update_hub_display()
-	ctrl.group_mgr.update_group_panel()
-	if ctrl._shared_hud:
-		ctrl._shared_hud.on_enter_hub()
-	if ctrl._map_overlay:
-		ctrl._map_overlay.reset_floor()
-	ctrl.env_builder.create_portal_trail()
-
-	# First time a player ever reaches the hub, show the gameplay-loop guide so
-	# they are not left guessing what to do. Marks itself seen on open.
-	if ctrl._how_to_play_panel:
-		ctrl._how_to_play_panel.open_if_first_time()
 
 
 # =============================================================================
@@ -292,63 +295,73 @@ func on_zone_transfer(zone_type: int, _new_peer_id: int) -> void:
 	ctrl.entity_mgr.clear_all_npcs()
 
 	if zone_type == NetSerializer.ZONE_TYPE_ARENA:
-		print("[ZoneTransfer] -> ARENA: unloading %s" % prev_env_name)
-		ctrl.env_builder.unload_environment()
-		ctrl.env_builder.load_environment(ctrl.ARENA_SCENE)
-		var new_env: Node3D = ctrl.env_builder.current_env
-		print(
-			(
-				"[ZoneTransfer] -> ARENA: loaded %s valid=%s"
-				% [
-					new_env.name if new_env else "null",
-					str(is_instance_valid(new_env)) if new_env else "false",
-				]
-			)
-		)
-		ctrl.group_mgr.pending_instance_zone = ""
-		ctrl.state = ctrl.GameState.ARENA_LOBBY
-		AudioManager.play_ambiance(&"arena")
-		AudioManager.play_music(&"lobby")
-		show_portal_prompt_only()
-		ctrl._lobby_panel.visible = true
-		ctrl._menu_layer.visible = false
-		ctrl._char_select_layer.visible = false
-		ctrl._char_create_layer.visible = false
-		if ctrl._shared_hud:
-			ctrl._shared_hud.on_enter_arena()
-		if not ctrl._is_cursor_always_visible_class():
-			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-		else:
-			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-		var my_id: int = NetworkManager.get_my_id()
-		print(
-			(
-				"[ZoneTransfer] -> ARENA: spawning local player id=%d class=%s"
-				% [
-					my_id,
-					ctrl._local_class,
-				]
-			)
-		)
-		if my_id > 0:
-			ctrl.entity_mgr.spawn_player(
-				my_id, ctrl._local_class, ctrl.LOBBY_SPAWN, ctrl._local_spec
-			)
-			var spawned: bool = my_id in ctrl.entity_mgr.spawned_players
-			print(
-				(
-					"[ZoneTransfer] -> ARENA: spawn result=%s players_node_children=%d"
-					% [
-						str(spawned),
-						ctrl.entity_mgr._players_node.get_child_count(),
-					]
-				)
-			)
-		else:
-			print("[ZoneTransfer] -> ARENA: WARNING my_id <= 0, no player spawned")
+		_transfer_to_arena(prev_env_name)
 	else:
 		print("[ZoneTransfer] -> HUB: delegating to enter_hub (handles env loading)")
 		enter_hub()
+
+	_log_zone_transfer_done()
+
+	# Re-spawn bots after zone transfer (they are zone-local on the server)
+	ctrl.dev_mgr.respawn_bots_after_transfer()
+
+
+func _transfer_to_arena(prev_env_name: String) -> void:
+	print("[ZoneTransfer] -> ARENA: unloading %s" % prev_env_name)
+	ctrl.env_builder.unload_environment()
+	ctrl.env_builder.load_environment(ctrl.ARENA_SCENE)
+	var new_env: Node3D = ctrl.env_builder.current_env
+	print(
+		(
+			"[ZoneTransfer] -> ARENA: loaded %s valid=%s"
+			% [
+				new_env.name if new_env else "null",
+				str(is_instance_valid(new_env)) if new_env else "false",
+			]
+		)
+	)
+	ctrl.group_mgr.pending_instance_zone = ""
+	ctrl.state = ctrl.GameState.ARENA_LOBBY
+	AudioManager.play_ambiance(&"arena")
+	AudioManager.play_music(&"lobby")
+	show_portal_prompt_only()
+	ctrl._lobby_panel.visible = true
+	ctrl._menu_layer.visible = false
+	ctrl._char_select_layer.visible = false
+	ctrl._char_create_layer.visible = false
+	if ctrl._shared_hud:
+		ctrl._shared_hud.on_enter_arena()
+	if not ctrl._is_cursor_always_visible_class():
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	else:
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	var my_id: int = NetworkManager.get_my_id()
+	print(
+		(
+			"[ZoneTransfer] -> ARENA: spawning local player id=%d class=%s"
+			% [
+				my_id,
+				ctrl._local_class,
+			]
+		)
+	)
+	if my_id > 0:
+		ctrl.entity_mgr.spawn_player(my_id, ctrl._local_class, ctrl.LOBBY_SPAWN, ctrl._local_spec)
+		var spawned: bool = my_id in ctrl.entity_mgr.spawned_players
+		print(
+			(
+				"[ZoneTransfer] -> ARENA: spawn result=%s players_node_children=%d"
+				% [
+					str(spawned),
+					ctrl.entity_mgr._players_node.get_child_count(),
+				]
+			)
+		)
+	else:
+		print("[ZoneTransfer] -> ARENA: WARNING my_id <= 0, no player spawned")
+
+
+func _log_zone_transfer_done() -> void:
 	var final_env: Node3D = ctrl.env_builder.current_env
 	var final_env_name: String = final_env.name if final_env else "null"
 	var we_final: int = ctrl.env_builder._count_world_environments(ctrl.get_tree().root)
@@ -375,9 +388,6 @@ func on_zone_transfer(zone_type: int, _new_peer_id: int) -> void:
 			% [ctrl.state, final_env_name, we_final, done_cam_info, Input.get_mouse_mode()]
 		)
 	)
-
-	# Re-spawn bots after zone transfer (they are zone-local on the server)
-	ctrl.dev_mgr.respawn_bots_after_transfer()
 
 
 # =============================================================================
