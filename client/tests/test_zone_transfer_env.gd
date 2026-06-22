@@ -15,13 +15,17 @@ const GFM_SCRIPT := preload("res://scenes/main/game_flow_manager.gd")
 func test_hub_path_does_not_double_load() -> void:
 	var src: String = (GFM_SCRIPT as GDScript).source_code
 
-	# Find on_zone_transfer
+	# Extract the full on_zone_transfer body (up to the next top-level func), so
+	# the search is not truncated by a fixed window as the function grows.
 	var zt_idx := src.find("func on_zone_transfer")
 	assert_int(zt_idx).is_greater(-1)
-	var zt_block := src.substr(zt_idx, 2000)
+	var fn_tail := src.substr(zt_idx)
+	var next_fn := fn_tail.find("\nfunc ")
+	var zt_block: String = fn_tail.substr(0, next_fn) if next_fn != -1 else fn_tail
 
-	# Find the else branch (hub path)
-	var else_idx := zt_block.find("\n\t\telse:")  # hub path is inside if/else at indent level 2
+	# The hub path is the top-level else branch (one tab indent); the arena
+	# branch's nested elses are deeper indented and must not be matched here.
+	var else_idx := zt_block.find("\n\telse:")
 	assert_int(else_idx).is_greater(-1)
 	var hub_path := zt_block.substr(else_idx, 300)
 
