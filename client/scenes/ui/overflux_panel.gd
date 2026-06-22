@@ -204,6 +204,7 @@ func close() -> void:
 
 
 func _confirm() -> void:
+	AudioManager.play_ui(&"ui_confirm")
 	var conditions: Array = []
 	for c in CONDITIONS:
 		var rank: int = _selected_ranks.get(c.id, 0)

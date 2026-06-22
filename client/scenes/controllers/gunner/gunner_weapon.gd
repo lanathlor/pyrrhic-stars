@@ -111,6 +111,7 @@ func _shoot() -> void:
 	_muzzle_flash_timer = 0.05
 	ctrl.muzzle_light.visible = true
 	ctrl.hud.on_shoot()
+	AudioManager.play_3d(&"gunner_fire", get_muzzle_pos())
 	_recoil_offset = 0.06
 
 	# Tracer line from weapon muzzle to hit (or max range)

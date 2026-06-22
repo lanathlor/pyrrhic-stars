@@ -106,15 +106,18 @@ func _trigger_delivery_vfx(delivery: String, ability: Dictionary) -> void:
 	match delivery:
 		"direct":
 			ctrl.vfx.spawn_cast_flash()
+			AudioManager.play_3d(&"harmonist_cast", ctrl.global_position)
 		"beam":
 			var target := _resolve_selected_target_node()
 			if target and target != ctrl:
 				ctrl.vfx.start_heal_beam(target)
 			ctrl.vfx.start_channel_flux()
+			AudioManager.play_3d(&"harmonist_beam", ctrl.global_position)
 		"zone":
 			var radius: float = ability.get("zone_radius", 6.0)
 			ctrl.vfx.start_zone_telegraph(ctrl.global_position, radius)
 			ctrl.vfx.start_channel_flux()
+			AudioManager.play_3d(&"harmonist_zone", ctrl.global_position)
 
 
 ## Resolve ability data for a slot from AbilityCatalog. No committing without server catalog.
@@ -269,6 +272,7 @@ func _start_gust_step() -> void:
 
 	if ctrl.vfx:
 		ctrl.vfx.spawn_gust_trail()
+	AudioManager.play_3d(&"gust_step", ctrl.global_position)
 
 
 func start_dodge() -> void:
@@ -299,6 +303,7 @@ func start_dodge() -> void:
 	# Gust Step wind trail
 	if ctrl.vfx:
 		ctrl.vfx.spawn_gust_trail()
+	AudioManager.play_3d(&"gust_step", ctrl.global_position)
 
 	if NetworkManager.is_active:
 		NetworkManager.send_ability(3, 0.0, ctrl.rotation.y)

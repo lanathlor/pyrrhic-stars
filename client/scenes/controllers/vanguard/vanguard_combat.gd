@@ -36,6 +36,7 @@ func start_dodge() -> void:
 	ctrl._enter_state(ctrl.State.DODGE)
 	ctrl._state_timer = ctrl.dodge_duration
 	ctrl._is_invincible = true
+	AudioManager.play_3d(&"vanguard_dodge", ctrl.global_position)
 	if NetworkManager.is_active:
 		NetworkManager.send_ability(3, 0.0, ctrl.rotation.y)
 
@@ -61,6 +62,7 @@ func process_dodge(_delta: float) -> void:
 func start_cleave() -> void:
 	_has_hit_this_attack = false
 	ctrl.vfx.start_swing_trail()
+	AudioManager.play_3d(&"vanguard_cleave", ctrl.global_position)
 	if NetworkManager.is_active:
 		NetworkManager.send_ability(1, 0.0, ctrl.rotation.y)
 
@@ -87,6 +89,7 @@ func process_cleave(delta: float) -> void:
 func start_upheaval() -> void:
 	_has_hit_this_attack = false
 	ctrl.vfx.start_swing_trail()
+	AudioManager.play_3d(&"vanguard_upheaval", ctrl.global_position)
 	if NetworkManager.is_active:
 		NetworkManager.send_ability(2, 0.0, ctrl.rotation.y)
 	ctrl._enter_state(ctrl.State.UPHEAVAL_WINDUP)
@@ -159,6 +162,7 @@ func start_vortex() -> void:
 	var duration: float = ctrl.VORTEX_DURATIONS[ctrl._onslaught_tier]
 	ctrl._state_timer = duration
 	ctrl.vfx.start_vortex()
+	AudioManager.play_3d(&"vanguard_vortex", ctrl.global_position)
 	if NetworkManager.is_active:
 		NetworkManager.send_ability(20, 0.0, ctrl.rotation.y)
 	# Telegraph: circle at start position
@@ -201,6 +205,7 @@ func process_execution_windup(delta: float) -> void:
 		ctrl._state_timer = ctrl.EXECUTION_HIT_TIME
 		ctrl._execution_cooldown = ctrl.EXECUTION_COOLDOWN
 		ctrl.vfx.spawn_execution_shockwave(ctrl.global_position, ctrl.rotation.y)
+		AudioManager.play_3d(&"vanguard_execution", ctrl.global_position)
 		# Narrow 15° half-angle cone (30° total) matching server
 		PlayerTelegraph.spawn_cone(
 			ctrl.get_tree().current_scene,

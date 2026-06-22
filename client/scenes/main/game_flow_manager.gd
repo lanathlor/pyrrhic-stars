@@ -4,6 +4,10 @@ extends Node
 
 var ctrl: Node
 
+## The "dungeon is starting" cue plays only on the first gate-open of an arena visit,
+## not on boss-reset re-pulls. Reset when leaving the arena (hub/menu).
+var _dungeon_start_cue_played: bool = false
+
 
 func _ready() -> void:
 	ctrl = get_parent()
@@ -16,6 +20,9 @@ func _ready() -> void:
 
 func enter_menu() -> void:
 	ctrl.state = ctrl.GameState.MENU
+	AudioManager.stop_music()
+	AudioManager.stop_all_ambiance()
+	_dungeon_start_cue_played = false
 	NetworkManager.disconnect_game()
 	ctrl._menu_layer.visible = true
 	ctrl._hub_layer.visible = false
@@ -58,6 +65,9 @@ func show_portal_prompt_only() -> void:
 
 func enter_hub() -> void:
 	ctrl.state = ctrl.GameState.HUB
+	AudioManager.stop_all_ambiance()
+	AudioManager.play_music_intermittent(&"hub", AudioManager.HUB_MUSIC_GAP)
+	_dungeon_start_cue_played = false  # next arena visit re-arms the start cue
 	ctrl.get_tree().paused = false
 	ctrl.paused = false
 	ctrl._pause_layer.visible = false
@@ -145,6 +155,8 @@ func enter_hub() -> void:
 
 func enter_arena_warmup() -> void:
 	ctrl.state = ctrl.GameState.ARENA_LOBBY
+	AudioManager.play_ambiance(&"arena")  # ambiance bed: whole arena visit
+	AudioManager.play_music(&"lobby")  # drone music, lobby only
 	ctrl.get_tree().paused = false
 	ctrl.paused = false
 	ctrl._pause_layer.visible = false
@@ -194,6 +206,7 @@ func spawn_multiplayer_players() -> void:
 
 func start_fight(time_limit_text := "") -> void:
 	ctrl.state = ctrl.GameState.FIGHT
+	AudioManager.stop_music()  # lobby music off; arena ambiance keeps playing
 	show_portal_prompt_only()
 	ctrl._lobby_panel.visible = false
 	ctrl._cursor_toggled = false
@@ -294,6 +307,8 @@ func on_zone_transfer(zone_type: int, _new_peer_id: int) -> void:
 		)
 		ctrl.group_mgr.pending_instance_zone = ""
 		ctrl.state = ctrl.GameState.ARENA_LOBBY
+		AudioManager.play_ambiance(&"arena")
+		AudioManager.play_music(&"lobby")
 		show_portal_prompt_only()
 		ctrl._lobby_panel.visible = true
 		ctrl._menu_layer.visible = false
@@ -393,6 +408,10 @@ func on_game_flow_event(flow_type: int, _text: String) -> void:
 			ctrl.env_builder.close_gate(_text)
 		NetSerializer.FLOW_GATE_OPEN:
 			ctrl.env_builder.open_gate(_text)
+			# Non-spatial "dungeon is starting" cue, only on the first gate-open per visit.
+			if not _dungeon_start_cue_played:
+				_dungeon_start_cue_played = true
+				AudioManager.play_cue(&"dungeon_start")
 
 
 # =============================================================================

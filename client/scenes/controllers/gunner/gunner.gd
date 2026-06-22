@@ -241,6 +241,11 @@ func _physics_process(delta: float) -> void:
 	var commanding := GameManager.move_vector().length() > 0.1
 	if _stuck_recovery.apply(self, commanding, delta) and NetworkManager.is_active:
 		NetworkManager.send_respawn_request(2)
+
+	AudioManager.tick_footsteps(
+		global_position, is_on_floor(), Vector2(velocity.x, velocity.z).length()
+	)
+
 	_handle_combat_input(delta)
 
 	weapon.update_muzzle_flash(delta)

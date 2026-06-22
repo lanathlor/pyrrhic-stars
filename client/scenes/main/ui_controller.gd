@@ -211,6 +211,13 @@ func apply_button_style(btn: Button, accent: Color = UI_BORDER_ACTIVE) -> void:
 	btn.add_theme_color_override("font_focus_color", UI_TEXT)
 	btn.add_theme_color_override("font_disabled_color", UI_TEXT_DIM)
 	btn.add_theme_constant_override("h_separation", 8)
+	# Every styled button routes its click through the SFX layer (single chokepoint).
+	if not btn.pressed.is_connected(_on_styled_button_pressed):
+		btn.pressed.connect(_on_styled_button_pressed)
+
+
+func _on_styled_button_pressed() -> void:
+	AudioManager.play_ui(&"ui_click")
 
 
 func apply_line_edit_style(input: LineEdit) -> void:
