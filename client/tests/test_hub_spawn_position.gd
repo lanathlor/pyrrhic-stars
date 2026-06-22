@@ -27,11 +27,12 @@ func test_zone_transfer_clears_saved_state_before_enter_hub() -> void:
 	assert_bool(clears_saved).is_true()
 
 
-## enter_hub must not use _saved_hub_position when it equals Vector3.ZERO.
-## The server sends (0,0,0) when it has no hub position (player was in arena).
+## The hub spawn path must not use _saved_hub_position when it equals
+## Vector3.ZERO. The server sends (0,0,0) when it has no hub position (player
+## was in arena). The guard lives in _spawn_local_hub_player, called by enter_hub.
 func test_enter_hub_guards_zero_saved_position() -> void:
 	var src: String = (GFMScript as GDScript).source_code
-	var fn_idx := src.find("func enter_hub")
+	var fn_idx := src.find("func _spawn_local_hub_player")
 	assert_int(fn_idx).is_greater(-1)
 
 	var fn_end := src.find("\nfunc ", fn_idx + 1)

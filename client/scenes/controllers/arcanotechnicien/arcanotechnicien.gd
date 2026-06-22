@@ -359,6 +359,14 @@ func _physics_process(delta: float) -> void:
 	)
 
 	cam.update_animation()
+	_update_selection_and_hud()
+
+	# Send position + visual state to server
+	if NetworkManager.is_active:
+		NetworkManager.send_player_position(global_position, rotation.y, _visual_state)
+
+
+func _update_selection_and_hud() -> void:
 	# Clear selection if target is dead, freed, or hidden
 	if _selected_target:
 		if not is_instance_valid(_selected_target) or not _selected_target.visible:
@@ -367,10 +375,6 @@ func _physics_process(delta: float) -> void:
 			hud.update_selected_target(_selected_target, camera)
 
 	hud_updater.update_hud()
-
-	# Send position + visual state to server
-	if NetworkManager.is_active:
-		NetworkManager.send_player_position(global_position, rotation.y, _visual_state)
 
 
 # --- Damage (server-authoritative) ---
