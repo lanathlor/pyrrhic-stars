@@ -142,6 +142,7 @@ func _build_audio_tab() -> Control:
 	_add_volume_row(page, "Master", "master")
 	_add_volume_row(page, "Music", "music")
 	_add_volume_row(page, "SFX", "sfx")
+	_add_volume_row(page, "Ambiance", "ambiance")
 	return page
 
 

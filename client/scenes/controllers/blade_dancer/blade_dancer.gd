@@ -295,6 +295,10 @@ func _physics_process(delta: float) -> void:
 	if _stuck_recovery.apply(self, commanding, delta) and NetworkManager.is_active:
 		NetworkManager.send_respawn_request(2)
 
+	AudioManager.tick_footsteps(
+		global_position, is_on_floor(), Vector2(velocity.x, velocity.z).length()
+	)
+
 	cam.update_animation()
 	blades.update_blade_visual(delta)
 	# Clear lock if target is dead, freed, or hidden — use same path as Q toggle

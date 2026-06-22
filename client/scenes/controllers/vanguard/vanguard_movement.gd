@@ -131,6 +131,7 @@ func _process_move_blade(delta: float, cursor_active: bool) -> void:
 		ctrl._enter_state(ctrl.State.BLOCK)
 		ctrl._parry_timer = ctrl.parry_window
 		ctrl.vfx.show_block_shield()
+		AudioManager.play_3d(&"vanguard_block", ctrl.global_position)
 		NetworkManager.send_ability(4, 0.0, ctrl.rotation.y)
 		return
 

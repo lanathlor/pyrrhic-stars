@@ -395,6 +395,10 @@ func _physics_process(delta: float) -> void:
 	if global_position.y < -250.0:
 		global_position.y = -199.0
 
+	AudioManager.tick_footsteps(
+		global_position, is_on_floor(), Vector2(velocity.x, velocity.z).length()
+	)
+
 	anim.update_animation()
 	anim.update_weapon_visual()
 	_update_lock_on_state()

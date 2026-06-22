@@ -198,6 +198,7 @@ func on_damage_event(data: Dictionary) -> void:
 			spawn_heal_number(amount, hit_pos)
 		if overheal > 0.0:
 			spawn_overheal_number(overheal, hit_pos)
+		AudioManager.play_3d(&"heal", hit_pos)
 		# Feed shared HUD healing meter
 		if ctrl._shared_hud:
 			ctrl._shared_hud.on_damage_event(data)
@@ -216,10 +217,12 @@ func on_damage_event(data: Dictionary) -> void:
 				local_player.on_hit_confirmed(amount, hit_pos)
 		# Floating damage number
 		spawn_damage_number(amount, hit_pos)
+		AudioManager.play_3d(&"impact_enemy", hit_pos)
 	elif target_peer in entity_mgr.spawned_players:
 		var player: CharacterBody3D = entity_mgr.spawned_players[target_peer]
 		if is_instance_valid(player) and player.has_method("on_damage_visual"):
 			player.on_damage_visual(amount, hit_pos)
+		AudioManager.play_3d(&"impact_player", hit_pos)
 
 	# Feed shared HUD damage meter
 	if ctrl._shared_hud:

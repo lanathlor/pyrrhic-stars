@@ -265,6 +265,7 @@ func _default_settings() -> Dictionary:
 			"master": 1.0,
 			"music": 0.8,
 			"sfx": 1.0,
+			"ambiance": 1.0,
 		},
 		"ui": {},
 		"keybinds": _default_keybinds.duplicate(),
@@ -364,6 +365,7 @@ func _apply_audio() -> void:
 	_set_bus_volume("Master", float(a.get("master", 1.0)))
 	_set_bus_volume("Music", float(a.get("music", 0.8)))
 	_set_bus_volume("SFX", float(a.get("sfx", 1.0)))
+	_set_bus_volume("Ambiance", float(a.get("ambiance", 1.0)))
 
 
 func _set_bus_volume(bus_name: String, v: float) -> void:

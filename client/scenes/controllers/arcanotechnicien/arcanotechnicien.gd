@@ -354,6 +354,10 @@ func _physics_process(delta: float) -> void:
 	if global_position.y < -250.0:
 		global_position.y = -199.0
 
+	AudioManager.tick_footsteps(
+		global_position, is_on_floor(), Vector2(velocity.x, velocity.z).length()
+	)
+
 	cam.update_animation()
 	# Clear selection if target is dead, freed, or hidden
 	if _selected_target:
