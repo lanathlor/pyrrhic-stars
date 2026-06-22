@@ -74,6 +74,7 @@ var abilities: Node
 var movement: Node
 var blades: Node
 var cam: Node
+var _stuck_recovery := StuckRecovery.new()
 
 var _cast_timer: float = 0.0
 var _committing_ability: Dictionary = {}
@@ -290,6 +291,9 @@ func _physics_process(delta: float) -> void:
 			velocity.z = 0.0
 
 	move_and_slide()
+	var commanding := GameManager.move_vector().length() > 0.1
+	if _stuck_recovery.apply(self, commanding, delta) and NetworkManager.is_active:
+		NetworkManager.send_respawn_request(2)
 
 	cam.update_animation()
 	blades.update_blade_visual(delta)

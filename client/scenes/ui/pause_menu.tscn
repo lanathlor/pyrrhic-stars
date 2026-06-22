@@ -38,6 +38,13 @@ layout_mode = 2
 custom_minimum_size = Vector2(0, 38)
 text = "Resume"
 
+[node name="UnstuckBtn" type="Button" parent="Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 38)
+tooltip_text = "Teleport to the hub spawn if you are stuck in the level."
+text = "Unstuck"
+
 [node name="HowToPlayBtn" type="Button" parent="Panel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2

@@ -902,6 +902,57 @@ func TestHandleRespawnRequest_AlivePlayerIgnored(t *testing.T) {
 	}
 }
 
+func TestHandleRespawnRequest_UnstuckTeleportsAlivePlayer(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassGunner)
+	// Player is alive but wedged on the hub upper floor with leftover velocity.
+	p.Position = entity.Vec3{X: 2.76, Y: 100.21, Z: 13.58}
+	p.Velocity = entity.Vec3{X: 1, Y: -2, Z: 3}
+
+	w := makeHubWorld(t, map[uint16]*entity.Player{1: p})
+	spawn := w.Level.PlayerSpawns[0].Position
+
+	payload := codec.EncodeRespawnRequest(2) // 2 = unstuck
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpRespawnRequest, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if !p.Alive {
+		t.Error("unstuck should keep an alive player alive")
+	}
+	if p.Position != spawn {
+		t.Errorf("position = %+v, want spawn %+v", p.Position, spawn)
+	}
+	if (p.Velocity != entity.Vec3{}) {
+		t.Errorf("velocity = %+v, want zero", p.Velocity)
+	}
+	if p.SpawnTick != w.TickNum {
+		t.Errorf("SpawnTick = %d, want %d (grace window after teleport)", p.SpawnTick, w.TickNum)
+	}
+}
+
+func TestHandleRespawnRequest_UnstuckIgnoredForDeadPlayer(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassGunner)
+	p.Alive = false
+	p.Position = entity.Vec3{X: 5, Y: 5, Z: 5}
+
+	w := makeHubWorld(t, map[uint16]*entity.Player{1: p})
+
+	payload := codec.EncodeRespawnRequest(2) // 2 = unstuck
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpRespawnRequest, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	// Dead players use the normal death-respawn flow, not unstuck.
+	if (p.Position != entity.Vec3{X: 5, Y: 5, Z: 5}) {
+		t.Errorf("dead player position changed by unstuck: %+v", p.Position)
+	}
+	if p.Alive {
+		t.Error("unstuck should not revive a dead player")
+	}
+}
+
 func TestHandleRespawnRequest_NilPayload(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Alive = false

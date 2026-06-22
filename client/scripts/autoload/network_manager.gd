@@ -255,7 +255,8 @@ func send_instance_reset() -> void:
 	send_msg(NetSerializer.OP_INSTANCE_RESET)
 
 
-## Send a respawn request. type: 0 = arena, 1 = hub.
+## Send a respawn request. type: 0 = arena (death respawn), 1 = hub (return to
+## open world), 2 = unstuck (teleport an alive player to the hub spawn).
 func send_respawn_request(type: int) -> void:
 	send_msg(NetSerializer.OP_RESPAWN_REQUEST, PackedByteArray([type]))
 

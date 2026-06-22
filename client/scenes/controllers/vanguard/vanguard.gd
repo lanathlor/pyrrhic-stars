@@ -153,6 +153,7 @@ var remote: Node
 var hud_updater: Node
 
 var spec_id: String = "blade"
+var _stuck_recovery := StuckRecovery.new()
 var _spec_grace: float = 0.0  # prevents server revert during client-initiated spec change
 var _server_speed_mult: float = 1.0  # server-authoritative movement speed multiplier
 
@@ -388,6 +389,9 @@ func _physics_process(delta: float) -> void:
 	_process_combat_state(delta)
 
 	move_and_slide()
+	var commanding := GameManager.move_vector().length() > 0.1
+	if _stuck_recovery.apply(self, commanding, delta) and NetworkManager.is_active:
+		NetworkManager.send_respawn_request(2)
 	if global_position.y < -250.0:
 		global_position.y = -199.0
 
