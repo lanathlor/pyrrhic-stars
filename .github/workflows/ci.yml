@@ -554,7 +554,18 @@ jobs:
   # GITHUB_TOKEN do not retrigger workflows; [skip ci] is belt-and-suspenders.
   update-deploy-version:
     runs-on: ubuntu-latest
-    needs: [build-gateway-image, build-combat-logs-image, build-landing-image]
+    # Gate the deploy on the WHOLE pipeline, not just the images: release-nightly
+    # transitively requires the client (build-client-linux/windows) and server
+    # builds AND the release upload to have succeeded. If the client failed to
+    # build or release, release-nightly is skipped/failed and this job is skipped
+    # too - so we never roll out a new server against a broken/missing client.
+    needs:
+      [
+        build-gateway-image,
+        build-combat-logs-image,
+        build-landing-image,
+        release-nightly,
+      ]
     if: github.ref == 'refs/heads/main'
     permissions:
       contents: write
