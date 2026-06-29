@@ -177,7 +177,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          lfs: true
+          lfs: false
+      # actions/checkout fetches LFS before .lfsconfig is in the tree, so it
+      # falls back to GitHub's (exhausted) LFS. Pull explicitly afterwards: now
+      # .lfsconfig is present and routes to Codeberg, which serves public-repo
+      # LFS anonymously.
+      - name: fetch LFS from Codeberg
+        run: git lfs pull
       - name: restore/save import cache
         uses: actions/cache@v5
         with:
@@ -204,7 +210,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          lfs: true
+          lfs: false
+      # actions/checkout fetches LFS before .lfsconfig is in the tree, so it
+      # falls back to GitHub's (exhausted) LFS. Pull explicitly afterwards: now
+      # .lfsconfig is present and routes to Codeberg, which serves public-repo
+      # LFS anonymously.
+      - name: fetch LFS from Codeberg
+        run: git lfs pull
       - name: restore import cache
         uses: actions/cache/restore@v5
         with:
@@ -249,7 +261,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          lfs: true
+          lfs: false
+      # actions/checkout fetches LFS before .lfsconfig is in the tree, so it
+      # falls back to GitHub's (exhausted) LFS. Pull explicitly afterwards: now
+      # .lfsconfig is present and routes to Codeberg, which serves public-repo
+      # LFS anonymously.
+      - name: fetch LFS from Codeberg
+        run: git lfs pull
       - name: restore import cache
         uses: actions/cache/restore@v5
         with:
@@ -312,7 +330,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          lfs: true
+          lfs: false
+      # actions/checkout fetches LFS before .lfsconfig is in the tree, so it
+      # falls back to GitHub's (exhausted) LFS. Pull explicitly afterwards: now
+      # .lfsconfig is present and routes to Codeberg, which serves public-repo
+      # LFS anonymously.
+      - name: fetch LFS from Codeberg
+        run: git lfs pull
       - name: restore import cache
         uses: actions/cache/restore@v5
         with:
