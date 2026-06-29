@@ -183,7 +183,9 @@ jobs:
       # .lfsconfig is present and routes to Codeberg, which serves public-repo
       # LFS anonymously.
       - name: fetch LFS from Codeberg
-        run: git lfs pull
+        run: |
+          git config --global --add safe.directory '*'
+          git -C "$GITHUB_WORKSPACE" lfs pull
       - name: restore/save import cache
         uses: actions/cache@v5
         with:
@@ -216,7 +218,9 @@ jobs:
       # .lfsconfig is present and routes to Codeberg, which serves public-repo
       # LFS anonymously.
       - name: fetch LFS from Codeberg
-        run: git lfs pull
+        run: |
+          git config --global --add safe.directory '*'
+          git -C "$GITHUB_WORKSPACE" lfs pull
       - name: restore import cache
         uses: actions/cache/restore@v5
         with:
@@ -267,7 +271,9 @@ jobs:
       # .lfsconfig is present and routes to Codeberg, which serves public-repo
       # LFS anonymously.
       - name: fetch LFS from Codeberg
-        run: git lfs pull
+        run: |
+          git config --global --add safe.directory '*'
+          git -C "$GITHUB_WORKSPACE" lfs pull
       - name: restore import cache
         uses: actions/cache/restore@v5
         with:
@@ -336,7 +342,9 @@ jobs:
       # .lfsconfig is present and routes to Codeberg, which serves public-repo
       # LFS anonymously.
       - name: fetch LFS from Codeberg
-        run: git lfs pull
+        run: |
+          git config --global --add safe.directory '*'
+          git -C "$GITHUB_WORKSPACE" lfs pull
       - name: restore import cache
         uses: actions/cache/restore@v5
         with:
