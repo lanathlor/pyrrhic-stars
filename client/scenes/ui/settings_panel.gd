@@ -21,6 +21,7 @@ var _res_option: OptionButton
 var _mode_option: OptionButton
 var _quality_option: OptionButton
 var _vsync_check: CheckButton
+var _perf_check: CheckButton
 var _volume_sliders: Dictionary = {}  # key -> HSlider
 var _volume_pct: Dictionary = {}  # key -> Label
 
@@ -131,6 +132,10 @@ func _build_graphics_tab() -> Control:
 	_vsync_check = CheckButton.new()
 	_vsync_check.toggled.connect(func(on): SettingsManager.set_value("graphics", "vsync", on))
 	page.add_child(_row("VSync", _vsync_check))
+
+	_perf_check = CheckButton.new()
+	_perf_check.toggled.connect(func(on): SettingsManager.set_value("ui", "perf_overlay", on))
+	page.add_child(_row("Performance Overlay (F3)", _perf_check))
 
 	return page
 
@@ -275,6 +280,9 @@ func _refresh_all() -> void:
 	_vsync_check.set_block_signals(true)
 	_vsync_check.button_pressed = bool(SettingsManager.get_value("graphics", "vsync", true))
 	_vsync_check.set_block_signals(false)
+	_perf_check.set_block_signals(true)
+	_perf_check.button_pressed = bool(SettingsManager.get_value("ui", "perf_overlay", false))
+	_perf_check.set_block_signals(false)
 	for key in _volume_sliders.keys():
 		var v := float(SettingsManager.get_value("audio", key, 1.0))
 		var slider: HSlider = _volume_sliders[key]
