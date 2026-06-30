@@ -30,6 +30,21 @@ const RESOLUTIONS: Array[String] = [
 const DISPLAY_MODES: Array[String] = ["Windowed", "Fullscreen", "Borderless"]
 const QUALITY_LEVELS: Array[String] = ["Low", "Medium", "High", "Ultra"]
 
+## Per-tier toggles for the expensive screen-space effects. These live on each
+## scene's Environment resource (authored at High), so quality only takes effect
+## once apply_quality_to_environment() is called on the active WorldEnvironment
+## (see EnvironmentBuilder). Indexed by tier: 0=Low, 1=Medium, 2=High, 3=Ultra.
+## Volumetric fog is the single most expensive effect on integrated GPUs, so it
+## stays off until High. Plain depth fog (fog_enabled) is cheap and kept on at
+## every tier by the scene, so the mood survives on Low.
+const QUALITY_ENV := {
+	"volumetric_fog_enabled": [false, false, true, true],
+	"ssr_enabled": [false, false, true, true],
+	"ssao_enabled": [false, true, true, true],
+	"ssil_enabled": [false, false, false, true],
+	"glow_enabled": [false, true, true, true],
+}
+
 ## Rebindable binds grouped for the controls UI: "Core" holds the universal
 ## movement/UI binds; the rest mirror each class's in-game ability bar slot-for-slot
 ## (including the mouse-bound and dodge slots), numbered to match the HUD. The
@@ -346,6 +361,23 @@ func _center_window() -> void:
 	DisplayServer.window_set_position(origin + (area - size) / 2)
 
 
+## Current graphics quality tier (0=Low .. 3=Ultra). Scenes that spawn a variable
+## number of lights/particles can read this to scale their own cost.
+func quality_tier() -> int:
+	return clampi(int(get_value("graphics", "quality", 2)), 0, 3)
+
+
+## Strips/enables the heavy screen-space effects on an Environment to match the
+## active quality tier. Called by EnvironmentBuilder when a zone loads and again
+## whenever settings change, so live quality changes apply without a reload.
+func apply_quality_to_environment(env: Environment) -> void:
+	if env == null:
+		return
+	var q := quality_tier()
+	for prop in QUALITY_ENV:
+		env.set(prop, QUALITY_ENV[prop][q])
+
+
 func _apply_quality(q: int) -> void:
 	q = clampi(q, 0, 3)
 	var root := get_tree().root
@@ -355,9 +387,14 @@ func _apply_quality(q: int) -> void:
 		Viewport.MSAA_4X,
 		Viewport.MSAA_8X,
 	]
-	var render_scale := [0.75, 0.85, 1.0, 1.0]
+	var render_scale := [0.7, 0.85, 1.0, 1.0]
 	root.msaa_3d = msaa[q] as Viewport.MSAA
 	root.scaling_3d_scale = render_scale[q]
+	# FSR1 recovers sharpness cheaply when rendering below native res; bilinear
+	# is fine at native, so only pay for the upscaler when actually downscaling.
+	root.scaling_3d_mode = (
+		Viewport.SCALING_3D_MODE_FSR if render_scale[q] < 1.0 else Viewport.SCALING_3D_MODE_BILINEAR
+	)
 
 
 func _apply_audio() -> void:

@@ -32,6 +32,7 @@ InventoryManager="*res://scripts/autoload/inventory_manager.gd"
 TestHarness="*res://scripts/autoload/test_harness.gd"
 CombatLog="*res://scripts/autoload/combat_log.gd"
 AbilityCatalog="*res://scripts/autoload/ability_catalog.gd"
+PerfOverlay="*res://scripts/autoload/perf_overlay.gd"
 
 [display]
 

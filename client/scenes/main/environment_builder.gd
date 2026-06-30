@@ -17,6 +17,7 @@ var _near_exit_portal: bool = false
 
 func _ready() -> void:
 	ctrl = get_parent()
+	SettingsManager.settings_changed.connect(_reapply_env_quality)
 
 
 func load_environment(scene_path: String) -> void:
@@ -41,7 +42,30 @@ func load_environment(scene_path: String) -> void:
 	_discover_gates(current_env)
 	if ctrl._shared_hud:
 		ctrl._shared_hud.set_environment(current_env)
+	_reapply_env_quality()
 	print("[EnvBuilder] loaded %s (WorldEnvs: %d -> %d)" % [scene_path, we_before, we_after])
+
+
+## Applies the current graphics-quality tier to the loaded WorldEnvironment,
+## toggling the expensive screen-space effects (volumetric fog, SSR, SSAO, ...).
+## Runs on every load and whenever settings change, so a live quality change in
+## the pause menu takes effect without re-entering the zone.
+func _reapply_env_quality() -> void:
+	if not (current_env and is_instance_valid(current_env)):
+		return
+	var we := _find_world_environment(current_env)
+	if we and we.environment:
+		SettingsManager.apply_quality_to_environment(we.environment)
+
+
+func _find_world_environment(node: Node) -> WorldEnvironment:
+	if node is WorldEnvironment:
+		return node as WorldEnvironment
+	for child in node.get_children():
+		var found := _find_world_environment(child)
+		if found:
+			return found
+	return null
 
 
 func _discover_gates(root: Node) -> void:
