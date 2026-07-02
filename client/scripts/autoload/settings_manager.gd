@@ -45,6 +45,14 @@ const QUALITY_ENV := {
 	"glow_enabled": [false, true, true, true],
 }
 
+## Shadow-map rendering is the single largest GPU cost on weak/integrated
+## hardware, and every environment lights up dozens of shadow casters (several
+## DirectionalLight3D plus spots). The tier gates shadows wholesale: off on Low,
+## restored to their scene-authored state at Medium and up. Applied per-light by
+## apply_quality_to_lights() because shadow flags live on the light nodes, not
+## the Environment. Indexed by tier: 0=Low, 1=Medium, 2=High, 3=Ultra.
+const QUALITY_SHADOWS: Array[bool] = [false, true, true, true]
+
 ## Rebindable binds grouped for the controls UI: "Core" holds the universal
 ## movement/UI binds; the rest mirror each class's in-game ability bar slot-for-slot
 ## (including the mouse-bound and dodge slots), numbered to match the HUD. The
@@ -378,6 +386,26 @@ func apply_quality_to_environment(env: Environment) -> void:
 		env.set(prop, QUALITY_ENV[prop][q])
 
 
+## Toggles shadow casting on every Light3D under `root` to match the active tier
+## (off on Low). The scene-authored shadow flag is cached in a per-light meta the
+## first time so raising the tier restores exactly what the scene intended. Called
+## by EnvironmentBuilder alongside apply_quality_to_environment().
+func apply_quality_to_lights(root: Node) -> void:
+	if root == null:
+		return
+	_apply_shadows_recursive(root, QUALITY_SHADOWS[quality_tier()])
+
+
+func _apply_shadows_recursive(node: Node, allow_shadows: bool) -> void:
+	if node is Light3D:
+		var light := node as Light3D
+		if not light.has_meta("_authored_shadow"):
+			light.set_meta("_authored_shadow", light.shadow_enabled)
+		light.shadow_enabled = allow_shadows and bool(light.get_meta("_authored_shadow"))
+	for child in node.get_children():
+		_apply_shadows_recursive(child, allow_shadows)
+
+
 func _apply_quality(q: int) -> void:
 	q = clampi(q, 0, 3)
 	var root := get_tree().root
@@ -387,7 +415,9 @@ func _apply_quality(q: int) -> void:
 		Viewport.MSAA_4X,
 		Viewport.MSAA_8X,
 	]
-	var render_scale := [0.7, 0.85, 1.0, 1.0]
+	# Low renders at half resolution and upscales with FSR1: the biggest cheap
+	# win for fill-rate-bound integrated GPUs.
+	var render_scale := [0.5, 0.85, 1.0, 1.0]
 	root.msaa_3d = msaa[q] as Viewport.MSAA
 	root.scaling_3d_scale = render_scale[q]
 	# FSR1 recovers sharpness cheaply when rendering below native res; bilinear

@@ -56,6 +56,10 @@ func _reapply_env_quality() -> void:
 	var we := _find_world_environment(current_env)
 	if we and we.environment:
 		SettingsManager.apply_quality_to_environment(we.environment)
+	# Shadows are the dominant iGPU cost; cull them across the whole environment
+	# on Low. Walks current_env (not just the WorldEnvironment) since the lights
+	# are scattered through the scene tree.
+	SettingsManager.apply_quality_to_lights(current_env)
 
 
 func _find_world_environment(node: Node) -> WorldEnvironment:
