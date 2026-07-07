@@ -687,6 +687,45 @@ func TestHandleInteractInput_ClassSelect_PreservesGearStats(t *testing.T) {
 	}
 }
 
+func TestHandleInteractInput_SpecSelect_InHub(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassVanguard)
+	if p.SpecID != entity.SpecBlade {
+		t.Fatalf("setup: vanguard default spec = %q, want %q", p.SpecID, entity.SpecBlade)
+	}
+
+	w := makeHubWorld(t, map[uint16]*entity.Player{1: p})
+
+	payload := codec.EncodeInteractInput(message.InteractSpecSelect, entity.SpecShield)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpInteractInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if p.SpecID != entity.SpecShield {
+		t.Errorf("spec = %q, want %q (spec change must work in hub)", p.SpecID, entity.SpecShield)
+	}
+	if p.MaxHealth != 280 {
+		t.Errorf("MaxHealth = %f, want 280 (vanguard shield)", p.MaxHealth)
+	}
+}
+
+func TestHandleInteractInput_SpecSelect_BlockedDuringInstanceFight(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassVanguard)
+	w := makeHubWorld(t, map[uint16]*entity.Player{1: p})
+	w.ZoneType = 1        // instanced
+	w.LobbyActive = false // fight in progress
+
+	payload := codec.EncodeInteractInput(message.InteractSpecSelect, entity.SpecShield)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpInteractInput, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if p.SpecID != entity.SpecBlade {
+		t.Errorf("spec = %q, want %q (spec change must stay blocked mid-fight)", p.SpecID, entity.SpecBlade)
+	}
+}
+
 func TestHandleInteractInput_ReadyToggle(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Ready = false

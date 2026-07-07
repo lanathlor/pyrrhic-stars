@@ -7,8 +7,10 @@ import (
 	"log/slog"
 	"math"
 	"net"
+	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"codex-online/server/internal/ability"
 	"codex-online/server/internal/abilitycatalog"
@@ -114,11 +116,45 @@ func (g *gateway) releaseConn(remoteAddr string) {
 	}
 }
 
+// instanceRetention is how long an ongoing (not yet cleared) instance survives
+// with no connected clients before being torn down. It lets players who left
+// mid-run (accidental portal exit, death return, disconnect) walk back into
+// the portal and rejoin their run instead of losing it.
+const instanceRetention = 5 * time.Minute
+
 type zoneInstance struct {
 	zone   *zone.Zone
 	cancel context.CancelFunc
 	nextID uint16
 	mu     sync.Mutex
+
+	// emptyTimer tears down an ongoing instance that stayed empty for the full
+	// retention window. Guarded by mu; armed in leaveZone, stopped in joinZone.
+	emptyTimer *time.Timer
+
+	// members records every player (by memberKey) who ever joined this
+	// instance. Membership survives group churn and reconnects, so the portal
+	// can route a player back into their ongoing run even when the group-based
+	// instance ID no longer resolves for them (e.g. a disconnect removed their
+	// group membership). Guarded by mu; dies with the instance.
+	members map[string]bool
+}
+
+// hasMember reports whether the given memberKey ever joined this instance.
+func (zi *zoneInstance) hasMember(key string) bool {
+	zi.mu.Lock()
+	defer zi.mu.Unlock()
+	return zi.members[key]
+}
+
+// memberKey identifies a player across reconnects for instance membership.
+// Characters are stable across sessions; dev/bypass sessions without a
+// character fall back to the session ID (no cross-reconnect identity).
+func memberKey(sess *session.Session) string {
+	if sess.CharID != 0 {
+		return fmt.Sprintf("c%d", sess.CharID)
+	}
+	return fmt.Sprintf("s%d", sess.ID)
 }
 
 func newGateway(ctr *container.Container) *gateway {
@@ -198,7 +234,9 @@ const (
 )
 
 // leaveZone removes a player from their current zone, broadcasts their
-// departure, and cleans up empty arena zones.
+// departure, and cleans up empty arena zones. Cleared instances are torn down
+// immediately; ongoing runs are retained for instanceRetention so the player
+// can rejoin through the portal.
 func (g *gateway) leaveZone(sess *session.Session) {
 	if sess.ZoneID == "" {
 		return
@@ -211,8 +249,30 @@ func (g *gateway) leaveZone(sess *session.Session) {
 	disconnMsg := message.Encode(message.OpPeerDisconnected, 0, codec.EncodePeerID(sess.PeerID))
 	zi.zone.Broadcast(disconnMsg, sess.PeerID)
 	if zi.zone.Type == zone.ZoneTypeInstanced && zi.zone.ClientCount() == 0 {
-		g.removeZone(sess.ZoneID)
+		if zi.zone.RunCompleted() {
+			g.removeZone(sess.ZoneID)
+		} else {
+			g.scheduleEmptyInstanceTeardown(sess.ZoneID, zi)
+		}
 	}
+}
+
+// scheduleEmptyInstanceTeardown arms (or re-arms) the retention timer on an
+// ongoing instance that just lost its last client. When it fires, the instance
+// is removed only if it is still registered and still empty.
+func (g *gateway) scheduleEmptyInstanceTeardown(zoneID string, zi *zoneInstance) {
+	zi.mu.Lock()
+	defer zi.mu.Unlock()
+	if zi.emptyTimer != nil {
+		zi.emptyTimer.Stop()
+	}
+	zi.emptyTimer = time.AfterFunc(instanceRetention, func() {
+		if cur := g.getZone(zoneID); cur == zi && zi.zone.ClientCount() == 0 {
+			slog.Info("ongoing instance expired after retention window", "zone_id", zoneID)
+			g.removeZone(zoneID)
+		}
+	})
+	slog.Info("ongoing instance retained for rejoin", "zone_id", zoneID, "retention", instanceRetention)
 }
 
 // joinZone adds a player to a zone, notifies peers, and sends the appropriate
@@ -221,40 +281,9 @@ func (g *gateway) leaveZone(sess *session.Session) {
 // (the player is leaving that dungeon for the hub), they spawn at the dungeon's
 // hub entrance instead of their last-saved position.
 func (g *gateway) joinZone(sess *session.Session, zi *zoneInstance, resp joinResponse, returnFromZone string) {
-	// Allocate peer ID.
-	zi.mu.Lock()
-	peerID := zi.nextID
-	zi.nextID++
-	zi.mu.Unlock()
+	peerID, displayName := g.registerZonePeer(sess, zi)
 
-	sess.Mu.Lock()
-	sess.PeerID = peerID
-	sess.ZoneID = zi.zone.ID
-	sess.ZoneType = uint8(zi.zone.Type)
-	sess.Mu.Unlock()
-	g.sessions.IndexZonePeer(sess.ID, zi.zone.ID, peerID)
-
-	displayName := resolveDisplayName(sess)
-
-	zi.zone.AddClient(&zone.Client{
-		PeerID:   peerID,
-		Username: displayName,
-		Send:     sess.Conn.Send,
-		SendUDP:  sess.Conn.SendUDP,
-		HasUDP:   sess.Conn.HasUDP,
-	})
-
-	// Queue class selection for non-gunner characters.
-	if sess.Class != "" && sess.Class != entity.ClassGunner {
-		zi.zone.QueueInput(peerID, message.OpInteractInput,
-			codec.EncodeInteractInput(message.InteractClassSelect, sess.Class))
-	}
-
-	// Queue spec selection if non-default.
-	if sess.Spec != "" {
-		zi.zone.QueueInput(peerID, message.OpInteractInput,
-			codec.EncodeInteractInput(message.InteractSpecSelect, sess.Spec))
-	}
+	queueCharacterSelections(sess, zi, peerID)
 
 	if entrancePos, ok := g.dungeonReturnEntrance(zi, returnFromZone); ok {
 		zi.zone.SetPlayerPosition(peerID, entrancePos, zi.zone.SpawnYaw())
@@ -286,7 +315,67 @@ func (g *gateway) joinZone(sess *session.Session, zi *zoneInstance, resp joinRes
 		sess.Conn.Send(message.Encode(message.OpOverfluxState, 0, overflux.EncodeState(oflx)))
 	}
 
+	// Landing in an open world while an ongoing run holds this player's
+	// membership: re-prompt so the client offers the portal join path.
+	if zi.zone.Type == zone.ZoneTypeOpenWorld {
+		g.notifyOngoingRun(sess)
+	}
+
 	slog.Info("peer joined zone", "zone_id", zi.zone.ID, "peer_id", peerID, "username", displayName)
+}
+
+// registerZonePeer allocates a peer ID, updates the session/zone indexes, and
+// adds the zone client. A join also disarms any pending empty-instance
+// teardown (the run is inhabited again) and records run membership for portal
+// rejoin after group churn or reconnect.
+func (g *gateway) registerZonePeer(sess *session.Session, zi *zoneInstance) (uint16, string) {
+	zi.mu.Lock()
+	if zi.emptyTimer != nil {
+		zi.emptyTimer.Stop()
+		zi.emptyTimer = nil
+	}
+	if zi.zone.Type == zone.ZoneTypeInstanced {
+		if zi.members == nil {
+			zi.members = make(map[string]bool)
+		}
+		zi.members[memberKey(sess)] = true
+	}
+	peerID := zi.nextID
+	zi.nextID++
+	zi.mu.Unlock()
+
+	sess.Mu.Lock()
+	sess.PeerID = peerID
+	sess.ZoneID = zi.zone.ID
+	sess.ZoneType = uint8(zi.zone.Type)
+	sess.Mu.Unlock()
+	g.sessions.IndexZonePeer(sess.ID, zi.zone.ID, peerID)
+
+	displayName := resolveDisplayName(sess)
+
+	zi.zone.AddClient(&zone.Client{
+		PeerID:   peerID,
+		Username: displayName,
+		Send:     sess.Conn.Send,
+		SendUDP:  sess.Conn.SendUDP,
+		HasUDP:   sess.Conn.HasUDP,
+	})
+	return peerID, displayName
+}
+
+// queueCharacterSelections queues class and spec selection inputs so the zone
+// re-creates the player as the character they were last playing.
+func queueCharacterSelections(sess *session.Session, zi *zoneInstance, peerID uint16) {
+	// Class selection for non-gunner characters.
+	if sess.Class != "" && sess.Class != entity.ClassGunner {
+		zi.zone.QueueInput(peerID, message.OpInteractInput,
+			codec.EncodeInteractInput(message.InteractClassSelect, sess.Class))
+	}
+	// Spec selection if non-default.
+	if sess.Spec != "" {
+		zi.zone.QueueInput(peerID, message.OpInteractInput,
+			codec.EncodeInteractInput(message.InteractSpecSelect, sess.Spec))
+	}
 }
 
 // sendUDPAssociate generates a token and sends OpUDPAssociate to the client.
@@ -692,6 +781,59 @@ func (g *gateway) dungeonReturnEntrance(zi *zoneInstance, returnFromZone string)
 // the base zone name that matches a hub portal's TargetZone. Instance IDs are
 // formed as "<base>_g<groupID>", "<base>_s<sessionID>", or "<base>_dev"
 // (see handleEnterPortal). Base zone names contain no underscores.
+// findMemberRun returns the ID of a live, ongoing (not cleared) instance of
+// baseZone (any base zone when "") that this player previously joined, or "".
+// This is the portal's fallback when the deterministic group/solo instance ID
+// no longer resolves: membership is keyed by character, so it survives
+// disconnects and group churn until the run is cleared, reset, or expires.
+func (g *gateway) findMemberRun(sess *session.Session, baseZone string) string {
+	key := memberKey(sess)
+	g.mu.Lock()
+	ids := make([]string, 0, len(g.zones))
+	for id, zi := range g.zones {
+		if zi.zone.Type == zone.ZoneTypeInstanced {
+			ids = append(ids, id)
+		}
+	}
+	g.mu.Unlock()
+	sort.Strings(ids)
+	for _, id := range ids {
+		if baseZone != "" && instanceBaseZone(id) != baseZone {
+			continue
+		}
+		zi := g.getZone(id)
+		if zi == nil || !zi.hasMember(key) || zi.zone.RunCompleted() {
+			continue
+		}
+		return id
+	}
+	return ""
+}
+
+// notifyOngoingRun re-sends OpInstanceJoinPrompt when a player lands in an
+// open-world zone while a run they belong to is still ongoing (death-screen
+// "return to hub", accidental portal exit, reconnect). The client's portal
+// join-vs-create decision hinges on this prompt: it is wiped on arena entry
+// and OpGroupState carries no instance info, so without a re-prompt the
+// portal only ever offers the create-instance panel.
+func (g *gateway) notifyOngoingRun(sess *session.Session) {
+	runID := g.findMemberRun(sess, "")
+	if runID == "" {
+		return
+	}
+	zi := g.getZone(runID)
+	if zi == nil {
+		return
+	}
+	creator := sess.Username
+	if g.groups.GetGroup(sess.ID) != nil {
+		creator = "Your group"
+	}
+	payload := overflux.EncodeJoinPrompt(instanceBaseZone(runID), creator, zi.zone.OverfluxState())
+	sess.Conn.Send(message.Encode(message.OpInstanceJoinPrompt, 0, payload))
+	slog.Info("re-sent rejoin prompt for ongoing run", "player_id", sess.ID, "instance", runID)
+}
+
 func instanceBaseZone(zoneID string) string {
 	for _, sep := range []string{"_g", "_s", "_dev"} {
 		if i := strings.Index(zoneID, sep); i > 0 {

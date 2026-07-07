@@ -364,6 +364,23 @@ func (z *Zone) ClientCount() int {
 	return len(z.world.Clients)
 }
 
+// RunCompleted reports whether this zone's run has finished (boss defeated).
+// The gateway uses it to distinguish an ongoing run that players may rejoin
+// from a cleared instance that can be torn down.
+func (z *Zone) RunCompleted() bool {
+	z.mu.Lock()
+	defer z.mu.Unlock()
+	return z.world.BossDefeated
+}
+
+// MarkRunCompleted flags the run as finished. Used by tests to simulate a
+// cleared instance without running the full fight.
+func (z *Zone) MarkRunCompleted() {
+	z.mu.Lock()
+	defer z.mu.Unlock()
+	z.world.BossDefeated = true
+}
+
 // TickNum returns the zone's current tick counter.
 func (z *Zone) TickNum() uint32 {
 	z.mu.Lock()

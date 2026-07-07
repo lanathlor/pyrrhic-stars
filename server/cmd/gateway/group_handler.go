@@ -123,13 +123,14 @@ func (g *gateway) handleEnterPortal(sess *session.Session, payload []byte) { //n
 		instanceID = fmt.Sprintf("%s_s%d", targetZone, sess.ID)
 	}
 
-	// If the instance already exists and still has live players, join it
-	// directly (no new conditions). An instance with zero clients is an
-	// abandoned run (e.g. a previously cleared dungeon whose leave-time
-	// teardown was missed): tear it down so a fresh instance spawns below,
-	// rather than dropping the player back into an empty, already-cleared zone.
+	// If the instance already exists and its run is still ongoing (live
+	// players inside, or empty but retained for rejoin), join it directly
+	// (no new conditions). An empty instance whose run is completed is an
+	// abandoned cleared dungeon: tear it down so a fresh instance spawns
+	// below, rather than dropping the player back into an empty zone with
+	// all enemies dead.
 	if existing := g.getZone(instanceID); existing != nil {
-		if existing.zone.ClientCount() > 0 {
+		if existing.zone.ClientCount() > 0 || !existing.zone.RunCompleted() {
 			slog.Info("player joining existing instance", "player_id", sess.ID, "instance", instanceID)
 			g.transferPlayer(sess, instanceID, lvl, groupSize, nil, "")
 			if grp != nil {
@@ -137,8 +138,21 @@ func (g *gateway) handleEnterPortal(sess *session.Session, payload []byte) { //n
 			}
 			return
 		}
-		slog.Info("removing abandoned empty instance before re-entry", "player_id", sess.ID, "instance", instanceID)
+		slog.Info("removing cleared empty instance before re-entry", "player_id", sess.ID, "instance", instanceID)
 		g.removeZone(instanceID)
+	}
+
+	// The deterministic ID misses runs the player entered under a group that
+	// has since churned: a disconnect removes group membership, so on
+	// reconnect the same player computes a different ID. Fall back to
+	// per-character run membership before creating anything new.
+	if runID := g.findMemberRun(sess, targetZone); runID != "" {
+		slog.Info("player rejoining run via membership", "player_id", sess.ID, "instance", runID)
+		g.transferPlayer(sess, runID, lvl, groupSize, nil, "")
+		if grp != nil {
+			g.broadcastGroupState(grp)
+		}
+		return
 	}
 
 	// New instance: decode overflux conditions from payload.
@@ -185,38 +199,49 @@ func (g *gateway) handleInstanceJoinReply(sess *session.Session, payload []byte)
 		return
 	}
 
+	// Resolve the group's instance by convention; fall back to per-character
+	// run membership (rejoin prompts fire for ongoing runs even when the
+	// player is solo or their group has churned).
 	grp := g.groups.GetGroup(sess.ID)
-	if grp == nil {
-		sendGroupError(sess.Conn, "not in a group")
-		return
-	}
-
-	// Resolve the portal target from the player's current zone.
-	targetZone := defaultPortalTarget
-	g.mu.Lock()
-	if zi, ok := g.zones[sess.ZoneID]; ok {
-		portals := zi.zone.Portals()
-		if len(portals) > 0 {
-			targetZone = portals[0].TargetZone
+	var instanceID string
+	if grp != nil {
+		targetZone := defaultPortalTarget
+		g.mu.Lock()
+		if zi, ok := g.zones[sess.ZoneID]; ok {
+			portals := zi.zone.Portals()
+			if len(portals) > 0 {
+				targetZone = portals[0].TargetZone
+			}
+		}
+		g.mu.Unlock()
+		if id := fmt.Sprintf("%s_g%d", targetZone, grp.ID); g.getZone(id) != nil {
+			instanceID = id
 		}
 	}
-	g.mu.Unlock()
-
-	instanceID := fmt.Sprintf("%s_g%d", targetZone, grp.ID)
-	if g.getZone(instanceID) == nil {
+	if instanceID == "" {
+		instanceID = g.findMemberRun(sess, "")
+	}
+	if instanceID == "" {
 		sendGroupError(sess.Conn, "instance no longer exists")
 		return
 	}
 
-	lvl, err := g.loadLevel(targetZone)
+	baseZone := instanceBaseZone(instanceID)
+	lvl, err := g.loadLevel(baseZone)
 	if err != nil {
-		slog.Error("load level for instance join", "zone", targetZone, "error", err)
+		slog.Error("load level for instance join", "zone", baseZone, "error", err)
 		return
 	}
 
+	groupSize := 1
+	if grp != nil {
+		groupSize = len(grp.Members)
+	}
 	slog.Info("player joining instance via prompt", "player_id", sess.ID, "instance", instanceID)
-	g.transferPlayer(sess, instanceID, lvl, len(grp.Members), nil, "")
-	g.broadcastGroupState(grp)
+	g.transferPlayer(sess, instanceID, lvl, groupSize, nil, "")
+	if grp != nil {
+		g.broadcastGroupState(grp)
+	}
 }
 
 // handleInstanceReset allows the group leader to destroy the group's current
@@ -232,15 +257,19 @@ func (g *gateway) handleInstanceReset(sess *session.Session) {
 		return
 	}
 
-	// Find and destroy group instances. Convention: {zone}_g{groupID}.
+	// Find and destroy group instances: {zone}_g{groupID} by convention, plus
+	// any ongoing run the leader is a member of (covers runs orphaned by group
+	// churn, whose original group ID no longer matches).
 	prefix := fmt.Sprintf("_g%d", grp.ID)
+	leaderKey := memberKey(sess)
 	g.mu.Lock()
 	var toRemove []string
 	for zoneID, zi := range g.zones {
 		if zi.zone.Type != zone.ZoneTypeInstanced {
 			continue
 		}
-		if len(zoneID) > len(prefix) && zoneID[len(zoneID)-len(prefix):] == prefix {
+		bySuffix := len(zoneID) > len(prefix) && zoneID[len(zoneID)-len(prefix):] == prefix
+		if bySuffix || zi.hasMember(leaderKey) {
 			toRemove = append(toRemove, zoneID)
 		}
 	}

@@ -500,7 +500,7 @@ func TestLeaveZone_NoopWhenZoneNotFound(_ *testing.T) {
 	gw.leaveZone(sess)
 }
 
-func TestLeaveZone_RemovesEmptyArena(t *testing.T) {
+func TestLeaveZone_RemovesEmptyClearedArena(t *testing.T) {
 	gw := newTestGateway(stubRepo{})
 	zi := newTestZoneInstance(t, "arena_1", "arena")
 
@@ -512,10 +512,46 @@ func TestLeaveZone_RemovesEmptyArena(t *testing.T) {
 	gw.zones["arena_1"] = zi
 	gw.mu.Unlock()
 
+	zi.zone.MarkRunCompleted()
 	gw.leaveZone(sess)
 
 	if gw.getZone("arena_1") != nil {
-		t.Error("empty arena was not removed")
+		t.Error("empty cleared arena was not removed")
+	}
+}
+
+func TestLeaveZone_RetainsEmptyOngoingArena(t *testing.T) {
+	gw := newTestGateway(stubRepo{})
+	zi := newTestZoneInstance(t, "arena_1", "arena")
+
+	sess, _ := newTestSession(1)
+	defer sess.Conn.Close()
+	gw.joinZone(sess, zi, joinResponseZoneJoined, "")
+
+	gw.mu.Lock()
+	gw.zones["arena_1"] = zi
+	gw.mu.Unlock()
+
+	// Run not completed: the instance must survive for rejoin.
+	gw.leaveZone(sess)
+
+	if gw.getZone("arena_1") == nil {
+		t.Error("ongoing arena was removed; expected retention for rejoin")
+	}
+	zi.mu.Lock()
+	armed := zi.emptyTimer != nil
+	zi.mu.Unlock()
+	if !armed {
+		t.Error("retention timer not armed on empty ongoing instance")
+	}
+
+	// Rejoining disarms the teardown timer.
+	gw.joinZone(sess, zi, joinResponseZoneJoined, "")
+	zi.mu.Lock()
+	armed = zi.emptyTimer != nil
+	zi.mu.Unlock()
+	if armed {
+		t.Error("retention timer still armed after rejoin")
 	}
 }
 

@@ -471,10 +471,11 @@ func handleClassSelect(p *entity.Player, peerID uint16, className string) {
 	*p = *np
 }
 
-// handleSpecSelect re-creates the player with a new spec during the lobby
-// phase, preserving identity and position state. Un-readies the player.
+// handleSpecSelect re-creates the player with a new spec, preserving
+// identity and position state. Un-readies the player. Allowed in open-world
+// zones (hub) and during an instance lobby; blocked once a fight starts.
 func handleSpecSelect(w *World, p *entity.Player, peerID uint16, specID string) {
-	if !w.LobbyActive {
+	if w.ZoneType != 0 && !w.LobbyActive {
 		return
 	}
 	classDef, ok := entity.Classes[p.ClassID]
