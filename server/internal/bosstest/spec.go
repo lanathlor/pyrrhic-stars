@@ -41,19 +41,20 @@ func (s OverfluxSpec) ToOverfluxState() *overflux.State {
 // is either a single boss (Boss set) or a trash-mob pack (Pack set). Tests fail
 // if simulation results drift outside these ranges.
 type EncounterSpec struct {
-	Boss         string          `yaml:"boss"`      // single-enemy encounter (mutually exclusive with pack)
-	Name         string          `yaml:"name"`      // label for pack encounters (boss encounters use Boss)
-	Pack         []PackEntrySpec `yaml:"pack"`      // multi-enemy trash pack
-	FuzzOnly     bool            `yaml:"fuzz_only"` // skip injection/scenario tiers (e.g. extra comp-focused specs for a boss already covered by a base spec)
-	Runs         int             `yaml:"runs"`
-	Compositions []CompSpec      `yaml:"compositions"`
-	Overflux     []OverfluxSpec  `yaml:"overflux"` // optional: test under overflux conditions
-	WinRate      RangeSpec       `yaml:"win_rate"`
-	Duration     DurationSpec    `yaml:"duration"`
-	PhaseReach   []PhaseSpec     `yaml:"phase_reach"`
-	TreeHealth   TreeHealthSpec  `yaml:"tree_health"`
-	SpecBalance  *BalanceSpec    `yaml:"spec_balance"`
-	AbilityStats []AbilitySpec   `yaml:"ability_stats"`
+	Boss         string             `yaml:"boss"`      // single-enemy encounter (mutually exclusive with pack)
+	Name         string             `yaml:"name"`      // label for pack encounters (boss encounters use Boss)
+	Pack         []PackEntrySpec    `yaml:"pack"`      // multi-enemy trash pack
+	FuzzOnly     bool               `yaml:"fuzz_only"` // skip injection/scenario tiers (e.g. extra comp-focused specs for a boss already covered by a base spec)
+	Runs         int                `yaml:"runs"`
+	Compositions []CompSpec         `yaml:"compositions"`
+	Overflux     []OverfluxSpec     `yaml:"overflux"` // optional: test under overflux conditions
+	WinRate      RangeSpec          `yaml:"win_rate"`
+	Duration     DurationSpec       `yaml:"duration"`
+	PhaseReach   []PhaseSpec        `yaml:"phase_reach"`
+	TreeHealth   TreeHealthSpec     `yaml:"tree_health"`
+	SpecBalance  *BalanceSpec       `yaml:"spec_balance"`
+	AbilityStats []AbilitySpec      `yaml:"ability_stats"`
+	Coordination []CoordinationSpec `yaml:"coordination"`
 }
 
 // PackEntrySpec is one mob type in a trash pack: spawn Count copies of Def.
@@ -128,6 +129,27 @@ type TreeHealthSpec struct {
 // BalanceSpec defines class balance bounds.
 type BalanceSpec struct {
 	MaxDamageShareSigma float64 `yaml:"max_damage_share_sigma"`
+}
+
+// CoordinationSpec asserts pack coordination measured on the zone bus event
+// log (enemyai.Bus): MaxConcurrent bounds how many matching events may land
+// inside any sliding window (e.g. "ranged mobs never salvo together"), and
+// MinAvgPerRun is the liveness floor guarding against over-coordination
+// starving the pack into silence.
+type CoordinationSpec struct {
+	Channel       string  `yaml:"channel"`         // bus channel, e.g. commit_started
+	SourceDef     string  `yaml:"source_def"`      // optional: only count events from this mob def
+	WindowSeconds float64 `yaml:"window_seconds"`  // sliding window size
+	MaxConcurrent int     `yaml:"max_concurrent"`  // max events within any window (0 = no cap)
+	MinAvgPerRun  float64 `yaml:"min_avg_per_run"` // liveness: avg matching events per run (0 = no floor)
+}
+
+// Label returns the report/subtest label for this coordination assertion.
+func (cs CoordinationSpec) Label() string {
+	if cs.SourceDef != "" {
+		return cs.Channel + "/" + cs.SourceDef
+	}
+	return cs.Channel
 }
 
 // AbilitySpec defines expected behavior for a specific ability.

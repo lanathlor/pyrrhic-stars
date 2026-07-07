@@ -65,6 +65,10 @@ func NewBrainSeeded(def *EnemyDef, enemy *entity.Enemy, engine *ability.Engine, 
 // Enemy returns the brain's enemy.
 func (b *Brain) Enemy() *entity.Enemy { return b.enemy }
 
+// SetBus attaches the zone coordination bus. Called by the AI system each
+// tick (idempotent) so brains always see the current zone's bus.
+func (b *Brain) SetBus(bus *Bus) { b.ctx.Bus = bus }
+
 // ForceCommit unconditionally interrupts any current ability and starts the given one.
 func (b *Brain) ForceCommit(abilityID string) bool {
 	return b.ctx.Runner.ForceStart(b.ctx, abilityID)

@@ -986,6 +986,72 @@ func commitByName(abilityID string) func(any) bt.Result {
 	}
 }
 
+// --- Coordination (bus) leaves ---
+//
+// Design rule: coordination may only DELAY an action within a bounded window,
+// never require another mob's action as a precondition. Every gate fails open
+// (nil bus, max_wait exceeded), so a pack can never deadlock itself silent.
+// The other rule: no leaf may depend on old events; the bus only retains a
+// short recent window in production.
+
+// bbClearToFireHeld accumulates how long a mob has been held by clear_to_fire.
+const bbClearToFireHeld = "clear_to_fire_held"
+
+// condHeard is true when any event on the channel was emitted within the last
+// `secs` seconds by another mob in the listener's combat cluster.
+func condHeard(channel string, secs float32) func(any) bool {
+	return func(v any) bool {
+		c := ctx(v)
+		if c.Bus == nil {
+			return false
+		}
+		result := c.Bus.CountRecent(channel, "", secs, c.Enemy.ID) > 0
+		c.logCond("heard", result, "channel", channel)
+		return result
+	}
+}
+
+// condClearToFire gates an attack so mobs of the same def stagger their
+// commits: true (clear) when no same-def packmate committed within the last
+// `gap` seconds. Silence enables, noise delays: a mob held continuously for
+// `maxWait` seconds fires anyway (pressure valve against starvation on big
+// pulls). Scoped to the listener's own def so a ranged line staggers its
+// salvos without being held by melee swings.
+func condClearToFire(gap, maxWait float32) func(any) bool {
+	return func(v any) bool {
+		c := ctx(v)
+		if c.Bus == nil {
+			return true // no bus (unit tests): never block
+		}
+		if c.Bus.CountRecent(ChanCommitStarted, c.Def.Name, gap, c.Enemy.ID) == 0 {
+			c.BB.Set(bbClearToFireHeld, float32(0))
+			c.logCond("clear_to_fire", true)
+			return true
+		}
+		held := c.BB.GetFloat32(bbClearToFireHeld) + c.Dt
+		if held >= maxWait {
+			c.BB.Set(bbClearToFireHeld, float32(0))
+			c.logCond("clear_to_fire", true, "reason", "max_wait")
+			return true
+		}
+		c.BB.Set(bbClearToFireHeld, held)
+		c.logCond("clear_to_fire", false, "held", held)
+		return false
+	}
+}
+
+// actionAnnounce emits a designer-defined event on the bus. Always succeeds.
+func actionAnnounce(channel string) func(any) bt.Result {
+	return func(v any) bt.Result {
+		c := ctx(v)
+		if c.Bus != nil {
+			c.Bus.Emit(channel, c.Enemy.ID, c.Def.Name, "")
+		}
+		c.logAction("announce", bt.Success, "channel", channel)
+		return bt.Success
+	}
+}
+
 // --- Helpers ---
 
 func (ctx *EntityContext) faceTargetPlayer() {

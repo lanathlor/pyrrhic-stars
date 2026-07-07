@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"codex-online/server/internal/combatlog"
+	"codex-online/server/internal/enemyai"
 )
 
 // FuzzResults holds aggregated results from a batch of simulation runs.
@@ -300,6 +301,12 @@ func (fr *FuzzResults) AssertAll(t *testing.T) *FuzzReport {
 			fr.assertAbilityStats(t, fr.Spec.AbilityStats, report)
 		})
 	}
+	for _, cs := range fr.Spec.Coordination {
+		t.Run("coordination/"+cs.Label(), func(t *testing.T) {
+			fr.assertCoordination(t, cs, report)
+		})
+	}
+
 	// Per-composition win rate assertions.
 	fr.assertCompWinRates(t, report)
 
@@ -730,6 +737,82 @@ func (fr *FuzzResults) assertSpecBalance(t *testing.T, report *FuzzReport) {
 			result: fmt.Sprintf("%.1f%%", (dmg/grandTotal)*100),
 		})
 	}
+}
+
+// assertCoordination validates one CoordinationSpec against the bus event
+// timeline of every run: a sliding-window concurrency cap and a per-run
+// average liveness floor. On a concurrency violation it dumps the offending
+// run's timeline excerpt so the failure is diagnosable from the log alone.
+func (fr *FuzzResults) assertCoordination(t *testing.T, cs CoordinationSpec, report *FuzzReport) {
+	t.Helper()
+	windowTicks := uint32(cs.WindowSeconds / defaultDt)
+
+	maxSeen := 0
+	totalEvents := 0
+	worstRun := -1
+	var worstTick uint32
+	var ticks []uint32
+	for ri, r := range fr.Results {
+		ticks = ticks[:0]
+		for _, ev := range r.BusEvents {
+			if ev.Channel != cs.Channel {
+				continue
+			}
+			if cs.SourceDef != "" && ev.SourceDef != cs.SourceDef {
+				continue
+			}
+			ticks = append(ticks, ev.Tick)
+		}
+		totalEvents += len(ticks)
+		// Sliding-window max: events are appended in tick order.
+		lo := 0
+		for hi := range ticks {
+			for ticks[hi]-ticks[lo] >= windowTicks {
+				lo++
+			}
+			if n := hi - lo + 1; n > maxSeen {
+				maxSeen = n
+				worstRun = ri
+				worstTick = ticks[hi]
+			}
+		}
+	}
+	avg := float64(totalEvents) / float64(len(fr.Results))
+
+	pass := true
+	if cs.MaxConcurrent > 0 && maxSeen > cs.MaxConcurrent {
+		t.Errorf("%s: max concurrent = %d within %.2fs window, want <= %d",
+			cs.Label(), maxSeen, cs.WindowSeconds, cs.MaxConcurrent)
+		dumpBusExcerpt(t, fr.Results[worstRun].BusEvents, worstTick, windowTicks)
+		pass = false
+	}
+	if cs.MinAvgPerRun > 0 && avg < cs.MinAvgPerRun {
+		t.Errorf("%s: avg events per run = %.1f, want >= %.1f (pack starved into silence?)",
+			cs.Label(), avg, cs.MinAvgPerRun)
+		pass = false
+	}
+
+	report.add("Coord "+cs.Label(),
+		fmt.Sprintf("max=%d avg=%.1f", maxSeen, avg),
+		fmt.Sprintf("[<=%d, >=%.0f]", cs.MaxConcurrent, cs.MinAvgPerRun),
+		pass)
+}
+
+// dumpBusExcerpt logs the bus timeline around a violation tick (±2 windows)
+// so a coordination failure can be read directly off the event log.
+func dumpBusExcerpt(t *testing.T, events []enemyai.BusEvent, aroundTick, windowTicks uint32) {
+	t.Helper()
+	var sb strings.Builder
+	sb.WriteString("bus timeline around violation:\n")
+	pad := 2 * windowTicks
+	for _, ev := range events {
+		if ev.Tick+pad < aroundTick || ev.Tick > aroundTick+pad {
+			continue
+		}
+		fmt.Fprintf(&sb, "    t=%5d (%6.2fs)  %-16s %s#%d %s\n",
+			ev.Tick, float64(ev.Tick)*defaultDt, ev.Channel, ev.SourceDef, ev.Source, ev.Ability)
+	}
+	t.Log(sb.String())
 }
 
 // aggregateAbilityStats merges per-run AbilityResult maps from all results into

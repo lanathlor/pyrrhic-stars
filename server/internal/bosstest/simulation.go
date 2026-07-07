@@ -72,6 +72,7 @@ type SimResult struct {
 	SpecHealing   map[string]float32        // spec → total healing done
 	SpecPlayers   map[string]int            // spec → number of players with that spec
 	AbilityStats  map[string]*AbilityResult // ability name → stats
+	BusEvents     []enemyai.BusEvent        // full coordination-bus timeline
 	CompName      string                    // composition name (set by runner)
 	OverfluxName  string                    // overflux config name (set by runner, empty = baseline)
 	OverfluxScore int                       // total overflux score (0 = baseline)
@@ -307,6 +308,10 @@ func buildWorld(cfg SimConfig, engine *ability.Engine, lvl *level.Level, insts [
 	if w.CombatLogSink == nil {
 		w.CombatLogSink = combatlog.NullSink{}
 	}
+	// Coordination bus with full retention so runs can assert on (and dump)
+	// the complete event timeline.
+	w.Bus = enemyai.NewBus()
+	w.Bus.RetainAll = true
 	w.InitGateStates()
 	return w
 }
@@ -373,6 +378,7 @@ func RunSimulation(cfg SimConfig) SimResult {
 		SpecHealing:   st.specHealing,
 		SpecPlayers:   st.specPlayers,
 		AbilityStats:  st.abilStats,
+		BusEvents:     st.world.Bus.Events(),
 	}
 }
 

@@ -117,6 +117,56 @@ var paramFactories = map[string]func(string) (leafEntry, error){
 		}
 		return leafEntry{action: dashFactory(float32(cd))}, nil
 	},
+
+	// Coordination (bus) leaves.
+	"heard": func(arg string) (leafEntry, error) {
+		channel, secs, err := channelSecsArgs("heard", arg)
+		if err != nil {
+			return leafEntry{}, err
+		}
+		return leafEntry{isCond: true, cond: condHeard(channel, secs)}, nil
+	},
+	"clear_to_fire": func(arg string) (leafEntry, error) {
+		parts := splitLeafArgs(arg)
+		if len(parts) != 2 {
+			return leafEntry{}, fmt.Errorf("clear_to_fire: want (gap_secs, max_wait_secs), got %q", arg)
+		}
+		gap, err1 := strconv.ParseFloat(parts[0], 32)
+		maxWait, err2 := strconv.ParseFloat(parts[1], 32)
+		if err1 != nil || err2 != nil || gap <= 0 || maxWait <= gap {
+			return leafEntry{}, fmt.Errorf("clear_to_fire: invalid args %q (need 0 < gap < max_wait)", arg)
+		}
+		return leafEntry{isCond: true, cond: condClearToFire(float32(gap), float32(maxWait))}, nil
+	},
+	"announce": func(arg string) (leafEntry, error) {
+		if arg == "" {
+			return leafEntry{}, errors.New("announce: missing channel name")
+		}
+		return leafEntry{action: actionAnnounce(arg)}, nil
+	},
+}
+
+// splitLeafArgs splits a parameterized leaf's argument string on commas,
+// trimming whitespace: "commit_started, 0.5" → ["commit_started", "0.5"].
+func splitLeafArgs(arg string) []string {
+	parts := strings.Split(arg, ",")
+	for i := range parts {
+		parts[i] = strings.TrimSpace(parts[i])
+	}
+	return parts
+}
+
+// channelSecsArgs parses the common "(channel, secs)" argument pair.
+func channelSecsArgs(leaf, arg string) (string, float32, error) {
+	parts := splitLeafArgs(arg)
+	if len(parts) != 2 || parts[0] == "" {
+		return "", 0, fmt.Errorf("%s: want (channel, secs), got %q", leaf, arg)
+	}
+	secs, err := strconv.ParseFloat(parts[1], 32)
+	if err != nil || secs <= 0 {
+		return "", 0, fmt.Errorf("%s: invalid window %q", leaf, parts[1])
+	}
+	return parts[0], float32(secs), nil
 }
 
 // resolveLeaf converts a leaf name string into a bt.Node. It handles:

@@ -87,6 +87,10 @@ type World struct {
 	// AI brains (parallel to Enemies)
 	Brains []enemyai.BrainTicker
 
+	// Bus is the zone coordination event log shared by all brains (pack
+	// coordination: salvo stagger, announcements). Lazily created by AISystem.
+	Bus *enemyai.Bus
+
 	// Boss is a cached pointer to the boss enemy (IsBoss=true), or nil.
 	// Set during enemy spawning to avoid repeated linear scans.
 	Boss *entity.Enemy

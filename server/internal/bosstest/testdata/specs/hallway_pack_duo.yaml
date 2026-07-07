@@ -51,3 +51,16 @@ ability_stats:
   - ability: energy_bolt
     max_kill_rate: 0.40
     max_hit_fraction: 0.30
+
+# Pack coordination (zone bus): the ranged line staggers its salvos instead of
+# alpha-striking together. A duo can dodge one 3-bolt salvo at a time; two
+# simultaneous salvos from different angles are undodgeable pressure, which is
+# the melee mobs' job, not the ranged line's. min_avg_per_run is the liveness
+# floor: staggering must delay salvos, never silence the pack (a deadlocked
+# ranged line would also pass max_concurrent).
+coordination:
+  - channel: commit_started
+    source_def: hallway_ranged
+    window_seconds: 0.6
+    max_concurrent: 1
+    min_avg_per_run: 3

@@ -39,6 +39,11 @@ abilities:
             damage: 25.0
             lifetime: 4.0
 
+# clear_to_fire staggers the ranged line: hold the salvo while another ranged
+# mob committed within the last 0.6s (players dodge one salvo at a time; two
+# at once from different angles is undodgeable), but never wait longer than
+# 1.5s (pressure valve: on big pulls the line bursts rather than starves).
+# Held mobs fall through to strafe/kite, so the pack stays in motion.
 tree:
   reactive_selector:
     - sequence: [is_dead, stop]
@@ -46,6 +51,6 @@ tree:
     - sequence: ["!has_target", aggro_or_patrol]
     - sequence: ["!in_leash_range", leash_reset]
     - sequence: [is_committed, wait_ability]      # hold still during a salvo
-    - sequence: [has_los, attack]                 # fire a salvo when ready
-    - sequence: ["target_beyond(5)", strafe]      # between salvos: circle-strafe at range
+    - sequence: [has_los, "clear_to_fire(0.6, 1.5)", attack]  # fire when the line is clear
+    - sequence: ["target_beyond(5)", strafe]      # held or between salvos: circle-strafe
     - chase                                       # too close / no LoS: kite (backpedal/advance)

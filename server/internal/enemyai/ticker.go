@@ -17,6 +17,9 @@ type BrainTicker interface {
 	) []combat.DamageEvent
 	Enemy() *entity.Enemy
 
+	// SetBus attaches the zone coordination bus (see Bus).
+	SetBus(bus *Bus)
+
 	// Overflux variant support.
 	ApplyOverfluxVariants(oflx *overflux.State)
 

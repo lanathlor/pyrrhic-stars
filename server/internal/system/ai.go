@@ -34,6 +34,14 @@ func (s *AISystem) Tick(w *World, dt float32) {
 		}
 	}
 
+	// Coordination bus: advance the clock, prune old events, and re-derive
+	// combat clusters from current aggro state (GroupID + shared threat).
+	if w.Bus == nil {
+		w.Bus = enemyai.NewBus()
+	}
+	w.Bus.BeginTick(w.TickNum, dt)
+	w.Bus.RebuildClusters(w.Enemies)
+
 	for i, e := range w.Enemies {
 		if e == nil || !e.Alive || i >= len(w.Brains) {
 			continue
@@ -74,6 +82,7 @@ func (s *AISystem) Tick(w *World, dt float32) {
 
 func tickEnemyBrain(w *World, idx int, e *entity.Enemy, allPlayers []*entity.Player, dt float32) {
 	prevState := e.State
+	w.Brains[idx].SetBus(w.Bus)
 	events := w.Brains[idx].Tick(dt, allPlayers, w.Obstacles, w.spawnFn, w.commitPatternFn)
 
 	// Apply group-size damage scaling to direct hits (melee, AoE, charge).

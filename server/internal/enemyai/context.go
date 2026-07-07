@@ -30,6 +30,10 @@ type EntityContext struct {
 	// Runner owns the ability commit→execute→cooldown lifecycle.
 	Runner *AbilityRunner
 
+	// Bus is the zone coordination event log (shared by all brains in the
+	// zone). Nil in isolated unit tests; coordination leaves fail open.
+	Bus *Bus
+
 	// Logger enables optional BT trace logging. Nil disables logging.
 	Logger *slog.Logger
 

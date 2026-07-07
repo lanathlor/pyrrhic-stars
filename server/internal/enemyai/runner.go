@@ -58,6 +58,12 @@ func (r *AbilityRunner) Start(ctx *EntityContext, abilityID string) bool {
 
 	setupAbilityCategory(ctx, abil, resolved)
 
+	// Announce the commit on the zone coordination bus so packmates can
+	// react (e.g. stagger their own salvos).
+	if ctx.Bus != nil {
+		ctx.Bus.Emit(ChanCommitStarted, e.ID, ctx.Def.Name, abil.ID)
+	}
+
 	return true
 }
 
