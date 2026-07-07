@@ -10,22 +10,25 @@ abilities:
   - name: cleave
     type: melee
     target: nearest
-    telegraph_time: 0.3
+    telegraph_time: 0.4
     execute_time: 0.2
     cooldown_time: 3.0
     base_weight: 40
     max_range: 2.5
     face_target: true
     melee_range: 2.5
-    melee_damage: 52
+    melee_damage: 34
     melee_cone_deg: 270
     damage_source: 1
 
+# Frenzied trades cadence for chip: faster slashes than baseline (0.6s vs
+# 0.9s cooldown) with slightly higher damage, still bounded by the same
+# no-one-shot hit fractions as the base mob.
 ability_overrides:
   melee_slash:
-    telegraph_time: 0.3
-    cooldown_time: 0.3
-    damage: 60
+    telegraph_time: 0.4
+    cooldown_time: 0.6
+    damage: 34
 
 tree:
   reactive_selector:

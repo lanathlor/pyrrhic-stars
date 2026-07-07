@@ -53,14 +53,14 @@ func TestLoadMobs_HallwayMeleeFields(t *testing.T) {
 	if a.TargetStrategy != ability.TargetNearest {
 		t.Errorf("ability TargetStrategy = %d, want %d (nearest)", a.TargetStrategy, ability.TargetNearest)
 	}
-	if a.CommitTime != 0.3 {
-		t.Errorf("CommitTime = %f, want 0.3", a.CommitTime)
+	if a.CommitTime != 0.5 {
+		t.Errorf("CommitTime = %f, want 0.5", a.CommitTime)
 	}
 	if a.ExecuteTime != 0.2 {
 		t.Errorf("ExecuteTime = %f, want 0.2", a.ExecuteTime)
 	}
-	if a.Cooldown != 0.4 {
-		t.Errorf("Cooldown = %f, want 0.4", a.Cooldown)
+	if a.Cooldown != 0.9 {
+		t.Errorf("Cooldown = %f, want 0.9", a.Cooldown)
 	}
 	if a.BaseWeight != 100 {
 		t.Errorf("BaseWeight = %d, want 100", a.BaseWeight)
@@ -74,8 +74,8 @@ func TestLoadMobs_HallwayMeleeFields(t *testing.T) {
 	if a.Hit.Range != 2.5 {
 		t.Errorf("Hit.Range = %f, want 2.5", a.Hit.Range)
 	}
-	if a.BaseDamage != 54 {
-		t.Errorf("BaseDamage = %f, want 54", a.BaseDamage)
+	if a.BaseDamage != 30 {
+		t.Errorf("BaseDamage = %f, want 30", a.BaseDamage)
 	}
 
 	// 120 degrees stored as degrees

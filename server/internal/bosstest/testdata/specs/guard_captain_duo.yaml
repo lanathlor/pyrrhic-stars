@@ -1,0 +1,36 @@
+boss: guard_captain
+fuzz_only: true # injection/scenario tiers already covered by guard_captain.yaml
+runs: 300
+
+# Small-group regression spec, born from the 2026-07 playtest: a blade
+# vanguard could ignore every boss mechanic, keep spamming, and only lose
+# half their HP. The boss must threaten a duo (x1.25 damage scaling), and
+# face-tanking it must usually be lethal.
+compositions:
+  # The actual playtest party: two blade vanguards playing normally.
+  - name: duo_blades
+    classes: [vanguard, vanguard]
+    specs:   [blade, blade]
+    profiles: [average, average]
+    win_rate:
+      min: 0.60
+  # Perfect rotation, zero mechanics: never dodges, never uses defensives.
+  # If this comp wins reliably, the boss is decorative.
+  - name: facetank_duo
+    classes: [vanguard, vanguard]
+    specs:   [blade, blade]
+    profiles: [facetank, facetank]
+    win_rate:
+      max: 0.30
+
+duration:
+  min_seconds: 15
+  max_seconds: 600
+
+# Two vanguard-only comps exercise far fewer BT branches than the 5-player
+# base spec (no ranged targets, no pillar camping, fewer positional setups),
+# so many nodes legitimately never fire here. Strict tree health is enforced
+# by guard_captain.yaml; these bounds only catch a fully dead tree.
+tree_health:
+  max_dead_nodes: 30
+  max_cold_nodes: 45

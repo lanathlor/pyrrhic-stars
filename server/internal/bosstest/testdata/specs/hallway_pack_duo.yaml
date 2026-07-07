@@ -1,0 +1,53 @@
+name: hallway_pack_duo
+runs: 200
+
+# Small-group regression spec, born from the 2026-07 playtest: a 2-player
+# party got nearly one-shot by the hallway trash pull. Same pack as
+# hallway_pack, but 2-player parties (x1.25 enemy damage, x1.75 enemy HP
+# scaling), which the 5-player base spec never exercises.
+pack:
+  - def: hallway_melee
+    count: 2
+  - def: hallway_ranged
+    count: 2
+
+compositions:
+  # The actual playtest party: two blade vanguards.
+  - name: duo_blades
+    classes: [vanguard, vanguard]
+    specs:   [blade, blade]
+    profiles: [average, average]
+    win_rate:
+      min: 0.70
+  # Melee + ranged duo with a squishier member (150 HP gunner).
+  - name: duo_mixed
+    classes: [vanguard, gunner]
+    specs:   [blade, assault]
+    profiles: [average, average]
+    win_rate:
+      min: 0.65
+
+# An average duo should usually clear the first trash pull of the dungeon.
+win_rate:
+  min: 0.65
+  max: 1.0
+
+duration:
+  min_seconds: 2
+  max_seconds: 90
+
+# Same trees as hallway_pack; see that spec for the dead/cold node rationale.
+tree_health:
+  max_dead_nodes: 6
+  max_cold_nodes: 8
+
+# Trash must chip, not delete: even at duo scaling (x1.25 damage) no single
+# hit may take more than 30% of any player's max HP, and most hits must not
+# kill. This is the "near one-shot" playtest regression guard.
+ability_stats:
+  - ability: melee_slash
+    max_kill_rate: 0.40
+    max_hit_fraction: 0.30
+  - ability: energy_bolt
+    max_kill_rate: 0.40
+    max_hit_fraction: 0.30

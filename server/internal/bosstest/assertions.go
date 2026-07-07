@@ -300,7 +300,6 @@ func (fr *FuzzResults) AssertAll(t *testing.T) *FuzzReport {
 			fr.assertAbilityStats(t, fr.Spec.AbilityStats, report)
 		})
 	}
-
 	// Per-composition win rate assertions.
 	fr.assertCompWinRates(t, report)
 
@@ -744,6 +743,7 @@ func aggregateAbilityStats(results []SimResult) map[string]*AbilityResult {
 				existing.Kills += ar.Kills
 				existing.Dodges += ar.Dodges
 				existing.TotalDamage += ar.TotalDamage
+				existing.MaxHitFrac = max(existing.MaxHitFrac, ar.MaxHitFrac)
 			} else {
 				agg[name] = &AbilityResult{
 					Name:        name,
@@ -751,6 +751,7 @@ func aggregateAbilityStats(results []SimResult) map[string]*AbilityResult {
 					Kills:       ar.Kills,
 					Dodges:      ar.Dodges,
 					TotalDamage: ar.TotalDamage,
+					MaxHitFrac:  ar.MaxHitFrac,
 				}
 			}
 		}
@@ -821,6 +822,16 @@ func assertSpecdAbility(t *testing.T, spec AbilitySpec, agg map[string]*AbilityR
 			pass = false
 		}
 		parts = append(parts, fmt.Sprintf("kill=%.0f%% (max %.0f%%)", killRate*100, spec.MaxKillRate*100))
+	}
+
+	if spec.MaxHitFraction > 0 {
+		hitFrac := float64(ar.MaxHitFrac)
+		if hitFrac > spec.MaxHitFraction {
+			t.Errorf("ability %q max hit = %.0f%% of target max HP, want <= %.0f%%",
+				spec.Ability, hitFrac*100, spec.MaxHitFraction*100)
+			pass = false
+		}
+		parts = append(parts, fmt.Sprintf("maxhit=%.0f%%HP (max %.0f%%)", hitFrac*100, spec.MaxHitFraction*100))
 	}
 
 	if spec.MinDodgeRate > 0 {

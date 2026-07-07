@@ -58,6 +58,7 @@ type AbilityResult struct {
 	Kills       int
 	Dodges      int
 	TotalDamage float32
+	MaxHitFrac  float32 // largest single hit as a fraction of the target's max HP
 }
 
 // SimResult holds the outcome of a single simulation run.
@@ -549,13 +550,27 @@ func collectTickStats(
 			if abilName == "" {
 				continue
 			}
-			ar := trackAbility(abilStats, abilName)
-			ar.Hits++
-			ar.TotalDamage += ev.Amount
-			if p, ok := w.Players[ev.TargetPeerID]; ok && !p.Alive {
-				ar.Kills++
-			}
+			recordEnemyHit(trackAbility(abilStats, abilName), w.Players[ev.TargetPeerID], ev.Amount)
 		}
+	}
+}
+
+// recordEnemyHit credits one enemy → player damage event to an ability's
+// stats: hit count, damage, largest hit as a fraction of the target's max HP
+// (one-shot detection), and kills.
+func recordEnemyHit(ar *AbilityResult, target *entity.Player, amount float32) {
+	ar.Hits++
+	ar.TotalDamage += amount
+	if target == nil {
+		return
+	}
+	if target.MaxHealth > 0 {
+		if frac := amount / target.MaxHealth; frac > ar.MaxHitFrac {
+			ar.MaxHitFrac = frac
+		}
+	}
+	if !target.Alive {
+		ar.Kills++
 	}
 }
 

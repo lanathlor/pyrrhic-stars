@@ -41,9 +41,10 @@ func (s OverfluxSpec) ToOverfluxState() *overflux.State {
 // is either a single boss (Boss set) or a trash-mob pack (Pack set). Tests fail
 // if simulation results drift outside these ranges.
 type EncounterSpec struct {
-	Boss         string          `yaml:"boss"` // single-enemy encounter (mutually exclusive with pack)
-	Name         string          `yaml:"name"` // label for pack encounters (boss encounters use Boss)
-	Pack         []PackEntrySpec `yaml:"pack"` // multi-enemy trash pack
+	Boss         string          `yaml:"boss"`      // single-enemy encounter (mutually exclusive with pack)
+	Name         string          `yaml:"name"`      // label for pack encounters (boss encounters use Boss)
+	Pack         []PackEntrySpec `yaml:"pack"`      // multi-enemy trash pack
+	FuzzOnly     bool            `yaml:"fuzz_only"` // skip injection/scenario tiers (e.g. extra comp-focused specs for a boss already covered by a base spec)
 	Runs         int             `yaml:"runs"`
 	Compositions []CompSpec      `yaml:"compositions"`
 	Overflux     []OverfluxSpec  `yaml:"overflux"` // optional: test under overflux conditions
@@ -134,6 +135,9 @@ type AbilitySpec struct {
 	Ability      string  `yaml:"ability"`
 	MaxKillRate  float64 `yaml:"max_kill_rate"`
 	MinDodgeRate float64 `yaml:"min_dodge_rate"`
+	// MaxHitFraction caps the largest single hit as a fraction of the target's
+	// max HP (one-shot protection: 0.4 = no hit may exceed 40% of max HP).
+	MaxHitFraction float64 `yaml:"max_hit_fraction"`
 }
 
 // LoadSpec reads and parses an encounter spec YAML file.

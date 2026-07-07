@@ -90,8 +90,12 @@ spec_balance:
   max_damage_share_sigma: 0.35
 
 # Deadly, but should not reliably one-shot: most hits chip, a minority kill.
+# At full 5-player scaling (x2.0 enemy damage) no single trash hit may exceed
+# half the max HP of the squishiest class (130 HP arcanotechnicien).
 ability_stats:
   - ability: melee_slash
     max_kill_rate: 0.40
+    max_hit_fraction: 0.50
   - ability: energy_bolt
     max_kill_rate: 0.40
+    max_hit_fraction: 0.50

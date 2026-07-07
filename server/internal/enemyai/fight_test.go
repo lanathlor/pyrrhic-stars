@@ -531,8 +531,8 @@ func TestFight_PhaseOverridesAffectAbilities(t *testing.T) {
 
 	// Phase 1: base stats
 	resolved1 := def.ResolveAbility(&def.Abilities[0], 1) // melee_swipe
-	if resolved1.BaseDamage != 25.0 {
-		t.Errorf("P1 melee damage = %f, want 25.0", resolved1.BaseDamage)
+	if resolved1.BaseDamage != 30.0 {
+		t.Errorf("P1 melee damage = %f, want 30.0", resolved1.BaseDamage)
 	}
 	if resolved1.CommitTime != 1.2 {
 		t.Errorf("P1 commit time = %f, want 1.2", resolved1.CommitTime)
@@ -541,8 +541,8 @@ func TestFight_PhaseOverridesAffectAbilities(t *testing.T) {
 	// Phase 2
 	e.Phase = 2
 	resolved2 := def.ResolveAbility(&def.Abilities[0], 2)
-	if resolved2.CommitTime != 0.9 {
-		t.Errorf("P2 commit time = %f, want 0.9", resolved2.CommitTime)
+	if resolved2.CommitTime != 1.2 {
+		t.Errorf("P2 commit time = %f, want 1.2", resolved2.CommitTime)
 	}
 
 	// fireball_burst Phase 2: commit time shortens (pattern handles projectile spawning)
@@ -554,11 +554,11 @@ func TestFight_PhaseOverridesAffectAbilities(t *testing.T) {
 	// Phase 3: enraged
 	e.Phase = 3
 	resolved3 := def.ResolveAbility(&def.Abilities[0], 3)
-	if resolved3.CommitTime != 0.9 {
-		t.Errorf("P3 commit time = %f, want 0.9", resolved3.CommitTime)
+	if resolved3.CommitTime != 1.2 {
+		t.Errorf("P3 commit time = %f, want 1.2", resolved3.CommitTime)
 	}
-	if resolved3.BaseDamage != 28.0 {
-		t.Errorf("P3 melee damage = %f, want 28.0", resolved3.BaseDamage)
+	if resolved3.BaseDamage != 32.0 {
+		t.Errorf("P3 melee damage = %f, want 32.0", resolved3.BaseDamage)
 	}
 
 	// fireball_burst Phase 3: commit time even shorter
@@ -572,8 +572,8 @@ func TestFight_PhaseOverridesAffectAbilities(t *testing.T) {
 	if gs3.Hit.Radius != 7.5 {
 		t.Errorf("P3 AoE radius = %f, want 7.5", gs3.Hit.Radius)
 	}
-	if gs3.BaseDamage != 40.0 {
-		t.Errorf("P3 AoE damage = %f, want 40.0", gs3.BaseDamage)
+	if gs3.BaseDamage != 65.0 {
+		t.Errorf("P3 AoE damage = %f, want 65.0", gs3.BaseDamage)
 	}
 
 	// bull_charge Phase 3: faster and longer (index 4)
@@ -584,8 +584,8 @@ func TestFight_PhaseOverridesAffectAbilities(t *testing.T) {
 	if bc3.Charge.MaxDistance != 18.0 {
 		t.Errorf("P3 charge max dist = %f, want 18.0", bc3.Charge.MaxDistance)
 	}
-	if bc3.Charge.Damage != 32.0 {
-		t.Errorf("P3 charge damage = %f, want 32.0", bc3.Charge.Damage)
+	if bc3.Charge.Damage != 52.0 {
+		t.Errorf("P3 charge damage = %f, want 52.0", bc3.Charge.Damage)
 	}
 }
 

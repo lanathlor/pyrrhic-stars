@@ -3,13 +3,16 @@ runs: 600
 
 # Overflux difficulty variants to test alongside baseline.
 overflux:
+  # Rank-2 enemy_hp is a light modifier: since the boss's threat moved into
+  # dodgeable telegraphs (2026-07 rebalance), a 5-player party clears it
+  # nearly always. The old [0.05-0.90] window dated from the chip-heavy boss.
   - name: fortified_2
     conditions:
       - id: enemy_hp
         rank: 2
     win_rate:
-      min: 0.05
-      max: 0.90
+      min: 0.50
+      max: 1.0
   - name: fortified_5
     conditions:
       - id: enemy_hp

@@ -103,8 +103,8 @@ func runBossTests(t *testing.T, specPath string) {
 	}
 
 	// Injection and scenario tiers are boss-phase specific (single enemy);
-	// trash-pack encounters only run the fuzz tier.
-	if !spec.IsPack() {
+	// trash-pack encounters and fuzz-only specs only run the fuzz tier.
+	if !spec.IsPack() && !spec.FuzzOnly {
 		if shouldRunTier("injection") {
 			t.Run("injection", func(t *testing.T) {
 				runInjectionTests(t, spec.Boss)

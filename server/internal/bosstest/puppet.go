@@ -20,6 +20,10 @@ const (
 	ProfileSweaty  BotProfile = "sweaty"
 	ProfileAverage BotProfile = "average"
 	ProfileBad     BotProfile = "bad"
+	// ProfileFacetank never reacts to mechanics: no dodges, no defensives,
+	// perfect rotation. Encodes "ignore the boss and keep spamming" so specs
+	// can assert that play style is punished (its win rate must stay low).
+	ProfileFacetank BotProfile = "facetank"
 )
 
 // ProfileParams holds tuning knobs that modulate puppet behavior quality.
@@ -45,6 +49,8 @@ var profileTable = map[BotProfile]ProfileParams{
 	ProfileSweaty:  {ReactionTime: 0.15, SafetyMargin: 1.5, MechanicIQ: 0.95, DodgeGreed: 0.70, RotationDelay: 0, CooldownWaste: 0.02, DefensiveUse: 0.9},
 	ProfileAverage: {ReactionTime: 0.40, SafetyMargin: 0.5, MechanicIQ: 0.60, DodgeGreed: 0.35, RotationDelay: 0.02, CooldownWaste: 0.04, DefensiveUse: 0.5},
 	ProfileBad:     {ReactionTime: 0.80, SafetyMargin: 0.0, MechanicIQ: 0.30, DodgeGreed: 0, RotationDelay: 0.06, CooldownWaste: 0.08, DefensiveUse: 0.15},
+	// ReactionTime far beyond any telegraph = mechanics never trigger.
+	ProfileFacetank: {ReactionTime: 999, SafetyMargin: 0.0, MechanicIQ: 0.0, DodgeGreed: 999, RotationDelay: 0, CooldownWaste: 0.02, DefensiveUse: 0.0},
 }
 
 // Preferred range per class (how far the puppet wants to stand from the boss).
