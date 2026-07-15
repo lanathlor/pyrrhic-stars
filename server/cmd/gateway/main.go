@@ -244,17 +244,19 @@ func loadGameData() error {
 	return nil
 }
 
-// initCombatLogSink sets up the combat log sink. Dev mode uses an in-memory
-// sink; production connects to ClickHouse when CLICKHOUSE_ADDR is set. Returns
-// the sink (never nil), an optional ReadRepository, and any fatal error.
+// initCombatLogSink sets up the combat log sink. ClickHouse is used whenever
+// CLICKHOUSE_ADDR is set — dev mode included, so docker-compose playthroughs
+// persist and can be debriefed. Without an address (or when the connection
+// fails), dev mode falls back to the in-memory sink and production to the
+// null sink. Returns the sink (never nil), an optional ReadRepository, and
+// any fatal error.
 func initCombatLogSink(ctx context.Context, devMode bool) (combatlog.EventSink, combatlog.ReadRepository, error) { //nolint:revive // init helper, flag coupling is fine
-	if devMode {
-		slog.Info("dev mode: in-memory combat log (no ClickHouse required)")
-		return combatlog.NewInMemorySink(), nil, nil
-	}
-
 	chAddr := os.Getenv("CLICKHOUSE_ADDR")
 	if chAddr == "" {
+		if devMode {
+			slog.Info("dev mode: in-memory combat log (set CLICKHOUSE_ADDR to persist runs)")
+			return combatlog.NewInMemorySink(), nil, nil
+		}
 		return combatlog.NullSink{}, nil, nil
 	}
 
@@ -277,17 +279,28 @@ func initCombatLogSink(ctx context.Context, devMode bool) (combatlog.EventSink, 
 		},
 	})
 	if err != nil {
-		slog.Error("clickhouse connect failed, combat logging disabled", "addr", chAddr, "error", err)
-		return combatlog.NullSink{}, nil, nil
+		slog.Error("clickhouse connect failed", "addr", chAddr, "error", err)
+		return fallbackCombatLogSink(devMode), nil, nil
 	}
 	if err = chrepo.EnsureSchema(ctx, chConn); err != nil {
-		slog.Error("clickhouse schema init failed, combat logging disabled", "error", err)
+		slog.Error("clickhouse schema init failed", "error", err)
 		_ = chConn.Close()
-		return combatlog.NullSink{}, nil, nil
+		return fallbackCombatLogSink(devMode), nil, nil
 	}
 	chRepo := chrepo.NewRepo(chConn)
 	slog.Info("combat logging enabled", "clickhouse_addr", chAddr, "db", chDB)
 	return combatlog.NewLogger(chRepo), chRepo, nil
+}
+
+// fallbackCombatLogSink picks the sink used when ClickHouse is unreachable:
+// in-memory for dev (keeps the session debuggable), null for production.
+func fallbackCombatLogSink(devMode bool) combatlog.EventSink { //nolint:revive // init helper, flag coupling is fine
+	if devMode {
+		slog.Warn("falling back to in-memory combat log")
+		return combatlog.NewInMemorySink()
+	}
+	slog.Warn("combat logging disabled")
+	return combatlog.NullSink{}
 }
 
 // setupHTTPServer builds the HTTP mux with the WebSocket endpoint and,
