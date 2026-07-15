@@ -39,6 +39,10 @@ func StripNames(n Node) Node {
 		for i, c := range v.Children {
 			v.Children[i] = StripNames(c)
 		}
+	case *ReactiveSequence:
+		for i, c := range v.Children {
+			v.Children[i] = StripNames(c)
+		}
 	case *Inverter:
 		v.Child = StripNames(v.Child)
 	}
@@ -58,6 +62,11 @@ func resetNode(n Node) {
 			resetNode(c)
 		}
 	case *Sequence:
+		v.runningIdx = -1
+		for _, c := range v.Children {
+			resetNode(c)
+		}
+	case *ReactiveSequence:
 		v.runningIdx = -1
 		for _, c := range v.Children {
 			resetNode(c)

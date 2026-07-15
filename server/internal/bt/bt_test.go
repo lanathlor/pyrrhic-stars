@@ -337,3 +337,77 @@ func TestReactiveSelectorEmptyReturnsFailure(t *testing.T) {
 		t.Fatalf("empty reactive selector: want Failure, got %d", r)
 	}
 }
+
+// --- ReactiveSequence tests ---
+
+func TestReactiveSequenceReEvaluatesGuardsEveryTick(t *testing.T) {
+	// The contract that plain Sequence does NOT provide (see
+	// TestSequenceResumesFromRunningChild): a guard before a Running action
+	// must be re-ticked on every tick.
+	guard := counted(fixed(Success))
+	s := NewReactiveSequence(guard, fixed(Running))
+
+	s.Tick(nil)
+	s.Tick(nil)
+	s.Tick(nil)
+	if guard.n != 3 {
+		t.Fatalf("guard should be re-ticked every tick, got %d", guard.n)
+	}
+}
+
+func TestReactiveSequenceGuardFailureInterruptsRunningChild(t *testing.T) {
+	calls := 0
+	guard := NewAction(func(any) Result {
+		calls++
+		if calls <= 1 {
+			return Success
+		}
+		return Failure
+	})
+	inner := NewSequence(fixed(Success), fixed(Running))
+	s := NewReactiveSequence(guard, inner)
+
+	// Tick 1: guard passes, inner Running (caches runningIdx=1)
+	if r := s.Tick(nil); r != Running {
+		t.Fatalf("tick 1: want Running, got %d", r)
+	}
+	if inner.runningIdx != 1 {
+		t.Fatalf("inner should have runningIdx=1, got %d", inner.runningIdx)
+	}
+	// Tick 2: guard fails — sequence fails and resets the running child
+	if r := s.Tick(nil); r != Failure {
+		t.Fatalf("tick 2: want Failure, got %d", r)
+	}
+	if inner.runningIdx != -1 {
+		t.Fatalf("inner should be reset after guard failure, runningIdx=%d", inner.runningIdx)
+	}
+}
+
+func TestReactiveSequenceCompletes(t *testing.T) {
+	calls := 0
+	action := NewAction(func(any) Result {
+		calls++
+		if calls == 1 {
+			return Running
+		}
+		return Success
+	})
+	s := NewReactiveSequence(fixed(Success), action)
+
+	if r := s.Tick(nil); r != Running {
+		t.Fatalf("tick 1: want Running, got %d", r)
+	}
+	if r := s.Tick(nil); r != Success {
+		t.Fatalf("tick 2: want Success, got %d", r)
+	}
+	if s.runningIdx != -1 {
+		t.Fatalf("runningIdx should reset after success, got %d", s.runningIdx)
+	}
+}
+
+func TestReactiveSequenceEmptyReturnsSuccess(t *testing.T) {
+	s := NewReactiveSequence()
+	if r := s.Tick(nil); r != Success {
+		t.Fatalf("empty reactive sequence: want Success, got %d", r)
+	}
+}

@@ -68,6 +68,44 @@ func (s *ReactiveSelector) Tick(ctx any) Result {
 	return Failure
 }
 
+// ReactiveSequence evaluates children from child 0 every tick, regardless of
+// which child was previously Running. Guard conditions placed before a
+// long-Running action are therefore re-checked on every tick; when a guard
+// flips to Failure while a later child was Running, that child's subtree is
+// reset. Use this when a sequence is [guards..., action] and the guards must
+// stay true for the action to keep running.
+type ReactiveSequence struct {
+	Children   []Node
+	runningIdx int
+}
+
+func NewReactiveSequence(children ...Node) *ReactiveSequence {
+	return &ReactiveSequence{Children: children, runningIdx: -1}
+}
+
+func (s *ReactiveSequence) Tick(ctx any) Result {
+	for i := range s.Children {
+		r := s.Children[i].Tick(ctx)
+		switch r {
+		case Failure:
+			if s.runningIdx > i {
+				resetNode(s.Children[s.runningIdx])
+			}
+			s.runningIdx = -1
+			return Failure
+		case Running:
+			if s.runningIdx >= 0 && s.runningIdx != i {
+				resetNode(s.Children[s.runningIdx])
+			}
+			s.runningIdx = i
+			return Running
+		}
+		// Success: continue to next child
+	}
+	s.runningIdx = -1
+	return Success
+}
+
 // Sequence runs children left-to-right. Returns Failure on the first child
 // that fails, Success if all children succeed. When a child returns Running,
 // the sequence remembers its index and resumes from that child on the next tick.

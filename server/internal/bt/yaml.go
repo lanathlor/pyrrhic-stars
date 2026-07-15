@@ -5,7 +5,8 @@ import "fmt"
 // BuildTreeFromYAML recursively constructs a Node from parsed YAML data.
 // Each element is either:
 //   - a string (leaf name, delegated to resolve)
-//   - a map with one key (composite type: "sequence", "selector", "reactive_selector")
+//   - a map with one key (composite type: "sequence", "reactive_sequence",
+//     "selector", "reactive_selector")
 //
 // The resolve function maps leaf name strings to concrete Nodes. It must handle
 // any domain-specific logic such as "!" inversion, parameterized leaves, and subtrees.
@@ -34,6 +35,8 @@ func BuildTreeFromYAML(data any, resolve func(string) (Node, error)) (Node, erro
 			switch key {
 			case "sequence":
 				return NewSequence(nodes...), nil
+			case "reactive_sequence":
+				return NewReactiveSequence(nodes...), nil
 			case "selector":
 				return NewSelector(nodes...), nil
 			case "reactive_selector":
