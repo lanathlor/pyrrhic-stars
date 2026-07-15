@@ -53,6 +53,24 @@ func TestCond_PlayerCampingPillar(t *testing.T) {
 		}
 	})
 
+	t.Run("chaser near a pillar with clear LOS is not cheesing", func(t *testing.T) {
+		// A player chasing a kiting boss past a perimeter pillar: close to the
+		// pillar, close to the boss, and the boss (evasive, dodged) has a long
+		// damage drought — but the pillar is NOT between them. Real cheese
+		// breaks LOS with the pillar; open pursuit must not eat the punish
+		// (live bug: pillar_overload was the top duo killer on the Aceras
+		// General at 25%).
+		e.SecsSinceDealtDamage = pillarCheeseSeconds * 2
+		e.Position = entity.Vec3{X: 2, Z: 3}
+		defer func() { e.Position = entity.Vec3{} }()
+		chaser := testPlayer(1, entity.Vec3{X: 5, Z: 2.2}) // near pillar, LOS clear
+		c := testCtx(def, e, testPlayers(chaser))
+		c.Obs = []combat.Obstacle{pillarObstacle()}
+		if condPlayerCampingPillar(c) {
+			t.Error("should not fire: pillar does not block LOS, player is just chasing past it")
+		}
+	})
+
 	t.Run("player against a wall does not count as pillar camping", func(t *testing.T) {
 		e.SecsSinceDealtDamage = pillarCheeseSeconds * 2
 		atWall := testPlayer(1, entity.Vec3{X: 0, Z: -14}) // hugging the wall

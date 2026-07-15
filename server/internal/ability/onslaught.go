@@ -6,6 +6,12 @@ import "codex-online/server/internal/entity"
 const (
 	onslaughtEmpoweredThreshold = 3
 	onslaughtMaximumThreshold   = 6
+
+	// onslaughtStackCap bounds the damage snowball at 2x the maximum-tier
+	// threshold (x1.36 damage, x1.72 with 100 mastery). Uncapped, multi-hit
+	// cleaves through trash packs stacked to 70+ (x3+ damage) — the main
+	// driver of the vanguard's outsized trash DPS in instance fuzz.
+	onslaughtStackCap = 12
 )
 
 // Onslaught tier constants (encoded in buff_flags bits 6-7).
@@ -41,9 +47,12 @@ func (s *OnslaughtState) Reset() {
 	s.Stacks = 0
 }
 
-// Increment adds n stacks (one per enemy hit).
+// Increment adds n stacks (one per enemy hit), bounded by the stack cap.
 func (s *OnslaughtState) Increment(n int) {
 	s.Stacks += n
+	if s.Stacks > onslaughtStackCap {
+		s.Stacks = onslaughtStackCap
+	}
 }
 
 // DamageMult returns the bonus damage multiplier from Onslaught stacks.

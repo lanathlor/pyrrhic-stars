@@ -1,0 +1,111 @@
+boss: aceras_general
+runs: 600
+
+# The Aceras General is a kiting bullet-hell boss with summoned stalker waves.
+# Intended rhythm: chip the fleeing boss between waves (evasive mode), burst
+# it while stalkers hold it in melee (aggressive mode), kill stalkers to end
+# the danger. A good group sees ~2 waves per kill.
+
+# Overflux coverage. Aceras has no tempered/volatile variant kit (yet), so
+# the meaningful conditions are the generic ones: blanket HP and Wounded
+# Prey. Wounded Prey is especially spicy here — the evasive mode already
+# suppresses party DPS, so the regen threshold bites during kite phases.
+overflux:
+  - name: fortified_2
+    conditions:
+      - id: enemy_hp
+        rank: 2
+    win_rate:
+      min: 0.40
+      max: 1.0
+  - name: fortified_5
+    conditions:
+      - id: enemy_hp
+        rank: 5
+    win_rate:
+      min: 0.0
+      max: 0.90
+  - name: wounded_prey_3
+    conditions:
+      - id: wounded_prey
+        rank: 3
+    win_rate:
+      min: 0.0
+      max: 1.0
+  - name: wounded_prey_5
+    conditions:
+      - id: wounded_prey
+        rank: 5
+    win_rate:
+      min: 0.0
+      max: 1.0
+  - name: hp_and_prey_max
+    conditions:
+      - id: enemy_hp
+        rank: 5
+      - id: wounded_prey
+        rank: 5
+    win_rate:
+      min: 0.0
+      max: 0.80
+
+compositions:
+  - name: all_sweaty
+    classes: [arcanotechnicien, vanguard, vanguard, gunner, blade_dancer]
+    specs: [harmonist, shield, blade, assault, multi_blade]
+    profiles: [sweaty, sweaty, sweaty, sweaty, sweaty]
+    win_rate:
+      min: 0.80
+  - name: mixed_average
+    classes: [arcanotechnicien, vanguard, vanguard, gunner, blade_dancer]
+    specs: [harmonist, shield, blade, assault, multi_blade]
+    profiles: [average, average, average, average, average]
+    win_rate:
+      min: 0.70
+      max: 1.0
+  - name: all_bad
+    classes: [arcanotechnicien, vanguard, vanguard, gunner, blade_dancer]
+    specs: [harmonist, shield, blade, assault, multi_blade]
+    profiles: [bad, bad, bad, bad, bad]
+    win_rate:
+      min: 0.30
+      max: 1.0
+
+win_rate:
+  min: 0.60
+  max: 1.0
+
+duration:
+  min_seconds: 20
+  max_seconds: 600
+
+phase_reach:
+  - phase: 2
+    min_rate: 0.50
+
+# Loose first-pass bounds — tighten once a few fuzz baselines exist.
+tree_health:
+  max_dead_nodes: 15
+  max_cold_nodes: 30
+
+spec_balance:
+  max_damage_share_sigma: 0.35
+
+# One-shot guardrails: no single pattern projectile may chunk a player, and
+# stalker rakes are relentless chip, never an executioner.
+ability_stats:
+  - ability: talon_rake
+    max_kill_rate: 0.35
+    max_hit_fraction: 0.50
+  - ability: spiral_lattice
+    max_hit_fraction: 0.35
+  - ability: aimed_lattice
+    max_hit_fraction: 0.35
+  - ability: gravity_well
+    max_hit_fraction: 0.35
+  - ability: close_barrage
+    max_hit_fraction: 0.35
+  - ability: point_blank_nova
+    max_kill_rate: 0.60
+  - ability: saber_sweep
+    max_kill_rate: 0.50

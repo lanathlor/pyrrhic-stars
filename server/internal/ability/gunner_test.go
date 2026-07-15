@@ -31,7 +31,7 @@ func TestGunner_FireShot_BasicHit(t *testing.T) {
 		t.Fatalf("events = %d, want 1", len(r.Events))
 	}
 	// 10 base + ~0.3 pressure bonus (1 stack)
-	assertDmgNear(t, r.Events[0].Amount, 10.3, IDFireShot)
+	assertDmgNear(t, r.Events[0].Amount, 13.2, IDFireShot)
 }
 
 func TestGunner_FireShot_SetsCooldown(t *testing.T) {
@@ -384,7 +384,7 @@ func TestGunner_Rechamber_BuffIncreasesDamage(t *testing.T) {
 		t.Fatalf("events = %d, want 1", len(r.Events))
 	}
 	// 10 base * 1.8 buff = 18, + pressure bonus ~0.54
-	assertDmgNear(t, r.Events[0].Amount, 18.54, "rechamber buffed shot")
+	assertDmgNear(t, r.Events[0].Amount, 23.76, "rechamber buffed shot")
 }
 
 func TestGunner_Rechamber_CanFireAfterConfirm(t *testing.T) {
@@ -490,7 +490,7 @@ func TestGunner_RechamberBuff_Plus_Overclock_Damage(t *testing.T) {
 		t.Fatalf("fire_shot failed: %s", r.Reason)
 	}
 	if len(r.Events) == 1 {
-		assertDmgNear(t, r.Events[0].Amount, 18.54, "rechamber damage")
+		assertDmgNear(t, r.Events[0].Amount, 23.76, "rechamber damage")
 	}
 }
 
@@ -618,7 +618,7 @@ func TestGunner_FullRotation_Overclock_Rechamber_Fire(t *testing.T) {
 		t.Fatalf("buffed fire failed: %s", r.Reason)
 	}
 	if len(r.Events) == 1 {
-		assertDmgNear(t, r.Events[0].Amount, 19.08, "overclock+rechamber shot")
+		assertDmgNear(t, r.Events[0].Amount, 25.92, "overclock+rechamber shot")
 	}
 	// CD should be reduced by overclock
 	cd := p.Cooldowns[IDFireShot]
@@ -677,7 +677,7 @@ func TestGunner_Rechamber_BuffExpires(t *testing.T) {
 		t.Fatalf("fire_shot failed: %s", r.Reason)
 	}
 	if len(r.Events) == 1 {
-		assertDmgNear(t, r.Events[0].Amount, 10.3, "post-buff damage")
+		assertDmgNear(t, r.Events[0].Amount, 13.2, "post-buff damage")
 	}
 }
 

@@ -63,6 +63,8 @@ var puppetLeafRegistry = map[string]puppetLeafEntry{
 	"flux_low":             {isCond: true, cond: condFluxLow},
 	"has_vital_charge":     {isCond: true, cond: condHasVitalCharge},
 	"is_channeling":        {isCond: true, cond: condIsChanneling},
+	"channel_stale":        {isCond: true, cond: condChannelStale},
+	"cancel_channel":       {action: actionCancelChannel},
 
 	// Actions — healer movement
 	"move_to_center": {action: actionMoveToCenter},

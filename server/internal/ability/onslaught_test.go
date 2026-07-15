@@ -111,3 +111,23 @@ func TestOnslaught_NoResetDuringParry(t *testing.T) {
 		t.Error("expected parry counter to be pending")
 	}
 }
+
+func TestOnslaught_StackCap(t *testing.T) {
+	s := &OnslaughtState{}
+	// A 360° cleave through a chained pack lands 8 hits per swing — stacks
+	// must not snowball past the cap (uncapped, instance fuzz measured 73
+	// stacks = x3.19 damage on the blade vanguard).
+	for range 10 {
+		s.Increment(8)
+	}
+	if s.Stacks > onslaughtStackCap {
+		t.Errorf("stacks = %d, want capped at %d", s.Stacks, onslaughtStackCap)
+	}
+	if got, want := s.DamageMult(0), float32(1.0+float32(onslaughtStackCap)*0.03); got != want {
+		t.Errorf("DamageMult at cap = %.3f, want %.3f", got, want)
+	}
+	// The cap keeps maximum tier reachable.
+	if s.Tier() != TierMaximum {
+		t.Errorf("tier at cap = %d, want TierMaximum", s.Tier())
+	}
+}

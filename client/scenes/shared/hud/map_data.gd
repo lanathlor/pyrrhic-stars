@@ -134,32 +134,58 @@ const OPS := {
 # =============================================================================
 
 const ARENA := {
-	"center": Vector2(0.0, 19.0),
-	"size": Vector2(40.0, 68.0),
+	"center": Vector2(0.0, -3.0),
+	"size": Vector2(44.0, 146.0),
 	"buildings":
 	[
-		# Boss room walls
-		{"center": Vector2(0, -15), "size": Vector2(40, 0.5)},  # North wall
+		# Boss room 1 walls (split north wall leaves the decline opening)
+		{"center": Vector2(-12, -15), "size": Vector2(16, 0.5)},  # North wall left
+		{"center": Vector2(12, -15), "size": Vector2(16, 0.5)},  # North wall right
 		{"center": Vector2(20, -1.5), "size": Vector2(0.5, 27)},  # East wall
 		{"center": Vector2(-20, -1.5), "size": Vector2(0.5, 27)},  # West wall
-		# Hallway walls
-		{"center": Vector2(-8, 26), "size": Vector2(0.5, 28)},  # Hallway left
-		{"center": Vector2(8, 26), "size": Vector2(0.5, 28)},  # Hallway right
-		# Connector walls at Z=12
-		{"center": Vector2(-14, 12), "size": Vector2(12, 0.5)},  # Left connector
-		{"center": Vector2(14, 12), "size": Vector2(12, 0.5)},  # Right connector
-		# Boss room pillars
+		# Hallway walls (24 wide, z 12..46)
+		{"center": Vector2(-12, 29), "size": Vector2(0.5, 34)},  # Hallway left
+		{"center": Vector2(12, 29), "size": Vector2(0.5, 34)},  # Hallway right
+		# Connector walls at Z=11.6 (8m central opening)
+		{"center": Vector2(-12, 12), "size": Vector2(16, 0.5)},  # Left connector
+		{"center": Vector2(12, 12), "size": Vector2(16, 0.5)},  # Right connector
+		# Entrance screen (corridor side): blocks line of sight to the boss
+		{"center": Vector2(0, 14), "size": Vector2(14, 0.5)},
+		# Lobby jambs at Z=46 (24 -> 16 width step)
+		{"center": Vector2(-10, 46), "size": Vector2(4, 0.5)},
+		{"center": Vector2(10, 46), "size": Vector2(4, 0.5)},
+		# Boss room 1 pillars
 		{"center": Vector2(-8, -6), "size": Vector2(1.5, 1.5)},
 		{"center": Vector2(8, -6), "size": Vector2(1.5, 1.5)},
 		{"center": Vector2(-8, 6), "size": Vector2(1.5, 1.5)},
 		{"center": Vector2(8, 6), "size": Vector2(1.5, 1.5)},
 		{"center": Vector2(0, -10), "size": Vector2(1.5, 1.5)},
 		{"center": Vector2(0, 10), "size": Vector2(1.5, 1.5)},
+		# Hallway pillars (full-height gunner cover)
+		{"center": Vector2(-5, 42), "size": Vector2(1.5, 1.5)},
+		{"center": Vector2(5, 42), "size": Vector2(1.5, 1.5)},
+		{"center": Vector2(-5, 28), "size": Vector2(1.5, 1.5)},
+		{"center": Vector2(5, 28), "size": Vector2(1.5, 1.5)},
 		# Hallway cover
-		{"center": Vector2(-4, 27), "size": Vector2(2, 1)},
-		{"center": Vector2(4, 27), "size": Vector2(2, 1)},
-		{"center": Vector2(-4, 17), "size": Vector2(2, 1)},
-		{"center": Vector2(4, 17), "size": Vector2(2, 1)},
+		{"center": Vector2(-8, 43), "size": Vector2(2, 1)},
+		{"center": Vector2(8, 43), "size": Vector2(2, 1)},
+		{"center": Vector2(-8, 29), "size": Vector2(2, 1)},
+		{"center": Vector2(8, 29), "size": Vector2(2, 1)},
+		# Decline corridor walls (z -15..-40)
+		{"center": Vector2(-4.25, -27.5), "size": Vector2(0.5, 25)},
+		{"center": Vector2(4.25, -27.5), "size": Vector2(0.5, 25)},
+		# Aceras room walls (z -40..-76)
+		{"center": Vector2(0, -76), "size": Vector2(44, 0.5)},  # North wall
+		{"center": Vector2(22, -58), "size": Vector2(0.5, 36)},  # East wall
+		{"center": Vector2(-22, -58), "size": Vector2(0.5, 36)},  # West wall
+		{"center": Vector2(-13, -40), "size": Vector2(18, 0.5)},  # South wall left
+		{"center": Vector2(13, -40), "size": Vector2(18, 0.5)},  # South wall right
+		{"center": Vector2(0, -44), "size": Vector2(12, 0.5)},  # Door screen (General entrance)
+		# Aceras room pillars
+		{"center": Vector2(-14, -50), "size": Vector2(1.5, 1.5)},
+		{"center": Vector2(14, -50), "size": Vector2(1.5, 1.5)},
+		{"center": Vector2(-14, -66), "size": Vector2(1.5, 1.5)},
+		{"center": Vector2(14, -66), "size": Vector2(1.5, 1.5)},
 	],
 }
 

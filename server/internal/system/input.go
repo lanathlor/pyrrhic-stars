@@ -9,7 +9,6 @@ import (
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/combatlog"
 	"codex-online/server/internal/entity"
-	"codex-online/server/internal/level"
 	"codex-online/server/internal/message"
 )
 
@@ -580,8 +579,7 @@ func handleRespawnRequest(w *World, peerID uint16, payload []byte) {
 		if !player.Alive {
 			return
 		}
-		deadGroups := w.DeadGroupIDs()
-		player.Position = pickSpawnPoint(w.Level.PlayerSpawns, level.ZoneState{BossDefeated: w.BossDefeated, DeadGroupIDs: deadGroups}, 0)
+		player.Position = pickSpawnPoint(w.Level.PlayerSpawns, respawnZoneState(w), 0)
 		player.Velocity = entity.Vec3{}
 		player.SpawnTick = w.TickNum // grace window: reject stale wedge positions while the client snaps over
 		return
@@ -596,14 +594,13 @@ func handleRespawnRequest(w *World, peerID uint16, payload []byte) {
 		if w.OnPlayerReturnToOpenWorld != nil {
 			w.OnPlayerReturnToOpenWorld(peerID)
 		}
-	case 0: // local respawn (allowed unless boss room is sealed)
-		if !w.IsGateClosed("boss_gate") {
+	case 0: // local respawn (allowed unless a boss room is sealed)
+		if !combatGateSealed(w) {
 			player.Alive = true
 			player.Health = player.MaxHealth
 			player.State = entity.PlayerStateMove
 			player.Velocity = entity.Vec3{}
-			deadGroups := w.DeadGroupIDs()
-			player.Position = pickSpawnPoint(w.Level.PlayerSpawns, level.ZoneState{BossDefeated: w.BossDefeated, DeadGroupIDs: deadGroups}, 0)
+			player.Position = pickSpawnPoint(w.Level.PlayerSpawns, respawnZoneState(w), 0)
 			w.WipeHandled = false // allow future wipe detection
 		}
 	}

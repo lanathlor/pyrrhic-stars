@@ -3,10 +3,10 @@ class_name LevelExportLib
 ## headless CI script. Uses manual parent-chain transform walks so it works
 ## correctly without editor transform propagation.
 
-const VERSION := 6
-
+const VERSION := 7
 
 # --- Public API ---
+
 
 ## Extracts all level data from a scene root and returns the full dictionary.
 static func extract_level(root: Node, scene_path: String) -> Dictionary:
@@ -21,8 +21,19 @@ static func extract_level(root: Node, scene_path: String) -> Dictionary:
 	var bounds_override: Dictionary = {}
 	var zone_config: Dictionary = {}
 
-	_walk_tree(root, obstacles, elevators, player_spawns, enemy_spawns,
-		npc_spawns, portals, zone_triggers, gates, bounds_override, zone_config)
+	_walk_tree(
+		root,
+		obstacles,
+		elevators,
+		player_spawns,
+		enemy_spawns,
+		npc_spawns,
+		portals,
+		zone_triggers,
+		gates,
+		bounds_override,
+		zone_config
+	)
 
 	var zone_name: String = ""
 	if zone_config.has("zone_name"):
@@ -92,6 +103,7 @@ static func write_level(data: Dictionary, output_dir: String) -> String:
 
 # --- Transform helpers ---
 
+
 static func _global_pos(node: Node3D) -> Vector3:
 	return _global_xform(node).origin
 
@@ -106,6 +118,7 @@ static func _global_xform(node: Node3D) -> Transform3D:
 
 
 # --- Tree walker ---
+
 
 static func _walk_tree(
 	node: Node,
@@ -149,22 +162,40 @@ static func _walk_tree(
 		_extract_zone_config(node, zone_config)
 
 	for child in node.get_children():
-		_walk_tree(child, obstacles, elevators, player_spawns, enemy_spawns,
-			npc_spawns, portals, zone_triggers, gates, bounds_override, zone_config)
+		_walk_tree(
+			child,
+			obstacles,
+			elevators,
+			player_spawns,
+			enemy_spawns,
+			npc_spawns,
+			portals,
+			zone_triggers,
+			gates,
+			bounds_override,
+			zone_config
+		)
 
 
 # --- Extractors ---
+
 
 static func _extract_collision(node: Node, obstacles: Array) -> void:
 	if node is CSGBox3D:
 		var box := node as CSGBox3D
 		var pos := _global_pos(box)
 		var half := box.size / 2.0
-		obstacles.append({
-			"name": box.name,
-			"center": [snapped(pos.x, 0.01), snapped(pos.y, 0.01), snapped(pos.z, 0.01)],
-			"half_extents": [snapped(half.x, 0.01), snapped(half.y, 0.01), snapped(half.z, 0.01)],
-		})
+		(
+			obstacles
+			. append(
+				{
+					"name": box.name,
+					"center": [snapped(pos.x, 0.01), snapped(pos.y, 0.01), snapped(pos.z, 0.01)],
+					"half_extents":
+					[snapped(half.x, 0.01), snapped(half.y, 0.01), snapped(half.z, 0.01)],
+				}
+			)
+		)
 	elif node is StaticBody3D:
 		for child in node.get_children():
 			if child is CollisionShape3D:
@@ -174,26 +205,42 @@ static func _extract_collision(node: Node, obstacles: Array) -> void:
 					var box_shape := shape as BoxShape3D
 					var pos := _global_pos(col)
 					var half := box_shape.size / 2.0
-					obstacles.append({
-						"name": node.name + "/" + col.name,
-						"center": [snapped(pos.x, 0.01), snapped(pos.y, 0.01), snapped(pos.z, 0.01)],
-						"half_extents": [snapped(half.x, 0.01), snapped(half.y, 0.01), snapped(half.z, 0.01)],
-					})
+					(
+						obstacles
+						. append(
+							{
+								"name": node.name + "/" + col.name,
+								"center":
+								[snapped(pos.x, 0.01), snapped(pos.y, 0.01), snapped(pos.z, 0.01)],
+								"half_extents":
+								[
+									snapped(half.x, 0.01),
+									snapped(half.y, 0.01),
+									snapped(half.z, 0.01)
+								],
+							}
+						)
+					)
 
 
 static func _extract_elevator(node: Node, elevators: Array) -> void:
 	var n := node as Node3D
 	var pos := _global_pos(n)
-	elevators.append({
-		"name": str(n.name),
-		"center_x": snapped(pos.x + float(n.get_meta("offset_x", 0.0)), 0.01),
-		"center_z": snapped(pos.z + float(n.get_meta("offset_z", 0.0)), 0.01),
-		"half_x": float(n.get_meta("half_x", 4.0)),
-		"half_z": float(n.get_meta("half_z", 4.0)),
-		"bottom_y": float(n.get_meta("bottom_y", -200.0)),
-		"top_y": float(n.get_meta("top_y", 0.0)),
-		"speed": float(n.get_meta("speed", 10.0)),
-	})
+	(
+		elevators
+		. append(
+			{
+				"name": str(n.name),
+				"center_x": snapped(pos.x + float(n.get_meta("offset_x", 0.0)), 0.01),
+				"center_z": snapped(pos.z + float(n.get_meta("offset_z", 0.0)), 0.01),
+				"half_x": float(n.get_meta("half_x", 4.0)),
+				"half_z": float(n.get_meta("half_z", 4.0)),
+				"bottom_y": float(n.get_meta("bottom_y", -200.0)),
+				"top_y": float(n.get_meta("top_y", 0.0)),
+				"speed": float(n.get_meta("speed", 10.0)),
+			}
+		)
+	)
 
 
 static func _extract_player_spawn(node: Node, player_spawns: Array) -> void:
@@ -220,8 +267,18 @@ static func _extract_enemy_spawn(node: Node, enemy_spawns: Array) -> void:
 		"y": snapped(pos.y, 0.01),
 		"z": snapped(pos.z, 0.01),
 		"def_name": str(n.get_meta("def_name", "")),
-		"patrol_a": {"x": snapped(patrol_a.x, 0.01), "y": snapped(patrol_a.y, 0.01), "z": snapped(patrol_a.z, 0.01)},
-		"patrol_b": {"x": snapped(patrol_b.x, 0.01), "y": snapped(patrol_b.y, 0.01), "z": snapped(patrol_b.z, 0.01)},
+		"patrol_a":
+		{
+			"x": snapped(patrol_a.x, 0.01),
+			"y": snapped(patrol_a.y, 0.01),
+			"z": snapped(patrol_a.z, 0.01)
+		},
+		"patrol_b":
+		{
+			"x": snapped(patrol_b.x, 0.01),
+			"y": snapped(patrol_b.y, 0.01),
+			"z": snapped(patrol_b.z, 0.01)
+		},
 		"aggro_radius": float(n.get_meta("aggro_radius", 10.0)),
 		"leash_radius": float(n.get_meta("leash_radius", 30.0)),
 	}
@@ -233,6 +290,16 @@ static func _extract_enemy_spawn(node: Node, enemy_spawns: Array) -> void:
 	var cond: String = str(n.get_meta("condition", ""))
 	if cond != "":
 		spawn["condition"] = cond
+	# v7: multi-boss + room-bound aggro fields
+	var boss_num: int = n.get_meta("boss_num", 0)
+	if boss_num > 0:
+		spawn["boss_num"] = boss_num
+	var boss_gate: String = str(n.get_meta("boss_gate_id", ""))
+	if boss_gate != "":
+		spawn["boss_gate_id"] = boss_gate
+	var aggro_max_z: float = n.get_meta("aggro_max_z", 0.0)
+	if aggro_max_z != 0.0:
+		spawn["aggro_max_z"] = snapped(aggro_max_z, 0.01)
 	var path_child: Path3D = null
 	for child in n.get_children():
 		if child is Path3D:
@@ -244,7 +311,9 @@ static func _extract_enemy_spawn(node: Node, enemy_spawns: Array) -> void:
 		var path_xform := _global_xform(path_child)
 		for i in range(curve.point_count):
 			var p: Vector3 = path_xform * curve.get_point_position(i)
-			waypoints.append({"x": snapped(p.x, 0.01), "y": snapped(p.y, 0.01), "z": snapped(p.z, 0.01)})
+			waypoints.append(
+				{"x": snapped(p.x, 0.01), "y": snapped(p.y, 0.01), "z": snapped(p.z, 0.01)}
+			)
 		if waypoints.size() >= 2:
 			spawn["patrol_waypoints"] = waypoints
 	enemy_spawns.append(spawn)
@@ -269,9 +338,13 @@ static func _extract_npc_spawn(node: Node, npc_spawns: Array) -> void:
 		var path_xform := _global_xform(path_child)
 		for i in range(curve.point_count):
 			var p: Vector3 = path_xform * curve.get_point_position(i)
-			waypoints.append({"x": snapped(p.x, 0.01), "y": snapped(p.y, 0.01), "z": snapped(p.z, 0.01)})
+			waypoints.append(
+				{"x": snapped(p.x, 0.01), "y": snapped(p.y, 0.01), "z": snapped(p.z, 0.01)}
+			)
 	if waypoints.is_empty():
-		waypoints.append({"x": snapped(pos.x, 0.01), "y": snapped(pos.y, 0.01), "z": snapped(pos.z, 0.01)})
+		waypoints.append(
+			{"x": snapped(pos.x, 0.01), "y": snapped(pos.y, 0.01), "z": snapped(pos.z, 0.01)}
+		)
 	spawn["waypoints"] = waypoints
 	npc_spawns.append(spawn)
 
@@ -305,12 +378,17 @@ static func _extract_zone_trigger(node: Node, zone_triggers: Array) -> void:
 			threshold = pos.y
 		_:
 			threshold = pos.z
-	zone_triggers.append({
-		"name": str(n.name),
-		"trigger_id": str(n.get_meta("trigger_id", "")),
-		"axis": axis,
-		"threshold": snapped(threshold, 0.01),
-	})
+	(
+		zone_triggers
+		. append(
+			{
+				"name": str(n.name),
+				"trigger_id": str(n.get_meta("trigger_id", "")),
+				"axis": axis,
+				"threshold": snapped(threshold, 0.01),
+			}
+		)
+	)
 
 
 static func _extract_gate(node: Node, gates: Array) -> void:
@@ -377,6 +455,7 @@ static func _extract_zone_config(node: Node, config: Dictionary) -> void:
 
 # --- Navmesh baking ---
 
+
 static func _bake_navmesh(root: Node) -> Dictionary:
 	var boxes: Array[Dictionary] = []
 	_collect_all_csg_boxes(root, boxes)
@@ -401,9 +480,28 @@ static func _bake_navmesh(root: Node) -> Dictionary:
 	if verts.is_empty():
 		return {}
 
+	# The baker reports polygon Y roughly agent_max_climb above the source
+	# surface. Snap each vertex down to the nearest true floor-top height so
+	# the server's SampleY yields real floor levels (critical on the arena
+	# decline where steps sit 0.4 apart).
+	var floor_tops: Array[float] = []
+	for box in boxes:
+		var c: Vector3 = box["center"]
+		var s: Vector3 = box["size"]
+		var top: float = c.y + s.y / 2.0
+		if top <= nav_mesh.agent_max_climb and not floor_tops.has(top):
+			floor_tops.append(top)
+
 	var verts_out: Array = []
 	for v in verts:
-		verts_out.append([snapped(v.x, 0.001), snapped(v.y, 0.001), snapped(v.z, 0.001)])
+		var y: float = v.y
+		var best_d: float = 0.7
+		for top in floor_tops:
+			var d: float = v.y - top
+			if d >= 0.3 and d < best_d:
+				best_d = d
+				y = top
+		verts_out.append([snapped(v.x, 0.001), snapped(y, 0.001), snapped(v.z, 0.001)])
 
 	var polys_out: Array = []
 	for i in range(nav_mesh.get_polygon_count()):
@@ -418,14 +516,21 @@ static func _bake_navmesh(root: Node) -> Dictionary:
 
 static func _collect_all_csg_boxes(node: Node, boxes: Array[Dictionary]) -> void:
 	## Collects ALL CSGBox3D nodes including server_ignore (floors are geometry).
-	if node is CSGBox3D:
+	## "navmesh_ignore" opts a node out of the bake: ceilings must not feed the
+	## baker (double-sided face emission would make their undersides walkable).
+	if node is CSGBox3D and not node.is_in_group("navmesh_ignore"):
 		var box := node as CSGBox3D
 		boxes.append({"center": _global_pos(box), "size": box.size})
 	for child in node.get_children():
 		_collect_all_csg_boxes(child, boxes)
 
 
-static func _add_box_faces(sg: NavigationMeshSourceGeometryData3D, center: Vector3, size: Vector3, max_walkable_top_y: float = 0.5) -> void:
+static func _add_box_faces(
+	sg: NavigationMeshSourceGeometryData3D,
+	center: Vector3,
+	size: Vector3,
+	max_walkable_top_y: float = 0.5
+) -> void:
 	var h := size / 2.0
 	# Only add the top face for floor-level geometry. Walls and obstacles have
 	# their top surface above max_walkable_top_y — skipping it prevents the
@@ -441,51 +546,109 @@ static func _add_box_faces(sg: NavigationMeshSourceGeometryData3D, center: Vecto
 
 static func _add_quad(
 	sg: NavigationMeshSourceGeometryData3D,
-	c: Vector3, h: Vector3, axis: Vector3, positive: bool,
+	c: Vector3,
+	h: Vector3,
+	axis: Vector3,
+	positive: bool,
 ) -> void:
 	var verts: PackedVector3Array
 	if axis == Vector3.UP:
 		var y := c.y + h.y if positive else c.y - h.y
 		if positive:
-			verts = PackedVector3Array([
-				Vector3(c.x - h.x, y, c.z - h.z), Vector3(c.x + h.x, y, c.z + h.z), Vector3(c.x + h.x, y, c.z - h.z),
-				Vector3(c.x - h.x, y, c.z - h.z), Vector3(c.x - h.x, y, c.z + h.z), Vector3(c.x + h.x, y, c.z + h.z),
-			])
+			verts = PackedVector3Array(
+				[
+					Vector3(c.x - h.x, y, c.z - h.z),
+					Vector3(c.x + h.x, y, c.z + h.z),
+					Vector3(c.x + h.x, y, c.z - h.z),
+					Vector3(c.x - h.x, y, c.z - h.z),
+					Vector3(c.x - h.x, y, c.z + h.z),
+					Vector3(c.x + h.x, y, c.z + h.z),
+				]
+			)
 		else:
-			verts = PackedVector3Array([
-				Vector3(c.x - h.x, y, c.z - h.z), Vector3(c.x + h.x, y, c.z - h.z), Vector3(c.x + h.x, y, c.z + h.z),
-				Vector3(c.x - h.x, y, c.z - h.z), Vector3(c.x + h.x, y, c.z + h.z), Vector3(c.x - h.x, y, c.z + h.z),
-			])
+			verts = PackedVector3Array(
+				[
+					Vector3(c.x - h.x, y, c.z - h.z),
+					Vector3(c.x + h.x, y, c.z - h.z),
+					Vector3(c.x + h.x, y, c.z + h.z),
+					Vector3(c.x - h.x, y, c.z - h.z),
+					Vector3(c.x + h.x, y, c.z + h.z),
+					Vector3(c.x - h.x, y, c.z + h.z),
+				]
+			)
 	elif axis == Vector3.BACK:
 		var z := c.z + h.z if positive else c.z - h.z
 		if positive:
-			verts = PackedVector3Array([
-				Vector3(c.x - h.x, c.y - h.y, z), Vector3(c.x + h.x, c.y + h.y, z), Vector3(c.x + h.x, c.y - h.y, z),
-				Vector3(c.x - h.x, c.y - h.y, z), Vector3(c.x - h.x, c.y + h.y, z), Vector3(c.x + h.x, c.y + h.y, z),
-			])
+			verts = PackedVector3Array(
+				[
+					Vector3(c.x - h.x, c.y - h.y, z),
+					Vector3(c.x + h.x, c.y + h.y, z),
+					Vector3(c.x + h.x, c.y - h.y, z),
+					Vector3(c.x - h.x, c.y - h.y, z),
+					Vector3(c.x - h.x, c.y + h.y, z),
+					Vector3(c.x + h.x, c.y + h.y, z),
+				]
+			)
 		else:
-			verts = PackedVector3Array([
-				Vector3(c.x - h.x, c.y - h.y, z), Vector3(c.x + h.x, c.y - h.y, z), Vector3(c.x + h.x, c.y + h.y, z),
-				Vector3(c.x - h.x, c.y - h.y, z), Vector3(c.x + h.x, c.y + h.y, z), Vector3(c.x - h.x, c.y + h.y, z),
-			])
+			verts = PackedVector3Array(
+				[
+					Vector3(c.x - h.x, c.y - h.y, z),
+					Vector3(c.x + h.x, c.y - h.y, z),
+					Vector3(c.x + h.x, c.y + h.y, z),
+					Vector3(c.x - h.x, c.y - h.y, z),
+					Vector3(c.x + h.x, c.y + h.y, z),
+					Vector3(c.x - h.x, c.y + h.y, z),
+				]
+			)
 	else:
 		var x := c.x + h.x if positive else c.x - h.x
 		if positive:
-			verts = PackedVector3Array([
-				Vector3(x, c.y - h.y, c.z - h.z), Vector3(x, c.y + h.y, c.z + h.z), Vector3(x, c.y + h.y, c.z - h.z),
-				Vector3(x, c.y - h.y, c.z - h.z), Vector3(x, c.y - h.y, c.z + h.z), Vector3(x, c.y + h.y, c.z + h.z),
-			])
+			verts = PackedVector3Array(
+				[
+					Vector3(x, c.y - h.y, c.z - h.z),
+					Vector3(x, c.y + h.y, c.z + h.z),
+					Vector3(x, c.y + h.y, c.z - h.z),
+					Vector3(x, c.y - h.y, c.z - h.z),
+					Vector3(x, c.y - h.y, c.z + h.z),
+					Vector3(x, c.y + h.y, c.z + h.z),
+				]
+			)
 		else:
-			verts = PackedVector3Array([
-				Vector3(x, c.y - h.y, c.z - h.z), Vector3(x, c.y + h.y, c.z - h.z), Vector3(x, c.y + h.y, c.z + h.z),
-				Vector3(x, c.y - h.y, c.z - h.z), Vector3(x, c.y - h.y, c.z + h.z), Vector3(x, c.y + h.y, c.z + h.z),
-			])
+			verts = PackedVector3Array(
+				[
+					Vector3(x, c.y - h.y, c.z - h.z),
+					Vector3(x, c.y + h.y, c.z - h.z),
+					Vector3(x, c.y + h.y, c.z + h.z),
+					Vector3(x, c.y - h.y, c.z - h.z),
+					Vector3(x, c.y - h.y, c.z + h.z),
+					Vector3(x, c.y + h.y, c.z + h.z),
+				]
+			)
 	sg.add_faces(verts, Transform3D.IDENTITY)
+	# The baker's walkable-triangle facing convention is opposite to the
+	# winding these arrays were authored with (verified empirically: only
+	# reversed-wound horizontal faces produce walkable polygons). Emit both
+	# windings so faces are walkable regardless of orientation, keeping the
+	# legacy underside polygons that older zones already rely on.
+	var flipped := PackedVector3Array()
+	flipped.resize(verts.size())
+	for i in range(0, verts.size(), 3):
+		flipped[i] = verts[i]
+		flipped[i + 1] = verts[i + 2]
+		flipped[i + 2] = verts[i + 1]
+	sg.add_faces(flipped, Transform3D.IDENTITY)
 
 
 static func _compute_bounds(obstacles: Array) -> Dictionary:
 	if obstacles.is_empty():
-		return {"min_x": -10.0, "max_x": 10.0, "min_y": -1.0, "max_y": 5.0, "min_z": -10.0, "max_z": 10.0}
+		return {
+			"min_x": -10.0,
+			"max_x": 10.0,
+			"min_y": -1.0,
+			"max_y": 5.0,
+			"min_z": -10.0,
+			"max_z": 10.0
+		}
 	var min_x := INF
 	var max_x := -INF
 	var min_y := INF

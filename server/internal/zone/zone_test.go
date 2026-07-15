@@ -24,14 +24,16 @@ func buildShootPayload(aimPitch float32, rotY ...float32) []byte {
 	return buf
 }
 
-// findBoss returns the boss enemy from a zone, or nil.
+// findBoss returns the FINAL boss (highest BossNum) — the one whose death
+// ends the run — or nil.
 func findBoss(z *Zone) *entity.Enemy {
+	var boss *entity.Enemy
 	for _, e := range z.world.Enemies {
-		if e.IsBoss {
-			return e
+		if e.IsBoss && (boss == nil || e.BossNum > boss.BossNum) {
+			boss = e
 		}
 	}
-	return nil
+	return boss
 }
 
 // setupFightZone creates an arena zone with one gunner player aimed directly
@@ -56,15 +58,16 @@ func setupFightZone(t *testing.T) (*Zone, uint16) {
 	}
 	boss.Position = entity.Vec3{X: 0, Y: 0, Z: 0}
 
-	// Position player at Z=10, aimed at boss center mass (0, 1, 0)
-	eyePos := entity.Vec3{X: 0, Y: 1.6, Z: 10}
+	// Position player at Z=5 (inside the boss room, south of the entrance
+	// LoS screen at z=8), aimed at boss center mass (0, 1, 0)
+	eyePos := entity.Vec3{X: 0, Y: 1.6, Z: 5}
 	targetCenter := entity.Vec3{X: 0, Y: 1, Z: 0}
 	dir := targetCenter.Sub(eyePos).Normalized()
 	yaw := float32(-math.Atan2(float64(-dir.X), float64(-dir.Z)))
 	pitch := float32(math.Asin(float64(dir.Y)))
 
 	player := entity.NewPlayer(peerID, entity.ClassGunner)
-	player.Position = entity.Vec3{X: 0, Y: 0, Z: 10}
+	player.Position = entity.Vec3{X: 0, Y: 0, Z: 5}
 	player.RotationY = yaw
 	player.AimPitch = pitch
 	player.Alive = true
@@ -137,8 +140,8 @@ func TestPlayerDamageEventsSurviveTick(t *testing.T) {
 			if targetPeer >= 1000 && sourcePeer == peerID && sourceType == 0 {
 				foundDamageEvent = true
 				// Pressure system adds a small bonus on first hit (~0.3)
-				if amount < 10.0 || amount > 11.0 {
-					t.Errorf("damage amount = %f, want ~10.3", amount)
+				if amount < 12.5 || amount > 14.0 {
+					t.Errorf("damage amount = %f, want ~13.2", amount)
 				}
 				t.Logf("DamageEvent OK: target=%d source=%d amount=%.1f", targetPeer, sourcePeer, amount)
 			}
@@ -157,7 +160,7 @@ func TestEnemyDamageEventsStillWork(t *testing.T) {
 	z, peerID := setupFightZone(t)
 
 	// Put enemy in melee attack state, right next to the player
-	z.world.Enemies[0].Position = entity.Vec3{X: 0, Y: 0, Z: 10}
+	z.world.Enemies[0].Position = entity.Vec3{X: 0, Y: 0, Z: 5}
 	z.world.Enemies[0].State = entity.EnemyMeleeAttack
 	z.world.Enemies[0].StateTimer = 0.001 // about to finish
 
@@ -382,7 +385,7 @@ func TestHandleRespawnRequest(t *testing.T) {
 			respawnType:     0,
 			wantAlive:       true,
 			wantHealthReset: true,
-			wantPosition:    &entity.Vec3{X: -2, Y: 0.1, Z: 48},
+			wantPosition:    &entity.Vec3{X: -2, Y: 0.1, Z: 54},
 		},
 		{
 			name:           "arena respawn rejected when gate closed",
@@ -397,7 +400,7 @@ func TestHandleRespawnRequest(t *testing.T) {
 			respawnType:     0,
 			wantAlive:       true,
 			wantHealthReset: true,
-			wantPosition:    &entity.Vec3{X: -2, Y: 0.1, Z: 48},
+			wantPosition:    &entity.Vec3{X: -2, Y: 0.1, Z: 54},
 		},
 		{
 			name:         "hub respawn calls callback",

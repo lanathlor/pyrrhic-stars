@@ -84,7 +84,7 @@ func TestIdentity_Gunner_EnhancedRound_NoEnhancedNoBonusDamage(t *testing.T) {
 		t.Fatalf("events = %d, want 1", len(r.Events))
 	}
 	// First shot on target = pressure stack 1 → bonus = 10 * 1 * 0.03 = 0.3
-	assertDmgNear(t, r.Events[0].Amount, 10.3, "no enhanced loaded")
+	assertDmgNear(t, r.Events[0].Amount, 13.2, "no enhanced loaded")
 }
 
 func TestIdentity_Gunner_EnhancedRound_IdentityScalesDamage(t *testing.T) {
@@ -110,7 +110,7 @@ func TestIdentity_Gunner_EnhancedRound_IdentityScalesDamage(t *testing.T) {
 	// Base hit = 10 + pressure bonus (10 * 6stacks * 0.03 = 1.8) = 11.8
 	// Enhanced bonus = (15 + 1.5*6) * (1+100/100) * 1.0 = 24 * 2 = 48
 	// Total ≈ 59.8
-	wantBase := float32(10.0) + 10.0*6*assaultPressureBonus
+	wantBase := float32(12.0) + 12.0*6*assaultPressureBonus
 	wantEnhanced := (float32(assaultEnhancedBase) + float32(assaultEnhancedPerStack)*6) * 2.0
 	assertDmgNear(t, r.Events[0].Amount, wantBase+wantEnhanced, "enhanced + identity=100")
 }

@@ -10,6 +10,7 @@ const (
 	CategoryRanged                        // spawn projectiles
 	CategoryAoE                           // radius hit resolution
 	CategoryCharge                        // linear dash with per-entity collision
+	CategorySpawn                         // summon add enemies mid-fight
 )
 
 // TargetStrategy controls who the ability targets.
@@ -174,6 +175,13 @@ type AbilityDef struct {
 
 	// Charge movement (charge abilities)
 	Charge *ChargeDef `yaml:"charge"`
+
+	// Add summoning (CategorySpawn abilities)
+	SpawnDefName   string  `yaml:"spawn_def_name"`  // enemy def to spawn
+	SpawnCount     int     `yaml:"spawn_count"`     // 0 = one per alive player
+	SpawnCap       int     `yaml:"spawn_cap"`       // hard cap per wave (0 = default 3)
+	SpawnPlacement string  `yaml:"spawn_placement"` // "behind_players" (default) | "at_self"
+	SpawnDistance  float32 `yaml:"spawn_distance"`  // meters behind each player (0 = default 4.0)
 
 	// Bullet-hell pattern (overrides Projectile fan if set)
 	Pattern *combat.PatternDef `yaml:"-"`

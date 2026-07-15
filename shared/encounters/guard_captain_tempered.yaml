@@ -74,21 +74,34 @@ tree:
     - sequence: [phase_transitioning, wait_transition]
     - sequence: ["!has_target", aggro_or_patrol]
     - sequence: ["!in_leash_range", leash_reset]
-    - sequence: [is_committed, wait_ability]
+    # Active ability in progress — don't interrupt. Keep closing distance
+    # during the post-ability recovery window instead of standing frozen.
+    - reactive_sequence:
+        - is_committed
+        - reactive_selector:
+            - reactive_sequence: [can_move, chase]
+            - wait_ability
     # Anti-cheese: a player has been hugging a pillar to kite. Overload the
     # pillars with a huge, near-unavoidable blast. Fires in any phase.
     - sequence: [player_camping_pillar, "ability_ready(pillar_overload)", "commit(pillar_overload)", wait_ability]
 
+    # Patterns lead every phase: the tempered kit (lunge/shield_bash/war_cry)
+    # adds pressure BETWEEN pattern casts, it must never displace them.
+    # (Regression 2026-07: with lunge above the patterns, the lunge->melee
+    # loop starved fireball/barrage; stacking volatile — a pure pattern buff —
+    # then made tempered+volatile EASIER than volatile alone. Guarded by
+    # TestTemperedKeepsCastingPatterns.)
+
     # === Phase 3: Relentless - patterns + lunge+slam + war_cry ===
-    - sequence:
+    - reactive_sequence:
         - phase_eq(3)
-        - selector:
+        - reactive_selector:
             # Void barrage (high priority -- patterns are the killer)
             - sequence: ["ability_ready(void_barrage)", set_target_clustered, "commit(void_barrage)", wait_ability]
-            # Lunge to farthest + immediate ground slam chain
-            - sequence: ["target_beyond(8)", "ability_ready(lunge)", "commit(lunge)", wait_ability, "ability_ready(ground_slam)", "commit(ground_slam)", wait_ability]
             # Fireball burst
             - sequence: [has_los, "ability_ready(fireball_burst)", "commit(fireball_burst)", wait_ability]
+            # Lunge to farthest + immediate ground slam chain
+            - sequence: ["target_beyond(8)", "ability_ready(lunge)", "commit(lunge)", wait_ability, "ability_ready(ground_slam)", "commit(ground_slam)", wait_ability]
             # War cry
             - sequence: ["ability_ready(war_cry)", "commit(war_cry)", wait_ability]
             # Ground slam when clustered
@@ -100,15 +113,15 @@ tree:
             - chase
 
     # === Phase 2: Aggressive - lunge+slam between pattern casts ===
-    - sequence:
+    - reactive_sequence:
         - phase_eq(2)
-        - selector:
-            # Lunge to farthest + ground slam chain (signature combo)
-            - sequence: ["target_beyond(8)", "ability_ready(lunge)", "commit(lunge)", wait_ability, "ability_ready(ground_slam)", "commit(ground_slam)", wait_ability]
+        - reactive_selector:
             # Void barrage on clusters
             - sequence: ["n_players_clustered(2)", "ability_ready(void_barrage)", set_target_clustered, "commit(void_barrage)", wait_ability]
             # Fireball at range
             - sequence: ["target_beyond(3)", has_los, "ability_ready(fireball_burst)", "commit(fireball_burst)", wait_ability]
+            # Lunge to farthest + ground slam chain (signature combo)
+            - sequence: ["target_beyond(8)", "ability_ready(lunge)", "commit(lunge)", wait_ability, "ability_ready(ground_slam)", "commit(ground_slam)", wait_ability]
             # Shield bash in melee
             - sequence: [target_in_melee_range, has_los, "ability_ready(shield_bash)", "commit(shield_bash)", wait_ability]
             # Bull charge distant targets
@@ -119,20 +132,22 @@ tree:
             - sequence: [target_in_melee_range, has_los, "ability_ready(melee_swipe)", "commit(melee_swipe)", wait_ability]
             - chase
 
-    # === Phase 1: Methodical - war_cry opener, patterns + lunge ===
-    - selector:
-        # War cry as opener
+    # === Phase 1: Methodical - patterns first, war_cry + lunge between.
+    # Reactive composites throughout: a chase tail must never pin the branch
+    # and skip the ability guards (the "one spell per fight" bug). ===
+    - reactive_selector:
+        # Void barrage on clusters
+        - sequence: ["n_players_clustered(2)", "ability_ready(void_barrage)", set_target_clustered, "commit(void_barrage)", wait_ability]
+        # Fireball at range
+        - sequence: ["target_beyond(3)", has_los, "ability_ready(fireball_burst)", "commit(fireball_burst)", wait_ability]
+        # War cry when surrounded
         - sequence: ["players_in_aoe(6)", "ability_ready(war_cry)", "commit(war_cry)", wait_ability]
         # Lunge to farthest + ground slam
         - sequence: ["target_beyond(8)", "ability_ready(lunge)", "commit(lunge)", wait_ability, "ability_ready(ground_slam)", "commit(ground_slam)", wait_ability]
-        # Void barrage on clusters
-        - sequence: ["n_players_clustered(2)", "ability_ready(void_barrage)", set_target_clustered, "commit(void_barrage)", wait_ability]
         # Melee if close
         - sequence: [target_in_melee_range, has_los, "ability_ready(melee_swipe)", "commit(melee_swipe)", wait_ability]
         # Ground slam when clustered
         - sequence: ["players_in_aoe(5)", "ability_ready(ground_slam)", "commit(ground_slam)", wait_ability]
-        # Fireball at range
-        - sequence: ["target_beyond(3)", has_los, "ability_ready(fireball_burst)", "commit(fireball_burst)", wait_ability]
         # Bull charge distant
         - sequence: ["target_beyond(10)", has_los, "ability_ready(bull_charge)", "commit(bull_charge)", wait_ability]
         - chase

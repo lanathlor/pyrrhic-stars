@@ -69,6 +69,16 @@ func (b *Brain) Enemy() *entity.Enemy { return b.enemy }
 // tick (idempotent) so brains always see the current zone's bus.
 func (b *Brain) SetBus(bus *Bus) { b.ctx.Bus = bus }
 
+// SetSpawnAddFn attaches the zone's add-summoning callback. Called by the AI
+// system each tick, like SetBus.
+func (b *Brain) SetSpawnAddFn(fn func(defName string, pos entity.Vec3, ownerID uint16) bool) {
+	b.ctx.SpawnAddFn = fn
+}
+
+// SetAllies attaches the zone's enemy slice for add-awareness conditions.
+// Called by the AI system each tick, like SetBus.
+func (b *Brain) SetAllies(allies []*entity.Enemy) { b.ctx.Allies = allies }
+
 // ForceCommit unconditionally interrupts any current ability and starts the given one.
 func (b *Brain) ForceCommit(abilityID string) bool {
 	return b.ctx.Runner.ForceStart(b.ctx, abilityID)

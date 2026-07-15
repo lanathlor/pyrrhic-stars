@@ -10,7 +10,7 @@ import (
 	"codex-online/server/internal/entity"
 )
 
-const currentVersion = 6
+const currentVersion = 7
 
 type boundsJSON struct {
 	MinX float32 `json:"min_x"`
@@ -64,6 +64,9 @@ type enemySpawnJSON struct {
 	LeashRadius     float32    `json:"leash_radius"`
 	GroupID         int        `json:"group_id,omitempty"`
 	Condition       string     `json:"condition,omitempty"`
+	BossNum         int        `json:"boss_num,omitempty"`
+	BossGateID      string     `json:"boss_gate_id,omitempty"`
+	AggroMaxZ       float32    `json:"aggro_max_z,omitempty"`
 }
 
 type portalJSON struct {
@@ -332,6 +335,9 @@ func loadEnemySpawns(l *Level, spawns []enemySpawnJSON) {
 			LeashRadius: s.LeashRadius,
 			GroupID:     s.GroupID,
 			Condition:   s.Condition,
+			BossNum:     s.BossNum,
+			BossGateID:  s.BossGateID,
+			AggroMaxZ:   s.AggroMaxZ,
 		}
 		if len(s.PatrolWaypoints) >= 2 {
 			esp.PatrolWaypoints = make([]entity.Vec3, len(s.PatrolWaypoints))

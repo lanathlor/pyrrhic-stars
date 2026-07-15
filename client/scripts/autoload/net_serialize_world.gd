@@ -89,16 +89,19 @@ static func _decode_telegraph_entry(buf: StreamPeerBuffer) -> Dictionary:
 	match d["shape"]:
 		0:  # circle
 			d["cx"] = buf.get_float()
+			d["cy"] = buf.get_float()
 			d["cz"] = buf.get_float()
 			d["radius"] = buf.get_float()
 		1:  # cone
 			d["cx"] = buf.get_float()
+			d["cy"] = buf.get_float()
 			d["cz"] = buf.get_float()
 			d["facing"] = buf.get_float()
 			d["half_angle"] = buf.get_float()
 			d["range"] = buf.get_float()
 		2:  # line
 			d["cx"] = buf.get_float()
+			d["cy"] = buf.get_float()
 			d["cz"] = buf.get_float()
 			d["dir_x"] = buf.get_float()
 			d["dir_z"] = buf.get_float()
@@ -107,9 +110,9 @@ static func _decode_telegraph_entry(buf: StreamPeerBuffer) -> Dictionary:
 		3:  # multi_circle
 			d["radius"] = buf.get_float()
 			var n := buf.get_u8()
-			var centers: Array[Vector2] = []
+			var centers: Array[Vector3] = []
 			for j in range(n):
-				centers.append(Vector2(buf.get_float(), buf.get_float()))
+				centers.append(Vector3(buf.get_float(), buf.get_float(), buf.get_float()))
 			d["centers"] = centers
 	return d
 
@@ -126,16 +129,19 @@ static func encode_telegraphs(buf: StreamPeerBuffer, telegraphs: Array) -> void:
 		match t["shape"]:
 			0:
 				buf.put_float(t["cx"])
+				buf.put_float(t.get("cy", 0.0))
 				buf.put_float(t["cz"])
 				buf.put_float(t["radius"])
 			1:
 				buf.put_float(t["cx"])
+				buf.put_float(t.get("cy", 0.0))
 				buf.put_float(t["cz"])
 				buf.put_float(t["facing"])
 				buf.put_float(t["half_angle"])
 				buf.put_float(t["range"])
 			2:
 				buf.put_float(t["cx"])
+				buf.put_float(t.get("cy", 0.0))
 				buf.put_float(t["cz"])
 				buf.put_float(t["dir_x"])
 				buf.put_float(t["dir_z"])
@@ -145,9 +151,10 @@ static func encode_telegraphs(buf: StreamPeerBuffer, telegraphs: Array) -> void:
 				buf.put_float(t["radius"])
 				var centers: Array = t["centers"]
 				buf.put_u8(centers.size())
-				for c: Vector2 in centers:
+				for c: Vector3 in centers:
 					buf.put_float(c.x)
 					buf.put_float(c.y)
+					buf.put_float(c.z)
 
 
 static func _decode_player_entry(buf: StreamPeerBuffer) -> Dictionary:

@@ -30,32 +30,41 @@ type bdAbilityRow struct {
 
 // bdTransitionSpells builds all 20 Blade Dancer transition ability definitions.
 func bdTransitionSpells() []*AbilityDef {
+	// Damage columns scaled x1.8 and DoT columns x1.5 (2026-07): per-GCD output was roughly
+	// half a cleave vanguard's, leaving multi_blade below the shield TANK on
+	// single-target (see TestSingleTargetDPSOrdering). Utility columns
+	// (shields, DR, debuffs) deliberately untouched — that's the half of the
+	// kit that was already pulling its weight.
+	// Single-target (hitscan) rows scaled ~x1.1 (2026-07-14): puppets now wear
+	// the live starter gear, which compressed the multi_blade-vs-shield-tank
+	// gap below the 10% ordering floor. AoE rows untouched — the vanguard owns
+	// multi-target and BD AoE was already competitive.
 	rows := []bdAbilityRow{
 		// From Orbit (Defense)
-		{IDShieldedSweep, "Shielded Sweep", 0, 1, HitAoECircle, 8, 4, 0, 0, 0.85, 2.0, 0, 0, 0, "", "", 0, 0},
-		{"guarded_thrust", "Guarded Thrust", 0, 2, HitHitscan, 25, 0, 0, 8, 0, 0, 0, 0, 0, "", "", 0, 0},
-		{"protected_scatter", "Protected Scatter", 0, 3, HitNearestN, 5, 0, 3, 0, 0.9, 1.5, 1.5, 12, 1, "", "", 0, 0},
-		{"fortified_command", "Fortified Command", 0, 4, HitAoECircleTarget, 5, 5, 0, 0, 0.8, 2.0, 0, 0, 0, "bd_slow", entity.DebuffSlow, 0.3, 2.0},
+		{IDShieldedSweep, "Shielded Sweep", 0, 1, HitAoECircle, 15, 4, 0, 0, 0.85, 2.0, 0, 0, 0, "", "", 0, 0},
+		{"guarded_thrust", "Guarded Thrust", 0, 2, HitHitscan, 51, 0, 0, 8, 0, 0, 0, 0, 0, "", "", 0, 0},
+		{"protected_scatter", "Protected Scatter", 0, 3, HitNearestN, 10, 0, 3, 0, 0.9, 1.5, 2.25, 12, 1, "", "", 0, 0},
+		{"fortified_command", "Fortified Command", 0, 4, HitAoECircleTarget, 10, 5, 0, 0, 0.8, 2.0, 0, 0, 0, "bd_slow", entity.DebuffSlow, 0.3, 2.0},
 		// From Fan (AoE Damage)
-		{IDReapingGuard, "Reaping Guard", 1, 0, HitAoECircle, 8, 3, 0, 12, 0, 0, 0, 0, 0, "", "", 0, 0},
-		{IDCleavingPierce, "Cleaving Pierce", 1, 2, HitHitscan, 30, 0, 0, 0, 0, 0, 0, 0, 0, "", "", 0, 0},
-		{"slashing_spread", "Slashing Spread", 1, 3, HitAoECircleTarget, 8, 5, 0, 0, 0, 0, 1.5, 10, 1, "", "", 0, 0},
-		{"sweeping_hex", "Sweeping Hex", 1, 4, HitAoECircleTarget, 10, 5, 0, 0, 0, 0, 0, 0, 0, "bd_vuln", entity.DebuffVulnerability, 0.2, 3.0},
+		{IDReapingGuard, "Reaping Guard", 1, 0, HitAoECircle, 15, 3, 0, 12, 0, 0, 0, 0, 0, "", "", 0, 0},
+		{IDCleavingPierce, "Cleaving Pierce", 1, 2, HitHitscan, 59, 0, 0, 0, 0, 0, 0, 0, 0, "", "", 0, 0},
+		{"slashing_spread", "Slashing Spread", 1, 3, HitAoECircleTarget, 15, 5, 0, 0, 0, 0, 2.25, 10, 1, "", "", 0, 0},
+		{"sweeping_hex", "Sweeping Hex", 1, 4, HitAoECircleTarget, 18, 5, 0, 0, 0, 0, 0, 0, 0, "bd_vuln", entity.DebuffVulnerability, 0.2, 3.0},
 		// From Lance (Single-target Damage)
-		{IDPiercingBarrier, "Piercing Barrier", 2, 0, HitHitscan, 18, 0, 0, 0, 0, 0, 0, 0, 0, "", "", 0, 0},
-		{"focused_slash", "Focused Slash", 2, 1, HitAoECircleTarget, 15, 4, 0, 0, 0, 0, 0, 0, 0, "", "", 0, 0},
-		{"targeted_spread", "Targeted Spread", 2, 3, HitHitscan, 12, 0, 0, 0, 0, 0, 2.0, 15, 1, "", "", 0, 0},
-		{"pinning_strike", "Pinning Strike", 2, 4, HitHitscan, 25, 0, 0, 0, 0, 0, 0, 0, 0, "bd_root", entity.DebuffRoot, 1.0, 1.5},
+		{IDPiercingBarrier, "Piercing Barrier", 2, 0, HitHitscan, 35, 0, 0, 0, 0, 0, 0, 0, 0, "", "", 0, 0},
+		{"focused_slash", "Focused Slash", 2, 1, HitAoECircleTarget, 29, 4, 0, 0, 0, 0, 0, 0, 0, "", "", 0, 0},
+		{"targeted_spread", "Targeted Spread", 2, 3, HitHitscan, 24, 0, 0, 0, 0, 0, 3.0, 15, 1, "", "", 0, 0},
+		{"pinning_strike", "Pinning Strike", 2, 4, HitHitscan, 51, 0, 0, 0, 0, 0, 0, 0, 0, "bd_root", entity.DebuffRoot, 1.0, 1.5},
 		// From Scatter (Multi-target DoT)
 		{IDDispersedShield, "Dispersed Shield", 3, 0, HitNone, 0, 0, 0, 18, 0.85, 2.0, 0, 0, 0, "", "", 0, 0},
-		{"rain_of_blades", "Rain of Blades", 3, 1, HitAoECircleTarget, 15, 5, 0, 0, 0, 0, 1.0, 10, 1, "", "", 0, 0},
-		{"converging_strike", "Converging Strike", 3, 2, HitHitscan, 32, 0, 0, 0, 0, 0, 1.5, 10, 1, "", "", 0, 0},
-		{"chaos_bind", "Chaos Bind", 3, 4, HitNearestN, 8, 0, 4, 0, 0, 0, 0, 0, 0, "bd_snare", entity.DebuffSlow, 0.4, 1.5},
+		{"rain_of_blades", "Rain of Blades", 3, 1, HitAoECircleTarget, 26, 5, 0, 0, 0, 0, 1.5, 10, 1, "", "", 0, 0},
+		{"converging_strike", "Converging Strike", 3, 2, HitHitscan, 64, 0, 0, 0, 0, 0, 2.25, 10, 1, "", "", 0, 0},
+		{"chaos_bind", "Chaos Bind", 3, 4, HitNearestN, 15, 0, 4, 0, 0, 0, 0, 0, 0, "bd_snare", entity.DebuffSlow, 0.4, 1.5},
 		// From Crown (Utility/Control)
 		{IDCommandingWard, "Commanding Ward", 4, 0, HitNone, 0, 0, 0, 20, 0, 0, 0, 0, 0, "", "", 0, 0},
-		{"royal_cleave", "Royal Cleave", 4, 1, HitAoECircle, 12, 5, 0, 0, 0, 0, 0, 0, 0, "bd_slow_rc", entity.DebuffSlow, 0.25, 1.5},
-		{IDDecreeStrike, "Decree Strike", 4, 2, HitHitscan, 28, 0, 0, 0, 0, 0, 0, 0, 0, "bd_vuln_ds", entity.DebuffVulnerability, 0.15, 4.0},
-		{"sovereign_scatter", "Sovereign Scatter", 4, 3, HitNearestN, 5, 0, 3, 0, 0, 0, 1.5, 12, 1, "bd_slow_ss", entity.DebuffSlow, 0.3, 2.0},
+		{"royal_cleave", "Royal Cleave", 4, 1, HitAoECircle, 22, 5, 0, 0, 0, 0, 0, 0, 0, "bd_slow_rc", entity.DebuffSlow, 0.25, 1.5},
+		{IDDecreeStrike, "Decree Strike", 4, 2, HitHitscan, 55, 0, 0, 0, 0, 0, 0, 0, 0, "bd_vuln_ds", entity.DebuffVulnerability, 0.15, 4.0},
+		{"sovereign_scatter", "Sovereign Scatter", 4, 3, HitNearestN, 10, 0, 3, 0, 0, 0, 2.25, 12, 1, "bd_slow_ss", entity.DebuffSlow, 0.3, 2.0},
 	}
 
 	result := make([]*AbilityDef, 0, len(rows))

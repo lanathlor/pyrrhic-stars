@@ -1,0 +1,44 @@
+boss: aceras_general
+fuzz_only: true # injection/scenario tiers covered by aceras_general.yaml
+runs: 300
+
+# Small-group spec: the dungeon must stay duo-able for beta accessibility,
+# but comp matters against a kiting ranged boss — melee-only duos are the
+# counter-comp (2026-07-14 probe: blade+blade 17%, blade+healer 53%,
+# gunner+blade 90%, gunner+healer 97%). The guardrails encode that shape:
+# a duo with ranged DPS must reliably win, a double-melee duo must stay
+# possible but is allowed to be hard.
+compositions:
+  - name: duo_gunner_blade
+    classes: [gunner, vanguard]
+    specs:   [assault, blade]
+    profiles: [average, average]
+    win_rate:
+      min: 0.60
+  # Counter-comp floor: two melee chasing a kiter is the worst matchup and
+  # may be brutal, but it must never become literally unwinnable.
+  - name: duo_blades
+    classes: [vanguard, vanguard]
+    specs:   [blade, blade]
+    profiles: [average, average]
+    win_rate:
+      min: 0.05
+  # Perfect rotation, zero mechanics: eats every spiral, never touches the
+  # stalkers spawning behind it. If this comp wins reliably, the bullet hell
+  # is decorative.
+  - name: facetank_duo
+    classes: [vanguard, vanguard]
+    specs:   [blade, blade]
+    profiles: [facetank, facetank]
+    win_rate:
+      max: 0.30
+
+duration:
+  min_seconds: 25
+  max_seconds: 600
+
+# Duo comps exercise fewer branches (no clusters, no pillar camping); strict
+# tree health is enforced by aceras_general.yaml.
+tree_health:
+  max_dead_nodes: 30
+  max_cold_nodes: 45

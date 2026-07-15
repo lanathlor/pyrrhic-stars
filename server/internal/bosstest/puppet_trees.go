@@ -33,32 +33,35 @@ func gunnerTree() *bt.Tree {
 		bt.NewSequence(
 			bt.NewCondition(condHasReactedQuick),
 			bt.NewCondition(condInChargePath),
-			bt.NewAction(withCommit(actionStrafeCharge, "fire_shot")),
+			bt.NewAction(withShot(actionStrafeCharge)),
 		),
 		bt.NewSequence(
 			bt.NewCondition(condHasReactedQuick),
 			bt.NewCondition(condInAoEDanger),
-			bt.NewAction(withCommit(actionFleeAoE, "fire_shot")),
+			bt.NewAction(withShot(actionFleeAoE)),
 		),
 		bt.NewSequence(
 			bt.NewCondition(condHasReactedQuick),
 			bt.NewCondition(condTargetedByRanged),
-			bt.NewAction(withCommit(actionStrafeRanged, "fire_shot")),
+			bt.NewAction(withShot(actionStrafeRanged)),
 		),
 		// Projectile dodge: sidestep while shooting (immediate, no reaction gate)
 		bt.NewSequence(
 			bt.NewCondition(condProjectileIncoming),
-			bt.NewAction(withCommit(actionSidestepProjectile, "fire_shot")),
+			bt.NewAction(withShot(actionSidestepProjectile)),
 		),
 		// Positioning: kite if too close (still shooting)
 		bt.NewSequence(
 			bt.NewCondition(condTooClose),
 			bt.NewAction(actionKiteAndShoot),
 		),
-		// Positioning: advance if too far
+		// Positioning: advance if too far — firing on the move when the line
+		// of fire is clear. Without any commit, chasing mobile targets (packs
+		// converging on the tank, the Aceras backpedal) silences the gunner
+		// for most of an instance run; blind-firing wastes the magazine.
 		bt.NewSequence(
 			bt.NewCondition(condTooFar),
-			bt.NewAction(actionAdvance),
+			bt.NewAction(withShot(actionAdvance)),
 		),
 		// Rotation: use overclock buff when available (15s CD)
 		bt.NewSequence(
@@ -69,6 +72,11 @@ func gunnerTree() *bt.Tree {
 		bt.NewSequence(
 			bt.NewCondition(condShouldReload),
 			bt.NewAction(commitAbilityAction("reload")),
+		),
+		// No line of fire: strafe to clear it before spending ammo
+		bt.NewSequence(
+			bt.NewCondition(condNoShotLine),
+			bt.NewAction(actionRepositionForShot),
 		),
 		// Filler: spam fire_shot
 		bt.NewAction(commitAbilityAction("fire_shot")),
@@ -286,13 +294,17 @@ func bladeDancerTree() *bt.Tree {
 			bt.NewCondition(condOutOfMelee),
 			bt.NewAction(actionAdvance),
 		),
-		// Rotation: all transitions
+		// Rotation: all transitions (in reach only — see withTransition)
 		bt.NewSequence(
 			bt.NewCondition(condCanTransition),
+			bt.NewCondition(not(condTooFar)),
 			bt.NewAction(actionCommitBestTransition),
 		),
-		// Filler: best available transition
-		bt.NewAction(actionCommitBestTransition),
+		// Filler: best available transition, in reach only
+		bt.NewSequence(
+			bt.NewCondition(not(condTooFar)),
+			bt.NewAction(actionCommitBestTransition),
+		),
 	))
 }
 
@@ -308,6 +320,12 @@ func bladeDancerTree() *bt.Tree {
 // - Siphon Pulse as DPS filler (0 flux, heals lowest ally for 50% of damage)
 func harmonistTree() *bt.Tree {
 	var branches []bt.Node
+	// Release channels the fight has outrun (dead/far target) — otherwise the
+	// !is_channeling guards below lock out every branch, movement included.
+	branches = append(branches, bt.NewSequence(
+		bt.NewCondition(condChannelStale),
+		bt.NewAction(actionCancelChannel),
+	))
 	branches = append(branches, harmonistDodgeSubtree()...)
 	branches = append(branches, harmonistHealSubtree()...)
 	branches = append(branches, harmonistDPSSubtree()...)

@@ -6,9 +6,18 @@ import (
 	"slices"
 )
 
-// platingMinDamageFraction is the minimum fraction of original damage that
-// always passes through Plating. Plating can never reduce a hit below this.
-const platingMinDamageFraction float32 = 0.2
+// Plating is percentage damage mitigation with diminishing returns on the
+// stat (WoW-armor style): reduction = Plating / (Plating + platingPivot),
+// capped at platingMaxReduction. Percentage mitigation scales every hit the
+// same way — flat subtraction nullified bullet-hell chip (a 7-damage bullet
+// vs 7 plating dealt almost nothing), turning the chip lever off for any
+// geared player.
+const (
+	// platingPivot is the stat value at which mitigation reaches 50%.
+	platingPivot float32 = 50.0
+	// platingMaxReduction caps mitigation so no gear level ignores damage.
+	platingMaxReduction float32 = 0.75
+)
 
 // DeliveryMethod identifies how a heal reaches its target.
 // Harmony procs when consecutive heals on the same target use different methods.
@@ -644,6 +653,21 @@ func (p *Player) RemoveBuff(id string) {
 	}
 }
 
+// PlatingReduction returns the fraction of incoming damage mitigated by the
+// Plating gear stat: Plating/(Plating+platingPivot), capped at
+// platingMaxReduction.
+func (p *Player) PlatingReduction() float32 {
+	plating := p.GearStats.Plating
+	if plating <= 0 {
+		return 0
+	}
+	r := plating / (plating + platingPivot)
+	if r > platingMaxReduction {
+		return platingMaxReduction
+	}
+	return r
+}
+
 // ApplyDamage reduces health considering active buffs and shields.
 func (p *Player) ApplyDamage(amount float32) float32 {
 	if p.State == PlayerStateDead || !p.Alive {
@@ -653,12 +677,8 @@ func (p *Player) ApplyDamage(amount float32) float32 {
 		return 0
 	}
 
-	// Plating: flat damage reduction, min 20% of original damage passes through.
-	original := amount
-	amount -= p.GearStats.Plating
-	if floor := original * platingMinDamageFraction; amount < floor {
-		amount = floor
-	}
+	// Plating: percentage mitigation with diminishing returns (see constants).
+	amount *= 1 - p.PlatingReduction()
 
 	// Vanguard parry/block: check BEFORE DR application so parries see the
 	// pre-DR amount (for reflect damage, Devotion generation, stamina drain).

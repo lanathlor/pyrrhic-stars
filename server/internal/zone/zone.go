@@ -174,6 +174,15 @@ func spawnEnemies(z *Zone, l *level.Level) {
 		enemy.LeashOrigin = sp.Position
 		enemy.LeashRadius = sp.LeashRadius
 		enemy.GroupID = sp.GroupID
+		enemy.AggroMaxZ = sp.AggroMaxZ
+		enemy.BossNum = sp.BossNum
+		enemy.BossGateID = sp.BossGateID
+		if enemy.IsBoss && enemy.BossNum == 0 {
+			enemy.BossNum = 1 // legacy single-boss data
+		}
+		if enemy.IsBoss && enemy.BossGateID == "" {
+			enemy.BossGateID = "boss_gate"
+		}
 		brain := enemyai.NewBrain(def, enemy, z.world.AbilityEngine)
 		brain.ApplyOverfluxVariants(z.world.OverfluxState)
 		brain.BoundsMinX = l.EnemyBoundsMinX
@@ -182,7 +191,8 @@ func spawnEnemies(z *Zone, l *level.Level) {
 		brain.BoundsMaxZ = l.EnemyBoundsMaxZ
 		z.world.Enemies = append(z.world.Enemies, enemy)
 		z.world.Brains = append(z.world.Brains, brain)
-		if enemy.IsBoss {
+		// Cache the FINAL boss (highest BossNum) — its death ends the run.
+		if enemy.IsBoss && (z.world.Boss == nil || enemy.BossNum >= z.world.Boss.BossNum) {
 			z.world.Boss = enemy
 		}
 	}
@@ -240,6 +250,7 @@ func (z *Zone) rescaleEnemies(n int) {
 		dmgMult *= z.world.OverfluxState.DamageMultiplier()
 	}
 	z.world.EnemyDamageMult = dmgMult
+	z.world.EnemyHPMult = hpMult // mid-fight spawned adds inherit the scaling
 	for _, e := range z.world.Enemies {
 		if e.BaseMaxHealth == 0 {
 			e.BaseMaxHealth = e.MaxHealth

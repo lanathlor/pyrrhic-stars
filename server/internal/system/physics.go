@@ -20,7 +20,7 @@ func (s *PhysicsSystem) Tick(w *World, dt float32) {
 		}
 
 		// Kill projectile if it hits an obstacle
-		if combat.ProjectileHitsObstacle(proj.Position, entity.ProjectileHitRadius, w.Obstacles) {
+		if combat.ProjectileHitsObstacle(proj.Position, proj.HitRadius(), w.Obstacles) {
 			proj.Alive = false
 			continue
 		}
@@ -47,17 +47,18 @@ func (s *PhysicsSystem) Tick(w *World, dt float32) {
 // otherwise grows by dt. The AI reads it to tell a boss trading blows from one
 // being kited around a pillar, where every committed ability whiffs.
 func tickBossDamageDrought(w *World, dt float32) {
-	if w.Boss == nil || !w.Boss.Alive {
+	boss := ActiveBoss(w)
+	if boss == nil {
 		return
 	}
 	for i := range w.DamageEvents {
 		ev := &w.DamageEvents[i]
 		if ev.Amount > 0 && ev.SourceType >= combat.SourceEnemyMelee && ev.SourceType <= combat.SourceEnemyCharge {
-			w.Boss.SecsSinceDealtDamage = 0
+			boss.SecsSinceDealtDamage = 0
 			return
 		}
 	}
-	w.Boss.SecsSinceDealtDamage += dt
+	boss.SecsSinceDealtDamage += dt
 }
 
 func tickPatternSpawns(w *World, dt float32) {
@@ -73,6 +74,7 @@ func tickPatternSpawns(w *World, dt float32) {
 		p.Acceleration = req.Acceleration
 		p.AngularVelocity = req.AngularVelocity
 		p.MaxSpeed = req.MaxSpeed
+		p.Radius = req.Radius
 		w.Projectiles = append(w.Projectiles, p)
 	}
 }
@@ -82,7 +84,7 @@ func checkProjectilePlayerHits(w *World, proj *entity.Projectile) bool {
 		if !p.Alive {
 			continue
 		}
-		if combat.CheckProjectileHit(proj.Position, p.Position, entity.ProjectileHitRadius+entity.PlayerHurtRadius) {
+		if combat.CheckProjectileHit(proj.Position, p.Position, proj.HitRadius()+entity.PlayerHurtRadius) {
 			applyProjectileHitToPlayer(w, proj, p)
 			return true
 		}

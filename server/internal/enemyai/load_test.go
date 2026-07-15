@@ -177,6 +177,69 @@ func TestLoadEncounters_GuardCaptain(t *testing.T) {
 	}
 }
 
+// TestLoadEncounters_AcerasGeneral verifies the second boss loads from YAML.
+func TestLoadEncounters_AcerasGeneral(t *testing.T) {
+	def := DefRegistry["aceras_general"]
+	if def == nil {
+		t.Fatal("aceras_general missing from DefRegistry")
+	}
+	if def.PreferredRange != 12.0 || def.BackpedalSpeed != 3.5 {
+		t.Errorf("kite band = (%f, %f), want (12, 3.5)", def.PreferredRange, def.BackpedalSpeed)
+	}
+	var summon *ability.AbilityDef
+	for i := range def.Abilities {
+		if def.Abilities[i].ID == "summon_stalkers" {
+			summon = &def.Abilities[i]
+		}
+	}
+	if summon == nil {
+		t.Fatal("aceras_general missing summon_stalkers ability")
+	}
+	if summon.Category != ability.CategorySpawn || summon.SpawnDefName != "aceras_stalker" {
+		t.Errorf("summon = category %d def %q, want CategorySpawn / aceras_stalker", summon.Category, summon.SpawnDefName)
+	}
+	if def.TreeData == nil {
+		t.Error("aceras_general.TreeData should be set")
+	}
+
+	stalker := DefRegistry["aceras_stalker"]
+	if stalker == nil {
+		t.Fatal("aceras_stalker missing from DefRegistry")
+	}
+	if stalker.MoveSpeed != 6.5 {
+		t.Errorf("stalker MoveSpeed = %f, want 6.5", stalker.MoveSpeed)
+	}
+	rake := stalker.Abilities[0]
+	if rake.Hit.ArcDegrees != 25 || rake.Hit.Range != 4.0 {
+		t.Errorf("talon_rake cone = %f° range %f, want 25° / 4.0", rake.Hit.ArcDegrees, rake.Hit.Range)
+	}
+	if rake.CommitTime != 0.35 || rake.Cooldown != 1.8 {
+		t.Errorf("talon_rake commit=%f cooldown=%f, want 0.35 / 1.8", rake.CommitTime, rake.Cooldown)
+	}
+}
+
+// TestSpawnDefNamesResolve guards against typos: every CategorySpawn ability
+// registered anywhere must reference a def that is itself registered (the
+// two-pass loader cannot validate this at parse time).
+func TestSpawnDefNamesResolve(t *testing.T) {
+	checked := 0
+	for defName, def := range DefRegistry {
+		for i := range def.Abilities {
+			a := &def.Abilities[i]
+			if a.Category != ability.CategorySpawn {
+				continue
+			}
+			checked++
+			if DefRegistry[a.SpawnDefName] == nil {
+				t.Errorf("%s.%s references unknown spawn def %q", defName, a.ID, a.SpawnDefName)
+			}
+		}
+	}
+	if checked == 0 {
+		t.Error("no CategorySpawn abilities found — expected at least summon_stalkers")
+	}
+}
+
 // TestBuildTreeFromData_Melee verifies a tree built from data ticks correctly.
 func TestBuildTreeFromData_Melee(t *testing.T) {
 	def := DefRegistry["hallway_melee"]

@@ -113,7 +113,8 @@ func TestWoundedPrey_BossRegensWhenNoDPS(t *testing.T) {
 	e := entity.NewEnemy(0, 2000.0, "guard_captain")
 	e.Alive = true
 	e.IsBoss = true
-	e.Health = 1000.0 // 50% HP
+	e.State = entity.EnemyChase // engaged (Wounded Prey only applies mid-fight)
+	e.Health = 1000.0           // 50% HP
 
 	oflx := overflux.NewState([]overflux.ActiveCondition{
 		{ID: overflux.CondWoundedPrey, Rank: 3},
@@ -136,11 +137,82 @@ func TestWoundedPrey_BossRegensWhenNoDPS(t *testing.T) {
 	}
 }
 
+// Wounded Prey punishes passive play, not the boss's own evasion: a kiting
+// boss that denies uptime by fleeing must not heal off the DPS gap it creates
+// itself (with the Aceras General actually kiting, rank 3 measured ~0%
+// instance wins because every chase window fed the regen).
+func TestWoundedPrey_NoRegenWhileBossRetreats(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassGunner)
+	p.Position = entity.Vec3{Z: 0}
+	e := entity.NewEnemy(0, 2000.0, "aceras_general")
+	e.Alive = true
+	e.IsBoss = true
+	e.State = entity.EnemyChase
+	e.Health = 1000.0
+	e.Position = entity.Vec3{Z: 10}
+	e.Velocity = entity.Vec3{Z: 3.5} // backpedaling away from the player
+
+	oflx := overflux.NewState([]overflux.ActiveCondition{
+		{ID: overflux.CondWoundedPrey, Rank: 3},
+	})
+
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e})
+	w.Boss = e
+	w.OverfluxState = oflx
+	sys := CombatSystem{}
+
+	hpBefore := e.Health
+	for range 40 {
+		w.DamageEvents = w.DamageEvents[:0]
+		sys.Tick(w, 0.05)
+	}
+
+	if e.Health > hpBefore {
+		t.Errorf("boss health = %f, want <= %f (no regen while fleeing the player)", e.Health, hpBefore)
+	}
+}
+
+// Killing the boss's own summons is following the encounter design, not
+// passivity: while stalkers are up (the "swap to the adds" window), the DPS
+// gap on the boss must not feed the regen.
+func TestWoundedPrey_NoRegenWhileOwnedAddsAlive(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassGunner)
+	e := entity.NewEnemy(1000, 2000.0, "aceras_general")
+	e.Alive = true
+	e.IsBoss = true
+	e.State = entity.EnemyChase
+	e.Health = 1000.0
+
+	add := entity.NewEnemy(1001, 100.0, "aceras_stalker")
+	add.Alive = true
+	add.SpawnedBy = e.ID
+
+	oflx := overflux.NewState([]overflux.ActiveCondition{
+		{ID: overflux.CondWoundedPrey, Rank: 3},
+	})
+
+	w := makeWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{e, add})
+	w.Boss = e
+	w.OverfluxState = oflx
+	sys := CombatSystem{}
+
+	hpBefore := e.Health
+	for range 40 {
+		w.DamageEvents = w.DamageEvents[:0]
+		sys.Tick(w, 0.05)
+	}
+
+	if e.Health > hpBefore {
+		t.Errorf("boss health = %f, want <= %f (no regen while its stalkers are up)", e.Health, hpBefore)
+	}
+}
+
 func TestWoundedPrey_BossDoesNotRegenUnderSustainedDPS(t *testing.T) {
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	e := entity.NewEnemy(0, 2000.0, "guard_captain")
 	e.Alive = true
 	e.IsBoss = true
+	e.State = entity.EnemyChase // engaged (Wounded Prey only applies mid-fight)
 	e.Health = 1000.0
 
 	oflx := overflux.NewState([]overflux.ActiveCondition{
@@ -892,30 +964,30 @@ func TestAllBladeDancerSpells(t *testing.T) {
 
 	abilities := []abilityExpect{
 		// From Orbit (config 0)
-		{0, "Shielded Sweep", 0, 1, 8, 8, 8, 0, 0, true, false, 0, 0, 0},
-		{1, "Guarded Thrust", 0, 2, 25, 0, 0, 0, 8, false, false, 0, 0, 0},
-		{2, "Protected Scatter", 0, 3, 5, 5, 5, 0, 0, true, true, 1.5, 11, 3},
-		{3, "Fortified Command", 0, 4, 5, 5, 5, 0, 0, true, false, 0, 0, 0},
+		{0, "Shielded Sweep", 0, 1, 15, 15, 15, 0, 0, true, false, 0, 0, 0},
+		{1, "Guarded Thrust", 0, 2, 51, 0, 0, 0, 8, false, false, 0, 0, 0},
+		{2, "Protected Scatter", 0, 3, 10, 10, 10, 0, 0, true, true, 2.25, 11, 3},
+		{3, "Fortified Command", 0, 4, 10, 10, 10, 0, 0, true, false, 0, 0, 0},
 		// From Fan (config 1)
-		{4, "Reaping Guard", 1, 0, 8, 0, 8, 0, 12, false, false, 0, 0, 0},
-		{5, "Cleaving Pierce", 1, 2, 30, 9, 0, 0, 0, false, false, 0, 0, 0}, // 9 = splash (30 * 0.3)
-		{6, "Slashing Spread", 1, 3, 8, 8, 8, 0, 0, false, true, 1.5, 9, 3},
-		{7, "Sweeping Hex", 1, 4, 10, 10, 10, 0, 0, false, false, 0, 0, 0},
+		{4, "Reaping Guard", 1, 0, 15, 0, 15, 0, 12, false, false, 0, 0, 0},
+		{5, "Cleaving Pierce", 1, 2, 59, 17.7, 0, 0, 0, false, false, 0, 0, 0}, // 17.7 = splash (59 * 0.3)
+		{6, "Slashing Spread", 1, 3, 15, 15, 15, 0, 0, false, true, 2.25, 9, 3},
+		{7, "Sweeping Hex", 1, 4, 18, 18, 18, 0, 0, false, false, 0, 0, 0},
 		// From Lance (config 2)
-		{8, "Piercing Barrier", 2, 0, 18, 0, 0, 0, 14.4, false, false, 0, 0, 0}, // 18 * 0.8 ShieldPerDamage
-		{9, "Focused Slash", 2, 1, 15, 15, 0, 0, 0, false, false, 0, 0, 0},
-		{10, "Targeted Spread", 2, 3, 12, 0, 0, 0, 0, false, true, 2.0, 14, 1},
-		{11, "Pinning Strike", 2, 4, 25, 0, 0, 0, 0, false, false, 0, 0, 0},
+		{8, "Piercing Barrier", 2, 0, 35, 0, 0, 0, 28, false, false, 0, 0, 0}, // 35 * 0.8 ShieldPerDamage, capped at 25
+		{9, "Focused Slash", 2, 1, 29, 29, 0, 0, 0, false, false, 0, 0, 0},
+		{10, "Targeted Spread", 2, 3, 24, 0, 0, 0, 0, false, true, 3.0, 14, 1},
+		{11, "Pinning Strike", 2, 4, 51, 0, 0, 0, 0, false, false, 0, 0, 0},
 		// From Scatter (config 3)
 		{12, "Dispersed Shield", 3, 0, 0, 0, 0, 0, 18, true, false, 0, 0, 0},
-		{13, "Rain of Blades", 3, 1, 15, 15, 15, 0, 0, false, true, 1.0, 9, 3},
-		{14, "Converging Strike", 3, 2, 32, 0, 0, 0, 0, false, true, 1.5, 9, 1},
-		{15, "Chaos Bind", 3, 4, 8, 8, 8, 0, 0, false, false, 0, 0, 0},
+		{13, "Rain of Blades", 3, 1, 26, 26, 26, 0, 0, false, true, 1.5, 9, 3},
+		{14, "Converging Strike", 3, 2, 64, 0, 0, 0, 0, false, true, 2.25, 9, 1},
+		{15, "Chaos Bind", 3, 4, 15, 15, 15, 0, 0, false, false, 0, 0, 0},
 		// From Crown (config 4)
 		{16, "Commanding Ward", 4, 0, 0, 0, 0, 0, 20, false, false, 0, 0, 0},
-		{17, "Royal Cleave", 4, 1, 12, 12, 12, 0, 0, false, false, 0, 0, 0},
-		{18, "Decree Strike", 4, 2, 28, 0, 0, 0, 0, false, false, 0, 0, 0},
-		{19, "Sovereign Scatter", 4, 3, 5, 5, 5, 0, 0, false, true, 1.5, 11, 3},
+		{17, "Royal Cleave", 4, 1, 22, 22, 22, 0, 0, false, false, 0, 0, 0},
+		{18, "Decree Strike", 4, 2, 55, 0, 0, 0, 0, false, false, 0, 0, 0},
+		{19, "Sovereign Scatter", 4, 3, 10, 10, 10, 0, 0, false, true, 2.25, 11, 3},
 	}
 
 	for _, sp := range abilities {
@@ -971,13 +1043,19 @@ func TestAllBladeDancerSpells(t *testing.T) {
 			sideDmg := hp - eSide.Health
 			farDmg := hp - eFar.Health
 
-			if frontDmg != sp.frontDmg {
+			// Tolerance: splash amounts (base * fraction) differ from the
+			// table literal by a float32 ulp.
+			closeTo := func(got, want float32) bool {
+				d := got - want
+				return d > -0.01 && d < 0.01
+			}
+			if !closeTo(frontDmg, sp.frontDmg) {
 				t.Errorf("eFront dmg = %.1f, want %.1f", frontDmg, sp.frontDmg)
 			}
-			if nearFrontDmg != sp.nearFrontDmg {
+			if !closeTo(nearFrontDmg, sp.nearFrontDmg) {
 				t.Errorf("eNearFront dmg = %.1f, want %.1f", nearFrontDmg, sp.nearFrontDmg)
 			}
-			if sideDmg != sp.sideDmg {
+			if !closeTo(sideDmg, sp.sideDmg) {
 				t.Errorf("eSide dmg = %.1f, want %.1f", sideDmg, sp.sideDmg)
 			}
 			if farDmg != sp.farDmg {

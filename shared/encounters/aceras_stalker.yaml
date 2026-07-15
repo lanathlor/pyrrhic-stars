@@ -1,0 +1,38 @@
+name: aceras_stalker
+tier: 1
+max_health: 120
+# Faster than every walk speed (4.0-6.5): walking away is not an answer.
+# Sprint (5.5-9.5) can kite one, and the dash below punishes that too.
+move_speed: 6.5
+radius: 0.7
+anti_repeat: 1.0
+
+abilities:
+  # Narrow elongated cone with a short commit and short cooldown: relentless
+  # pressure that is dodged sideways, not out-ranged. Damage stays chip-sized;
+  # the stalker's job is to force attention (and hold the General in melee),
+  # not to burst anyone down. max_hit_fraction guarded by the aceras specs.
+  - name: talon_rake
+    type: melee
+    target: nearest
+    telegraph_time: 0.35
+    execute_time: 0.15
+    cooldown_time: 1.8
+    base_weight: 100
+    max_range: 4.0
+    face_target: true
+    track_target: true
+    melee_range: 4.0
+    melee_cone_deg: 25
+    melee_damage: 16
+    damage_source: 7
+    telegraph_category: parryable
+
+tree:
+  reactive_selector:
+    - sequence: [is_dead, stop]
+    - sequence: ["!has_target", aggro_or_patrol]   # defensive: spawner pre-sets a target
+    - sequence: [is_committed, wait_ability]
+    - sequence: [target_in_melee_range, has_los, "ability_ready(talon_rake)", "commit(talon_rake)", wait_ability]
+    - sequence: ["target_beyond(6)", "dash(4)"]    # lunge to close on sprinting kiters
+    - chase

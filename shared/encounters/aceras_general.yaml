@@ -1,0 +1,284 @@
+name: aceras_general
+tier: 3
+max_health: 2400
+move_speed: 5.0
+radius: 1.0
+# Kite band: backpedals to hold ~12m while weaving bullet-hell patterns.
+# backpedal_speed sits below the slowest walk speed (4.0) so every class
+# gains ground on the fleeing boss; sprint closes fast but eats patterns.
+preferred_range: 12.0
+backpedal_speed: 3.5
+anti_repeat: 2.0
+
+abilities:
+  # Damage profile: evasive patterns are dense but per-projectile light — the
+  # chip pressure that makes chasing the boss cost something. The aggressive
+  # kit (saber/nova/close_barrage) carries the burst threat and only comes out
+  # while stalkers are engaged. Guarded by the aceras_general and
+  # aceras_general_duo fuzz specs.
+
+  # --- Evasive kit: fired while backpedaling (can_move_committed) ---
+  - name: spiral_lattice
+    type: ranged
+    target: current
+    telegraph_time: 0.9
+    execute_time: 0.1
+    cooldown_time: 10.0
+    base_weight: 40           # weighted evasive pool (commit_weighted branch)
+    min_range: 6.0
+    can_move_committed: true
+    track_target: true
+    projectile_origin_y: 1.2
+    damage_source: 2
+    pattern:
+      emitters:
+        # Dual counter-rotating spirals: readable lanes that drift closed.
+        - type: radial
+          count: 6
+          waves: 8
+          wave_interval: 0.25
+          offset_per_wave: 17
+          projectile:
+            speed: 6
+            damage: 5
+            lifetime: 4
+            angular_velocity: 20
+        - type: radial
+          count: 6
+          waves: 8
+          wave_interval: 0.25
+          offset_per_wave: -17
+          start_angle: 30
+          projectile:
+            speed: 6
+            damage: 5
+            lifetime: 4
+            angular_velocity: -20
+
+  - name: aimed_lattice
+    type: ranged
+    target: nearest
+    telegraph_time: 1.0
+    execute_time: 0.1
+    cooldown_time: 12.0
+    base_weight: 35           # weighted evasive pool
+    min_range: 5.0
+    can_move_committed: true
+    track_target: true
+    projectile_origin_y: 1.2
+    damage_source: 2
+    pattern:
+      emitters:
+        # Aimed fan straight at the chaser...
+        - type: cone
+          count: 5
+          waves: 3
+          wave_interval: 0.2
+          arc_angle: 35
+          aim_at_target: true
+          projectile:
+            speed: 11
+            damage: 6
+            lifetime: 3
+        # ...backed by a slow wall that punishes straight-line pursuit.
+        - type: line
+          count: 7
+          waves: 2
+          wave_interval: 0.35
+          line_width: 10
+          aim_at_target: true
+          projectile:
+            speed: 8
+            damage: 4
+            lifetime: 3
+
+  - name: gravity_well
+    type: ranged
+    target: current
+    telegraph_time: 1.2
+    execute_time: 0.1
+    cooldown_time: 16.0
+    base_weight: 25           # weighted evasive pool (also the no-LoS fallback)
+    can_move_committed: true
+    projectile_origin_y: 0.0
+    damage_source: 2
+    pattern:
+      emitters:
+        # Contracting ring traps players holding still to DPS...
+        - type: ring_contract
+          count: 16
+          waves: 2
+          wave_interval: 0.6
+          start_radius: 14
+          projectile:
+            speed: 4.5
+            damage: 7
+            lifetime: 3.5
+        # ...while an accelerating drift denies the "just back off" answer.
+        - type: radial
+          count: 8
+          waves: 2
+          wave_interval: 0.5
+          offset_per_wave: 22
+          projectile:
+            speed: 3
+            damage: 4
+            lifetime: 3
+            acceleration: 3
+            max_speed: 12
+
+  # --- Aggressive kit: adds alive + short linger window ---
+  - name: saber_sweep
+    type: melee
+    target: nearest
+    telegraph_time: 1.0
+    execute_time: 0.3
+    cooldown_time: 3.0
+    base_weight: 0
+    max_range: 3.0
+    face_target: true
+    melee_range: 3.0
+    melee_damage: 26
+    melee_cone_deg: 120
+    damage_source: 1
+
+  - name: point_blank_nova
+    type: aoe
+    target: nearest
+    telegraph_time: 1.3
+    execute_time: 0.1
+    cooldown_time: 10.0
+    base_weight: 0
+    face_target: false
+    aoe_radius: 5.5
+    aoe_damage: 55
+    damage_source: 3
+
+  - name: close_barrage
+    type: ranged
+    target: nearest
+    telegraph_time: 0.7
+    execute_time: 0.1
+    cooldown_time: 8.0
+    base_weight: 0
+    projectile_origin_y: 1.0
+    damage_source: 2
+    pattern:
+      emitters:
+        # Dense point-blank radial, accelerating outward: stand-and-DPS tax.
+        - type: radial
+          count: 20
+          waves: 3
+          wave_interval: 0.12
+          offset_per_wave: 6
+          projectile:
+            speed: 8
+            damage: 5
+            lifetime: 2
+            acceleration: 3
+            max_speed: 14
+
+  # --- Add wave: stalkers spawn behind each player ---
+  # Cadence tuned so a good group sees ~2 waves per kill: 8s engagement
+  # opener (engaged_for in the tree) + 30s cooldown against a 60-90s TTK.
+  - name: summon_stalkers
+    type: spawn
+    target: nearest
+    telegraph_time: 1.2
+    execute_time: 0.2
+    cooldown_time: 30.0
+    base_weight: 0
+    telegraph_category: unavoidable
+    spawn_def_name: aceras_stalker
+    spawn_count: 0            # one per alive player
+    spawn_cap: 3
+    spawn_distance: 4.0
+    damage_source: 3
+
+  # Anti-cheese: same pillar-camping punish as guard_captain, sized for the
+  # perimeter pillars in the Aceras room.
+  - name: pillar_overload
+    type: aoe_obstacles
+    target: nearest
+    telegraph_time: 1.0
+    execute_time: 0.2
+    cooldown_time: 2.0
+    base_weight: 0
+    face_target: false
+    aoe_radius: 2.0
+    aoe_damage: 140.0
+    damage_source: 6
+
+phases:
+  - hp_threshold_pct: 0.5
+    transition_time: 1.5
+    move_speed: 5.5
+    backpedal_speed: 3.8
+    cooldown_override: 0.5
+    ability_overrides:
+      spiral_lattice:
+        telegraph_time: 0.7
+        cooldown_time: 8.0
+      aimed_lattice:
+        telegraph_time: 0.8
+        cooldown_time: 9.0
+      close_barrage:
+        cooldown_time: 6.0
+      summon_stalkers:
+        cooldown_time: 26.0
+
+# Two modes, switched by stalker state (adds_engaged = any owned stalker
+# alive, or one died within the last 5s):
+#   Evasive (default): kite at preferred_range, weave patterns — the players'
+#     recovery/chip window.
+#   Aggressive: close to melee and brawl — the burst window players earn (or
+#     suffer) while stalkers are up. Keeping stalkers alive on purpose holds
+#     the boss in reach; killing them ends the danger.
+# Composite discipline: any branch whose tail action stays Running for a long
+# stretch (chase, chase_melee) must be reactive_sequence/reactive_selector, or
+# the cached running child skips the guards forever and the boss stops casting
+# (the "one spell per fight" bug). Plain sequences are fine for one-shot
+# commit chains: the is_committed branch above them re-takes control on the
+# next tick, which resets them.
+tree:
+  reactive_selector:
+    # --- Lifecycle guards ---
+    - sequence: [is_dead, stop]
+    - sequence: [phase_transitioning, wait_transition]
+    - sequence: ["!has_target", aggro_or_patrol]
+    - sequence: ["!in_leash_range", leash_reset]
+
+    # Committed: keep moving when the ability allows it — close in while
+    # aggressive, kite while evasive; otherwise hold for the ability.
+    - reactive_sequence:
+        - is_committed
+        - reactive_selector:
+            - reactive_sequence: [can_move, "adds_engaged(5)", chase_melee]
+            - reactive_sequence: [can_move, chase]
+            - wait_ability
+
+    # Anti-cheese: pillar camping gets the overload in any mode.
+    - sequence: [player_camping_pillar, "ability_ready(pillar_overload)", "commit(pillar_overload)", wait_ability]
+
+    # Add wave: after an 8s opener, whenever no owned stalkers live.
+    - sequence: ["engaged_for(8)", "!my_adds_alive", "ability_ready(summon_stalkers)", "commit(summon_stalkers)", wait_ability]
+
+    # === Aggressive mode: stalkers engaged ===
+    - reactive_sequence:
+        - "adds_engaged(5)"
+        - reactive_selector:
+            - sequence: [target_in_melee_range, has_los, "ability_ready(saber_sweep)", "commit(saber_sweep)", wait_ability]
+            - sequence: ["players_in_aoe(5.5)", "ability_ready(point_blank_nova)", "commit(point_blank_nova)", wait_ability]
+            - sequence: [has_los, "ability_ready(close_barrage)", "commit(close_barrage)", wait_ability]
+            - chase_melee
+
+    # === Evasive mode (default): kite and weave patterns. A chaser who
+    # reaches point-blank eats a saber swipe before the boss slips away.
+    # Patterns come from weighted selection (base_weight + anti_repeat +
+    # cooldown filtering) instead of a fixed priority order, so the rotation
+    # never settles into a predictable A-B-C cycle. ===
+    - reactive_selector:
+        - sequence: [target_in_melee_range, has_los, "ability_ready(saber_sweep)", "commit(saber_sweep)", wait_ability]
+        - sequence: [has_los, commit_weighted, wait_ability]
+        - sequence: ["ability_ready(gravity_well)", "commit(gravity_well)", wait_ability]
+        - chase

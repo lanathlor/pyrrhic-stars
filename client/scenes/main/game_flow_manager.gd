@@ -403,6 +403,8 @@ func on_game_flow_event(flow_type: int, _text: String) -> void:
 			start_fight(_text)
 		NetSerializer.FLOW_BOSS_DEAD:
 			on_boss_dead()
+		NetSerializer.FLOW_MID_BOSS_DEAD:
+			pass  # run continues; gate opening arrives via FLOW_GATE_OPEN
 		NetSerializer.FLOW_ALL_DEAD:
 			on_all_dead()
 		NetSerializer.FLOW_RETURN_LOBBY:

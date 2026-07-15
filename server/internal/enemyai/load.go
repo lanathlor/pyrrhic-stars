@@ -22,6 +22,7 @@ const (
 	TypeAoE          = "aoe"
 	TypeAoEObstacles = "aoe_obstacles"
 	TypeCharge       = "charge"
+	TypeSpawn        = "spawn"
 )
 
 // mobFile is the YAML schema for a Tier 1 mob definition.
@@ -101,6 +102,13 @@ type abilityFile struct {
 	ChargeHitRadius      float32 `yaml:"charge_hit_radius"`
 	ChargeStopOnWall     bool    `yaml:"charge_stop_on_wall"`
 	ChargeStopOnObstacle bool    `yaml:"charge_stop_on_obstacle"`
+
+	// Spawn (add summoning)
+	SpawnDefName   string  `yaml:"spawn_def_name"`
+	SpawnCount     int     `yaml:"spawn_count"`
+	SpawnCap       int     `yaml:"spawn_cap"`
+	SpawnPlacement string  `yaml:"spawn_placement"`
+	SpawnDistance  float32 `yaml:"spawn_distance"`
 
 	DamageSource uint8 `yaml:"damage_source"`
 
@@ -451,6 +459,16 @@ func applyAbilityCategory(ad *ability.AbilityDef, af abilityFile) error {
 			StopOnWall:     af.ChargeStopOnWall,
 			StopOnObstacle: af.ChargeStopOnObstacle,
 		}
+	case TypeSpawn:
+		if af.SpawnDefName == "" {
+			return fmt.Errorf("spawn ability %q: spawn_def_name is required", af.Name)
+		}
+		ad.Category = ability.CategorySpawn
+		ad.SpawnDefName = af.SpawnDefName
+		ad.SpawnCount = af.SpawnCount
+		ad.SpawnCap = af.SpawnCap
+		ad.SpawnPlacement = af.SpawnPlacement
+		ad.SpawnDistance = af.SpawnDistance
 	default:
 		return fmt.Errorf("unknown ability type %q", af.Type)
 	}

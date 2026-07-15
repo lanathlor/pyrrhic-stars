@@ -15,6 +15,7 @@ const (
 type ZoneState struct {
 	BossDefeated bool
 	DeadGroupIDs map[int]bool
+	DeadBossNums map[int]bool // BossNum → dead (mid-run checkpoints)
 }
 
 // EvalCondition checks a spawn condition tag against zone state.
@@ -32,6 +33,13 @@ func EvalCondition(cond string, state ZoneState) bool {
 		mid := cond[len("pack_") : len(cond)-len("_cleared")]
 		if _, err := fmt.Sscanf(mid, "%d", &n); err == nil {
 			return state.DeadGroupIDs[n]
+		}
+	}
+	// "boss_N_dead" pattern (checkpoint after a mid-run boss)
+	if strings.HasPrefix(cond, "boss_") && strings.HasSuffix(cond, "_dead") {
+		mid := cond[len("boss_") : len(cond)-len("_dead")]
+		if _, err := fmt.Sscanf(mid, "%d", &n); err == nil {
+			return state.DeadBossNums[n]
 		}
 	}
 	return false
@@ -52,6 +60,13 @@ func ConditionPriority(cond string) int {
 		return 0
 	case cond == CondBossDead:
 		return 100
+	case strings.HasPrefix(cond, "boss_") && strings.HasSuffix(cond, "_dead"):
+		var n int
+		mid := cond[len("boss_") : len(cond)-len("_dead")]
+		if _, err := fmt.Sscanf(mid, "%d", &n); err == nil {
+			return 50 + n // between pack checkpoints and the final boss_dead
+		}
+		return 0
 	default:
 		return 0
 	}

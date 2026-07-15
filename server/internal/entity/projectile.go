@@ -20,6 +20,16 @@ type Projectile struct {
 	Acceleration    float32 // speed change per second (neg = decelerate)
 	AngularVelocity float32 // radians/s rotation of flight direction
 	MaxSpeed        float32 // speed cap (0 = no cap)
+	Radius          float32 // hit radius override from the emitter (0 = ProjectileHitRadius)
+}
+
+// HitRadius returns the projectile's collision radius: the per-emitter
+// override when set, else the default.
+func (p *Projectile) HitRadius() float32 {
+	if p.Radius > 0 {
+		return p.Radius
+	}
+	return ProjectileHitRadius
 }
 
 // NewProjectile creates a projectile with linear motion.

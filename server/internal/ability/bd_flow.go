@@ -4,12 +4,20 @@ import "codex-online/server/internal/entity"
 
 // Flow tuning constants.
 const (
-	flowBaseWindow      float32 = 4.0  // seconds
-	flowExtendPerChain  float32 = 2.0  // seconds added per unique transition
-	flowMaxWindow       float32 = 12.0 // hard cap on window duration
-	flowBonusPerChain   float32 = 0.05 // 5% per chain step
-	flowEmpoweredThresh         = 3
-	flowMaximumThresh           = 6
+	flowBaseWindow     float32 = 4.0  // seconds
+	flowExtendPerChain float32 = 2.0  // seconds added per unique transition
+	flowMaxWindow      float32 = 12.0 // hard cap on window duration
+	// flowBonusPerChain rewards the unique-transition dance — the BD's skill
+	// mechanic, like Pressure for the gunner. 0.05 left multi_blade at 64%
+	// of the SHIELD TANK's single-target damage (see
+	// TestSingleTargetDPSOrdering); safety and utility justify a discount vs
+	// pure DPS specs, not tanking the meter.
+	flowBonusPerChain float32 = 0.10 // 10% per chain step
+)
+
+const (
+	flowEmpoweredThresh = 3
+	flowMaximumThresh   = 6
 )
 
 // FlowState tracks the Blade Dancer's Flow mastery chain.

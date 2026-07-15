@@ -49,7 +49,7 @@ abilities:
           arc_angle: 40
           projectile:
             speed: 12
-            damage: 3
+            damage: 7
             lifetime: 3
         - type: radial
           count: 12
@@ -58,7 +58,7 @@ abilities:
           offset_per_wave: 15
           projectile:
             speed: 6
-            damage: 2
+            damage: 5
             lifetime: 4
             angular_velocity: 22.92
 
@@ -82,7 +82,7 @@ abilities:
           start_radius: 12
           projectile:
             speed: 5
-            damage: 3
+            damage: 7
             lifetime: 3
         - type: cone
           count: 7
@@ -92,7 +92,7 @@ abilities:
           offset_per_wave: 8
           projectile:
             speed: 10
-            damage: 2
+            damage: 5
             lifetime: 2.5
 
   - name: ground_slam
@@ -193,6 +193,12 @@ phases:
         charge_max_distance: 18.0
         cooldown_time: 8.0
 
+# Composite discipline: any branch whose tail action stays Running for a long
+# stretch (chase) must be reactive_sequence/reactive_selector, or the cached
+# running child skips the guards forever and the boss stops casting (the
+# "one spell per fight" bug). Plain sequences are fine for one-shot commit
+# chains: the is_committed branch above them re-takes control on the next
+# tick, which resets them.
 tree:
   reactive_selector:
     # --- Lifecycle guards ---
@@ -200,16 +206,21 @@ tree:
     - sequence: [phase_transitioning, wait_transition]
     - sequence: ["!has_target", aggro_or_patrol]
     - sequence: ["!in_leash_range", leash_reset]
-    # Active ability in progress — don't interrupt
-    - sequence: [is_committed, wait_ability]
+    # Active ability in progress — don't interrupt. Keep closing distance
+    # during the post-ability recovery window instead of standing frozen.
+    - reactive_sequence:
+        - is_committed
+        - reactive_selector:
+            - reactive_sequence: [can_move, chase]
+            - wait_ability
     # Anti-cheese: a player has been hugging a pillar to kite. Overload the
     # pillars with a huge, near-unavoidable blast. Fires in any phase.
     - sequence: [player_camping_pillar, "ability_ready(pillar_overload)", "commit(pillar_overload)", wait_ability]
 
     # === Phase 3: Enraged — relentless, void_barrage always seeks clusters ===
-    - sequence:
+    - reactive_sequence:
         - phase_eq(3)
-        - selector:
+        - reactive_selector:
             - sequence: ["target_beyond(10)", has_los, "ability_ready(bull_charge)", "commit(bull_charge)", wait_ability]
             - sequence: ["ability_ready(ground_slam)", "commit(ground_slam)", wait_ability]
             - sequence: ["ability_ready(void_barrage)", set_target_clustered, "commit(void_barrage)", wait_ability]
@@ -218,9 +229,9 @@ tree:
             - chase
 
     # === Phase 2: Aggressive — void_barrage prefers clusters, falls back nearest ===
-    - sequence:
+    - reactive_sequence:
         - phase_eq(2)
-        - selector:
+        - reactive_selector:
             - sequence: ["target_beyond(8)", has_los, "ability_ready(bull_charge)", "commit(bull_charge)", wait_ability]
             - sequence: ["ability_ready(ground_slam)", "commit(ground_slam)", wait_ability]
             - sequence: ["n_players_clustered(2)", "ability_ready(void_barrage)", set_target_clustered, "commit(void_barrage)", wait_ability]
@@ -229,11 +240,14 @@ tree:
             - sequence: [target_in_melee_range, has_los, "ability_ready(melee_swipe)", "commit(melee_swipe)", wait_ability]
             - chase
 
-    # === Phase 1: Methodical — melee focused, void_barrage only on clusters ===
-    - selector:
+    # === Phase 1: Methodical — melee focused, void_barrage only on clusters.
+    # bull_charge gates at 6m (not 10) so a kiter hovering just outside melee
+    # still eats the gap-closer: the boss walks slower than a running player,
+    # so without it phase 1 has zero pressure on anyone who keeps moving. ===
+    - reactive_selector:
         - sequence: [target_in_melee_range, has_los, "ability_ready(melee_swipe)", "commit(melee_swipe)", wait_ability]
         - sequence: ["players_in_aoe(5)", "ability_ready(ground_slam)", "commit(ground_slam)", wait_ability]
         - sequence: ["n_players_clustered(2)", "ability_ready(void_barrage)", set_target_clustered, "commit(void_barrage)", wait_ability]
-        - sequence: ["target_beyond(10)", has_los, "ability_ready(bull_charge)", "commit(bull_charge)", wait_ability]
+        - sequence: ["target_beyond(6)", has_los, "ability_ready(bull_charge)", "commit(bull_charge)", wait_ability]
         - sequence: ["target_beyond(3)", has_los, "ability_ready(fireball_burst)", "commit(fireball_burst)", wait_ability]
         - chase

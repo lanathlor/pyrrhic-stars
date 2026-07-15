@@ -87,6 +87,26 @@ func TestPushOutOfObstacles(t *testing.T) {
 			wantX:     1,
 			wantZ:     1,
 		},
+		{
+			// Standing ON a thin terrain slab (e.g. the hub's GrassTop,
+			// 0.08 thick with its top just below foot level) is not being
+			// inside it — no ejection to the slab's edge.
+			name:      "standing on thin slab - no push",
+			pos:       entity.Vec3{X: 0, Y: 0.21, Z: 5},
+			obstacles: []Obstacle{{CX: 0, CZ: 21, HX: 125, HZ: 136, BaseY: -0.2, Height: 0.08}},
+			radius:    0,
+			wantX:     0,
+			wantZ:     5,
+		},
+		{
+			// Feet below the obstacle's top: genuinely inside, still pushed.
+			name:      "inside low cover - pushed",
+			pos:       entity.Vec3{X: 0.8, Y: 0.1, Z: 0},
+			obstacles: []Obstacle{{CX: 0, CZ: 0, HX: 1.0, HZ: 1.0, BaseY: 0, Height: 1.2}},
+			radius:    0.5,
+			wantX:     1.5,
+			wantZ:     0,
+		},
 	}
 
 	for _, tt := range tests {

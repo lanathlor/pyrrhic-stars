@@ -23,10 +23,11 @@ const (
 
 // PuppetConfig defines a single player in a simulation party.
 type PuppetConfig struct {
-	Class   string
-	Spec    string // spec ID (empty = class default)
-	Profile BotProfile
-	Loadout []string // optional: ability IDs for loadout slots (overrides spec default)
+	Class    string
+	Spec     string // spec ID (empty = class default)
+	Profile  BotProfile
+	Loadout  []string // optional: ability IDs for loadout slots (overrides spec default)
+	GearILvl int      // starter-set item level (0 = item.StarterILvl, matching a fresh character)
 }
 
 // SimConfig configures a single simulation run.
@@ -101,6 +102,7 @@ type simState struct {
 	specHealing    map[string]float32
 	abilStats      map[string]*AbilityResult
 	sourceTypeAbil map[uint8]string // enemy SourceType → ability name (pack attribution)
+	addSourceAbil  map[uint8]string // SourceType → ability name for summoned-add defs
 	isPack         bool
 }
 
@@ -161,6 +163,9 @@ func initPuppets(cfg SimConfig) ([]*PlayerPuppet, map[uint16]*entity.Player, map
 	for i, pc := range cfg.Party {
 		pp := NewPuppet(uint16(i+1), pc.Class, pc.Spec, pc.Profile, cfg.Seed+uint64(i)*100, cfg.Boss, cfg.PuppetTrees)
 		pp.Player.SpawnTick = 0 // no spawn grace period
+		if pc.GearILvl > 0 {
+			pp.ApplyGear(pc.GearILvl)
+		}
 
 		// Apply custom loadout if specified (overrides spec default).
 		if len(pc.Loadout) > 0 {
@@ -213,6 +218,7 @@ func setupSimulation(cfg SimConfig) simState {
 	scaleAndEngage(insts, hpMult)
 
 	w := buildWorld(cfg, engine, lvl, insts, playerMap, dmgMult, rng)
+	w.EnemyHPMult = hpMult // summoned adds inherit the group scaling
 
 	sessionKey := -1
 	if isPack {
@@ -241,8 +247,28 @@ func setupSimulation(cfg SimConfig) simState {
 		specHealing:    make(map[string]float32),
 		abilStats:      make(map[string]*AbilityResult),
 		sourceTypeAbil: sourceTypeAbilities(defsOf(insts)),
+		addSourceAbil:  sourceTypeAbilities(spawnedDefsOf(defsOf(insts))),
 		isPack:         isPack,
 	}
+}
+
+// spawnedDefsOf resolves the defs referenced by CategorySpawn abilities
+// (summoned adds), so their damage can be attributed to the add's own
+// abilities instead of the summoner's active ability.
+func spawnedDefsOf(defs []*enemyai.EnemyDef) []*enemyai.EnemyDef {
+	var out []*enemyai.EnemyDef
+	for _, def := range defs {
+		for i := range def.Abilities {
+			a := &def.Abilities[i]
+			if a.Category != ability.CategorySpawn {
+				continue
+			}
+			if sd := enemyai.DefRegistry[a.SpawnDefName]; sd != nil {
+				out = append(out, sd)
+			}
+		}
+	}
+	return out
 }
 
 // reinstrumentForOverflux applies overflux variants to every brain and
@@ -430,7 +456,9 @@ func runTickLoop(st *simState, maxTicks int) (combatlog.Outcome, int) {
 			sys.Tick(&st.world, defaultDt)
 		}
 
-		collectTickStats(&st.world, st.enemies, st.sourceTypeAbil, st.isPack, st.specDmg, st.specHealing, st.abilStats)
+		adoptSpawnedEnemies(st)
+
+		collectTickStats(&st.world, st.enemies, st.sourceTypeAbil, st.addSourceAbil, st.isPack, st.specDmg, st.specHealing, st.abilStats)
 
 		replayBuf = replayBuf[:0]
 		replayBuf = codec.AppendEncodeWorldState(replayBuf, st.world.TickNum, st.world.Players, st.world.Enemies, st.world.Projectiles, nil)
@@ -442,6 +470,13 @@ func runTickLoop(st *simState, maxTicks int) (combatlog.Outcome, int) {
 		}
 	}
 	return outcome, tick
+}
+
+// adoptSpawnedEnemies wraps enemies spawned mid-fight (summoned adds) into
+// enemyInst entries so puppets target them, termination counts them, and
+// their behavior trees are instrumented for tree-health reporting.
+func adoptSpawnedEnemies(st *simState) {
+	st.enemies = adoptSpawnedInsts(&st.world, st.enemies)
 }
 
 // checkTermination tests whether the fight has ended. It returns true along with
@@ -533,6 +568,7 @@ func collectTickStats(
 	w *system.World,
 	insts []enemyInst,
 	sourceTypeAbil map[uint8]string,
+	addSourceAbil map[uint8]string,
 	isPack bool,
 	specDmg map[string]float32,
 	specHealing map[string]float32,
@@ -552,7 +588,7 @@ func collectTickStats(
 		case ev.SourcePeerID == 0 && ev.TargetPeerID != 0:
 			// Enemy → player damage. Events carry no per-enemy id, so attribute
 			// by SourceType for packs, or the boss's active ability for a boss.
-			abilName := enemyAbilityName(insts, sourceTypeAbil, isPack, ev.SourceType)
+			abilName := enemyAbilityName(insts, sourceTypeAbil, addSourceAbil, isPack, ev.SourceType)
 			if abilName == "" {
 				continue
 			}
@@ -581,10 +617,15 @@ func recordEnemyHit(ar *AbilityResult, target *entity.Player, amount float32) {
 }
 
 // enemyAbilityName resolves the ability name to credit an enemy→player damage
-// event to. Packs attribute by SourceType; a boss uses its current active ability.
-func enemyAbilityName(insts []enemyInst, sourceTypeAbil map[uint8]string, isPack bool, sourceType uint8) string { //nolint:revive // flag-parameter: pack attributes by source type, boss by active ability
+// event to. Packs attribute by SourceType; a boss uses its current active
+// ability, except for source types unique to its summoned adds (which would
+// otherwise be miscredited to the boss and dodge their own guardrails).
+func enemyAbilityName(insts []enemyInst, sourceTypeAbil, addSourceAbil map[uint8]string, isPack bool, sourceType uint8) string { //nolint:revive // flag-parameter: pack attributes by source type, boss by active ability
 	if isPack {
 		return sourceTypeAbil[sourceType]
+	}
+	if name, ok := addSourceAbil[sourceType]; ok {
+		return name
 	}
 	primary := insts[0]
 	if abil := primary.def.AbilityByIndex(primary.enemy.ActiveAbility); abil != nil {

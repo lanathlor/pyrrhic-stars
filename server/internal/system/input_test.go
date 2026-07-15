@@ -908,11 +908,97 @@ func TestHandleRespawnRequest_ArenaRespawn(t *testing.T) {
 				if p.Health != p.MaxHealth {
 					t.Errorf("health = %f, want %f", p.Health, p.MaxHealth)
 				}
-				if p.Position.Z != 48 {
-					t.Errorf("position Z = %f, want 48 (warmup)", p.Position.Z)
+				if p.Position.Z != 54 {
+					t.Errorf("position Z = %f, want 54 (lobby)", p.Position.Z)
 				}
 			}
 		})
+	}
+}
+
+func TestHandleRespawnRequest_SealedRoomsBlockRespawn(t *testing.T) {
+	tests := []struct {
+		name      string
+		closed    []string
+		wantAlive bool
+	}{
+		// The decline gate is a progression lock (no close_on), not a combat
+		// seal — it must never block respawn even though it starts closed.
+		{"decline gate closed does not block", []string{"decline_gate"}, true},
+		{"aceras gate closed blocks respawn", []string{"aceras_gate", "decline_gate"}, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			p := entity.NewPlayer(1, entity.ClassGunner)
+			p.Alive = false
+			p.Health = 0
+
+			w := &World{
+				ZoneType: 1,
+				TickNum:  100,
+				Players:  map[uint16]*entity.Player{1: p},
+				Level:    testArenaLevel(t),
+			}
+			w.InitGateStates()
+			for gid := range w.GateStates {
+				w.GateStates[gid] = false
+			}
+			for _, gid := range tc.closed {
+				w.GateStates[gid] = true
+			}
+			w.RebuildObstacles()
+
+			payload := codec.EncodeRespawnRequest(0)
+			w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpRespawnRequest, Payload: payload}}
+
+			is := &InputSystem{}
+			is.Tick(w, 0.05)
+
+			if p.Alive != tc.wantAlive {
+				t.Errorf("alive = %v, want %v", p.Alive, tc.wantAlive)
+			}
+		})
+	}
+}
+
+func TestHandleRespawnRequest_ChecksBossCheckpoint(t *testing.T) {
+	p := entity.NewPlayer(1, entity.ClassGunner)
+	p.Alive = false
+	p.Health = 0
+
+	// Boss 1 is dead: respawn must land at the boss-1 checkpoint, not the lobby.
+	boss1 := entity.NewEnemy(1000, 2000, "guard_captain")
+	boss1.IsBoss = true
+	boss1.BossNum = 1
+	boss1.Alive = false
+	boss1.State = entity.EnemyDead
+	boss2 := entity.NewEnemy(1001, 2400, "aceras_general")
+	boss2.IsBoss = true
+	boss2.BossNum = 2
+
+	w := &World{
+		ZoneType: 1,
+		TickNum:  100,
+		Players:  map[uint16]*entity.Player{1: p},
+		Enemies:  []*entity.Enemy{boss1, boss2},
+		Level:    testArenaLevel(t),
+	}
+	w.InitGateStates()
+	for gid := range w.GateStates {
+		w.GateStates[gid] = false
+	}
+
+	payload := codec.EncodeRespawnRequest(0)
+	w.InputQueue = []InputMsg{{PeerID: 1, Opcode: message.OpRespawnRequest, Payload: payload}}
+
+	is := &InputSystem{}
+	is.Tick(w, 0.05)
+
+	if !p.Alive {
+		t.Fatal("respawn should succeed with all gates open")
+	}
+	if p.Position.Z != 8 {
+		t.Errorf("position Z = %f, want 8 (boss-1 checkpoint)", p.Position.Z)
 	}
 }
 

@@ -27,6 +27,14 @@ type EntityContext struct {
 	CommitPatternFn func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3)
 	Events          *[]combat.DamageEvent
 
+	// SpawnAddFn summons a new enemy into the zone (CategorySpawn abilities).
+	// Set externally per tick like Bus; nil in isolated unit tests.
+	SpawnAddFn func(defName string, pos entity.Vec3, ownerID uint16) bool
+
+	// Allies is the zone's full enemy slice (this enemy included). Set
+	// externally per tick; used by add-awareness conditions. Nil-safe.
+	Allies []*entity.Enemy
+
 	// Runner owns the ability commit→execute→cooldown lifecycle.
 	Runner *AbilityRunner
 
@@ -147,6 +155,11 @@ func (ctx *EntityContext) SelectAbility(distance float32) *ability.AbilityDef {
 			continue
 		}
 		if a.MaxRange > 0 && distance > a.MaxRange {
+			continue
+		}
+		// Runner.Start does not re-check cooldowns; filtering here is what
+		// makes cooldown_time real for weighted selection.
+		if cd, ok := ctx.Runner.AbilityCDs[i]; ok && cd > 0 {
 			continue
 		}
 
@@ -307,6 +320,78 @@ func (ctx *EntityContext) aimDirections(resolved ability.AbilityDef, origin enti
 	return []entity.Vec3{ctx.Enemy.RangedTargetPos.Sub(origin).Normalized()}
 }
 
+// SpawnAdds summons add enemies for a CategorySpawn ability. Placement
+// defaults to "behind_players": one add behind each of the N nearest alive
+// players, on the far side from this enemy.
+func (ctx *EntityContext) SpawnAdds(resolved ability.AbilityDef) {
+	if ctx.SpawnAddFn == nil {
+		return
+	}
+	for _, pos := range ctx.spawnPositions(resolved) {
+		ctx.SpawnAddFn(resolved.SpawnDefName, pos, ctx.Enemy.ID)
+	}
+}
+
+// spawnPositions computes clamped, obstacle-free spawn points for an add wave.
+func (ctx *EntityContext) spawnPositions(resolved ability.AbilityDef) []entity.Vec3 {
+	count := resolved.SpawnCount
+	if count <= 0 {
+		count = ctx.AlivePlayerCount()
+	}
+	maxCount := resolved.SpawnCap
+	if maxCount <= 0 {
+		maxCount = 3
+	}
+	if count > maxCount {
+		count = maxCount
+	}
+	if count <= 0 {
+		return nil
+	}
+
+	dist := resolved.SpawnDistance
+	if dist <= 0 {
+		dist = 4.0
+	}
+	addRadius := float32(0.8)
+	if def := DefRegistry[resolved.SpawnDefName]; def != nil && def.Radius > 0 {
+		addRadius = def.Radius
+	}
+
+	boss := ctx.Enemy.Position
+	positions := make([]entity.Vec3, 0, count)
+
+	if resolved.SpawnPlacement == "at_self" {
+		for range count {
+			pos := boss
+			ctx.clampSpawnPos(&pos, addRadius)
+			positions = append(positions, pos)
+		}
+		return positions
+	}
+
+	// "behind_players" (default): behind each player relative to this enemy.
+	for _, p := range NNearestAlivePlayers(boss, ctx.Players, count) {
+		dir := p.Position.Sub(boss).Flat()
+		if dir.Length() < 0.1 {
+			dir = entity.Vec3{Z: -1}
+		} else {
+			dir = dir.Normalized()
+		}
+		pos := p.Position.Add(dir.Scale(dist))
+		ctx.clampSpawnPos(&pos, addRadius)
+		positions = append(positions, pos)
+	}
+	return positions
+}
+
+// clampSpawnPos keeps a spawn point inside the zone bounds and outside obstacles.
+func (ctx *EntityContext) clampSpawnPos(pos *entity.Vec3, radius float32) {
+	pos.X = entity.Clamp(pos.X, ctx.BoundsMinX+radius, ctx.BoundsMaxX-radius)
+	pos.Z = entity.Clamp(pos.Z, ctx.BoundsMinZ+radius, ctx.BoundsMaxZ-radius)
+	combat.PushOutOfObstacles(pos, ctx.Obs, radius)
+}
+
 // EnterCooldown sets the enemy into cooldown state using the GCD.
 func (ctx *EntityContext) EnterCooldown() {
 	e := ctx.Enemy
@@ -366,6 +451,89 @@ func (ctx *EntityContext) FaceToward(target entity.Vec3) {
 	if dir.Length() > 0.1 {
 		ctx.Enemy.RotationY = float32(math.Atan2(float64(-dir.X), float64(-dir.Z)))
 	}
+}
+
+// bbRetreatSide remembers which way (rotation sign) a pinned kiter is
+// escaping, so it commits to one side instead of flip-flopping between the
+// mirror-image slide directions each tick.
+const bbRetreatSide = "retreat_side"
+
+// RetreatDirection picks a backpedal direction that will not pin the enemy
+// against a wall or obstacle. Straight away from the target is preferred;
+// when the probe ahead is blocked, rotated candidates are tried and the clear
+// one ending farthest from the target wins, so a cornered kiter slides along
+// the wall instead of driving into it.
+
+func (ctx *EntityContext) RetreatDirection(away, targetPos entity.Vec3) entity.Vec3 {
+	const probeDist = 1.2
+	pos := ctx.Enemy.Position
+	if sim, ok := ctx.retreatProbe(away, probeDist); ok &&
+		sim.Sub(pos).Flat().Length() >= probeDist*0.95 {
+		ctx.BB.Delete(bbRetreatSide)
+		return away
+	}
+	// Straight back is pinned. Escaping a corner may require temporarily
+	// closing on the target, so feasibility gates first: prefer candidates
+	// whose clamped step actually moves the full probe (a clean slide along
+	// the wall) over half-clamped diagonals, then rank by distance kept from
+	// the target. A committed side wins ties so the escape doesn't oscillate.
+	quarter := float32(math.Pi / 4)
+	angles := [6]float32{quarter, -quarter, 2 * quarter, -2 * quarter, 3 * quarter, -3 * quarter}
+	lockedSide := ctx.BB.GetFloat32(bbRetreatSide)
+	best := away
+	bestMoved := float32(-1)
+	bestDistSq := float32(-1)
+	bestSide := float32(0)
+	for _, a := range angles {
+		cand := combat.RotateVecY(away, a)
+		sim, ok := ctx.retreatProbe(cand, probeDist)
+		if !ok {
+			continue
+		}
+		moved := sim.Sub(pos).Flat().Length()
+		if moved < probeDist*0.6 {
+			continue
+		}
+		side := float32(1)
+		if a < 0 {
+			side = -1
+		}
+		distSq := sim.DistanceToSq(targetPos)
+		// Side lock acts as a strong bonus, not a hard filter, so a fully
+		// blocked side still falls back to the other one.
+		score := moved
+		if lockedSide != 0 && side == lockedSide {
+			score += probeDist
+		}
+		bestScore := bestMoved
+		if lockedSide != 0 && bestSide == lockedSide {
+			bestScore += probeDist
+		}
+		if score > bestScore+0.01 || (score > bestScore-0.01 && distSq > bestDistSq) {
+			bestMoved = moved
+			bestDistSq = distSq
+			bestSide = side
+			best = cand
+		}
+	}
+	if bestMoved > 0 {
+		ctx.BB.Set(bbRetreatSide, bestSide)
+	}
+	// All candidates pinned: fully boxed in, the position clamp holds us.
+	return best
+}
+
+// retreatProbe simulates one movement step clamped to the zone bounds.
+// Returns the post-clamp position, and false when it lands inside an obstacle.
+func (ctx *EntityContext) retreatProbe(dir entity.Vec3, dist float32) (entity.Vec3, bool) {
+	r := ctx.Def.Radius
+	probe := ctx.Enemy.Position.Add(dir.Scale(dist))
+	probe.X = entity.Clamp(probe.X, ctx.BoundsMinX+r, ctx.BoundsMaxX-r)
+	probe.Z = entity.Clamp(probe.Z, ctx.BoundsMinZ+r, ctx.BoundsMaxZ-r)
+	if combat.IsAtObstacle(probe, ctx.Obs, r) {
+		return probe, false
+	}
+	return probe, true
 }
 
 // AvoidObstacles steers a direction around obstacles between from and to.

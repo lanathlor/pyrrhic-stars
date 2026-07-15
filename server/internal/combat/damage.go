@@ -14,13 +14,14 @@ type DamageEvent struct {
 
 // Source type constants.
 const (
-	SourcePlayerAttack uint8 = 0
-	SourceEnemyMelee   uint8 = 1
-	SourceEnemyRanged  uint8 = 2
-	SourceEnemyAoE     uint8 = 3
-	SourceEnemyCharge  uint8 = 4
-	SourcePlayerHeal   uint8 = 5
-	SourceEnemyPillar  uint8 = 6 // pillar_overload; excluded from the boss damage drought
+	SourcePlayerAttack  uint8 = 0
+	SourceEnemyMelee    uint8 = 1
+	SourceEnemyRanged   uint8 = 2
+	SourceEnemyAoE      uint8 = 3
+	SourceEnemyCharge   uint8 = 4
+	SourcePlayerHeal    uint8 = 5
+	SourceEnemyPillar   uint8 = 6 // pillar_overload; excluded from the boss damage drought
+	SourceEnemyAddMelee uint8 = 7 // summoned-add melee (e.g. aceras_stalker talon_rake)
 )
 
 // AoEShapeType identifies the geometry of an AoE check.

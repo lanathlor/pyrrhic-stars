@@ -24,27 +24,30 @@ func (r *telegraphReader) desc() TelegraphDesc {
 	t := TelegraphDesc{ID: r.u32(), Shape: r.u8(), Category: r.u8(), StartTick: r.u32(), ExecuteTick: r.u32()}
 	switch t.Shape {
 	case TelegraphShapeCircle:
-		t.CX, t.CZ, t.Radius = r.f32(), r.f32(), r.f32()
+		t.CX, t.CY, t.CZ, t.Radius = r.f32(), r.f32(), r.f32(), r.f32()
 	case TelegraphShapeCone:
-		t.CX, t.CZ, t.Facing, t.HalfAngle, t.Range = r.f32(), r.f32(), r.f32(), r.f32(), r.f32()
+		t.CX, t.CY, t.CZ, t.Facing, t.HalfAngle, t.Range = r.f32(), r.f32(), r.f32(), r.f32(), r.f32(), r.f32()
 	case TelegraphShapeLine:
-		t.CX, t.CZ, t.DirX, t.DirZ, t.Length, t.Width = r.f32(), r.f32(), r.f32(), r.f32(), r.f32(), r.f32()
+		t.CX, t.CY, t.CZ, t.DirX, t.DirZ, t.Length, t.Width = r.f32(), r.f32(), r.f32(), r.f32(), r.f32(), r.f32(), r.f32()
 	case TelegraphShapeMulti:
 		t.Radius = r.f32()
 		n := int(r.u8())
 		for range n {
-			t.Centers = append(t.Centers, [2]float32{r.f32(), r.f32()})
+			t.Centers = append(t.Centers, [3]float32{r.f32(), r.f32(), r.f32()})
 		}
 	}
 	return t
 }
 
 func TestAppendTelegraphs_RoundTrip(t *testing.T) {
+	// Non-zero CY values everywhere: the arena is multi-level and the floor Y
+	// must round-trip (regression for telegraphs floating at y=0 in the
+	// descended Aceras General room).
 	in := []TelegraphDesc{
-		{ID: 1000, Shape: TelegraphShapeCircle, Category: TelegraphCatUnavoidable, StartTick: 10, ExecuteTick: 30, CX: 1.5, CZ: -2.5, Radius: 6.5},
-		{ID: 1001, Shape: TelegraphShapeCone, Category: TelegraphCatParryable, StartTick: 5, ExecuteTick: 25, CX: 0, CZ: 0, Facing: 1.2, HalfAngle: 1.57, Range: 3},
-		{ID: 1002, Shape: TelegraphShapeLine, Category: TelegraphCatUnavoidable, StartTick: 0, ExecuteTick: 20, CX: 2, CZ: 2, DirX: 1, DirZ: 0, Length: 15, Width: 4},
-		{ID: 1003, Shape: TelegraphShapeMulti, Category: TelegraphCatUnavoidable, StartTick: 7, ExecuteTick: 27, Radius: 9, Centers: [][2]float32{{-8, -6}, {8, -6}, {0, 10}}},
+		{ID: 1000, Shape: TelegraphShapeCircle, Category: TelegraphCatUnavoidable, StartTick: 10, ExecuteTick: 30, CX: 1.5, CY: -3.9, CZ: -2.5, Radius: 6.5},
+		{ID: 1001, Shape: TelegraphShapeCone, Category: TelegraphCatParryable, StartTick: 5, ExecuteTick: 25, CX: 0, CY: 0.1, CZ: 0, Facing: 1.2, HalfAngle: 1.57, Range: 3},
+		{ID: 1002, Shape: TelegraphShapeLine, Category: TelegraphCatUnavoidable, StartTick: 0, ExecuteTick: 20, CX: 2, CY: -1.7, CZ: 2, DirX: 1, DirZ: 0, Length: 15, Width: 4},
+		{ID: 1003, Shape: TelegraphShapeMulti, Category: TelegraphCatUnavoidable, StartTick: 7, ExecuteTick: 27, Radius: 9, Centers: [][3]float32{{-8, -4, -6}, {8, -4, -6}, {0, 0, 10}}},
 	}
 
 	buf := AppendTelegraphs(nil, in)
@@ -60,6 +63,9 @@ func TestAppendTelegraphs_RoundTrip(t *testing.T) {
 		if got.ID != want.ID || got.Shape != want.Shape || got.Category != want.Category ||
 			got.StartTick != want.StartTick || got.ExecuteTick != want.ExecuteTick {
 			t.Errorf("telegraph %d header mismatch: got %+v want %+v", i, got, want)
+		}
+		if got.CY != want.CY {
+			t.Errorf("telegraph %d floor Y = %v, want %v", i, got.CY, want.CY)
 		}
 		switch want.Shape {
 		case TelegraphShapeCircle:

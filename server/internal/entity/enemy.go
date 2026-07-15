@@ -75,6 +75,10 @@ type Enemy struct {
 	DefName       string  // name of the EnemyDef, for client-side identification
 	GroupID       int     // mobs with the same GroupID aggro together (0 = no group)
 	BaseMaxHealth float32 // original MaxHealth before instance scaling (set at spawn)
+	AggroMaxZ     float32 // players at Z >= this never trigger aggro (0 = disabled)
+	BossNum       int     // encounter order (0 on non-bosses; legacy bosses default to 1)
+	BossGateID    string  // gate this boss controls (legacy bosses default to "boss_gate")
+	SpawnedBy     uint16  // enemy ID of the summoner (0 = level-spawned)
 }
 
 // NewEnemy creates a fresh enemy with the given max health.

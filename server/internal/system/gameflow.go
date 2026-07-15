@@ -98,48 +98,131 @@ func checkLobbyReady(w *World) {
 	}
 }
 
-// checkBossState detects boss aggro/reset and emits boss flow events.
+// bossNumOf returns the encounter number for a boss, defaulting legacy
+// single-boss data (BossNum unset) to 1.
+func bossNumOf(e *entity.Enemy) int {
+	if e.BossNum > 0 {
+		return e.BossNum
+	}
+	return 1
+}
+
+// defaultBossGateID is the gate assumed for legacy single-boss level data
+// that predates per-boss gate IDs.
+const defaultBossGateID = "boss_gate"
+
+// bossGateIDOf returns the gate a boss controls, defaulting legacy data
+// to defaultBossGateID.
+func bossGateIDOf(e *entity.Enemy) string {
+	if e.BossGateID != "" {
+		return e.BossGateID
+	}
+	return defaultBossGateID
+}
+
+// bossEventName builds the boss-scoped gate trigger name, e.g. "boss1_dead".
+func bossEventName(num int, suffix string) string {
+	return "boss" + strconv.Itoa(num) + "_" + suffix
+}
+
+// finalBossNum returns the highest BossNum among all bosses (the boss whose
+// death ends the run), or 0 if the zone has no boss.
+func finalBossNum(w *World) int {
+	final := 0
+	for _, e := range w.Enemies {
+		if e != nil && e.IsBoss {
+			if n := bossNumOf(e); n > final {
+				final = n
+			}
+		}
+	}
+	return final
+}
+
+// bossByGate returns the boss controlling the given gate, or nil.
+func bossByGate(w *World, gateID string) *entity.Enemy {
+	for _, e := range w.Enemies {
+		if e != nil && e.IsBoss && bossGateIDOf(e) == gateID {
+			return e
+		}
+	}
+	return nil
+}
+
+// ActiveBoss returns the boss currently engaged in combat (alive and out of
+// patrol/idle), or nil if no boss fight is running.
+func ActiveBoss(w *World) *entity.Enemy {
+	for _, e := range w.Enemies {
+		if e != nil && e.IsBoss && e.Alive &&
+			e.State != entity.EnemyPatrol && e.State != entity.EnemyIdle {
+			return e
+		}
+	}
+	return nil
+}
+
+// checkBossState detects boss aggro/reset per boss and emits boss flow events.
 // Gate state changes are handled by processGateEvents which reacts to these events.
 func checkBossState(w *World) {
-	boss := findBoss(w)
-	if boss == nil || !boss.Alive {
-		return
+	for _, e := range w.Enemies {
+		if e == nil || !e.IsBoss || !e.Alive {
+			continue
+		}
+		checkOneBossState(w, e)
 	}
+}
+
+func checkOneBossState(w *World, boss *entity.Enemy) {
+	num := bossNumOf(boss)
+	gateID := bossGateIDOf(boss)
 
 	bossInCombat := boss.State != entity.EnemyPatrol && boss.State != entity.EnemyIdle
 
 	// Track whether we already emitted boss_activated this fight using gate state
-	// (if the boss gate is already closed, boss was already activated).
-	bossWasActivated := w.IsGateClosed("boss_gate")
+	// (if the boss's gate is already closed, it was already activated).
+	bossWasActivated := w.IsGateClosed(gateID)
 
 	if bossInCombat && !bossWasActivated {
 		w.GameFlowEvents = append(w.GameFlowEvents, GameFlowEvent{
-			FlowType: message.FlowBossActivated,
+			FlowType:  message.FlowBossActivated,
+			GateEvent: bossEventName(num, "activated"),
 		})
-		slog.Info("boss activated", "zone_id", w.ZoneID)
+		slog.Info("boss activated", "zone_id", w.ZoneID, "boss", boss.DefName)
 	}
 
 	if bossWasActivated {
-		// Check if any alive player is in the boss room (past the gate)
-		gateZ, _ := w.ClosedGatePosition("boss_gate")
+		// Check if any player is still in the boss room: same side of the
+		// closed gate as the boss's spawn point. Dead players count — a
+		// corpse in the room is a wipe (checkFightEnd owns that: it records
+		// boss_win and resets), not an abandoned room. Respawning moves them
+		// to a checkpoint outside, which is when this reset legitimately
+		// fires. Counting only alive players mislabeled a solo in-room death
+		// as "timeout" (live run 2026-07-14).
+		gatePos, closed := w.ClosedGatePosition(gateID)
+		if !closed {
+			return
+		}
+		spawnSide := boss.LeashOrigin.Z < gatePos.Z
 		anyPlayerInBossRoom := false
 		for _, p := range w.Players {
-			if p.Alive && p.Position.Z < gateZ.Z {
+			if (p.Position.Z < gatePos.Z) == spawnSide {
 				anyPlayerInBossRoom = true
 				break
 			}
 		}
 		if !anyPlayerInBossRoom {
-			// Reset boss — gate will open via FlowBossReset → processGateEvents
-			finalizeGroupCombatLog(w, boss.GroupID, combatlog.OutcomeTimeout)
-			bossIdx := findBossIndex(w)
+			// Reset boss — gate will open via bossN_reset → processGateEvents
+			finalizeGroupCombatLog(w, enemySessionKey(boss), combatlog.OutcomeTimeout)
+			despawnSpawnedAdds(w, boss.ID)
+			bossIdx := enemyIndex(w, boss)
 			if bossIdx >= 0 && bossIdx < len(w.Level.EnemySpawns) {
 				boss.Reset(w.Level.EnemySpawns[bossIdx].Position, entity.EnemyPatrol)
 			}
 			w.Projectiles = nil
-			slog.Info("boss reset — no players in boss room", "zone_id", w.ZoneID)
+			slog.Info("boss reset — no players in boss room", "zone_id", w.ZoneID, "boss", boss.DefName)
 			w.GameFlowEvents = append(w.GameFlowEvents, GameFlowEvent{
-				FlowType: message.FlowBossReset,
+				FlowType:  message.FlowBossReset,
+				GateEvent: bossEventName(num, "reset"),
 			})
 		}
 	}
@@ -160,13 +243,21 @@ func processGateEvents(w *World) {
 
 	changed := false
 	for ei := range n {
-		eventName := level.FlowEventName[w.GameFlowEvents[ei].FlowType]
-		if eventName == "" {
-			continue
+		// Boss events carry an explicit boss-scoped name ("boss1_dead");
+		// the legacy FlowEventName mapping is also tried so old level data
+		// with un-scoped triggers ("boss_dead") keeps working.
+		names := [2]string{
+			w.GameFlowEvents[ei].GateEvent,
+			level.FlowEventName[w.GameFlowEvents[ei].FlowType],
 		}
-		for gi := range w.Level.Gates {
-			if applyGateEvent(w, &w.Level.Gates[gi], eventName) {
-				changed = true
+		for _, eventName := range names {
+			if eventName == "" {
+				continue
+			}
+			for gi := range w.Level.Gates {
+				if applyGateEvent(w, &w.Level.Gates[gi], eventName) {
+					changed = true
+				}
 			}
 		}
 	}
@@ -233,8 +324,12 @@ func pushPlayersOnGateClose(w *World, g *level.GateDef) {
 		}
 	}
 
-	// Remove boss threat for players on the far side of the gate
-	boss := findBoss(w)
+	// Remove threat for players on the far side of the gate, on the boss
+	// this gate belongs to (falling back to the final boss for legacy gates).
+	boss := bossByGate(w, g.ID)
+	if boss == nil {
+		boss = findBoss(w)
+	}
 	if boss == nil {
 		return
 	}
@@ -263,6 +358,7 @@ func InitInstance(w *World) {
 	w.LobbyActive = true
 	w.LobbyCountdown = 0
 	w.FightStartTick = 0
+	w.BossDeadHandled = nil
 	for i, e := range w.Enemies {
 		if i < len(w.Level.EnemySpawns) {
 			e.Reset(w.Level.EnemySpawns[i].Position, entity.EnemyPatrol)
@@ -271,9 +367,11 @@ func InitInstance(w *World) {
 }
 
 // ResetAliveEnemies returns alive enemies to patrol at their spawn point.
-// Dead enemies are left dead — progress is preserved.
+// Dead enemies are left dead — progress is preserved. Mid-fight spawned adds
+// (no level spawn point) are despawned instead.
 func ResetAliveEnemies(w *World) {
 	w.Projectiles = nil
+	despawnSpawnedAdds(w, 0)
 	for i, e := range w.Enemies {
 		if !e.Alive {
 			continue
@@ -284,34 +382,97 @@ func ResetAliveEnemies(w *World) {
 	}
 }
 
+// despawnSpawnedAdds kills mid-fight spawned adds. ownerID 0 = all adds;
+// otherwise only adds summoned by that enemy.
+func despawnSpawnedAdds(w *World, ownerID uint16) {
+	for _, e := range w.Enemies {
+		if e == nil || !e.Alive || e.SpawnedBy == 0 {
+			continue
+		}
+		if ownerID == 0 || e.SpawnedBy == ownerID {
+			killAdd(e)
+		}
+	}
+}
+
 func checkFightEnd(w *World) {
-	// Boss dead → victory (guard: only trigger once via BossDefeated flag)
-	boss := findBoss(w)
-	if boss != nil && boss.State == entity.EnemyDead && !w.BossDefeated {
+	if checkBossDeaths(w) {
+		return // run ended in victory: skip the wipe check
+	}
+	checkWipe(w)
+}
+
+// checkBossDeaths handles newly dead bosses. A non-final boss ends its
+// encounter and unlocks the next section (via its bossN_dead gate trigger);
+// only the final boss (highest BossNum) ends the run. Returns true when the
+// final boss died this call.
+func checkBossDeaths(w *World) bool {
+	final := finalBossNum(w)
+	for _, boss := range w.Enemies {
+		if boss == nil || !boss.IsBoss || boss.State != entity.EnemyDead {
+			continue
+		}
+		num := bossNumOf(boss)
+		if w.BossDeadHandled[num] {
+			continue
+		}
+		if w.BossDeadHandled == nil {
+			w.BossDeadHandled = make(map[int]bool)
+		}
+		w.BossDeadHandled[num] = true
+
+		if num != final {
+			// Mid-run boss: unlock progression, keep the run going.
+			finalizeGroupCombatLog(w, enemySessionKey(boss), combatlog.OutcomePlayerWin)
+			w.Projectiles = nil
+			w.GameFlowEvents = append(w.GameFlowEvents, GameFlowEvent{
+				FlowType:  message.FlowMidBossDead,
+				GateEvent: bossEventName(num, "dead"),
+			})
+			slog.Info("mid boss defeated", "zone_id", w.ZoneID, "boss", boss.DefName)
+			continue
+		}
+
+		// Final boss → victory (guard: only trigger once via BossDefeated flag)
+		if w.BossDefeated {
+			continue
+		}
 		finalizeAllCombatLogs(w, combatlog.OutcomePlayerWin)
 		w.BossDefeated = true
 		w.Projectiles = nil
 		w.GameFlowEvents = append(w.GameFlowEvents, GameFlowEvent{
-			FlowType: message.FlowBossDead,
+			FlowType:  message.FlowBossDead,
+			GateEvent: bossEventName(num, "dead"),
 		})
-		if w.OnBossDefeated != nil {
-			peerIDs := make([]uint16, 0, len(w.Players))
-			for id := range w.Players {
-				peerIDs = append(peerIDs, id)
-			}
-			score := 0
-			if w.OverfluxState != nil {
-				score = w.OverfluxState.TotalScore
-			}
-			overTime := w.FightStartTick != 0 &&
-				w.TickNum-w.FightStartTick > clearTimeLimitTicks(w)
-			w.OnBossDefeated(peerIDs, score, overTime)
-		}
+		notifyBossDefeated(w)
+		return true
+	}
+	return false
+}
+
+// notifyBossDefeated invokes the zone's run-completion callback with the
+// participant list, overflux score, and timer verdict.
+func notifyBossDefeated(w *World) {
+	if w.OnBossDefeated == nil {
 		return
 	}
+	peerIDs := make([]uint16, 0, len(w.Players))
+	for id := range w.Players {
+		peerIDs = append(peerIDs, id)
+	}
+	score := 0
+	if w.OverfluxState != nil {
+		score = w.OverfluxState.TotalScore
+	}
+	overTime := w.FightStartTick != 0 &&
+		w.TickNum-w.FightStartTick > clearTimeLimitTicks(w)
+	w.OnBossDefeated(peerIDs, score, overTime)
+}
 
-	// All players dead → wipe (guard: only trigger once via WipeHandled flag;
-	// reset when any player respawns in handleRespawnRequest).
+// checkWipe fires the all-dead flow once every player is down (guard: only
+// trigger once via WipeHandled flag; reset when any player respawns in
+// handleRespawnRequest).
+func checkWipe(w *World) {
 	if w.WipeHandled {
 		return
 	}
@@ -380,12 +541,50 @@ func pickSpawnPoint(spawns []level.PlayerSpawn, state level.ZoneState, idx int) 
 	return spawns[0].Position
 }
 
+// deadBossNums collects the BossNums of all dead bosses (nil if none),
+// used to unlock mid-run checkpoint spawns.
+func deadBossNums(w *World) map[int]bool {
+	var m map[int]bool
+	for _, e := range w.Enemies {
+		if e != nil && e.IsBoss && !e.Alive {
+			if m == nil {
+				m = make(map[int]bool)
+			}
+			m[bossNumOf(e)] = true
+		}
+	}
+	return m
+}
+
+// respawnZoneState builds the spawn-condition state for respawn/unstuck paths.
+func respawnZoneState(w *World) level.ZoneState {
+	return level.ZoneState{
+		BossDefeated: w.BossDefeated,
+		DeadGroupIDs: w.DeadGroupIDs(),
+		DeadBossNums: deadBossNums(w),
+	}
+}
+
+// combatGateSealed reports whether any combat gate — one that closes on a
+// fight trigger, i.e. a boss room seal — is currently closed. Progression
+// gates (open_on only, like the decline gate) never block respawn.
+func combatGateSealed(w *World) bool {
+	for i := range w.Level.Gates {
+		g := &w.Level.Gates[i]
+		if len(g.CloseOn) > 0 && w.GateStates[g.ID] {
+			return true
+		}
+	}
+	return false
+}
+
 // SpawnPlayers initializes all players at spawn points.
 func SpawnPlayers(w *World) {
 	deadGroups := w.DeadGroupIDs()
+	deadBosses := deadBossNums(w)
 	idx := 0
 	for _, p := range w.Players {
-		spawnPos := pickSpawnPoint(w.Level.PlayerSpawns, level.ZoneState{BossDefeated: w.BossDefeated, DeadGroupIDs: deadGroups}, idx)
+		spawnPos := pickSpawnPoint(w.Level.PlayerSpawns, level.ZoneState{BossDefeated: w.BossDefeated, DeadGroupIDs: deadGroups, DeadBossNums: deadBosses}, idx)
 		p.Position = spawnPos
 		p.RotationY = w.Level.SpawnYaw
 		p.Health = p.MaxHealth
@@ -409,7 +608,7 @@ func SpawnPlayer(w *World, peerID uint16) {
 	}
 	idx := len(w.Players) - 1
 	deadGroups := w.DeadGroupIDs()
-	spawnPos := pickSpawnPoint(w.Level.PlayerSpawns, level.ZoneState{BossDefeated: w.BossDefeated, DeadGroupIDs: deadGroups}, idx)
+	spawnPos := pickSpawnPoint(w.Level.PlayerSpawns, level.ZoneState{BossDefeated: w.BossDefeated, DeadGroupIDs: deadGroups, DeadBossNums: deadBossNums(w)}, idx)
 	p.Position = spawnPos
 	p.RotationY = w.Level.SpawnYaw
 	p.Health = p.MaxHealth
@@ -423,25 +622,32 @@ func SpawnPlayer(w *World, peerID uint16) {
 	p.SpawnTick = w.TickNum
 }
 
-// findBoss returns the boss enemy or nil. Uses the cached Boss pointer on
-// World when available, falling back to a linear scan.
+// findBoss returns the FINAL boss enemy (highest BossNum) or nil. Uses the
+// cached Boss pointer on World when available, falling back to a linear scan.
 func findBoss(w *World) *entity.Enemy {
 	if w.Boss != nil {
 		return w.Boss
 	}
 	for _, e := range w.Enemies {
-		if e.IsBoss {
+		if e.IsBoss && (w.Boss == nil || bossNumOf(e) > bossNumOf(w.Boss)) {
 			w.Boss = e
-			return e
 		}
 	}
-	return nil
+	return w.Boss
 }
 
-// findBossIndex returns the index of the boss in the Enemies slice.
+// findBossIndex returns the index of findBoss's result in the Enemies slice.
 func findBossIndex(w *World) int {
+	return enemyIndex(w, findBoss(w))
+}
+
+// enemyIndex returns the index of the given enemy pointer in w.Enemies, or -1.
+func enemyIndex(w *World, target *entity.Enemy) int {
+	if target == nil {
+		return -1
+	}
 	for i, e := range w.Enemies {
-		if e.IsBoss {
+		if e == target {
 			return i
 		}
 	}

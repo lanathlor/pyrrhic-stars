@@ -83,12 +83,16 @@ const (
 )
 
 // condPlayerCampingPillar is true when an alive player is hugging a pillar with
-// the boss right next to them AND the boss has not landed any real damage for
+// the boss right next to them, the pillar actually BREAKING the boss's line of
+// sight to them, AND the boss has not landed any real damage for
 // pillarCheeseSeconds. Together these identify the pillar cheese: a player
 // orbiting a pillar the boss is stuck on, so its committed abilities keep
-// whiffing. Proximity alone is not enough (players fight near pillars normally)
-// and the boss-adjacency rules out a ranged group whiffing from range, so the
-// damage drought distinguishes a cheesed boss from one trading blows. Gates
+// whiffing. Proximity alone is not enough (players fight near pillars
+// normally), boss-adjacency rules out a ranged group whiffing from range, and
+// the broken-LOS requirement rules out a player merely chasing a kiting boss
+// past a pillar in the open — an evasive boss whose patterns get dodged has a
+// natural damage drought, and without the LOS gate that pursuit ate the
+// punish (it was the top killer of duos on the Aceras General). Gates
 // pillar_overload.
 func condPlayerCampingPillar(v any) bool {
 	c := ctx(v)
@@ -104,6 +108,9 @@ func condPlayerCampingPillar(v any) bool {
 		}
 		if c.Enemy.Position.Flat().DistanceToSq(p.Position.Flat()) > proxSq {
 			continue
+		}
+		if !combat.SegmentHitsExpandedObstacle(c.Enemy.Position, p.Position, c.Obs, c.Def.Radius) {
+			continue // pillar not between them: pursuit, not cheese
 		}
 		camping = true
 		break
@@ -421,6 +428,9 @@ func actionPatrol(v any) bt.Result {
 		if !p.Alive {
 			continue
 		}
+		if e.AggroMaxZ != 0 && p.Position.Z >= e.AggroMaxZ {
+			continue // player is outside this enemy's room
+		}
 		distSq := e.Position.Flat().DistanceToSq(p.Position.Flat())
 		if distSq <= e.AggroRadius*e.AggroRadius {
 			e.TargetPlayerID = p.ID
@@ -428,6 +438,10 @@ func actionPatrol(v any) bt.Result {
 			return bt.Success
 		}
 	}
+
+	// Patrolling = disengaged: rearm the engagement opener so a re-pull
+	// after a reset gets its opener window again (see condEngagedFor).
+	c.BB.ClearFlag(bbEngagedStarted)
 
 	// Walk toward current patrol target
 	var target entity.Vec3
@@ -511,7 +525,7 @@ func actionChase(v any) bt.Result {
 		switch {
 		case distance < preferred-margin:
 			bspd := def.CurrentBackpedalSpeed(e.Phase) * slowMult
-			dir := toTarget.Normalized().Neg().Flat()
+			dir := c.RetreatDirection(toTarget.Normalized().Neg().Flat(), target.Position)
 			e.Velocity = entity.Vec3{X: dir.X * bspd, Z: dir.Z * bspd}
 		case distance > preferred+margin:
 			dir := c.AvoidObstacles(toTarget.Normalized(), e.Position, target.Position)
@@ -1050,6 +1064,102 @@ func actionAnnounce(channel string) func(any) bt.Result {
 		c.logAction("announce", bt.Success, "channel", channel)
 		return bt.Success
 	}
+}
+
+// Blackboard keys for add-awareness / engagement conditions.
+const (
+	bbAddsLinger     = "adds_linger"     // timer: aggressive-mode window after last add died
+	bbEngagedStarted = "engaged_started" // flag: engagement timer started
+	bbEngagedFor     = "engaged_for"     // timer: time since first engagement
+)
+
+// condMyAddsAlive reports whether any add summoned by this enemy is alive.
+func condMyAddsAlive(v any) bool {
+	c := ctx(v)
+	for _, a := range c.Allies {
+		if a != nil && a.Alive && a.SpawnedBy == c.Enemy.ID {
+			return true
+		}
+	}
+	return false
+}
+
+// condAddsEngaged is true while any owned add is alive, and for `linger`
+// seconds after the last one died (the timer is refreshed every tick an add
+// lives). Drives the summoner's aggressive-mode window.
+func condAddsEngaged(linger float32) func(any) bool {
+	return func(v any) bool {
+		c := ctx(v)
+		if condMyAddsAlive(v) {
+			c.BB.StartTimer(bbAddsLinger, linger)
+			c.logCond("adds_engaged", true, "reason", "adds_alive")
+			return true
+		}
+		engaged := !c.BB.TimerExpired(bbAddsLinger)
+		c.logCond("adds_engaged", engaged, "reason", "linger")
+		return engaged
+	}
+}
+
+// condEngagedFor is true once the enemy has been engaged for at least `secs`
+// seconds. The timer starts on the first evaluation (the tree's has_target
+// guard ensures that happens on engagement). Gates opener abilities.
+func condEngagedFor(secs float32) func(any) bool {
+	return func(v any) bool {
+		c := ctx(v)
+		if !c.BB.GetFlag(bbEngagedStarted) {
+			c.BB.SetFlag(bbEngagedStarted)
+			c.BB.StartTimer(bbEngagedFor, secs)
+			return false
+		}
+		return c.BB.TimerExpired(bbEngagedFor)
+	}
+}
+
+// actionChaseMelee closes to melee range, ignoring the def's PreferredRange.
+// Used by kiting bosses whose aggressive mode wants to brawl: plain chase
+// would backpedal to hold the kite band. Success when in melee reach.
+func actionChaseMelee(v any) bt.Result {
+	c := ctx(v)
+	e := c.Enemy
+	def := c.Def
+
+	if !e.Alive || e.State == entity.EnemyPhaseTransition {
+		e.Velocity = entity.Vec3{}
+		return bt.Failure
+	}
+	target := c.NearestPlayer()
+	if target == nil {
+		e.Velocity = entity.Vec3{}
+		return bt.Failure
+	}
+	e.TargetPlayerID = target.ID
+
+	toTarget := target.Position.Sub(e.Position).Flat()
+	distance := toTarget.Length()
+	if distance > 0.1 {
+		dir := toTarget.Normalized()
+		e.RotationY = float32(math.Atan2(float64(-dir.X), float64(-dir.Z)))
+	}
+
+	if e.HasDebuff(entity.DebuffRoot) {
+		e.Velocity = entity.Vec3{}
+		return bt.Running
+	}
+	slowMult := float32(1.0)
+	if slow := e.GetDebuffValue(entity.DebuffSlow); slow > 0 {
+		slowMult = 1.0 - slow
+	}
+
+	meleeRange := def.LongestMeleeRange()
+	if distance <= meleeRange*0.8 {
+		e.Velocity = entity.Vec3{}
+		return bt.Success
+	}
+	spd := def.CurrentMoveSpeed(e.Phase) * slowMult
+	dir := c.AvoidObstacles(toTarget.Normalized(), e.Position, target.Position)
+	e.Velocity = entity.Vec3{X: dir.X * spd, Z: dir.Z * spd}
+	return bt.Running
 }
 
 // --- Helpers ---

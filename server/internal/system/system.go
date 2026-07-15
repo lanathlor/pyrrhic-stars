@@ -44,6 +44,10 @@ type InputMsg struct {
 type GameFlowEvent struct {
 	FlowType uint8
 	Text     string
+	// GateEvent is the server-internal boss-scoped gate trigger name
+	// (e.g. "boss1_dead"). Not sent on the wire; when empty, gates fall
+	// back to the legacy level.FlowEventName mapping.
+	GateEvent string
 }
 
 // World is the shared game state that systems read and write.
@@ -57,15 +61,24 @@ type World struct {
 	TickNum uint32
 
 	// Game state
-	BossDefeated   bool
-	WipeHandled    bool            // true while all humans dead; reset on first respawn
-	GateStates     map[string]bool // gate_id → is_closed
-	LobbyActive    bool            // true while instance is in lobby phase (before fight start)
-	LobbyCountdown int32           // ticks remaining before fight start (0 = not counting)
-	FightStartTick uint32          // TickNum at fight start (ready gate gone); 0 = fight not started
+	BossDefeated    bool
+	BossDeadHandled map[int]bool    // BossNum → death already processed (multi-boss runs)
+	WipeHandled     bool            // true while all humans dead; reset on first respawn
+	GateStates      map[string]bool // gate_id → is_closed
+	LobbyActive     bool            // true while instance is in lobby phase (before fight start)
+	LobbyCountdown  int32           // ticks remaining before fight start (0 = not counting)
+	FightStartTick  uint32          // TickNum at fight start (ready gate gone); 0 = fight not started
 
 	// Group scaling — multiplier applied to all enemy damage (1.0 = no scaling)
 	EnemyDamageMult float32
+
+	// Group scaling — HP multiplier (0 = treat as 1.0). Applied to enemies
+	// spawned mid-fight so adds match the instance's scaling.
+	EnemyHPMult float32
+
+	// NextDynEnemyID allocates IDs for mid-fight spawned adds (0 = init to
+	// 1500; refuses at 2000 where the NPC ID range begins).
+	NextDynEnemyID uint16
 
 	// Overflux difficulty conditions (set at zone creation, immutable during run).
 	OverfluxState *overflux.State
@@ -91,8 +104,8 @@ type World struct {
 	// coordination: salvo stagger, announcements). Lazily created by AISystem.
 	Bus *enemyai.Bus
 
-	// Boss is a cached pointer to the boss enemy (IsBoss=true), or nil.
-	// Set during enemy spawning to avoid repeated linear scans.
+	// Boss is a cached pointer to the FINAL boss enemy (highest BossNum), or
+	// nil. Set during enemy spawning to avoid repeated linear scans.
 	Boss *entity.Enemy
 
 	// Level geometry
@@ -174,6 +187,7 @@ type World struct {
 	spawnEnemyIdx   int
 	spawnFn         func(pos, dir entity.Vec3, speed, damage, lifetime float32)
 	commitPatternFn func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3)
+	spawnAddFn      func(defName string, pos entity.Vec3, ownerID uint16) bool
 
 	// Cached dead group IDs, computed lazily once per tick.
 	cachedDeadGroups     map[int]bool
@@ -237,15 +251,30 @@ func (w *World) ClosedGatePosition(gateID string) (entity.Vec3, bool) {
 	return entity.Vec3{}, false
 }
 
-// ClosedGateZ returns the Z position of the first closed gate, or 0 if none.
-// Used by AI/combat for player-side filtering.
-func (w *World) ClosedGateZ() (float32, bool) {
-	for _, g := range w.Level.Gates {
-		if w.GateStates[g.ID] {
-			return g.Position.Z, true
+// sameSideOfClosedGates reports whether two Z positions are on the same side
+// of every currently closed gate. Used by AI/combat for player-side filtering.
+func (w *World) sameSideOfClosedGates(aZ, bZ float32) bool {
+	for i := range w.Level.Gates {
+		g := &w.Level.Gates[i]
+		if !w.GateStates[g.ID] {
+			continue
+		}
+		if (aZ < g.Position.Z) != (bZ < g.Position.Z) {
+			return false
 		}
 	}
-	return 0, false
+	return true
+}
+
+// filterPlayersByClosedGates keeps only players on the same side of every
+// closed gate as enemyZ, appending into dst to avoid allocation.
+func (w *World) filterPlayersByClosedGates(dst []*entity.Player, players []*entity.Player, enemyZ float32) []*entity.Player {
+	for _, p := range players {
+		if w.sameSideOfClosedGates(p.Position.Z, enemyZ) {
+			dst = append(dst, p)
+		}
+	}
+	return dst
 }
 
 // RebuildObstacles reconstructs the combined obstacle list from level geometry
@@ -303,6 +332,11 @@ func (w *World) AggroEnemy(e *entity.Enemy, targetPeerID uint16) {
 	if e.State != entity.EnemyPatrol {
 		return
 	}
+	if e.AggroMaxZ != 0 {
+		if p, ok := w.Players[targetPeerID]; ok && p.Position.Z >= e.AggroMaxZ {
+			return // damage from outside the room never wakes this enemy
+		}
+	}
 	e.State = entity.EnemyChase
 	e.ChaseTimer = 0
 	e.TargetPlayerID = targetPeerID
@@ -359,7 +393,11 @@ func (w *World) logCombatEvent(entry combatlog.LogEntry) {
 	}
 	var bossHP float32
 	var bossPhase int
-	if boss := findBoss(w); boss != nil {
+	boss := ActiveBoss(w)
+	if boss == nil {
+		boss = findBoss(w)
+	}
+	if boss != nil {
 		if boss.MaxHealth > 0 {
 			bossHP = boss.Health / boss.MaxHealth
 		}

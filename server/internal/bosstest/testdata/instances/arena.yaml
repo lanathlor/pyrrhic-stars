@@ -1,0 +1,130 @@
+level: arena
+runs: 40
+respawn_delay_seconds: 3.0
+
+# Full-dungeon fuzz: puppets ready up in the lobby, advance through both
+# hallway packs, kill the guard captain, descend the decline (two more
+# packs), and finish on the Aceras General. Deaths respawn on the real
+# rules (blocked while a boss room is sealed, boss-1 checkpoint once he's
+# down); wipes reset alive enemies and the party runs back.
+#
+# First-pass bounds calibrated 2026-07-12 — tighten once a few CI baselines
+# exist. clear timer is 600s: avg_clear_seconds max guards pacing drift,
+# win_rate min guards a dungeon that stops being clearable.
+
+compositions:
+  - name: standard_average
+    classes: [arcanotechnicien, vanguard, vanguard, gunner, blade_dancer]
+    specs: [harmonist, shield, blade, assault, multi_blade]
+    profiles: [average, average, average, average, average]
+    win_rate:
+      min: 0.75
+    avg_clear_seconds:
+      max: 540
+    avg_deaths:
+      max: 12
+    avg_wipes:
+      max: 1.5
+
+  # Same party, chain-pulling the two hallway packs into one AoE fight.
+  # Informational speed comparison plus a sanity floor: chaining must not
+  # collapse the win rate. 2026-07 baseline: chaining is high-risk for an
+  # average group — ~15 deaths/run and slower overall clears (run-backs).
+  - name: chain_pull_average
+    classes: [arcanotechnicien, vanguard, vanguard, gunner, blade_dancer]
+    specs: [harmonist, shield, blade, assault, multi_blade]
+    profiles: [average, average, average, average, average]
+    chain_pull: true
+    win_rate:
+      min: 0.60
+    avg_deaths:
+      max: 25
+    avg_wipes:
+      max: 2.0
+
+# Overflux variants: every composition re-runs under each config; the
+# assertion is the config's aggregate win rate (per-comp bounds are
+# baseline-only, matching the boss fuzz convention). First-pass bounds —
+# calibrate from CI baselines.
+overflux:
+  # --- Blanket enemy HP: slower everywhere, more timer pressure ---
+  - name: fortified_2
+    conditions:
+      - id: enemy_hp
+        rank: 2
+    win_rate:
+      min: 0.50
+  - name: fortified_5
+    conditions:
+      - id: enemy_hp
+        rank: 5
+    win_rate:
+      min: 0.0
+      max: 0.90
+
+  # --- Boss variants (guard_captain runs its tempered/volatile kits) ---
+  - name: tempered
+    conditions:
+      - id: tempered
+        rank: 1
+    win_rate:
+      min: 0.40
+  - name: volatile
+    conditions:
+      - id: volatile
+        rank: 1
+    win_rate:
+      min: 0.40
+  # Stacking must not dilute: tempered replaces the tree, so if it ever
+  # starves the pattern casts again, adding volatile (a pure pattern buff)
+  # collapses the combo's boss-1 lethality vs volatile alone (regression
+  # 2026-07 measured 43%; healthy is 80-90%).
+  - name: tempered_volatile
+    conditions:
+      - id: tempered
+        rank: 1
+      - id: volatile
+        rank: 1
+    win_rate:
+      min: 0.20
+    keeps_lethality_of: volatile
+
+  # --- Frenzied trash: every hallway/decline mob runs its variant tree —
+  # the instance-wide condition a boss-only fuzz can't cover ---
+  - name: frenzied
+    conditions:
+      - id: frenzied
+        rank: 1
+    win_rate:
+      min: 0.40
+
+  # --- Wounded Prey: regen on whichever boss is engaged ---
+  - name: wounded_prey_3
+    conditions:
+      - id: wounded_prey
+        rank: 3
+    win_rate:
+      min: 0.30
+  - name: wounded_prey_5
+    conditions:
+      - id: wounded_prey
+        rank: 5
+    win_rate:
+      min: 0.0
+
+  # --- Kitchen sink: everything at once, max ranks ---
+  - name: all_max
+    conditions:
+      - id: enemy_hp
+        rank: 5
+      - id: tempered
+        rank: 1
+      - id: volatile
+        rank: 1
+      - id: frenzied
+        rank: 1
+      - id: wounded_prey
+        rank: 5
+    win_rate:
+      min: 0.0
+      max: 0.80

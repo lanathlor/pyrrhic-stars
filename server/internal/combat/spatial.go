@@ -10,8 +10,10 @@ import (
 // expanding each obstacle by the given radius (Minkowski sum).
 func PushOutOfObstacles(pos *entity.Vec3, obstacles []Obstacle, radius float32) {
 	for _, obs := range obstacles {
-		// Skip obstacles on different floors
-		if obs.Height > 0 && (pos.Y < obs.BaseY-0.5 || pos.Y > obs.BaseY+obs.Height+0.5) {
+		// Skip obstacles on different floors, and obstacles the entity is
+		// standing ON: feet at or above the top surface means "on it", not
+		// "inside it" (e.g. thin terrain slabs like the hub's GrassTop).
+		if obs.Height > 0 && (pos.Y < obs.BaseY-0.5 || pos.Y > obs.BaseY+obs.Height-0.05) {
 			continue
 		}
 		exHx := obs.HX + radius
@@ -49,8 +51,9 @@ func IsAtWall(pos entity.Vec3, minX, maxX, minZ, maxZ float32) bool {
 func IsAtObstacle(pos entity.Vec3, obstacles []Obstacle, radius float32) bool {
 	const margin float32 = 0.1
 	for _, obs := range obstacles {
-		// Skip obstacles on different floors
-		if obs.Height > 0 && (pos.Y < obs.BaseY-0.5 || pos.Y > obs.BaseY+obs.Height+0.5) {
+		// Skip obstacles on different floors or ones the entity stands ON
+		// (see PushOutOfObstacles).
+		if obs.Height > 0 && (pos.Y < obs.BaseY-0.5 || pos.Y > obs.BaseY+obs.Height-0.05) {
 			continue
 		}
 		exHx := obs.HX + radius + margin

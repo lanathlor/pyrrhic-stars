@@ -589,6 +589,37 @@ func TestAction_Patrol_IgnoresDeadPlayers(t *testing.T) {
 	}
 }
 
+func TestAction_Patrol_AggroMaxZ(t *testing.T) {
+	def := simpleMeleeDef()
+	e := entity.NewEnemy(0, 500, "test")
+	e.State = entity.EnemyPatrol
+	e.Position = entity.Vec3{X: 0, Z: 10}
+	e.PatrolA = entity.Vec3{X: -10, Z: 10}
+	e.PatrolB = entity.Vec3{X: 10, Z: 10}
+	e.AggroRadius = 5.0
+	e.AggroMaxZ = 12.0
+
+	// Player in aggro radius but outside the room (Z >= AggroMaxZ): no aggro.
+	outside := testPlayer(1, entity.Vec3{X: 0, Z: 13})
+	ctx := testCtx(def, e, testPlayers(outside))
+	if r := actionPatrol(ctx); r != bt.Running {
+		t.Errorf("player outside room should not aggro, got %v", r)
+	}
+	if e.State != entity.EnemyPatrol {
+		t.Errorf("enemy should stay in patrol, got %d", e.State)
+	}
+
+	// Player inside the room aggros normally.
+	inside := testPlayer(2, entity.Vec3{X: 0, Z: 8})
+	ctx = testCtx(def, e, testPlayers(inside))
+	if r := actionPatrol(ctx); r != bt.Success {
+		t.Errorf("player inside room should aggro, got %v", r)
+	}
+	if e.State != entity.EnemyChase || e.TargetPlayerID != inside.ID {
+		t.Errorf("enemy should chase player 2, state=%d target=%d", e.State, e.TargetPlayerID)
+	}
+}
+
 func TestAction_Chase_MeleeClosesDistance(t *testing.T) {
 	def := simpleMeleeDef()
 	e := entity.NewEnemy(0, 500, "test")

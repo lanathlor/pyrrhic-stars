@@ -319,9 +319,13 @@ func TestMovementUnknownFallsBackToGunner(t *testing.T) {
 	}
 }
 
-// --- ApplyDamage Plating floor ---
+// --- ApplyDamage Plating mitigation ---
 
-func TestApplyDamage_PlatingFloor(t *testing.T) {
+// Plating is percentage mitigation with diminishing returns (WoW-style armor),
+// NOT flat subtraction: a flat value nullified bullet-hell chip entirely (a
+// 7-damage bullet vs 7 plating dealt the 20% floor), which turned the chip
+// lever off for any geared player.
+func TestApplyDamage_PlatingPercentage(t *testing.T) {
 	tests := []struct {
 		name      string
 		plating   float32
@@ -329,11 +333,13 @@ func TestApplyDamage_PlatingFloor(t *testing.T) {
 		wantDealt float32
 	}{
 		{"no plating", 0, 50, 50},
-		{"plating partial, above floor", 10, 50, 40},
-		{"plating exceeds 80%, clamped to floor", 45, 50, 10},
-		{"plating exceeds damage, clamped to floor", 100, 50, 10},
-		{"small hit, above floor", 5, 10, 5},
-		{"small hit, below floor, clamped", 9, 10, 2},
+		{"light plating shaves a slice", 10, 50, 50 * (1 - 10.0/60.0)},
+		{"pivot plating halves", platingPivot, 50, 25},
+		{"reduction capped", 1000, 50, 50 * (1 - platingMaxReduction)},
+		// The bug that motivated the rework: small chip hits must scale by the
+		// same percentage, never collapse to a floor.
+		{"chip hit vs equal plating", 7, 7, 7 * (1 - 7.0/57.0)},
+		{"chip hit vs heavy plating", 50, 5, 2.5},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -341,14 +347,35 @@ func TestApplyDamage_PlatingFloor(t *testing.T) {
 			p.GearStats.Plating = tc.plating
 			startHP := p.Health
 			dealt := p.ApplyDamage(tc.damage)
-			if dealt != tc.wantDealt {
+			if diff := dealt - tc.wantDealt; diff > 0.001 || diff < -0.001 {
 				t.Errorf("dealt = %f, want %f", dealt, tc.wantDealt)
 			}
 			wantHP := startHP - tc.wantDealt
-			if p.Health != wantHP {
+			if diff := p.Health - wantHP; diff > 0.001 || diff < -0.001 {
 				t.Errorf("health = %f, want %f", p.Health, wantHP)
 			}
 		})
+	}
+}
+
+func TestPlatingReductionCurve(t *testing.T) {
+	p := NewPlayer(1, ClassGunner)
+	prev := float32(0)
+	prevGain := float32(1)
+	for plating := float32(10); plating <= 200; plating += 10 {
+		p.GearStats.Plating = plating
+		r := p.PlatingReduction()
+		if r <= prev && r < platingMaxReduction {
+			t.Fatalf("reduction must grow with plating below the cap: %f at %f", r, plating)
+		}
+		gain := r - prev
+		if gain > prevGain+0.0001 {
+			t.Fatalf("reduction must have diminishing returns: gain %f > previous %f at plating %f", gain, prevGain, plating)
+		}
+		prev, prevGain = r, gain
+	}
+	if prev > platingMaxReduction {
+		t.Fatalf("reduction exceeded cap: %f", prev)
 	}
 }
 

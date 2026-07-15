@@ -42,7 +42,9 @@ func registerTelegraphTestBoss() {
 func telegraphTestEnemy(abilityIdx, phase int, state entity.EnemyState) *entity.Enemy {
 	e := entity.NewEnemy(1000, 1000, "tg_test_boss")
 	e.Alive = true
-	e.Position = entity.Vec3{X: 3, Z: -4}
+	// Below y=0 on purpose: the descended Aceras General room exposed
+	// telegraphs that assumed floor y=0.
+	e.Position = entity.Vec3{X: 3, Y: -3.9, Z: -4}
 	e.ActiveAbility = abilityIdx
 	e.Phase = phase
 	e.State = state
@@ -73,6 +75,9 @@ func TestBuildTelegraphs_GroundSlamPhaseRadius(t *testing.T) {
 		if got.CX != 3 || got.CZ != -4 {
 			t.Errorf("phase %d: center = (%v,%v), want enemy pos (3,-4)", tc.phase, got.CX, got.CZ)
 		}
+		if got.CY != -3.9 {
+			t.Errorf("phase %d: floor Y = %v, want enemy Y -3.9", tc.phase, got.CY)
+		}
 		// Window: commit 1.5s = 30 ticks, 0.5s remaining = 10 ticks left.
 		if got.ExecuteTick != 110 || got.StartTick != 80 {
 			t.Errorf("phase %d: window start=%d exec=%d, want 80/110", tc.phase, got.StartTick, got.ExecuteTick)
@@ -91,9 +96,9 @@ func TestBuildTelegraphs_PillarOverloadMultiRing(t *testing.T) {
 		TickNum: 50,
 		Enemies: []*entity.Enemy{telegraphTestEnemy(1, 1, entity.EnemyAoETelegraph)},
 		Obstacles: []combat.Obstacle{
-			{CX: -8, CZ: -6, HX: 0.75, HZ: 0.75}, // pillar
-			{CX: 8, CZ: -6, HX: 0.75, HZ: 0.75},  // pillar
-			{CX: 0, CZ: -15, HX: 20, HZ: 0.25},   // wall (not pillar-like)
+			{CX: -8, CZ: -6, HX: 0.75, HZ: 0.75, BaseY: -4}, // pillar on lowered floor
+			{CX: 8, CZ: -6, HX: 0.75, HZ: 0.75, BaseY: -4},  // pillar on lowered floor
+			{CX: 0, CZ: -15, HX: 20, HZ: 0.25},              // wall (not pillar-like)
 		},
 	}
 	tgs := buildTelegraphs(w)
@@ -106,6 +111,11 @@ func TestBuildTelegraphs_PillarOverloadMultiRing(t *testing.T) {
 	}
 	if len(got.Centers) != 2 {
 		t.Errorf("got %d centers, want 2 (pillars only, wall excluded)", len(got.Centers))
+	}
+	for i, c := range got.Centers {
+		if c[1] != -4 {
+			t.Errorf("center %d floor Y = %v, want pillar BaseY -4", i, c[1])
+		}
 	}
 	// radius = Hit.Radius(9) + max half-extent(0.75)
 	if got.Radius != 9.75 {

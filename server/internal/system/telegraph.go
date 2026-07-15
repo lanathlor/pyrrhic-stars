@@ -79,7 +79,7 @@ func fillTelegraphGeometry(d *codec.TelegraphDesc, a *ability.AbilityDef, e *ent
 	switch {
 	case a.Category == ability.CategoryCharge && a.Charge != nil:
 		d.Shape = codec.TelegraphShapeLine
-		d.CX, d.CZ = e.Position.X, e.Position.Z
+		d.CX, d.CY, d.CZ = e.Position.X, e.Position.Y, e.Position.Z
 		d.DirX, d.DirZ = e.ChargeDirection.X, e.ChargeDirection.Z
 		d.Length = a.Charge.MaxDistance
 		d.Width = 2 * a.Charge.HitRadius
@@ -93,7 +93,7 @@ func fillTelegraphGeometry(d *codec.TelegraphDesc, a *ability.AbilityDef, e *ent
 			return false
 		}
 		d.Shape = codec.TelegraphShapeLine
-		d.CX, d.CZ = e.Position.X, e.Position.Z
+		d.CX, d.CY, d.CZ = e.Position.X, e.Position.Y, e.Position.Z
 		d.DirX, d.DirZ = dx/dist, dz/dist
 		d.Length = dist
 		d.Width = 0.5
@@ -103,7 +103,7 @@ func fillTelegraphGeometry(d *codec.TelegraphDesc, a *ability.AbilityDef, e *ent
 	switch a.Hit.Type {
 	case ability.HitMeleeArc, ability.HitAoECone:
 		d.Shape = codec.TelegraphShapeCone
-		d.CX, d.CZ = e.Position.X, e.Position.Z
+		d.CX, d.CY, d.CZ = e.Position.X, e.Position.Y, e.Position.Z
 		d.Facing = e.RotationY
 		d.HalfAngle = a.Hit.ArcDegrees * (math.Pi / 180.0) / 2.0
 		d.Range = a.Hit.Range
@@ -111,7 +111,7 @@ func fillTelegraphGeometry(d *codec.TelegraphDesc, a *ability.AbilityDef, e *ent
 
 	case ability.HitAoECircle:
 		d.Shape = codec.TelegraphShapeCircle
-		d.CX, d.CZ = e.Position.X, e.Position.Z
+		d.CX, d.CY, d.CZ = e.Position.X, e.Position.Y, e.Position.Z
 		d.Radius = a.Hit.Radius
 		return true
 
@@ -139,7 +139,7 @@ func fillObstacleTelegraph(d *codec.TelegraphDesc, a *ability.AbilityDef, w *Wor
 		if a.Hit.Radius+ext > d.Radius {
 			d.Radius = a.Hit.Radius + ext
 		}
-		d.Centers = append(d.Centers, [2]float32{o.CX, o.CZ})
+		d.Centers = append(d.Centers, [3]float32{o.CX, o.BaseY, o.CZ})
 	}
 	return len(d.Centers) > 0
 }

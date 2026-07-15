@@ -18,6 +18,7 @@ import (
 	"codex-online/server/internal/combatlog"
 	"codex-online/server/internal/enemyai"
 	"codex-online/server/internal/entity"
+	"codex-online/server/internal/item"
 	"codex-online/server/internal/overflux"
 )
 
@@ -40,6 +41,10 @@ func TestMain(m *testing.M) {
 	}
 	if err := enemyai.LoadEncounters("../../../shared/encounters"); err != nil {
 		panic("TestMain: load encounters: " + err.Error())
+	}
+	// Items must load so puppets wear the live starter gear (Plating etc.).
+	if err := item.LoadItems("../../../shared/items"); err != nil {
+		panic("TestMain: load items: " + err.Error())
 	}
 
 	// Load YAML puppet trees (optional — missing dir is not fatal)

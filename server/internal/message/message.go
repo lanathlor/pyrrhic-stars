@@ -269,6 +269,7 @@ const (
 	FlowBossReset       uint8 = 10
 	FlowGateClose       uint8 = 11
 	FlowGateOpen        uint8 = 12
+	FlowMidBossDead     uint8 = 13 // a non-final boss died; run continues
 )
 
 // Interact input action types sent within OpInteractInput payload.

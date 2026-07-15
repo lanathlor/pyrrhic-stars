@@ -19,7 +19,7 @@ const (
 	assaultOverclockRecov   = 1.5  // multiplier on recovery rate
 	assaultPressureMax      = 10
 	assaultPressureTimeout  = 2.0  // seconds
-	assaultPressureBonus    = 0.03 // per stack, fraction of base damage
+	assaultPressureBonus    = 0.10 // per stack, fraction of base damage — the gunner is the mono-target specialist: sustained same-target fire must out-damage the blade vanguard (see TestSingleTargetDPSOrdering)
 	assaultEnhancedBatch    = 5    // rounds generated at max pressure
 	assaultEnhancedMaxRes   = 10   // max reserve
 	assaultEnhancedBase     = 15.0 // base bonus damage per enhanced round

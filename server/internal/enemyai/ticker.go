@@ -20,6 +20,12 @@ type BrainTicker interface {
 	// SetBus attaches the zone coordination bus (see Bus).
 	SetBus(bus *Bus)
 
+	// SetSpawnAddFn attaches the zone's add-summoning callback.
+	SetSpawnAddFn(fn func(defName string, pos entity.Vec3, ownerID uint16) bool)
+
+	// SetAllies attaches the zone's enemy slice for add-awareness conditions.
+	SetAllies(allies []*entity.Enemy)
+
 	// Overflux variant support.
 	ApplyOverfluxVariants(oflx *overflux.State)
 

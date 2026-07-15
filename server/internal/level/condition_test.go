@@ -21,6 +21,9 @@ func TestEvalCondition(t *testing.T) {
 		{"pack_2_cleared", ZoneState{DeadGroupIDs: dead}, true},
 		{"pack_3_cleared", ZoneState{DeadGroupIDs: dead}, false},
 		{"unknown_condition", ZoneState{}, false},
+		{"boss_1_dead", ZoneState{}, false},
+		{"boss_1_dead", ZoneState{DeadBossNums: map[int]bool{1: true}}, true},
+		{"boss_2_dead", ZoneState{DeadBossNums: map[int]bool{1: true}}, false},
 	}
 
 	for _, tt := range tests {
@@ -44,6 +47,8 @@ func TestConditionPriority(t *testing.T) {
 		{testCondPack1Cleared, 1},
 		{"pack_2_cleared", 2},
 		{CondBossDead, 100},
+		{"boss_1_dead", 51},
+		{"boss_2_dead", 52},
 		{"unknown", 0},
 	}
 

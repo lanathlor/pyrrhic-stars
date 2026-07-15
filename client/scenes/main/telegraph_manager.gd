@@ -8,7 +8,9 @@ extends Node
 ## animates the radial "fill" from the commit tick to the execution tick using a
 ## local clock interpolated against the snapshot tick.
 
-const FLOOR_Y := 0.04
+# Decal lift above the telegraph's floor Y (sent by the server per telegraph;
+# the arena is multi-level, so floor height is never assumed to be 0).
+const FLOOR_LIFT := 0.04
 const TICK_HZ := 20.0
 
 const SHADER_CIRCLE: Shader = preload("res://assets/shaders/telegraph_circle.gdshader")
@@ -113,12 +115,12 @@ func _update_geometry(entry: Dictionary, t: Dictionary) -> void:
 		0:  # circle
 			var r: float = t["radius"]
 			(entry["plane"] as PlaneMesh).size = Vector2(r * 2.0, r * 2.0)
-			(entry["node"] as Node3D).position = Vector3(t["cx"], FLOOR_Y, t["cz"])
+			(entry["node"] as Node3D).position = Vector3(t["cx"], t["cy"] + FLOOR_LIFT, t["cz"])
 		1:  # cone
 			var rng: float = t["range"]
 			(entry["plane"] as PlaneMesh).size = Vector2(rng * 2.0, rng * 2.0)
 			var node := entry["node"] as Node3D
-			node.position = Vector3(t["cx"], FLOOR_Y, t["cz"])
+			node.position = Vector3(t["cx"], t["cy"] + FLOOR_LIFT, t["cz"])
 			node.rotation.y = t["facing"]
 			(entry["mats"][0] as ShaderMaterial).set_shader_parameter("half_angle", t["half_angle"])
 		2:  # line
@@ -128,7 +130,9 @@ func _update_geometry(entry: Dictionary, t: Dictionary) -> void:
 			var node := entry["node"] as Node3D
 			node.rotation.y = atan2(float(t["dir_x"]), float(t["dir_z"]))
 			node.position = Vector3(
-				t["cx"] + t["dir_x"] * ln * 0.5, FLOOR_Y, t["cz"] + t["dir_z"] * ln * 0.5
+				t["cx"] + t["dir_x"] * ln * 0.5,
+				t["cy"] + FLOOR_LIFT,
+				t["cz"] + t["dir_z"] * ln * 0.5
 			)
 		3:  # multi_circle
 			_update_multi(entry, t)
@@ -148,8 +152,8 @@ func _update_multi(entry: Dictionary, t: Dictionary) -> void:
 	for i in range(centers.size()):
 		var mi := parent.get_child(i) as MeshInstance3D
 		(mi.mesh as PlaneMesh).size = Vector2(r * 2.0, r * 2.0)
-		var c: Vector2 = centers[i]
-		mi.position = Vector3(c.x, FLOOR_Y, c.y)
+		var c: Vector3 = centers[i]
+		mi.position = Vector3(c.x, c.y + FLOOR_LIFT, c.z)
 		mats.append(mi.material_override)
 	entry["mats"] = mats
 

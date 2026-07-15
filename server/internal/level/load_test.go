@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
 )
 
@@ -173,20 +174,146 @@ func TestLoadArenaJSON(t *testing.T) {
 	if l.EnemyRadius != 1.0 {
 		t.Errorf("EnemyRadius = %f, want 1", l.EnemyRadius)
 	}
-	if len(l.Obstacles) != 24 {
-		t.Errorf("obstacles len = %d, want 24", len(l.Obstacles))
+	if len(l.Obstacles) != 44 { // +1 2026-07-14: AcerasScreen (the General's door screen)
+		t.Errorf("obstacles len = %d, want 44", len(l.Obstacles))
 	}
-	if len(l.PlayerSpawns) != 5 {
-		t.Errorf("player_spawns len = %d, want 5", len(l.PlayerSpawns))
+	if len(l.PlayerSpawns) != 8 {
+		t.Errorf("player_spawns len = %d, want 8 (5 lobby + 3 boss-1 checkpoints)", len(l.PlayerSpawns))
 	}
-	if len(l.EnemySpawns) != 9 {
-		t.Errorf("enemy_spawns len = %d, want 9", len(l.EnemySpawns))
+	if len(l.EnemySpawns) != 17 {
+		t.Errorf("enemy_spawns len = %d, want 17 (2 hallway packs + boss 1 + 2 decline packs + boss 2)", len(l.EnemySpawns))
+	}
+	if len(l.Gates) != 4 {
+		t.Errorf("gates len = %d, want 4", len(l.Gates))
 	}
 	if len(l.Portals) != 1 {
 		t.Fatalf("portals len = %d, want 1", len(l.Portals))
 	}
 	if l.Portals[0].TargetZone != "hub" {
 		t.Errorf("portal target_zone = %q, want %q", l.Portals[0].TargetZone, "hub")
+	}
+
+	// Multi-boss fields survive the export round-trip.
+	bosses := 0
+	for _, s := range l.EnemySpawns {
+		if !s.IsBoss {
+			continue
+		}
+		bosses++
+		switch s.DefName {
+		case "guard_captain":
+			if s.BossNum != 1 || s.BossGateID != "boss_gate" || s.AggroMaxZ != 14.0 {
+				t.Errorf("guard_captain spawn = %+v", s)
+			}
+		case "aceras_general":
+			if s.BossNum != 2 || s.BossGateID != "aceras_gate" || s.AggroMaxZ != -40.0 {
+				t.Errorf("aceras_general spawn = %+v", s)
+			}
+		default:
+			t.Errorf("unexpected boss def %q", s.DefName)
+		}
+	}
+	if bosses != 2 {
+		t.Errorf("boss spawns = %d, want 2", bosses)
+	}
+	checkpoints := 0
+	for _, s := range l.PlayerSpawns {
+		if s.Condition == "boss_1_dead" {
+			checkpoints++
+		}
+	}
+	if checkpoints != 3 {
+		t.Errorf("boss_1_dead checkpoint spawns = %d, want 3", checkpoints)
+	}
+}
+
+// TestArenaBossScreen_BlocksCorridorLoS guards the boss-1 entrance screen:
+// every corridor position that is aggro-immune (Z >= the boss's AggroMaxZ,
+// behind the screen) must have NO line of sight to any point of the boss's
+// patrol band. Closer positions may see the boss — but there the boss can
+// aggro back, so there is no risk-free sniping spot anywhere.
+func TestArenaBossScreen_BlocksCorridorLoS(t *testing.T) {
+	l, err := Load("arena")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var aggroMaxZ float32
+	for _, sp := range l.EnemySpawns {
+		if sp.DefName == "guard_captain" {
+			aggroMaxZ = sp.AggroMaxZ
+		}
+	}
+	if aggroMaxZ == 0 {
+		t.Fatal("guard_captain spawn has no aggro_max_z")
+	}
+
+	const eyeY = 1.5
+	const bodyRadius = 0.4
+	standable := func(p entity.Vec3) bool {
+		for _, o := range l.Obstacles {
+			if p.X > o.CX-o.HX-bodyRadius && p.X < o.CX+o.HX+bodyRadius &&
+				p.Z > o.CZ-o.HZ-bodyRadius && p.Z < o.CZ+o.HZ+bodyRadius {
+				return false
+			}
+		}
+		return true
+	}
+
+	// Sample the aggro-immune corridor: full width, screen line to lobby gate.
+	var shooters []entity.Vec3
+	for x := float32(-11); x <= 11; x++ {
+		for z := aggroMaxZ; z <= 45; z += 0.5 {
+			p := entity.Vec3{X: x, Y: eyeY, Z: z}
+			if standable(p) {
+				shooters = append(shooters, p)
+			}
+		}
+	}
+	// Boss patrol band (x -5..5 at z=0) padded by its radius.
+	var targets []entity.Vec3
+	for x := float32(-6); x <= 6; x++ {
+		targets = append(targets, entity.Vec3{X: x, Y: eyeY, Z: 0})
+	}
+	for _, s := range shooters {
+		for _, b := range targets {
+			if !combat.SegmentHitsExpandedObstacle(s, b, l.Obstacles, 0) {
+				t.Fatalf("boss visible from aggro-immune corridor spot: shooter (%.1f, %.1f) sees patrol point (%.1f, 0)",
+					s.X, s.Z, b.X)
+			}
+		}
+	}
+}
+
+// TestArenaNavmesh_DeclineWalkable guards the decline bake: the navmesh floor
+// must descend monotonically from the boss-1 room (y≈0) to the Aceras room
+// floor (y≈-4) along the corridor centerline.
+func TestArenaNavmesh_DeclineWalkable(t *testing.T) {
+	l, err := Load("arena")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l.Navmesh == nil {
+		t.Fatal("arena has no navmesh")
+	}
+	prevY := float32(1.0)
+	nearY := float32(0.0)
+	for z := float32(-16); z >= -39; z -= 1.0 {
+		y, ok := l.Navmesh.SampleY(0, z, nearY)
+		if !ok {
+			t.Fatalf("no walkable navmesh polygon at (0, %.1f) — decline bake is broken", z)
+		}
+		if y > prevY+0.01 {
+			t.Errorf("floor rises at z=%.1f: y=%.2f > prev %.2f", z, y, prevY)
+		}
+		prevY = y
+		nearY = y
+	}
+	if prevY > -3.5 {
+		t.Errorf("decline bottom y = %.2f, want ≈-4", prevY)
+	}
+	// The Aceras room floor is walkable at its center.
+	if y, ok := l.Navmesh.SampleY(0, -58, -4); !ok || y > -3.5 {
+		t.Errorf("Aceras room floor: y=%.2f ok=%v, want ≈-4", y, ok)
 	}
 }
 
@@ -456,8 +583,8 @@ func TestLoad(t *testing.T) {
 	if l.EnemyRadius != 1.0 {
 		t.Errorf("EnemyRadius = %f, want 1", l.EnemyRadius)
 	}
-	if len(l.PlayerSpawns) != 5 {
-		t.Errorf("PlayerSpawns = %d, want 5", len(l.PlayerSpawns))
+	if len(l.PlayerSpawns) != 8 {
+		t.Errorf("PlayerSpawns = %d, want 8", len(l.PlayerSpawns))
 	}
 }
 
@@ -538,6 +665,55 @@ func TestLoadLevelData_ClearTimeSeconds(t *testing.T) {
 	}
 }
 
+func TestLoadLevelData_V7BossFields(t *testing.T) {
+	p := writeTempJSON(t, `{
+		"version": 7,
+		"zone": "test",
+		"source_scene": "res://test.tscn",
+		"bounds": { "min_x": -10, "max_x": 10, "min_y": -1, "max_y": 5, "min_z": -80, "max_z": 10 },
+		"obstacles": [],
+		"player_spawns": [{ "x": 0, "y": 0.1, "z": 5 }],
+		"enemy_spawns": [
+			{
+				"x": 0, "y": 0.1, "z": 0, "def_name": "boss1", "is_boss": true,
+				"patrol_a": { "x": -5, "y": 0.1, "z": 0 }, "patrol_b": { "x": 5, "y": 0.1, "z": 0 },
+				"aggro_radius": 10, "leash_radius": 30,
+				"boss_num": 1, "boss_gate_id": "boss_gate", "aggro_max_z": 12.0
+			},
+			{
+				"x": 0, "y": -3.9, "z": -58, "def_name": "boss2", "is_boss": true,
+				"patrol_a": { "x": -6, "y": -3.9, "z": -58 }, "patrol_b": { "x": 6, "y": -3.9, "z": -58 },
+				"aggro_radius": 12, "leash_radius": 40,
+				"boss_num": 2, "boss_gate_id": "aceras_gate", "aggro_max_z": -40.0
+			},
+			{
+				"x": 3, "y": 0.1, "z": 22, "def_name": "mob",
+				"patrol_a": { "x": -5, "y": 0.1, "z": 22 }, "patrol_b": { "x": 5, "y": 0.1, "z": 22 },
+				"aggro_radius": 10, "leash_radius": 30
+			}
+		]
+	}`)
+	l := &Level{}
+	if err := loadLevelData(p, l); err != nil {
+		t.Fatal(err)
+	}
+	if len(l.EnemySpawns) != 3 {
+		t.Fatalf("enemy spawns = %d, want 3", len(l.EnemySpawns))
+	}
+	b1 := l.EnemySpawns[0]
+	if b1.BossNum != 1 || b1.BossGateID != "boss_gate" || b1.AggroMaxZ != 12.0 {
+		t.Errorf("boss1 spawn = %+v, want BossNum=1 BossGateID=boss_gate AggroMaxZ=12", b1)
+	}
+	b2 := l.EnemySpawns[1]
+	if b2.BossNum != 2 || b2.BossGateID != "aceras_gate" || b2.AggroMaxZ != -40.0 {
+		t.Errorf("boss2 spawn = %+v, want BossNum=2 BossGateID=aceras_gate AggroMaxZ=-40", b2)
+	}
+	mob := l.EnemySpawns[2]
+	if mob.BossNum != 0 || mob.BossGateID != "" || mob.AggroMaxZ != 0 {
+		t.Errorf("plain mob spawn = %+v, want zero-value boss fields", mob)
+	}
+}
+
 func TestLoadLevelData_ClearTimeDefaultsZeroWhenAbsent(t *testing.T) {
 	p := writeTempJSON(t, `{
 		"version": 6,
@@ -561,5 +737,53 @@ func writeTestJSON(t *testing.T, dir, name, content string) {
 	err := os.WriteFile(filepath.Join(dir, name+".json"), []byte(content), 0644)
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestArenaBunker_ScreenAndCeilings guards the bunker rework (2026-07-14):
+// the section past the guard captain is enclosed (ceilings are client-side
+// visuals and must NOT leak into server obstacles or the navmesh), and the
+// General's doorway has the same screen protection the captain's entrance
+// has: a freestanding wall just inside the gate that breaks line of sight
+// through the opening.
+func TestArenaBunker_ScreenAndCeilings(t *testing.T) {
+	l, err := Load("arena")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Door screen: a wide, non-pillar obstacle a few meters past the aceras
+	// gate (z=-40), centered on the door gap.
+	foundScreen := false
+	for _, o := range l.Obstacles {
+		if o.CX > -1 && o.CX < 1 && o.CZ < -41 && o.CZ > -48 && o.HX >= 5 {
+			foundScreen = true
+		}
+	}
+	if !foundScreen {
+		t.Error("no door screen obstacle inside the General's room (want a wide wall at x≈0, z≈-44)")
+	}
+
+	// Ceilings must not leak into obstacles: nothing hovering at or above the
+	// decline wall tops (y=5).
+	for _, o := range l.Obstacles {
+		if o.BaseY >= 4.5 {
+			t.Errorf("obstacle with BaseY %.1f at (%.1f, %.1f) — ceiling leaked into server obstacles", o.BaseY, o.CX, o.CZ)
+		}
+	}
+
+	// Ceilings must not pollute the navmesh: inside the bunker (everything
+	// past the decline gate at z=-15) every walkable vertex stays at floor
+	// level (floors span y ≈ -4.25..0.25). Scoped to the bunker because the
+	// open-air area has pre-existing bake islands on set-dressing prop roofs.
+	if l.Navmesh == nil {
+		t.Fatal("arena has no navmesh")
+	}
+	for _, poly := range l.Navmesh.Polys {
+		for _, v := range poly.Vertices {
+			if v.Z < -14 && v.Y > 2.0 {
+				t.Fatalf("navmesh vertex at y=%.2f (%.1f, %.1f) — ceiling polluted the bunker bake", v.Y, v.X, v.Z)
+			}
+		}
 	}
 }

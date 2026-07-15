@@ -23,7 +23,8 @@ const (
 )
 
 // TelegraphDesc is one telegraph descriptor for wire encoding. Geometry fields
-// are interpreted by Shape; all positions are on the XZ plane (floor y).
+// are interpreted by Shape. Positions carry the floor Y explicitly: the arena
+// is multi-level, so the client must never assume y=0.
 type TelegraphDesc struct {
 	ID          uint32 // stable across ticks (one telegraph per enemy)
 	Shape       uint8
@@ -31,8 +32,8 @@ type TelegraphDesc struct {
 	StartTick   uint32 // absolute tick where fill begins (progress 0)
 	ExecuteTick uint32 // absolute tick where the ability lands (progress 1)
 
-	CX, CZ float32 // circle center / cone apex / line start
-	Radius float32 // circle / multi ring radius
+	CX, CY, CZ float32 // circle center / cone apex / line start (CY = floor Y)
+	Radius     float32 // circle / multi ring radius
 
 	Facing    float32 // cone facing angle (radians)
 	HalfAngle float32 // cone half-angle (radians)
@@ -42,7 +43,7 @@ type TelegraphDesc struct {
 	Length     float32 // line length
 	Width      float32 // line width
 
-	Centers [][2]float32 // multi ring centers
+	Centers [][3]float32 // multi ring centers (x, floor y, z)
 }
 
 // AppendTelegraphs appends [count:u8] followed by each descriptor to buf.
@@ -57,35 +58,45 @@ func AppendTelegraphs(buf []byte, tgs []TelegraphDesc) []byte {
 		buf = append(buf, t.Shape, t.Category)
 		buf = appendU32(buf, t.StartTick)
 		buf = appendU32(buf, t.ExecuteTick)
-		switch t.Shape {
-		case TelegraphShapeCircle:
-			buf = appendF32(buf, t.CX)
-			buf = appendF32(buf, t.CZ)
-			buf = appendF32(buf, t.Radius)
-		case TelegraphShapeCone:
-			buf = appendF32(buf, t.CX)
-			buf = appendF32(buf, t.CZ)
-			buf = appendF32(buf, t.Facing)
-			buf = appendF32(buf, t.HalfAngle)
-			buf = appendF32(buf, t.Range)
-		case TelegraphShapeLine:
-			buf = appendF32(buf, t.CX)
-			buf = appendF32(buf, t.CZ)
-			buf = appendF32(buf, t.DirX)
-			buf = appendF32(buf, t.DirZ)
-			buf = appendF32(buf, t.Length)
-			buf = appendF32(buf, t.Width)
-		case TelegraphShapeMulti:
-			buf = appendF32(buf, t.Radius)
-			centers := t.Centers
-			if len(centers) > 255 {
-				centers = centers[:255]
-			}
-			buf = append(buf, byte(len(centers)))
-			for _, c := range centers {
-				buf = appendF32(buf, c[0])
-				buf = appendF32(buf, c[1])
-			}
+		buf = appendTelegraphGeometry(buf, t)
+	}
+	return buf
+}
+
+// appendTelegraphGeometry appends the shape-specific geometry fields.
+func appendTelegraphGeometry(buf []byte, t *TelegraphDesc) []byte {
+	switch t.Shape {
+	case TelegraphShapeCircle:
+		buf = appendF32(buf, t.CX)
+		buf = appendF32(buf, t.CY)
+		buf = appendF32(buf, t.CZ)
+		buf = appendF32(buf, t.Radius)
+	case TelegraphShapeCone:
+		buf = appendF32(buf, t.CX)
+		buf = appendF32(buf, t.CY)
+		buf = appendF32(buf, t.CZ)
+		buf = appendF32(buf, t.Facing)
+		buf = appendF32(buf, t.HalfAngle)
+		buf = appendF32(buf, t.Range)
+	case TelegraphShapeLine:
+		buf = appendF32(buf, t.CX)
+		buf = appendF32(buf, t.CY)
+		buf = appendF32(buf, t.CZ)
+		buf = appendF32(buf, t.DirX)
+		buf = appendF32(buf, t.DirZ)
+		buf = appendF32(buf, t.Length)
+		buf = appendF32(buf, t.Width)
+	case TelegraphShapeMulti:
+		buf = appendF32(buf, t.Radius)
+		centers := t.Centers
+		if len(centers) > 255 {
+			centers = centers[:255]
+		}
+		buf = append(buf, byte(len(centers)))
+		for _, c := range centers {
+			buf = appendF32(buf, c[0])
+			buf = appendF32(buf, c[1])
+			buf = appendF32(buf, c[2])
 		}
 	}
 	return buf

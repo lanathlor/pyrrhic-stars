@@ -650,3 +650,68 @@ func TestCombatLog_FullFight_EndToEnd(t *testing.T) {
 		t.Error("expected commit_start events")
 	}
 }
+
+// --- Enemy commit events reach the combat log ---
+
+// TestCombatLog_EnemyCommitStart verifies live enemy ability commits are
+// logged: without them a live-run debrief cannot tell "enemy never attacked"
+// apart from "enemy attacked and missed" (the 2026-07-14 frozen-stalker
+// investigation hit exactly this gap).
+func TestCombatLog_EnemyCommitStart(t *testing.T) {
+	sink := combatlog.NewInMemorySink()
+
+	def := enemyai.DefRegistry[testEncounterID]
+	if def == nil {
+		t.Fatal("guard_captain def not found in registry")
+	}
+	e := entity.NewEnemy(1000, def.MaxHealth, testEncounterID)
+	e.Alive = true
+	e.IsBoss = true
+	e.State = entity.EnemyPatrol // aggro starts the log session, as in live
+	e.AggroRadius = 10
+	e.Position = entity.Vec3{Y: 0.1}
+	e.PatrolA = entity.Vec3{X: -5, Y: 0.1}
+	e.PatrolB = entity.Vec3{X: 5, Y: 0.1}
+	e.LeashOrigin = e.Position
+	e.LeashRadius = 50
+
+	eng := ability.NewEngine(nil)
+	brain := enemyai.NewBrain(def, e, eng)
+
+	p := entity.NewPlayer(1, entity.ClassGunner)
+	p.Alive = true
+	p.MaxHealth = 1e6
+	p.Health = p.MaxHealth
+	p.Position = entity.Vec3{Y: 0.1, Z: 2} // in aggro + melee range
+
+	w := &World{
+		ZoneID:        testArenaZoneID,
+		ZoneType:      1,
+		Players:       map[uint16]*entity.Player{1: p},
+		Enemies:       []*entity.Enemy{e},
+		Brains:        []enemyai.BrainTicker{brain},
+		Level:         testArenaLevel(t),
+		AbilityEngine: eng,
+		CombatLogSink: sink,
+		PatternEngine: combat.NewPatternEngine(),
+	}
+
+	ai := &AISystem{}
+	for range 100 { // 5s: enough for the first melee_swipe commit
+		w.DamageEvents = w.DamageEvents[:0]
+		ai.Tick(w, 0.05)
+	}
+
+	commits := 0
+	for _, ev := range sink.Events() {
+		if ev.EventType == combatlog.EventCommitStart && ev.SourceEntity == combatlog.FormatEnemyID(e.ID) {
+			if ev.AbilityID == "" {
+				t.Error("commit_start logged without ability id")
+			}
+			commits++
+		}
+	}
+	if commits == 0 {
+		t.Error("enemy ability commits must be logged (EventCommitStart)")
+	}
+}

@@ -115,9 +115,9 @@ func test_lower_district_has_17_buildings() -> void:
 	assert_int(buildings.size()).is_equal(17)
 
 
-func test_arena_has_17_elements() -> void:
+func test_arena_has_37_elements() -> void:
 	var buildings: Array = MapData.ARENA["buildings"]
-	assert_int(buildings.size()).is_equal(17)
+	assert_int(buildings.size()).is_equal(37)
 
 
 func test_ops_has_extra_floors() -> void:

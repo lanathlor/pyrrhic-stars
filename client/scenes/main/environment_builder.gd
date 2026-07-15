@@ -2,7 +2,7 @@ extends Node
 
 ## Manages arena/hub environment loading, geometry, atmosphere, gates, exit portal.
 
-const EXIT_PORTAL_POS := Vector3(0.0, 0.1, 0.0)
+const EXIT_PORTAL_POS := Vector3(0.0, -3.8, -52.0)  # Aceras room (final boss)
 
 var ctrl: Node
 

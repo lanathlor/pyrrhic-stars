@@ -5,6 +5,6 @@ var fireShotDef = AbilityDef{
 	ID: IDFireShot, Name: "Fire Shot",
 	Handler:    "fire_shot_assault",
 	Hit:        HitDef{Type: HitHitscan},
-	BaseDamage: 10,
+	BaseDamage: 12,
 	Cooldown:   0.18,
 }

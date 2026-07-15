@@ -5,6 +5,7 @@ import (
 
 	"codex-online/server/internal/enemyai"
 	"codex-online/server/internal/entity"
+	"codex-online/server/internal/level"
 )
 
 // ---------------------------------------------------------------------------
@@ -371,4 +372,86 @@ func TestAISystem_SkipsNilEnemies(t *testing.T) {
 	sys := &AISystem{}
 	// Should not panic
 	sys.Tick(w, 0.05)
+}
+
+// ---------------------------------------------------------------------------
+// AggroMaxZ (room-bound aggro)
+// ---------------------------------------------------------------------------
+
+func TestAggroEnemy_RespectsAggroMaxZ(t *testing.T) {
+	makeWorld := func(playerZ float32) (*World, *entity.Enemy) {
+		e := entity.NewEnemy(1000, 200, "test")
+		e.State = entity.EnemyPatrol
+		e.AggroMaxZ = 12.0
+		p := entity.NewPlayer(1, entity.ClassGunner)
+		p.Position = entity.Vec3{X: 0, Y: 0.1, Z: playerZ}
+		w := &World{
+			Players: map[uint16]*entity.Player{1: p},
+			Enemies: []*entity.Enemy{e},
+		}
+		return w, e
+	}
+
+	// Player outside the room (Z >= AggroMaxZ): forced aggro is ignored.
+	w, e := makeWorld(15)
+	w.AggroEnemy(e, 1)
+	if e.State != entity.EnemyPatrol {
+		t.Errorf("outside player must not aggro enemy, state = %d", e.State)
+	}
+
+	// Player inside the room: aggro proceeds.
+	w, e = makeWorld(5)
+	w.AggroEnemy(e, 1)
+	if e.State != entity.EnemyChase || e.TargetPlayerID != 1 {
+		t.Errorf("inside player should aggro enemy, state=%d target=%d", e.State, e.TargetPlayerID)
+	}
+
+	// AggroMaxZ=0 disables the check entirely.
+	w, e = makeWorld(15)
+	e.AggroMaxZ = 0
+	w.AggroEnemy(e, 1)
+	if e.State != entity.EnemyChase {
+		t.Errorf("AggroMaxZ=0 should not gate aggro, state = %d", e.State)
+	}
+}
+
+func TestFilterPlayersByClosedGates(t *testing.T) {
+	lvl := &level.Level{
+		Gates: []level.GateDef{
+			{ID: "boss_gate", Position: entity.Vec3{Z: 12}},
+			{ID: "decline_gate", Position: entity.Vec3{Z: -15}},
+		},
+	}
+	pInside := entity.NewPlayer(1, entity.ClassGunner)
+	pInside.Position = entity.Vec3{Z: 5}
+	pHallway := entity.NewPlayer(2, entity.ClassGunner)
+	pHallway.Position = entity.Vec3{Z: 20}
+	pDecline := entity.NewPlayer(3, entity.ClassGunner)
+	pDecline.Position = entity.Vec3{Z: -20}
+	players := []*entity.Player{pInside, pHallway, pDecline}
+
+	w := &World{Level: lvl, GateStates: map[string]bool{"boss_gate": true, "decline_gate": true}}
+
+	// Enemy in the boss room (between both closed gates) sees only pInside.
+	got := w.filterPlayersByClosedGates(nil, players, 0)
+	if len(got) != 1 || got[0].ID != 1 {
+		ids := make([]uint16, len(got))
+		for i, p := range got {
+			ids[i] = p.ID
+		}
+		t.Errorf("boss-room enemy should see only player 1, got %v", ids)
+	}
+
+	// Enemy below the decline gate sees only pDecline.
+	got = w.filterPlayersByClosedGates(nil, players, -30)
+	if len(got) != 1 || got[0].ID != 3 {
+		t.Errorf("decline enemy should see only player 3, got %d players", len(got))
+	}
+
+	// With only the decline gate closed, boss-room enemy also sees the hallway player.
+	w.GateStates["boss_gate"] = false
+	got = w.filterPlayersByClosedGates(nil, players, 0)
+	if len(got) != 2 {
+		t.Errorf("with boss_gate open, enemy at z=0 should see 2 players, got %d", len(got))
+	}
 }

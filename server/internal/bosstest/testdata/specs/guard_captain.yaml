@@ -19,14 +19,17 @@ overflux:
         rank: 5
     win_rate:
       min: 0.0
-      max: 0.80
+      max: 0.95
+  # Since the 2026-07 rebalance (and the gunner mono-target buff) a 5-player
+  # party nearly always clears tempered alone — its bite shows in duo scaling
+  # and stacked configs, so no ceiling here.
   - name: tempered
     conditions:
       - id: tempered
         rank: 1
     win_rate:
       min: 0.10
-      max: 0.95
+      max: 1.0
   - name: volatile
     conditions:
       - id: volatile

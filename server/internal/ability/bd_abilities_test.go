@@ -321,9 +321,9 @@ func TestBDSpells_PiercingBarrierShieldScales(t *testing.T) {
 	if shield < 1.0 {
 		t.Error("should have granted shield from damage dealt")
 	}
-	// BaseDamage 18 * ShieldPerDamage 0.8 = ~14.4
-	if shield < 14.0 || shield > 15.0 {
-		t.Errorf("shield = %f, want ~14.4 (18 * 0.8)", shield)
+	// BaseDamage 32 * ShieldPerDamage 0.8 = 25.6, clamped to ShieldCap 25
+	if shield < 24.5 || shield > 25.5 {
+		t.Errorf("shield = %f, want 25 (32 * 0.8 capped at 25)", shield)
 	}
 }
 

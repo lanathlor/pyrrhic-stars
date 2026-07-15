@@ -23,6 +23,9 @@ type EnemySpawnPoint struct {
 	LeashRadius     float32       // max distance from spawn before reset
 	GroupID         int           // mobs with the same GroupID aggro together (0 = no group)
 	Condition       string        // spawn condition (empty = always active)
+	BossNum         int           // encounter order for bosses (0 = not a boss; run ends when the highest dies)
+	BossGateID      string        // gate this boss controls (defaults to "boss_gate" for legacy bosses)
+	AggroMaxZ       float32       // players at Z >= this never trigger aggro (0 = disabled)
 }
 
 // PortalDef defines a zone transition point.

@@ -75,7 +75,9 @@ func setupAbilityCategory(ctx *EntityContext, abil *ability.AbilityDef, resolved
 		setupMeleeAbility(ctx, e, resolved)
 	case ability.CategoryRanged:
 		setupRangedAbility(ctx, e, abil, resolved)
-	case ability.CategoryAoE:
+	case ability.CategoryAoE, ability.CategorySpawn:
+		// Spawn reuses the AoE telegraph state so no new client-visible
+		// enum is needed.
 		e.State = entity.EnemyAoETelegraph
 		e.StateTimer = resolved.CommitTime
 		maybeFaceTarget(ctx, resolved)
@@ -280,7 +282,7 @@ func (r *AbilityRunner) transitionToExecute(ctx *EntityContext, abil *ability.Ab
 		e.State = entity.EnemyMeleeAttack
 	case ability.CategoryRanged:
 		e.State = entity.EnemyRangedAttack
-	case ability.CategoryAoE:
+	case ability.CategoryAoE, ability.CategorySpawn:
 		e.State = entity.EnemyAoESlam
 	case ability.CategoryCharge:
 		e.State = entity.EnemyCharge
@@ -329,6 +331,8 @@ func (r *AbilityRunner) tickExecute(ctx *EntityContext) {
 		ctx.CommitMeleeOrAoE(resolved)
 	case ability.CategoryRanged:
 		ctx.SpawnProjectiles(resolved)
+	case ability.CategorySpawn:
+		ctx.SpawnAdds(resolved)
 	}
 
 	r.enterCooldown(ctx, abil)

@@ -22,7 +22,7 @@ func after_test() -> void:
 	_container.free()
 
 
-func _circle(id: int, cx: float, cz: float, r: float) -> Dictionary:
+func _circle(id: int, cx: float, cz: float, r: float, cy: float = 0.0) -> Dictionary:
 	return {
 		"id": id,
 		"shape": 0,
@@ -30,6 +30,7 @@ func _circle(id: int, cx: float, cz: float, r: float) -> Dictionary:
 		"start_tick": 80,
 		"execute_tick": 110,
 		"cx": cx,
+		"cy": cy,
 		"cz": cz,
 		"radius": r,
 	}
@@ -41,7 +42,15 @@ func test_circle_size_and_position() -> void:
 	var mi := _container.get_child(0) as MeshInstance3D
 	assert_object(mi).is_not_null()
 	assert_vector((mi.mesh as PlaneMesh).size).is_equal(Vector2(13.0, 13.0))
-	assert_vector(mi.position).is_equal(Vector3(3.0, TM.FLOOR_Y, -4.0))
+	assert_vector(mi.position).is_equal(Vector3(3.0, TM.FLOOR_LIFT, -4.0))
+
+
+func test_circle_tracks_lowered_floor() -> void:
+	# Regression: the descended Aceras General room (floor y=-3.9) exposed
+	# telegraphs hardcoded to world height 0, floating ~4m above the player.
+	_mgr.update_telegraphs([_circle(1000, 3.0, -4.0, 6.5, -3.9)], 100)
+	var mi := _container.get_child(0) as MeshInstance3D
+	assert_vector(mi.position).is_equal(Vector3(3.0, -3.9 + TM.FLOOR_LIFT, -4.0))
 
 
 func test_multi_circle_draws_a_ring_per_pillar() -> void:
@@ -52,17 +61,17 @@ func test_multi_circle_draws_a_ring_per_pillar() -> void:
 		"start_tick": 7,
 		"execute_tick": 27,
 		"radius": 9.75,
-		"centers": [Vector2(-8, -6), Vector2(8, -6)],
+		"centers": [Vector3(-8, -4, -6), Vector3(8, -4, -6)],
 	}
 	_mgr.update_telegraphs([multi], 10)
 	assert_int(_container.get_child_count()).is_equal(1)  # one grouping node
 	var parent := _container.get_child(0)
 	assert_int(parent.get_child_count()).is_equal(2)  # one ring per pillar
 	var ring0 := parent.get_child(0) as MeshInstance3D
-	assert_vector(ring0.position).is_equal(Vector3(-8.0, TM.FLOOR_Y, -6.0))
+	assert_vector(ring0.position).is_equal(Vector3(-8.0, -4.0 + TM.FLOOR_LIFT, -6.0))
 	assert_vector((ring0.mesh as PlaneMesh).size).is_equal(Vector2(19.5, 19.5))
 	var ring1 := parent.get_child(1) as MeshInstance3D
-	assert_vector(ring1.position).is_equal(Vector3(8.0, TM.FLOOR_Y, -6.0))
+	assert_vector(ring1.position).is_equal(Vector3(8.0, -4.0 + TM.FLOOR_LIFT, -6.0))
 
 
 func test_reconcile_frees_absent_telegraphs() -> void:

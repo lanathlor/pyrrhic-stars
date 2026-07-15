@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"codex-online/server/internal/ability"
+	"codex-online/server/internal/combatlog"
 	"codex-online/server/internal/entity"
 	"codex-online/server/internal/level"
 	"codex-online/server/internal/message"
@@ -191,9 +192,15 @@ func TestCheckFightEnd(t *testing.T) {
 			if w.WipeHandled != tc.wantWipeHandled {
 				t.Errorf("WipeHandled = %v, want %v", w.WipeHandled, tc.wantWipeHandled)
 			}
-			// After a wipe, gates should be reset (all open)
-			if tc.wantWipeHandled && w.AnyGateClosed() {
-				t.Error("gates should be reset (all open) after wipe")
+			// After a wipe, combat gates reopen via all_dead. The decline
+			// gate is progression-locked (opens only on boss1_dead) and
+			// intentionally stays closed.
+			if tc.wantWipeHandled {
+				for _, gateID := range []string{"boss_gate", "lobby_gate", "aceras_gate"} {
+					if w.IsGateClosed(gateID) {
+						t.Errorf("gate %s should be open after wipe", gateID)
+					}
+				}
 			}
 			if tc.wantTransition {
 				found := false
@@ -843,7 +850,7 @@ func TestCheckLobbyReady_CountdownExpireEmitsFightStart(t *testing.T) {
 	for _, evt := range w.GameFlowEvents {
 		if evt.FlowType == message.FlowFightStart {
 			found = true
-			wantText := strconv.Itoa(int(InstanceTimeLimitSeconds))
+			wantText := strconv.Itoa(int(clearTimeLimitTicks(w) / 20))
 			if evt.Text != wantText {
 				t.Errorf("fight start text = %q, want %q (time limit seconds for HUD)", evt.Text, wantText)
 			}
@@ -859,13 +866,12 @@ func TestCheckLobbyReady_CountdownExpireEmitsFightStart(t *testing.T) {
 
 func TestCheckFightEnd_OverTimePenaltyFlag(t *testing.T) {
 	tests := []struct {
-		name           string
-		fightStartTick uint32
-		tickNum        uint32
-		wantOverTime   bool
+		name         string
+		extraTicks   uint32 // ticks past the level's clear-time limit
+		wantOverTime bool
 	}{
-		{"under limit is clear", 100, 100 + InstanceTimeLimitTicks, false},
-		{"over limit is over-time", 100, 100 + InstanceTimeLimitTicks + 1, true},
+		{"under limit is clear", 0, false},
+		{"over limit is over-time", 1, true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -877,8 +883,8 @@ func TestCheckFightEnd_OverTimePenaltyFlag(t *testing.T) {
 			p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5} // in boss room
 			w := makeArenaWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{boss})
 			w.GateStates["boss_gate"] = true
-			w.FightStartTick = tc.fightStartTick
-			w.TickNum = tc.tickNum
+			w.FightStartTick = 100
+			w.TickNum = 100 + clearTimeLimitTicks(w) + tc.extraTicks
 
 			var gotOverTime bool
 			var called bool
@@ -999,5 +1005,253 @@ func TestInitInstance_SetsLobbyActive(t *testing.T) {
 	}
 	if w.LobbyCountdown != 0 {
 		t.Errorf("countdown = %d, want 0", w.LobbyCountdown)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Multi-boss gameflow
+// ---------------------------------------------------------------------------
+
+// makeTwoBossWorld builds a world with a stub 3-gate, 2-boss level (independent
+// of arena.json so geometry changes don't ripple into these tests).
+func makeTwoBossWorld(t testing.TB) (*World, *entity.Enemy, *entity.Enemy) {
+	t.Helper()
+	lvl := &level.Level{
+		PlayerSpawns: []level.PlayerSpawn{{Position: entity.Vec3{Y: 0.1, Z: 54}}},
+		EnemySpawns: []level.EnemySpawnPoint{
+			{Position: entity.Vec3{Y: 0.1, Z: 0}, DefName: "guard_captain", IsBoss: true, BossNum: 1, BossGateID: "boss_gate"},
+			{Position: entity.Vec3{Y: -3.9, Z: -58}, DefName: "aceras_general", IsBoss: true, BossNum: 2, BossGateID: "aceras_gate"},
+		},
+		Gates: []level.GateDef{
+			{ID: "boss_gate", Position: entity.Vec3{Y: 2.5, Z: 12}, HalfExtents: entity.Vec3{X: 20, Y: 2.5, Z: 0.25},
+				CloseOn: []string{"boss1_activated"}, OpenOn: []string{"boss1_dead", "all_dead", "boss1_reset"},
+				PushAxis: "z", PushOffset: -3},
+			{ID: "decline_gate", Position: entity.Vec3{Y: 2.5, Z: -15}, HalfExtents: entity.Vec3{X: 5, Y: 2.5, Z: 0.25},
+				DefaultClosed: true, OpenOn: []string{"boss1_dead"}},
+			{ID: "aceras_gate", Position: entity.Vec3{Y: 2, Z: -40}, HalfExtents: entity.Vec3{X: 22, Y: 6, Z: 0.25},
+				CloseOn: []string{"boss2_activated"}, OpenOn: []string{"boss2_dead", "all_dead", "boss2_reset"},
+				PushAxis: "z", PushOffset: -3},
+		},
+	}
+	b1 := entity.NewEnemy(1000, 2000, "guard_captain")
+	b1.IsBoss = true
+	b1.BossNum = 1
+	b1.BossGateID = "boss_gate"
+	b1.LeashOrigin = lvl.EnemySpawns[0].Position
+	b1.Position = lvl.EnemySpawns[0].Position
+	b1.State = entity.EnemyPatrol
+
+	b2 := entity.NewEnemy(1001, 1550, "aceras_general")
+	b2.IsBoss = true
+	b2.BossNum = 2
+	b2.BossGateID = "aceras_gate"
+	b2.LeashOrigin = lvl.EnemySpawns[1].Position
+	b2.Position = lvl.EnemySpawns[1].Position
+	b2.State = entity.EnemyPatrol
+
+	w := &World{
+		ZoneID:        testArenaZoneID,
+		ZoneType:      1,
+		TickNum:       100,
+		Players:       map[uint16]*entity.Player{},
+		Enemies:       []*entity.Enemy{b1, b2},
+		Level:         lvl,
+		Clients:       make(map[uint16]*Client),
+		AbilityEngine: ability.NewEngine(nil),
+		Boss:          b2, // highest BossNum
+	}
+	w.InitGateStates()
+	return w, b1, b2
+}
+
+func flowEventTypes(w *World) []uint8 {
+	types := make([]uint8, len(w.GameFlowEvents))
+	for i, evt := range w.GameFlowEvents {
+		types[i] = evt.FlowType
+	}
+	return types
+}
+
+func TestCheckFightEnd_MidBossDeathDoesNotEndRun(t *testing.T) {
+	w, b1, _ := makeTwoBossWorld(t)
+	p := entity.NewPlayer(1, entity.ClassGunner)
+	p.Position = entity.Vec3{Y: 0.1, Z: 5}
+	w.Players[1] = p
+
+	b1.State = entity.EnemyDead
+	b1.Alive = false
+	rewarded := false
+	w.OnBossDefeated = func([]uint16, int, bool) { rewarded = true }
+
+	sys := &GameFlowSystem{}
+	sys.Tick(w, 0.05)
+
+	if w.BossDefeated {
+		t.Error("mid-boss death must not set BossDefeated")
+	}
+	if rewarded {
+		t.Error("mid-boss death must not call OnBossDefeated")
+	}
+	foundMid := false
+	for _, evt := range w.GameFlowEvents {
+		if evt.FlowType == message.FlowMidBossDead {
+			foundMid = true
+		}
+		if evt.FlowType == message.FlowBossDead {
+			t.Error("mid-boss death must not emit FlowBossDead")
+		}
+	}
+	if !foundMid {
+		t.Errorf("expected FlowMidBossDead, got %v", flowEventTypes(w))
+	}
+	if w.IsGateClosed("decline_gate") {
+		t.Error("decline_gate should open on boss1_dead")
+	}
+	if w.IsGateClosed("aceras_gate") {
+		t.Error("aceras_gate must not react to boss1_dead")
+	}
+
+	// A second tick must not re-emit the event.
+	w.GameFlowEvents = w.GameFlowEvents[:0]
+	sys.Tick(w, 0.05)
+	for _, evt := range w.GameFlowEvents {
+		if evt.FlowType == message.FlowMidBossDead {
+			t.Error("FlowMidBossDead re-emitted on second tick")
+		}
+	}
+}
+
+func TestCheckFightEnd_FinalBossEndsRun(t *testing.T) {
+	w, b1, b2 := makeTwoBossWorld(t)
+	p := entity.NewPlayer(1, entity.ClassGunner)
+	p.Position = entity.Vec3{Y: 0.1, Z: -58}
+	w.Players[1] = p
+
+	// Boss 1 already handled earlier in the run.
+	b1.State = entity.EnemyDead
+	b1.Alive = false
+	w.BossDeadHandled = map[int]bool{1: true}
+
+	b2.State = entity.EnemyDead
+	b2.Alive = false
+	rewarded := false
+	w.OnBossDefeated = func([]uint16, int, bool) { rewarded = true }
+
+	sys := &GameFlowSystem{}
+	sys.Tick(w, 0.05)
+
+	if !w.BossDefeated {
+		t.Error("final boss death must set BossDefeated")
+	}
+	if !rewarded {
+		t.Error("final boss death must call OnBossDefeated")
+	}
+	found := false
+	for _, evt := range w.GameFlowEvents {
+		if evt.FlowType == message.FlowBossDead {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected FlowBossDead, got %v", flowEventTypes(w))
+	}
+}
+
+func TestCheckBossState_SecondBossGate(t *testing.T) {
+	w, b1, b2 := makeTwoBossWorld(t)
+	// Boss 1 already dead, decline open.
+	b1.State = entity.EnemyDead
+	b1.Alive = false
+	w.BossDeadHandled = map[int]bool{1: true}
+	w.GateStates["decline_gate"] = false
+
+	p := entity.NewPlayer(1, entity.ClassGunner)
+	p.Position = entity.Vec3{Y: -3.9, Z: -50} // inside the Aceras room
+	w.Players[1] = p
+	b2.State = entity.EnemyChase
+
+	sys := &GameFlowSystem{}
+	sys.Tick(w, 0.05)
+
+	if !w.IsGateClosed("aceras_gate") {
+		t.Error("aceras_gate should close when boss 2 activates")
+	}
+	if w.IsGateClosed("boss_gate") {
+		t.Error("boss_gate must not react to boss 2 activation")
+	}
+}
+
+func TestCheckBossState_SecondBossResetsWhenRoomEmpty(t *testing.T) {
+	w, b1, b2 := makeTwoBossWorld(t)
+	b1.State = entity.EnemyDead
+	b1.Alive = false
+	w.BossDeadHandled = map[int]bool{1: true}
+
+	// Player left the room (north side of the aceras gate at z=-40).
+	p := entity.NewPlayer(1, entity.ClassGunner)
+	p.Position = entity.Vec3{Y: 0.1, Z: -20}
+	w.Players[1] = p
+
+	b2.State = entity.EnemyChase
+	b2.Health = 500 // damaged
+	b2.Position = entity.Vec3{Y: -3.9, Z: -55}
+	w.GateStates["aceras_gate"] = true
+	w.RebuildObstacles()
+
+	sys := &GameFlowSystem{}
+	sys.Tick(w, 0.05)
+
+	if b2.State != entity.EnemyPatrol {
+		t.Errorf("boss 2 should reset to patrol, got state %d", b2.State)
+	}
+	if b2.Health != b2.MaxHealth {
+		t.Errorf("boss 2 health = %f, want full reset", b2.Health)
+	}
+	if b2.Position.Z != -58 {
+		t.Errorf("boss 2 should reset to its own spawn (z=-58), got z=%f", b2.Position.Z)
+	}
+	if w.IsGateClosed("aceras_gate") {
+		t.Error("aceras_gate should reopen on boss2_reset")
+	}
+}
+
+// TestCheckBossState_DeadPlayerInRoomIsAWipeNotAbandonment reproduces the
+// 2026-07-14 live mislabel: a solo player who DIES inside the sealed boss
+// room was treated as "no players in the boss room" (the abandonment check
+// counted only alive players), so the session finalized as "timeout" before
+// the wipe handler could record boss_win. A corpse in the room means wipe,
+// not abandonment; the reset belongs to checkFightEnd's wipe path.
+func TestCheckBossState_DeadPlayerInRoomIsAWipeNotAbandonment(t *testing.T) {
+	sink := combatlog.NewInMemorySink()
+
+	boss := entity.NewEnemy(1000, 2000, "guard_captain")
+	boss.IsBoss = true
+	boss.State = entity.EnemyChase
+	boss.Health = 1000
+	boss.Position = entity.Vec3{X: 0, Y: 0.1, Z: 0}
+	boss.LeashOrigin = boss.Position
+
+	p := entity.NewPlayer(1, entity.ClassVanguard)
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 3} // inside the boss room
+	p.Alive = false                              // died to the boss
+	p.Health = 0
+
+	enemies := []*entity.Enemy{boss}
+	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p}, enemies)
+	w.CombatLogSink = sink
+	w.GateStates["boss_gate"] = true
+	w.RebuildObstacles()
+	startGroupCombatLog(w, enemySessionKey(boss))
+
+	sys := &GameFlowSystem{}
+	sys.Tick(w, 0.05)
+
+	instances := sink.Instances()
+	if len(instances) != 1 {
+		t.Fatalf("expected 1 finalized instance, got %d", len(instances))
+	}
+	if instances[0].Outcome != combatlog.OutcomeBossWin {
+		t.Errorf("outcome = %q, want %q (a wipe inside the room is a boss win, not a timeout)",
+			instances[0].Outcome, combatlog.OutcomeBossWin)
 	}
 }

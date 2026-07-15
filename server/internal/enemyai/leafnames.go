@@ -16,6 +16,7 @@ const (
 // BT composite node type constants used in YAML tree definitions.
 const (
 	NodeSequence         = "sequence"
+	NodeReactiveSequence = "reactive_sequence"
 	NodeSelector         = "selector"
 	NodeReactiveSelector = "reactive_selector"
 )

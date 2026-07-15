@@ -190,7 +190,7 @@ func TestCast_FireShot_HitsEnemy(t *testing.T) {
 		t.Errorf("targetID = %d, want 100", result.Events[0].TargetID)
 	}
 	// 10 base + ~0.3 pressure bonus
-	assertDmgNear(t, result.Events[0].Amount, 10.3, "fire_shot damage")
+	assertDmgNear(t, result.Events[0].Amount, 13.2, "fire_shot damage")
 	if p.Cooldowns[IDFireShot] == 0 {
 		t.Error("fire_shot cooldown not set")
 	}
@@ -296,7 +296,7 @@ func TestCast_DamageMult_Applied(t *testing.T) {
 		t.Fatal("expected 1 event")
 	}
 	// fire_shot base = 10 * 2.0 buff = 20, + pressure bonus ~0.6
-	assertDmgNear(t, result.Events[0].Amount, 20.6, "2x buff damage")
+	assertDmgNear(t, result.Events[0].Amount, 26.4, "2x buff damage")
 }
 
 func TestCast_SetsAttackState(t *testing.T) {

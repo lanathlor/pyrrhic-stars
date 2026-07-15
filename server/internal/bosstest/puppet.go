@@ -9,9 +9,21 @@ import (
 	"codex-online/server/internal/codec"
 	"codex-online/server/internal/enemyai"
 	"codex-online/server/internal/entity"
+	"codex-online/server/internal/item"
 	"codex-online/server/internal/message"
 	"codex-online/server/internal/system"
 )
+
+// applyGear equips the player with the standard starter set at the given item
+// level and recomputes derived stats. Puppets wear the same gear live players
+// do, so gear-dependent mechanics (Plating mitigation, Hull, damage scaling)
+// shape the sims exactly as they shape live play.
+func applyGear(p *entity.Player, ilvl int) {
+	stats := item.ComputeStats(item.StarterEquipment(ilvl))
+	p.GearStats = entity.GearStats(stats)
+	p.RecalcStats()
+	p.Health = p.MaxHealth
+}
 
 // BotProfile defines the skill level of a simulated player.
 type BotProfile string
@@ -71,6 +83,12 @@ var classSafetyScale = map[string]float32{
 	entity.ClassArcanotechnicien: 0.8, // mostly ranged but needs to be near allies
 }
 
+// ApplyGear re-equips the puppet's starter set at a different item level and
+// restores full health. Lets compositions test higher gear tiers.
+func (pp *PlayerPuppet) ApplyGear(ilvl int) {
+	applyGear(pp.Player, ilvl)
+}
+
 // PuppetContext is the tick context passed to puppet BT leaves.
 type PuppetContext struct {
 	Puppet     *PlayerPuppet
@@ -113,7 +131,7 @@ func NewPuppet(id uint16, class, spec string, profile BotProfile, seed uint64, b
 	} else {
 		p = entity.NewPlayer(id, class)
 	}
-	p.Health = p.MaxHealth
+	applyGear(p, item.StarterILvl)
 	p.Alive = true
 	p.Position = entity.Vec3{X: float32(id)*2 - 4, Y: 0.1, Z: 5}
 
@@ -158,6 +176,9 @@ func NewPuppet(id uint16, class, spec string, profile BotProfile, seed uint64, b
 	pp.defaultRange = pp.preferredRange
 	return pp
 }
+
+// PreferredRange returns the puppet's current preferred engagement range.
+func (pp *PlayerPuppet) PreferredRange() float32 { return pp.preferredRange }
 
 // SwapTree replaces the active BT tree. If res is nil, the default spec tree
 // and preferred range are restored. Resets the old tree's running state to
@@ -315,12 +336,17 @@ func (pp *PlayerPuppet) MoveAwayFrom(pos entity.Vec3, dt float32, speedMult floa
 
 // MoveToward moves the puppet toward a position.
 func (pp *PlayerPuppet) MoveToward(pos entity.Vec3, dt float32) {
+	pp.MoveTowardMult(pos, dt, 1.0)
+}
+
+// MoveTowardMult moves toward a position at a speed multiple (sprint = ~1.4).
+func (pp *PlayerPuppet) MoveTowardMult(pos entity.Vec3, dt float32, speedMult float32) {
 	dir := pos.Sub(pp.Player.Position).Flat()
 	if dir.LengthSq() < 0.01 {
 		return
 	}
 	dir = dir.Normalized()
-	pp.Player.Position = pp.Player.Position.Add(dir.Scale(pp.Params.MoveSpeed * dt))
+	pp.Player.Position = pp.Player.Position.Add(dir.Scale(pp.Params.MoveSpeed * speedMult * dt))
 }
 
 // MovePerpendicular moves the puppet perpendicular to a direction vector.

@@ -5,7 +5,11 @@ import (
 
 	"codex-online/server/internal/ability"
 	"codex-online/server/internal/bt"
+	"codex-online/server/internal/codec"
+	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
+	"codex-online/server/internal/message"
+	"codex-online/server/internal/system"
 )
 
 // --- Helper to extract PuppetContext from BT any parameter ---
@@ -329,7 +333,10 @@ func actionSidestepProjectile(v any) bt.Result {
 	return bt.Success
 }
 
-// actionAdvance moves toward preferred range from boss.
+// actionAdvance moves toward preferred range from boss, at sprint speed when
+// far out of position. Walk-speed closing could never catch instance targets
+// that are themselves moving (packs converging on the tank, kiting bosses) —
+// melee puppets trailed ~1.5m behind their kit's reach for whole fights.
 func actionAdvance(v any) bt.Result {
 	c := pctx(v)
 	dir := c.Puppet.Player.Position.Sub(c.Boss.Position).Flat()
@@ -338,8 +345,52 @@ func actionAdvance(v any) bt.Result {
 	}
 	dir = dir.Normalized()
 	target := c.Boss.Position.Add(dir.Scale(c.Puppet.preferredRange))
-	c.Puppet.MoveToward(target, c.Dt)
+	speedMult := float32(1.0)
+	if c.Puppet.DistToBoss(c.Boss) > c.Puppet.preferredRange+3 {
+		speedMult = 1.4 // sprint (within the input validator's tolerance)
+	}
+	c.Puppet.MoveTowardMult(target, c.Dt, speedMult)
 	return bt.Success
+}
+
+// withShot wraps a movement action with a LoS-gated fire_shot: fire on the
+// move, but only when the line is clear. Blind-firing drains the magazine
+// into pillars (ammo + 2.2s empty reloads cost more than whiffs are worth).
+func withShot(moveAction func(any) bt.Result) func(any) bt.Result {
+	return func(v any) bt.Result {
+		result := moveAction(v)
+		c := pctx(v)
+		if puppetHasLoS(c) {
+			c.Puppet.TryCommit(c, "fire_shot")
+		}
+		return result
+	}
+}
+
+// condNoShotLine: the line of fire to the target is blocked.
+func condNoShotLine(v any) bool {
+	return !puppetHasLoS(pctx(v))
+}
+
+// actionRepositionForShot strafes perpendicular to the target to clear a
+// blocked line of fire — half a ranged puppet's instance uptime was spent
+// standing in band with a pillar in the way.
+func actionRepositionForShot(v any) bt.Result {
+	c := pctx(v)
+	threatDir := c.Boss.Position.Sub(c.Puppet.Player.Position).Flat()
+	if threatDir.LengthSq() < 0.01 {
+		return bt.Success
+	}
+	c.Puppet.MovePerpendicular(threatDir.Normalized(), c.Dt)
+	return bt.Success
+}
+
+// puppetHasLoS reports whether the puppet has a clear line of fire to its
+// target's center mass.
+func puppetHasLoS(c *PuppetContext) bool {
+	eye := c.Puppet.Player.Position.Add(entity.Vec3{Y: 1.5})
+	target := c.Boss.Position.Add(entity.Vec3{Y: 1.0})
+	return !combat.SegmentHitsExpandedObstacle(eye, target, c.World.Obstacles, 0)
 }
 
 // actionBackstep moves away from boss.
@@ -400,20 +451,28 @@ func withCommit(moveAction func(any) bt.Result, abilityID string) func(any) bt.R
 }
 
 // withTransition wraps a dodge/movement action to also attempt a BD transition.
-// This models blade dancers who maintain DPS while repositioning.
+// This models blade dancers who maintain DPS while repositioning — but only
+// while the target is in reach: instances are projectile-dense, so the dodge
+// branches run near-constantly, and committing at range burned the whole
+// rotation on whiffs (~80% GCD-busy at 4.8m average from a 3m kit).
 func withTransition(moveAction func(any) bt.Result) func(any) bt.Result {
 	return func(v any) bt.Result {
 		result := moveAction(v)
-		actionCommitBestTransition(v)
+		c := pctx(v)
+		if c.Puppet.DistToBoss(c.Boss) <= c.Puppet.preferredRange+1.0 {
+			actionCommitBestTransition(v)
+		}
 		return result
 	}
 }
 
-// actionKiteAndShoot moves away AND tries to fire (gunner-specific).
+// actionKiteAndShoot moves away AND fires when the line is clear (gunner-specific).
 func actionKiteAndShoot(v any) bt.Result {
 	c := pctx(v)
 	c.Puppet.MoveAwayFrom(c.Boss.Position, c.Dt, 1.0)
-	c.Puppet.TryCommit(c, "fire_shot")
+	if puppetHasLoS(c) {
+		c.Puppet.TryCommit(c, "fire_shot")
+	}
 	return bt.Success
 }
 
@@ -567,6 +626,31 @@ func condHasVitalCharge(v any) bool {
 // condIsChanneling returns true if the puppet is channeling an ability.
 func condIsChanneling(v any) bool {
 	return pctx(v).Puppet.Player.ChannelPhase > 0
+}
+
+// condChannelStale: channeling while the fight has moved on — the target is
+// dead or far outside any channel's useful range. A human releases the key;
+// without this the tree's !is_channeling guards (including all movement)
+// stay locked forever. Seen as instance-fuzz timeouts: a healer parked at
+// spawn sustaining vital_drain at a target 60m away.
+func condChannelStale(v any) bool {
+	c := pctx(v)
+	if c.Puppet.Player.ChannelPhase == 0 {
+		return false
+	}
+	return !c.Boss.Alive || c.Puppet.DistToBoss(c.Boss) > c.Puppet.preferredRange+15
+}
+
+// actionCancelChannel releases the active channel (the client's ESC input).
+func actionCancelChannel(v any) bt.Result {
+	c := pctx(v)
+	payload := codec.EncodeAbilityInput(255, c.Puppet.Player.AimPitch, c.Puppet.Player.RotationY)
+	c.World.InputQueue = append(c.World.InputQueue, system.InputMsg{
+		PeerID:  c.Puppet.Player.ID,
+		Opcode:  message.OpAbilityInput,
+		Payload: payload,
+	})
+	return bt.Success
 }
 
 // allyBelowHPPct creates a condition that checks if any ally is below a given HP percentage.

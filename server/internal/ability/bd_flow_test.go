@@ -35,12 +35,12 @@ func TestFlow_DamageMult(t *testing.T) {
 		want     float32
 	}{
 		{0, 0, 1.0},
-		{1, 0, 1.05},
-		{3, 0, 1.15},
-		{6, 0, 1.30},
-		{3, 100, 1.30}, // 1.0 + 3*0.05*(1.0+1.0) = 1.30
-		{6, 100, 1.60}, // 1.0 + 6*0.05*(2.0) = 1.60
-		{6, 50, 1.45},  // 1.0 + 6*0.05*(1.5) = 1.45
+		{1, 0, 1.10},
+		{3, 0, 1.30},
+		{6, 0, 1.60},
+		{3, 100, 1.60}, // 1.0 + 3*0.10*(1.0+1.0) = 1.60
+		{6, 100, 2.20}, // 1.0 + 6*0.10*(2.0) = 2.20
+		{6, 50, 1.90},  // 1.0 + 6*0.10*(1.5) = 1.90
 	}
 	for _, tt := range tests {
 		s := &FlowState{ChainLen: tt.chainLen}
@@ -167,16 +167,16 @@ func TestFlow_DamageMultScalesPerStep(t *testing.T) {
 		t.Errorf("first transition mult = %f, want 1.0", mult1)
 	}
 
-	// Second transition: bonus from chainLen=1 → mult = 1.05
+	// Second transition: bonus from chainLen=1 → mult = 1.10
 	mult2 := s.RecordTransition(1, 2, 0)
-	if math.Abs(float64(mult2-1.05)) > 0.001 {
-		t.Errorf("second transition mult = %f, want 1.05", mult2)
+	if math.Abs(float64(mult2-1.10)) > 0.001 {
+		t.Errorf("second transition mult = %f, want 1.10", mult2)
 	}
 
-	// Third transition: bonus from chainLen=2 → mult = 1.10
+	// Third transition: bonus from chainLen=2 → mult = 1.20
 	mult3 := s.RecordTransition(2, 3, 0)
-	if math.Abs(float64(mult3-1.10)) > 0.001 {
-		t.Errorf("third transition mult = %f, want 1.10", mult3)
+	if math.Abs(float64(mult3-1.20)) > 0.001 {
+		t.Errorf("third transition mult = %f, want 1.20", mult3)
 	}
 }
 
@@ -198,7 +198,7 @@ func TestFlow_IntegrationWithCast(t *testing.T) {
 		t.Errorf("after commit 1: chainLen = %d, want 1", flow.ChainLen)
 	}
 
-	// Commit 2: cleaving_pierce (Fan→Lance) — second transition, 5% bonus
+	// Commit 2: cleaving_pierce (Fan→Lance) — second transition, 10% bonus
 	p.GCDTimer = 0
 	hpBefore := e.Health
 	r2 := eng.Commit(IDCleavingPierce, commitCtx(p, e))
@@ -206,9 +206,9 @@ func TestFlow_IntegrationWithCast(t *testing.T) {
 		t.Fatalf("commit 2 failed: %s", r2.Reason)
 	}
 	dmg2 := hpBefore - e.Health
-	// BaseDamage=30, flowMult=1.05, so dealt should be ~31.5
-	if dmg2 < 31.0 || dmg2 > 32.0 {
-		t.Errorf("commit 2 damage = %f, want ~31.5 (30 * 1.05)", dmg2)
+	// BaseDamage=59, flowMult=1.10, so dealt should be ~64.9
+	if dmg2 < 64.5 || dmg2 > 65.5 {
+		t.Errorf("commit 2 damage = %f, want ~64.9 (59 * 1.10)", dmg2)
 	}
 
 	if flow.ChainLen != 2 {

@@ -97,8 +97,9 @@ type CompSpec struct {
 	Classes  []string   `yaml:"classes"`
 	Specs    []string   `yaml:"specs"` // spec IDs (empty string = class default)
 	Profiles []string   `yaml:"profiles"`
-	Loadouts [][]string `yaml:"loadouts"` // optional per-player ability loadouts
-	WinRate  *RangeSpec `yaml:"win_rate"` // optional per-comp win rate assertion
+	Loadouts [][]string `yaml:"loadouts"`  // optional per-player ability loadouts
+	GearILvl int        `yaml:"gear_ilvl"` // starter-set gear level for the party (0 = fresh character)
+	WinRate  *RangeSpec `yaml:"win_rate"`  // optional per-comp win rate assertion
 }
 
 // RangeSpec is a min/max float range.
@@ -202,10 +203,11 @@ func (cs CompSpec) ToPartyConfigs() []PuppetConfig {
 			loadout = cs.Loadouts[i]
 		}
 		configs[i] = PuppetConfig{
-			Class:   cs.Classes[i],
-			Spec:    spec,
-			Profile: profile,
-			Loadout: loadout,
+			Class:    cs.Classes[i],
+			Spec:     spec,
+			Profile:  profile,
+			Loadout:  loadout,
+			GearILvl: cs.GearILvl,
 		}
 	}
 	return configs

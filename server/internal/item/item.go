@@ -26,6 +26,24 @@ const (
 	SlotCount         SlotID = 6 // sentinel — not a real slot
 )
 
+// StarterILvl is the item level of a freshly created character's equipped set.
+const StarterILvl = 1
+
+// StarterEquipment returns the loadout every new character spawns with, one
+// item per slot at the given item level. Single source of truth shared by
+// character creation and the balance-sim puppets, so sims always fight in the
+// gear live players actually wear.
+func StarterEquipment(ilvl int) [SlotCount]*Item {
+	return [SlotCount]*Item{
+		SlotFrame:         {DefID: "frame_basic", ILvl: ilvl, Slot: SlotFrame},
+		SlotPowerCore:     {DefID: "core_basic", ILvl: ilvl, Slot: SlotPowerCore},
+		SlotPrimaryWeapon: {DefID: "weapon_basic", ILvl: ilvl, Slot: SlotPrimaryWeapon},
+		SlotSecondaryTool: {DefID: "tool_basic", ILvl: ilvl, Slot: SlotSecondaryTool},
+		SlotAugment:       {DefID: "augment_basic", ILvl: ilvl, Slot: SlotAugment},
+		SlotModule:        {DefID: "module_basic", ILvl: ilvl, Slot: SlotModule},
+	}
+}
+
 // SlotName returns a human-readable name for the slot.
 func SlotName(s SlotID) string {
 	switch s {

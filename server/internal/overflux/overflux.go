@@ -87,8 +87,13 @@ func (s *State) WoundedPreyDPSThreshold(maxHP float32) float32 {
 	}
 	for _, c := range s.Conditions {
 		if c.ID == CondWoundedPrey && c.Rank > 0 {
-			// rank 1: 1.5% MaxHP/s, rank 5: 3.5% MaxHP/s
-			return maxHP * (0.01 + 0.005*float32(c.Rank))
+			// rank 1: 0.75% MaxHP/s, rank 5: 1.75% MaxHP/s.
+			// Retuned 2026-07 after the Onslaught stack cap: the old
+			// thresholds (1.5-3.5%) were implicitly calibrated against the
+			// uncapped vanguard snowball — with sane class DPS, rank 3
+			// demanded ~240 sustained DPS on the Aceras General and the
+			// instance fuzz measured 0% wins.
+			return maxHP * (0.005 + 0.0025*float32(c.Rank))
 		}
 	}
 	return 0
@@ -102,8 +107,8 @@ func (s *State) WoundedPreyRegenRate(maxHP float32) float32 {
 	}
 	for _, c := range s.Conditions {
 		if c.ID == CondWoundedPrey && c.Rank > 0 {
-			// rank 1: 1% MaxHP/s, rank 5: 3% MaxHP/s
-			return maxHP * (0.005 + 0.005*float32(c.Rank))
+			// rank 1: 0.5% MaxHP/s, rank 5: 1.5% MaxHP/s (see threshold note)
+			return maxHP * (0.0025 + 0.0025*float32(c.Rank))
 		}
 	}
 	return 0

@@ -5,6 +5,7 @@ import (
 
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/entity"
+	"codex-online/server/internal/level"
 )
 
 func makePhysicsWorld(t testing.TB) *World {
@@ -110,6 +111,45 @@ func TestPhysicsEnemyProjectileHitsPlayer(t *testing.T) {
 	}
 }
 
+// TestPhysicsProjectileRadiusOverride locks in that the per-emitter `radius:`
+// knob from pattern YAML reaches the hit check (it used to be silently
+// dropped between SpawnRequest and the spawned projectile).
+func TestPhysicsProjectileRadiusOverride(t *testing.T) {
+	w := makePhysicsWorld(t)
+	p := entity.NewPlayer(1, entity.ClassGunner)
+	p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 25}
+	w.Players[1] = p
+
+	e := entity.NewEnemy(0, 1000, "test")
+	e.Alive = true
+	w.Enemies = []*entity.Enemy{e}
+
+	// Passes 1.0 unit to the side of the player: misses at the default radius
+	// (0.3 + 0.2), hits with a fat 1.0 radius override.
+	spawn := func(radius float32) *entity.Projectile {
+		proj := entity.NewProjectile(1, 0, 0,
+			entity.Vec3{X: 1.0, Y: 1.1, Z: 25.05},
+			entity.Vec3{X: 0, Z: -1},
+			2, 25, 5.0)
+		proj.Radius = radius
+		return proj
+	}
+
+	sys := PhysicsSystem{}
+
+	w.Projectiles = []*entity.Projectile{spawn(0)}
+	sys.Tick(w, 0.05)
+	if p.Health != p.MaxHealth {
+		t.Fatal("default-radius projectile at 1.0 unit offset should miss")
+	}
+
+	w.Projectiles = []*entity.Projectile{spawn(1.0)}
+	sys.Tick(w, 0.05)
+	if p.Health == p.MaxHealth {
+		t.Error("radius-1.0 projectile at 1.0 unit offset should hit")
+	}
+}
+
 func TestPhysicsEnemyProjectileSkipsDeadPlayer(t *testing.T) {
 	w := makePhysicsWorld(t)
 	p := entity.NewPlayer(1, entity.ClassGunner)
@@ -164,9 +204,13 @@ func TestPlayersOnSameSide(t *testing.T) {
 	p2.Position = entity.Vec3{Z: 20} // Z > 12 → hallway
 
 	players := []*entity.Player{p1, p2}
+	w := &World{
+		Level:      &level.Level{Gates: []level.GateDef{{ID: "boss_gate", Position: entity.Vec3{Z: 12}}}},
+		GateStates: map[string]bool{"boss_gate": true},
+	}
 
 	// Enemy in boss room (Z=0 < 12)
-	bossRoom := playersOnSameSide(nil, players, 0, 12)
+	bossRoom := w.filterPlayersByClosedGates(nil, players, 0)
 	if len(bossRoom) != 1 {
 		t.Errorf("boss room players = %d, want 1", len(bossRoom))
 	}
@@ -175,7 +219,7 @@ func TestPlayersOnSameSide(t *testing.T) {
 	}
 
 	// Enemy in hallway (Z=20 > 12)
-	hallway := playersOnSameSide(nil, players, 20, 12)
+	hallway := w.filterPlayersByClosedGates(nil, players, 20)
 	if len(hallway) != 1 {
 		t.Errorf("hallway players = %d, want 1", len(hallway))
 	}

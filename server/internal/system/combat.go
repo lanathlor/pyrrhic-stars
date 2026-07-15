@@ -439,15 +439,11 @@ func tickCombatState(w *World, dt float32) {
 }
 
 func isPlayerInCombat(w *World, p *entity.Player) bool {
-	gateZ, gateActive := w.ClosedGateZ()
-	playerBeyondGate := gateActive && p.Position.Z < gateZ
+	gateActive := w.AnyGateClosed()
 	for _, e := range w.Enemies {
 		if e != nil && e.Alive && e.HasThreat(p.ID) {
-			if gateActive {
-				enemyBeyondGate := e.Position.Z < gateZ
-				if playerBeyondGate != enemyBeyondGate {
-					continue
-				}
+			if gateActive && !w.sameSideOfClosedGates(p.Position.Z, e.Position.Z) {
+				continue
 			}
 			return true
 		}
@@ -685,10 +681,14 @@ func healLowestAllyForAmount(w *World, p *entity.Player, healAmount float32) {
 // Tracks rolling DPS to the boss over the last 1 second (20 ticks).
 // When DPS drops below the threshold, the boss regenerates HP.
 func tickWoundedPrey(w *World, dt float32) {
-	if w.OverfluxState == nil || w.Boss == nil || !w.Boss.Alive {
+	if w.OverfluxState == nil {
 		return
 	}
-	threshold := w.OverfluxState.WoundedPreyDPSThreshold(w.Boss.MaxHealth)
+	boss := ActiveBoss(w)
+	if boss == nil {
+		return
+	}
+	threshold := w.OverfluxState.WoundedPreyDPSThreshold(boss.MaxHealth)
 	if threshold == 0 {
 		return
 	}
@@ -711,15 +711,61 @@ func tickWoundedPrey(w *World, dt float32) {
 		windowTotal += v
 	}
 
-	// If DPS below threshold, regenerate.
-	if windowTotal < threshold {
-		regenRate := w.OverfluxState.WoundedPreyRegenRate(w.Boss.MaxHealth)
+	// If DPS below threshold, regenerate — unless the boss itself created the
+	// gap: Wounded Prey punishes passive play. A kiting boss that denies
+	// uptime by fleeing must not heal off its own evasion, and killing its
+	// summons (the encounter's own "swap to the stalkers" window) is not
+	// passivity either.
+	if windowTotal < threshold && !bossRetreating(w, boss) && !bossAddsAlive(w, boss) {
+		regenRate := w.OverfluxState.WoundedPreyRegenRate(boss.MaxHealth)
 		regen := regenRate * dt
-		if regen > 0 && w.Boss.Health < w.Boss.MaxHealth {
-			w.Boss.Health += regen
-			if w.Boss.Health > w.Boss.MaxHealth {
-				w.Boss.Health = w.Boss.MaxHealth
+		if regen > 0 && boss.Health < boss.MaxHealth {
+			boss.Health += regen
+			if boss.Health > boss.MaxHealth {
+				boss.Health = boss.MaxHealth
 			}
 		}
 	}
+}
+
+// bossAddsAlive reports whether any add summoned by the boss is still alive.
+func bossAddsAlive(w *World, boss *entity.Enemy) bool {
+	if boss.ID == 0 {
+		return false // SpawnedBy 0 means level-spawned, not owned
+	}
+	for _, e := range w.Enemies {
+		if e != nil && e.Alive && e.SpawnedBy == boss.ID {
+			return true
+		}
+	}
+	return false
+}
+
+// bossRetreating reports whether the boss is actively moving away from the
+// nearest alive player (the kite/backpedal case).
+func bossRetreating(w *World, boss *entity.Enemy) bool {
+	vel := boss.Velocity.Flat()
+	speed := vel.Length()
+	if speed < 0.5 {
+		return false // stationary or drifting: players are expected to have uptime
+	}
+	var nearest *entity.Player
+	best := float32(math.MaxFloat32)
+	for _, p := range w.Players {
+		if !p.Alive {
+			continue
+		}
+		if d := boss.Position.Flat().DistanceToSq(p.Position.Flat()); d < best {
+			best = d
+			nearest = p
+		}
+	}
+	if nearest == nil {
+		return false
+	}
+	toPlayer := nearest.Position.Sub(boss.Position).Flat()
+	if toPlayer.Length() < 0.1 {
+		return false
+	}
+	return vel.Scale(1/speed).Dot(toPlayer.Normalized()) < -0.1
 }

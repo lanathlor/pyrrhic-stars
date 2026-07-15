@@ -1,6 +1,8 @@
 package system
 
 import (
+	"log/slog"
+
 	"codex-online/server/internal/combat"
 	"codex-online/server/internal/combatlog"
 	"codex-online/server/internal/enemyai"
@@ -22,17 +24,11 @@ func (s *AISystem) Tick(w *World, dt float32) {
 	}
 	w.playerSlice = allPlayers
 
-	// Lazy-init a single spawn closure on the World (allocated once, not per tick).
-	if w.spawnFn == nil {
-		w.spawnFn = func(pos, dir entity.Vec3, speed, damage, lifetime float32) {
-			w.SpawnEnemyProjectile(w.spawnEnemyIdx, pos, dir, speed, damage, lifetime)
-		}
-	}
-	if w.commitPatternFn == nil && w.PatternEngine != nil {
-		w.commitPatternFn = func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3) {
-			w.PatternEngine.Spawn(pattern, abilityName, 0, w.spawnEnemyIdx, origin, facing)
-		}
-	}
+	ensureBrainCallbacks(w)
+
+	// Owner-death sweep: adds die with their summoner. Runs here (not in
+	// gameflow) so the bosstest simulation pipeline gets it too.
+	sweepOrphanedAdds(w)
 
 	// Coordination bus: advance the clock, prune old events, and re-derive
 	// combat clusters from current aggro state (GroupID + shared threat).
@@ -46,11 +42,11 @@ func (s *AISystem) Tick(w *World, dt float32) {
 		if e == nil || !e.Alive || i >= len(w.Brains) {
 			continue
 		}
-		// Filter players to same side of any closed gate (lobby gate, boss gate).
+		// Filter players to same side of every closed gate (lobby, boss, decline).
 		w.spawnEnemyIdx = i
 		visiblePlayers := allPlayers
-		if gateZ, ok := w.ClosedGateZ(); ok {
-			w.filteredPlayers = playersOnSameSide(w.filteredPlayers[:0], allPlayers, e.Position.Z, gateZ)
+		if w.AnyGateClosed() {
+			w.filteredPlayers = w.filterPlayersByClosedGates(w.filteredPlayers[:0], allPlayers, e.Position.Z)
 			visiblePlayers = w.filteredPlayers
 		}
 		// Skip patrol enemies with no threat and no nearby visible players.
@@ -80,9 +76,31 @@ func (s *AISystem) Tick(w *World, dt float32) {
 	propagateGroupAggro(w)
 }
 
+// ensureBrainCallbacks lazy-inits the closures brains call back into the
+// World with (allocated once on first tick, not per tick).
+func ensureBrainCallbacks(w *World) {
+	if w.spawnFn == nil {
+		w.spawnFn = func(pos, dir entity.Vec3, speed, damage, lifetime float32) {
+			w.SpawnEnemyProjectile(w.spawnEnemyIdx, pos, dir, speed, damage, lifetime)
+		}
+	}
+	if w.commitPatternFn == nil && w.PatternEngine != nil {
+		w.commitPatternFn = func(pattern *combat.PatternDef, abilityName string, origin, facing entity.Vec3) {
+			w.PatternEngine.Spawn(pattern, abilityName, 0, w.spawnEnemyIdx, origin, facing)
+		}
+	}
+	if w.spawnAddFn == nil {
+		w.spawnAddFn = func(defName string, pos entity.Vec3, ownerID uint16) bool {
+			return spawnAddEnemy(w, defName, pos, ownerID)
+		}
+	}
+}
+
 func tickEnemyBrain(w *World, idx int, e *entity.Enemy, allPlayers []*entity.Player, dt float32) {
 	prevState := e.State
 	w.Brains[idx].SetBus(w.Bus)
+	w.Brains[idx].SetSpawnAddFn(w.spawnAddFn)
+	w.Brains[idx].SetAllies(w.Enemies)
 	events := w.Brains[idx].Tick(dt, allPlayers, w.Obstacles, w.spawnFn, w.commitPatternFn)
 
 	// Apply group-size damage scaling to direct hits (melee, AoE, charge).
@@ -98,6 +116,21 @@ func tickEnemyBrain(w *World, idx int, e *entity.Enemy, allPlayers []*entity.Pla
 		if key := enemySessionKey(e); key != 0 {
 			startGroupCombatLog(w, key)
 		}
+	}
+
+	// Log ability commits (telegraph onset). Without these a live debrief
+	// cannot tell "enemy never attacked" apart from "attacked and missed" —
+	// damage events only record hits that landed.
+	if !isTelegraphState(prevState) && isTelegraphState(e.State) {
+		w.logCombatEvent(combatlog.LogEntry{
+			EventType:    combatlog.EventCommitStart,
+			SourceEntity: combatlog.FormatEnemyID(e.ID),
+			SourceClass:  e.DefName,
+			AbilityID:    resolveEnemyAbilityName(e),
+			PosX:         e.Position.X,
+			PosY:         e.Position.Y,
+			PosZ:         e.Position.Z,
+		})
 	}
 	for _, evt := range events {
 		if _, ok := w.Players[evt.TargetPeerID]; ok {
@@ -128,17 +161,108 @@ func tickEnemyBrain(w *World, idx int, e *entity.Enemy, allPlayers []*entity.Pla
 	combat.PushOutOfObstacles(&e.Position, w.Obstacles, w.Level.EnemyRadius)
 }
 
-// playersOnSameSide filters players to those on the same side of gateZ as enemyZ.
-// Uses the provided dst slice to avoid allocation.
-func playersOnSameSide(dst []*entity.Player, players []*entity.Player, enemyZ, gateZ float32) []*entity.Player {
-	enemyInBossRoom := enemyZ < gateZ
-	for _, p := range players {
-		playerInBossRoom := p.Position.Z < gateZ
-		if playerInBossRoom == enemyInBossRoom {
-			dst = append(dst, p)
+// spawnAddEnemy summons a new enemy mid-fight (CategorySpawn abilities).
+// The new enemy is appended to both parallel slices (Enemies + Brains),
+// inherits the owner's GroupID (joining its bus cluster), and dies with its
+// owner via sweepOrphanedAdds. Never removed from the slice — despawn = dead.
+func spawnAddEnemy(w *World, defName string, pos entity.Vec3, ownerID uint16) bool {
+	def := enemyai.DefRegistry[defName]
+	if def == nil {
+		slog.Warn("spawn add: unknown enemy def", "def_name", defName, "zone_id", w.ZoneID)
+		return false
+	}
+	if w.NextDynEnemyID == 0 {
+		w.NextDynEnemyID = 1500
+	}
+	if w.NextDynEnemyID >= 2000 {
+		slog.Warn("spawn add: dynamic enemy ID range exhausted", "zone_id", w.ZoneID)
+		return false
+	}
+	id := w.NextDynEnemyID
+	w.NextDynEnemyID++
+
+	e := buildAddEnemy(w, def, defName, pos, ownerID, id)
+	owner := enemyByID(w, ownerID)
+	if owner != nil {
+		e.GroupID = owner.GroupID
+	}
+	if p := enemyai.NearestAlivePlayer(pos, w.playerSlice); p != nil {
+		e.TargetPlayerID = p.ID
+	}
+
+	brain := enemyai.NewBrain(def, e, w.AbilityEngine)
+	brain.ApplyOverfluxVariants(w.OverfluxState)
+	brain.BoundsMinX = w.Level.EnemyBoundsMinX
+	brain.BoundsMaxX = w.Level.EnemyBoundsMaxX
+	brain.BoundsMinZ = w.Level.EnemyBoundsMinZ
+	brain.BoundsMaxZ = w.Level.EnemyBoundsMaxZ
+
+	w.Enemies = append(w.Enemies, e)
+	w.Brains = append(w.Brains, brain)
+
+	// Join the owner's active combat log session, if one is recording.
+	if owner != nil {
+		if session, ok := w.CombatLogs[enemySessionKey(owner)]; ok {
+			session.AddParticipant(combatlog.ParticipantLog{
+				EntityID: combatlog.FormatEnemyID(e.ID),
+				Name:     e.DefName,
+				Class:    "enemy",
+			})
 		}
 	}
-	return dst
+
+	slog.Info("add spawned", "def_name", defName, "id", id, "owner", ownerID, "zone_id", w.ZoneID)
+	return true
+}
+
+// buildAddEnemy constructs the entity for a mid-fight summon: HP-scaled,
+// already chasing, unleashed (adds hunt freely inside the room), and tagged
+// with its summoner.
+func buildAddEnemy(w *World, def *enemyai.EnemyDef, defName string, pos entity.Vec3, ownerID, id uint16) *entity.Enemy {
+	e := entity.NewEnemy(id, def.MaxHealth, defName)
+	if m := w.EnemyHPMult; m > 1 {
+		e.MaxHealth *= m
+		e.Health = e.MaxHealth
+	}
+	e.Alive = true
+	e.State = entity.EnemyChase
+	e.Position = pos
+	e.LeashOrigin = pos
+	e.LeashRadius = 0
+	e.AggroRadius = 60
+	e.SpawnedBy = ownerID
+	return e
+}
+
+// enemyByID returns the enemy with the given ID, or nil.
+func enemyByID(w *World, id uint16) *entity.Enemy {
+	for _, e := range w.Enemies {
+		if e != nil && e.ID == id {
+			return e
+		}
+	}
+	return nil
+}
+
+// sweepOrphanedAdds kills any spawned add whose owner is dead or missing.
+func sweepOrphanedAdds(w *World) {
+	for _, e := range w.Enemies {
+		if e == nil || !e.Alive || e.SpawnedBy == 0 {
+			continue
+		}
+		owner := enemyByID(w, e.SpawnedBy)
+		if owner == nil || !owner.Alive {
+			killAdd(e)
+		}
+	}
+}
+
+// killAdd marks a spawned add dead (despawn = dead; slices are append-only).
+func killAdd(e *entity.Enemy) {
+	e.Alive = false
+	e.State = entity.EnemyDead
+	e.Health = 0
+	e.Velocity = entity.Vec3{}
 }
 
 // resolveEnemyAbilityName looks up the current ability name for an enemy from its def.

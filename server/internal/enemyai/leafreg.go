@@ -31,6 +31,7 @@ var leafRegistry = map[string]leafEntry{
 	"is_committed":             {isCond: true, cond: condIsCommitted},
 	"can_commit":               {isCond: true, cond: condCanCommit},
 	"can_move":                 {isCond: true, cond: condCanMove},
+	"my_adds_alive":            {isCond: true, cond: condMyAddsAlive},
 
 	// Actions
 	LeafStop:               {action: actionStop},
@@ -51,6 +52,7 @@ var leafRegistry = map[string]leafEntry{
 	"commit_weighted":      {action: actionCommitWeighted},
 	LeafWaitAbility:        {action: actionWaitAbility},
 	"cancel_ability":       {action: actionCancelAbility},
+	"chase_melee":          {action: actionChaseMelee},
 }
 
 // paramFactories maps parameterized leaf base names to factories that accept
@@ -116,6 +118,20 @@ var paramFactories = map[string]func(string) (leafEntry, error){
 			return leafEntry{}, fmt.Errorf("dash: invalid cooldown %q: %w", arg, err)
 		}
 		return leafEntry{action: dashFactory(float32(cd))}, nil
+	},
+	"adds_engaged": func(arg string) (leafEntry, error) {
+		v, err := strconv.ParseFloat(arg, 32)
+		if err != nil || v <= 0 {
+			return leafEntry{}, fmt.Errorf("adds_engaged: invalid linger %q", arg)
+		}
+		return leafEntry{isCond: true, cond: condAddsEngaged(float32(v))}, nil
+	},
+	"engaged_for": func(arg string) (leafEntry, error) {
+		v, err := strconv.ParseFloat(arg, 32)
+		if err != nil || v <= 0 {
+			return leafEntry{}, fmt.Errorf("engaged_for: invalid duration %q", arg)
+		}
+		return leafEntry{isCond: true, cond: condEngagedFor(float32(v))}, nil
 	},
 
 	// Coordination (bus) leaves.

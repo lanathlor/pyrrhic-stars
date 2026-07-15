@@ -121,18 +121,18 @@ func (s *Service) Unequip(charID uint, slotID item.SlotID) error {
 	return nil
 }
 
-// starterDefs defines which item def + ilvl goes in each slot at character creation.
-var starterEquipped = []struct {
-	DefID string
-	ILvl  int
-	Slot  item.SlotID
-}{
-	{"frame_basic", 1, item.SlotFrame},
-	{"core_basic", 1, item.SlotPowerCore},
-	{"weapon_basic", 1, item.SlotPrimaryWeapon},
-	{"tool_basic", 1, item.SlotSecondaryTool},
-	{"augment_basic", 1, item.SlotAugment},
-	{"module_basic", 1, item.SlotModule},
+// starterEquipped is the equipped set granted at character creation. The
+// canonical list lives in item.StarterEquipment so the balance-sim puppets
+// wear exactly the same gear.
+func starterEquipped() []*item.Item {
+	set := item.StarterEquipment(item.StarterILvl)
+	out := make([]*item.Item, 0, len(set))
+	for _, it := range set {
+		if it != nil {
+			out = append(out, it)
+		}
+	}
+	return out
 }
 
 // starterBag defines extra items placed in the bag at character creation.
@@ -149,7 +149,7 @@ var starterBag = []struct {
 // SpawnStarterGear creates starter equipment and bag items for a new character.
 func (s *Service) SpawnStarterGear(charID uint) error {
 	// Create and equip starter items.
-	for _, def := range starterEquipped {
+	for _, def := range starterEquipped() {
 		ci := &persistence.CharacterItem{
 			CharacterID: charID,
 			DefID:       def.DefID,

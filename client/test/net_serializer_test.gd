@@ -433,6 +433,7 @@ func test_telegraph_roundtrip() -> void:
 			"start_tick": 80,
 			"execute_tick": 110,
 			"cx": 3.0,
+			"cy": -3.5,
 			"cz": -4.0,
 			"radius": 6.5,
 		},
@@ -468,7 +469,7 @@ func test_telegraph_roundtrip() -> void:
 			"start_tick": 7,
 			"execute_tick": 27,
 			"radius": 9.75,
-			"centers": [Vector2(-8, -6), Vector2(8, -6)],
+			"centers": [Vector3(-8, -4, -6), Vector3(8, -4, -6)],
 		},
 	]
 	NetSerializer.World.encode_telegraphs(buf, telegraphs)
@@ -482,6 +483,7 @@ func test_telegraph_roundtrip() -> void:
 	assert_int(circle["shape"]).is_equal(0)
 	assert_int(circle["start_tick"]).is_equal(80)
 	assert_int(circle["execute_tick"]).is_equal(110)
+	assert_float(circle["cy"]).is_equal(-3.5)
 	assert_float(circle["radius"]).is_equal(6.5)
 
 	var cone: Dictionary = tgs[1]
@@ -497,7 +499,7 @@ func test_telegraph_roundtrip() -> void:
 	assert_float(multi["radius"]).is_equal(9.75)
 	var centers: Array = multi["centers"]
 	assert_int(centers.size()).is_equal(2)
-	assert_vector(centers[0]).is_equal(Vector2(-8, -6))
+	assert_vector(centers[0]).is_equal(Vector3(-8, -4, -6))
 
 
 ## Backward-compat: a packet with no telegraph array still decodes (empty list).
