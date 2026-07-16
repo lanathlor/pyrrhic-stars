@@ -2,7 +2,11 @@ extends Node
 
 ## Character selection, creation, and network callbacks for character flow.
 
+const UpdateOverlayScript := preload("res://scenes/ui/update_overlay.gd")
+
 var ctrl: Node
+
+var _update_overlay: CanvasLayer
 
 
 func _ready() -> void:
@@ -172,6 +176,8 @@ func on_create_character_pressed() -> void:
 
 func on_connect_pressed() -> void:
 	var menu: CanvasLayer = ctrl._menu_layer
+	if not await _passes_version_gate(menu):
+		return
 	# Returning user with a saved session token: connect straight away.
 	if AuthManager.has_token() and not menu.email_input.visible:
 		_begin_connect()
@@ -204,6 +210,24 @@ func on_auth_succeeded() -> void:
 	_save_username(menu.email_input.text.strip_edges())
 	SettingsManager.sync_from_server(ctrl.server_address)
 	_begin_connect()
+
+
+## Blocks login when this stamped build does not match the server's release.
+## Unstamped (editor/PR) builds and unreachable/unstamped servers pass through;
+## the regular connection error paths report those.
+func _passes_version_gate(menu: CanvasLayer) -> bool:
+	if VersionCheck.client_version() == "":
+		return true
+	menu.show_status("Checking version...")
+	var result: Dictionary = await VersionCheck.check(ctrl.server_address)
+	menu.show_status("")
+	if result.status != VersionCheck.Status.MISMATCH:
+		return true
+	if _update_overlay == null:
+		_update_overlay = UpdateOverlayScript.new()
+		ctrl.add_child(_update_overlay)
+	_update_overlay.open(VersionCheck.client_version(), result.server_version)
+	return false
 
 
 func on_auth_failed(message: String) -> void:

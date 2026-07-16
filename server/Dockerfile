@@ -3,6 +3,11 @@
 # server loads at startup.
 FROM golang:1.25-alpine AS builder
 
+# Release tag this build ships as (CI passes the projected tag on main builds).
+# Empty = unstamped dev build: the gateway skips client version enforcement
+# and /version reports "".
+ARG VERSION=""
+
 WORKDIR /build
 
 COPY server/go.mod server/go.sum* ./
@@ -10,7 +15,7 @@ RUN go mod download 2>/dev/null || true
 
 COPY server/ ./
 
-RUN CGO_ENABLED=0 go build -o /bin/gateway ./cmd/gateway/ && \
+RUN CGO_ENABLED=0 go build -ldflags "-X main.version=${VERSION}" -o /bin/gateway ./cmd/gateway/ && \
     CGO_ENABLED=0 go build -o /bin/zone    ./cmd/zone/    && \
     CGO_ENABLED=0 go build -o /bin/chat    ./cmd/chat/
 

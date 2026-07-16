@@ -100,6 +100,9 @@ func connect_to_server(address: String = "127.0.0.1") -> Error:
 	else:
 		# Normal path: authenticate with the Kratos session token.
 		url = "%s/ws?token=%s" % [ws_base, AuthManager.get_token().uri_encode()]
+	# Stamped builds prove their release tag; a stamped gateway rejects the
+	# upgrade (426) on mismatch. Empty (dev builds) appends nothing.
+	url += VersionCheck.ws_version_param()
 	_ws_host = address
 	_udp.set_host(address)
 	print("[Net] Connecting to %s..." % url)

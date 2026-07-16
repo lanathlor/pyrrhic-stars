@@ -16,6 +16,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 config/name="Pyrrhic Stars"
 config/description="Action MMO where every class plays a different game genre"
+config/version="dev"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.5", "Forward Plus")
 
@@ -25,6 +26,7 @@ GameManager="*res://scripts/autoload/game_manager.gd"
 NetSerializer="*res://scripts/autoload/net_serializer.gd"
 IdentityManager="*res://scripts/autoload/identity_manager.gd"
 AuthManager="*res://scripts/autoload/auth_manager.gd"
+VersionCheck="*res://scripts/autoload/version_check.gd"
 NetworkManager="*res://scripts/autoload/network_manager.gd"
 SettingsManager="*res://scripts/autoload/settings_manager.gd"
 AudioManager="*res://scripts/autoload/audio_manager.gd"
@@ -157,3 +159,9 @@ toggle_codex={
 3d_physics/layer_1="World"
 3d_physics/layer_2="Player"
 3d_physics/layer_3="Enemy"
+
+[pyrrhic]
+
+; GitHub release download base, stamped by CI on main builds (empty = no
+; self-update offer). See version_check.gd and .github/workflows/ci.yml.
+update/download_base=""

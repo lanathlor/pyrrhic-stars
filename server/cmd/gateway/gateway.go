@@ -56,6 +56,7 @@ type gateway struct {
 	verifier    auth.SessionVerifier // resolves Kratos session tokens to identities
 	mu          sync.Mutex           // protects zones and levels
 	devMode     bool                 // CODEX_DEV=1 enables debug features
+	version     string               // release tag stamped via ldflags; empty = dev build, no enforcement
 
 	// udpPublicHost is the host/IP clients dial to reach the UDP socket. When UDP
 	// is exposed separately from the WebSocket (e.g. a dedicated UDP LoadBalancer),

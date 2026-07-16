@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -33,6 +34,11 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
+
+// version is the release tag this build was stamped with, set at build time via
+// -ldflags "-X main.version=vX.Y.Z". Empty means an unstamped dev build: the
+// /version endpoint reports "" and the handshake does not enforce a match.
+var version = ""
 
 func main() {
 	ctx := context.Background()
@@ -101,8 +107,9 @@ func main() {
 func buildGateway(ctr *container.Container, devMode bool) *gateway {
 	gw := newGateway(ctr)
 	gw.devMode = devMode
+	gw.version = version
 	gw.verifier = newSessionVerifier()
-	slog.Info("gateway starting", "dev_mode", devMode)
+	slog.Info("gateway starting", "dev_mode", devMode, "version", version)
 	return gw
 }
 
@@ -311,6 +318,13 @@ func setupHTTPServer(gw *gateway, logQueryRepo combatlog.ReadRepository) *http.S
 		handleConnection(gw, w, req)
 	})
 
+	// Unauthenticated build version, checked by the client before login so an
+	// outdated install can self-update instead of failing the handshake.
+	mux.HandleFunc("/version", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"version": gw.version})
+	})
+
 	// User settings REST API (graphics/audio/keybinds). Always mounted; auth is
 	// per-request via the Kratos token (Authorization header) or the dev ?uuid=
 	// bypass, matching resolveIdentity for the WebSocket path.
@@ -328,12 +342,32 @@ func setupHTTPServer(gw *gateway, logQueryRepo combatlog.ReadRepository) *http.S
 	return mux
 }
 
+// checkClientVersion rejects the handshake (426 Upgrade Required) when the
+// client's ?v= tag does not exactly match this build. Cross-version play is
+// not supported: nearly every release changes the protocol. Unstamped (dev)
+// gateways and CODEX_DEV mode never enforce.
+func checkClientVersion(gw *gateway, w http.ResponseWriter, req *http.Request) bool {
+	if gw.version == "" || gw.devMode {
+		return true
+	}
+	if clientVersion := req.URL.Query().Get("v"); clientVersion != gw.version {
+		slog.Info("rejected outdated client", "client_version", clientVersion, "server_version", gw.version)
+		http.Error(w, "client version mismatch: server is "+gw.version, http.StatusUpgradeRequired)
+		return false
+	}
+	return true
+}
+
 func handleConnection(gw *gateway, w http.ResponseWriter, req *http.Request) {
 	if !gw.acquireConn(req.RemoteAddr) {
 		http.Error(w, "too many connections", http.StatusTooManyRequests)
 		return
 	}
 	defer gw.releaseConn(req.RemoteAddr)
+
+	if !checkClientVersion(gw, w, req) {
+		return
+	}
 
 	userUUID, username, allChars, ok := authenticateRequest(gw, w, req)
 	if !ok {
