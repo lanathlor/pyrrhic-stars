@@ -299,6 +299,8 @@ jobs:
         if: github.ref == 'refs/heads/main'
         env:
           TAG: ${{ needs.version.outputs.new_tag }}
+        # Container jobs default to plain `sh`, which rejects `set -o pipefail`.
+        shell: bash
         run: |
           set -euo pipefail
           sed -i "s|^config/version=\"dev\"$|config/version=\"${TAG}\"|" client/project.godot
@@ -385,6 +387,8 @@ jobs:
         if: github.ref == 'refs/heads/main'
         env:
           TAG: ${{ needs.version.outputs.new_tag }}
+        # Container jobs default to plain `sh`, which rejects `set -o pipefail`.
+        shell: bash
         run: |
           set -euo pipefail
           sed -i "s|^config/version=\"dev\"$|config/version=\"${TAG}\"|" client/project.godot
