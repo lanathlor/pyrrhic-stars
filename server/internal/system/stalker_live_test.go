@@ -24,7 +24,7 @@ func TestLiveSpawnedStalkerFightsBack(t *testing.T) {
 	boss.Alive = true
 	boss.IsBoss = true
 	boss.BossNum = 2
-	boss.BossGateID = "aceras_gate"
+	boss.BossGateID = testAcerasGateID
 	boss.AggroMaxZ = -40
 	boss.State = entity.EnemyChase
 	boss.Position = entity.Vec3{Y: -3.9, Z: -58}
@@ -48,8 +48,8 @@ func TestLiveSpawnedStalkerFightsBack(t *testing.T) {
 	w.InitGateStates()
 	// The room seals when the fight starts, as in live gameflow.
 	for i := range w.Level.Gates {
-		if w.Level.Gates[i].ID == "aceras_gate" {
-			w.GateStates["aceras_gate"] = true
+		if w.Level.Gates[i].ID == testAcerasGateID {
+			w.GateStates[testAcerasGateID] = true
 		}
 	}
 	w.RebuildObstacles()

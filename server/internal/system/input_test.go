@@ -891,7 +891,7 @@ func TestHandleRespawnRequest_ArenaRespawn(t *testing.T) {
 			}
 			w.InitGateStates()
 			if tc.bossGateActive {
-				w.GateStates["boss_gate"] = true
+				w.GateStates[defaultBossGateID] = true
 				w.RebuildObstacles()
 			}
 
@@ -924,8 +924,8 @@ func TestHandleRespawnRequest_SealedRoomsBlockRespawn(t *testing.T) {
 	}{
 		// The decline gate is a progression lock (no close_on), not a combat
 		// seal — it must never block respawn even though it starts closed.
-		{"decline gate closed does not block", []string{"decline_gate"}, true},
-		{"aceras gate closed blocks respawn", []string{"aceras_gate", "decline_gate"}, false},
+		{"decline gate closed does not block", []string{testDeclineGateID}, true},
+		{"aceras gate closed blocks respawn", []string{testAcerasGateID, testDeclineGateID}, false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

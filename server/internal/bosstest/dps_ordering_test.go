@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"codex-online/server/internal/bosstest"
+	"codex-online/server/internal/entity"
 )
 
 // TestSingleTargetDPSOrdering encodes the class-design contract for
@@ -29,11 +30,11 @@ func TestSingleTargetDPSOrdering(t *testing.T) {
 		res := bosstest.RunSimulation(bosstest.SimConfig{
 			Boss: "guard_captain",
 			Party: []bosstest.PuppetConfig{
-				{Class: "arcanotechnicien", Spec: "harmonist", Profile: "average"},
-				{Class: "vanguard", Spec: "shield", Profile: "average"},
-				{Class: "vanguard", Spec: "blade", Profile: "average"},
-				{Class: "gunner", Spec: "assault", Profile: "average"},
-				{Class: "blade_dancer", Spec: "multi_blade", Profile: "average"},
+				{Class: entity.ClassArcanotechnicien, Spec: entity.SpecHarmonist, Profile: bosstest.ProfileAverage},
+				{Class: entity.ClassVanguard, Spec: entity.SpecShield, Profile: bosstest.ProfileAverage},
+				{Class: entity.ClassVanguard, Spec: entity.SpecBlade, Profile: bosstest.ProfileAverage},
+				{Class: entity.ClassGunner, Spec: entity.SpecAssault, Profile: bosstest.ProfileAverage},
+				{Class: entity.ClassBladeDancer, Spec: "multi_blade", Profile: bosstest.ProfileAverage},
 			},
 			Seed:        uint64(run*7919 + 13),
 			PuppetTrees: puppetTrees,
@@ -51,12 +52,12 @@ func TestSingleTargetDPSOrdering(t *testing.T) {
 		}
 		return specDmg[spec] / float64(specPlayers[spec])
 	}
-	assault := perPlayer("assault")
-	blade := perPlayer("blade")
+	assault := perPlayer(entity.SpecAssault)
+	blade := perPlayer(entity.SpecBlade)
 	multiBlade := perPlayer("multi_blade")
-	shield := perPlayer("shield")
+	shield := perPlayer(entity.SpecShield)
 	t.Logf("single-target damage/player: assault %.0f, blade %.0f (ratio %.2f), multi_blade %.0f, shield %.0f, harmonist %.0f",
-		assault, blade, assault/blade, multiBlade, shield, perPlayer("harmonist"))
+		assault, blade, assault/blade, multiBlade, shield, perPlayer(entity.SpecHarmonist))
 	if assault < blade*margin {
 		t.Errorf("assault single-target damage (%.0f/player) must exceed blade vanguard (%.0f/player) by >= %.0f%% — the gunner is the mono-target specialist", assault, blade, (margin-1)*100)
 	}

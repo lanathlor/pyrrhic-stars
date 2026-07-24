@@ -6,6 +6,7 @@ import (
 
 	"codex-online/server/internal/bosstest"
 	"codex-online/server/internal/combatlog"
+	"codex-online/server/internal/entity"
 )
 
 // TestDuoCompExploration is a diagnostic probe, not an assertion: it measures
@@ -23,11 +24,11 @@ func TestDuoCompExploration(t *testing.T) {
 		classes []string
 		specs   []string
 	}{
-		{"blade_blade", []string{"vanguard", "vanguard"}, []string{"blade", "blade"}},
-		{"blade_healer", []string{"vanguard", "arcanotechnicien"}, []string{"blade", "harmonist"}},
-		{"gunner_healer", []string{"gunner", "arcanotechnicien"}, []string{"assault", "harmonist"}},
-		{"gunner_blade", []string{"gunner", "vanguard"}, []string{"assault", "blade"}},
-		{"shield_healer", []string{"vanguard", "arcanotechnicien"}, []string{"shield", "harmonist"}},
+		{"blade_blade", []string{entity.ClassVanguard, entity.ClassVanguard}, []string{entity.SpecBlade, entity.SpecBlade}},
+		{"blade_healer", []string{entity.ClassVanguard, entity.ClassArcanotechnicien}, []string{entity.SpecBlade, entity.SpecHarmonist}},
+		{"gunner_healer", []string{entity.ClassGunner, entity.ClassArcanotechnicien}, []string{entity.SpecAssault, entity.SpecHarmonist}},
+		{"gunner_blade", []string{entity.ClassGunner, entity.ClassVanguard}, []string{entity.SpecAssault, entity.SpecBlade}},
+		{"shield_healer", []string{entity.ClassVanguard, entity.ClassArcanotechnicien}, []string{entity.SpecShield, entity.SpecHarmonist}},
 	}
 	for _, comp := range comps {
 		wins := 0

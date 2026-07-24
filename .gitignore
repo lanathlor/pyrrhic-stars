@@ -12,6 +12,7 @@ client/.dev_config.json
 
 # Go
 .go/
+.gocache/
 server/bin/
 server/gateway
 server/tmp/

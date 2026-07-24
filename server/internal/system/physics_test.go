@@ -205,8 +205,8 @@ func TestPlayersOnSameSide(t *testing.T) {
 
 	players := []*entity.Player{p1, p2}
 	w := &World{
-		Level:      &level.Level{Gates: []level.GateDef{{ID: "boss_gate", Position: entity.Vec3{Z: 12}}}},
-		GateStates: map[string]bool{"boss_gate": true},
+		Level:      &level.Level{Gates: []level.GateDef{{ID: defaultBossGateID, Position: entity.Vec3{Z: 12}}}},
+		GateStates: map[string]bool{defaultBossGateID: true},
 	}
 
 	// Enemy in boss room (Z=0 < 12)

@@ -1,6 +1,10 @@
 package enemyai
 
-import "codex-online/server/internal/entity"
+import (
+	"slices"
+
+	"codex-online/server/internal/entity"
+)
 
 // Channel names for system-emitted coordination events. Tree-authored
 // announce(...) leaves may use any custom channel name.
@@ -103,8 +107,7 @@ func (b *Bus) Events() []BusEvent { return b.events }
 func (b *Bus) CountRecent(channel, sourceDef string, window float32, listener uint16) int {
 	windowTicks := uint32(window / b.dt)
 	n := 0
-	for i := len(b.events) - 1; i >= 0; i-- {
-		ev := &b.events[i]
+	for _, ev := range slices.Backward(b.events) {
 		if b.tick-ev.Tick >= windowTicks {
 			break // events are tick-ordered; everything earlier is out of window
 		}

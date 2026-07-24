@@ -125,7 +125,7 @@ func TestBossReset_DespawnsAdds(t *testing.T) {
 
 	b1.State = entity.EnemyChase
 	b1.Health = 900
-	w.GateStates["boss_gate"] = true
+	w.GateStates[defaultBossGateID] = true
 	w.RebuildObstacles()
 
 	// Pad brains to match the two bosses, then summon an add owned by b1.

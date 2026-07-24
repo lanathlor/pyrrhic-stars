@@ -418,8 +418,8 @@ func TestAggroEnemy_RespectsAggroMaxZ(t *testing.T) {
 func TestFilterPlayersByClosedGates(t *testing.T) {
 	lvl := &level.Level{
 		Gates: []level.GateDef{
-			{ID: "boss_gate", Position: entity.Vec3{Z: 12}},
-			{ID: "decline_gate", Position: entity.Vec3{Z: -15}},
+			{ID: defaultBossGateID, Position: entity.Vec3{Z: 12}},
+			{ID: testDeclineGateID, Position: entity.Vec3{Z: -15}},
 		},
 	}
 	pInside := entity.NewPlayer(1, entity.ClassGunner)
@@ -430,7 +430,7 @@ func TestFilterPlayersByClosedGates(t *testing.T) {
 	pDecline.Position = entity.Vec3{Z: -20}
 	players := []*entity.Player{pInside, pHallway, pDecline}
 
-	w := &World{Level: lvl, GateStates: map[string]bool{"boss_gate": true, "decline_gate": true}}
+	w := &World{Level: lvl, GateStates: map[string]bool{defaultBossGateID: true, testDeclineGateID: true}}
 
 	// Enemy in the boss room (between both closed gates) sees only pInside.
 	got := w.filterPlayersByClosedGates(nil, players, 0)
@@ -449,7 +449,7 @@ func TestFilterPlayersByClosedGates(t *testing.T) {
 	}
 
 	// With only the decline gate closed, boss-room enemy also sees the hallway player.
-	w.GateStates["boss_gate"] = false
+	w.GateStates[defaultBossGateID] = false
 	got = w.filterPlayersByClosedGates(nil, players, 0)
 	if len(got) != 2 {
 		t.Errorf("with boss_gate open, enemy at z=0 should see 2 players, got %d", len(got))

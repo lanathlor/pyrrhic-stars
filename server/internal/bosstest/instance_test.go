@@ -1,10 +1,11 @@
 package bosstest_test
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 
@@ -202,14 +203,14 @@ func runInstanceComp(spec instanceSpec, comp instanceComp, oflx *overflux.State,
 		if i < len(comp.Specs) {
 			specID = comp.Specs[i]
 		}
-		profile := "average"
+		profile := bosstest.ProfileAverage
 		if i < len(comp.Profiles) {
-			profile = comp.Profiles[i]
+			profile = bosstest.BotProfile(comp.Profiles[i])
 		}
 		party[i] = bosstest.PuppetConfig{
 			Class:   comp.Classes[i],
 			Spec:    specID,
-			Profile: bosstest.BotProfile(profile),
+			Profile: profile,
 		}
 	}
 
@@ -308,7 +309,7 @@ func reportInstanceComp(report *strings.Builder, name string, st instanceCompSta
 	var lineSb310 strings.Builder
 	for _, seg := range instanceSegments {
 		if n := st.segCount[seg]; n > 0 {
-			lineSb310.WriteString(fmt.Sprintf("%s %.1fs → ", seg, float64(st.segSum[seg])/float64(n)*0.05))
+			fmt.Fprintf(&lineSb310, "%s %.1fs → ", seg, float64(st.segSum[seg])/float64(n)*0.05)
 		}
 	}
 	line += lineSb310.String()
@@ -321,11 +322,11 @@ func reportInstanceComp(report *strings.Builder, name string, st instanceCompSta
 		for sec := range st.deathsBySec {
 			secs = append(secs, sec)
 		}
-		sort.Slice(secs, func(i, j int) bool { return st.deathsBySec[secs[i]] > st.deathsBySec[secs[j]] })
+		slices.SortFunc(secs, func(a, b string) int { return cmp.Compare(st.deathsBySec[b], st.deathsBySec[a]) })
 		line = "     deaths/run: "
 		var lineSb326 strings.Builder
 		for _, sec := range secs {
-			lineSb326.WriteString(fmt.Sprintf("%s %.2f, ", sec, float64(st.deathsBySec[sec])/float64(st.runs)))
+			fmt.Fprintf(&lineSb326, "%s %.2f, ", sec, float64(st.deathsBySec[sec])/float64(st.runs))
 		}
 		line += lineSb326.String()
 		fmt.Fprintf(report, "%s\n", strings.TrimSuffix(line, ", "))
@@ -339,7 +340,7 @@ func reportInstanceComp(report *strings.Builder, name string, st instanceCompSta
 		for key := range st.classDmg {
 			keys = append(keys, key)
 		}
-		sort.Strings(keys)
+		slices.Sort(keys)
 		bossSecs := float64(st.bossTicks) * 0.05
 		trashSecs := float64(st.trashTicks) * 0.05
 		line = "     dps:   "
@@ -353,7 +354,7 @@ func reportInstanceComp(report *strings.Builder, name string, st instanceCompSta
 			if trashSecs > 0 {
 				trashDPS = float64(cd.Trash) / trashSecs
 			}
-			lineSb344.WriteString(fmt.Sprintf("%s boss %.1f / trash %.1f, ", key, bossDPS, trashDPS))
+			fmt.Fprintf(&lineSb344, "%s boss %.1f / trash %.1f, ", key, bossDPS, trashDPS)
 		}
 		line += lineSb344.String()
 		fmt.Fprintf(report, "%s\n", strings.TrimSuffix(line, ", "))
@@ -365,14 +366,14 @@ func reportInstanceComp(report *strings.Builder, name string, st instanceCompSta
 		for key := range st.commits {
 			keys = append(keys, key)
 		}
-		sort.Slice(keys, func(i, j int) bool { return st.commits[keys[i]] > st.commits[keys[j]] })
+		slices.SortFunc(keys, func(a, b string) int { return cmp.Compare(st.commits[b], st.commits[a]) })
 		if len(keys) > 8 {
 			keys = keys[:8]
 		}
 		line = "     casts/run: "
 		var lineSb369 strings.Builder
 		for _, key := range keys {
-			lineSb369.WriteString(fmt.Sprintf("%s %.1f, ", key, float64(st.commits[key])/float64(st.runs)))
+			fmt.Fprintf(&lineSb369, "%s %.1f, ", key, float64(st.commits[key])/float64(st.runs))
 		}
 		line += lineSb369.String()
 		fmt.Fprintf(report, "%s\n", strings.TrimSuffix(line, ", "))

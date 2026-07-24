@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"math"
 	"net"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -797,7 +797,7 @@ func (g *gateway) findMemberRun(sess *session.Session, baseZone string) string {
 		}
 	}
 	g.mu.Unlock()
-	sort.Strings(ids)
+	slices.Sort(ids)
 	for _, id := range ids {
 		if baseZone != "" && instanceBaseZone(id) != baseZone {
 			continue

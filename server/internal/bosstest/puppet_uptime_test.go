@@ -30,11 +30,11 @@ func TestPuppetInstanceUptime(t *testing.T) {
 	}
 
 	party := []PuppetConfig{
-		{Class: "arcanotechnicien", Spec: "harmonist", Profile: "average"},
-		{Class: "vanguard", Spec: "shield", Profile: "average"},
-		{Class: "vanguard", Spec: "blade", Profile: "average"},
-		{Class: "gunner", Spec: "assault", Profile: "average"},
-		{Class: "blade_dancer", Spec: "multi_blade", Profile: "average"},
+		{Class: entity.ClassArcanotechnicien, Spec: entity.SpecHarmonist, Profile: ProfileAverage},
+		{Class: entity.ClassVanguard, Spec: entity.SpecShield, Profile: ProfileAverage},
+		{Class: entity.ClassVanguard, Spec: entity.SpecBlade, Profile: ProfileAverage},
+		{Class: entity.ClassGunner, Spec: entity.SpecAssault, Profile: ProfileAverage},
+		{Class: entity.ClassBladeDancer, Spec: "multi_blade", Profile: ProfileAverage},
 	}
 	type stats struct{ alive, los int }
 	agg := map[string]*stats{}

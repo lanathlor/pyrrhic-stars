@@ -218,7 +218,7 @@ func TestLoadArenaJSON(t *testing.T) {
 	}
 	checkpoints := 0
 	for _, s := range l.PlayerSpawns {
-		if s.Condition == "boss_1_dead" {
+		if s.Condition == testCondBoss1Dead {
 			checkpoints++
 		}
 	}

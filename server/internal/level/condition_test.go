@@ -2,7 +2,10 @@ package level
 
 import "testing"
 
-const testCondPack1Cleared = "pack_1_cleared"
+const (
+	testCondPack1Cleared = "pack_1_cleared"
+	testCondBoss1Dead    = "boss_1_dead"
+)
 
 func TestEvalCondition(t *testing.T) {
 	dead := map[int]bool{1: true, 2: true}
@@ -21,8 +24,8 @@ func TestEvalCondition(t *testing.T) {
 		{"pack_2_cleared", ZoneState{DeadGroupIDs: dead}, true},
 		{"pack_3_cleared", ZoneState{DeadGroupIDs: dead}, false},
 		{"unknown_condition", ZoneState{}, false},
-		{"boss_1_dead", ZoneState{}, false},
-		{"boss_1_dead", ZoneState{DeadBossNums: map[int]bool{1: true}}, true},
+		{testCondBoss1Dead, ZoneState{}, false},
+		{testCondBoss1Dead, ZoneState{DeadBossNums: map[int]bool{1: true}}, true},
 		{"boss_2_dead", ZoneState{DeadBossNums: map[int]bool{1: true}}, false},
 	}
 
@@ -47,7 +50,7 @@ func TestConditionPriority(t *testing.T) {
 		{testCondPack1Cleared, 1},
 		{"pack_2_cleared", 2},
 		{CondBossDead, 100},
-		{"boss_1_dead", 51},
+		{testCondBoss1Dead, 51},
 		{"boss_2_dead", 52},
 		{"unknown", 0},
 	}

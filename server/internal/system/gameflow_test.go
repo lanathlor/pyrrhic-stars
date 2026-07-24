@@ -11,6 +11,13 @@ import (
 	"codex-online/server/internal/message"
 )
 
+// Arena gate IDs shared across system tests (the boss gate uses the
+// production defaultBossGateID constant).
+const (
+	testAcerasGateID  = "aceras_gate"
+	testDeclineGateID = "decline_gate"
+)
+
 // makeArenaWorld creates a minimal arena world for gameflow tests.
 func makeArenaWorld(t testing.TB, players map[uint16]*entity.Player, enemies []*entity.Enemy) *World {
 	t.Helper()
@@ -181,7 +188,7 @@ func TestCheckFightEnd(t *testing.T) {
 			enemies := tc.setupEnemies()
 			players := tc.setupPlayers()
 			w := makeArenaWorld(t, players, enemies)
-			w.GateStates["boss_gate"] = tc.bossGateActive
+			w.GateStates[defaultBossGateID] = tc.bossGateActive
 
 			sys := &GameFlowSystem{}
 			sys.Tick(w, 0.05)
@@ -196,7 +203,7 @@ func TestCheckFightEnd(t *testing.T) {
 			// gate is progression-locked (opens only on boss1_dead) and
 			// intentionally stays closed.
 			if tc.wantWipeHandled {
-				for _, gateID := range []string{"boss_gate", "lobby_gate", "aceras_gate"} {
+				for _, gateID := range []string{defaultBossGateID, "lobby_gate", testAcerasGateID} {
 					if w.IsGateClosed(gateID) {
 						t.Errorf("gate %s should be open after wipe", gateID)
 					}
@@ -461,7 +468,7 @@ func TestCheckBossState_AggroClosesGate(t *testing.T) {
 	sys := &GameFlowSystem{}
 	sys.Tick(w, 0.05)
 
-	if !w.IsGateClosed("boss_gate") {
+	if !w.IsGateClosed(defaultBossGateID) {
 		t.Error("boss gate should be closed after boss enters combat")
 	}
 
@@ -471,7 +478,7 @@ func TestCheckBossState_AggroClosesGate(t *testing.T) {
 		if evt.FlowType == message.FlowBossActivated {
 			foundActivated = true
 		}
-		if evt.FlowType == message.FlowGateClose && evt.Text == "boss_gate" {
+		if evt.FlowType == message.FlowGateClose && evt.Text == defaultBossGateID {
 			foundGateClose = true
 		}
 	}
@@ -496,7 +503,7 @@ func TestCheckBossState_NoPlayersInBossRoomResetsBoss(t *testing.T) {
 
 	enemies := []*entity.Enemy{boss}
 	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p}, enemies)
-	w.GateStates["boss_gate"] = true
+	w.GateStates[defaultBossGateID] = true
 	w.RebuildObstacles()
 
 	// Add projectile that should be cleared on reset
@@ -507,7 +514,7 @@ func TestCheckBossState_NoPlayersInBossRoomResetsBoss(t *testing.T) {
 	sys := &GameFlowSystem{}
 	sys.Tick(w, 0.05)
 
-	if w.IsGateClosed("boss_gate") {
+	if w.IsGateClosed(defaultBossGateID) {
 		t.Error("boss gate should be open when no players in boss room")
 	}
 	if boss.Health != boss.MaxHealth {
@@ -526,7 +533,7 @@ func TestCheckBossState_NoPlayersInBossRoomResetsBoss(t *testing.T) {
 		if evt.FlowType == message.FlowBossReset {
 			foundReset = true
 		}
-		if evt.FlowType == message.FlowGateOpen && evt.Text == "boss_gate" {
+		if evt.FlowType == message.FlowGateOpen && evt.Text == defaultBossGateID {
 			foundGateOpen = true
 		}
 	}
@@ -602,7 +609,7 @@ func TestCheckBossState_DeadBossSkipped(t *testing.T) {
 	sys.Tick(w, 0.05)
 
 	// Dead boss should not trigger gate logic (boss dead -> checkFightEnd handles it)
-	if w.IsGateClosed("boss_gate") {
+	if w.IsGateClosed(defaultBossGateID) {
 		t.Error("dead boss should not activate gate")
 	}
 }
@@ -882,7 +889,7 @@ func TestCheckFightEnd_OverTimePenaltyFlag(t *testing.T) {
 			p := entity.NewPlayer(1, entity.ClassGunner)
 			p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5} // in boss room
 			w := makeArenaWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{boss})
-			w.GateStates["boss_gate"] = true
+			w.GateStates[defaultBossGateID] = true
 			w.FightStartTick = 100
 			w.TickNum = 100 + clearTimeLimitTicks(w) + tc.extraTicks
 
@@ -949,7 +956,7 @@ func TestCheckFightEnd_PerLevelClearTimeThreshold(t *testing.T) {
 			p.Position = entity.Vec3{X: 0, Y: 0.1, Z: 5} // in boss room
 			w := makeArenaWorld(t, map[uint16]*entity.Player{1: p}, []*entity.Enemy{boss})
 			w.Level.ClearTimeSeconds = limitSeconds
-			w.GateStates["boss_gate"] = true
+			w.GateStates[defaultBossGateID] = true
 			w.FightStartTick = 100
 			w.TickNum = 100 + tc.elapsedTicks
 
@@ -1019,16 +1026,16 @@ func makeTwoBossWorld(t testing.TB) (*World, *entity.Enemy, *entity.Enemy) {
 	lvl := &level.Level{
 		PlayerSpawns: []level.PlayerSpawn{{Position: entity.Vec3{Y: 0.1, Z: 54}}},
 		EnemySpawns: []level.EnemySpawnPoint{
-			{Position: entity.Vec3{Y: 0.1, Z: 0}, DefName: "guard_captain", IsBoss: true, BossNum: 1, BossGateID: "boss_gate"},
-			{Position: entity.Vec3{Y: -3.9, Z: -58}, DefName: "aceras_general", IsBoss: true, BossNum: 2, BossGateID: "aceras_gate"},
+			{Position: entity.Vec3{Y: 0.1, Z: 0}, DefName: "guard_captain", IsBoss: true, BossNum: 1, BossGateID: defaultBossGateID},
+			{Position: entity.Vec3{Y: -3.9, Z: -58}, DefName: "aceras_general", IsBoss: true, BossNum: 2, BossGateID: testAcerasGateID},
 		},
 		Gates: []level.GateDef{
-			{ID: "boss_gate", Position: entity.Vec3{Y: 2.5, Z: 12}, HalfExtents: entity.Vec3{X: 20, Y: 2.5, Z: 0.25},
+			{ID: defaultBossGateID, Position: entity.Vec3{Y: 2.5, Z: 12}, HalfExtents: entity.Vec3{X: 20, Y: 2.5, Z: 0.25},
 				CloseOn: []string{"boss1_activated"}, OpenOn: []string{"boss1_dead", "all_dead", "boss1_reset"},
 				PushAxis: "z", PushOffset: -3},
-			{ID: "decline_gate", Position: entity.Vec3{Y: 2.5, Z: -15}, HalfExtents: entity.Vec3{X: 5, Y: 2.5, Z: 0.25},
+			{ID: testDeclineGateID, Position: entity.Vec3{Y: 2.5, Z: -15}, HalfExtents: entity.Vec3{X: 5, Y: 2.5, Z: 0.25},
 				DefaultClosed: true, OpenOn: []string{"boss1_dead"}},
-			{ID: "aceras_gate", Position: entity.Vec3{Y: 2, Z: -40}, HalfExtents: entity.Vec3{X: 22, Y: 6, Z: 0.25},
+			{ID: testAcerasGateID, Position: entity.Vec3{Y: 2, Z: -40}, HalfExtents: entity.Vec3{X: 22, Y: 6, Z: 0.25},
 				CloseOn: []string{"boss2_activated"}, OpenOn: []string{"boss2_dead", "all_dead", "boss2_reset"},
 				PushAxis: "z", PushOffset: -3},
 		},
@@ -1036,7 +1043,7 @@ func makeTwoBossWorld(t testing.TB) (*World, *entity.Enemy, *entity.Enemy) {
 	b1 := entity.NewEnemy(1000, 2000, "guard_captain")
 	b1.IsBoss = true
 	b1.BossNum = 1
-	b1.BossGateID = "boss_gate"
+	b1.BossGateID = defaultBossGateID
 	b1.LeashOrigin = lvl.EnemySpawns[0].Position
 	b1.Position = lvl.EnemySpawns[0].Position
 	b1.State = entity.EnemyPatrol
@@ -1044,7 +1051,7 @@ func makeTwoBossWorld(t testing.TB) (*World, *entity.Enemy, *entity.Enemy) {
 	b2 := entity.NewEnemy(1001, 1550, "aceras_general")
 	b2.IsBoss = true
 	b2.BossNum = 2
-	b2.BossGateID = "aceras_gate"
+	b2.BossGateID = testAcerasGateID
 	b2.LeashOrigin = lvl.EnemySpawns[1].Position
 	b2.Position = lvl.EnemySpawns[1].Position
 	b2.State = entity.EnemyPatrol
@@ -1104,10 +1111,10 @@ func TestCheckFightEnd_MidBossDeathDoesNotEndRun(t *testing.T) {
 	if !foundMid {
 		t.Errorf("expected FlowMidBossDead, got %v", flowEventTypes(w))
 	}
-	if w.IsGateClosed("decline_gate") {
+	if w.IsGateClosed(testDeclineGateID) {
 		t.Error("decline_gate should open on boss1_dead")
 	}
-	if w.IsGateClosed("aceras_gate") {
+	if w.IsGateClosed(testAcerasGateID) {
 		t.Error("aceras_gate must not react to boss1_dead")
 	}
 
@@ -1163,7 +1170,7 @@ func TestCheckBossState_SecondBossGate(t *testing.T) {
 	b1.State = entity.EnemyDead
 	b1.Alive = false
 	w.BossDeadHandled = map[int]bool{1: true}
-	w.GateStates["decline_gate"] = false
+	w.GateStates[testDeclineGateID] = false
 
 	p := entity.NewPlayer(1, entity.ClassGunner)
 	p.Position = entity.Vec3{Y: -3.9, Z: -50} // inside the Aceras room
@@ -1173,10 +1180,10 @@ func TestCheckBossState_SecondBossGate(t *testing.T) {
 	sys := &GameFlowSystem{}
 	sys.Tick(w, 0.05)
 
-	if !w.IsGateClosed("aceras_gate") {
+	if !w.IsGateClosed(testAcerasGateID) {
 		t.Error("aceras_gate should close when boss 2 activates")
 	}
-	if w.IsGateClosed("boss_gate") {
+	if w.IsGateClosed(defaultBossGateID) {
 		t.Error("boss_gate must not react to boss 2 activation")
 	}
 }
@@ -1195,7 +1202,7 @@ func TestCheckBossState_SecondBossResetsWhenRoomEmpty(t *testing.T) {
 	b2.State = entity.EnemyChase
 	b2.Health = 500 // damaged
 	b2.Position = entity.Vec3{Y: -3.9, Z: -55}
-	w.GateStates["aceras_gate"] = true
+	w.GateStates[testAcerasGateID] = true
 	w.RebuildObstacles()
 
 	sys := &GameFlowSystem{}
@@ -1210,7 +1217,7 @@ func TestCheckBossState_SecondBossResetsWhenRoomEmpty(t *testing.T) {
 	if b2.Position.Z != -58 {
 		t.Errorf("boss 2 should reset to its own spawn (z=-58), got z=%f", b2.Position.Z)
 	}
-	if w.IsGateClosed("aceras_gate") {
+	if w.IsGateClosed(testAcerasGateID) {
 		t.Error("aceras_gate should reopen on boss2_reset")
 	}
 }
@@ -1239,7 +1246,7 @@ func TestCheckBossState_DeadPlayerInRoomIsAWipeNotAbandonment(t *testing.T) {
 	enemies := []*entity.Enemy{boss}
 	w := makeArenaWorld(t, map[uint16]*entity.Player{1: p}, enemies)
 	w.CombatLogSink = sink
-	w.GateStates["boss_gate"] = true
+	w.GateStates[defaultBossGateID] = true
 	w.RebuildObstacles()
 	startGroupCombatLog(w, enemySessionKey(boss))
 

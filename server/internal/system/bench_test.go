@@ -450,7 +450,7 @@ func benchArenaInstance(b testing.TB, instanceID uint16) *World {
 		GameFlowBuf: make([]byte, 0, 256),
 	}
 	w.InitGateStates()
-	w.GateStates["boss_gate"] = true
+	w.GateStates[defaultBossGateID] = true
 	w.RebuildObstacles()
 	return w
 }
